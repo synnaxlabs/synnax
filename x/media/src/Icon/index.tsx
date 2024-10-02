@@ -117,6 +117,7 @@ import {
   SiYarn,
 } from "react-icons/si";
 import {
+  TbArrowAutofitWidth,
   TbArrowDown,
   TbArrowLeft,
   TbArrowRight,
@@ -365,6 +366,7 @@ export const Icon: IconType = {
   MoveToMainWindow: wrapIcon(MdOutlineWebAsset, "move-to-main-window"),
   SplitX: wrapIcon(VscSplitHorizontal, "split-x"),
   SplitY: wrapIcon(VscSplitVertical, "split-y"),
+  AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
 };
 
 export interface IconType {
@@ -506,4 +508,5 @@ export interface IconType {
   MoveToMainWindow: IconFC;
   SplitX: IconFC;
   SplitY: IconFC;
+  AutoFitWidth: IconFC;
 }

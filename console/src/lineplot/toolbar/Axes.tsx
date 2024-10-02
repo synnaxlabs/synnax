@@ -78,6 +78,7 @@ const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElem
   return (
     <Button.Icon
       {...props}
+      variant="outlined"
       disabled={enabled}
       tooltip={
         enabled

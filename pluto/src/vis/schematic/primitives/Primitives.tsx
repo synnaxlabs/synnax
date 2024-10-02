@@ -12,6 +12,7 @@ import "@/vis/schematic/primitives/Primitives.css";
 import { dimensions, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
+  CSSProperties,
   type MouseEventHandler,
   type PropsWithChildren,
   type ReactElement,
@@ -26,6 +27,7 @@ import {
   useUpdateNodeInternals,
 } from "reactflow";
 
+import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -1062,6 +1064,7 @@ export const Value = ({
             theme.colors.gray.l9,
           ),
         );
+  const offset = (2.5 * (dimensions?.width ?? 0)) / 500;
   return (
     <Div
       className={CSS(CSS.B("value"), className)}
@@ -1079,8 +1082,14 @@ export const Value = ({
         {children}
       </div>
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation="left" left={-2} top={50} id="1" />
-        <Handle location="right" orientation="left" left={102} top={50} id="2" />
+        <Handle location="left" orientation="left" left={-2 + offset} top={50} id="1" />
+        <Handle
+          location="right"
+          orientation="left"
+          left={102 - offset}
+          top={50}
+          id="2"
+        />
         <Handle location="top" orientation="left" left={50} top={-2} id="3" />
         <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
       </HandleBoundary>
@@ -1144,6 +1153,8 @@ export interface TextBoxProps extends DivProps, Pick<Text.TextProps, "level"> {
   text?: string;
   color?: Color.Crude;
   width?: number;
+  align?: Align.Alignment;
+  autoFit?: boolean;
 }
 
 export const TextBox = ({
@@ -1153,15 +1164,25 @@ export const TextBox = ({
   width,
   color,
   level,
+  autoFit,
+  align = "center",
 }: TextBoxProps): ReactElement => {
   const theme = Theming.use();
   const newcolor = Color.cssString(color ?? theme.colors.gray.l0);
 
+  const style: CSSProperties = {
+    borderColor: newcolor,
+    textAlign: align as CSSProperties["textAlign"],
+  };
+  if (direction.construct(orientation) === "y")
+    style["height"] = autoFit ? "fit-content" : width;
+  else style["width"] = autoFit ? "fit-content" : width;
+
   return (
     <Div
-      style={{ borderColor: newcolor, width: width }}
+      style={style}
       orientation={orientation}
-      className={CSS(CSS.B("text-box"), className)}
+      className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
     >
       <Text.Text color={newcolor} level={level}>
         {text}

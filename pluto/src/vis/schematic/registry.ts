@@ -702,7 +702,7 @@ const setpoint: Spec<SetpointProps> = {
   Form: SetpointForm,
   defaultProps: (t) => ({
     units: "mV",
-    color: t.colors.gray.l9.rgba255,
+    color: t.colors.gray.l4.rgba255,
     ...zeroLabel("Setpoint"),
     ...ZERO_NUMERIC_SOURCE_PROPS,
     ...ZERO_NUMERIC_SINK_PROPS,
@@ -816,6 +816,8 @@ const textBox: Spec<TextBoxProps> = {
   Form: TextBoxForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    autoFit: true,
+    align: "center",
     ...zeroLabel("Text Box"),
     ...ZERO_PROPS,
     ...ZERO_BOX_PROPS,

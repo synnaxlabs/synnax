@@ -10,7 +10,7 @@
 import "@/vis/schematic/OrientationControl.css";
 
 import { type location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { CSSProperties, type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
@@ -26,11 +26,13 @@ export interface SelectOrientationProps
   extends Input.Control<OrientationValue>,
     Omit<Align.SpaceProps, "value" | "onChange"> {
   showOuter?: boolean;
+  showInner?: boolean;
 }
 
 export const SelectOrientation = ({
   value,
   showOuter = true,
+  showInner,
   onChange,
 }: SelectOrientationProps): ReactElement => {
   const { outer } = value;
@@ -56,7 +58,7 @@ export const SelectOrientation = ({
       <Button selected={outer === "top"} onClick={handleChange({ outer: "top" })} />
       <Align.Space direction="x" align="center" justify="center" size={0.5}>
         <Button selected={outer === "left"} onClick={handleChange({ outer: "left" })} />
-        <InternalOrientation value={value} onChange={onChange} />
+        <InternalOrientation showInner={showInner} value={value} onChange={onChange} />
         <Button
           selected={outer === "right"}
           onClick={handleChange({ outer: "right" })}
@@ -74,11 +76,20 @@ const InternalOrientation = ({
   value,
   onChange,
   className,
+  showInner = true,
   ...props
 }: SelectOrientationProps): ReactElement => {
   const { inner } = value;
   const handleChange = (next: Partial<OrientationValue>) => () =>
     onChange({ ...value, ...next });
+  let showStyle: CSSProperties = {};
+  if (!showInner)
+    showStyle = {
+      opacity: 0,
+      userSelect: "none",
+      width: "1.5rem",
+      height: "1.5rem",
+    };
   return (
     <Align.Space
       className={CSS(className, CSS.B("value"))}
@@ -89,18 +100,29 @@ const InternalOrientation = ({
       {...props}
     >
       <Button
+        style={showStyle}
+        disabled={!showInner}
         className={CSS(CSS.dir("y"))}
         selected={inner === "top"}
         onClick={handleChange({ inner: "top" })}
       />
       <Align.Space direction="x" align="center" justify="center">
-        <Button selected={inner === "left"} onClick={handleChange({ inner: "left" })} />
         <Button
+          style={showStyle}
+          disabled={!showInner}
+          selected={inner === "left"}
+          onClick={handleChange({ inner: "left" })}
+        />
+        <Button
+          style={showStyle}
+          disabled={!showInner}
           selected={inner === "right"}
           onClick={handleChange({ inner: "right" })}
         />
       </Align.Space>
       <Button
+        style={showStyle}
+        disabled={!showInner}
         className={CSS(CSS.dir("y"))}
         selected={inner === "bottom"}
         onClick={handleChange({ inner: "bottom" })}

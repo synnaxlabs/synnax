@@ -10,10 +10,12 @@
 import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import { type bounds, type location, type xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
 import { Align } from "@/align";
+import { Button } from "@/button";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -56,8 +58,12 @@ interface SymbolOrientation {
 
 const OrientationControl = ({
   showOuter,
+  showInner,
   ...props
-}: Form.FieldProps<SymbolOrientation> & { showOuter?: boolean }): ReactElement => (
+}: Form.FieldProps<SymbolOrientation> & {
+  showOuter?: boolean;
+  showInner?: boolean;
+}): ReactElement => (
   <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...props}>
     {({ value, onChange }) => (
       <SelectOrientation
@@ -65,6 +71,7 @@ const OrientationControl = ({
           inner: value.orientation ?? "top",
           outer: value.label?.orientation ?? "top",
         }}
+        showInner={showInner}
         showOuter={showOuter}
         onChange={(v) =>
           onChange({
@@ -81,12 +88,18 @@ const OrientationControl = ({
   </Form.Field>
 );
 
-const LabelControls = ({ path }: { path: string }): ReactElement => (
+interface LabelControlsProps {
+  path: string;
+  omit?: string[];
+}
+
+const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement => (
   <Align.Space direction="x" align="stretch" grow>
     <Form.Field<string> path={path + ".label"} label="Label" padHelpText={false} grow>
       {(p) => <Input.Text selectOnFocus {...p} />}
     </Form.Field>
     <Form.NumericField
+      visible={!omit.includes("maxInlineSize")}
       style={{ maxWidth: 125 }}
       path={path + ".maxInlineSize"}
       hideIfNull
@@ -94,6 +107,8 @@ const LabelControls = ({ path }: { path: string }): ReactElement => (
       inputProps={{ endContent: "px" }}
     />
     <Form.Field<Text.Level>
+      hideIfNull
+      visible={!omit.includes("level")}
       path={path + ".level"}
       label="Label Size"
       padHelpText={false}
@@ -101,6 +116,7 @@ const LabelControls = ({ path }: { path: string }): ReactElement => (
       {(p) => <Text.SelectLevel {...p} />}
     </Form.Field>
     <Form.Field<Align.Alignment>
+      visible={!omit.includes("align")}
       path={path + ".align"}
       label="Label Alignment"
       padHelpText={false}
@@ -130,10 +146,14 @@ const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
   </Form.Field>
 );
 
-export const CommonStyleForm = (): ReactElement => (
+interface CommonStyleFormProps {
+  omit?: string[];
+}
+
+export const CommonStyleForm = ({ omit }: CommonStyleFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
     <Align.Space direction="y" grow empty>
-      <LabelControls path="label" />
+      <LabelControls omit={omit} path="label" />
       <Align.Space direction="x" grow>
         <ColorControl path="color" optional />
         <Form.Field<boolean>
@@ -282,7 +302,7 @@ export const TankForm = ({
   includeBorderRadius = false,
 }: TankFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow>
+    <Align.Space direction="y" grow empty>
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
@@ -334,6 +354,7 @@ export const TankForm = ({
                 value={value}
                 dragScale={DIMENSIONS_DRAG_SCALE}
                 bounds={DIMENSIONS_BOUNDS}
+                endContent="px"
                 {...props}
               />
             )}
@@ -363,7 +384,7 @@ export const TankForm = ({
         </Form.Field>
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" showOuter={false} />
+    <OrientationControl path="" showInner={false} />
   </FormWrapper>
 );
 
@@ -528,7 +549,7 @@ export const ValueForm = (): ReactElement => {
                 />
               </Align.Space>
             </Align.Space>
-            <OrientationControl path="" showOuter={false} />
+            <OrientationControl path="" showInner={false} />
           </FormWrapper>
         );
     }
@@ -647,10 +668,16 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper direction="y">
-      <Input.Item label="Output Channel">
+    <FormWrapper direction="x">
+      <Input.Item label="Output Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
+      <Form.SwitchField
+        path="control.show"
+        label="Show Control Chip"
+        hideIfNull
+        optional
+      />
     </FormWrapper>
   );
 };
@@ -661,7 +688,7 @@ export const ButtonForm = (): ReactElement => {
       case "control":
         return <ButtonTelemForm path="" />;
       default:
-        return <CommonStyleForm />;
+        return <CommonStyleForm omit={["align", "maxInlineSize"]} />;
     }
   }, []);
 
@@ -772,35 +799,73 @@ export const SetpointForm = (): ReactElement => {
   return <Tabs.Tabs {...props} />;
 };
 
-export const TextBoxForm = (): ReactElement => (
-  <FormWrapper direction="x" align="stretch" grow>
-    <Align.Space direction="y" grow>
-      <Align.Space direction="x" align="stretch">
-        <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
-          {(p) => <Input.Text selectOnFocus {...p} />}
-        </Form.Field>
-        <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
-          {(p) => <Text.SelectLevel {...p} />}
-        </Form.Field>
+export const TextBoxForm = (): ReactElement => {
+  const autoFit = Form.useField<boolean>({
+    path: "autoFit",
+    optional: true,
+  });
+  return (
+    <FormWrapper direction="x" align="stretch" grow>
+      <Align.Space direction="y" grow>
+        <Align.Space direction="x" align="stretch">
+          <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
+            {(p) => <Input.Text selectOnFocus {...p} />}
+          </Form.Field>
+          <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
+            {(p) => <Text.SelectLevel {...p} />}
+          </Form.Field>
+          <Form.Field<Align.Alignment>
+            path={"align"}
+            label="Alignment"
+            padHelpText={false}
+            hideIfNull
+          >
+            {(p) => <Select.TextAlignment {...p} />}
+          </Form.Field>
+        </Align.Space>
+        <Align.Space direction="x">
+          <ColorControl path="color" />
+          <Form.Field<number>
+            onChange={(_, { set }) => set("autoFit", false)}
+            path="width"
+            label="Wrap Width"
+            padHelpText={false}
+          >
+            {(p) => (
+              <Input.Numeric
+                {...p}
+                bounds={{ lower: 0, upper: 2000 }}
+                dragScale={5}
+                endContent="px"
+              >
+                <Button.Icon
+                  onClick={() => autoFit?.onChange(true)}
+                  disabled={autoFit?.value === true}
+                  variant="outlined"
+                  tooltip={
+                    autoFit?.value === true
+                      ? "Manually enter value to disable auto fit"
+                      : "Enable auto fit"
+                  }
+                >
+                  <Icon.AutoFitWidth />
+                </Button.Icon>
+              </Input.Numeric>
+            )}
+          </Form.Field>
+        </Align.Space>
       </Align.Space>
-      <Align.Space direction="x">
-        <ColorControl path="color" />
-        <Form.Field<number> path="width" label="Label Width" padHelpText={false}>
-          {(p) => (
-            <Input.Numeric {...p} bounds={{ lower: 0, upper: 2000 }} dragScale={5} />
-          )}
-        </Form.Field>
-      </Align.Space>
-    </Align.Space>
-  </FormWrapper>
-);
+      <OrientationControl path="" />
+    </FormWrapper>
+  );
+};
 
 export const OffPageReferenceForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
     <Align.Space direction="y" grow empty>
-      <LabelControls path="label" />
+      <LabelControls path="label" omit={["maxInlineSize", "align"]} />
       <ColorControl path="color" />
     </Align.Space>
-    <OrientationControl path="" />
+    <OrientationControl path="" showOuter={false} />
   </FormWrapper>
 );

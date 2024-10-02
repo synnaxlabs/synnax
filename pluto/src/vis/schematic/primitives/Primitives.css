@@ -116,17 +116,21 @@
 }
 
 .pluto-text-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 0.5rem;
+    pointer-events: all !important;
     text-align: center;
+    padding: 2px;
     width: "fit-content";
-    overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
     text-wrap: wrap;
+
+    &.pluto--top {
+        writing-mode: vertical-rl;
+    }
+    &.pluto--bottom {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+    }
 }
 
 .pluto--enabled svg .pluto--detail {
@@ -177,7 +181,7 @@
     .pluto-input__internal,
     .pluto-units,
     .pluto-btn {
-        background: var(--pluto-gray-l2) !important;
+        /* background: var(--pluto-gray-l2) !important; */
         transition: none !important;
     }
     .pluto-units {
