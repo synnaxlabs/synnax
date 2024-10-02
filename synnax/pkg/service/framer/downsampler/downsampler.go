@@ -83,28 +83,54 @@ func downsample(
 	return response
 }
 
+//
+//func downsampleSeries(series telem.Series, factor int) telem.Series {
+//	length := len(series.Data)
+//	if factor <= 1 || length <= factor {
+//		return series
+//	}
+//
+//	densitySize := int(series.DataType.Density())
+//	numPoints := length / densitySize
+//	newNumPoints := numPoints / factor
+//
+//	j := 0
+//	// Overwrite already allocated series with downsampled data
+//	for i := 0; i < newNumPoints; i++ {
+//		srcIndex := i * factor * densitySize
+//		if srcIndex != j*densitySize {
+//			copy(series.Data[j*densitySize:(j+1)*densitySize], series.Data[srcIndex:srcIndex+densitySize])
+//		}
+//		j++
+//	}
+//
+//	// Truncate the slice to the new length
+//	series.Data = series.Data[:newNumPoints*densitySize]
+//
+//	return series
+//}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////// OLD
+
 func downsampleSeries(series telem.Series, factor int) telem.Series {
 	length := len(series.Data)
 	if factor <= 1 || length <= factor {
 		return series
 	}
 
-	densitySize := int(series.DataType.Density())
-	numPoints := length / densitySize
-	newNumPoints := numPoints / factor
-
-	j := 0
-	// Overwrite already allocated series with downsampled data
-	for i := 0; i < newNumPoints; i++ {
-		srcIndex := i * factor * densitySize
-		if srcIndex != j*densitySize {
-			copy(series.Data[j*densitySize:(j+1)*densitySize], series.Data[srcIndex:srcIndex+densitySize])
-		}
-		j++
+	seriesLength := (len(series.Data) / factor)
+	downsampledData := make([]byte, 0, seriesLength)
+	for i := int64(0); i < series.Len(); i += int64(factor) {
+		start := i * int64(series.DataType.Density())
+		end := start + int64(series.DataType.Density())
+		downsampledData = append(downsampledData, series.Data[start:end]...)
 	}
 
-	// Truncate the slice to the new length
-	series.Data = series.Data[:newNumPoints*densitySize]
-
-	return series
+	downsampledSeries := telem.Series{
+		TimeRange: series.TimeRange,
+		DataType:  series.DataType,
+		Data:      downsampledData,
+		Alignment: series.Alignment,
+	}
+	return downsampledSeries
 }
