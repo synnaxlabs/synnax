@@ -188,21 +188,18 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
-        ...
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
 
     @overload
     def write(
         self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ):
-        ...
+    ): ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ):
-        ...
+    ): ...
 
     def write(
         self,
@@ -263,23 +260,20 @@ class Writer:
         return True
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool:
-        ...
+    def set_authority(self, value: CrudeAuthority) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def set_authority(
         self,
@@ -305,9 +299,9 @@ class Writer:
                 keys=list(value.keys()),
                 authorities=list(value.values()),
             )
-        err = self.__stream.send(_Request(command=_Command.SET_AUTHORITY, config=cfg))
-        if err is not None:
-            raise err
+        exc = self.__stream.send(_Request(command=_Command.SET_AUTHORITY, config=cfg))
+        if exc is not None:
+            raise exc
         while True:
             res, exc = self.__stream.receive()
             if exc is not None:
