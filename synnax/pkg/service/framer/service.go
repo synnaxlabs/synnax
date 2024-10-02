@@ -20,7 +20,6 @@ type Service struct {
 	Internal *framer.Service // distribution layer frame service
 }
 
-// got these from api/framer.go calls to Internal
 func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*framer.Iterator, error) {
 	return s.Internal.OpenIterator(ctx, cfg)
 }
