@@ -10,7 +10,6 @@
 package http
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"go/types"
 
 	"github.com/synnaxlabs/freighter/fhttp"
