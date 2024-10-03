@@ -17,9 +17,9 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Policy is a simple access control policy in the RBAC model.
-// A policy sets an action that is allowed. All other accesses except for those
-// specified by a policy are denied by default.
+// Policy is a simple access control policy in the RBAC model. A policy sets an action
+// that is allowed. All other accesses except for those specified by a policy are denied
+// by default.
 //
 // In a policy, **Subjects do Actions on Objects**.
 type Policy struct {
@@ -70,9 +70,8 @@ func allowRequest(req access.Request, policies []Policy) bool {
 			}
 		}
 		if policy.Actions != nil && !lo.Contains(policy.Actions, req.Action) && !lo.Contains(policy.Actions, access.All) {
-			// If the requested action is not described by the current policy,
-			// skip the policy.
-			// Unless the policy is an AllowAll, in which case do not skip.
+			// If the requested action is not described by the current policy, skip the
+			// policy. Unless the policy is an AllowAll, in which case do not skip.
 			if !lo.Contains(policy.Objects, AllowAllOntologyID) {
 				continue
 			}
@@ -84,14 +83,16 @@ func allowRequest(req access.Request, policies []Policy) bool {
 				return true
 			}
 			if o.IsType() {
-				// If an object applies to an entire type, then all requested objects
-				// of that type may be satisfied.
+				// If an object applies to an entire type, then all requested objects of
+				// that type may be satisfied.
 				for requestedO := range requestedObjects {
 					if requestedO.Type == o.Type {
 						delete(requestedObjects, requestedO)
 					}
 				}
 			} else {
+				// If o is one of the requested objects, it will be removed from the
+				// set. If it is not, then this is a no-op.
 				delete(requestedObjects, o)
 			}
 		}
