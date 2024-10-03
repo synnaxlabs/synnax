@@ -40,7 +40,6 @@ export {
   completeProcess,
   createWindow,
   focusWindow,
-  initialState,
   reducer,
   registerProcess,
   reloadWindow,
@@ -59,6 +58,7 @@ export {
   setWindowTitle,
   setWindowVisible,
   SLICE_NAME,
+  ZERO_SLICE_STATE,
 } from "@/state";
 export type { WindowProps, WindowStage, WindowState } from "@/window";
 export { MAIN_WINDOW } from "@/window";

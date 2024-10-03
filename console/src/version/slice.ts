@@ -21,7 +21,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-const ZERO_SLICE_STATE: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = {
   version: "0.0.0",
 };
 

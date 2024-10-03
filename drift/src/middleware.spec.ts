@@ -10,12 +10,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MockRuntime } from "@/mock/runtime";
-import { initialState, setWindowStage, StoreState } from "@/state";
+import { ZERO_SLICE_STATE, setWindowStage, StoreState } from "@/state";
 
 import { configureMiddleware, GetDefaultMiddleware, middleware } from "./middleware";
 
 const state = {
-  drift: initialState,
+  drift: ZERO_SLICE_STATE,
 };
 
 describe("middleware", () => {
