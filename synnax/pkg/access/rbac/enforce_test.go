@@ -42,34 +42,44 @@ var _ = Describe("enforcer", func() {
 
 	Describe("AllowRequest", func() {
 		var (
-			userObject, rbacObject = user.OntologyID(uuid.New()), rbac.OntologyID(uuid.New())
+			userObject, rbacObject = user.OntologyID(uuid.New()), rbac.PolicyOntologyID(uuid.New())
 			userTypeObject         = ontology.ID{Type: "user", Key: ""}
-			user1, user2, user3    = rbac.OntologyID(uuid.New()), rbac.OntologyID(uuid.New()), rbac.OntologyID(uuid.New())
+			rbac1, rbac2, rbac3    = rbac.PolicyOntologyID(uuid.New()), rbac.PolicyOntologyID(uuid.New()), rbac.PolicyOntologyID(uuid.New())
 		)
 		BeforeEach(func() {
 			policies := []rbac.Policy{
 				{
-					Subjects: []ontology.ID{user1},
+					Subjects: []ontology.ID{rbac1},
 					Objects:  []ontology.ID{userObject},
 					Actions:  []access.Action{"create"},
 				},
 				{
-					Subjects: []ontology.ID{user1, user2},
+					Subjects: []ontology.ID{rbac1, rbac2},
 					Objects:  []ontology.ID{rbacObject},
 					Actions:  []access.Action{"create", "update"},
 				},
 				{
-					Subjects: []ontology.ID{user1, user2},
+					Subjects: []ontology.ID{rbac1, rbac2},
 					Objects:  []ontology.ID{userTypeObject, rbacObject},
 					Actions:  []access.Action{"delete", "retrieve"},
 				},
 				{
-					Subjects: []ontology.ID{user3},
-					Objects:  []ontology.ID{rbac.AllowAll},
+					Subjects: []ontology.ID{rbac3},
+					Objects:  []ontology.ID{rbac.AllowAllOntologyID},
 				},
 				{
-					Subjects: []ontology.ID{user1},
+					Subjects: []ontology.ID{rbac1},
 					Objects:  []ontology.ID{{Key: "label1", Type: "label"}},
+				},
+				{
+					Subjects: []ontology.ID{rbac1},
+					Objects:  []ontology.ID{{Key: "label2", Type: "label"}},
+					Actions:  []access.Action{"all"},
+				},
+				{
+					Subjects: []ontology.ID{userTypeObject},
+					Objects:  []ontology.ID{{Key: "label3", Type: "label"}},
+					Actions:  []access.Action{"create"},
 				},
 			}
 			for _, p := range policies {
@@ -83,49 +93,59 @@ var _ = Describe("enforcer", func() {
 				Expect(svc.Enforce(ctx, req)).To(MatchError(access.Denied))
 			}
 		},
+			Entry("All policy", access.Request{
+				Subject: rbac1,
+				Objects: []ontology.ID{{Key: "label2", Type: "label"}},
+				Action:  "create",
+			}, true),
 			Entry("one user spread across requests", access.Request{
-				Subject: user1,
+				Subject: rbac1,
 				Objects: []ontology.ID{userObject, rbacObject},
 				Action:  "create",
 			}, true),
 			Entry("one user spread across requests - fail", access.Request{
-				Subject: user2,
+				Subject: rbac2,
 				Objects: []ontology.ID{rbacObject, userObject},
 				Action:  "update",
 			}, false),
 			Entry("type", access.Request{
-				Subject: user2,
+				Subject: rbac2,
 				Objects: []ontology.ID{userObject},
 				Action:  "delete",
 			}, true),
 			Entry("type", access.Request{
-				Subject: user2,
+				Subject: rbac2,
 				Objects: []ontology.ID{userObject},
 				Action:  "retrieve",
 			}, true),
 			Entry("allow all", access.Request{
-				Subject: user3,
+				Subject: rbac3,
 				Objects: []ontology.ID{userObject, userTypeObject, rbacObject},
 				Action:  "inexistent action",
 			}, true),
 			Entry("one of objects not match", access.Request{
-				Subject: user1,
+				Subject: rbac1,
 				Objects: []ontology.ID{userObject, rbacObject},
 				Action:  "update",
 			}, false),
 			Entry("No action in policy = allow all", access.Request{
-				Subject: user1,
+				Subject: rbac1,
 				Objects: []ontology.ID{{Key: "label1", Type: "label"}},
 				Action:  "cancel",
 			}, true),
 			Entry("No action in request", access.Request{
-				Subject: user1,
+				Subject: rbac1,
 				Objects: []ontology.ID{{Key: "label1", Type: "label"}},
 			}, true),
 			Entry("No action in request", access.Request{
-				Subject: user1,
+				Subject: rbac1,
 				Objects: []ontology.ID{rbacObject},
 			}, false),
+			Entry("Subject is a type", access.Request{
+				Subject: userObject,
+				Objects: []ontology.ID{{Key: "label3", Type: "label"}},
+				Action:  "create",
+			}, true),
 		)
 	})
 

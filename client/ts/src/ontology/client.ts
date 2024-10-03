@@ -13,19 +13,18 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
-import { framer } from "@/framer";
-import { Frame } from "@/framer/frame";
+import { type framer } from "@/framer";
 import { group } from "@/ontology/group";
 import {
-  CrudeID,
+  type CrudeID,
   ID,
-  IDPayload,
+  type IDPayload,
   idZ,
   parseRelationship,
-  RelationshipChange,
-  RelationshipDirection,
+  type RelationshipChange,
+  type RelationshipDirection,
   type Resource,
-  ResourceChange,
+  type ResourceChange,
   resourceSchemaZ,
   resourceTypeZ,
 } from "@/ontology/payload";
@@ -92,12 +91,12 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Retrieves the resource in the ontology with the given ID.
-   * @param id The ID of the resource to retrieve.
-   * @param options Additional options for the retrieval.
-   * @param options.includeSchema Whether to include the schema of the resource in the
+   * @param id - The ID of the resource to retrieve.
+   * @param options - Additional options for the retrieval.
+   * @param options.includeSchema - Whether to include the schema of the resource in the
    * results.
-   * @param options.excludeFieldData Whether to exclude the field data of the resource in
-   * the results.
+   * @param options.excludeFieldData - Whether to exclude the field data of the resource
+   * in the results.
    * @returns The resource with the given ID.
    * @throws {QueryError} If no resource is found with the given ID.
    */
@@ -105,12 +104,13 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Retrieves the resources in the ontology with the given IDs.
-   * @param ids The IDs of the resources to retrieve.
-   * @param options Additional options for the retrieval.
-   * @param options.includeSchema Whether to include the schema of the resources in the
-   * results.
-   * @param options.excludeFieldData Whether to exclude the field data of the resources in
+   *
+   * @param ids - The IDs of the resources to retrieve.
+   * @param options - Additional options for the retrieval.
+   * @param options.includeSchema - Whether to include the schema of the resources in
    * the results.
+   * @param options.excludeFieldData - Whether to exclude the field data of the
+   * resources in the results.
    * @returns The resources with the given IDs.
    * @throws {QueryError} If no resource is found with any of the given IDs.
    */
@@ -164,10 +164,12 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   /**
    * Retrieves the parents of the resources with the given IDs.
    *
-   * @param ids the IDs of the resources whose parents to retrieve
-   * @param options additional options for the retrieval
-   * @param options.includeSchema whether to include the schema of the parents in the results
-   * @param options.excludeFieldData whether to exclude the field data of the parents in the results
+   * @param ids - the IDs of the resources whose parents to retrieve
+   * @param options - additional options for the retrieval
+   * @param options.includeSchema - whether to include the schema of the parents in the
+   * results
+   * @param options.excludeFieldData - whether to exclude the field data of the parents
+   * in the results
    * @returns the parents of the resources with the given IDs
    */
   async retrieveParents(
@@ -179,8 +181,8 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Adds children to a resource in the ontology.
-   * @param id The ID of the resource to add children to.
-   * @param children The IDs of the children to add.
+   * @param id - The ID of the resource to add children to.
+   * @param children - The IDs of the children to add.
    */
   async addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
     return await this.writer.addChildren(id, ...children);
@@ -188,9 +190,8 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Removes children from a resource in the ontology.
-   * @param id The ID of the resource to remove children from.
-   * @param children The IDs of the children
-   * to remove.
+   * @param id - The ID of the resource to remove children from.
+   * @param children - The IDs of the children to remove.
    */
   async removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
     return await this.writer.removeChildren(id, ...children);
@@ -198,9 +199,9 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Moves children from one resource to another in the ontology.
-   * @param from The ID of the resource to move children from.
-   * @param to The ID of the resource to move children to.
-   * @param children The IDs of the children to move.
+   * @param from - The ID of the resource to move children from.
+   * @param to - The ID of the resource to move children to.
+   * @param children - The IDs of the children to move.
    */
   async moveChildren(
     from: CrudeID,
@@ -294,7 +295,7 @@ export class ChangeTracker {
     }
   }
 
-  private async update(frame: Frame): Promise<void> {
+  private async update(frame: framer.Frame): Promise<void> {
     const resSets = await this.parseResourceSets(frame);
     const resDeletes = this.parseResourceDeletes(frame);
     const allResources = resSets.concat(resDeletes);
@@ -306,7 +307,7 @@ export class ChangeTracker {
       this.relationshipObs.notify(relSets.concat(relDeletes));
   }
 
-  private parseRelationshipSets(frame: Frame): RelationshipChange[] {
+  private parseRelationshipSets(frame: framer.Frame): RelationshipChange[] {
     const relationships = frame.get(RELATIONSHIP_SET_NAME);
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
@@ -316,7 +317,7 @@ export class ChangeTracker {
     }));
   }
 
-  private parseRelationshipDeletes(frame: Frame): RelationshipChange[] {
+  private parseRelationshipDeletes(frame: framer.Frame): RelationshipChange[] {
     const relationships = frame.get(RELATIONSHIP_DELETE_NAME);
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
@@ -325,7 +326,7 @@ export class ChangeTracker {
     }));
   }
 
-  private async parseResourceSets(frame: Frame): Promise<ResourceChange[]> {
+  private async parseResourceSets(frame: framer.Frame): Promise<ResourceChange[]> {
     const sets = frame.get(RESOURCE_SET_NAME);
     if (sets.length === 0) return [];
     // We should only ever get one series of sets
@@ -343,7 +344,7 @@ export class ChangeTracker {
     }
   }
 
-  private parseResourceDeletes(frame: Frame): ResourceChange[] {
+  private parseResourceDeletes(frame: framer.Frame): ResourceChange[] {
     const deletes = frame.get(RESOURCE_DELETE_NAME);
     if (deletes.length === 0) return [];
     // We should only ever get one series of deletes

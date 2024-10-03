@@ -12,6 +12,7 @@
 .console-notifications {
     height: unset !important;
     position: absolute;
+    z-index: 20;
     bottom: 7rem;
     left: 2rem;
 }

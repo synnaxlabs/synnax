@@ -24,6 +24,7 @@ import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { Notifications } from "@/notifications";
+import { Permissions } from "@/permissions";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { Version } from "@/version";
@@ -53,6 +54,7 @@ const SideEffect = (): null => {
   Workspace.useSyncLayout();
   Link.useDeep({ handlers: LINK_HANDLERS });
   Layout.useTriggers();
+  Permissions.useFetchPermissions();
   return null;
 };
 

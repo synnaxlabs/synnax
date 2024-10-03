@@ -17,9 +17,9 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Policy is a simple access control policy in the RBAC model.
-// A policy sets an action that is allowed. All other accesses except for those
-// specified by a policy are denied by default.
+// Policy is a simple access control policy in the RBAC model. A policy sets an action
+// that is allowed. All other accesses except for those specified by a policy are denied
+// by default.
 //
 // In a policy, **Subjects do Actions on Objects**.
 type Policy struct {
@@ -41,7 +41,7 @@ func (p Policy) GorpKey() uuid.UUID { return p.Key }
 // SetOptions implements the gorp.Entry interface.
 func (p Policy) SetOptions() []interface{} { return nil }
 
-// AllowRequest returns true if the policies allow the given access.Request.
+// allowRequest returns true if the policies allow the given access.Request.
 //
 // For a request to be allowed:
 //   - The request's subject must have object-action pairs for each object specified in
@@ -49,7 +49,7 @@ func (p Policy) SetOptions() []interface{} { return nil }
 //   - An object-action pair is a pair with the specified action in the request and an
 //     object that is either a type object with the correct type, or an object that
 //     exactly matches one of the requested objects.
-func AllowRequest(req access.Request, policies []Policy) bool {
+func allowRequest(req access.Request, policies []Policy) bool {
 	requestedObjects := make(map[ontology.ID]struct{})
 	for _, o := range req.Objects {
 		requestedObjects[o] = struct{}{}
@@ -57,32 +57,42 @@ func AllowRequest(req access.Request, policies []Policy) bool {
 
 	for _, policy := range policies {
 		if !lo.Contains(policy.Subjects, req.Subject) {
-			// Policy not pertaining to requested subject.
-			continue
+			// Policy not directly pertaining to requested subject.
+			var shouldContinue bool = true
+			for _, s := range policy.Subjects {
+				if s.IsType() && s.Type == req.Subject.Type {
+					shouldContinue = false
+					break
+				}
+			}
+			if shouldContinue {
+				continue
+			}
 		}
-		if policy.Actions != nil && !lo.Contains(policy.Actions, req.Action) {
-			// If the requested action is not described by the current policy,
-			// skip the policy.
-			// Unless the policy is an AllowAll, in which case do not skip.
-			if !lo.Contains(policy.Objects, AllowAll) {
+		if policy.Actions != nil && !lo.Contains(policy.Actions, req.Action) && !lo.Contains(policy.Actions, access.All) {
+			// If the requested action is not described by the current policy, skip the
+			// policy. Unless the policy is an AllowAll, in which case do not skip.
+			if !lo.Contains(policy.Objects, AllowAllOntologyID) {
 				continue
 			}
 		}
 
 		for _, o := range policy.Objects {
-			if o.Type == AllowAll.Type {
+			if o.Type == AllowAllOntologyType {
 				// If the subject has an AllowAll policy, allow all requests.
 				return true
 			}
 			if o.IsType() {
-				// If an object applies to an entire type, then all requested objects
-				// of that type may be satisfied.
+				// If an object applies to an entire type, then all requested objects of
+				// that type may be satisfied.
 				for requestedO := range requestedObjects {
 					if requestedO.Type == o.Type {
 						delete(requestedObjects, requestedO)
 					}
 				}
 			} else {
+				// If o is one of the requested objects, it will be removed from the
+				// set. If it is not, then this is a no-op.
 				delete(requestedObjects, o)
 			}
 		}

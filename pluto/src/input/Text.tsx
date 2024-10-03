@@ -12,6 +12,7 @@ import "@/input/Input.css";
 import { forwardRef, useRef, useState } from "react";
 
 import { Align } from "@/align";
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
@@ -24,9 +25,10 @@ export interface TextExtraProps {
   resetOnBlurIfEmpty?: boolean;
   status?: Status.Variant;
   onlyChangeOnBlur?: boolean;
+  color?: Color.Crude;
 }
 
-export interface TextProps extends BaseProps<string>, TextExtraProps {}
+export interface TextProps extends Omit<BaseProps<string>, "color">, TextExtraProps {}
 
 /**
  * A controlled string input component.
@@ -46,7 +48,6 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     {
       size = "medium",
       value,
-      style,
       onChange,
       className,
       onFocus,
@@ -63,16 +64,23 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       status,
       shade,
       weight,
+      style,
       color,
       onlyChangeOnBlur = false,
+      endContent,
+      borderWidth,
+      borderShade = 4,
       ...props
     },
     ref,
   ) => {
     const cachedFocusRef = useRef("");
     const [tempValue, setTempValue] = useState<string | null>(null);
+    const internalRef = useRef<HTMLInputElement>(null);
+    const focusedRef = useRef(false);
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
+      focusedRef.current = false;
       if (resetOnBlurIfEmpty && e.target.value === "")
         onChange?.(cachedFocusRef.current);
       else if (onlyChangeOnBlur) {
@@ -91,11 +99,14 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       if (onlyChangeOnBlur) setTempValue(value);
       onFocus?.(e);
       cachedFocusRef.current = e.target.value;
+    };
+
+    const handleMouseUp = (): void => {
       // This looks hacky, but it's the only way to consistently select the text
       // after the focus event.
-      if (!selectOnFocus) return;
-      const interval = setInterval(() => e.target.select(), 2);
-      setTimeout(() => clearInterval(interval), 50);
+      if (!selectOnFocus || focusedRef.current) return;
+      focusedRef.current = true;
+      internalRef.current?.select();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
@@ -103,11 +114,14 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       if (e.key === "Enter") e.currentTarget.blur();
     };
 
-    const internalRef = useRef<HTMLInputElement>(null);
     const combinedRef = useCombinedRefs(ref, internalRef);
 
     const disabledCSS = disabled && CSS.BM("input", "disabled");
     if (variant === "preview") disabled = true;
+    if (color != null)
+      style = { ...style, [CSS.var("input-color")]: Color.cssString(color) };
+
+    const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
     return (
       <Align.Pack
@@ -122,12 +136,13 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           status != null && CSS.M(status),
           className,
         )}
-        borderShade={4}
+        borderShade={borderShade}
+        borderWidth={borderWidth}
         align="center"
         size={size}
       >
         <div className={CSS.BE("input", "internal")}>
-          {(value == null || value.length === 0) && tempValue == null && (
+          {showPlaceholder && (
             <div
               className={CSS(
                 CSS.BE("input", "placeholder"),
@@ -137,6 +152,14 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
               {CoreText.formatChildren(
                 level ?? CoreText.ComponentSizeLevels[size],
                 placeholder,
+              )}
+            </div>
+          )}
+          {endContent != null && (
+            <div className={CSS.BE("input", "end-content")}>
+              {CoreText.formatChildren(
+                level ?? CoreText.ComponentSizeLevels[size],
+                endContent,
               )}
             </div>
           )}
@@ -150,11 +173,12 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             autoCorrect="off"
             onFocus={handleFocus}
             onKeyDown={handleKeyDown}
+            onMouseUp={handleMouseUp}
             onBlur={handleBlur}
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
             disabled={disabled}
             placeholder={typeof placeholder === "string" ? placeholder : undefined}
-            style={{ fontWeight: weight, color }}
+            style={{ fontWeight: weight }}
             {...props}
           />
         </div>

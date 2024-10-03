@@ -215,8 +215,8 @@ export const Dialog = ({
     <CoreDialog.Context.Provider value={ctxValue}>
       <C
         {...props}
-        borderShade={4}
         ref={combinedParentRef}
+        borderShade={4}
         className={CSS(
           className,
           CSS.B("dropdown"),

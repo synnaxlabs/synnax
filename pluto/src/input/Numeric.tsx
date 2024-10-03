@@ -18,13 +18,14 @@ import { type BaseProps } from "@/input/types";
 import { Triggers } from "@/triggers";
 
 export interface NumericProps
-  extends Omit<BaseProps<number>, "type" | "onBlur">,
+  extends Omit<BaseProps<number>, "type" | "onBlur" | "color">,
     DragButtonExtraProps,
     TextExtraProps {
   selectOnFocus?: boolean;
   showDragHandle?: boolean;
   bounds?: bounds.Crude;
   onBlur?: () => void;
+  units?: string;
 }
 
 /**
@@ -37,7 +38,7 @@ export interface NumericProps
  * @param props.size - The size of the input: "small" | "medium" | "large".
  * @default "medium"
  * @param props.selectOnFocus - Whether the input should select its contents when focused.
- * @defaul true
+ * @default true
  * @param props.centerPlaceholder - Whether the placeholder should be centered.
  * @default false
  * @param props.showDragHandle - Whether or not to show a drag handle to set the time.
@@ -58,12 +59,12 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       selectOnFocus = true,
       bounds: propsBounds = bounds.INFINITE,
       resetValue,
-      style,
       variant = "outlined",
       className,
       children,
       disabled,
       onBlur,
+      units,
       ...props
     },
     ref,
@@ -153,7 +154,6 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
         value={value_.toString()}
         onChange={handleChange}
         disabled={disabled}
-        style={style}
         selectOnFocus={selectOnFocus}
         // When the user hits 'Enter', we should try to evaluate the input and update the
         // actual value.

@@ -40,7 +40,9 @@ import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
   select,
+  selectHasPermission,
   useSelect,
+  useSelectHasPermission,
   useSelectNodeProps,
   useSelectViewport,
   useSelectViewportMode,
@@ -77,10 +79,10 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     "Schematic",
     layoutKey,
     async (ws, store, client) => {
-      const s = store.getState();
-      const data = select(s, layoutKey);
+      const storeState = store.getState();
+      const data = select(storeState, layoutKey);
       if (data == null || data.snapshot) return;
-      const la = Layout.selectRequired(s, layoutKey);
+      const layout = Layout.selectRequired(storeState, layoutKey);
       const setData = {
         ...data,
         key: undefined,
@@ -88,9 +90,11 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
       } as unknown as UnknownRecord;
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
       await new Promise((r) => setTimeout(r, 1000));
+      const canSave = selectHasPermission(storeState);
+      if (!canSave) return;
       await client.workspaces.schematic.create(ws, {
         key: layoutKey,
-        name: la.name,
+        name: layout.name,
         data: setData,
       });
     },
@@ -101,33 +105,31 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
-}: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
-  const nodeProps = useSelectNodeProps(layoutKey, symbolKey);
-  if (nodeProps == null) return null;
-  const { key, ...props } = nodeProps;
+}: Diagram.SymbolProps & { layoutKey: string }): ReactElement => {
+  const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
   const dispatch = useSyncComponent(layoutKey);
 
   const handleChange = useCallback(
-    (props: object) => {
+    (props: object) =>
       dispatch(
         setElementProps({
           layoutKey,
           key: symbolKey,
           props: { key, ...props },
         }),
-      );
-    },
+      ),
     [dispatch, symbolKey, layoutKey, key],
   );
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
-  if (C == null) throw new Error(`Symbol ${key} not found`);
-
   const zoom = useSelectViewport(layoutKey);
+
+  if (C == null) throw new Error(`Symbol ${key} not found`);
 
   return (
     <C.Symbol
+      id={symbolKey}
       aetherKey={symbolKey}
       position={position}
       selected={selected}
@@ -156,6 +158,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   useEffect(() => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey]);
+
+  const canBeEditable = useSelectHasPermission();
+  if (!canBeEditable && schematic.editable)
+    dispatch(setEditable({ key: layoutKey, editable: false }));
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => {
@@ -318,6 +324,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [storeLegendPosition],
   );
 
+  const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;
+
   return (
     <div
       ref={ref}
@@ -352,7 +360,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
           <Diagram.Background />
           <Diagram.Controls>
-            {!schematic.snapshot && (
+            {canEditSchematic && (
               <Diagram.ToggleEditControl disabled={schematic.control === "acquired"} />
             )}
             <Diagram.FitViewControl />
@@ -415,8 +423,10 @@ export const SELECTABLE: Layout.Selectable = {
 
 export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
-  ({ dispatch }) => {
+  ({ dispatch, store }) => {
+    const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
+    const newTab = canEditSchematic ? tab : { ...tab, editable: false };
     const key = initial.key ?? uuidv4();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
     return {
@@ -429,6 +439,6 @@ export const create =
         navTop: true,
         showTitle: true,
       },
-      tab,
+      tab: newTab,
     };
   };

@@ -96,7 +96,7 @@ export const commandZ = z.object({
 export type StateObservable<D extends UnknownRecord = UnknownRecord> =
   observe.ObservableAsyncCloseable<State<D>>;
 
-export const DeviceOntologyType = "task" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "task";
 
 export const ontologyID = (key: TaskKey): ontology.ID =>
-  new ontology.ID({ type: DeviceOntologyType, key: key.toString() });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });

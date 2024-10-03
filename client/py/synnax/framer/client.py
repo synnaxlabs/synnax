@@ -30,9 +30,9 @@ from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import Writer, WriterMode, CrudeWriterMode
 from synnax.framer.deleter import Deleter
+from synnax.ontology import ID
 from synnax.telem import (
     CrudeTimeStamp,
-    Series,
     TimeRange,
     TimeSpan,
     CrudeSeries,
@@ -40,9 +40,11 @@ from synnax.telem import (
 )
 from synnax.telem.control import Authority, CrudeAuthority
 
+ontology_type = ID(type="framer")
+
 
 class Client:
-    """SegmentClient provides interfaces for reading and writing segmented
+    """FramerClient provides interfaces for reading and writing segmented
     telemetry from a Synnax Cluster. SegmentClient should not be instantiated
     directly, but rather used through the synnax.Synnax class.
     """
@@ -160,8 +162,7 @@ class Client:
         start: CrudeTimeStamp,
         frame: CrudeFrame,
         strict: bool = False,
-    ):
-        ...
+    ): ...
 
     @overload
     def write(
@@ -187,8 +188,7 @@ class Client:
         channel: ChannelKeys | ChannelNames | list[ChannelPayload],
         series: list[CrudeSeries],
         strict: bool = False,
-    ):
-        ...
+    ): ...
 
     def write(
         self,
@@ -222,16 +222,14 @@ class Client:
         self,
         tr: TimeRange,
         channels: ChannelKeys | ChannelNames,
-    ) -> Frame:
-        ...
+    ) -> Frame: ...
 
     @overload
     def read(
         self,
         tr: TimeRange,
         channels: ChannelKey | ChannelName,
-    ) -> MultiSeries:
-        ...
+    ) -> MultiSeries: ...
 
     def read(
         self,

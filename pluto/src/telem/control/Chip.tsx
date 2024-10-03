@@ -41,7 +41,7 @@ const tooltipMessage = (status: Status.Spec): ChipStyle => {
           chipColor: "var(--pluto-gray-l10)",
         };
       return {
-        message: "No channel connected",
+        message: "No channel connected. This element cannot be controlled.",
         chipColor: "var(--pluto-gray-l5)",
         disabled: true,
       };

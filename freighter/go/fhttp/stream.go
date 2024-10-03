@@ -305,7 +305,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 							s.L.Error("error closing connection", zap.Error(err))
 						}
 					}()
-					errPld := errors.Encode(ctx, s.handler(stream.ctx, stream), s.internal)
+					errPld := errors.Encode(ctx, s.handler(ctx, stream), s.internal)
 					if errPld.Type == errors.TypeNil {
 						errPld = errors.Encode(ctx, freighter.EOF, s.internal)
 					}

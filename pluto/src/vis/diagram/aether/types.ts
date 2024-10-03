@@ -155,7 +155,7 @@ export const translateNodesForward = (nodes: Node[]): rf.Node[] =>
     ...node,
     id: node.key,
     type: "custom",
-    zIndex: 8,
+    zIndex: node.zIndex,
     data: {},
   }));
 

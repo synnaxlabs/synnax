@@ -74,7 +74,6 @@ class Streamer:
         if exc is not None:
             raise exc
 
-
     @overload
     def read(self, timeout: float | int | TimeSpan) -> Frame | None:
         """Reads the next frame of telemetry from the streamer with a timeout. If no

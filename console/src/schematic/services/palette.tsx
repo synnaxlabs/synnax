@@ -11,12 +11,14 @@ import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
 import { create } from "@/schematic/Schematic";
+import { selectHasPermission } from "@/schematic/selectors";
 
 export const createCommand: Command = {
   key: "create-schematic",
   name: "Create a Schematic",
   icon: <Icon.Schematic />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(create({})),
+  onSelect: ({ placeLayout }) => placeLayout(create({})),
+  visible: (state) => selectHasPermission(state),
 };
 
 export const COMMANDS = [createCommand];
