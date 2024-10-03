@@ -10,8 +10,8 @@
 import "@/layouts/Main.css";
 
 import { Drift } from "@synnaxlabs/drift";
-import { Align } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect } from "react";
+import { Align, Haul, Text } from "@synnaxlabs/pluto";
+import { CSSProperties, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { ChannelServices } from "@/channel/services";
@@ -53,10 +53,52 @@ const SideEffect = (): null => {
   Workspace.useSyncLayout();
   Link.useDeep({ handlers: LINK_HANDLERS });
   Layout.useTriggers();
+  const dragging = Haul.useDraggingState();
   return null;
 };
 
 export const MAIN_TYPE = Drift.MAIN_WINDOW;
+
+const FileDrop = () => {
+  const canDrop = Haul.canDropOfType(Haul.FILE_TYPE);
+  const dropProps = Haul.useDrop({
+    type: "file-x",
+    onDrop: (props) => {
+      console.log(props);
+      return [];
+    },
+    onDragOver: (e) => console.log(e),
+    canDrop: () => true,
+  })
+
+  const dragging = Haul.useDraggingState();
+  const isDragging = canDrop(dragging);
+
+  const style: CSSProperties = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    height: 0,
+    width: 0,
+    zIndex: -1,
+  }
+  console.log(isDragging, dragging)
+  if (isDragging) {
+    style.width = "100%";
+    style.height = "100%";
+    style.background = "var(--pluto-primary-z-30)";
+    style.zIndex = 5000;
+  }
+  
+  
+  return (
+    <Align.Space {...dropProps} style={style}>
+      <Text.Text level="h4">
+        Drop to upload  
+      </Text.Text>
+    </Align.Space>
+  )
+}
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
@@ -65,6 +107,7 @@ export const MAIN_TYPE = Drift.MAIN_WINDOW;
 export const Main = (): ReactElement => (
   <>
     {/* We need to place notifications here so they are in the proper stacking context */}
+    <FileDrop />
     <Notifications.Notifications adapters={NOTIFICATION_ADAPTERS} />
     <SideEffect />
     <NavTop />
