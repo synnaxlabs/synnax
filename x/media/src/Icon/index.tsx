@@ -30,6 +30,9 @@ import {
 import { BiLinkExternal, BiRename } from "react-icons/bi";
 import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
+  FaAlignCenter,
+  FaAlignLeft,
+  FaAlignRight,
   FaApple,
   FaBezierCurve,
   FaBookOpen,
@@ -115,6 +118,7 @@ import {
   SiYarn,
 } from "react-icons/si";
 import {
+  TbArrowAutofitWidth,
   TbArrowDown,
   TbArrowLeft,
   TbArrowRight,
@@ -246,8 +250,10 @@ export const Icon: IconType = {
   Schematic: wrapIcon(FaStream, "schematic"),
   Caret: {
     Right: wrapIcon(PiCaretRight, "caret-right"),
+    Bottom: wrapIcon(PiCaretDown, "caret-bottom"),
     Left: wrapIcon(PiCaretLeft, "caret-left"),
     Up: wrapIcon(PiCaretUpBold, "caret-up"),
+    Top: wrapIcon(PiCaretUpBold, "caret-top"),
     Down: wrapIcon(PiCaretDown, "caret-down"),
   },
   Settings: wrapIcon(RiSettingsFill, "settings"),
@@ -285,8 +291,10 @@ export const Icon: IconType = {
   Arrow: {
     Right: wrapIcon(TbArrowRight, "arrow-right"),
     Down: wrapIcon(TbArrowDown, "arrow-down"),
+    Bottom: wrapIcon(TbArrowDown, "arrow-bottom"),
     Up: wrapIcon(TbArrowUp, "arrow-up"),
     Left: wrapIcon(TbArrowLeft, "arrow-left"),
+    Top: wrapIcon(TbArrowUp, "arrow-top"),
   },
   Keyboard: {
     Command: wrapIcon(MdKeyboardCommandKey, "keyboard-command"),
@@ -328,6 +336,11 @@ export const Icon: IconType = {
     Top: wrapIcon(MdAlignVerticalTop, "align-top"),
     Bottom: wrapIcon(MdAlignVerticalBottom, "align-bottom"),
   },
+  TextAlign: {
+    Center: wrapIcon(FaAlignCenter, "text-align-center"),
+    Left: wrapIcon(FaAlignLeft, "text-align-left"),
+    Right: wrapIcon(FaAlignRight, "text-align-right"),
+  },
   Connect: wrapIcon(TbPlugConnected, "connect"),
   Disconnect: wrapIcon(TbPlugConnectedX, "disconnect"),
   Hardware: wrapIcon(MdHardware, "hardware"),
@@ -355,6 +368,7 @@ export const Icon: IconType = {
   MoveToMainWindow: wrapIcon(MdOutlineWebAsset, "move-to-main-window"),
   SplitX: wrapIcon(VscSplitHorizontal, "split-x"),
   SplitY: wrapIcon(VscSplitVertical, "split-y"),
+  AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
 };
 
 export interface IconType {
@@ -387,12 +401,16 @@ export interface IconType {
     Left: IconFC;
     Up: IconFC;
     Down: IconFC;
+    Top: IconFC;
+    Bottom: IconFC;
   };
   Arrow: {
     Right: IconFC;
     Left: IconFC;
     Up: IconFC;
     Down: IconFC;
+    Top: IconFC;
+    Bottom: IconFC;
   };
   Reference: IconFC;
   Bolt: IconFC;
@@ -460,6 +478,11 @@ export interface IconType {
     Top: IconFC;
     Bottom: IconFC;
   };
+  TextAlign: {
+    Left: IconFC;
+    Center: IconFC;
+    Right: IconFC;
+  };
   Hardware: IconFC;
   Device: IconFC;
   Task: IconFC;
@@ -488,4 +511,5 @@ export interface IconType {
   MoveToMainWindow: IconFC;
   SplitX: IconFC;
   SplitY: IconFC;
+  AutoFitWidth: IconFC;
 }

@@ -188,21 +188,18 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
-        ...
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
 
     @overload
     def write(
         self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ):
-        ...
+    ): ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ):
-        ...
+    ): ...
 
     def write(
         self,
@@ -255,31 +252,28 @@ class Writer:
         self.__check_keys(frame)
         self.__prep_data_types(frame)
 
-        err = self.__stream.send(
+        exc = self.__stream.send(
             _Request(command=_Command.WRITE, frame=frame.to_payload())
         )
-        if err is not None:
-            raise err
+        if exc is not None:
+            raise exc
         return True
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool:
-        ...
+    def set_authority(self, value: CrudeAuthority) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def set_authority(
         self,
@@ -305,13 +299,13 @@ class Writer:
                 keys=list(value.keys()),
                 authorities=list(value.values()),
             )
-        err = self.__stream.send(_Request(command=_Command.SET_AUTHORITY, config=cfg))
-        if err is not None:
-            raise err
+        exc = self.__stream.send(_Request(command=_Command.SET_AUTHORITY, config=cfg))
+        if exc is not None:
+            raise exc
         while True:
-            res, err = self.__stream.receive()
-            if err is not None:
-                raise err
+            res, exc = self.__stream.receive()
+            if exc is not None:
+                raise exc
             if res.command == _Command.SET_AUTHORITY:
                 return res.ack
 
@@ -325,14 +319,14 @@ class Writer:
         """
         if self.__stream.received():
             return TimeStamp.ZERO, False
-        err = self.__stream.send(_Request(command=_Command.COMMIT))
-        if err is not None:
-            raise err
+        exc = self.__stream.send(_Request(command=_Command.COMMIT))
+        if exc is not None:
+            raise exc
 
         while True:
-            res, err = self.__stream.receive()
-            if err is not None:
-                raise err
+            res, exc = self.__stream.receive()
+            if exc is not None:
+                raise exc
             if res.command == _Command.COMMIT:
                 return res.end, res.ack
 
@@ -345,9 +339,9 @@ class Writer:
         self.__stream.send(_Request(command=_Command.ERROR))
 
         while True:
-            res, err = self.__stream.receive()
-            if err is not None:
-                raise err
+            res, exc = self.__stream.receive()
+            if exc is not None:
+                raise exc
             assert res is not None
             if res.command == _Command.ERROR:
                 return decode_exception(res.error)
@@ -359,15 +353,15 @@ class Writer:
         """
         self.__stream.close_send()
         while True:
-            res, err = self.__stream.receive()
-            if err is None:
+            res, exc = self.__stream.receive()
+            if exc is None:
                 assert res is not None
-                err = decode_exception(res.error)
+                exc = decode_exception(res.error)
 
-            if err is not None:
-                if isinstance(err, EOF):
+            if exc is not None:
+                if isinstance(exc, EOF):
                     return
-                raise err
+                raise exc
 
     def __enter__(self):
         return self

@@ -77,6 +77,8 @@
     .pluto-btn-icon {
         opacity: 0;
         height: 100% !important;
+        transition: unset;
+        margin-left: 1px !important;
         > svg {
             fill: var(--pluto-gray-l6);
         }

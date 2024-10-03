@@ -14,12 +14,14 @@
     aspect-ratio: 1.5;
     transform: scale(0.8);
 
+    border-color: var(--pluto-gray-l4) !important;
+
     &.pluto--no-border {
         border-color: transparent;
     }
 
     &.pluto-haul-drop-region {
-        border: var(--pluto-border) !important;
+        border: var(--pluto-border-l4) !important;
         border-color: var(--haul-border-color) !important;
         background: var(--haul-background) !important;
     }

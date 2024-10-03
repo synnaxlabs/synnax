@@ -26,6 +26,7 @@ export const resourceTypeZ = z.union([
   z.literal("node"),
   z.literal("group"),
   z.literal("range"),
+  z.literal("framer"),
   z.literal("range-alias"),
   z.literal("user"),
   z.literal("workspace"),

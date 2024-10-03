@@ -12,7 +12,12 @@ import "@/button/Button.css";
 import { Icon } from "@synnaxlabs/media";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
-import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  ReactNode,
+  useCallback,
+} from "react";
 
 import { type Align } from "@/align";
 import { Color } from "@/color";
@@ -60,6 +65,7 @@ export type ButtonProps = Omit<
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     delay?: number | TimeSpan;
+    endContent?: ReactNode;
   };
 
 /**
@@ -95,6 +101,7 @@ export const Button = Tooltip.wrap(
     color,
     status,
     style,
+    endContent,
     ...props
   }: ButtonProps): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
@@ -124,7 +131,8 @@ export const Button = Tooltip.wrap(
 
     const pStyle = { ...style };
     const res = Color.Color.z.safeParse(color);
-    const hasCustomColor = res.success && variant === "filled";
+    const hasCustomColor =
+      res.success && (variant === "filled" || variant === "outlined");
     if (hasCustomColor) {
       // @ts-expect-error - css variable
       pStyle[CSS.var("btn-color")] = res.data.rgbString;
@@ -162,6 +170,11 @@ export const Button = Tooltip.wrap(
         {...props}
       >
         {children}
+        {endContent != null ? (
+          <div className={CSS.BE("btn", "end-content")}>
+            {Text.formatChildren(level ?? Text.ComponentSizeLevels[size], endContent)}
+          </div>
+        ) : undefined}
       </Text.WithIcon>
     );
   },

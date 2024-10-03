@@ -24,9 +24,8 @@ import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
-  ...Layout.PERSIST_EXCLUDE,
+  Layout.PERSIST_EXCLUDE,
   Cluster.PERSIST_EXCLUDE,
-  Permissions.SLICE_NAME,
 ];
 
 const reducer = combineReducers({

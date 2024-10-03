@@ -212,7 +212,7 @@ type API struct {
 	config       Config
 	Auth         *AuthService
 	User         *UserService
-	Frame        *FrameService
+	Framer       *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
 	Ontology     *OntologyService
@@ -360,10 +360,10 @@ func (a *API) BindTo(t Transport) {
 	t.ChannelRetrieveGroup.BindHandler(a.Channel.RetrieveGroup)
 
 	// FRAME
-	t.FrameWriter.BindHandler(a.Frame.Write)
-	t.FrameIterator.BindHandler(a.Frame.Iterate)
-	t.FrameStreamer.BindHandler(a.Frame.Stream)
-	t.FrameDelete.BindHandler(a.Frame.FrameDelete)
+	t.FrameWriter.BindHandler(a.Framer.Write)
+	t.FrameIterator.BindHandler(a.Framer.Iterate)
+	t.FrameStreamer.BindHandler(a.Framer.Stream)
+	t.FrameDelete.BindHandler(a.Framer.FrameDelete)
 
 	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(a.Ontology.Retrieve)
@@ -447,7 +447,7 @@ func New(configs ...Config) (API, error) {
 	api.Auth = NewAuthService(api.provider)
 	api.User = NewUserService(api.provider)
 	api.Access = NewAccessService(api.provider)
-	api.Frame = NewFrameService(api.provider)
+	api.Framer = NewFrameService(api.provider)
 	api.Channel = NewChannelService(api.provider)
 	api.Connectivity = NewConnectivityService(api.provider)
 	api.Ontology = NewOntologyService(api.provider)

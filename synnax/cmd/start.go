@@ -464,6 +464,7 @@ func maybeSetBasePermission(
 			"schematic":   access.Retrieve,
 			"policy":      access.Retrieve,
 			"builtin":     access.Retrieve,
+			"framer":      access.All,
 		}
 		// for migration purposes, some old base policies that need to be deleted
 		oldBasePolicies := map[ontology.Type]access.Action{}

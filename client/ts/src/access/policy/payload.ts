@@ -38,3 +38,8 @@ export const ontologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key });
 
 export const ALLOW_ALL_ONTOLOGY_TYPE: ontology.ResourceType = "allow_all";
+
+export const ALLOW_ALL_ONTOLOGY_ID = new ontology.ID({
+  type: ALLOW_ALL_ONTOLOGY_TYPE,
+  key: "",
+});
