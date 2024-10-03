@@ -109,7 +109,7 @@ func (w Writer) MaybeSetRootUser(
 	username string,
 ) error {
 	var users []User
-	if err := w.svc.NewRetrieve().WhereKeys().Entries(&users).Exec(ctx, w.tx); err != nil {
+	if err := w.svc.NewRetrieve().Entries(&users).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	if len(users) != 1 {
