@@ -24,9 +24,22 @@ import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
-  Layout.PERSIST_EXCLUDE,
+  ...Layout.PERSIST_EXCLUDE,
   Cluster.PERSIST_EXCLUDE,
 ];
+
+const ZERO_STATE: RootState = {
+  [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
+  [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
+  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
+  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
+  [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
+  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
+  [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
+  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
+  [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
+};
 
 const reducer = combineReducers({
   [Drift.SLICE_NAME]: Drift.reducer,
@@ -99,6 +112,7 @@ export const migrateState = (prev: RootState): RootState => {
 
 const newStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
+    initial: ZERO_STATE,
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });

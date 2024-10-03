@@ -11,7 +11,7 @@ import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { MockRuntime } from "@/mock";
-import { initialState } from "@/state";
+import { ZERO_SLICE_STATE } from "@/state";
 import { sync } from "@/sync";
 import { type WindowProps, type WindowState } from "@/window";
 
@@ -36,10 +36,10 @@ describe("sync", () => {
   TESTS.forEach(([keyToSet, keyToCheck, valueToSet, expectedValue]) => {
     it(`should set ${keyToSet} to ${JSON.stringify(valueToSet)}`, async () => {
       const runtime = new MockRuntime(true, { key: "main" });
-      const nextState = deep.copy(initialState);
+      const nextState = deep.copy(ZERO_SLICE_STATE);
       const win = nextState.windows[runtime.label()];
       nextState.windows[runtime.label()] = { ...win, [keyToSet]: valueToSet };
-      await sync(initialState, nextState, runtime, false);
+      await sync(ZERO_SLICE_STATE, nextState, runtime, false);
       expect(runtime.props[keyToCheck]).toStrictEqual(expectedValue);
     });
   });
