@@ -187,3 +187,61 @@ void test_downsample(
     auto wsErr = streamer.close();
     ASSERT_FALSE(wsErr) << wsErr.message();
 }
+
+void test_downsample_string(
+    const std::vector<std::string>& raw_data,
+    const std::vector<std::string>& expected,
+    int32_t downsample_factor
+) {
+    auto client = new_test_client();
+
+    // Create a virtual channel
+    synnax::Channel virtual_channel("virtual_string_channel", synnax::STRING, true);
+    auto err = client.channels.create(virtual_channel);
+    ASSERT_FALSE(err) << err.message();
+
+    auto now = synnax::TimeStamp::now();
+    std::vector<synnax::ChannelKey> channels = {virtual_channel.key};
+    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
+        channels,
+        now,
+        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
+        synnax::ControlSubject{"test_writer"}
+    });
+    ASSERT_FALSE(wErr) << wErr.message();
+
+    auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
+        channels,
+        downsample_factor
+    });
+    ASSERT_FALSE(sErr) << sErr.message();
+
+    // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    auto frame = synnax::Frame(1);
+    frame.add(virtual_channel.key, synnax::Series(raw_data, synnax::STRING));
+    ASSERT_TRUE(writer.write(std::move(frame)));
+    auto [res_frame, recErr] = streamer.read();
+    ASSERT_FALSE(recErr) << recErr.message();
+
+    // Get the downsampled strings
+    std::vector<std::string> received_strings = res_frame.series->at(0).strings();
+
+    ASSERT_EQ(received_strings.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); i++)
+        ASSERT_EQ(received_strings[i], expected[i]);
+
+    auto wcErr = writer.close();
+    ASSERT_FALSE(wcErr) << wcErr.message();
+    auto wsErr = streamer.close();
+    ASSERT_FALSE(wsErr) << wsErr.message();
+}
+
+TEST(FramerTests, TestStreamDownsampleString) {
+    std::vector<std::string> data = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
+
+    std::vector<std::string> expected = {"a", "c", "e", "g", "i"};
+    test_downsample_string(data, expected, 2);
+
+}
