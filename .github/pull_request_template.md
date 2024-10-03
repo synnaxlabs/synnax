@@ -1,5 +1,7 @@
-Please go to the `Preview` tab and select the appropriate template for your pull request.
+# Synnax Pull Request
 
-* [Fix](?expand=1&template=fix.md)
-* [Feature](?expand=1&template=feature.md)
-* [RC](?expand=1&template=rc.md)
+Please go to the `Preview` tab and select the appropriate template for your pull
+request.
+
+- [Fix / Feature](?expand=1&template=issue.md)
+- [RC](?expand=1&template=rc.md)
