@@ -13,9 +13,9 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/synnaxlabs/synnax/pkg/auth"
-	"github.com/synnaxlabs/synnax/pkg/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/user"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
 

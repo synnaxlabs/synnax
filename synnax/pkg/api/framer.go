@@ -16,12 +16,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	framesvc "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -39,7 +40,7 @@ type FrameService struct {
 	authProvider
 	dbProvider
 	accessProvider
-	Internal *framer.Service
+	Internal *framesvc.Service
 }
 
 func NewFrameService(p Provider) *FrameService {
@@ -198,7 +199,7 @@ func (s *FrameService) openStreamer(
 	}); err != nil {
 		return nil, err
 	}
-	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys})
+	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys, DownsampleFactor: req.DownsampleFactor})
 	if err != nil {
 		return nil, err
 	}

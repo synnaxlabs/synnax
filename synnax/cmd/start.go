@@ -13,6 +13,14 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"os"
 	"os/signal"
 	"time"
@@ -24,28 +32,21 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
-	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
-	"github.com/synnaxlabs/synnax/pkg/auth"
-	"github.com/synnaxlabs/synnax/pkg/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/hardware"
-	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
-	"github.com/synnaxlabs/synnax/pkg/label"
-	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/synnax/pkg/workspace"
-	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -207,6 +208,7 @@ func start(cmd *cobra.Command) {
 			Signals:      dist.Signals,
 			Channel:      dist.Channel,
 		})
+		frameSvc, err := framer.NewService(dist.Framer)
 		if err != nil {
 			return err
 		}
@@ -234,7 +236,7 @@ func start(cmd *cobra.Command) {
 			LinePlot:        linePlotSvc,
 			Insecure:        config.Bool(insecure),
 			Channel:         dist.Channel,
-			Framer:          dist.Framer,
+			Framer:          frameSvc,
 			Storage:         dist.Storage,
 			User:            userSvc,
 			Token:           tokenSvc,
