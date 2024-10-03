@@ -10,6 +10,7 @@
 package downsampler
 
 import (
+	"bytes"
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/address"
@@ -90,6 +91,11 @@ func downsampleSeries(series telem.Series, factor int) telem.Series {
 		return series
 	}
 
+	if series.DataType.IsVariable() {
+		return downsampleVariable(series, factor)
+	}
+
+	// Original downsampling logic for non-variable types
 	seriesLength := (len(series.Data) / factor)
 	downsampledData := make([]byte, 0, seriesLength)
 	for i := int64(0); i < series.Len(); i += int64(factor) {
@@ -97,6 +103,27 @@ func downsampleSeries(series telem.Series, factor int) telem.Series {
 		end := start + int64(series.DataType.Density())
 		downsampledData = append(downsampledData, series.Data[start:end]...)
 	}
+
+	downsampledSeries := telem.Series{
+		TimeRange: series.TimeRange,
+		DataType:  series.DataType,
+		Data:      downsampledData,
+		Alignment: series.Alignment,
+	}
+	return downsampledSeries
+}
+
+func downsampleVariable(series telem.Series, factor int) telem.Series {
+	lines := bytes.Split(series.Data, []byte("\n"))
+	downsampledLines := make([][]byte, 0, len(lines)/factor+1)
+
+	for i := 0; i < len(lines); i += factor {
+		if i < len(lines) {
+			downsampledLines = append(downsampledLines, lines[i])
+		}
+	}
+
+	downsampledData := bytes.Join(downsampledLines, []byte("\n"))
 
 	downsampledSeries := telem.Series{
 		TimeRange: series.TimeRange,
