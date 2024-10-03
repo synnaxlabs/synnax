@@ -36,7 +36,7 @@ import {
   AngledValve,
   AngledValvePreview,
   type AngledValveProps,
-  type ArrowProps,
+  type OffPageReferenceProps,
   Box,
   BoxPreview,
   type BoxProps,
@@ -829,7 +829,7 @@ const textBox: Spec<TextBoxProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const offPageReference: Spec<ArrowProps> = {
+const offPageReference: Spec<OffPageReferenceProps> = {
   name: "Off Page Reference",
   key: "offPageReference",
   Form: OffPageReferenceForm,

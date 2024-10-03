@@ -77,6 +77,7 @@ const ControlState = ({
 export type SymbolProps<P extends object = UnknownRecord> = P & {
   symbolKey: string;
   position: xy.XY;
+  aetherKey: string;
   selected: boolean;
   onChange: (value: P) => void;
 };
@@ -392,6 +393,7 @@ export interface ReliefValveProps extends Primitives.ReliefValveProps {
 export const ReliefValve = ({
   label,
   onChange,
+  aetherKey: _,
   ...rest
 }: SymbolProps<ReliefValveProps>): ReactElement => (
   <Labeled {...label} onChange={onChange}>
@@ -410,6 +412,7 @@ export interface RegulatorProps extends Primitives.RegulatorProps {
 export const Regulator = ({
   label,
   onChange,
+  aetherKey: _,
   ...rest
 }: SymbolProps<RegulatorProps>): ReactElement => (
   <Labeled {...label} onChange={onChange}>
@@ -428,6 +431,7 @@ export interface ElectricRegulatorProps extends Primitives.ElectricRegulatorProp
 export const ElectricRegulator = ({
   label,
   onChange,
+  aetherKey: _,
   ...rest
 }: SymbolProps<ElectricRegulatorProps>): ReactElement => (
   <Labeled {...label} onChange={onChange}>
@@ -446,6 +450,7 @@ export interface BurstDiscProps extends Primitives.BurstDiscProps {
 export const BurstDisc = ({
   label,
   onChange,
+  aetherKey: _,
   ...rest
 }: SymbolProps<BurstDiscProps>): ReactElement => (
   <Labeled {...label} onChange={onChange}>
@@ -463,6 +468,7 @@ export interface CapProps extends Primitives.CapProps {
 
 export const Cap = ({
   label,
+  aetherKey,
   onChange,
   ...rest
 }: SymbolProps<CapProps>): ReactElement => (
@@ -481,6 +487,7 @@ export interface ManualValveProps extends Primitives.ManualValveProps {
 
 export const ManualValve = ({
   label,
+  aetherKey,
   onChange,
   ...rest
 }: SymbolProps<ManualValveProps>): ReactElement => (
@@ -546,6 +553,7 @@ export interface FilterProps extends Primitives.FilterProps {
 
 export const Filter = ({
   label,
+  aetherKey,
   onChange,
   ...rest
 }: SymbolProps<FilterProps>): ReactElement => (
@@ -565,6 +573,7 @@ export interface NeedleValveProps extends Primitives.NeedleValveProps {
 export const NeedleValve = ({
   label,
   onChange,
+  aetherKey: _,
   ...rest
 }: SymbolProps<NeedleValveProps>): ReactElement => (
   <Labeled {...label} onChange={onChange}>
@@ -583,6 +592,7 @@ export interface CheckValveProps extends Primitives.CheckValveProps {
 export const CheckValve = ({
   label,
   onChange,
+  aetherKey: _,
   ...rest
 }: SymbolProps<CheckValveProps>): ReactElement => (
   <Labeled {...label} onChange={onChange}>
@@ -601,6 +611,7 @@ export interface OrificeProps extends Primitives.OrificeProps {
 export const Orifice = ({
   label,
   onChange,
+  aetherKey: _,
   ...rest
 }: SymbolProps<OrificeProps>): ReactElement => (
   <Labeled {...label} onChange={onChange}>
@@ -619,6 +630,7 @@ export interface AngledReliefValveProps extends Primitives.AngledReliefValveProp
 export const AngledReliefValve = ({
   label,
   onChange,
+  aetherKey: _,
   ...rest
 }: SymbolProps<AngledReliefValveProps>): ReactElement => (
   <Labeled {...label} onChange={onChange}>
@@ -1020,6 +1032,7 @@ export interface StaticMixerProps extends Primitives.StaticMixerProps {
 export const StaticMixer = ({
   label,
   onChange,
+  aetherKey,
   ...rest
 }: SymbolProps<StaticMixerProps>): ReactElement => (
   <Labeled {...label} onChange={onChange}>
@@ -1392,15 +1405,17 @@ export const TextBoxPreview = ({
   />
 );
 
-export interface ArrowProps extends Omit<Primitives.OffPageReferenceProps, "label"> {
+export interface OffPageReferenceProps
+  extends Omit<Primitives.OffPageReferenceProps, "label"> {
   label: LabelExtensionProps;
 }
 
 export const OffPageReference = ({
   label: { label, level },
+  aetherKey,
   position: _,
   ...props
-}: SymbolProps<ArrowProps>): ReactElement => (
+}: SymbolProps<OffPageReferenceProps>): ReactElement => (
   <Primitives.OffPageReference
     label={label}
     level={level}
@@ -1409,6 +1424,9 @@ export const OffPageReference = ({
   />
 );
 
-export const OffPageReferencePreview = ({ label: _, ...props }: ArrowProps) => (
+export const OffPageReferencePreview = ({
+  label: _,
+  ...props
+}: OffPageReferenceProps) => (
   <Primitives.OffPageReference label="Off Page" {...props} orientation="right" />
 );
