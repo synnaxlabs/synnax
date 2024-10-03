@@ -11,14 +11,20 @@
 
 .pluto-orientation-control {
     position: relative;
-    width: 100px;
+    &:not(.pluto-value) {
+        width: 100px;
+    }
     aspect-ratio: 1;
 
     .symbol {
         height: 2px;
-        width: calc(100% - 1rem);
+        width: calc(100% - 9px);
         background-color: var(--pluto-gray-l8);
         border-radius: var(--pluto-border-radius);
+    }
+
+    &.pluto-value {
+        border: none;
     }
 
     .pluto-value {
@@ -35,6 +41,9 @@
         justify-content: center;
         &.pluto--selected {
             background-color: var(--pluto-primary-z) !important;
+            & .symbol {
+                background-color: var(--pluto-text-on-primary) !important;
+            }
         }
 
         &.pluto--y {

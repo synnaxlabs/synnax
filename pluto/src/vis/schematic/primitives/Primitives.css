@@ -115,6 +115,24 @@
     }
 }
 
+.pluto-text-box {
+    pointer-events: all !important;
+    text-align: center;
+    padding: 2px;
+    width: "fit-content";
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-wrap: wrap;
+
+    &.pluto--top {
+        writing-mode: vertical-rl;
+    }
+    &.pluto--bottom {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+    }
+}
+
 .pluto--enabled svg .pluto--detail {
     stroke: rgba(var(--pluto-symbol-color-contrast), 0.9) !important;
 }
@@ -163,12 +181,60 @@
     .pluto-input__internal,
     .pluto-units,
     .pluto-btn {
-        background: var(--pluto-gray-l3-70) !important;
-    }
-    .pluto-input__internal:not(:active):not(:focus-within) {
-        border-right: none !important;
+        /* background: var(--pluto-gray-l2) !important; */
+        transition: none !important;
     }
     .pluto-units {
         padding: 0 1rem;
+    }
+}
+
+.pluto-arrow {
+    pointer-events: all !important;
+    &.pluto--top {
+        transform: rotate(-90deg);
+    }
+    &.pluto--bottom {
+        transform: rotate(90deg);
+    }
+    &.pluto--left {
+        transform: rotate(180deg);
+        .pluto-text {
+            transform: rotate(180deg);
+        }
+    }
+    .wrapper {
+        display: inline-block;
+        filter: url("#goo");
+        .outline {
+            padding: 1px;
+            clip-path: polygon(
+                0 0,
+                calc(100% - 2rem) 0,
+                100% 50%,
+                calc(100% - 2rem) 100%,
+                0 100%
+            );
+
+            .bg {
+                clip-path: polygon(
+                    0 0,
+                    calc(100% - 2rem) 0,
+                    calc(100% - 2px) 50%,
+                    calc(100% - 2rem) 100%,
+                    0 100%
+                );
+                margin-top: 1px;
+                margin-bottom: 1px;
+                margin-left: 1px;
+                padding-right: 2.5rem;
+                padding-top: 0.5rem;
+                padding-bottom: 0.5rem;
+                padding-left: 1rem;
+                background-color: var(--pluto-gray-l0);
+                width: calc(100% - 1px);
+                height: calc(100% - 2px);
+            }
+        }
     }
 }

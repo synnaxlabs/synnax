@@ -78,6 +78,7 @@ const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElem
   return (
     <Button.Icon
       {...props}
+      variant="outlined"
       disabled={enabled}
       tooltip={
         enabled
@@ -186,6 +187,7 @@ export const LinePlotAxisControls = ({
             bounds={{ lower: 1, upper: 200 }}
             value={axis.tickSpacing}
             onChange={handleTickSpacingChange}
+            endContent="px"
           />
         </Input.Item>
       </Align.Space>

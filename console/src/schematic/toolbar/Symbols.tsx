@@ -100,7 +100,6 @@ const SymbolsButton = ({
   return (
     // @ts-expect-error - generic elements
     <Align.Space
-      el="button"
       className={CSS.BE("schematic-symbols", "button")}
       justify="spaceBetween"
       align="center"

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type location } from "@synnaxlabs/x";
-import { forwardRef,useCallback } from "react";
+import { forwardRef, useCallback } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -18,6 +18,8 @@ export interface LabelExtensionProps {
   label?: string;
   level?: Text.Level;
   orientation?: location.Outer;
+  maxInlineSize?: number;
+  align?: Align.Alignment;
 }
 
 export interface LabeledProps
@@ -36,6 +38,7 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
       orientation = "top",
       style,
       className,
+      maxInlineSize = 150,
       ...props
     },
     ref,
@@ -64,6 +67,7 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
           <Text.Editable
             className={CSS.BE("symbol", "label")}
             value={value}
+            style={{ maxInlineSize: maxInlineSize }}
             onChange={useCallback(
               (label) =>
                 onChange({
