@@ -95,7 +95,7 @@ TEST(FramerTests, testStreamSetChannels) {
     ASSERT_FALSE(recErr) << recErr.message();
 
     ASSERT_EQ(res_frame.size(), 1);
-    ASSERT_EQ(res_frame.series->at(0).values<int>()[0], 1.0);
+    ASSERT_EQ(res_frame.series->at(0).values<float>()[0], 1.0);
 
     auto wcErr = writer.close();
     ASSERT_FALSE(cErr) << cErr.message();

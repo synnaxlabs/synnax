@@ -75,42 +75,14 @@ func downsample(
 	response framer.StreamerResponse,
 	factor int,
 ) framer.StreamerResponse {
-	for i, k := range response.Frame.Keys {
-		series := response.Frame.Get(k)[0]
-		downsampledSeries := downsampleSeries(series, factor)
-		response.Frame.Series[i] = downsampledSeries
+	if factor <= 1 {
+		return response
+	}
+	for i, series := range response.Frame.Series {
+		response.Frame.Series[i] = downsampleSeries(series, factor)
 	}
 	return response
 }
-
-//
-//func downsampleSeries(series telem.Series, factor int) telem.Series {
-//	length := len(series.Data)
-//	if factor <= 1 || length <= factor {
-//		return series
-//	}
-//
-//	densitySize := int(series.DataType.Density())
-//	numPoints := length / densitySize
-//	newNumPoints := numPoints / factor
-//
-//	j := 0
-//	// Overwrite already allocated series with downsampled data
-//	for i := 0; i < newNumPoints; i++ {
-//		srcIndex := i * factor * densitySize
-//		if srcIndex != j*densitySize {
-//			copy(series.Data[j*densitySize:(j+1)*densitySize], series.Data[srcIndex:srcIndex+densitySize])
-//		}
-//		j++
-//	}
-//
-//	// Truncate the slice to the new length
-//	series.Data = series.Data[:newNumPoints*densitySize]
-//
-//	return series
-//}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////// OLD
 
 func downsampleSeries(series telem.Series, factor int) telem.Series {
 	length := len(series.Data)
