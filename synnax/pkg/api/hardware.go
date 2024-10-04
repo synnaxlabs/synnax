@@ -13,14 +13,14 @@ package api
 
 import (
 	"context"
+	access "github.com/synnaxlabs/synnax/pkg/service/access"
 	"go/types"
 
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/hardware"
-	"github.com/synnaxlabs/synnax/pkg/hardware/device"
-	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
-	"github.com/synnaxlabs/synnax/pkg/hardware/task"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
 	"github.com/synnaxlabs/x/gorp"
 )
 

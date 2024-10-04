@@ -1,14 +1,14 @@
-# Release Candidate Pull Request Template
+# Release Candidate Pull Request
+
+The following
 
 ## Key Information
 
-- **Platform Version**:
+- **Version Number**:
 
 ## Versioning
 
-### Public Packages
-
-#### Version Consistency
+### Version Consistency
 
 I have verified that the following packages have the same minor version number:
 
@@ -19,7 +19,7 @@ I have verified that the following packages have the same minor version number:
 - [ ] alamos/py
 - [ ] freighter/py
 - [ ] client/py
-- [ ] synnax server
+- [ ] server
 - [ ] drift
 - [ ] pluto
 - [ ] console
@@ -37,18 +37,10 @@ previously released packages:
 - [ ] [alamos/py](https://pypi.org/project/alamos/)
 - [ ] [freighter/py](https://pypi.org/project/synnax-freighter/)
 - [ ] [client/py](https://pypi.org/project/synnax/)
-- [ ] [synnax server](https://github.com/synnaxlabs/synnax/releases)
+- [ ] [server](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [drift](https://www.npmjs.com/package/@synnaxlabs/drift)
 - [ ] [pluto](https://npmjs.com/package/@synnaxlabs/pluto)
 - [ ] [console](https://github.com/synnaxlabs/synnax/releases)
-
-## CI Tests
-
-- [ ] I have verified that all CI tests pass.
-
-## CD Builds
-
-- [ ] I have verified that all CD builds pass.
 
 ## User Documentation
 
@@ -70,7 +62,7 @@ documentation has been left stale.
 
 ### Examples
 
-I have verified that code examples for each of the following services run correctly **after releasing new versions of the corresponding packages**:
+I have verified that code examples for each of the following services run correctly:
 
 - [ ] client/py
 - [ ] client/ts
@@ -84,7 +76,7 @@ I have verified that code examples for each of the following services run correc
 - [ ] I have verified that the nightly builds of the console are able to auto-update
       correctly.
 
-### Cluster Connection
+### Clusters
 
 I can successfully:
 
@@ -114,8 +106,6 @@ I can successfully:
   - [ ] Create a new persisted range.
   - [ ] Set parent range
   - [ ] Add labels
-  - [ ] Rename existing range
-  - [ ] Change times on existing range
 - [ ] Range Layout
   - [ ] Rename range.
   - [ ] Rename range from tab.
@@ -165,7 +155,7 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new channel from the search bar.
+- [ ] Create a new channel from the search palette.
 - [ ] Create several channels with the 'Create More' flag set to true.
 - [ ] Rename a channel in the resources view.
 - [ ] Delete a channel in the resources view.
@@ -185,6 +175,7 @@ I can successfully:
 - [ ] Copy the link to a line plot and open it from the resources view.
 - [ ] Create a new line plot from the search bar.
 - [ ] Create a new line plot from a workspace in the resources view.
+- [ ] Export and import a line plot.
 - [ ] Plot a historical range of data.
 - [ ] Plot a live range of data.
 - [ ] Move channels between axes.
@@ -249,7 +240,7 @@ I can successfully:
 - [ ] Open the documentation from the command search bar.
 - [ ] Open the documentation from the question mark icon.
 
-## Users
+### Users
 
 I can successfully:
 

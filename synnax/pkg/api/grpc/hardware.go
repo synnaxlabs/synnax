@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
-	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
-	"github.com/synnaxlabs/synnax/pkg/hardware/task"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

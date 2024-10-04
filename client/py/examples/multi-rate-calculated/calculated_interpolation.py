@@ -10,8 +10,8 @@
 import synnax as sy
 
 """
-This example demonstrates how to calculate the average of two sensor channels that
-are being sampled at different rates, using numpy's interpolation function to correctly
+This example demonstrates how to calculate the average of two sensor channels that are
+being sampled at different rates, using numpy's interpolation function to correctly
 align the timestamps of the two channels. This example is more complex than the
 'calculate_simple.py' example, and requires more computational resources to run.
 
@@ -27,9 +27,7 @@ client = sy.Synnax()
 # These will store the same timestamps as the raw time channel, but will be used to
 # index the calculated values.
 derived_time_ch = client.channels.create(
-    name="derived_time",
-    is_index=True,
-    retrieve_if_name_exists=True
+    name="derived_time", is_index=True, retrieve_if_name_exists=True
 )
 
 # We'll store the average of "stream_write_example_data_1" and "stream_write_example_data_2"
@@ -38,7 +36,7 @@ average_example_data_1 = client.channels.create(
     name="average_example_data_1",
     index=derived_time_ch.key,
     data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 current_values = dict()
@@ -61,23 +59,14 @@ def interpolate(data_ch_1_time, data_ch_1, data_ch_2_time, data_ch_2):
     if start_time > end_time:
         return np.array([]), np.array([]), np.array([])
 
-    combined_timestamps = np.unique(
-        np.concatenate((data_ch_1_time, data_ch_2_time)))
+    combined_timestamps = np.unique(np.concatenate((data_ch_1_time, data_ch_2_time)))
     # We only want to interpolate values that are within the range of both channels.
     avg_timestamps = combined_timestamps[
         (combined_timestamps >= start_time) & (combined_timestamps <= end_time)
-        ]
+    ]
     # Interpolate the values for each channel
-    sensor1_values_interp = np.interp(
-        avg_timestamps,
-        data_ch_1_time,
-        data_ch_1
-    )
-    sensor2_values_interp = np.interp(
-        avg_timestamps,
-        data_ch_2_time,
-        data_ch_2
-    )
+    sensor1_values_interp = np.interp(avg_timestamps, data_ch_1_time, data_ch_1)
+    sensor2_values_interp = np.interp(avg_timestamps, data_ch_2_time, data_ch_2)
     # Return the interpolated values and the timestamps
     return sensor1_values_interp, sensor2_values_interp, avg_timestamps
 
@@ -85,7 +74,7 @@ def interpolate(data_ch_1_time, data_ch_1, data_ch_2_time, data_ch_2):
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["derived_time", "average_example_data_1"],
-    enable_auto_commit=True
+    enable_auto_commit=True,
 ) as writer:
     with client.open_streamer(TO_READ) as s:
         for fr in s:
@@ -102,11 +91,16 @@ with client.open_writer(
                 current_values["time_ch_1"],
                 current_values["data_ch_1"],
                 current_values["time_ch_2"],
-                current_values["data_ch_2"]
+                current_values["data_ch_2"],
             )
             # This means we have no samples to write
             if len(sensor_1) == 0:
                 continue
             # Calculate the average of the two sensors
             avg = (sensor_1 + sensor_2) / 2
-            writer.write({"derived_time": time, "average_example_data_1": avg, })
+            writer.write(
+                {
+                    "derived_time": time,
+                    "average_example_data_1": avg,
+                }
+            )

@@ -17,7 +17,7 @@ import { ReadFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
-const reqZ = z.object({ keys: z.number().array() });
+const reqZ = z.object({ keys: z.number().array() , downsampleFactor: z.number() });
 
 const resZ = z.object({
   frame: frameZ,
@@ -28,11 +28,13 @@ const ENDPOINT = "/frame/stream";
 
 export interface StreamerConfig {
   channels: Params;
+  downsampleFactor?: number;
 }
 
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadFrameAdapter;
+  private readonly downsampleFactor: number;
 
   private constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
@@ -40,6 +42,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
+    this.downsampleFactor = 1;
   }
 
   get keys(): Key[] {
@@ -49,12 +52,12 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   static async _open(
     retriever: Retriever,
     client: StreamClient,
-    { channels }: StreamerConfig,
+    { channels, downsampleFactor }: StreamerConfig,
   ): Promise<Streamer> {
     const adapter = await ReadFrameAdapter.open(retriever, channels);
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
-    stream.send({ keys: adapter.keys });
+    stream.send({ keys: adapter.keys, downsampleFactor: downsampleFactor ?? 1 });
     const [, err] = await stream.receive();
     if (err != null) throw err;
     return streamer;
@@ -76,7 +79,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 
   async update(channels: Params): Promise<void> {
     await this.adapter.update(channels);
-    this.stream.send({ keys: this.adapter.keys });
+    this.stream.send({ keys: this.adapter.keys, downsampleFactor: this.downsampleFactor });
   }
 
   close(): void {

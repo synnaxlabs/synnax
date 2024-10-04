@@ -13,18 +13,18 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	. "github.com/synnaxlabs/x/testutil"
 	"time"
 
-	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/auth"
-	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	securitymock "github.com/synnaxlabs/synnax/pkg/security/mock"
-	"github.com/synnaxlabs/synnax/pkg/user"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 type Builder struct {
@@ -43,7 +43,6 @@ func (b *Builder) NewConfig(ctx context.Context) api.Config {
 	}
 	return api.Config{
 		Channel:       dist.Channel,
-		Framer:        dist.Framer,
 		Ontology:      dist.Ontology,
 		Storage:       dist.Storage,
 		User:          MustSucceed(user.NewService(ctx, user.Config{DB: dist.Storage.Gorpify(), Ontology: dist.Ontology, Group: dist.Group})),

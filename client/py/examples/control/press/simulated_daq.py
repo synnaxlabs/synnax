@@ -10,7 +10,6 @@
 import math
 
 import synnax as sy
-import time
 
 client = sy.Synnax()
 

@@ -10,12 +10,12 @@
 package api
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/auth"
-	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/user"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
 

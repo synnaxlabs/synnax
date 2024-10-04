@@ -28,6 +28,7 @@ export interface RequiredState extends Version.StoreState {}
 
 export interface Config<S extends RequiredState> {
   migrator?: (state: S) => S;
+  initial: S;
   exclude: Array<deep.Key<S>>;
 }
 
@@ -59,6 +60,7 @@ export const hardClearAndReload = () => {
 
 export const open = async <S extends RequiredState>({
   exclude = [],
+  initial,
   migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
   const appWindow = getCurrentWindow();
@@ -109,6 +111,12 @@ export const open = async <S extends RequiredState>({
     }
     await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
   }
+  if (state != null)
+    exclude.forEach((key) => {
+      const v = deep.get(initial, key, { optional: true });
+      if (v == null) return;
+      deep.set(state, key, v);
+    });
 
   return [
     state,

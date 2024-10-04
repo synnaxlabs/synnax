@@ -10,11 +10,14 @@
 import synnax as sy
 
 """
-This example demonstrates how to  calculate the average of two sensor channels that
-are being sampled at different rates. This example uses a naive method that simply grabs
-and uses the latest value from each channel. This approach is simple, computationally
-inexpensive, and works well when both channels are operating at consistent rates.
-Good examples of this are a sensor operating at 100Hz and another at 50Hz.
+This example demonstrates how to  calculate the average of two sensor channels that are
+being sampled at different rates. This example uses a naive method that simply grabs and
+uses the latest value from each channel. This approach is simple, computationally
+inexpensive, and works well when both channels are operating at consistent rates. Good
+examples of this are a sensor operating at 100Hz and another at 50Hz.
+
+This example must be run in conjunction with the 'simulated_daq.py' file in this
+directory. Run the 'simulated_daq.py' file first, and then run this file.
 """
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
@@ -25,9 +28,7 @@ client = sy.Synnax()
 # These will store the same timestamps as the raw time channel, but will be used to
 # index the calculated values.
 derived_time_ch = client.channels.create(
-    name="derived_time",
-    is_index=True,
-    retrieve_if_name_exists=True
+    name="derived_time", is_index=True, retrieve_if_name_exists=True
 )
 
 # We'll store the average of "stream_write_example_data_1" and "stream_write_example_data_2"
@@ -36,7 +37,7 @@ average_example_data_1 = client.channels.create(
     name="average_example_data_1",
     index=derived_time_ch.key,
     data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 TO_READ = ["time_ch_1", "time_ch_2", "data_ch_1", "data_ch_2"]
@@ -47,7 +48,7 @@ current_values = dict()
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["derived_time", "average_example_data_1"],
-    enable_auto_commit=True
+    enable_auto_commit=True,
 ) as writer:
     with client.open_streamer(TO_READ) as s:
         for fr in s:

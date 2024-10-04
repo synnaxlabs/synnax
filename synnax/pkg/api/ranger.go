@@ -11,17 +11,17 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"go/types"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/ranger"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/telem"
 )
 
 type (

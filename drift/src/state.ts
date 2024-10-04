@@ -122,7 +122,7 @@ export type Payload =
 /** Type representing all possible actions that are drift related. */
 export type Action = PayloadAction<Payload>;
 
-export const initialState: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = {
   label: MAIN_WINDOW,
   config: {
     enablePrerender: true,
@@ -207,7 +207,7 @@ export const SLICE_NAME = "drift";
 
 const slice = createSlice({
   name: SLICE_NAME,
-  initialState,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     setConfig: (s: SliceState, a: PayloadAction<SetConfigPayload>) => {
       s.config = { ...s.config, ...a.payload };

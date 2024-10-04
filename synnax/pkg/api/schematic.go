@@ -14,9 +14,9 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/x/gorp"
 )
 

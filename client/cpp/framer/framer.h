@@ -117,6 +117,7 @@ class StreamerConfig {
 public:
     /// @brief the channels to stream.
     std::vector<ChannelKey> channels;
+    int downsample_factor = 1;
 private:
     void toProto(api::v1::FrameStreamerRequest &f) const;
 
