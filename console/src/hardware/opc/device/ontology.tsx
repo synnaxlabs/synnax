@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
 import { ReactElement } from "react";
 
+import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
 import { configureWriteLayout } from "@/hardware/opc/task/WriteTask";
 import { Layout } from "@/layout";
@@ -37,9 +38,17 @@ export const ContextMenuItems = ({
   };
   const createReadTask = () => place(configureReadLayout(initialArgs));
   const createWriteTask = () => place(configureWriteLayout(initialArgs));
+  const createConfigure = () => place(createConfigureLayout(first.id.key));
   if (!isSingle) return null;
   return (
     <>
+      <Menu.Item
+        itemKey="opc.connect"
+        startIcon={<Icon.Connect />}
+        onClick={createConfigure}
+      >
+        Edit Connection
+      </Menu.Item>
       <Menu.Divider />
       <Menu.Item
         startIcon={
