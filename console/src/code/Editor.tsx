@@ -48,7 +48,12 @@ export const Editor = ({
     monaco.editor.defineTheme("vs-dark-custom", {
       base: "vs-dark",
       inherit: true,
-      rules: [],
+      rules: [
+        {
+          foreground: "#cc255f",
+          token: "keyword",
+        },
+      ],
       colors: {
         "editor.background": theme.colors.gray.l1.hex,
         "editor.foreground": theme.colors.gray.l9.hex,
@@ -63,6 +68,7 @@ export const Editor = ({
       language: "python",
       theme: "vs-dark-custom",
       automaticLayout: true,
+      minimap: { enabled: false },
     });
     monacoRef.current.onDidChangeModelContent(() => {
       if (monacoRef.current === null) return;
@@ -71,7 +77,7 @@ export const Editor = ({
     return () => {
       if (monacoRef.current) monacoRef.current.dispose();
     };
-  }, []);
+  }, [theme.key]);
 
   return (
     <Align.Space direction="y" grow style={{ height: "100%", ...style }} {...props}>

@@ -6,6 +6,7 @@ use (
 	./alamos/go
 	./aspen
 	./cesium
+	./computron/py-in-mem
 	./freighter/go
 	./freighter/integration
 	./integration

@@ -11,7 +11,6 @@ import { channel, DataType, Rate } from "@synnaxlabs/client";
 import {
   Align,
   Button,
-  Channel,
   Form,
   Input,
   Nav,
@@ -140,7 +139,15 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
             </Form.Field>
           </Align.Space>
           <Code.Editor
-            value="#Dog"
+            value={`
+def calculate(channel):
+  var = 1
+  return var * channel
+
+output = calculate(input)
+return output
+            `}
+            lang="python"
             onChange={console.log}
             bordered
             rounded
