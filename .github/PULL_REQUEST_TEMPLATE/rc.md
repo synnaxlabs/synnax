@@ -106,8 +106,6 @@ I can successfully:
   - [ ] Create a new persisted range.
   - [ ] Set parent range
   - [ ] Add labels
-  - [ ] Rename existing range
-  - [ ] Change times on existing range
 - [ ] Range Layout
   - [ ] Rename range.
   - [ ] Rename range from tab.
@@ -157,7 +155,7 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new channel from the search bar.
+- [ ] Create a new channel from the search palette.
 - [ ] Create several channels with the 'Create More' flag set to true.
 - [ ] Rename a channel in the resources view.
 - [ ] Delete a channel in the resources view.
@@ -177,6 +175,7 @@ I can successfully:
 - [ ] Copy the link to a line plot and open it from the resources view.
 - [ ] Create a new line plot from the search bar.
 - [ ] Create a new line plot from a workspace in the resources view.
+- [ ] Export and import a line plot.
 - [ ] Plot a historical range of data.
 - [ ] Plot a live range of data.
 - [ ] Move channels between axes.
