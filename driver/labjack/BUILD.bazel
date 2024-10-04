@@ -1,0 +1,35 @@
+#cc_library(
+#    name = "labjack",
+#    hdrs = [
+#        "LabJackM.h",
+#        "LabJackMModbusMap.h",
+#        "LJM_StreamUtilities.h",
+#        "LJM_Utilities.h",
+#    ],
+#    deps = [":labjackm"],
+#    visibility = ["//visibility:public"],
+#)
+
+#filegroup(
+#    name = "labjackm_dll",
+#    srcs = ["LabJackM.dll"],  # Adjust this path if necessary
+#    visibility = ["//visibility:public"],
+#)
+
+cc_library(
+    name = "labjackm",
+    hdrs = [
+        "LabJackM.h",
+        "LabJackMModbusMap.h",
+        "LJM_StreamUtilities.h",
+        "LJM_Utilities.h",
+    ],
+    deps = ["@labjack//:labjackm_lib"],
+    visibility = ["//visibility:public"],
+)
+
+cc_binary(
+    name = "eReadNames",
+    srcs = ["eReadNames.c"],
+    deps = [":labjackm"],
+)
