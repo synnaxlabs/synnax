@@ -13,10 +13,10 @@ import synnax as sy
 
 """
 This example sets up a simulated data acquisition system that writes data to two
-channels at different rates (along with their indexes). This example should be run
-in conjunction with the 'calculated_interpolation.py' example or the
-'calculated_simple.py' example to demonstrate how to calculate derived values from
-these channels with different rates.
+channels at different rates (along with their indexes). This example should be run in
+conjunction with the 'calculated_interpolation.py' example or the 'calculated_simple.py'
+example to demonstrate how to calculate derived values from these channels with
+different rates.
 """
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
@@ -72,8 +72,9 @@ rough_rate = sy.Loop(sy.Rate.HZ * 30)
 # also provide the names and write that way.
 start = sy.TimeStamp.now()
 with client.open_writer(
-    start, [time_ch_1.key, time_ch_2.key, data_ch_1.key, data_ch_2.key],
-    enable_auto_commit=True
+    start,
+    [time_ch_1.key, time_ch_2.key, data_ch_1.key, data_ch_2.key],
+    enable_auto_commit=True,
 ) as writer:
     i = 0
     while rough_rate.wait():
@@ -84,7 +85,7 @@ with client.open_writer(
             time_ch_1.key: [np.int64(time), np.int64(time_2)],
             data_ch_1.key: [
                 np.float32(np.sin(i / 10)),
-                np.float32(np.sin((i + 1) / 10))
+                np.float32(np.sin((i + 1) / 10)),
             ],
         }
 

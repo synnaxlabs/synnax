@@ -1,3 +1,5 @@
+# Abort Sequence Example
+
 To run this example, you'll need three Python shells open. In the first shell, start the
 simulated data acquisition device:
 
