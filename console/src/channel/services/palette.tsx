@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { createLayout } from "@/channel/Create";
+import { createCalculatedLayout } from "@/channel/CreateCalculated";
 import { type Command, type CommandSelectionContext } from "@/palette/Palette";
 
 export const createChannelCommand: Command = {
@@ -21,4 +22,13 @@ export const createChannelCommand: Command = {
   },
 };
 
-export const COMMANDS = [createChannelCommand];
+export const createCalculatedChannelCommand: Command = {
+  icon: <Icon.Channel />,
+  name: "Create Calculated Channel",
+  key: "create-calculated-channel",
+  onSelect: (ctx: CommandSelectionContext) => {
+    ctx.placeLayout(createCalculatedLayout);
+  },
+};
+
+export const COMMANDS = [createChannelCommand, createCalculatedChannelCommand];

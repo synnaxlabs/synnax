@@ -242,6 +242,9 @@ importers:
       async-mutex:
         specifier: ^0.5.0
         version: 0.5.0
+      monaco-editor:
+        specifier: ^0.52.0
+        version: 0.52.0
       proxy-memoize:
         specifier: 1.2.0
         version: 1.2.0

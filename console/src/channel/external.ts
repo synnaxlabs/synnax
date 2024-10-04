@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { CREATE_LAYOUT_TYPE, CreateModal } from "@/channel/Create";
+import {
+  CREATE_CALCULATED_LAYOUT_TYPE,
+  CreateCalculatedModal,
+} from "@/channel/CreateCalculated";
 import { Layout } from "@/layout";
 
 export * from "@/channel/Create";
@@ -16,4 +20,5 @@ export * from "@/channel/services/palette";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CREATE_LAYOUT_TYPE]: CreateModal,
+  [CREATE_CALCULATED_LAYOUT_TYPE]: CreateCalculatedModal,
 };
