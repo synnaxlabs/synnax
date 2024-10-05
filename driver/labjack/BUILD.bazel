@@ -23,7 +23,7 @@ cc_library(
     ],
     srcs = [
         "scanner.cpp",
-#        "factory.cpp",
+        "factory.cpp",
     ],
     deps = [
         ":labjack_headers",
@@ -37,23 +37,20 @@ cc_library(
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
     ],
-#    linkopts = select({
-#            # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
-#            "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
-#            "//conditions:default": [],
-#    }),
-#    linkopts = select({
-#        "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE", "-lws2_32"],
-#        "//conditions:default": [],
-#    }),
-#   copts = select({
-#        "@bazel_tools//src/conditions:windows": [
-#            "/DWIN32_LEAN_AND_MEAN",
-#            "/DNOMINMAX",
-#            "/D_WIN32_WINNT=0x0601",  # Target Windows 7 or later
-#        ],
-#        "//conditions:default": [],
-#    }),
+    copts = select({
+        "@bazel_tools//src/conditions:windows": [
+            "/DWIN32_LEAN_AND_MEAN",
+            "/DNOMINMAX",
+            "/D_WIN32_WINNT=0x0601",  # Target Windows 7 or later
+            "/D_WINSOCK_DEPRECATED_NO_WARNINGS",
+            "/D_CRT_SECURE_NO_WARNINGS",
+        ],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@bazel_tools//src/conditions:windows": ["/DEFAULTLIB:ws2_32.lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
 )
 

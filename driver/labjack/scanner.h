@@ -59,9 +59,11 @@ public:
 
     void create_devices();
 
+    json get_devices();
+
 private:
     json devices;
-    std::set<std::string> device_keys;
+    std::set<int> device_keys;
     synnax::Task task;
     std::shared_ptr<task::Context> ctx;
     std::shared_ptr<std::thread> thread = nullptr;

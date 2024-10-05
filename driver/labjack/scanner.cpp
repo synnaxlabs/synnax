@@ -38,8 +38,8 @@ std::unique_ptr<task::Task> ScannerTask::configure(
 
 void ScannerTask::exec(task::Command &cmd) {
     if (cmd.type == SCAN_CMD_TYPE) {
-        this->create_devices();
-        return this->scan();
+        this->scan();
+        return this->create_devices();
     } else if (cmd.type == STOP_CMD_TYPE){
         return this->stop();
     }
@@ -81,11 +81,14 @@ void ScannerTask::scan() {
         device["serial_number"] = aSerialNumbers[i];
         device["key"] = device["serial_number"];
         device["failed_to_create"] = false;
-        devices["devices"].push_back(device);
+        // check if device is already in set, else pushback
+        if(device_keys.find(device["key"].get<int>()) == device_keys.end()) {
+            devices["devices"].push_back(device);
+            device_keys.insert(device["key"].get<int>());
+        }
     }
 
     LOG(INFO) << "devices json: "  << devices.dump(4);
-
 }
 
 void ScannerTask::create_devices() {
@@ -138,4 +141,8 @@ void ScannerTask::run(){
 ScannerTask::~ScannerTask() {
     if (this->thread != nullptr && this->thread->joinable() && std::this_thread::get_id() != this->thread->get_id())
         this->thread->join();
+}
+
+json ScannerTask::get_devices() {
+    return devices;
 }

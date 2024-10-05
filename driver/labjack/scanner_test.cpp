@@ -22,6 +22,7 @@
 //                                          Functional Tests                                                    //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TEST(LabjackScannerTests, test_valid_scan){
+    std::cout << "Running test_valid_scan" << std::endl;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto task = synnax::Task(
         "my_task",
@@ -33,6 +34,12 @@ TEST(LabjackScannerTests, test_valid_scan){
 
     //create a scanner
     labjack::ScannerTask scanner = labjack::ScannerTask(mockCtx, task);
-    scanner.scan();
+//    scanner.scan();
+    // sleep for 3 seconds
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+
+    nlohmann::json devices = scanner.get_devices();
+    // print json
+    std::cout << devices.dump(4) << std::endl;
 
 }

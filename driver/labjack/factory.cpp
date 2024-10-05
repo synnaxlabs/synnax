@@ -12,7 +12,7 @@
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/scanner.h"
 
-std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
+std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
 ) {
@@ -23,7 +23,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-opc::Factory::configure_initial_tasks(
+labjack::Factory::configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
 ) {
