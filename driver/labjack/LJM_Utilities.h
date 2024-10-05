@@ -8,7 +8,8 @@
 
 
 #ifdef _WIN32
-	#include <Winsock2.h>
+	#include <winsock2.h>
+    #include <windows.h>
 	#include <ws2tcpip.h>
 #else
 	#include <unistd.h> // For sleep() (with Mac OS or Linux).

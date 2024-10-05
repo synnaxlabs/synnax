@@ -28,6 +28,7 @@
 namespace labjack{
 
 const std::string SCAN_CMD_TYPE = "scan";
+const std::string STOP_CMD_TYPE = "stop";
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                               Scanner Task                                    //
@@ -35,6 +36,7 @@ const std::string SCAN_CMD_TYPE = "scan";
 class ScannerTask final : public task::Task {
 public:
     explicit ScannerTask() = default;
+    ~ScannerTask();
     explicit ScannerTask (
             const std::shared_ptr<task::Context> &ctx,
             const synnax::Task &task
@@ -49,18 +51,22 @@ public:
 
     void exec(task::Command &cmd) override;
 
-    void stop() override{
-
-    };
+    void stop() override;
 
     void scan();
+
+    void run();
+
+    void create_devices();
 
 private:
     json devices;
     std::set<std::string> device_keys;
     synnax::Task task;
     std::shared_ptr<task::Context> ctx;
-    std::shared_ptr<std::thread> scan_thread = nullptr;
+    std::shared_ptr<std::thread> thread = nullptr;
+    breaker::Breaker breaker;
+    synnax::Rate scan_rate = synnax::Rate(1);
 };
 
 

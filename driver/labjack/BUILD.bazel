@@ -18,17 +18,42 @@ cc_library(
 cc_library(
     name = "labjack",
     hdrs = [
-        "scanner.h"
+        "scanner.h",
+        "labjack.h",
     ],
-    srcs = ["scanner.cpp"],
+    srcs = [
+        "scanner.cpp",
+#        "factory.cpp",
+    ],
     deps = [
         ":labjack_headers",
         ":labjack_lib",
         "//client/cpp:synnax",
         "//driver/errors",
         "//driver/task",
+        "//driver/pipeline",
+        "//driver/loop",
+        "//driver/config",
+        "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
     ],
+#    linkopts = select({
+#            # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
+#            "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+#            "//conditions:default": [],
+#    }),
+#    linkopts = select({
+#        "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE", "-lws2_32"],
+#        "//conditions:default": [],
+#    }),
+#   copts = select({
+#        "@bazel_tools//src/conditions:windows": [
+#            "/DWIN32_LEAN_AND_MEAN",
+#            "/DNOMINMAX",
+#            "/D_WIN32_WINNT=0x0601",  # Target Windows 7 or later
+#        ],
+#        "//conditions:default": [],
+#    }),
     visibility = ["//visibility:public"],
 )
 
