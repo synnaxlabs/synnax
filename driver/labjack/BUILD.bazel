@@ -6,6 +6,11 @@ cc_library(
         "LJM_StreamUtilities.h",
         "LJM_Utilities.h",
     ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "labjack_lib",
     deps = ["@labjack//:labjackm_lib"],
     visibility = ["//visibility:public"],
 )
@@ -18,17 +23,28 @@ cc_library(
     srcs = ["scanner.cpp"],
     deps = [
         ":labjack_headers",
+        ":labjack_lib",
         "//client/cpp:synnax",
         "//driver/errors",
         "//driver/task",
         "@nlohmann_json//:json",
     ],
-    copts = [
-        "/D_SILENCE_CXX17_OLD_ALLOCATOR_MEMBERS_DEPRECATION_WARNING",
-        "/DWIN32_LEAN_AND_MEAN",
-        "/DNOMINMAX",
-        "/std:c++20",
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "scanner_test",
+    srcs = ["scanner_test.cpp"],
+    deps = [
+        ":labjack",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
     ],
+    linkopts = select({
+        # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
+        "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_binary(
@@ -43,20 +59,7 @@ cc_binary(
     deps = [":labjack_headers"],
 )
 
-cc_test(
-    name = "scanner_test",
-    srcs = ["scanner_test.cpp"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":labjack",
-        "@com_google_googletest//:gtest_main",
-    ],
-    copts = [
-        "/D_SILENCE_CXX17_OLD_ALLOCATOR_MEMBERS_DEPRECATION_WARNING",
-        "/DWIN32_LEAN_AND_MEAN",
-        "/DNOMINMAX",
-    ],
-)
+
 
 #filegroup(
 #    name = "labjackm_dll",

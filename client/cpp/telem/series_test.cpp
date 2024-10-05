@@ -17,7 +17,7 @@
 TEST(TestSeries, testConstruction) {
     const std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     const synnax::Series s{vals};
-    ASSERT_EQ(s.data_type, synnax::UINT8);
+    ASSERT_EQ(s.data_type, synnax::SY_UINT8);
     const auto v = s.values<std::uint8_t>();
     ASSERT_EQ(v.size(), vals.size());
     for (size_t i = 0; i < vals.size(); i++)
@@ -205,7 +205,7 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     ASSERT_EQ(oss_float64.str(),
               "Series(type: float64, size: 3, cap: 3, data: [1.5 2.5 3.5 ])");
 
-    Series s_uint8{synnax::UINT8, 3};
+    Series s_uint8{synnax::SY_UINT8, 3};
     for (std::uint8_t i = 1; i <= 3; ++i) {
         s_uint8.write(i);
     }

@@ -79,10 +79,10 @@ void opc::WriterSink::set_variant(
     } else if (type == synnax::UINT32) {
         uint32_t data = frame.series->at(series_index).values<uint32_t>()[0];
         UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_UINT32]);
-    } else if (type == synnax::UINT16) {
+    } else if (type == synnax::SY_UINT16) {
         uint16_t data = frame.series->at(series_index).values<uint16_t>()[0];
         UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_UINT16]);
-    } else if (type == synnax::UINT8) {
+    } else if (type == synnax::SY_UINT8) {
         uint8_t data = frame.series->at(series_index).values<uint8_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_BYTE]);
     } else if (type == synnax::TIMESTAMP) {

@@ -15,7 +15,6 @@
 #include <thread>
 
 #include <stdio.h>
-#include "LabJackM.h"
 #include "LJM_Utilities.h"
 
 #include "nlohmann/json.hpp"
