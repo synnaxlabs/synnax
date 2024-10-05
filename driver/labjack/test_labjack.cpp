@@ -88,7 +88,7 @@ int scan(){
         ErrorCheck(err, "LJM_NumberToIP");
         printf("[%3d]\naDeviceTypes: %s \naConnectionTypes: %s\n",
                i, NumberToDeviceType(aDeviceTypes[i]), NumberToConnectionType(aConnectionTypes[i]));
-        printf("aSerialNumbers: %d,\naIPAddresses: %s (%u)\n\m",
+        printf("aSerialNumbers: %d,\naIPAddresses: %s (%u)\n\n",
                aSerialNumbers[i], IPv4String, aIPAddresses[i]);
     }
 
@@ -98,9 +98,196 @@ int scan(){
 }
 
 
+int read_ain(){
+    int err;
+    int handle;
+
+    // Set up for reading AIN value
+    double value = 0;
+    const char * NAME = "AIN0";
+
+    // Open first found LabJack
+    handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
+    // handle = OpenSOrDie("LJM_dtANY", "LJM_ctANY", "LJM_idANY");
+
+    PrintDeviceInfoFromHandle(handle);
+    printf("\n");
+
+    // Read AIN from the LabJack
+    err = LJM_eReadName(handle, NAME, &value);
+    ErrorCheck(err, "LJM_eReadName");
+
+    // Print results
+    printf("%s: %f V\n", NAME, value);
+
+    CloseOrDie(handle);
+
+    WaitForUserIfWindows();
+
+    return LJME_NOERROR;
+}
+
+
+int read_di(){
+    int err;
+    int handle;
+
+    // Set up for reading DIO state
+    double value = 0;
+    const char * name; // Changed from char * to const char * else get compile error
+
+    // Open first found LabJack
+    handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
+    // handle = OpenSOrDie("LJM_dtANY", "LJM_ctANY", "LJM_idANY");
+
+    PrintDeviceInfoFromHandle(handle);
+
+    if (GetDeviceType(handle) == LJM_dtT4) {
+        // Reading from FIO4 on the LabJack T4. FIO0-FIO3 are reserved for
+        // AIN0-AIN3. Note: Reading a single digital I/O will change the line
+        // from analog to digital input.
+        name = "FIO4";
+    }
+    else {
+        // Reading from FIO0 on the LabJack T7 and T8
+        name = "FIO0";
+    }
+
+    // Read DIO state from the LabJack
+    err = LJM_eReadName(handle, name, &value);
+    ErrorCheck(err, "LJM_eReadName");
+
+    printf("\n%s state : %f\n", name, value);
+
+    CloseOrDie(handle);
+
+    WaitForUserIfWindows();
+
+    return LJME_NOERROR;
+}
+
+int write_di(){
+    int err;
+    int handle;
+
+    // Set up for setting DIO state
+    double value = 0; // Output state = low (0 = low, 1 = high)
+    const char * name;
+
+    // Open first found LabJack
+    handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
+    // handle = OpenSOrDie("LJM_dtANY", "LJM_ctANY", "LJM_idANY");
+
+    PrintDeviceInfoFromHandle(handle);
+
+    if (GetDeviceType(handle) == LJM_dtT4) {
+        // Setting FIO4 on the LabJack T4. FIO0-FIO3 are reserved for AIN0-AIN3.
+        name = "FIO4";
+
+        // If the FIO/EIO line is an analog input, it needs to first be changed
+        // to a digital I/O by reading from the line or setting it to digital
+        // I/O with the DIO_ANALOG_ENABLE register.
+        // For example:
+        // 	double temp;
+        // 	LJM_eReadName(handle, name, &temp);
+    }
+    else {
+        // Setting FIO0 on the LabJack T7 and T8
+        name = "FIO0";
+    }
+
+    // Set DIO state on the LabJack
+    err = LJM_eWriteName(handle, name, value);
+    ErrorCheck(err, "LJM_eWriteName");
+
+    printf("\nSet %s state : %f\n", name, value);
+
+    CloseOrDie(handle);
+
+    WaitForUserIfWindows();
+
+    return LJME_NOERROR;
+}
+
+int multi_ain(){
+    int err, errorAddress;
+    int handle;
+    int i;
+    int SkippedIntervals;
+    int deviceType, ConnectionType, SerialNumber, IPAddress, Port,
+            MaxBytesPerMB;
+    const int INTERVAL_HANDLE = 1;
+
+    // Set up for reading AIN values
+    enum { NUM_FRAMES_AIN = 2 };
+    double aValuesAIN[NUM_FRAMES_AIN] = {0};
+    const char * aNamesAIN[NUM_FRAMES_AIN] = {"AIN0", "AIN1"};
+
+    int msDelay = 1000; // sets sample rate?
+
+    // Open first found LabJack
+    handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
+    // handle = OpenSOrDie("LJM_dtANY", "LJM_ctANY", "LJM_idANY");
+
+    // Get device info
+    err = LJM_GetHandleInfo(handle, &deviceType, &ConnectionType,
+                            &SerialNumber, &IPAddress, &Port, &MaxBytesPerMB);
+    ErrorCheck(err,
+               "PrintDeviceInfoFromHandle (LJM_GetHandleInfo)");
+
+    PrintDeviceInfo(deviceType, ConnectionType, SerialNumber, IPAddress, Port,
+                    MaxBytesPerMB);
+
+    // Setup and call eWriteNames to configure AIN resolution on the LabJack.
+    WriteNameOrDie(handle, "AIN0_RESOLUTION_INDEX", 0);
+    WriteNameOrDie(handle, "AIN1_RESOLUTION_INDEX", 0);
+
+    // Range/gain configs only apply to the T7/T8
+    if (deviceType != LJM_dtT4) {
+        // Range = 10; This corresponds to ±10V (T7), or ±11V (T8)
+        WriteNameOrDie(handle, "AIN0_RANGE", 10);
+        WriteNameOrDie(handle, "AIN1_RANGE", 10);
+    }
+    // Negative channel = single ended (199). Only applies to the T7
+    if (deviceType == LJM_dtT7) {
+        WriteNameOrDie(handle, "AIN0_NEGATIVE_CH", 199);
+        WriteNameOrDie(handle, "AIN1_NEGATIVE_CH", 199);
+    }
+
+    printf("\nStarting read loop.  Press Ctrl+c to stop.\n");
+
+    err = LJM_StartInterval(INTERVAL_HANDLE, msDelay * 1000);
+    ErrorCheck(err, "LJM_StartInterval");
+
+    // Note: The LabJackM (LJM) library will catch the Ctrl+c signal, close
+    //       all open devices, then exit the program.
+    while (1) {
+        // Read AIN from the LabJack
+        err = LJM_eReadNames(handle, NUM_FRAMES_AIN, aNamesAIN, aValuesAIN,
+                             &errorAddress);
+        ErrorCheckWithAddress(err, errorAddress, "LJM_eReadNames");
+
+        printf("%s : %f V, %s : %f V\n", aNamesAIN[0], aValuesAIN[0],
+               aNamesAIN[1], aValuesAIN[1]);
+
+        err = LJM_WaitForNextInterval(INTERVAL_HANDLE, &SkippedIntervals);
+        ErrorCheck(err, "LJM_WaitForNextInterval");
+        if (SkippedIntervals > 0) {
+            printf("SkippedIntervals: %d\n", SkippedIntervals);
+        }
+    }
+
+    err = LJM_CleanInterval(INTERVAL_HANDLE);
+    PrintErrorIfError(err, "LJM_CleanInterval");
+
+    CloseOrDie(handle);
+
+    WaitForUserIfWindows();
+
+    return LJME_NOERROR;
+}
 
 
 int main() {
-    scan();
-    return 0;
+    return multi_ain();
 }

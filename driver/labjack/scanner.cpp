@@ -86,7 +86,7 @@ void ScannerTask::scan() {
         }
     }
 
-    LOG(INFO) << "devices json: "  << devices.dump(4);
+//    LOG(INFO) << "devices json: "  << devices.dump(4);
 }
 
 void ScannerTask::create_devices() {
@@ -96,7 +96,7 @@ void ScannerTask::create_devices() {
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(key);
 
         if(!err) {
-            LOG(INFO) << "[labjack.scanner] device with key: " << device["key"] << " found";
+            VLOG(1) << "[labjack.scanner] device with key: " << device["key"] << " found";
             continue;
         }
 

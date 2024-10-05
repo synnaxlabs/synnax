@@ -78,7 +78,14 @@ cc_binary(
 cc_binary(
     name = "test",
     srcs = ["test_labjack.cpp"],
-    deps = [":labjack_headers"],
+    deps = [
+        ":labjack_headers",
+        ":labjack_lib",
+    ],
+     linkopts = select({
+            "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+            "//conditions:default": [],
+        }),
 )
 
 
