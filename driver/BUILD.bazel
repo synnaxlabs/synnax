@@ -68,6 +68,7 @@ cc_binary(
             "/DEFAULTLIB:ws2_32.lib",
             "/DEFAULTLIB:iphlpapi.lib",
             "/DEFAULTLIB:psapi.lib",
+            "/FORCE:MULTIPLE", # FIXME: handles the current duplicate symbo,ls because of labjack lib. temp workaround
 #            "/debug",
 #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
         ],
@@ -80,6 +81,7 @@ cc_binary(
             "//driver/meminfo",
             "//driver/ni",
             "//driver/opc",
+            "//driver/labjack",
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",
             "@com_github_google_glog//:glog",
