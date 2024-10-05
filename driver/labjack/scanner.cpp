@@ -72,8 +72,6 @@ void ScannerTask::scan() {
             NumberToDeviceType(DeviceType),
             NumberToConnectionType(ConnectionType)
        );
-    LOG(INFO) << "[labjack.scanner] Found " << NumFound << " devices";
-
     for(int i= 0; i < NumFound; i++) {
         nlohmann::json device;
         device["device_type"] = NumberToDeviceType(aDeviceTypes[i]);
@@ -92,35 +90,34 @@ void ScannerTask::scan() {
 }
 
 void ScannerTask::create_devices() {
-
     for(auto &device : devices["devices"]) {
-       if(device["serial_number"] != "" || device["failed_to_create"] == true) continue;
+        if(device["failed_to_create"] == true) continue;
+        std::string key = std::to_string(device["key"].get<int>());
+        auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(key);
 
-       auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(device["key"]);
+        if(!err) {
+            LOG(INFO) << "[labjack.scanner] device with key: " << device["key"] << " found";
+            continue;
+        }
 
-       if(!err) {
-           VLOG(1) << "[labjack.scanner] device with key: " << device["key"] << " found";
-           continue;
-       }
+        auto new_device = synnax::Device(
+            key,
+            device["device_type"].get<std::string>(),    //name
+            synnax::taskKeyRack(this->task.key),         // rack key
+            device["connection_type"].get<std::string>(), //location
+            std::to_string(device["serial_number"].get<int>()),
+            "LabJack",
+            device["device_type"].get<std::string>(),
+            device.dump()
+        );
 
-       auto new_device = synnax::Device(
-           device["key"].get<std::string>(),            // key
-           device["device_type"].get<std::string>(),    //name
-           synnax::taskKeyRack(this->task.key),         // rack key
-           "",
-           std::to_string(device["serial_number"].get<int>()),
-           "LabJack",
-           device["device_type"].get<std::string>(),
-           device.dump()
-       );
-
-       if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) {
-           LOG(ERROR) << "[labjack.scanner] failed to create device with key: " << device["key"];
-           device["failed_to_create"] = true;
-       }
-
-       LOG(INFO) << "[labjack.scanner] successfully created device with key: " << device["key"] << "and model" << device["device_type"];
-
+        LOG(INFO) << "[labjack.scanner] creating device with key: " << device["key"];
+        if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) {
+            LOG(ERROR) << "[labjack.scanner] failed to create device with key: " << device["key"];
+            device["failed_to_create"] = true;
+        } else {
+            LOG(INFO) << "[labjack.scanner] successfully created device with key: " << device["key"];
+        }
     }
 }
 

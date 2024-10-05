@@ -16,8 +16,10 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
 ) {
-    if (task.type == "labjack_scan")
+    if (task.type == "labjack_scan") {
+        LOG(INFO) << "[labjack] Configuring scanner task";
         return {std::make_unique<ScannerTask>(ctx, task), true};
+    }
     LOG(ERROR) << "[labjack] Unknown task type: " << task.type;
     return {nullptr, false};
 }
