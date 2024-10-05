@@ -1,23 +1,5 @@
-#cc_library(
-#    name = "labjack",
-#    hdrs = [
-#        "LabJackM.h",
-#        "LabJackMModbusMap.h",
-#        "LJM_StreamUtilities.h",
-#        "LJM_Utilities.h",
-#    ],
-#    deps = [":labjackm"],
-#    visibility = ["//visibility:public"],
-#)
-
-#filegroup(
-#    name = "labjackm_dll",
-#    srcs = ["LabJackM.dll"],  # Adjust this path if necessary
-#    visibility = ["//visibility:public"],
-#)
-
 cc_library(
-    name = "labjackm",
+    name = "labjack_headers",
     hdrs = [
         "LabJackM.h",
         "LabJackMModbusMap.h",
@@ -28,8 +10,56 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
+cc_library(
+    name = "labjack",
+    hdrs = [
+        "scanner.h"
+    ],
+    srcs = ["scanner.cpp"],
+    deps = [
+        ":labjack_headers",
+        "//client/cpp:synnax",
+        "//driver/errors",
+        "//driver/task",
+        "@nlohmann_json//:json",
+    ],
+    copts = [
+        "/D_SILENCE_CXX17_OLD_ALLOCATOR_MEMBERS_DEPRECATION_WARNING",
+        "/DWIN32_LEAN_AND_MEAN",
+        "/DNOMINMAX",
+        "/std:c++20",
+    ],
+)
+
 cc_binary(
     name = "eReadNames",
     srcs = ["eReadNames.c"],
-    deps = [":labjackm"],
+    deps = [":labjack_headers"],
 )
+
+cc_binary(
+    name = "test",
+    srcs = ["test_labjack.cpp"],
+    deps = [":labjack_headers"],
+)
+
+cc_test(
+    name = "scanner_test",
+    srcs = ["scanner_test.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":labjack",
+        "@com_google_googletest//:gtest_main",
+    ],
+    copts = [
+        "/D_SILENCE_CXX17_OLD_ALLOCATOR_MEMBERS_DEPRECATION_WARNING",
+        "/DWIN32_LEAN_AND_MEAN",
+        "/DNOMINMAX",
+    ],
+)
+
+#filegroup(
+#    name = "labjackm_dll",
+#    srcs = ["LabJackM.dll"],  # Adjust this path if necessary
+#    visibility = ["//visibility:public"],
+#)
