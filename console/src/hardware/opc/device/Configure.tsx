@@ -120,6 +120,8 @@ export const Configure: Layout.Renderer = ({ onClose, layoutKey }): ReactElement
       layoutKey={layoutKey}
       properties={initialProperties}
       initialValues={initialData}
+      visible
+      focused
     />
   );
 };
