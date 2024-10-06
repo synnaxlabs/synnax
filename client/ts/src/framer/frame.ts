@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
-  DataType,
   MultiSeries,
   Series,
+  SeriesPayload,
   Size,
   type TelemValue,
   TimeRange,
@@ -55,7 +55,7 @@ const validateMatchedColsAndSeries = (columns: Params, series: Series[]): void =
 
 export type CrudeFrame =
   | Frame
-  | FramePayload
+  | CrudeFramePayload
   | Map<KeyOrName, Series[] | Series>
   | Record<KeyOrName, Series[] | Series>;
 
@@ -117,6 +117,8 @@ export class Frame {
     if (isObject) {
       if ("keys" in columnsOrData && "series" in columnsOrData) {
         const data_ = columnsOrData as FramePayload;
+        data_.series ??= [];
+        data_.keys ??= [];
         const series = data_.series.map((a) => seriesFromPayload(a));
         validateMatchedColsAndSeries(data_.keys, series);
         data_.keys.forEach((key, i) => this.push(key, series[i]));
@@ -396,37 +398,20 @@ export class Frame {
   }
 }
 
-export const series = z.object({
-  timeRange: TimeRange.z.optional(),
-  alignment: z
-    .bigint()
-    .or(z.string().transform((s) => BigInt(s)))
-    .optional(),
-  dataType: DataType.z,
-  data: z.string().transform(
-    (s) =>
-      new Uint8Array(
-        atob(s)
-          .split("")
-          .map((c) => c.charCodeAt(0)),
-      ).buffer,
-  ),
-});
-
-export type SeriesPayload = z.infer<typeof series>;
-
 export const frameZ = z.object({
   keys: z.union([
     z.null().transform(() => [] as number[]),
     z.number().array().optional().default([]),
   ]),
   series: z.union([
-    z.null().transform(() => [] as Array<z.infer<typeof series>>),
-    series.array().optional().default([]),
+    z.null().transform(() => [] as Array<z.infer<typeof Series.crudeZ>>),
+    Series.crudeZ.array().optional().default([]),
   ]),
 });
 
-export type FramePayload = z.infer<typeof frameZ>;
+export type FramePayload = z.output<typeof frameZ>;
+
+export type CrudeFramePayload = z.input<typeof frameZ>;
 
 export const seriesFromPayload = (series: SeriesPayload): Series => {
   const { dataType, data, timeRange, alignment } = series;

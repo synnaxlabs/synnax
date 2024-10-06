@@ -7,14 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import { z } from "zod";
 
 import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
 import { compare } from "@/compare";
 import { id } from "@/id";
 import { bounds } from "@/spatial";
-import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
+import {
+  type GLBufferController,
+  type GLBufferUsage,
+  glBufferUsageZ,
+} from "@/telem/gl";
 import {
   convertDataType,
   type CrudeDataType,
@@ -30,6 +34,7 @@ import {
   TimeStamp,
   type TypedArray,
 } from "@/telem/telem";
+import { zodutil } from "@/zodutil";
 
 interface GL {
   control: GLBufferController | null;
@@ -79,7 +84,7 @@ export const isCrudeSeries = (value: unknown): value is CrudeSeries => {
 };
 
 export interface SeriesProps extends BaseSeriesProps {
-  data: CrudeSeries;
+  data?: CrudeSeries | null;
 }
 
 export interface SeriesAllocProps extends BaseSeriesProps {
@@ -95,6 +100,19 @@ export interface SeriesMemInfo {
   byteLength: Size;
   glBuffer: boolean;
 }
+
+const stringArrayZ = z.string().transform(
+  (s) =>
+    new Uint8Array(
+      atob(s)
+        .split("")
+        .map((c) => c.charCodeAt(0)),
+    ).buffer as ArrayBuffer,
+);
+
+const nullArrayZ = z
+  .union([z.null(), z.undefined()])
+  .transform(() => new Uint8Array().buffer as ArrayBuffer);
 
 /**
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
@@ -129,6 +147,21 @@ export class Series<T extends TelemValue = TelemValue> {
   private _refCount: number = 0;
   private _cachedLength?: number;
 
+  static readonly crudeZ = z.object({
+    timeRange: TimeRange.z.optional(),
+    dataType: DataType.z,
+    alignment: zodutil.bigInt.optional(),
+    data: z.union([
+      stringArrayZ,
+      nullArrayZ,
+      z.instanceof(ArrayBuffer),
+      z.instanceof(SharedArrayBuffer),
+    ]),
+    glBufferUsage: glBufferUsageZ.optional().default("static").optional(),
+  });
+
+  static readonly z = Series.crudeZ.transform((props) => new Series(props));
+
   constructor(props: SeriesProps | CrudeSeries) {
     if (isCrudeSeries(props)) props = { data: props };
     const {
@@ -139,8 +172,7 @@ export class Series<T extends TelemValue = TelemValue> {
       alignment = 0n,
       key = id.id(),
     } = props;
-    const { data } = props;
-
+    const data = props.data ?? [];
     if (
       data instanceof Series ||
       (typeof data === "object" &&
@@ -897,3 +929,5 @@ class MultiSeriesIterator<T extends TelemValue = TelemValue> implements Iterator
 
   [Symbol.toStringTag] = "MultiSeriesIterator";
 }
+
+export type SeriesPayload = z.infer<typeof Series.crudeZ>;
