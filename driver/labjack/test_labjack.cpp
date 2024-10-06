@@ -219,11 +219,11 @@ int multi_ain(){
     const int INTERVAL_HANDLE = 1;
 
     // Set up for reading AIN values
-    enum { NUM_FRAMES_AIN = 2 };
+    enum { NUM_FRAMES_AIN = 3 };
     double aValuesAIN[NUM_FRAMES_AIN] = {0};
-    const char * aNamesAIN[NUM_FRAMES_AIN] = {"AIN0", "AIN1"};
+    const char * aNamesAIN[NUM_FRAMES_AIN] = {"AIN0", "AIN1", "FIO4"};
 
-    int msDelay = 1000; // sets sample rate?
+    int msDelay = 10; // sets sample rate?
 
     // Open first found LabJack
     handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
@@ -256,7 +256,10 @@ int multi_ain(){
 
     printf("\nStarting read loop.  Press Ctrl+c to stop.\n");
 
-    err = LJM_StartInterval(INTERVAL_HANDLE, msDelay * 1000);
+    err = LJM_StartInterval(
+            this->handle,
+            msDelay * 1000
+        );
     ErrorCheck(err, "LJM_StartInterval");
 
     // Note: The LabJackM (LJM) library will catch the Ctrl+c signal, close
@@ -267,8 +270,8 @@ int multi_ain(){
                              &errorAddress);
         ErrorCheckWithAddress(err, errorAddress, "LJM_eReadNames");
 
-        printf("%s : %f V, %s : %f V\n", aNamesAIN[0], aValuesAIN[0],
-               aNamesAIN[1], aValuesAIN[1]);
+        printf("%s : %f V, %s : %f V, %s : %f\n", aNamesAIN[0], aValuesAIN[0],
+               aNamesAIN[1], aValuesAIN[1], aNamesAIN[2], aValuesAIN[2]);
 
         err = LJM_WaitForNextInterval(INTERVAL_HANDLE, &SkippedIntervals);
         ErrorCheck(err, "LJM_WaitForNextInterval");
