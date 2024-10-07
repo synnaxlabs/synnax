@@ -11,15 +11,16 @@
 #include "glog/logging.h"
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/scanner.h"
+#include "driver/labjack/task.h"
 
 std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
 ) {
     if (task.type == "labjack_scan")
-        return {std::make_unique<ScannerTask>(ctx, task), true};
+        return {std::make_unique<labjack::ScannerTask>(ctx, task), true}; // TODO: replace with configure for scanner
     if (task.type == "labjack_read")
-        return {std::make_unique<ReaderTask>(ctx, task), true};
+        return {labjack::ReaderTask::configure(ctx, task), true};
     LOG(ERROR) << "[labjack] Unknown task type: " << task.type;
     return {nullptr, false};
 }

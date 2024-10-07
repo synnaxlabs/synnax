@@ -22,6 +22,8 @@
 
 #include "driver/errors/errors.h"
 #include "driver/task/task.h"
+#include "driver/pipeline/acquisition.h"
+
 
 namespace labjack{
 
@@ -30,7 +32,7 @@ namespace labjack{
         bool enabled = true;
         synnax::DataType data_type;
         uint32_t channel_key;
-        float32 range = 10.0;
+        double range = 10.0;
         std::string channel_types = "";
 
         ReaderChannelConfig() = default;
@@ -38,9 +40,9 @@ namespace labjack{
         explicit ReaderChannelConfig(config::Parser &parser)
                 : location(parser.required<std::string>("location")),
                   enabled(parser.optional<bool>("enabled", true)),
-                  data_type(parser.required<synnax::DataType>("data_type")),
+                  data_type(parser.required<std::string>("data_type")),
                   channel_key(parser.required<uint32_t>("channel_key")),
-                  range(parser.optional<float32>("range", 10.0)),
+                  range(parser.optional<double>("range", 10.0)),
                   channel_types(parser.optional<std::string>("channel_types", "")) {
         }
     };
@@ -65,23 +67,17 @@ namespace labjack{
         explicit ReaderConfig(config::Parser &parser)
                 : device_type(parser.required<std::string>("device_type")),
                   device_key(parser.required<std::string>("device_key")),
-                  sample_rate(parser.optional<synnax::Rate>("sample_rate", synnax::Rate(1))),
-                  stream_rate(parser.optional<synnax::Rate>("stream_rate", synnax::Rate(1))),
-                  task_name(parser.required<std::string>("task_name")),
-                  task_key(parser.required<synnax::ChannelKey>("task_key")),
+                  sample_rate(synnax::Rate(parser.optional<int>("sample_rate", 1))),
+                  stream_rate(synnax::Rate(parser.optional<int>("stream_rate", 1))),
                   index_keys(parser.optional<std::set<uint32_t>>("index_keys", {})),
                   serial_number(parser.optional<std::string>("serial_number", "")),
                   connection_type(parser.optional<std::string>("connection_type", "")),
-                  channel_map(parser.optional<std::map<std::string, uint32_t>>("channel_map", {})),
-                  num_index(parser.optional<int>("num_index", 0)),
                   data_saving(parser.optional<bool>("data_saving", false)) {
 
             // Parse the channels
-            auto channelsConfig = parser.required<std::vector<config::Parser>>("channels");
-            channels.reserve(channelsConfig.size());
-            for (auto &channelParser : channelsConfig) {
-                channels.emplace_back(ReaderChannelConfig(channelParser));
-            }
+            parser.iter("channels", [this](config::Parser &channel_parser) {
+                channels.emplace_back(ReaderChannelConfig(channel_parser));
+            });
         }
     };
 
@@ -115,7 +111,7 @@ public:
 private:
 
     int handle;
-    ReaderConfig reader_config
+    ReaderConfig reader_config;
     std::shared_ptr<task::Context> ctx;
     breaker::Breaker breaker;
     synnax::Task task;

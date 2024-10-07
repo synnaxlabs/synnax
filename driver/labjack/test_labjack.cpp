@@ -256,10 +256,7 @@ int multi_ain(){
 
     printf("\nStarting read loop.  Press Ctrl+c to stop.\n");
 
-    err = LJM_StartInterval(
-            this->handle,
-            msDelay * 1000
-        );
+    err = LJM_StartInterval(INTERVAL_HANDLE, msDelay * 1000);
     ErrorCheck(err, "LJM_StartInterval");
 
     // Note: The LabJackM (LJM) library will catch the Ctrl+c signal, close
