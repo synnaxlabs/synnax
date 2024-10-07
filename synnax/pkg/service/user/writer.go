@@ -117,6 +117,8 @@ func (w Writer) MaybeSetRootUser(
 	}
 	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(users[0].Key).Change(func(u User) User {
 		u.RootUser = true
+		u.FirstName = "root"
+		u.LastName = "user"
 		return u
 	}).Exec(ctx, w.tx)
 }

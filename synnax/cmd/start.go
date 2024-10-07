@@ -13,14 +13,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"os"
 	"os/signal"
 	"time"
@@ -39,9 +31,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
@@ -559,7 +559,7 @@ func maybeProvisionRootUser(
 		if err = authSvc.NewWriter(tx).Register(ctx, creds); err != nil {
 			return err
 		}
-		userObj := user.User{Username: creds.Username, RootUser: true}
+		userObj := user.User{Username: creds.Username, RootUser: true, FirstName: "root", LastName: "user"}
 		if err = userSvc.NewWriter(tx).Create(ctx, &userObj); err != nil {
 			return err
 		}
