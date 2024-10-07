@@ -49,6 +49,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         height: 100%;
+        color: var(--pluto-input-color);
 
         padding: 0 1.5rem;
 
