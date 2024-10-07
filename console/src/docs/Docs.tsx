@@ -11,7 +11,7 @@ import "@/docs/Docs.css";
 
 import { Logo } from "@synnaxlabs/media";
 import { Theming, Triggers } from "@synnaxlabs/pluto";
-import { buildQueryString,URL } from "@synnaxlabs/x";
+import { buildQueryString, URL } from "@synnaxlabs/x";
 import { memo, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -24,6 +24,7 @@ const HOST = new URL({
   host: "docs.synnaxlabs.com",
   port: 443,
   protocol: "https",
+  pathPrefix: "reference/console/get-started",
 });
 
 export const LAYOUT_TYPE = "docs";
