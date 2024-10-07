@@ -42,8 +42,6 @@ const DEFAULT_TRIGGER: TriggerConfig = {
   command: [["Control", "Shift", "P"]],
 };
 
-
-
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
  * presentational.
@@ -61,6 +59,7 @@ export const NavTop = (): ReactElement => {
       location="top"
       size={NAV_SIZES.top}
       className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
+      data-tauri-drag-region
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls className="console-controls--macos" visibleIfOS="MacOS" />

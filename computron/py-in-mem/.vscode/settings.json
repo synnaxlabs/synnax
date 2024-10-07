@@ -1,6 +1,0 @@
-{
-    "C_Cpp.default.includePath": [
-        "/usr/include/python3.8",
-        "/home/miki/.venv/lib/python3.8/site-packages/numpy/core/include"
-    ]
-}

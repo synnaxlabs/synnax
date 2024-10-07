@@ -11,6 +11,8 @@ import "@/layouts/Main.css";
 
 import { Drift } from "@synnaxlabs/drift";
 import { Align, Haul, Text } from "@synnaxlabs/pluto";
+import { useMutation } from "@tanstack/react-query";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { CSSProperties, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -61,15 +63,24 @@ export const MAIN_TYPE = Drift.MAIN_WINDOW;
 
 const FileDrop = () => {
   const canDrop = Haul.canDropOfType(Haul.FILE_TYPE);
+
+  const handleDrop = useMutation({
+    mutationKey: ["file", "drop"],
+    mutationFn: async (props: Haul.OnDropProps) => {
+      // get the file path from the event
+      console.log(props);
+      if (!props.event) return;
+      const files = Array.from(props.event.dataTransfer.files);
+      console.log(files);
+      // await fetch("http://localhost:5000", files[0].
+    },
+  });
+
   const dropProps = Haul.useDrop({
     type: "file-x",
-    onDrop: (props) => {
-      console.log(props);
-      return [];
-    },
-    onDragOver: (e) => console.log(e),
+    onDrop: handleDrop.mutate,
     canDrop: () => true,
-  })
+  });
 
   const dragging = Haul.useDraggingState();
   const isDragging = canDrop(dragging);
@@ -81,24 +92,20 @@ const FileDrop = () => {
     height: 0,
     width: 0,
     zIndex: -1,
-  }
-  console.log(isDragging, dragging)
+  };
   if (isDragging) {
     style.width = "100%";
     style.height = "100%";
     style.background = "var(--pluto-primary-z-30)";
     style.zIndex = 5000;
   }
-  
-  
+
   return (
     <Align.Space {...dropProps} style={style}>
-      <Text.Text level="h4">
-        Drop to upload  
-      </Text.Text>
+      <Text.Text level="h4">Drop to upload</Text.Text>
     </Align.Space>
-  )
-}
+  );
+};
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this

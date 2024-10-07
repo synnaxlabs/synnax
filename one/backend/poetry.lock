@@ -2,7 +2,7 @@
 
 [[package]]
 name = "alamos"
-version = "0.30.0"
+version = "0.31.0"
 description = ""
 optional = false
 python-versions = "^3.11"
@@ -537,6 +537,7 @@ files = [
 ]
 
 [package.dependencies]
+importlib-metadata = {version = ">=4.11.4", markers = "python_version < \"3.12\""}
 "jaraco.classes" = "*"
 jeepney = {version = ">=0.4.2", markers = "sys_platform == \"linux\""}
 pywin32-ctypes = {version = ">=0.2.0", markers = "sys_platform == \"win32\""}
@@ -1052,7 +1053,10 @@ files = [
 ]
 
 [package.dependencies]
-numpy = {version = ">=1.26.0", markers = "python_version >= \"3.12\""}
+numpy = [
+    {version = ">=1.23.2", markers = "python_version == \"3.11\""},
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
 tzdata = ">=2022.7"
@@ -1323,7 +1327,7 @@ files = [
 
 [[package]]
 name = "synnax"
-version = "0.30.0"
+version = "0.31.0"
 description = "Synnax Client Library"
 optional = false
 python-versions = "^3.11"
@@ -1349,7 +1353,7 @@ url = "../../client/py"
 
 [[package]]
 name = "synnax-freighter"
-version = "0.30.0"
+version = "0.31.0"
 description = ""
 optional = false
 python-versions = "^3.11"
@@ -1658,5 +1662,5 @@ type = ["pytest-mypy"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.12"
-content-hash = "014cf0badf9ce06a2dc18560efc10f4ad14d65d0cc1a9bd38318792ea68ae4d6"
+python-versions = "^3.11"
+content-hash = "12cdc16662cea7a1c1a3f9c896fda04a51366dc406b93d70c56e9b3be7cbd135"

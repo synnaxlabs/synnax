@@ -57,7 +57,7 @@ export const Editor = ({
       colors: {
         "editor.background": theme.colors.gray.l1.hex,
         "editor.foreground": theme.colors.gray.l9.hex,
-        "editor.selectionBackground": theme.colors.gray.l1.hex,
+        "editor.selectionBackground": theme.colors.gray.l3.hex,
         "editor.lineHighlightBackground": theme.colors.gray.l2.hex,
         "editorCursor.foreground": theme.colors.primary.z.hex,
         "editorWhitespace.foreground": theme.colors.gray.l2.hex,

@@ -105,11 +105,6 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
     false,
     methods,
   );
-  const isVirtual = Form.useFieldValue<boolean, boolean, typeof schema>(
-    "virtual",
-    false,
-    methods,
-  );
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>

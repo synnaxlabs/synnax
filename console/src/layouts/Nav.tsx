@@ -12,7 +12,10 @@ import "@/layouts/Nav.css";
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
+import { useMutation } from "@tanstack/react-query";
+import { open } from "@tauri-apps/plugin-dialog";
 import { type ReactElement, useEffect, useState } from "react";
+import { J } from "vitest/dist/chunks/reporters.WnPwkmgA.js";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -67,6 +70,22 @@ const NavTopPalette = (): ReactElement => (
     commandSymbol=">"
   />
 );
+
+const Upload = (): ReactElement => {
+  const handleUpload = useMutation({
+    mutationKey: ["file", "upload"],
+    mutationFn: async () => {
+      const v = await open();
+      const data = { path: v };
+      await fetch("http://localhost:5000/api/v1/upload", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+  });
+
+  return <Button.Button onClick={handleUpload.mutate}>Upload</Button.Button>;
+};
 
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
