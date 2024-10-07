@@ -19,6 +19,7 @@ cc_library(
     name = "labjack",
     hdrs = [
         "scanner.h",
+        "reader.h",
         "labjack.h",
     ],
     srcs = [
