@@ -92,7 +92,7 @@ export class Value
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
 
-    const requiredWidth = width + theme.sizes.base * 4;
+    const requiredWidth = width + theme.sizes.base * 1;
 
     if (
       this.state.width == null ||

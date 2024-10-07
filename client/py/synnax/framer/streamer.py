@@ -27,7 +27,7 @@ from typing import overload
 
 class _Request(Payload):
     keys: ChannelKeys
-
+    downsample_factor: int 
 
 class _Response(Payload):
     frame: FramePayload
@@ -63,17 +63,18 @@ class Streamer:
         self,
         client: StreamClient,
         adapter: ReadFrameAdapter,
+        downsample_factor: int,
     ) -> None:
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._adapter = adapter
+        self._downsample_factor = downsample_factor
         self.__open()
 
     def __open(self):
-        self._stream.send(_Request(keys=self._adapter.keys))
+        self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor))
         _, exc = self._stream.receive()
         if exc is not None:
             raise exc
-
 
     @overload
     def read(self, timeout: float | int | TimeSpan) -> Frame | None:
@@ -127,7 +128,7 @@ class Streamer:
         :raises NotFoundError: If any of the channels in the list are not found.
         """
         self._adapter.update(channels)
-        self._stream.send(_Request(keys=self._adapter.keys))
+        self._stream.send(_Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor))
 
     def close(self, timeout: float | int | TimeSpan | None = None):
         """Closes the streamer and frees all network resources.
@@ -198,13 +199,22 @@ class AsyncStreamer:
         self,
         client: AsyncStreamClient,
         adapter: ReadFrameAdapter,
+        downsample_factor: int,
     ) -> None:
         self._client = client
         self._adapter = adapter
+        self._downsample_factor = downsample_factor
 
     async def _open(self):
-        self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
-        await self._stream.send(_Request(keys=self._adapter.keys))
+        self._stream = await self._client.stream(
+            _ENDPOINT,
+            _Request,
+            _Response
+        )
+        await self._stream.send(_Request(
+            keys=self._adapter.keys,
+            downsample_factor=self._downsample_factor,
+        ))
         _, exc = await self._stream.receive()
         if exc is not None:
             raise exc

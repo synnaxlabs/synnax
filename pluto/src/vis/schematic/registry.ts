@@ -10,7 +10,6 @@
 import { type FC } from "react";
 import { z } from "zod";
 
-import { color } from "@/color/core";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
@@ -19,19 +18,25 @@ import {
   CommonStyleForm,
   CommonToggleForm,
   LightForm,
+  OffPageReferenceForm,
   SetpointForm,
   type SymbolFormProps,
   TankForm,
+  TextBoxForm,
   ValueForm,
 } from "@/vis/schematic/Forms";
 import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { DEFAULT_BORDER_RADIUS } from "@/vis/schematic/primitives/Primitives";
 import {
+  Agitator,
+  AgitatorPreview,
+  AgitatorProps,
   AngledReliefValve,
   AngledReliefValvePreview,
   AngledValve,
   AngledValvePreview,
   type AngledValveProps,
+  type OffPageReferenceProps,
   Box,
   BoxPreview,
   type BoxProps,
@@ -48,14 +53,26 @@ import {
   CheckValve,
   CheckValvePreview,
   type CheckValveProps,
+  Compressor,
+  CompressorPreview,
+  type CompressorProps,
+  CrossBeamAgitator,
+  CrossBeamAgitatorPreview,
+  type CrossBeamAgitatorProps,
   ElectricRegulator,
   ElectricRegulatorPreview,
   type ElectricRegulatorProps,
   Filter,
   FilterPreview,
   type FilterProps,
+  FlatBladeAgitator,
+  FlatBladeAgitatorPreview,
+  type FlatBladeAgitatorProps,
   FourWayValve,
   FourWayValvePreview,
+  HelicalAgitator,
+  HelicalAgitatorPreview,
+  type HelicalAgitatorProps,
   Light,
   LightPreview,
   type LightProps,
@@ -65,12 +82,20 @@ import {
   NeedleValve,
   NeedleValvePreview,
   type NeedleValveProps,
+  OffPageReference,
+  OffPageReferencePreview,
   Orifice,
   OrificePreview,
   type OrificeProps,
+  PaddleAgitator,
+  PaddleAgitatorPreview,
+  type PaddleAgitatorProps,
   PistonPump,
   PistonPumpPreview,
   type PistonPumpProps,
+  PropellerAgitator,
+  PropellerAgitatorPreview,
+  PropellerAgitatorProps,
   Pump,
   PumpPreview,
   type PumpProps,
@@ -102,6 +127,9 @@ import {
   Tank,
   TankPreview,
   type TankProps,
+  TextBox,
+  TextBoxPreview,
+  type TextBoxProps,
   ThreeWayValve,
   ThreeWayValvePreview,
   type ThreeWayValveProps,
@@ -130,32 +158,41 @@ const Z_INDEX_UPPER = 4;
 const Z_INDEX_LOWER = 2;
 
 const VARIANTS = [
+  "agitator",
   "angledReliefValve",
   "angledValve",
+  "offPageReference",
   "box",
   "burstDisc",
   "button",
   "cap",
   "cavityPump",
   "checkValve",
+  "compressor",
+  "crossBeamAgitator",
   "electricRegulator",
   "filter",
+  "flatBladeAgitator",
   "fourWayValve",
-  "setpoint",
+  "helicalAgitator",
   "light",
   "manualValve",
   "needleValve",
   "orifice",
+  "paddleAgitator",
+  "propellerAgitator",
   "pistonPump",
   "pump",
   "regulator",
   "reliefValve",
   "rotaryMixer",
   "screwPump",
+  "setpoint",
   "solenoidValve",
   "staticMixer",
   "switch",
   "tank",
+  "textBox",
   "threeWayValve",
   "vacuumPump",
   "value",
@@ -165,23 +202,14 @@ const VARIANTS = [
 export const typeZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof typeZ>;
 
-const ZERO_PROPS = {
-  orientation: "left" as const,
-  scale: 1,
-};
+const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
 
 const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("string", {
     connections: [
-      {
-        from: "valueStream",
-        to: "rollingAverage",
-      },
-      {
-        from: "rollingAverage",
-        to: "stringifier",
-      },
+      { from: "valueStream", to: "rollingAverage" },
+      { from: "rollingAverage", to: "stringifier" },
     ],
     segments: {
       valueStream: telem.streamChannelValue({ channel: 0 }),
@@ -196,9 +224,7 @@ const ZERO_NUMERIC_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("number", {
     connections: [],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 0 }),
-    },
+    segments: { valueStream: telem.streamChannelValue({ channel: 0 }) },
     outlet: "valueStream",
   }),
 };
@@ -207,9 +233,7 @@ const ZERO_NUMERIC_SINK_PROPS = {
   ...ZERO_PROPS,
   sink: telem.sinkPipeline("number", {
     connections: [],
-    segments: {
-      setter: control.setChannelValue({ channel: 0 }),
-    },
+    segments: { setter: control.setChannelValue({ channel: 0 }) },
     inlet: "setter",
   }),
 };
@@ -217,12 +241,7 @@ const ZERO_NUMERIC_SINK_PROPS = {
 const ZERO_BOOLEAN_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("boolean", {
-    connections: [
-      {
-        from: "valueStream",
-        to: "threshold",
-      },
-    ],
+    connections: [{ from: "valueStream", to: "threshold" }],
     segments: {
       valueStream: telem.streamChannelValue({ channel: 0 }),
       threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
@@ -233,13 +252,9 @@ const ZERO_BOOLEAN_SOURCE_PROPS = {
 
 const ZERO_BOOLEAN_SINK_PROPS = {
   ...ZERO_PROPS,
+  control: { show: true },
   sink: telem.sinkPipeline("boolean", {
-    connections: [
-      {
-        from: "setpoint",
-        to: "setter",
-      },
-    ],
+    connections: [{ from: "setpoint", to: "setter" }],
     segments: {
       setter: control.setChannelValue({ channel: 0 }),
       setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
@@ -248,32 +263,17 @@ const ZERO_BOOLEAN_SINK_PROPS = {
   }),
 };
 
-const ZERO_TOGGLE_PROPS = {
-  ...ZERO_BOOLEAN_SOURCE_PROPS,
-  ...ZERO_BOOLEAN_SINK_PROPS,
-};
+const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_PROPS };
 
-type zeroLabelReturn = {
-  label: LabelExtensionProps;
-};
+type zeroLabelReturn = { label: LabelExtensionProps };
 
 const zeroLabel = (label: string): zeroLabelReturn => ({
-  label: {
-    label,
-    level: "p",
-    orientation: "top",
-  },
+  label: { label, level: "p", orientation: "top", maxInlineSize: 150, align: "center" },
 });
 
-const ZERO_DIMENSIONS = {
-  width: 100,
-  height: 100,
-};
+const ZERO_DIMENSIONS = { width: 125, height: 200 };
 
-const ZERO_BOX_PROPS = {
-  dimensions: ZERO_DIMENSIONS,
-  backgroundColor: color.ZERO,
-};
+const ZERO_BOX_PROPS = { dimensions: ZERO_DIMENSIONS };
 
 const ZERO_BOX_BORDER_RADIUS = 3;
 
@@ -383,6 +383,7 @@ const tank: Spec<TankProps> = {
   Symbol: Tank,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("Tank"),
     borderRadius: DEFAULT_BORDER_RADIUS,
     ...ZERO_BOX_PROPS,
@@ -399,6 +400,7 @@ const box: Spec<BoxProps> = {
   Symbol: Box,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("Box"),
     borderRadius: ZERO_BOX_BORDER_RADIUS,
     ...ZERO_BOX_PROPS,
@@ -572,6 +574,7 @@ const value: Spec<ValueProps> = {
     color: t.colors.gray.l9.rgba255,
     units: "psi",
     level: "h5",
+    inlineSize: 70,
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
@@ -697,8 +700,9 @@ const setpoint: Spec<SetpointProps> = {
   key: "setpoint",
   Symbol: Setpoint,
   Form: SetpointForm,
-  defaultProps: () => ({
+  defaultProps: (t) => ({
     units: "mV",
+    color: t.colors.gray.l4.rgba255,
     ...zeroLabel("Setpoint"),
     ...ZERO_NUMERIC_SOURCE_PROPS,
     ...ZERO_NUMERIC_SINK_PROPS,
@@ -707,14 +711,148 @@ const setpoint: Spec<SetpointProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const agitator: Spec<AgitatorProps> = {
+  name: "Agitator",
+  key: "agitator",
+  Symbol: Agitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: AgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const propellerAgitator: Spec<PropellerAgitatorProps> = {
+  name: "Propeller Agitator",
+  key: "propellerAgitator",
+  Symbol: PropellerAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Propeller Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: PropellerAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
+  name: "Flat Blade Agitator",
+  key: "flatBladeAgitator",
+  Symbol: FlatBladeAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flat Blade Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: FlatBladeAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const paddleAgitator: Spec<PaddleAgitatorProps> = {
+  name: "Paddle Agitator",
+  key: "paddleAgitator",
+  Symbol: PaddleAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Paddle Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: PaddleAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
+  name: "Cross Beam Agitator",
+  key: "crossBeamAgitator",
+  Symbol: CrossBeamAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Cross Beam Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: CrossBeamAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const helicalAgitator: Spec<HelicalAgitatorProps> = {
+  name: "Helical Agitator",
+  key: "helicalAgitator",
+  Symbol: HelicalAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Helical Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: HelicalAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const compressor: Spec<CompressorProps> = {
+  name: "Compressor",
+  key: "compressor",
+  Symbol: Compressor,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: CompressorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const textBox: Spec<TextBoxProps> = {
+  name: "Text Box",
+  key: "textBox",
+  Symbol: TextBox,
+  Form: TextBoxForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    autoFit: true,
+    align: "center",
+    ...zeroLabel("Text Box"),
+    ...ZERO_PROPS,
+    ...ZERO_BOX_PROPS,
+    level: "p",
+    text: "Text Box",
+    width: 75,
+  }),
+  Preview: TextBoxPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const offPageReference: Spec<OffPageReferenceProps> = {
+  name: "Off Page Reference",
+  key: "offPageReference",
+  Form: OffPageReferenceForm,
+  Symbol: OffPageReference,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    orientation: "right",
+    ...zeroLabel("Off Page Reference"),
+  }),
+  Preview: OffPageReferencePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
-  light,
-  switch: switch_,
   button,
-  setpoint,
   tank,
+  switch: switch_,
+  offPageReference,
+  light,
+  setpoint,
   box,
+  textBox,
   valve,
   solenoidValve,
   threeWayValve,
@@ -738,4 +876,11 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   cap,
   filter,
   orifice,
+  agitator,
+  propellerAgitator,
+  flatBladeAgitator,
+  paddleAgitator,
+  crossBeamAgitator,
+  helicalAgitator,
+  compressor,
 };

@@ -1,7 +1,12 @@
 {
-    "cSpell.words": [
-        "SELECTABLES",
-        "Synnax",
-        "ungroup"
-    ]
+  "cSpell.words": [
+    "lineplot",
+    "SELECTABLES",
+    "stringifier",
+    "Synnax",
+    "synnaxlabs",
+    "tanstack",
+    "telem",
+    "ungroup"
+  ]
 }

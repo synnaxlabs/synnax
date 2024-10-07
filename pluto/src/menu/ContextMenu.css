@@ -12,10 +12,17 @@
 .pluto-menu-context {
     position: fixed;
     z-index: 8;
-    border: var(--pluto-border-l4);
-    background-color: var(--pluto-gray-l1-95);
+    border: var(--pluto-border-l4) !important;
+    background-color: var(--pluto-gray-l1-20);
     -webkit-backdrop-filter: saturate(100%) blur(5rem);
-    backdrop-filter: saturate(100%) blur(3rem);
+    backdrop-filter: saturate(100%) blur(5rem);
+
+    @media (prefers-color-scheme: light) {
+        background-color: var(--pluto-gray-l1-50);
+        -webkit-backdrop-filter: saturate(100%) blur(6rem);
+        backdrop-filter: saturate(100%) blur(6rem);
+    }
+
     box-shadow: rgba(0, 0, 0, 0.2) 0px 4px 24px;
     border-radius: 1rem;
     padding: 1rem;

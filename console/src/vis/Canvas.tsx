@@ -12,6 +12,17 @@ import "@/vis/Canvas.css";
 import { Canvas as Core } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-export const Canvas = ({ children }: PropsWithChildren): ReactElement => (
-  <Core.Canvas className="console-vis__canvas">{children}</Core.Canvas>
-);
+import { CSS } from "@/css";
+import { Layout } from "@/layout";
+
+export const Canvas = ({ children }: PropsWithChildren): ReactElement => {
+  const [, focused] = Layout.useSelectFocused();
+  return (
+    <Core.Canvas
+      id={CSS.BE("vis", "canvas")}
+      className={CSS(focused != null && CSS.M("focused"))}
+    >
+      {children}
+    </Core.Canvas>
+  );
+};

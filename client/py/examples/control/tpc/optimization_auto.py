@@ -127,7 +127,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             dual_press_end = sy.TimeStamp.now()
             parent_rng.create_sub_range(
-                name=f"Dual Press Sequence",
+                name=f"Setup",
                 time_range=sy.TimeRange(dual_press_start, dual_press_end),
                 color="#D81E5B",
             )
@@ -158,7 +158,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             press_tank_end = sy.TimeStamp.now()
             parent_rng.create_sub_range(
-                name=f"Press Tank Pressurization",
+                name=f"Pressurization",
                 time_range=sy.TimeRange(press_tank_start, press_tank_end),
                 color="#1E90FF",
             )
@@ -172,7 +172,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             print("Test complete. Safeing System")
 
             rng = parent_rng.create_sub_range(
-                name=f"Bang Bang Sim",
+                name=f"Test",
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
                 color="#bada55",
             )

@@ -32,7 +32,7 @@ export const schematicRemoteZ = z.object({
 
 export type Schematic = z.infer<typeof schematicZ>;
 
-export const SchematicOntologyType = "schematic" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "schematic";
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: SchematicOntologyType, key: key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key });

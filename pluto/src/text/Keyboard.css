@@ -13,11 +13,15 @@
     background: var(--pluto-gray-l2);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
-    padding: 0.666rem;
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
     /* 
     * Make the line height the same as the font size.
     * This makes sure the padding looks consistent on all sides.
     */
     line-height: 1;
+    aspect-ratio: 1;
+    font-weight: 500 !important;
+    transform: scale(0.9);
 }

@@ -29,6 +29,7 @@ client = sy.Synnax()
 derived_time_ch = client.channels.create(
     name="derived_time",
     is_index=True,
+    retrieve_if_name_exists=True,
 )
 
 # We'll store the squared value of "stream_write_example_data_1" in this channel.
@@ -36,6 +37,7 @@ squared_example_data_1 = client.channels.create(
     name="squared_example_data_1",
     index=derived_time_ch.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 # We'll store the average of "stream_write_example_data_1" and "stream_write_example_data_2"
@@ -44,26 +46,35 @@ average_example_data_1 = client.channels.create(
     name="average_example_data_1",
     index=derived_time_ch.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["derived_time", "squared_example_data_1", "average_example_data_1"],
-    enable_auto_commit=True
+    enable_auto_commit=True,
 ) as writer:
     with client.open_streamer(
-        ["stream_write_example_time", "stream_write_example_data_1", "stream_write_example_data_2"],
+        [
+            "stream_write_example_time",
+            "stream_write_example_data_1",
+            "stream_write_example_data_2",
+        ],
     ) as s:
         for fr in s:
             time = fr["stream_write_example_time"]
             # Square
             squared = fr["stream_write_example_data_1"] ** 2
             # Average
-            avg = (fr["stream_write_example_data_1"] + fr["stream_write_example_data_2"]) / 2
-            writer.write({
-                # Write back the same timestamps as the raw data, so they align
-                # correctly.
-                "derived_time": time,
-                "squared_example_data_1": squared,
-                "average_example_data_1": avg,
-            })
+            avg = (
+                fr["stream_write_example_data_1"] + fr["stream_write_example_data_2"]
+            ) / 2
+            writer.write(
+                {
+                    # Write back the same timestamps as the raw data, so they align
+                    # correctly.
+                    "derived_time": time,
+                    "squared_example_data_1": squared,
+                    "average_example_data_1": avg,
+                }
+            )

@@ -10,7 +10,7 @@
  */
 
 .pluto-control-state.pluto--x {
-   padding: 1rem 1rem 1rem 0;
+    padding: 1rem 1rem 1rem 0;
 }
 
 .pluto-control-state.pluto--y {
@@ -19,6 +19,5 @@
 
 .pluto-symbol__label {
     transform: scale(0.9);
-    max-inline-size: 150px;
     overflow-wrap: break-word;
 }

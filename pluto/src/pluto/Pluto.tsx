@@ -61,30 +61,28 @@ export const Provider = ({
   haul,
   channelAlias,
   telem,
-}: ProviderProps): ReactElement => {
-  return (
-    <Triggers.Provider {...triggers}>
-      <Tooltip.Config {...tooltip}>
-        <Haul.Provider {...haul}>
-          <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
-            <CanDisableAether workerKey="vis">
-              <Alamos.Provider {...alamos}>
-                <Status.Aggregator>
-                  <Synnax.Provider connParams={connParams}>
-                    <Channel.AliasProvider {...channelAlias}>
-                      <CanDisableTelem {...telem}>
-                        <Theming.Provider {...theming}>
-                          <Control.StateProvider>{children}</Control.StateProvider>
-                        </Theming.Provider>
-                      </CanDisableTelem>
-                    </Channel.AliasProvider>
-                  </Synnax.Provider>
-                </Status.Aggregator>
-              </Alamos.Provider>
-            </CanDisableAether>
-          </Worker.Provider>
-        </Haul.Provider>
-      </Tooltip.Config>
-    </Triggers.Provider>
-  );
-};
+}: ProviderProps): ReactElement => (
+  <Triggers.Provider {...triggers}>
+    <Tooltip.Config {...tooltip}>
+      <Haul.Provider {...haul}>
+        <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
+          <CanDisableAether workerKey="vis">
+            <Alamos.Provider {...alamos}>
+              <Status.Aggregator>
+                <Synnax.Provider connParams={connParams}>
+                  <Channel.AliasProvider {...channelAlias}>
+                    <CanDisableTelem {...telem}>
+                      <Theming.Provider {...theming}>
+                        <Control.StateProvider>{children}</Control.StateProvider>
+                      </Theming.Provider>
+                    </CanDisableTelem>
+                  </Channel.AliasProvider>
+                </Synnax.Provider>
+              </Status.Aggregator>
+            </Alamos.Provider>
+          </CanDisableAether>
+        </Worker.Provider>
+      </Haul.Provider>
+    </Tooltip.Config>
+  </Triggers.Provider>
+);

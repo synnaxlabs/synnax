@@ -30,9 +30,9 @@ from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import Writer, WriterMode, CrudeWriterMode
 from synnax.framer.deleter import Deleter
+from synnax.ontology import ID
 from synnax.telem import (
     CrudeTimeStamp,
-    Series,
     TimeRange,
     TimeSpan,
     CrudeSeries,
@@ -40,9 +40,11 @@ from synnax.telem import (
 )
 from synnax.telem.control import Authority, CrudeAuthority
 
+ontology_type = ID(type="framer")
+
 
 class Client:
-    """SegmentClient provides interfaces for reading and writing segmented
+    """FramerClient provides interfaces for reading and writing segmented
     telemetry from a Synnax Cluster. SegmentClient should not be instantiated
     directly, but rather used through the synnax.Synnax class.
     """
@@ -160,8 +162,7 @@ class Client:
         start: CrudeTimeStamp,
         frame: CrudeFrame,
         strict: bool = False,
-    ):
-        ...
+    ): ...
 
     @overload
     def write(
@@ -187,8 +188,7 @@ class Client:
         channel: ChannelKeys | ChannelNames | list[ChannelPayload],
         series: list[CrudeSeries],
         strict: bool = False,
-    ):
-        ...
+    ): ...
 
     def write(
         self,
@@ -222,16 +222,14 @@ class Client:
         self,
         tr: TimeRange,
         channels: ChannelKeys | ChannelNames,
-    ) -> Frame:
-        ...
+    ) -> Frame: ...
 
     @overload
     def read(
         self,
         tr: TimeRange,
         channels: ChannelKey | ChannelName,
-    ) -> MultiSeries:
-        ...
+    ) -> MultiSeries: ...
 
     def read(
         self,
@@ -258,24 +256,31 @@ class Client:
             )
         return series
 
-    def open_streamer(self, channels: ChannelParams) -> Streamer:
+    def open_streamer(self, channels: ChannelParams, downsample_factor: int = 1) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
         being receiving frames of data from the given channels.
 
         :param channels: The channels to stream from. This can be a single channel name,
         a list of channel names, a single channel key, or a list of channel keys.
+
+        :param downsample_factor: The downsample factor to use for the streamer.
         """
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         return Streamer(
             adapter=adapter,
             client=self.__stream_client,
+            downsample_factor=downsample_factor,
         )
 
-    async def open_async_streamer(self, channels: ChannelParams) -> AsyncStreamer:
+    async def open_async_streamer(self, channels: ChannelParams, downsample_factor: int = 1) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
-        s = AsyncStreamer(adapter=adapter, client=self.__async_client)
+        s = AsyncStreamer(
+            adapter=adapter,
+            client=self.__async_client,
+            downsample_factor=downsample_factor,
+        )
         await s._open()
         return s
 

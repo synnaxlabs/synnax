@@ -16,9 +16,15 @@
     overflow: hidden;
 }
 
-.pluto-tabs-selector__btn--closable .pluto-text {
+.pluto-tabs-selector__btn--closable:not(.pluto-tabs-selector__btn--has-icon)
+    .pluto-text {
     margin: 0 1rem 0 2.5rem !important;
     padding: 0 0.25rem;
+}
+
+.pluto-tabs-selector__icon {
+    margin-left: 1.5rem;
+    margin-right: 1rem;
 }
 
 .pluto-tabs-selector__btn.pluto--selected :is(.pluto-text, .pluto-text-icon) {
@@ -59,13 +65,20 @@
     cursor: pointer;
     border: none;
     transition: box-shadow 0.25s;
-    &.pluto--selected.pluto--altColor .pluto-text {
-        color: var(--pluto-primary-z);
-        font-weight: 500;
+    &.pluto--selected.pluto--alt-color {
+        .pluto-text {
+            color: var(--pluto-primary-z);
+            font-weight: 500;
+        }
+        .pluto-tabs-selector__icon {
+            fill: var(--pluto-primary-z);
+        }
     }
     .pluto-btn-icon {
         opacity: 0;
         height: 100% !important;
+        transition: unset;
+        margin-left: 1px !important;
         > svg {
             fill: var(--pluto-gray-l6);
         }

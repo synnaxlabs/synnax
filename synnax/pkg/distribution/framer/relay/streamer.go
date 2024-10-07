@@ -40,7 +40,12 @@ func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, 
 		WhereKeys(keys...).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	return &streamer{keys: keys, addr: address.Rand(), demands: r.demands, relay: r}, nil
+	return &streamer{
+		keys:    keys,
+		addr:    address.Rand(),
+		demands: r.demands,
+		relay:   r,
+	}, nil
 }
 
 // Flow implements confluence.Flow.

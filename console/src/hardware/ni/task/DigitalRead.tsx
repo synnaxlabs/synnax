@@ -63,6 +63,7 @@ export const configureDigitalReadLayout = (
   name: "Configure NI Digital Read Task",
   type: DIGITAL_READ_TYPE,
   key: id.id(),
+  icon: "Logo.NI",
   windowKey: DIGITAL_READ_TYPE,
   location: "mosaic",
   args,
@@ -414,7 +415,7 @@ const ChannelListItem = ({
             weight={500}
             shade={9}
             color={(() => {
-              if (channelName === "No Channel") return "var(--pluto-warning-z)";
+              if (channelName === "No Channel") return "var(--pluto-warning-m1)";
               else if (channelValid) return undefined;
               return "var(--pluto-error-z)";
             })()}

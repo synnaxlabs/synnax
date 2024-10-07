@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z, type ZodSchema } from "zod";
+import { z, type ZodSchema } from "zod";
 
 import { deep } from "@/deep";
 import { type UnknownRecord } from "@/record";
@@ -67,3 +67,5 @@ export const transformer =
     if (matchingSchema == null) return null;
     return transform(matchingSchema.parse(value));
   };
+
+export const bigInt = z.bigint().or(z.string().transform(BigInt));

@@ -22,7 +22,7 @@ interface ChildProps {
 }
 
 /** The props for the {@link Icon} */
-export interface IconProps extends BaseProps {
+export interface IconProps extends BaseProps, Tooltip.WrapProps {
   children: ReactElement<ChildProps> | string;
   loading?: boolean;
 }

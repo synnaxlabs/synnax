@@ -12,7 +12,7 @@ import { type UnknownRecord } from "@synnaxlabs/x/record";
 
 import { type Key, type Params, type Schematic } from "@/workspace/schematic/payload";
 import { Retriever } from "@/workspace/schematic/retriever";
-import { type NewSchematic,Writer } from "@/workspace/schematic/writer";
+import { type NewSchematic, Writer } from "@/workspace/schematic/writer";
 
 export class Client {
   private readonly writer: Writer;

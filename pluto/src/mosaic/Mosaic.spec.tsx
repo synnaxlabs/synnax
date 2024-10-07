@@ -121,6 +121,7 @@ describe("Mosaic", () => {
         });
       });
     });
+
     describe("Mosaic.removeTab", () => {
       it("should remove a tab from the center of a tree", () => {
         const tabOne = {
@@ -200,6 +201,7 @@ describe("Mosaic", () => {
         });
       });
     });
+
     describe("Mosaic.moveTab", () => {
       it("should move a tab from one side of a leaf to another", () => {
         const tabOne = {
@@ -325,6 +327,7 @@ describe("Mosaic", () => {
         });
       });
     });
+
     describe("Mosaic.selectTab", () => {
       it("should select a tab", () => {
         const tabOne = {
@@ -348,6 +351,7 @@ describe("Mosaic", () => {
         });
       });
     });
+
     describe("Mosaic.renameTab", () => {
       it("should rename a tab", () => {
         const tabOne = {
@@ -438,7 +442,116 @@ describe("Mosaic", () => {
         expect(node).toBeUndefined();
       });
     });
+
+    describe("Mosaic.splitVertically", () => {
+      it("should split a tree vertically", () => {
+        const tabOne = {
+          tabKey: "tab1",
+          name: "Tab 1",
+        };
+        const tabTwo = {
+          tabKey: "tab2",
+          name: "Tab 2",
+        };
+        const tree: Mosaic.Node = {
+          key: 1,
+          tabs: [tabOne, tabTwo],
+          selected: "tab1",
+        };
+        const nextTree = Mosaic.split(tree, tabTwo.tabKey, "y");
+        expect(nextTree).toEqual({
+          key: 1,
+          direction: "y",
+          first: {
+            key: 2,
+            tabs: [tabOne],
+            selected: "tab1",
+          },
+          last: {
+            key: 3,
+            tabs: [tabTwo],
+            selected: "tab2",
+          },
+        });
+      });
+
+      it("should split a nested tree vertically", () => {
+        const tabOne = {
+          tabKey: "tab1",
+          name: "Tab 1",
+        };
+        const tabTwo = {
+          tabKey: "tab2",
+          name: "Tab 2",
+        };
+        const tabThree = {
+          tabKey: "tab3",
+          name: "Tab 3",
+        };
+        const tabFour = {
+          tabKey: "tab4",
+          name: "Tab 4",
+        };
+        const tree: Mosaic.Node = {
+          key: 1,
+          direction: "x",
+          first: {
+            key: 2,
+            tabs: [tabOne],
+            selected: "tab1",
+          },
+          last: {
+            key: 3,
+            direction: "y",
+            first: {
+              key: 6,
+              tabs: [tabTwo],
+              selected: "tab2",
+            },
+            last: {
+              key: 7,
+              tabs: [tabThree, tabFour],
+              selected: "tab3",
+            },
+          },
+        };
+        const nextTree = Mosaic.split(tree, tabThree.tabKey, "y");
+        expect(nextTree).toEqual({
+          key: 1,
+          direction: "x",
+          first: {
+            key: 2,
+            tabs: [tabOne],
+            selected: "tab1",
+          },
+          last: {
+            key: 3,
+            direction: "y",
+            first: {
+              key: 6,
+              tabs: [tabTwo],
+              selected: "tab2",
+            },
+            last: {
+              key: 7,
+              direction: "y",
+              first: {
+                key: 14,
+                selected: "tab4",
+                tabs: [tabFour],
+              },
+              last: {
+                key: 15,
+                selected: "tab3",
+                tabs: [tabThree],
+              },
+            },
+          },
+        });
+      });
+    });
   });
+
   describe("Mosaic", () => {
     it("should render a mosaic correctly", () => {
       const tabOne = {

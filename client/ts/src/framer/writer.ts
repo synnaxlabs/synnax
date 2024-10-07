@@ -231,7 +231,6 @@ export class Writer {
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean> {
     const frame = await this.adapter.adapt(channelsOrData, series);
-    // @ts-expect-error - zod issues
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
   }
@@ -298,7 +297,6 @@ export class Writer {
   }
 
   async execute(req: Request): Promise<Response> {
-    // @ts-expect-error - frame payload adjustments
     this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();
