@@ -26,7 +26,8 @@ cc_library(
     srcs = [
         "scanner.cpp",
         "factory.cpp",
-#        "reader.cpp",
+        "reader.cpp",
+#        "task.cpp",
     ],
     deps = [
         ":labjack_headers",

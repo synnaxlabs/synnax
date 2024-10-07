@@ -108,6 +108,13 @@ public:
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker);
 
     void init();
+
+    void write_to_series(
+            synnax::Series &series,
+            double &data,
+            synnax::DataType data_type
+        );
+
 private:
 
     int handle;
