@@ -352,10 +352,10 @@ const List = (): ReactElement => {
           <>
             <PMenu.Divider />
             {rng.key !== activeRange?.key && setAsActiveMenuItem}
-            {viewDetailsMenuItem}
-            <PMenu.Divider />
+            {rng.persisted && viewDetailsMenuItem}
+            {(rng.key !== activeRange?.key || rng.persisted) && <PMenu.Divider />}
             <Menu.RenameItem />
-            {addChildRangeMenuItem}
+            {rng.persisted && addChildRangeMenuItem}
             <PMenu.Divider />
             {activeLayout?.type === "lineplot" && addToActivePlotMenuItem}
             {addToNewPlotMenuItem}
@@ -390,7 +390,7 @@ const List = (): ReactElement => {
   return (
     <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
       <Core.List<string, StaticRange>
-        data={ranges.filter((r) => r.variant === "static") as StaticRange[]}
+        data={ranges.filter((r) => r.variant === "static")}
         emptyContent={<NoRanges onLinkClick={handleCreate} />}
       >
         <Core.Selector
