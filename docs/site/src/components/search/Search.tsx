@@ -186,7 +186,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
         }}
       >
         <List.Hover>
-          <Align.Pack className="search-results__content" direction="y">
+          <Align.Pack className="search-results__content" direction="y" borderShade={4}>
             <Input.Text
               ref={inputRef}
               placeholder={
