@@ -58,8 +58,8 @@ namespace labjack{
         std::set<uint32_t> index_keys;
         std::string serial_number; // used to open devices
         std::string connection_type; // used to open devices
-        std::map<std::string, uint32_t> channel_map;
-        int num_index = 0;
+        std::map<std::string, uint32_t> channel_map; // move this into class instead of reader config
+        int num_index = 0; // TODO: remove this isn't being used?
         bool data_saving;
 
         ReaderConfig() = default;
