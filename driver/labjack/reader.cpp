@@ -128,7 +128,7 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
             if(channel.location == location) {
                auto key = channel_map[channel.location];
                auto s = synnax::Series(channel.datatype, 1);
-                AB
+               write_to_series(s, values[location], channel.datatype);
             }
         }
     }

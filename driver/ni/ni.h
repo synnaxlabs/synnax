@@ -32,10 +32,8 @@
 #include "driver/ni/ai_channels.h"
 #include "driver/ni/error.h"
 #include "driver/ni/ts_queue.h"
-
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
-
 #include "driver/task/task.h"
 #include "driver/breaker/breaker.h"
 #include "driver/config/config.h"

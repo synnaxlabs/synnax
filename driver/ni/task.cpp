@@ -86,12 +86,13 @@ ni::ScannerTask::~ScannerTask() {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-ni::ReaderTask::ReaderTask(const std::shared_ptr<task::Context> &ctx,
-                           synnax::Task task,
-                           std::shared_ptr<pipeline::Source> source,
-                           std::shared_ptr<ni::Source> ni_source,
-                           synnax::WriterConfig writer_config,
-                           const breaker::Config breaker_config
+ni::ReaderTask::ReaderTask(
+        const std::shared_ptr<task::Context> &ctx,
+        synnax::Task task,
+        std::shared_ptr<pipeline::Source> source,
+        std::shared_ptr<ni::Source> ni_source,
+        synnax::WriterConfig writer_config,
+        const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
     daq_read_pipe(
@@ -175,15 +176,15 @@ void ni::ReaderTask::exec(task::Command &cmd) {
     } else if (cmd.type == "stop") {
         LOG(INFO) << "[ni.task] stopped reader task " << this->task.name;
         this->stop(cmd.key);
-    } else {
+    } else
         LOG(ERROR) << "unknown command type: " << cmd.type;
-    }
+
 }
 
 void ni::ReaderTask::stop() { this->stop(""); }
 
 void ni::ReaderTask::stop(const std::string &cmd_key) {
-    if (!this->running.exchange(false)) {
+    if (!this->running.exchange(false)) { // TODO: if running false, return silenelty as task is already stopped
         LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
                 this->running << " ok: "
                 << this->ok();
