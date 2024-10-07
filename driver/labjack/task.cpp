@@ -68,8 +68,45 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     };
 
     auto parser = config::Parser(task.config);
-    auto parse
+    ReaderConfig reader_config(parser);
 
+    auto source = std::make_shared<labjack::Source>(
+        ctx->client,
+        ctx,
+        task,
+        reader_config
+    );
 
+    std::vector<synnax::ChannelKey> channel_keys = source->get_channel_keys();
 
+    auto writer_config = synnax::WriterConfig{
+        .channels = channel_keys,
+        .start = synnax::TimeStamp::now(),
+        .mode = reader_config.data_saving
+                ? synnax::WriterMode::PersistStream
+                : synnax::WriterMode::StreamOnly,
+        .enable_auto_commit = true
+    };
+
+    auto p = std::make_unique<labjack::ReaderTask>(
+        ctx,
+        task,
+        source,
+        writer_config,
+        breaker_config
+    );
+
+    // TODO: change setState to snake case
+    ctx->setState({
+        .task = task.key,
+        .variant = "success",
+        .details = {
+                {"running", false},
+                {"message", "Successfully configured task"}
+        }
+    });
+
+    LOG(INFO) << "[labjack.task] successfully configured task " << task.name;
+
+    return p;
 }

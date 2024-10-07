@@ -143,12 +143,14 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     // start and stop to catch any immediate errors
     if (ni_source->ok()) ni_source->cycle();
 
-    auto p = std::make_unique<ni::ReaderTask>(ctx,
-                                              task,
-                                              source,
-                                              ni_source,
-                                              writer_config,
-                                              breaker_config);
+    auto p = std::make_unique<ni::ReaderTask>(
+            ctx,
+            task,
+            source,
+            ni_source,
+            writer_config,
+            breaker_config
+        );
 
     if (!ni_source->ok()) {
         LOG(ERROR) << "[ni.task] failed to configure task " << task.name;
