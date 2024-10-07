@@ -644,6 +644,24 @@ describe("Series", () => {
       expect(digest.timeRange).toEqual(new TimeRange(1, 3).toString());
     });
   });
+
+  describe("parse", () => {
+    it("should correctly parse a minimum series", () => {
+      const s = Series.z.parse({ dataType: "uint8" });
+      expect(s.dataType.equals(DataType.UINT8)).toBeTruthy();
+      expect(s.length).toEqual(0);
+    });
+    it("should correctly parse a string buffer for data", () => {
+      const s = Series.z.parse({ data: "", dataType: "string" });
+      expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
+      expect(s.length).toEqual(0);
+    });
+    it("should correctly parse a series with null data", () => {
+      const s = Series.z.parse({ data: null, dataType: "string" });
+      expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
+      expect(s.length).toEqual(0);
+    });
+  });
 });
 
 describe("MultiSeries", () => {
