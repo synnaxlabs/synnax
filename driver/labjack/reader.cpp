@@ -34,35 +34,23 @@ std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
 }
 
 void labjack::Source::init(){
-//    // If already open, will return the same handle as opened device
-//    // TODO get device type and connection type from the config
-//    LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
-//
-//    // iterate through the channels, for the ones that analog device, need to set the resolution index
-//    for (auto &channel : this->reader_config.channels) {
-//        if (channel.channel_types == "AIN") {
-//            int err = WriteName(this->handle, this->reader_config.location, 0);
-//        }
-//        // TODO: if its T7/T8, will need to set range/gain configs like so:
-//        /*
-//             // Range/gain configs only apply to the T7/T8
-//            if (deviceType != LJM_dtT4) {
-//                // Range = 10; This corresponds to ±10V (T7), or ±11V (T8)
-//                WriteNameOrDie(handle, "AIN0_RANGE", 10);
-//                WriteNameOrDie(handle, "AIN1_RANGE", 10);
-//            }
-//            // Negative channel = single ended (199). Only applies to the T7
-//            if (deviceType == LJM_dtT7) {
-//                WriteNameOrDie(handle, "AIN0_NEGATIVE_CH", 199);
-//                WriteNameOrDie(handle, "AIN1_NEGATIVE_CH", 199);
-//            }
-//         */
-//    }
-//    err = LJM_StartInterval(
-//            this->handle, // TODO: need to keep unique to device will need to change once i want to define multiple intervals to read data at on a songel device
-//            msDelay * 1000
-//    );
-//
+    // If already open, will return the same handle as opened device
+    // TODO get device type and connection type from the config
+    LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
+
+    // iterate through the channels, for the ones that analog device, need to set the resolution index
+    for (auto &channel : this->reader_config.channels) {
+        if (channel.channel_types == "AIN") {
+            int err = WriteName(this->handle, channel.location.c_str(), 0);
+        }
+        // TODO: if its T7/T8, will need to set range/gain configs like so:
+    }
+    int msDelay = 1000;
+    auto err = LJM_StartInterval(
+            this->handle, // TODO: need to keep unique to device will need to change once i want to define multiple intervals to read data at on a songel device
+            msDelay * 1000
+    );
+
     // TODO: check error
 }
 
