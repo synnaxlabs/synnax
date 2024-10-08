@@ -17,6 +17,9 @@ export type Key = z.infer<typeof keyZ>;
 export const userZ = z.object({
   key: keyZ,
   username: z.string().min(1),
+  // defaults for firstName, lastName, and rootUser are done to give compatibility with
+  // servers running v0.30.x and earlier. These defaults should be removed in a future
+  // release.
   firstName: z.string().default(""),
   lastName: z.string().default(""),
   rootUser: z.boolean().default(true),
