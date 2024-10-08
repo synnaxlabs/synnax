@@ -346,7 +346,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           break;
         case "download":
           if (client == null) return;
-          download({ timeRange, lines, client });
+          download({ timeRange, lines, client, name: name + "-data" });
           break;
       }
     };
