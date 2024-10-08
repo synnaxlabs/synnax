@@ -88,6 +88,10 @@ func (db *DB) updateControlDigests(
 }
 
 func (db *DB) closeControlDigests() {
+	// We need to do a careful mutex lock covers both the digests key check and
+	// conditional re-set to 0. After that, we need to unlock the mutex so that the
+	// control digest writer can be properly shut down, as it internally needs to
+	// acquire a read lock on the mutex.
 	db.mu.Lock()
 	if db.digests.key == 0 {
 		db.mu.Unlock()
