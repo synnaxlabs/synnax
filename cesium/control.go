@@ -50,7 +50,6 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 		return errors.New("control update channel must be a string virtual channel.")
 	}
 
-	db.digests.key = key
 	w, err := db.newStreamWriter(ctx, WriterConfig{
 		ControlSubject: control.Subject{
 			Name: "cesium_internal_control_digest",
@@ -59,6 +58,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 		Start:    telem.Now(),
 		Channels: []ChannelKey{key},
 	})
+	db.digests.key = key
 	if err != nil {
 		return err
 	}
@@ -88,11 +88,16 @@ func (db *DB) updateControlDigests(
 }
 
 func (db *DB) closeControlDigests() {
-	if db.digests.key != 0 {
-		db.digests.key = 0
-		db.digests.inlet.Close()
-		confluence.Drain(db.digests.outlet)
+	db.mu.Lock()
+	if db.digests.key == 0 {
+		db.mu.Unlock()
+		return
 	}
+	db.digests.key = 0
+	db.mu.Unlock()
+	db.digests.inlet.Close()
+	confluence.Drain(db.digests.outlet)
+	return
 }
 
 func (db *DB) digestsConfigured() bool { return db.digests.key != 0 }
