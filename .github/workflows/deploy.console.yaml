@@ -122,7 +122,7 @@ jobs:
       - name: MacOS - Verify Certificate
         if: matrix.platform == 'macos-12'
         run: |
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Apple Development")
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           echo "Cert info"
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
