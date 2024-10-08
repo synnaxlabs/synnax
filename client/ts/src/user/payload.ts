@@ -17,9 +17,9 @@ export type Key = z.infer<typeof keyZ>;
 export const userZ = z.object({
   key: keyZ,
   username: z.string().min(1),
-  firstName: z.string().optional().default(""),
-  lastName: z.string().optional().default(""),
-  rootUser: z.boolean().optional().default(true),
+  firstName: z.string().default(""),
+  lastName: z.string().default(""),
+  rootUser: z.boolean().default(true),
 });
 export type User = z.infer<typeof userZ>;
 
