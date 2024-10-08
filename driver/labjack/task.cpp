@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "labjack/reader.h"
+#include "driver/labjack/reader.h"
+#include "driver/labjack/task.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //
@@ -25,7 +26,7 @@ labjack::ReaderTask::ReaderTask(
                     ctx->client,
                     writer_config,
                     source,
-                    breaker_confif))){
+                    breaker_config)){
 }
 
 void labjack::ReaderTask::exec(task::Command &cmd) {
@@ -34,10 +35,11 @@ void labjack::ReaderTask::exec(task::Command &cmd) {
         this->start(cmd.key);
     } else if (cmd.key == "stop") {
         LOG(INFO) << "[labjack.task] stopped reader task " << this->task.name;
-        this->stop(cmd.lkey);
+        this->stop(cmd.key);
     }
-    else
-        LOG(ERROR) < "unkown command type: " << cmd.type;
+    else {
+        LOG(ERROR) << "unkown command type: " << cmd.type;
+    i                                                                                                                                                                         }
 }
 
 void labjack::ReaderTask::stop() { this->stop("");}
