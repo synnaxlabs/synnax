@@ -28,7 +28,7 @@ export const linkHandler: Link.Handler = async ({
     if (!(e instanceof Error)) throw e;
     addStatus({
       variant: "error",
-      description: "could not load task from URL",
+      description: "Could not load task from URL",
       message: e.message,
     });
   }
