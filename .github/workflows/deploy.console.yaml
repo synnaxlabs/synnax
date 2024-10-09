@@ -4,7 +4,6 @@ on:
     branches:
       - rc
       - main
-      - sy-1186-macos-accessibility-access-prompt
   pull_request:
     branches:
       - rc
