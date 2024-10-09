@@ -14,7 +14,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { binary, deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { binary, deep, id, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
@@ -125,70 +125,75 @@ const Wrapped = ({
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
 
-      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
-      dev.properties = enrich(dev.model, dev.properties);
+      const devices = unique(config.channels.map((c) => c.device));
 
-      let modified = false;
-      let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
-      if (!shouldCreateIndex) {
-        try {
-          await client.channels.retrieve(dev.properties.analogInput.index);
-        } catch (e) {
-          if (NotFoundError.matches(e)) shouldCreateIndex = true;
-          else throw e;
-        }
-      }
+      for (const devKey of devices) {
+        const dev = await client.hardware.devices.retrieve<Properties>(devKey);
+        dev.properties = enrich(dev.model, dev.properties);
 
-      if (shouldCreateIndex) {
-        modified = true;
-        const aiIndex = await client.channels.create({
-          name: `${dev.properties.identifier}_ai_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        dev.properties.analogInput.index = aiIndex.key;
-        dev.properties.analogInput.channels = {};
-      }
-
-      const toCreate: AIChan[] = [];
-      for (const channel of config.channels) {
-        // check if the channel is in properties
-        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-        if (primitiveIsZero(exKey)) toCreate.push(channel);
-        else {
+        let modified = false;
+        let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
+        if (!shouldCreateIndex) {
           try {
-            await client.channels.retrieve(exKey.toString());
+            await client.channels.retrieve(dev.properties.analogInput.index);
           } catch (e) {
-            if (QueryError.matches(e)) toCreate.push(channel);
+            if (NotFoundError.matches(e)) shouldCreateIndex = true;
             else throw e;
           }
         }
-      }
 
-      if (toCreate.length > 0) {
-        modified = true;
-        const channels = await client.channels.create(
-          toCreate.map((c) => ({
-            name: `${dev.properties.identifier}_ai_${c.port}`,
-            dataType: "float32", // TODO: also support float64
-            index: dev.properties.analogInput.index,
-          })),
-        );
-        channels.forEach((c, i) => {
-          dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key;
+        if (shouldCreateIndex) {
+          modified = true;
+          const aiIndex = await client.channels.create({
+            name: `${dev.properties.identifier}_ai_time`,
+            dataType: "timestamp",
+            isIndex: true,
+          });
+          dev.properties.analogInput.index = aiIndex.key;
+          dev.properties.analogInput.channels = {};
+        }
+
+        const toCreate: AIChan[] = [];
+        for (const channel of config.channels) {
+          if (channel.device !== dev.key) continue;
+          // check if the channel is in properties
+          const exKey = dev.properties.analogInput.channels[channel.port.toString()];
+          if (primitiveIsZero(exKey)) toCreate.push(channel);
+          else {
+            try {
+              await client.channels.retrieve(exKey.toString());
+            } catch (e) {
+              if (QueryError.matches(e)) toCreate.push(channel);
+              else throw e;
+            }
+          }
+        }
+
+        if (toCreate.length > 0) {
+          modified = true;
+          const channels = await client.channels.create(
+            toCreate.map((c) => ({
+              name: `${dev.properties.identifier}_ai_${c.port}`,
+              dataType: "float32", // TODO: also support float64
+              index: dev.properties.analogInput.index,
+            })),
+          );
+          channels.forEach((c, i) => {
+            dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key;
+          });
+        }
+
+        if (modified)
+          await client.hardware.devices.create({
+            ...dev,
+            properties: dev.properties,
+          });
+
+        config.channels.forEach((c) => {
+          if (c.device !== dev.key) return;
+          c.channel = dev.properties.analogInput.channels[c.port.toString()];
         });
       }
-
-      if (modified)
-        await client.hardware.devices.create({
-          ...dev,
-          properties: dev.properties,
-        });
-
-      config.channels.forEach((c) => {
-        c.channel = dev.properties.analogInput.channels[c.port.toString()];
-      });
-      if (dev == null) return;
       await createTask({
         key: task?.key,
         name,
@@ -235,7 +240,6 @@ const Wrapped = ({
           </Align.Space>
           <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <SelectDevice />
             <Align.Space direction="x">
               <Form.Field<number> label="Sample Rate" path="config.sampleRate">
                 {(p) => <Input.Numeric {...p} />}
