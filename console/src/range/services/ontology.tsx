@@ -11,7 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
-import { CrudeTimeRange, errors } from "@synnaxlabs/x";
+import { CrudeTimeRange, errors, string, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -62,13 +62,13 @@ const handleRename: Ontology.HandleTreeRename = {
 const fetchIfNotInState = async (
   store: Store<StoreState>,
   client: Synnax,
-  key: string,
+  keys: string | string[],
 ): Promise<void> => {
-  const existing = select(store.getState(), key);
-  if (existing == null) {
-    const range = await client.ranges.retrieve(key);
-    store.dispatch(add({ ranges: fromClientRange(range) }));
-  }
+  const keyList = toArray(keys);
+  const missing = keyList.filter((key) => select(store.getState(), key) == null);
+  if (missing.length === 0) return;
+  const ranges = await client.ranges.retrieve(missing);
+  store.dispatch(add({ ranges: fromClientRange(ranges) }));
 };
 
 const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
@@ -88,49 +88,54 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
-    mutationFn: async ({ selection, client, store }) => {
+    mutationFn: async ({ selection: { resources }, client, store }) => {
       const active = Layout.selectActiveMosaicLayout(store.getState());
       if (active == null) return;
-      const res = selection.resources[0];
-      await fetchIfNotInState(store, client, res.id.key);
+      const keys = resources.map((r) => r.id.key);
+      await fetchIfNotInState(store, client, keys);
       store.dispatch(
         LinePlot.setRanges({
           key: active.key,
           axisKey: "x1",
           mode: "add",
-          ranges: [res.id.key],
+          ranges: keys,
         }),
       );
     },
-    onError: (e, { addStatus }) =>
+    onError: (e, { addStatus, selection: { resources } }) => {
+      const rangeNames = resources.map((r) => r.name);
       addStatus({
         variant: "error",
-        message: `Failed to add range to plot`,
+        message: `Failed to add ${string.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
         description: e.message,
-      }),
+      });
+    },
   }).mutate;
 
 const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
-    mutationFn: async ({ selection, client, store, placeLayout }) => {
-      const res = selection.resources[0];
-      await fetchIfNotInState(store, client, res.id.key);
+    mutationFn: async ({ selection: { resources }, client, store, placeLayout }) => {
+      const keys = resources.map((r) => r.id.key);
+      await fetchIfNotInState(store, client, keys);
+      const names = resources.map((r) => r.name);
       placeLayout(
         LinePlot.create({
-          name: `Plot for ${res.name}`,
+          name: `Plot for ${string.naturalLanguageJoin(names, "range")}`,
           ranges: {
-            x1: [res.id.key],
+            x1: keys,
             x2: [],
           },
         }),
       );
     },
-    onError: (e, { addStatus }) =>
+    onError: (e, { addStatus, selection: { resources } }) => {
+      const names = resources.map((r) => r.name);
       addStatus({
         variant: "error",
-        message: `Failed to add range to plot`,
+        message: `Failed to add ${string.naturalLanguageJoin(names, "range")} to plot`,
         description: e.message,
-      }),
+      });
+    },
   }).mutate;
 
 const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -205,6 +210,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
     selection: { resources, nodes },
+    store,
+    placeLayout,
   } = props;
   const activeRange = useSelect();
   const layout = Layout.useSelectActiveMosaicLayout();
@@ -214,9 +221,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activate = useActivate();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
-  const placer = Layout.usePlacer();
   const handleAddChildRange = () => {
-    placer(createLayout({ initial: { parent: resources[0].id.key } }));
+    placeLayout(createLayout({ initial: { parent: resources[0].id.key } }));
   };
   const viewDetails = useViewDetails();
   const handleSelect = {
@@ -235,6 +241,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     addChildRange: handleAddChildRange,
   };
   const isSingle = resources.length === 1;
+  let showAddToActivePlot = false;
+  if (layout?.type === LinePlot.LAYOUT_TYPE) {
+    const activeRanges = LinePlot.selectRanges(store.getState(), layout.key).x1.map(
+      (r) => r.key,
+    );
+    showAddToActivePlot = resources.some((r) => !activeRanges.includes(r.id.key));
+  }
+
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {isSingle && (
@@ -248,7 +262,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       <Group.GroupMenuItem selection={selection} />
-      {layout?.type === "lineplot" && addToActivePlotMenuItem}
+      {showAddToActivePlot && addToActivePlotMenuItem}
       {addToNewPlotMenuItem}
       <PMenu.Divider />
       {deleteMenuItem}
