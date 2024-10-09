@@ -13,6 +13,7 @@ import { DataType, device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
+  Button,
   Device as PDevice,
   Form,
   Haul,
@@ -33,8 +34,8 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
-import { Device } from "@/hardware/opc/device";
+import { type DigitalWriteStateDetails } from "@/hardware/ni/task/types";
+import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import {
@@ -52,13 +53,14 @@ import {
   ChannelListContextMenu,
   Controls,
   EnableDisableButton,
-  TaskLayoutArgs,
+  type TaskLayoutArgs,
   useCreate,
   useObserveState,
-  WrappedTaskLayoutProps,
+  type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 
 export const configureReadLayout = (
   args: TaskLayoutArgs<ReadPayload> = { create: false },
@@ -233,6 +235,11 @@ const Wrapped = ({
 
   const placer = Layout.usePlacer();
 
+  const name = task?.name;
+  const key = task?.key;
+
+  const handleLink = Link.useCopyToClipboard();
+
   return (
     <Align.Space
       className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
@@ -242,10 +249,24 @@ const Wrapped = ({
     >
       <Align.Space direction="y" grow>
         <Form.Form {...methods}>
-          <Align.Space direction="x">
+          <Align.Space direction="x" justify="spaceBetween">
             <Form.Field<string> path="name" label="Name">
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
+            {key != null && (
+              <Button.Icon
+                tooltip={
+                  <Text.Text level="small">
+                    {name == null ? "Copy link" : `Copy link to ${name}`}
+                  </Text.Text>
+                }
+                tooltipLocation="left"
+                variant="text"
+                onClick={() => handleLink({ name, ontologyID: { key, type: "task" } })}
+              >
+                <Icon.Link />
+              </Button.Icon>
+            )}
           </Align.Space>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
