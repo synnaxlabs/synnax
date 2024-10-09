@@ -199,12 +199,14 @@ export const LinePlotAxisControls = ({
             onChange={handleLabelChange}
           />
         </Input.Item>
-        <Input.Item label="Label Direction" style={{ minWidth: 90 }}>
-          <Select.Direction
-            value={axis.labelDirection}
-            onChange={handleLabelDirectionChange}
-          />
-        </Input.Item>
+        {axis.key.startsWith("y") && (
+          <Input.Item label="Label Direction" style={{ minWidth: 90 }}>
+            <Select.Direction
+              value={axis.labelDirection}
+              onChange={handleLabelDirectionChange}
+            />
+          </Input.Item>
+        )}
         <Input.Item label="Label Size">
           <Text.SelectLevel value={axis.labelLevel} onChange={handleLabelLevelChange} />
         </Input.Item>
