@@ -1053,8 +1053,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <TerminalConfigField path={prefix} />
         <UnitsField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <Align.Space direction="x">

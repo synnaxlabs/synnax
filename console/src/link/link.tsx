@@ -107,7 +107,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
         message: `Cannot open link, ${resource} is unknown`,
       });
     });
-    return () => unlisten();
+    return unlisten;
   }, []);
 };
 
@@ -139,12 +139,11 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
     url += key;
     if (ontologyID != undefined) url += `/${ontologyID.type}/${ontologyID.key}`;
     navigator.clipboard.writeText(url).then(
-      () => {
+      () =>
         addStatus({
           variant: "success",
           message: `Link ${linkMessage} copied to clipboard.`,
-        });
-      },
+        }),
       () => {
         addStatus({
           variant: "error",

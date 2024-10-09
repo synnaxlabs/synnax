@@ -1470,10 +1470,6 @@ export const ZERO_AI_CHANNELS: Record<AIChanType, AIChan> = {
 };
 
 export const AI_CHANNEL_TYPE_NAMES: Record<AIChanType, string> = {
-  ai_voltage: "Voltage",
-  ai_thermocouple: "Thermocouple",
-  ai_rtd: "RTD",
-  ai_pressure_bridge_two_point_lin: "Pressure Bridge Two-Point Linear",
   ai_accel: "Accelerometer",
   ai_bridge: "Bridge",
   ai_current: "Current",
@@ -1482,12 +1478,16 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChanType, string> = {
   ai_force_iepe: "Force IEPE",
   ai_microphone: "Microphone",
   ai_pressure_bridge_table: "Pressure Bridge Table",
+  ai_pressure_bridge_two_point_lin: "Pressure Bridge Two-Point Linear",
   ai_resistance: "Resistance",
+  ai_rtd: "RTD",
   ai_strain_gauge: "Strain Gauge",
-  ai_temp_builtin: "Temperature Built-In",
+  ai_temp_builtin: "Temperature Built-In Sensor",
+  ai_thermocouple: "Thermocouple",
   ai_torque_bridge_table: "Torque Bridge Table",
-  ai_torque_bridge_two_point_lin: "Torque Bridge - Two-Point Linear",
+  ai_torque_bridge_two_point_lin: "Torque Bridge Two-Point Linear",
   ai_velocity_iepe: "Velocity IEPE",
+  ai_voltage: "Voltage",
 };
 
 export type AnalogInputVoltageChannel = z.infer<typeof aiVoltageChanZ>;

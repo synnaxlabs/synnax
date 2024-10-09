@@ -53,10 +53,10 @@ import {
 import { download } from "@/lineplot/download";
 import {
   select,
-  selectRanges,
   useSelect,
   useSelectAxisBounds,
   useSelectControlState,
+  useSelectRanges,
   useSelectSelection,
   useSelectViewportMode,
 } from "@/lineplot/selectors";
@@ -102,7 +102,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const placer = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
-  const ranges = selectRanges(layoutKey);
+  const ranges = useSelectRanges(layoutKey);
   const client = Synnax.use();
   const dispatch = useDispatch();
   const syncDispatch = Workspace.useSyncComponent<SyncPayload>(
@@ -346,7 +346,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           break;
         case "download":
           if (client == null) return;
-          download({ timeRange, lines, client });
+          download({ timeRange, lines, client, name: name + "-data" });
           break;
       }
     };
