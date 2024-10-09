@@ -28,19 +28,21 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
                     // analog channel names are formatted: <device_name>/ai<port>
                     std::string port = std::to_string(
                         channel_builder.required<std::uint64_t>("port"));
-//                    std::string name = this->reader_config.device_name;
-//                    std::string name = channel_builder.required<std::string>("location"); // TODO: This is where the change is
 
-                    auto device_key = channel_builder.required<std::string>("device");
-                    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
-                        device_key
-                    );
-                    if(err) {
-                        this->log_error("failed to retrieve device with key " + device_key);
-                        return;
+                    std::string name;
+                    if(this->reader_config.device_key != "cross-device"){
+                        name = this->reader_config.device_name;
+                    } else {
+                        auto device_key = channel_builder.required<std::string>("device");
+                        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+                                device_key
+                        );
+                        if (err) {
+                            this->log_error("failed to retrieve device with key " + device_key);
+                            return;
+                        }
+                        name = dev.location;
                     }
-                    std::string name = dev.location;
-
                     config.name = name + "/ai" + port;
 
                     config.channel_key = channel_builder.required<uint32_t>("channel");
