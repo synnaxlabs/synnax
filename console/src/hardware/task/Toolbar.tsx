@@ -20,12 +20,14 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
+import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
+import { Confirm } from "@/confirm";
 import { createTaskLayout } from "@/hardware/task/ontology";
 import { Layout } from "@/layout";
 
@@ -86,33 +88,39 @@ const Content = (): ReactElement => {
     },
   });
 
+  const confirm = Confirm.useModal();
+
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
-    onMutate: (keys: string[]) => {
-      setSelected([]);
-      const toDelete: task.Task[] = [];
-      setTasks((prev) => {
-        const next = prev.filter((t) => {
-          const includes = keys.includes(t.key.toString());
-          if (includes) toDelete.push(t);
-          return !includes;
-        });
-        return [...next];
-      });
-      return toDelete;
-    },
     mutationFn: async (keys: string[]) => {
-      if (client == null) return;
+      setSelected([]);
+      if (client == null) throw new Error("Client not available");
+      const deletedNames = tasks
+        .filter((task) => keys.includes(task.key))
+        .map((task) => task.name);
+      const names = strings.naturalLanguageJoin(deletedNames, "tasks");
+      if (
+        !(await confirm({
+          message: `Are you sure you want to delete ${names}?`,
+          description: "This action cannot be undone.",
+          cancel: { label: "Cancel" },
+          confirm: { label: "Delete", variant: "error" },
+        }))
+      )
+        return;
       await client.hardware.tasks.delete(keys.map((k) => BigInt(k)));
       dispatch(Layout.remove({ keys }));
-      setSelected([]);
+      setTasks((prev) => {
+        const next = prev.filter((t) => !keys.includes(t.key.toString()));
+        return [...next];
+      });
     },
-    onError: ({ message }, _, toDelete) => {
+    onError: (e) => {
+      if (errors.CANCELED.matches(e)) return;
       addStatus({
         variant: "error",
         message: "Failed to delete tasks",
-        description: message,
+        description: e.message,
       });
-      if (toDelete != null) setTasks((prev) => [...prev, ...toDelete]);
     },
   });
 
@@ -124,16 +132,14 @@ const Content = (): ReactElement => {
         const canStop = selected.some((t) => t?.state?.details?.running === true);
         const someSelected = selected.length > 0;
         const isSingle = selected.length === 1;
-        const handleDetails = (key: string): void => {
+        const handleEdit = (key: string): void => {
           const type = tasks.find((t) => t.key === key)?.type;
-          if (type == null) {
-            addStatus({
+          if (type == null)
+            return addStatus({
               variant: "error",
               message: "Failed to open task details",
               description: `Task with key ${key} not found`,
             });
-            return;
-          }
           const layout = createTaskLayout(key, type);
           placer(layout);
         };
@@ -145,7 +151,7 @@ const Content = (): ReactElement => {
               delete: () => handleDelete.mutate(keys),
               start: () => selected.forEach((t) => t?.executeCommand("start")),
               stop: () => selected.forEach((t) => t?.executeCommand("stop")),
-              details: () => handleDetails(keys[0]),
+              edit: () => handleEdit(keys[0]),
             }}
           >
             {canStart && (
@@ -160,8 +166,8 @@ const Content = (): ReactElement => {
             )}
             {canStart || (canStop && <PMenu.Divider />)}
             {isSingle && (
-              <PMenu.Item startIcon={<Icon.Details />} itemKey="details">
-                View Details
+              <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
+                Edit Configuration
               </PMenu.Item>
             )}
             {someSelected && (
