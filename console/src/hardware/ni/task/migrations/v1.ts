@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { device, task } from "@synnaxlabs/client";
+import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import * as v0 from "@/hardware/ni/task/migrations/v0";
 
 export const unitsVoltsZ = z.literal("Volts");
 export type UnitsVolts = z.infer<typeof unitsVoltsZ>;
@@ -1571,6 +1574,7 @@ const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");
 
 export const analogReadTaskConfigZ = z
   .object({
+    version: z.literal("1.0.0"),
     sampleRate: z.number().min(0).max(50000),
     streamRate: z.number().min(0).max(50000),
     channels: z.array(aiChan),
@@ -1586,14 +1590,16 @@ export const analogReadTaskConfigZ = z
     },
   )
   .superRefine((cfg, ctx) => {
-    const ports = new Map<number, number>();
-    cfg.channels.forEach(({ port }) => ports.set(port, (ports.get(port) ?? 0) + 1));
+    const ports = new Map<string, number>();
+    cfg.channels.forEach(({ port, device }) =>
+      ports.set(`${device}/${port}`, (ports.get(`${device}/${port}`) ?? 0) + 1),
+    );
     cfg.channels.forEach((channel, i) => {
-      if ((ports.get(channel.port) ?? 0) < 2) return;
+      if ((ports.get(`${channel.device}/${channel.port}`) ?? 0) < 2) return;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["channels", i, "port"],
-        message: `Port ${channel.port} has already been used`,
+        message: `Port ${channel.port} has already been used on device`,
       });
     });
   })
@@ -1642,6 +1648,7 @@ export const ANALOG_READ_TYPE = "ni_analog_read";
 export type AnalogReadType = typeof ANALOG_READ_TYPE;
 
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadTaskConfig = {
+  version: "1.0.0",
   sampleRate: 10,
   streamRate: 5,
   channels: [],
@@ -1742,3 +1749,19 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
 
 export type Task = AnalogRead | DigitalWrite | DigitalRead;
 export type Chan = DIChan | AIChan | DOChan;
+
+export const analogReadTaskMigration = migrate.createMigration<
+  v0.AnalogReadTaskConfig,
+  AnalogReadTaskConfig
+>({
+  name: "hardware.ni.task.analogRead",
+  migrate: (s) => ({
+    ...s,
+    version: "1.0.0",
+    device: undefined,
+    channels: s.channels.map((c) => ({
+      device: s.device,
+      ...c,
+    })),
+  }),
+});

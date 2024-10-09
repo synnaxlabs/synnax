@@ -33,7 +33,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { DigitalWriteStateDetails } from "@/hardware/ni/task/types";
+import { DigitalWriteStateDetails } from "@/hardware/ni/task/migrations";
 import { Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";

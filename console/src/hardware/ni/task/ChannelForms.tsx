@@ -45,7 +45,7 @@ import {
   VelocityUnits,
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
-} from "@/hardware/ni/task/types";
+} from "@/hardware/ni/task/migrations";
 import { Layout } from "@/layout";
 
 export interface FormProps {

@@ -53,7 +53,7 @@ export const taskZ = z.object({
       if (c === "") return {};
       return binary.JSON_CODEC.decodeString(c);
     }),
-  ) as z.ZodType<UnknownRecord>,
+  ),
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });

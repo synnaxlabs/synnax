@@ -14,7 +14,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { binary, deep, id, primitiveIsZero, unique } from "@synnaxlabs/x";
+import { binary, deep, id, migrate, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
@@ -22,7 +22,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { Properties } from "@/hardware/ni/device/types";
-import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
+import { CopyButtons } from "@/hardware/ni/task/common";
 import {
   AI_CHANNEL_TYPE_NAMES,
   AIChan,
@@ -35,9 +35,10 @@ import {
   analogReadTaskConfigZ,
   AnalogReadType,
   type Chan,
+  migrateAnalogReadTask,
   ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
-} from "@/hardware/ni/task/types";
+} from "@/hardware/ni/task/migrations";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
@@ -486,4 +487,8 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureAnalogRead = wrapTaskLayout(Wrapped, ZERO_ANALOG_READ_PAYLOAD);
+export const ConfigureAnalogRead = wrapTaskLayout(
+  Wrapped,
+  ZERO_ANALOG_READ_PAYLOAD,
+  migrateAnalogReadTask as migrate.Migrator,
+);
