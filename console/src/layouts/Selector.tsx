@@ -14,6 +14,7 @@ import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 
 const SELECTABLES: Layout.Selectable[] = [
@@ -21,6 +22,7 @@ const SELECTABLES: Layout.Selectable[] = [
   Schematic.SELECTABLE,
   ...NI.SELECTABLES,
   ...OPC.SELECTABLES,
+  ...Log.SELECTABLES,
 ];
 
 export const SELECTOR_TYPE = "visLayoutSelector";
