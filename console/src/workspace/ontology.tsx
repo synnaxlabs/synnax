@@ -184,19 +184,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     selection,
     selection: { resources },
   } = props;
-  const del = useDelete();
-  const createSchematic = useCreateSchematic();
-  const createLinePlot = useCreateLinePlot();
-  const importLinePlot = LinePlot.useImport(selection.resources[0].id.key);
+  const handleDelete = useDelete();
   const group = Group.useCreateFromSelection();
-  const handleLink = Link.useCopyToClipboard();
+  const createPlot = useCreateLinePlot();
+  const importPlot = LinePlot.useImport(selection.resources[0].id.key);
+  const createSchematic = useCreateSchematic();
   const importSchematic = Schematic.useImport(selection.resources[0].id.key);
+  const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
-    delete: () => del(props),
+    delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
-    createPlot: () => createLinePlot(props),
-    importPlot: () => importLinePlot(),
+    createPlot: () => createPlot(props),
+    importPlot: () => importPlot(),
     createSchematic: () => createSchematic(props),
     importSchematic: () => importSchematic(),
     link: () =>
