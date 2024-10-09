@@ -14,6 +14,7 @@ import {
   box,
   clamp,
   DataType,
+  Destructor,
   type direction,
   scale,
   type Series,
@@ -207,7 +208,9 @@ interface InternalState {
   instrumentation: Instrumentation;
   prog: Context;
   xTelem: telem.SeriesSource;
+  stopListeningXTelem?: Destructor;
   yTelem: telem.SeriesSource;
+  stopListeningYTelem?: Destructor;
   requestRender: render.RequestF;
 }
 
@@ -223,8 +226,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.instrumentation = alamos.useInstrumentation(this.ctx, "line");
     i.prog = Context.use(this.ctx);
     i.requestRender = render.Controller.useRequest(this.ctx);
-    i.xTelem.onChange(() => i.requestRender(render.REASON_DATA));
-    i.yTelem.onChange(() => i.requestRender(render.REASON_DATA));
+    i.stopListeningXTelem?.();
+    i.stopListeningYTelem?.();
+    i.stopListeningXTelem = i.xTelem.onChange(() =>
+      i.requestRender(render.REASON_DATA),
+    );
+    i.stopListeningYTelem = i.yTelem.onChange(() =>
+      i.requestRender(render.REASON_DATA),
+    );
     i.requestRender(render.REASON_LAYOUT);
   }
 
