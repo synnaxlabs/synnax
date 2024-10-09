@@ -518,22 +518,9 @@ ni::Source::Source(
 void ni::Source::parse_config(config::Parser &parser) {
     this->reader_config.sample_rate.value = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate.value = parser.required<uint64_t>("stream_rate");
-    this->reader_config.device_key = parser.required<std::string>("device");
+//    this->reader_config.device_key = parser.required<std::string>("device");
     this->reader_config.timing_source = "none";
     // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
-    if (parser.optional<bool>("test", false))
-        this->reader_config.device_name = parser.required<std::string>(
-            "device_location");
-    else {
-        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
-            this->reader_config.device_key);
-        if (err) {
-            this->log_error(
-                "failed to retrieve device " + this->reader_config.device_name);
-            return;
-        }
-        this->reader_config.device_name = dev.location;
-    }
     this->parse_channels(parser);
 }
 
