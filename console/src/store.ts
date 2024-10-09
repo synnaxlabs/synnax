@@ -26,6 +26,7 @@ import { Workspace } from "@/workspace";
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   ...Layout.PERSIST_EXCLUDE,
   Cluster.PERSIST_EXCLUDE,
+  ...Schematic.PERSIST_EXCLUDE,
 ];
 
 const ZERO_STATE: RootState = {
