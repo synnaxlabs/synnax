@@ -21,13 +21,28 @@ using json = nlohmann::json;
 
 void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     std::uint64_t c_count = 0;
+    LOG(INFO) << "channel config:" << parser.get_json().dump(4);
     parser.iter("channels",
                 [&](config::Parser &channel_builder) {
                     ni::ChannelConfig config;
                     // analog channel names are formatted: <device_name>/ai<port>
                     std::string port = std::to_string(
                         channel_builder.required<std::uint64_t>("port"));
-                    std::string name = this->reader_config.device_name;
+
+                    std::string name;
+                    if(this->reader_config.device_key != "cross-device"){
+                        name = this->reader_config.device_name;
+                    } else {
+                        auto device_key = channel_builder.required<std::string>("device");
+                        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+                                device_key
+                        );
+                        if (err) {
+                            this->log_error("failed to retrieve device with key " + device_key);
+                            return;
+                        }
+                        name = dev.location;
+                    }
                     config.name = name + "/ai" + port;
 
                     config.channel_key = channel_builder.required<uint32_t>("channel");
@@ -53,6 +68,8 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     config::Parser &parser, const std::string &channel_type,
     const std::string &channel_name) {
+    LOG(INFO) <<
+        "[ni.reader] Parsing channel " << channel_name << " of type " << channel_type;
     if (channel_type == "ai_accel")
         return std::make_shared<Acceleration>(
             parser, this->task_handle, channel_name);
