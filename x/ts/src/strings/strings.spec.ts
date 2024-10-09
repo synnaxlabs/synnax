@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { naturalLanguageJoin } from "./string";
+import { naturalLanguageJoin } from "@/strings/strings";
 
 describe("naturalLanguageJoin", () => {
   it("should return an empty string for an empty array", () =>

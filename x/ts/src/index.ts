@@ -33,7 +33,7 @@ export * from "@/runtime";
 export * from "@/search";
 export * from "@/shallowCopy";
 export * from "@/spatial";
-export * from "@/string";
+export * from "@/strings";
 export * from "@/telem";
 export * from "@/toArray";
 export * from "@/transform";

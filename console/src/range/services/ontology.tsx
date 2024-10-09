@@ -11,7 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
-import { CrudeTimeRange, errors, string, toArray } from "@synnaxlabs/x";
+import { CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -106,7 +106,7 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
       const rangeNames = resources.map((r) => r.name);
       addStatus({
         variant: "error",
-        message: `Failed to add ${string.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
+        message: `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
         description: e.message,
       });
     },
@@ -120,7 +120,7 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       const names = resources.map((r) => r.name);
       placeLayout(
         LinePlot.create({
-          name: `Plot for ${string.naturalLanguageJoin(names, "range")}`,
+          name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
           ranges: {
             x1: keys,
             x2: [],
@@ -132,7 +132,7 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       const names = resources.map((r) => r.name);
       addStatus({
         variant: "error",
-        message: `Failed to add ${string.naturalLanguageJoin(names, "range")} to plot`,
+        message: `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
         description: e.message,
       });
     },
