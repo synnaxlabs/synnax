@@ -39,6 +39,7 @@ import {
   FaDocker,
   FaLinux,
   FaStream,
+  FaVideo,
   FaWindows,
 } from "react-icons/fa";
 import { GiHamburgerMenu } from "react-icons/gi";
@@ -46,7 +47,7 @@ import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
-import { IoBookSharp, IoCopy, IoTime } from "react-icons/io5";
+import { IoBookSharp, IoCopy, IoPlayBack, IoTime } from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,
   MdAlignHorizontalLeft,
@@ -369,6 +370,8 @@ export const Icon: IconType = {
   SplitX: wrapIcon(VscSplitHorizontal, "split-x"),
   SplitY: wrapIcon(VscSplitVertical, "split-y"),
   AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
+  Video: wrapIcon(FaVideo, "video"),
+  Playback: wrapIcon(IoPlayBack, "playback"),
 };
 
 export interface IconType {
@@ -512,4 +515,6 @@ export interface IconType {
   SplitX: IconFC;
   SplitY: IconFC;
   AutoFitWidth: IconFC;
+  Video: IconFC;
+  Playback: IconFC;
 }

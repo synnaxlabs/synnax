@@ -37,6 +37,7 @@ import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { User } from "@/user";
 import { Version } from "@/version";
+import { Video } from "@/video";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
@@ -57,6 +58,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Label.LAYOUTS,
   ...User.LAYOUTS,
   ...Permissions.LAYOUTS,
+  ...Video.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

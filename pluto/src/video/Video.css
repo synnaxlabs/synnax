@@ -10,5 +10,5 @@
  */
 
 .pluto-video {
-    border-radius: var(--pluto-border-radius);
+    width: 100%;
 }

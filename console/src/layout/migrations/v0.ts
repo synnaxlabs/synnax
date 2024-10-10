@@ -219,7 +219,7 @@ export const ZERO_SLICE_STATE: SliceState = {
         },
         bottom: {
           activeItem: null,
-          menuItems: ["visualization"],
+          menuItems: ["visualization", "playback"],
         },
       },
     },

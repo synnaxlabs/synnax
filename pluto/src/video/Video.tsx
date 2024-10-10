@@ -19,8 +19,8 @@ export interface VideoProps extends ComponentPropsWithoutRef<"video"> {
 
 export const Video = forwardRef<HTMLVideoElement, VideoProps>(
   ({ href, className, ...props }: VideoProps, ref): ReactElement => (
-    <video ref={ref} className={CSS(CSS.B("video"), className)} {...props}>
-      <source id={href} src={href} type="video/mp4" />
+    <video ref={ref} className={CSS(CSS.B("video"), className)} {...props} controls>
+      <source src={href} type="video/mp4" />
     </video>
   ),
 );

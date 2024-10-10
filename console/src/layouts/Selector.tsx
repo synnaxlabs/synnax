@@ -15,12 +15,14 @@ import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Schematic } from "@/schematic";
+import { Video } from "@/video";
 
 const SELECTABLES: Layout.Selectable[] = [
   LinePlot.SELECTABLE,
   Schematic.SELECTABLE,
   ...NI.SELECTABLES,
   ...OPC.SELECTABLES,
+  ...Video.SELECTABLES,
 ];
 
 export const SELECTOR_TYPE = "visLayoutSelector";

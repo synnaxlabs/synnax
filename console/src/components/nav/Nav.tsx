@@ -17,6 +17,7 @@ import { CSS } from "@/css";
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
+import { Playback } from "@/playback";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
 
@@ -25,6 +26,7 @@ export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Range.Toolbar,
   Vis.Toolbar,
   Task.Toolbar,
+  Playback.Toolbar,
 ];
 
 interface NavMenuProps extends Omit<PMenu.MenuProps, "children"> {
