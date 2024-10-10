@@ -109,7 +109,7 @@ import {
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
 } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
+import { RiGuideLine, RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,

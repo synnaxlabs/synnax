@@ -26,6 +26,7 @@ export type TimeRange = z.infer<typeof timeRangeZ>;
 export const staticRangeZ = baseRangeZ.extend({
   variant: z.literal("static"),
   timeRange: timeRangeZ,
+  offset: z.number(),
 });
 
 export type StaticRange = z.infer<typeof staticRangeZ>;

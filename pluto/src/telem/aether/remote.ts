@@ -9,9 +9,11 @@
 
 import { type channel } from "@synnaxlabs/client";
 import {
+  addSamples,
   type AsyncDestructor,
   bounds,
   DataType,
+  NumericTelemValue,
   primitiveIsZero,
   type Series,
   TimeRange,
@@ -26,6 +28,7 @@ import {
   type NumberSourceSpec,
   type SeriesSource,
   type SeriesSourceSpec,
+  Source,
   type Spec,
   type Telem,
 } from "@/telem/aether/telem";
@@ -130,6 +133,7 @@ const fetchChannelProperties = async (
 
 const channelDataSourcePropsZ = z.object({
   timeRange: TimeRange.z,
+  offset: z.number().or(z.bigint()).optional().default(0),
   channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().optional().default(false),
 });
@@ -139,17 +143,27 @@ export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
 // ChannelData reads a fixed time range of data from a particular channel or its index.
 export class ChannelData
   extends AbstractSource<typeof channelDataSourcePropsZ>
-  implements ChannelData
+  implements Source<[bounds.Bounds, Series[]]>
 {
   static readonly TYPE = "series-source";
   private readonly client: client.ReadClient & client.ChannelClient;
   private data: Series[] = [];
   private valid: boolean = false;
+  private initialOffsets: NumericTelemValue[] = [];
   schema = channelDataSourcePropsZ;
 
-  constructor(client: client.ReadClient & client.ChannelClient, props: unknown) {
+  constructor(
+    client: client.ReadClient & client.ChannelClient,
+    props: unknown,
+    cache?: unknown,
+  ) {
     super(props);
     this.client = client;
+    if (cache != null) this.initialOffsets = cache as NumericTelemValue[];
+  }
+
+  get cache(): unknown {
+    return this.initialOffsets;
   }
 
   async cleanup(): Promise<void> {
@@ -164,12 +178,28 @@ export class ChannelData
     if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
     const chan = await fetchChannelProperties(this.client, channel, indexOfChannel);
     if (!this.valid) await this.readFixed(chan.key);
-    let b = bounds.max(this.data.map((d) => d.bounds));
-    if (chan.dataType.equals(DataType.TIMESTAMP))
-      b = {
-        upper: Math.min(b.upper, Number(this.props.timeRange.end.valueOf())),
-        lower: Math.max(b.lower, Number(this.props.timeRange.start.valueOf())),
-      };
+    if (chan.dataType.equals(DataType.TIMESTAMP)) {
+      // b = {
+      //   upper: Math.min(
+      //     b.upper,
+      //     Number(this.props.timeRange.end.valueOf()) + Number(this.props.offset),
+      //   ),
+      //   lower: Math.max(
+      //     b.lower,
+      //     Number(this.props.timeRange.start.valueOf()) + Number(this.props.offset),
+      //   ),
+      // };
+      // b.upper += Number(this.props.offset);
+      // b.lower += Number(this.props.offset);
+    }
+    const b = bounds.max(this.data.map((d) => d.bounds));
+    if (!primitiveIsZero(this.props.offset))
+      this.data.forEach((d, i) => {
+        d.sampleOffset = addSamples(this.initialOffsets[i], this.props.offset);
+        // console.log(new TimeSpan(this.props.offset).toString());
+        // console.log("B", addSamples(d.sampleOffset, -this.initialOffsets[i]));
+      });
+
     return [b, this.data];
   }
 
@@ -178,6 +208,8 @@ export class ChannelData
     const newData = res[key].data;
     newData.forEach((d) => d.acquire());
     this.data = newData;
+    if (this.initialOffsets.length !== this.data.length)
+      this.initialOffsets = this.data.map((d) => d.sampleOffset);
     this.valid = true;
   }
 }
@@ -263,7 +295,11 @@ export class StreamChannelData
   }
 }
 
-type Constructor = new (client: client.Client, props: unknown) => Telem;
+type Constructor = new (
+  client: client.Client,
+  props: unknown,
+  cache?: unknown,
+) => Telem;
 
 const REGISTRY: Record<string, Constructor> = {
   [ChannelData.TYPE]: ChannelData,
@@ -281,7 +317,7 @@ export class RemoteFactory implements RemoteFactory {
   create(spec: Spec): Telem | null {
     const V = REGISTRY[spec.type];
     if (V == null) return null;
-    return new V(this.client, spec.props);
+    return new V(this.client, spec.props, spec.cache);
   }
 }
 

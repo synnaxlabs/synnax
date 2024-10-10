@@ -92,6 +92,11 @@ func addGuard[K Key, E Entry[K]](q query.Parameters, guard func(E) error) {
 	q.Set(deleteGuardKey, g)
 }
 
+func hasGuards(q query.Parameters) bool {
+	_, ok := q.Get(deleteGuardKey)
+	return ok
+}
+
 func checkGuards[K Key, E Entry[K]](q query.Parameters, entries []E) error {
 	g, ok := q.Get(deleteGuardKey)
 	if !ok {
