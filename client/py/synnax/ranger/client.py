@@ -26,7 +26,6 @@ from synnax.ranger.payload import (
     RangeKeys,
     RangeName,
     RangeNames,
-    RangeParams,
     RangePayload,
 )
 from synnax.ranger.retrieve import RangeRetriever
@@ -255,8 +254,8 @@ Please call client.ranges.create(range) before attempting to read from a range."
 class Range(RangePayload):
     """A range is a user-defined region of a cluster's data. It's identified by a name,
     time range, and uniquely generated key. See
-    https://docs.synnaxlabs.com/concepts/read-ranges for an introduction to ranges and
-    how they work.
+    https://docs.synnaxlabs.com/reference/concepts/ranges for an introduction to ranges
+    and how they work.
     """
 
     __frame_client: Client | None = PrivateAttr(None)
@@ -378,12 +377,10 @@ class Range(RangePayload):
         return self._channels
 
     @overload
-    def set_alias(self, channel: ChannelKey | ChannelName, alias: str):
-        ...
+    def set_alias(self, channel: ChannelKey | ChannelName, alias: str): ...
 
     @overload
-    def set_alias(self, channel: dict[ChannelKey | ChannelName, str]):
-        ...
+    def set_alias(self, channel: dict[ChannelKey | ChannelName, str]): ...
 
     def set_alias(
         self,
@@ -409,20 +406,19 @@ class Range(RangePayload):
         return RangePayload(name=self.name, time_range=self.time_range, key=self.key)
 
     @overload
-    def write(self, to: ChannelKey | ChannelName | ChannelPayload, data: CrudeSeries):
-        ...
+    def write(
+        self, to: ChannelKey | ChannelName | ChannelPayload, data: CrudeSeries
+    ): ...
 
     @overload
     def write(
         self,
         to: ChannelKeys | ChannelNames | list[ChannelPayload],
         series: list[CrudeSeries],
-    ):
-        ...
+    ): ...
 
     @overload
-    def write(self, frame: CrudeFrame):
-        ...
+    def write(self, frame: CrudeFrame): ...
 
     def write(
         self,
@@ -596,20 +592,16 @@ class RangeClient:
         return res if not is_single else res[0]
 
     @overload
-    def retrieve(self, *, key: RangeKey) -> Range:
-        ...
+    def retrieve(self, *, key: RangeKey) -> Range: ...
 
     @overload
-    def retrieve(self, *, name: RangeName) -> Range:
-        ...
+    def retrieve(self, *, name: RangeName) -> Range: ...
 
     @overload
-    def retrieve(self, *, names: RangeNames) -> list[Range]:
-        ...
+    def retrieve(self, *, names: RangeNames) -> list[Range]: ...
 
     @overload
-    def retrieve(self, *, keys: RangeKeys) -> list[Range]:
-        ...
+    def retrieve(self, *, keys: RangeKeys) -> list[Range]: ...
 
     def retrieve(
         self,

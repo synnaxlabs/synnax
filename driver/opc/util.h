@@ -295,6 +295,10 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
 ///@brief this function returns the appropriate synnax data type that corresponds to
 /// the OPCUA data type
 inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val) {
+    if(!val.type) {
+        LOG(ERROR) << "[opc.scanner] opc node type is null.";
+        return {synnax::DATA_TYPE_UNKNOWN, false};
+    }
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT]))
         return {
             synnax::FLOAT32, true
@@ -352,7 +356,7 @@ inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val
     if (val.type == &UA_TYPES[UA_TYPES_STRING]) return {synnax::STRING, false};
     if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) return {synnax::TIMESTAMP, false};
     if (val.type == &UA_TYPES[UA_TYPES_GUID]) return {synnax::UINT128, false};
-    LOG(ERROR) << "Unknown data type: " << val.type->typeName;
+    LOG(ERROR) << "[opc.scanner] Unknown data type: " << val.type->typeName;
     return {synnax::DATA_TYPE_UNKNOWN, false};
 }
 

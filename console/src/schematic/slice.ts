@@ -24,14 +24,31 @@ export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
 export const ZERO_STATE = latest.ZERO_STATE;
+export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
+export const parser = latest.parser;
 
 export const SLICE_NAME = "schematic";
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
+
+/** Purges fields in schematic state that should not be persisted. */
+export const purgeState = (state: State): State => {
+  // Reset control states.
+  state.control = "released";
+  state.controlAcquireTrigger = 0;
+  return state;
+};
+
+export const purgeSliceState = (state: StoreState): StoreState => {
+  Object.values(state[SLICE_NAME].schematics).forEach(purgeState);
+  return state;
+};
+
+export const PERSIST_EXCLUDE = [purgeSliceState];
 
 export interface SetViewportPayload {
   key: string;
@@ -217,11 +234,11 @@ export const { actions, reducer } = createSlice({
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
-      const schematic: State = {
+      const schematic: State = purgeState({
         ...ZERO_STATE,
         ...latest.migrateState(payload),
         key: layoutKey,
-      } as State;
+      }) as State;
       if (schematic.snapshot) {
         schematic.editable = false;
         clearSelections(schematic);

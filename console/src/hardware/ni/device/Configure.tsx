@@ -13,12 +13,16 @@ import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
+import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { configurablePropertiesZ, Properties } from "@/hardware/ni/device/types";
+import {
+  configurablePropertiesZ,
+  type Properties,
+  ZERO_PROPERTIES,
+} from "@/hardware/ni/device/types";
 import { type Layout } from "@/layout";
 
 export const Configure = ({
@@ -117,13 +121,14 @@ const ConfigureInternal = ({
         }
       } else if (step === "identifier") {
         if (!methods.validate("identifier")) return;
-        const er = enrich(device.model, device.properties);
         await client.hardware.devices.create({
           ...device,
           configured: true,
           name: methods.get<string>("name").value,
           properties: {
-            ...er,
+            ...device.properties,
+            ...deep.copy(ZERO_PROPERTIES),
+            enriched: true,
             identifier: methods.get<string>("identifier").value,
           },
         });

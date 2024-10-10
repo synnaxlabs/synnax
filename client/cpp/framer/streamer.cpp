@@ -17,18 +17,21 @@ using namespace synnax;
 
 void StreamerConfig::toProto(api::v1::FrameStreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
-    f.set_start(start.value);
+    f.set_downsample_factor(downsample_factor);
 }
 
 std::pair<Streamer, freighter::Error> FrameClient::openStreamer(
-    const StreamerConfig &config) const {
+    const StreamerConfig &config
+) const {
     auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
     if (exc)
         return {Streamer(), exc};
     auto req = api::v1::FrameStreamerRequest();
     config.toProto(req);
     auto exc2 = s->send(req);
-    return {Streamer(std::move(s)), exc2};
+    if (exc2) return {Streamer(std::move(s)), exc2};
+    auto [_, resExc] = s->receive();
+    return {Streamer(std::move(s)), resExc};
 }
 
 Streamer::Streamer(std::unique_ptr<StreamerStream> s) : stream(std::move(s)) {

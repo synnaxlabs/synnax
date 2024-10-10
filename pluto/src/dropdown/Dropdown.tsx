@@ -15,6 +15,7 @@ import {
   type location as loc,
   location,
   position,
+  runtime,
   xy,
 } from "@synnaxlabs/x";
 import {
@@ -215,8 +216,8 @@ export const Dialog = ({
     <CoreDialog.Context.Provider value={ctxValue}>
       <C
         {...props}
-        borderShade={4}
         ref={combinedParentRef}
+        borderShade={4}
         className={CSS(
           className,
           CSS.B("dropdown"),
@@ -295,16 +296,18 @@ const calcConnectedDialog = ({
 
   let container = box.construct(0, 0, window.innerWidth, window.innerHeight);
   // iterate through the parent elements to find the container
-  let parent = target.parentElement;
-  while (parent != null) {
-    const style = window.getComputedStyle(parent);
-    if (style.getPropertyValue("container-type") !== "normal") {
-      container = box.construct(parent);
-      targetBox = box.translate(targetBox, xy.scale(box.topLeft(container), -1));
-      break;
+  let parent: HTMLElement | null = target.parentElement;
+  if (runtime.getOS() === "MacOS")
+    while (parent != null) {
+      const style = window.getComputedStyle(parent);
+      if (style.getPropertyValue("container-type") !== "normal") {
+        container = box.construct(parent);
+        targetBox = box.translate(targetBox, xy.scale(box.topLeft(container), -1));
+        break;
+      }
+      parent = parent.parentElement;
     }
-    parent = parent.parentElement;
-  }
+  else parent = document.documentElement;
 
   const props: position.DialogProps = {
     target: targetBox,

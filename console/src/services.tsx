@@ -18,7 +18,7 @@ import { Ontology } from "@/ontology";
 import { Builtin } from "@/ontology/builtin";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
-import { User } from "@/user";
+import { UserServices } from "@/user/services";
 import { Workspace } from "@/workspace";
 
 export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
@@ -37,7 +37,7 @@ export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
 export const SERVICES: Ontology.Services = {
   schematic: SchematicServices.ONTOLOGY_SERVICE,
   cluster: ClusterServices.ONTOLOGY_SERVICE,
-  user: User.ONTOLOGY_SERVICE,
+  user: UserServices.ONTOLOGY_SERVICE,
   builtin: Builtin.ONTOLOGY_SERVICE,
   node: Node.ONTOLOGY_SERVICE,
   group: Group.ONTOLOGY_SERVICE,
@@ -50,5 +50,7 @@ export const SERVICES: Ontology.Services = {
   task: Task.ONTOLOGY_SERVICE,
   device: Device.ONTOLOGY_SERVICE,
   channel: ChannelServices.ONTOLOGY_SERVICE,
+  framer: EMPTY_ONTOLOGY_SERVICE,
   policy: EMPTY_ONTOLOGY_SERVICE,
+  allow_all: EMPTY_ONTOLOGY_SERVICE,
 };

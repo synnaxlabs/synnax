@@ -23,7 +23,6 @@ ChannelKeys = list[int]
 ChannelNames = list[str]
 ChannelParams = ChannelKeys | ChannelNames | ChannelKey | ChannelName
 
-
 class ChannelPayload(Payload):
     """A payload container that represent the properties of a channel exchanged to and
     from the Synnax server.
@@ -50,44 +49,46 @@ class ChannelPayload(Payload):
 class NormalizedChannelKeyResult:
     single: bool
     variant: Literal["keys"]
-    params: ChannelKeys
+    channels: ChannelKeys
 
 
 @dataclass
 class NormalizedChannelNameResult:
     single: bool
     variant: Literal["names"]
-    params: ChannelNames
+    channels: ChannelNames
 
 
 def normalize_channel_params(
-    params: ChannelParams,
+    channels: ChannelParams,
 ) -> NormalizedChannelKeyResult | NormalizedChannelNameResult:
     """Determine if a list of keys or names is a single key or name."""
-    normalized = normalize(params)
+    normalized = normalize(channels)
     if len(normalized) == 0:
-        return NormalizedChannelKeyResult(single=False, variant="keys", params=[])
-    single = isinstance(params, (ChannelKey, ChannelName))
+        return NormalizedChannelKeyResult(single=False, variant="keys", channels=[])
+    single = isinstance(channels, (ChannelKey, ChannelName))
     if isinstance(normalized[0], str):
         try:
             numeric_strings = [ChannelKey(s) for s in normalized]
             return NormalizedChannelKeyResult(
-                single=single, variant="keys", params=cast(ChannelKeys, numeric_strings)
+                single=single,
+                variant="keys",
+                channels=cast(ChannelKeys, numeric_strings),
             )
         except ValueError:
             return NormalizedChannelNameResult(
                 single=single,
                 variant="names",
-                params=cast(ChannelNames, normalized),
+                channels=cast(ChannelNames, normalized),
             )
-    if isinstance(normalized[0], ChannelPayload):
+    elif isinstance(normalized[0], ChannelPayload):
         return NormalizedChannelNameResult(
             single=single,
             variant="keys",
-            params=cast(ChannelNames, [c.key for c in normalized]),
+            channels=cast(ChannelNames, [c.key for c in normalized]),
         )
     return NormalizedChannelKeyResult(
         single=single,
         variant="keys",
-        params=cast(ChannelKeys, normalized),
+        channels=cast(ChannelKeys, normalized),
     )

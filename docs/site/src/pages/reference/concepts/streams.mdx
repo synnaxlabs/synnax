@@ -3,9 +3,12 @@ layout: "@/layouts/MainLayout.astro"
 title: "Streams"
 heading: "Streaming Data"
 description: "Learn the process for streaming data from a Synnax cluster."
+prev: "Writes"
+prevURL: "/reference/concepts/writes"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
+import Table from "@/components/Table.astro";
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
@@ -35,6 +38,26 @@ streams easy and efficient.
 To open a streamer, you'll need to provide a list of channels that you'd like to stream
 data from. The streamer will validate that the channels exists and are readable before
 starting the stream.
+
+#### Optional Arguments
+
+There are also a few optional arguments we can provide when opening a streamer:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Argument</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Downsample Factor </td>
+      {/* prettier-ignore */}
+      <td>A positive integer that determines the reduction in the stream's original data rate. A value of n means only every nth sample is retained. Defaults to 1, meaning no downsampling.</td>
+    </tr>
+  </tbody>
+</Table>
 
 ### Reading Data
 

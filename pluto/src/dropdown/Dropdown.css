@@ -43,7 +43,6 @@
         --pluto-pack-br: 1rem;
         border-radius: 1rem;
         background: var(--pluto-gray-l0);
-        backdrop-filter: saturate(300%) blur(5rem);
         overflow: hidden;
         max-width: calc(100vw - 5rem);
     }
@@ -68,7 +67,6 @@
 
     &:not(.pluto--modal) {
         background: var(--pluto-gray-l1);
-        backdrop-filter: saturate(180%) blur(5rem);
         max-height: 360px;
         &.pluto-height-small {
             max-height: 200px;

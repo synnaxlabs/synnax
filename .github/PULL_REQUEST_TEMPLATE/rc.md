@@ -1,14 +1,14 @@
-# Release Candidate Pull Request Template
+# Release Candidate Pull Request
+
+The following
 
 ## Key Information
 
-- **Platform Version**:
+- **Version Number**:
 
 ## Versioning
 
-### Public Packages
-
-#### Version Consistency
+### Version Consistency
 
 I have verified that the following packages have the same minor version number:
 
@@ -19,7 +19,7 @@ I have verified that the following packages have the same minor version number:
 - [ ] alamos/py
 - [ ] freighter/py
 - [ ] client/py
-- [ ] synnax server
+- [ ] server
 - [ ] drift
 - [ ] pluto
 - [ ] console
@@ -37,18 +37,10 @@ previously released packages:
 - [ ] [alamos/py](https://pypi.org/project/alamos/)
 - [ ] [freighter/py](https://pypi.org/project/synnax-freighter/)
 - [ ] [client/py](https://pypi.org/project/synnax/)
-- [ ] [synnax server](https://github.com/synnaxlabs/synnax/releases)
+- [ ] [server](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [drift](https://www.npmjs.com/package/@synnaxlabs/drift)
 - [ ] [pluto](https://npmjs.com/package/@synnaxlabs/pluto)
 - [ ] [console](https://github.com/synnaxlabs/synnax/releases)
-
-## CI Tests
-
-- [ ] I have verified that all CI tests pass.
-
-## CD Builds
-
-- [ ] I have verified that all CD builds pass.
 
 ## User Documentation
 
@@ -70,7 +62,7 @@ documentation has been left stale.
 
 ### Examples
 
-I have verified that code examples for each of the following services run correctly **after releasing new versions of the corresponding packages**:
+I have verified that code examples for each of the following services run correctly:
 
 - [ ] client/py
 - [ ] client/ts
@@ -84,7 +76,7 @@ I have verified that code examples for each of the following services run correc
 - [ ] I have verified that the nightly builds of the console are able to auto-update
       correctly.
 
-### Cluster Connection
+### Clusters
 
 I can successfully:
 
@@ -109,41 +101,61 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Open create range dialog from command search bar.
-- [ ] Open create range dialog from range toolbar.
-- [ ] Open create range dialog from context menu in range toolbar.
-- [ ] Create a new local range.
-- [ ] Create a new persisted range.
-- [ ] Set a parent range for a range.
-- [ ] Attach labels to a range.
-- [ ] Open the range overview dialog from the resources view.
-- [ ] Edit range properties from the overview dialog.
-- [ ] Edit meta-data properties on the range.
-- [ ] Add child ranges to a range.
-- [ ] Navigate to and from child ranges on a range.
-- [ ] Make a change to the range in the edit dialog and see the changes propagate to the
-      overview dialog.
-- [ ] Save a local range to Synnax in the range toolbar.
-- [ ] Switch the active range in the range toolbar.
-- [ ] Load a local range from the search bar.
-- [ ] Load a persisted range from the search bar.
-- [ ] Rename a range from the range toolbar.
-- [ ] Edit a range from the range toolbar.
-- [ ] Remove a range from the range toolbar.
-- [ ] Delete a persisted range from the range toolbar.
-- [ ] Delete a range in the resources view.
-- [ ] Delete multiple ranges in the resources view.
-- [ ] Set a range as an active range from the resources view.
-- [ ] Edit a range from the resources view.
-- [ ] Add a range to a plot from the resources view.
-- [ ] Copy a link to a range and open it from the resources view.
-- [ ] Rename a range from the range toolbar.
+- [ ] Create Range Modal
+  - [ ] Create a new local range.
+  - [ ] Create a new persisted range.
+  - [ ] Set parent range
+  - [ ] Add labels
+- [ ] Range Layout
+  - [ ] Rename range.
+  - [ ] Rename range from tab.
+  - [ ] Change start and end times.
+  - [ ] Add labels.
+  - [ ] Set metadata.
+  - [ ] Delete metadata.
+  - [ ] Add child ranges.
+  - [ ] Open snapshots.
+  - [ ] Navigate to and from child ranges
+- [ ] Search and Command Palette
+  - [ ] Open an existing range window
+  - [ ] Open create range dialog
+- [ ] Range Toolbar
+  - [ ] Open create range modal from toolbar link when no range exists
+  - [ ] Switch the active range by clicking
+  - [ ] Context Menu
+    - [ ] Open create range modal
+    - [ ] Rename range
+    - [ ] Set active range
+    - [ ] Open create range modal with child range
+    - [ ] Add to active line plot
+    - [ ] Add to new line plot
+    - [ ] Remove from range toolbar
+    - [ ] Delete persisted range
+    - [ ] Copy link of persisted range
+    - [ ] Save local range to Synnax
+- [ ] Resources Toolbar
+  - [ ] Open the range overview dialog by clicking on a range
+  - [ ] Context Menu
+    - [ ] Set active range
+    - [ ] Rename range
+    - [ ] Open create range modal with child range
+    - [ ] Group ranges
+    - [ ] Add to active line plot
+    - [ ] Add multiple ranges to active line plot
+    - [ ] Add to new line plot
+    - [ ] Add multiple ranges to new line plot
+    - [ ] Delete range
+    - [ ] Delete multiple ranges
+    - [ ] Copy link to range
+- [ ] Open a range from its url
+- [ ] Make changes to a range with resources toolbar, overview, and ranges toolbar open
+      and see changes propagate to all three.
 
 ### Channels
 
 I can successfully:
 
-- [ ] Create a new channel from the search bar.
+- [ ] Create a new channel from the search palette.
 - [ ] Create several channels with the 'Create More' flag set to true.
 - [ ] Rename a channel in the resources view.
 - [ ] Delete a channel in the resources view.
@@ -163,6 +175,7 @@ I can successfully:
 - [ ] Copy the link to a line plot and open it from the resources view.
 - [ ] Create a new line plot from the search bar.
 - [ ] Create a new line plot from a workspace in the resources view.
+- [ ] Export and import a line plot.
 - [ ] Plot a historical range of data.
 - [ ] Plot a live range of data.
 - [ ] Move channels between axes.
@@ -226,6 +239,15 @@ I can successfully:
 
 - [ ] Open the documentation from the command search bar.
 - [ ] Open the documentation from the question mark icon.
+
+### Users
+
+I can successfully:
+
+- [ ] Register a new user from the command palette
+- [ ] Give the user permissions from the resources toolbar
+- [ ] Login as the new user and open a schematic without schematic permissions and then
+      with schematic permissions
 
 ### Devices
 
@@ -414,3 +436,4 @@ I can successfully:
 I can successfully:
 
 - [ ] Toggle the color theme from the command search bar.
+- [ ] Run the driver for long periods of time with minimal memory leakage.

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 export interface GLBufferController {
   createBuffer: () => WebGLBuffer | null;
   bufferData: ((target: number, data: ArrayBufferLike, usage: number) => void) &
@@ -20,3 +22,5 @@ export interface GLBufferController {
 }
 
 export type GLBufferUsage = "static" | "dynamic";
+
+export const glBufferUsageZ = z.enum(["static", "dynamic"]);

@@ -124,16 +124,16 @@ const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
 // Warning
 
-const WARNING_HSLA: color.HSLA = [42, 100, 50, 1];
+const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 
 // Grayscale
 
 const LIGHT_SCALE = [
-  "#FCFCFC",
-  "#F9F9F9",
-  "#F4F4F4",
-  "#ededed",
-  "#d9d9d9",
+  "#FDFDFD",
+  "#FAFAFA",
+  "#F3F3F3",
+  "#EAEAEA",
+  "#D8D8D8",
   "#ADADAD",
   "#878787",
   "#616161",
@@ -205,6 +205,7 @@ const SYNNAX_BASE: ThemeSpec = {
     black: "#000000",
     text: lightGrayScale.l9,
     textInverted: lightGrayScale.l0,
+    textOnPrimary: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
@@ -264,11 +265,11 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 
 const DARK_SCALE = [
   "#020202",
-  "#060606",
-  "#0D0D0D",
-  "#191919",
-  "#242424",
-  "#434343",
+  "#0A0A0A",
+  "#131313",
+  "#1E1E1E",
+  "#2E2E2E",
+  "#444444",
   "#646464",
   "#8A8A8A",
   "#AFAFAF",
@@ -291,6 +292,7 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     border: DARK_GRAY_SCALE.l3,
     text: DARK_GRAY_SCALE.l9,
     textInverted: DARK_GRAY_SCALE.l0,
+    textOnPrimary: DARK_GRAY_SCALE.l10,
   },
 });
 

@@ -24,6 +24,12 @@ import { Frame } from "@/framer/frame";
 import { Iterator, IteratorConfig } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
+import { ontology } from "@/ontology";
+
+export const ONTOLOGY_TYPE: ontology.ResourceType = "framer";
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
 
 export class Client {
   private readonly streamClient: StreamClient;
@@ -93,7 +99,7 @@ export class Client {
 
   async openStreamer(config: StreamerConfig | Params): Promise<Streamer> {
     if (Array.isArray(config) || typeof config !== "object")
-      config = { channels: config as Params };
+      config = { channels: config as Params, downsampleFactor: 1 };
     return await Streamer._open(this.retriever, this.streamClient, config);
   }
 
@@ -169,8 +175,8 @@ export class Client {
     return fr;
   }
 
-  private async readFrame(tr: CrudeTimeRange, params: Params): Promise<Frame> {
-    const i = await this.openIterator(tr, params);
+  private async readFrame(tr: CrudeTimeRange, channels: Params): Promise<Frame> {
+    const i = await this.openIterator(tr, channels);
     const frame = new Frame();
     try {
       for await (const f of i) frame.push(f);

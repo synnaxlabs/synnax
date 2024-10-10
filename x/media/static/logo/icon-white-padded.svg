@@ -1,0 +1,29 @@
+<!--
+Copyright 2024 Synnax Labs, Inc.
+
+Use of this software is governed by the Business Source License included in the file
+licenses/BSL.txt.
+
+As of the Change Date specified in that file, in accordance with the Business Source
+License, use of this software will be governed by the Apache License, Version 2.0,
+included in the file licenses/APL.txt.
+-->
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 325 325">
+    <defs>
+        <style>
+            .cls-1 {
+                fill: #fff;
+            }
+        </style>
+    </defs>
+    <g id="Layer_2" data-name="Layer 2">
+        <g id="Layer_1-2" data-name="Layer 1">
+            <rect width="325" height="325" />
+            <path
+                class="cls-1"
+                d="M115.11,236.66a14.82,14.82,0,0,1-12.83-22.22l54.44-94.28c5.7-9.88,19.95-9.88,25.9.43l51.77,89.67a6.86,6.86,0,0,0,2.48,2.48l15.42,8.9a6.78,6.78,0,0,0,9.26-9.26L182.37,75.24a14.8,14.8,0,0,0-25.65,0L64.51,235a14.81,14.81,0,0,0,12.83,22.22H232.89a6.78,6.78,0,0,0,3.39-12.65l-12.05-7a6.82,6.82,0,0,0-3.39-.9Z"
+            />
+        </g>
+    </g>
+</svg>

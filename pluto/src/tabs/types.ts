@@ -18,10 +18,11 @@ export const specZ = z.object({
   closable: z.boolean().optional(),
   icon: z.unknown().optional(),
   editable: z.boolean().optional(),
+  visible: z.boolean().optional(),
 });
 
 export interface Spec extends Omit<z.infer<typeof specZ>, "icon"> {
-  icon?: ReactElement | unknown;
+  icon?: ReactElement | string | unknown;
 }
 export const tabZ = specZ.extend({
   content: z.unknown().optional(),

@@ -169,11 +169,11 @@ jobs:
 
       - name: Move Driver
         if: needs.setup.outputs.changed == 'true'
-        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
+        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/
 
       - name: Rename Driver
         if:  needs.setup.outputs.changed == 'true'
-        run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+        run: mv synnax/pkg/service/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
       
       
       - name: Set up Go

@@ -23,7 +23,7 @@
 //                             Helper Functions                                  //
 ///////////////////////////////////////////////////////////////////////////////////
 void ni::DigitalWriteSink::get_index_keys() {
-    if(this->writer_config.state_channel_keys.empty()) return;
+    if (this->writer_config.state_channel_keys.empty()) return;
     auto state_channel = this->writer_config.state_channel_keys[0];
     auto [state_channel_info, err] = this->ctx->client->channels.
             retrieve(state_channel);
@@ -41,8 +41,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     : task_handle(task_handle),
       ctx(ctx),
       task(task),
-      err_info({}){
-
+      err_info({}) {
     auto config_parser = config::Parser(task.config);
     this->writer_config.task_name = task.name;
     this->parse_config(config_parser);
@@ -88,35 +87,39 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
 
     this->writer_config.device_name = dev.location;
     std::uint64_t c_count = 0;
-    parser.iter("channels",
-                [&](config::Parser &channel_builder) {
-                    ni::ChannelConfig config;
-                    // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    auto port = "port" + std::to_string(
-                                           channel_builder.required<std::uint64_t>(
-                                               "port"));
-                    auto line = "line" + std::to_string(
-                                           channel_builder.required<std::uint64_t>(
-                                               "line"));
+    parser.iter(
+        "channels",
+        [&](config::Parser &channel_builder) {
+            ni::ChannelConfig config;
+            // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
+            auto port = "port" + std::to_string(
+                            channel_builder.required<std::uint64_t>(
+                                "port"));
+            auto line = "line" + std::to_string(
+                            channel_builder.required<std::uint64_t>(
+                                "line"));
 
-                    config.name = (this->writer_config.device_name + "/" + port + "/" +
-                                   line);
+            config.name = (this->writer_config.device_name + "/" + port + "/" +
+                            line);
 
-                    config.channel_key = channel_builder.required<uint32_t>(
-                        "cmd_channel");
-                    this->writer_config.drive_cmd_channel_keys.push_back(
-                        config.channel_key);
+            
+            config.enabled = channel_builder.optional<bool>("enabled", true);
+            
+            if(config.enabled) {
+                config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
+                this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
 
-                    auto state_key = channel_builder.required<uint32_t>(
-                        "state_channel");
-                    this->writer_config.state_channel_keys.push_back(
-                        state_key);
+                auto state_key = channel_builder.required<uint32_t>("state_channel");
+                this->writer_config.state_channel_keys.push_back(state_key);
 
-                    this->channel_map[config.name] =
-                            "channels." + std::to_string(c_count);
-                    this->writer_config.channels.push_back(config);
-                    c_count++;
-                });
+                config.state_channel_key = state_key;
+
+                this->channel_map[config.name] = "channels." + std::to_string(c_count);
+
+                this->writer_config.channels.push_back(config);
+                c_count++;
+            }
+        });
 }
 
 
@@ -125,7 +128,7 @@ int ni::DigitalWriteSink::init() {
     auto channels = this->writer_config.channels;
 
     for (auto &channel: channels) {
-        if (channel.channel_type != "index") {
+        if (channel.channel_type != "index" && channel.enabled) {
             err = this->check_ni_error(ni::NiDAQmxInterface::CreateDOChan(
                 this->task_handle, channel.name.c_str(), "",
                 DAQmx_Val_ChanPerLine));
@@ -152,7 +155,7 @@ freighter::Error ni::DigitalWriteSink::cycle() {
     return freighter::NIL;
 }
 
-freighter::Error ni::DigitalWriteSink::start_ni(){
+freighter::Error ni::DigitalWriteSink::start_ni() {
     if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->log_error(
             "failed to start writer for task " + this->writer_config.task_name);
@@ -165,7 +168,7 @@ freighter::Error ni::DigitalWriteSink::start_ni(){
 }
 
 
-freighter::Error ni::DigitalWriteSink::stop_ni(){
+freighter::Error ni::DigitalWriteSink::stop_ni() {
     if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(task_handle))) {
         this->log_error(
             "failed to stop writer for task " + this->writer_config.task_name);
@@ -180,7 +183,7 @@ freighter::Error ni::DigitalWriteSink::start(const std::string &cmd_key) {
     if (this->breaker.running() || !this->ok()) return freighter::NIL;
     this->breaker.start();
     freighter::Error err = this->start_ni();
-    if(err) return err;
+    if (err) return err;
     ctx->setState({
         .task = this->task.key,
         .key = cmd_key,
@@ -198,7 +201,7 @@ freighter::Error ni::DigitalWriteSink::stop(const std::string &cmd_key) {
     if (!this->breaker.running()) return freighter::NIL;
     this->breaker.stop();
     freighter::Error err = this->stop_ni();
-    if(err) return err;
+    if (err) return err;
     ctx->setState({
         .task = this->task.key,
         .key = cmd_key,
@@ -215,14 +218,16 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
     int32 samplesWritten = 0;
     format_data(std::move(frame));
 
-    if (this->check_ni_error(ni::NiDAQmxInterface::WriteDigitalLines(this->task_handle,
+    if (this->check_ni_error(ni::NiDAQmxInterface::WriteDigitalLines(
+        this->task_handle,
         1, // number of samples per channel
         1, // auto start
         10.0, // timeout
         DAQmx_Val_GroupByChannel, // data layout
         write_buffer, // data
         &samplesWritten, // samples written
-        NULL))) {
+        NULL
+    ))) {
         this->log_error("failed while writing digital data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
@@ -275,12 +280,16 @@ void ni::DigitalWriteSink::clear_task() {
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_cmd_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->writer_config.channels)
-        if (channel.channel_type != "index") keys.push_back(channel.channel_key);
+        if (channel.channel_type != "index" && channel.enabled) 
+            keys.push_back(channel.channel_key);
     return keys;
 }
 
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_state_channel_keys() {
-    std::vector<synnax::ChannelKey> keys = this->writer_config.state_channel_keys;
+    std::vector<synnax::ChannelKey> keys;
+    for (auto &channel: this->writer_config.channels)
+        if (channel.channel_type != "index" && channel.enabled)
+            keys.push_back(channel.state_channel_key);
     keys.push_back(this->writer_config.state_index_key);
     return keys;
 }
@@ -350,7 +359,8 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
     for (const auto &field: fields) {
         size_t pos = s.find("\n" + field);
         if (pos != std::string::npos && (
-                first_field_pos == std::string::npos || pos < first_field_pos))  first_field_pos = pos;
+                first_field_pos == std::string::npos || pos < first_field_pos))
+            first_field_pos = pos;
     }
 
     if (first_field_pos != std::string::npos) message = s.substr(0, first_field_pos);
@@ -372,7 +382,7 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
     std::smatch channel_match;
     if (std::regex_search(s, physical_channel_match, physical_channel_regex)) {
         cn = physical_channel_match[1].str();
-        if (!device.empty())  cn = device + "/" + cn; // Combine device and physical channel name
+        if (!device.empty()) cn = device + "/" + cn; // Combine device and physical channel name
     } else if (std::regex_search(s, channel_match, channel_regex)) cn = channel_match[1].str();
 
     // Check if the channel name is in the channel map
@@ -427,13 +437,13 @@ synnax::Frame ni::StateSource::get_state() {
     // frame size = # monitored states + 1 state index channel
     auto state_frame = synnax::Frame(this->state_map.size() + 1);
     state_frame.add(
-            this->state_index_key,
-            synnax::Series(
-                  synnax::TimeStamp::now().value,
-                  synnax::TIMESTAMP
-                  )
-              );
-    for (auto &[key,  value] : this->state_map)
+        this->state_index_key,
+        synnax::Series(
+            synnax::TimeStamp::now().value,
+            synnax::TIMESTAMP
+        )
+    );
+    for (auto &[key, value]: this->state_map)
         state_frame.add(key, synnax::Series(value));
     return state_frame;
 }

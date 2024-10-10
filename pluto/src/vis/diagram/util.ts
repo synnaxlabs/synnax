@@ -20,7 +20,7 @@ export const selectNodeBox = (flow: ReactFlowInstance, key: string): box.Box => 
   const n = selectNode(key);
   const flowN = flow.getNodes().find((n) => n.id === key);
   if (flowN == null) throw new Error(`[diagram] - cannot find node with key: ${key}`);
-  return box.construct(flowN.position, box.dims(box.construct(n)));
+  return box.construct(flowN.position, xy.scale(box.dims(box.construct(n)), 1 / flow.getZoom()));
 };
 
 export const selectNodeLayout = (key: string, flow: ReactFlowInstance): NodeLayout => {

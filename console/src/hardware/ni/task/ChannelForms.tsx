@@ -7,12 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Divider, Form, Input, List, Select, state } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Device,
+  Divider,
+  Form,
+  Input,
+  List,
+  Select,
+  state,
+  Synnax,
+} from "@synnaxlabs/pluto";
 import { binary, deep } from "@synnaxlabs/x";
 import { FC, ReactElement, useRef } from "react";
 import { z } from "zod";
 
 import { FS } from "@/fs";
+import { Device as NIDevice } from "@/hardware/ni/device";
+import { Properties } from "@/hardware/ni/device/types";
 import {
   AccelSensitivityUnits,
   AI_CHANNEL_SCHEMAS,
@@ -33,7 +45,8 @@ import {
   VelocityUnits,
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
-} from "@/hardware/ni/task/types";
+} from "@/hardware/ni/task/migrations";
+import { Layout } from "@/layout";
 
 export interface FormProps {
   prefix: string;
@@ -769,9 +782,44 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
   );
 };
 
+export interface DeviceFieldProps {
+  path: string;
+}
+
+export const DeviceField = ({ path }: DeviceFieldProps) => {
+  const client = Synnax.use();
+  const placer = Layout.usePlacer();
+  const handleDeviceChange = async (v: string) => {
+    if (client == null) return;
+    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
+    if (configured) return;
+    placer(NIDevice.createConfigureLayout(v, {}));
+  };
+  return (
+    <Form.Field<string>
+      path={`${path}.device`}
+      label="Device"
+      grow
+      onChange={handleDeviceChange}
+      style={{ width: "100%" }}
+    >
+      {(p) => (
+        <Device.SelectSingle
+          allowNone={false}
+          grow
+          {...p}
+          autoSelectOnNone={false}
+          searchOptions={{ makes: ["NI"] }}
+        />
+      )}
+    </Form.Field>
+  );
+};
+
 export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
+      <DeviceField path={prefix} />
       <PortField path={prefix} grow />
       <Divider.Divider direction="x" padded="bottom" />
       <TerminalConfigField path={prefix} grow />
@@ -812,6 +860,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
 
   ai_bridge: ({ prefix }) => (
     <>
+      <DeviceField path={prefix} />
       <PortField path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
       <MinMaxValueFields path={prefix} />
@@ -845,6 +894,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_current: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
@@ -868,6 +918,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_force_bridge_table: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
@@ -911,9 +962,11 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       </>
     );
   },
+
   ai_force_bridge_two_point_lin: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <ForceUnitsField path={prefix} />
@@ -999,6 +1052,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
@@ -1050,9 +1104,8 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <TerminalConfigField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
         <UnitsField path={prefix} />
@@ -1091,6 +1144,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_pressure_bridge_table: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <PressureUnitsField path={prefix} />
@@ -1123,6 +1177,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_pressure_bridge_two_point_lin: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
@@ -1197,6 +1252,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_resistance: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />
@@ -1259,6 +1315,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
@@ -1301,6 +1358,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Align.Space direction="x" grow>
@@ -1352,6 +1410,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_temp_builtin: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <TemperatureUnitsField path={prefix} />
       </>
@@ -1393,6 +1452,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, true);
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
@@ -1416,6 +1476,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_torque_bridge_table: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
@@ -1454,6 +1515,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_torque_bridge_two_point_lin: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <MinMaxValueFields path={prefix} />
@@ -1561,6 +1623,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     });
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
@@ -1592,6 +1655,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_voltage: ({ prefix }) => {
     return (
       <>
+        <DeviceField path={prefix} />
         <PortField path={prefix} />
         <Divider.Divider direction="x" padded="bottom" />
         <TerminalConfigField path={prefix} />

@@ -12,12 +12,10 @@
 ::-webkit-scrollbar {
     width: 1rem;
     height: 1rem;
-    z-index: -1;
 }
 
 ::-webkit-scrollbar-track {
     background: transparent;
-    z-index: -1;
 }
 
 ::-webkit-scrollbar-thumb {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, type PayloadAction } from "@reduxjs/toolkit";
+import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -15,7 +15,7 @@ import {
   Control,
   Diagram,
   Haul,
-  Legend,
+  type Legend,
   Schematic as Core,
   Text,
   Theming,
@@ -24,6 +24,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -39,7 +40,9 @@ import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
   select,
+  selectHasPermission,
   useSelect,
+  useSelectHasPermission,
   useSelectNodeProps,
   useSelectViewport,
   useSelectViewportMode,
@@ -50,6 +53,7 @@ import {
   copySelection,
   internalCreate,
   pasteSelection,
+  purgeState,
   setControlStatus,
   setEdges,
   setEditable,
@@ -76,10 +80,10 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     "Schematic",
     layoutKey,
     async (ws, store, client) => {
-      const s = store.getState();
-      const data = select(s, layoutKey);
+      const storeState = store.getState();
+      const data = select(storeState, layoutKey);
       if (data == null || data.snapshot) return;
-      const la = Layout.selectRequired(s, layoutKey);
+      const layout = Layout.selectRequired(storeState, layoutKey);
       const setData = {
         ...data,
         key: undefined,
@@ -87,9 +91,11 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
       } as unknown as UnknownRecord;
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
       await new Promise((r) => setTimeout(r, 1000));
+      const canSave = selectHasPermission(storeState);
+      if (!canSave) return;
       await client.workspaces.schematic.create(ws, {
         key: layoutKey,
-        name: la.name,
+        name: layout.name,
         data: setData,
       });
     },
@@ -100,33 +106,31 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
-}: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
-  const nodeProps = useSelectNodeProps(layoutKey, symbolKey);
-  if (nodeProps == null) return null;
-  const { key, ...props } = nodeProps;
+}: Diagram.SymbolProps & { layoutKey: string }): ReactElement => {
+  const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
   const dispatch = useSyncComponent(layoutKey);
 
   const handleChange = useCallback(
-    (props: object) => {
+    (props: object) =>
       dispatch(
         setElementProps({
           layoutKey,
           key: symbolKey,
           props: { key, ...props },
         }),
-      );
-    },
+      ),
     [dispatch, symbolKey, layoutKey, key],
   );
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
-  if (C == null) throw new Error(`Symbol ${key} not found`);
-
   const zoom = useSelectViewport(layoutKey);
+
+  if (C == null) throw new Error(`Symbol ${key} not found`);
 
   return (
     <C.Symbol
+      id={symbolKey}
       aetherKey={symbolKey}
       position={position}
       selected={selected}
@@ -137,7 +141,12 @@ const SymbolRenderer = ({
   );
 };
 
-export const Loaded: Layout.Renderer = ({ layoutKey }) => {
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <PMenu.Menu level="small" iconSpacing="small">
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </PMenu.Menu>
+);
+export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const schematic = useSelect(layoutKey);
@@ -150,6 +159,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   useEffect(() => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey]);
+
+  const canBeEditable = useSelectHasPermission();
+  if (!canBeEditable && schematic.editable)
+    dispatch(setEditable({ key: layoutKey, editable: false }));
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => {
@@ -195,12 +208,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const acquireControl = useCallback(
     (v: boolean) => {
-      dispatch(
-        toggleControl({
-          key: layoutKey,
-          status: v ? "acquired" : "released",
-        }),
-      );
+      dispatch(toggleControl({ key: layoutKey, status: v ? "acquired" : "released" }));
     },
     [layoutKey],
   );
@@ -312,6 +320,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     [storeLegendPosition],
   );
 
+  const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;
+
   return (
     <div
       ref={ref}
@@ -328,7 +338,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onViewportChange={handleViewportChange}
           edges={schematic.edges}
           nodes={schematic.nodes}
-          viewport={schematic.viewport}
+          // Turns out that setting the zoom value to 1 here doesn't have any negative
+          // effects on teh schematic sizing and ensures that we position all the lines
+          // in the correct place.
+          viewport={{ ...schematic.viewport, zoom: 1 }}
           onEdgesChange={handleEdgesChange}
           onNodesChange={handleNodesChange}
           onEditableChange={handleEditableChange}
@@ -337,12 +350,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onDoubleClick={handleDoubleClick}
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
+          visible={visible}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
           <Diagram.Background />
           <Diagram.Controls>
-            {!schematic.snapshot && (
+            {canEditSchematic && (
               <Diagram.ToggleEditControl disabled={schematic.control === "acquired"} />
             )}
             <Diagram.FitViewControl />
@@ -405,9 +419,22 @@ export const SELECTABLE: Layout.Selectable = {
 
 export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
-  ({ dispatch }) => {
+  ({ dispatch, store }) => {
+    const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
+    const newTab = canEditSchematic ? tab : { ...tab, editable: false };
     const key = initial.key ?? uuidv4();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
-    return { key, location, name, type: LAYOUT_TYPE, window, tab };
+    return {
+      key,
+      location,
+      name,
+      icon: "Schematic",
+      type: LAYOUT_TYPE,
+      window: {
+        navTop: true,
+        showTitle: true,
+      },
+      tab: newTab,
+    };
   };

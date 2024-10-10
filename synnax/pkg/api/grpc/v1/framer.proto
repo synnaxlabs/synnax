@@ -72,8 +72,8 @@ message FrameWriterResponse {
 }
 
 message FrameStreamerRequest {
-    int64 start = 1;
-    repeated uint32 keys = 2;
+    repeated uint32 keys = 1;
+    int32 downsample_factor = 2;
 }
 
 message FrameStreamerResponse {

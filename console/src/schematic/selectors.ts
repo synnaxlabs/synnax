@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
+import { Permissions } from "@/permissions";
 import {
   type NodeProps,
   type SliceState,
@@ -121,3 +123,9 @@ export const useSelectControlStatus = (layoutKey: string): Control.Status =>
     (state: StoreState) => selectControlStatus(state, layoutKey),
     [layoutKey],
   );
+
+export const selectHasPermission = (state: Permissions.StoreState): boolean =>
+  Permissions.selectCanUseType(state, schematic.ONTOLOGY_TYPE);
+
+export const useSelectHasPermission = (): boolean =>
+  useMemoSelect(selectHasPermission, []);

@@ -487,14 +487,16 @@ void ni::Source::get_index_keys() {
     for (auto &channel: this->reader_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (err) return this->log_error(
-                    "failed to retrieve channel " + std::to_string(channel.channel_key));
+        if (err)
+            return this->log_error(
+                "failed to retrieve channel " + std::to_string(channel.channel_key));
         index_keys.insert(channel_info.index);
     }
-    for(auto &index_key : index_keys) {
+    for (auto &index_key: index_keys) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
-        if (err) return this->log_error(
-                    "failed to retrieve channel " + std::to_string(index_key));
+        if (err)
+            return this->log_error(
+                "failed to retrieve channel " + std::to_string(index_key));
         ni::ChannelConfig index_channel;
         index_channel.channel_key = channel_info.key;
         index_channel.channel_type = "index";
@@ -507,30 +509,24 @@ void ni::Source::get_index_keys() {
 ni::Source::Source(
     TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task) :
-    task_handle(task_handle),
-    ctx(ctx),
-    task(task),
-    err_info({}){
+    const synnax::Task task) : task_handle(task_handle),
+                               ctx(ctx),
+                               task(task),
+                               err_info({}) {
 }
 
 void ni::Source::parse_config(config::Parser &parser) {
     this->reader_config.sample_rate.value = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate.value = parser.required<uint64_t>("stream_rate");
-    this->reader_config.device_key = parser.required<std::string>("device");
+    this->reader_config.device_key = parser.optional<std::string>("device", "cross-device");
     this->reader_config.timing_source = "none";
     // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
-    if (parser.optional<bool>("test", false))
-        this->reader_config.device_name = parser.required<std::string>(
-            "device_location");
-    else {
+    if(this->reader_config.device_key  != "cross-device") {
         auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
-            this->reader_config.device_key);
-        if (err) {
-            this->log_error(
-                "failed to retrieve device " + this->reader_config.device_name);
-            return;
-        }
+                this->reader_config.device_key);
+        if (err)
+             return this->log_error(
+                    "failed to retrieve device " + this->reader_config.device_name);
         this->reader_config.device_name = dev.location;
     }
     this->parse_channels(parser);
@@ -570,11 +566,13 @@ int ni::Source::init() {
             "failed to create channels for " + this->reader_config.task_name);
         return -1;
     }
-    if (this->reader_config.sample_rate < this->reader_config.stream_rate || this->reader_config.sample_rate.value < 1) {
+    if (this->reader_config.sample_rate < this->reader_config.stream_rate || this->reader_config.sample_rate.value <
+        1) {
         this->log_error(
             "Failed while configuring timing for NI hardware for task " + this->
             reader_config.task_name);
-        this->err_info["message"] = "sample rate must be greater than or equal to 1 and greater than or equal to the stream rate";
+        this->err_info["message"] =
+                "sample rate must be greater than or equal to 1 and greater than or equal to the stream rate";
         this->err_info["running"] = false;
 
         this->ctx->setState({
@@ -592,15 +590,15 @@ int ni::Source::init() {
     return 0;
 }
 
-freighter::Error  ni::Source::cycle(){
+freighter::Error ni::Source::cycle() {
     auto err = this->start_ni();
-    if(err) return err;
+    if (err) return err;
     err = this->stop_ni();
-    if(err) return err;
+    if (err) return err;
     return freighter::NIL;
 }
 
-freighter::Error ni::Source::start_ni(){
+freighter::Error ni::Source::start_ni() {
     if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->log_error(
             "failed while starting reader for task " + this->reader_config.task_name +
@@ -611,7 +609,7 @@ freighter::Error ni::Source::start_ni(){
     return freighter::NIL;
 }
 
-freighter::Error ni::Source::stop_ni(){
+freighter::Error ni::Source::stop_ni() {
     if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(this->task_handle))) {
         this->log_error(
             "failed while stopping reader for task " + this->reader_config.task_name);
@@ -664,12 +662,12 @@ void ni::Source::clear_task() {
 
 ni::Source::~Source() {
     this->clear_task();
-    if(this->sample_thread.joinable()) this->sample_thread.join();
+    if (this->sample_thread.joinable()) this->sample_thread.join();
     VLOG(1) << "[ni.reader] joined sample thread";
 }
 
 int ni::Source::check_ni_error(int32 error) {
-    if(error == 0) return 0;
+    if (error == 0) return 0;
 
     char errBuff[4096] = {'\0'};
 
@@ -693,10 +691,10 @@ bool ni::Source::ok() {
     return this->ok_state;
 }
 
-std::vector<synnax::ChannelKey> ni::Source::getChannelKeys() {
+std::vector<synnax::ChannelKey> ni::Source::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
-    for (auto &channel: this->reader_config.channels) keys.push_back(
-        channel.channel_key);
+    for (auto &channel: this->reader_config.channels)
+        if (channel.enabled) keys.push_back(channel.channel_key);
     return keys;
 }
 
@@ -741,7 +739,7 @@ void ni::Source::jsonify_error(std::string s) {
     std::regex task_name_line_regex(R"(\nTask Name:.*\n?)");
     s = std::regex_replace(s, task_name_line_regex, "");
 
-     // Extract status code
+    // Extract status code
     std::string sc = "";
     std::smatch status_code_match;
     if (std::regex_search(s, status_code_match, status_code_regex)) sc = status_code_match[1].str();
@@ -770,7 +768,7 @@ void ni::Source::jsonify_error(std::string s) {
     std::string p = "";
     std::smatch property_match;
     if (std::regex_search(s, property_match, property_regex)) p = property_match[1].str();
-    if(sc == "-200170") p = "port";
+    if (sc == "-200170") p = "port";
 
     // Extract possible values
     std::string possible_values = "";

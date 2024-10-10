@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 import numpy as np
 
 import synnax as sy
@@ -77,7 +76,7 @@ for sensor in SENSORS:
         retrieve_if_name_exists=True,
     )
 
-rate = (sy.Rate.HZ * 30).period.seconds
+loop = sy.Loop(sy.Rate.HZ * 30, precise=True)
 
 DAQ_STATE = {
     OX_VENT_CMD: 0,
@@ -145,9 +144,8 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
         enable_auto_commit=True,
     ) as w:
         i = 0
-        while True:
+        while loop.wait():
             try:
-                time.sleep(rate)
                 while True:
                     f = streamer.read(0)
                     if f is None:

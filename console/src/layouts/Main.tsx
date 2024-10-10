@@ -18,12 +18,14 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { Notifications } from "@/notifications";
+import { Permissions } from "@/permissions";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { Version } from "@/version";
@@ -40,6 +42,7 @@ const LINK_HANDLERS: Link.Handler[] = [
   LinePlotServices.linkHandler,
   RangeServices.linkHandler,
   SchematicServices.linkHandler,
+  Task.linkHandler,
   Workspace.linkHandler,
 ];
 
@@ -52,6 +55,8 @@ const SideEffect = (): null => {
   Device.useListenForChanges();
   Workspace.useSyncLayout();
   Link.useDeep({ handlers: LINK_HANDLERS });
+  Layout.useTriggers();
+  Permissions.useFetchPermissions();
   return null;
 };
 

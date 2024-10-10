@@ -16,3 +16,9 @@ export const ImportIcon = (): ReactElement => (
     <Icon.Schematic />
   </PIcon.Import>
 );
+
+export const CreateIcon = (): ReactElement => (
+  <PIcon.Create>
+    <Icon.Schematic />
+  </PIcon.Create>
+);

@@ -32,6 +32,8 @@ const Base = ({
   layoutKey,
   direction,
   layouts,
+  visible: _,
+  focused: __,
   ...props
 }: SelectorProps): ReactElement => {
   const place = usePlacer();

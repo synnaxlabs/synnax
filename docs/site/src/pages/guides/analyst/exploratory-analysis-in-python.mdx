@@ -7,7 +7,7 @@ import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
 import { Image } from "@/components/Media";
-import Note from "@/components/Note.astro";
+import { Note } from "@synnaxlabs/pluto";
 
 This guide will walk you through basic analysis on an example data set using Synnax.
 We'll import the data set, explore it using the Synnax Console, run analysis, and
@@ -137,10 +137,10 @@ We'll select the first option, which will automatically guess the channel's data
 from the data in the file. We've now successfully created all of the channels in our
 data set.
 
-<Note variant="info">
+<Note.Note variant="info">
  The next time we import a data set with the same channels, Synnax will
 automatically detect the channels and skip this process.
-</Note>
+</Note.Note>
 
 Now, Synnax will ask us to confirm the starting timestamp for our data set.
 

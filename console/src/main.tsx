@@ -30,16 +30,18 @@ import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
+import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
+import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
 
-const layoutRenderers: Record<string, Layout.Renderer> = {
+const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Layouts.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Workspace.LAYOUTS,
@@ -53,16 +55,25 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Confirm.LAYOUTS,
   ...Label.LAYOUTS,
+  ...User.LAYOUTS,
+  ...Permissions.LAYOUTS,
+};
+
+const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
+  ...Schematic.CONTEXT_MENUS,
+  ...LinePlot.CONTEXT_MENUS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],
   ["Control", "Shift", "P"],
   ["Control", "MouseLeft"],
+  ["Control", "W"],
 ];
 
-const triggersProps: Triggers.ProviderProps = {
+const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
+  preventDefaultOptions: { double: true },
 };
 
 const client = new QueryClient();
@@ -82,6 +93,10 @@ const useBlockDefaultDropBehavior = (): void =>
     const doc = document.documentElement;
     doc.addEventListener("dragover", (e) => e.preventDefault());
     doc.addEventListener("drop", (e) => e.preventDefault());
+    return () => {
+      doc.removeEventListener("dragover", (e) => e.preventDefault());
+      doc.removeEventListener("drop", (e) => e.preventDefault());
+    };
   }, []);
 
 const MainUnderContext = (): ReactElement => {
@@ -96,16 +111,16 @@ const MainUnderContext = (): ReactElement => {
         channelAlias={{
           // Set the alias active range to undefined if the range is not saved in Synnax,
           // otherwise it will try to pull aliases from a range that doesn't exist.
-          activeRange: activeRange?.persisted ? activeRange?.key : undefined,
+          activeRange: activeRange?.persisted ? activeRange.key : undefined,
         }}
         workerEnabled
         connParams={cluster?.props}
         workerURL={WorkerURL}
-        triggers={triggersProps}
+        triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}
         alamos={{
           level: "debug",
-          include: [],
+          include: ["aether.control-state"],
         }}
       >
         <Vis.Canvas>
@@ -120,10 +135,12 @@ const Main = (): ReactElement => (
   <ErrorOverlayWithoutStore>
     <Provider store={store}>
       <ErrorOverlayWithStore>
-        <Layout.RendererProvider value={layoutRenderers}>
-          <Ontology.ServicesProvider services={SERVICES}>
-            <MainUnderContext />
-          </Ontology.ServicesProvider>
+        <Layout.RendererProvider value={LAYOUT_RENDERERS}>
+          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+            <Ontology.ServicesProvider services={SERVICES}>
+              <MainUnderContext />
+            </Ontology.ServicesProvider>
+          </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
       </ErrorOverlayWithStore>
     </Provider>

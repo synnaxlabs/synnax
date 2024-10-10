@@ -10,21 +10,22 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Tabs } from "@synnaxlabs/pluto";
+import { Align, Button, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { useExport } from "@/lineplot/file";
 import { useSelect, useSelectToolbar } from "@/lineplot/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
-import { Alignment } from "@/lineplot/toolbar/Alignment";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
 import { Lines } from "@/lineplot/toolbar/Lines";
 import { Properties } from "@/lineplot/toolbar/Properties";
+import { Link } from "@/link";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -44,10 +45,6 @@ const TABS = [
     name: "Axes",
   },
   {
-    tabKey: "alignment",
-    name: "Alignment",
-  },
-  {
     tabKey: "properties",
     name: "Properties",
   },
@@ -58,6 +55,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const linePlot = useSelect(layoutKey);
+  const handleExport = useExport(name);
+  const handleLink = Link.useCopyToClipboard();
+
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       switch (tabKey) {
@@ -69,8 +69,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <Properties layoutKey={layoutKey} />;
         case "annotations":
           return <Annotations layoutKey={layoutKey} />;
-        case "alignment":
-          return <Alignment layoutKey={layoutKey} />;
         default:
           return <Data layoutKey={layoutKey} />;
       }
@@ -86,6 +84,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
 
   if (linePlot == null) return null;
+
   return (
     <Align.Space empty className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider
@@ -98,7 +97,34 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
-          <Tabs.Selector size="medium" />
+          <Align.Space direction="x" align="center" empty>
+            <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
+              <Button.Icon
+                tooltip={`Export ${name}`}
+                sharp
+                size="medium"
+                style={{ height: "100%" }}
+                onClick={() => handleExport(linePlot.key)}
+              >
+                <Icon.Export />
+              </Button.Icon>
+              <Button.Icon
+                tooltip={`Copy link to ${name}`}
+                sharp
+                size="medium"
+                style={{ height: "100%" }}
+                onClick={() =>
+                  handleLink({
+                    name,
+                    ontologyID: { key: linePlot.key, type: "lineplot" },
+                  })
+                }
+              >
+                <Icon.Link />
+              </Button.Icon>
+            </Align.Space>
+            <Tabs.Selector style={{ borderBottom: "none" }} />
+          </Align.Space>
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>

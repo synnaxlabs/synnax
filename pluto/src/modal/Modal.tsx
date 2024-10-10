@@ -14,19 +14,25 @@ import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { Dialog } from "@/dialog";
+import { Dialog as Core } from "@/dialog";
 import { useClickOutside } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { findParent } from "@/util/findParent";
 import { getRootElement } from "@/util/rootElement";
 
 export interface ModalProps
-  extends Pick<Dialog.UseReturn, "visible" | "close">,
-    Align.SpaceProps {}
+  extends Pick<Core.UseReturn, "visible" | "close">,
+    Align.SpaceProps {
+  centered?: boolean;
+  enabled?: boolean;
+  root?: string;
+}
 
-export const Modal = ({
-  visible,
+export const Dialog = ({
   children,
+  centered,
+  visible,
+  enabled = true,
   close,
   style,
   ...props
@@ -44,25 +50,35 @@ export const Modal = ({
     onClickOutside: close,
   });
   Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
-  return createPortal(
+  return (
     <Align.Space
-      className={CSS(CSS.BE("modal", "bg"), CSS.visible(visible))}
+      className={CSS(
+        CSS.BE("modal", "bg"),
+        CSS.visible(visible),
+        enabled && CSS.M("enabled-modal"),
+      )}
       empty
       align="center"
     >
       <Align.Space
-        className={CSS(CSS.BE("modal", "dialog"))}
+        className={CSS(
+          CSS.BE("modal", "dialog"),
+
+          centered && CSS.M("centered"),
+        )}
         role="dialog"
         empty
         ref={ref}
         {...props}
-        style={{ zIndex: 11, ...style }}
+        style={{ zIndex: enabled ? 11 : undefined, ...style }}
       >
         <Align.Space className={CSS(CSS.BE("modal", "content"))} empty>
           {children}
         </Align.Space>
       </Align.Space>
-    </Align.Space>,
-    getRootElement(),
+    </Align.Space>
   );
 };
+
+export const Modal = ({ root, ...props }: ModalProps): ReactElement =>
+  createPortal(<Dialog {...props} />, getRootElement(root));

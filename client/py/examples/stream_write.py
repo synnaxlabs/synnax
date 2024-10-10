@@ -15,7 +15,6 @@ applications (such as data acquisition from a sensor) or for very large datasets
 cannot be written all at once.
 """
 
-import time
 import numpy as np
 import synnax as sy
 
@@ -51,17 +50,18 @@ start = sy.TimeStamp.now()
 
 # Set a rough data rate of 20 Hz. This won't be exact because we're sleeping for a
 # fixed amount of time, but it's close enough for demonstration purposes.
-rough_rate = sy.Rate.HZ * 50
+loop = sy.Loop(sy.Rate.HZ * 20)
 
 # Open the writer as a context manager. This will make sure the writer is properly
 # closed when we're done writing. We'll write to both the time and data channels. In
 # this example, we provide the keys of the channels we want to write to, but you can
 # also provide the names and write that way.
+start = sy.TimeStamp.now()
 with client.open_writer(
     start, [time_ch.key, data_ch_1.key, data_ch_2.key], enable_auto_commit=True
 ) as writer:
     i = 0
-    while True:
+    while loop.wait():
         # Write the data to the writer
         writer.write(
             {
@@ -71,4 +71,4 @@ with client.open_writer(
             }
         )
         i += 1
-        time.sleep(rough_rate.period.seconds)
+        print(sy.TimeSpan.since(start))

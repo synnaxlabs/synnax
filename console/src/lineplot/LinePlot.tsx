@@ -56,7 +56,7 @@ import {
   useSelect,
   useSelectAxisBounds,
   useSelectControlState,
-  useSelectRanges as useSelectRanges,
+  useSelectRanges,
   useSelectSelection,
   useSelectViewportMode,
 } from "@/lineplot/selectors";
@@ -65,6 +65,7 @@ import {
   type AxisState,
   internalCreate,
   type LineState,
+  setActiveToolbarTab,
   setAxis,
   setControlState,
   setLegend,
@@ -89,7 +90,13 @@ interface SyncPayload {
   key?: string;
 }
 
-const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <PMenu.Menu level="small" iconSpacing="small">
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </PMenu.Menu>
+);
+
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const placer = Layout.usePlacer();
@@ -284,13 +291,12 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     );
   }, [vis.viewport.renderTrigger]);
 
-  const handleDoubleClick = useCallback(
-    () =>
-      dispatch(
-        Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
-      ),
-    [windowKey, dispatch],
-  );
+  const handleDoubleClick = useCallback(() => {
+    dispatch(
+      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
+    );
+    dispatch(setActiveToolbarTab({ tab: "data" }));
+  }, [windowKey, dispatch]);
 
   const props = PMenu.useContextMenu();
 
@@ -328,7 +334,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           break;
         case "range":
           placer(
-            Range.createEditLayout({
+            Range.createLayout({
               initial: {
                 timeRange: {
                   start: Number(timeRange.start.valueOf()),
@@ -340,7 +346,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           break;
         case "download":
           if (client == null) return;
-          download({ timeRange, lines, client });
+          download({ timeRange, lines, client, name: name + "-data" });
           break;
       }
     };
@@ -387,6 +393,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           rules={vis.rules}
           clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={handleTitleChange}
+          visible={visible}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
           showLegend={vis.legend.visible}
@@ -400,6 +407,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}
+          legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
@@ -466,7 +474,6 @@ const buildLines = (
               : {
                   variant: "static",
                   timeRange: range.timeRange,
-                  offset: range.offset,
                 };
 
           return (yChannels as number[]).map((channel) => {

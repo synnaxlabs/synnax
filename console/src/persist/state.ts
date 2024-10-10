@@ -28,7 +28,8 @@ export interface RequiredState extends Version.StoreState {}
 
 export interface Config<S extends RequiredState> {
   migrator?: (state: S) => S;
-  exclude: Array<deep.Key<S>>;
+  initial: S;
+  exclude: Array<deep.Key<S> | ((func: S) => S)>;
 }
 
 export const REVERT_STATE: Action = {
@@ -59,6 +60,7 @@ export const hardClearAndReload = () => {
 
 export const open = async <S extends RequiredState>({
   exclude = [],
+  initial,
   migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
   const appWindow = getCurrentWindow();
@@ -89,10 +91,15 @@ export const open = async <S extends RequiredState>({
     version++;
     // We need to make a deep copy here to make immer happy
     // when we do deep deletes.
-    const deepCopy = deep.copy(store.getState());
-    const filtered = deep.deleteD<S>(deepCopy, ...exclude);
+    let deepCopy = deep.copy(store.getState());
+    exclude.forEach((key) => {
+      if (typeof key === "function") deepCopy = key(deepCopy);
+      // @ts-expect-error - we know this is a key
+      else deepCopy = deep.deleteD(deepCopy, key);
+    });
+
     void (async () => {
-      await db.set(persistedStateKey(version), filtered).catch(console.error);
+      await db.set(persistedStateKey(version), deepCopy).catch(console.error);
       await db.set(DB_VERSION_KEY, { version }).catch(console.error);
       await db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
     })();
@@ -109,6 +116,13 @@ export const open = async <S extends RequiredState>({
     }
     await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
   }
+  if (state != null)
+    exclude.forEach((key) => {
+      if (typeof key === "function") return;
+      const v = deep.get(initial, key, { optional: true });
+      if (v == null) return;
+      deep.set(state, key, v);
+    });
 
   return [
     state,

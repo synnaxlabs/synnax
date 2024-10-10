@@ -9,12 +9,13 @@
 
 import {
   type Action as CoreAction,
+  configureStore,
   type Dispatch,
   type Middleware,
   type PayloadAction,
+  Tuple,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { type GetDefaultMiddleware } from "node_modules/@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 import { log } from "@/debug";
 import { type Runtime } from "@/runtime";
@@ -132,3 +133,16 @@ export const configureMiddleware = <
     return [middleware<S, A>(runtime, debug), ...base] as unknown as M;
   };
 };
+
+type ConfigureStoreOptions<
+  S extends StoreState,
+  A extends CoreAction = UnknownAction,
+  M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
+> = Parameters<typeof configureStore<S, A, M>>[0];
+
+type MW<
+  S extends StoreState,
+  A extends CoreAction = UnknownAction,
+  M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
+> = NonNullable<ConfigureStoreOptions<S, A, M>["middleware"]>;
+export type GetDefaultMiddleware<S extends StoreState> = Parameters<MW<S>>[0];

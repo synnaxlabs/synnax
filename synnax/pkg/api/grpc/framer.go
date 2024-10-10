@@ -236,8 +236,8 @@ func (t frameStreamerRequestTranslator) Forward(
 	msg api.FrameStreamerRequest,
 ) (*gapi.FrameStreamerRequest, error) {
 	return &gapi.FrameStreamerRequest{
-		Start: int64(msg.Start),
-		Keys:  translateChannelKeysForward(msg.Keys),
+		Keys:             translateChannelKeysForward(msg.Keys),
+		DownsampleFactor: int32(msg.DownsampleFactor),
 	}, nil
 }
 
@@ -246,8 +246,8 @@ func (t frameStreamerRequestTranslator) Backward(
 	msg *gapi.FrameStreamerRequest,
 ) (api.FrameStreamerRequest, error) {
 	return api.FrameStreamerRequest{
-		Start: telem.TimeStamp(msg.Start),
-		Keys:  translateChannelKeysBackward(msg.Keys),
+		Keys:             translateChannelKeysBackward(msg.Keys),
+		DownsampleFactor: int(msg.DownsampleFactor),
 	}, nil
 }
 

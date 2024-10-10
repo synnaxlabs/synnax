@@ -19,7 +19,14 @@ import {
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
 import { useContext } from "@/triggers/Provider";
-import { diff, filter, purge, type Stage, type Trigger } from "@/triggers/triggers";
+import {
+  diff,
+  filter,
+  MatchOptions,
+  purge,
+  type Stage,
+  type Trigger,
+} from "@/triggers/triggers";
 
 export interface UseEvent {
   target: HTMLElement;
@@ -28,14 +35,19 @@ export interface UseEvent {
   cursor: xy.XY;
 }
 
-export interface UseProps {
+export interface UseProps extends MatchOptions {
   triggers?: Trigger[];
   region?: RefObject<HTMLElement>;
-  loose?: boolean;
   callback?: (e: UseEvent) => void;
 }
 
-export const use = ({ triggers, callback: f, region, loose }: UseProps): void => {
+export const use = ({
+  triggers,
+  callback: f,
+  region,
+  loose,
+  double,
+}: UseProps): void => {
   const { listen } = useContext();
   const memoTriggers = useMemoCompare(
     () => triggers,
@@ -50,8 +62,8 @@ export const use = ({ triggers, callback: f, region, loose }: UseProps): void =>
   useEffect(() => {
     if (memoTriggers == null || memoTriggers.length === 0) return;
     return listen((e) => {
-      const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
-      const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);
+      const prevMatches = filter(memoTriggers, e.prev, { loose, double });
+      const nextMatches = filter(memoTriggers, e.next, { loose, double });
       const res = diff(nextMatches, prevMatches);
       let added = res[0];
       const removed = res[1];
@@ -61,7 +73,7 @@ export const use = ({ triggers, callback: f, region, loose }: UseProps): void =>
       if (added.length > 0) f?.({ ...base, stage: "start", triggers: added });
       if (removed.length > 0) f?.({ ...base, stage: "end", triggers: removed });
     });
-  }, [f, memoTriggers, listen, loose, region]);
+  }, [f, memoTriggers, listen, loose, region, double]);
 };
 
 const filterInRegion = (

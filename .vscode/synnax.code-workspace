@@ -25,8 +25,12 @@
       "path": "../client/cpp"
     },
     {
-      "name": "docs",
-      "path": "../docs"
+      "name": "docs/site",
+      "path": "../docs/site"
+    },
+    {
+      "name": "docs/tech",
+      "path": "../docs/tech"
     },
     {
       "name": "drift",
@@ -49,7 +53,7 @@
       "path": "../freighter/integration"
     },
     {
-      "name": "synnax-server",
+      "name": "server",
       "path": "../synnax"
     },
     {
@@ -85,20 +89,12 @@
       "path": "../x/media"
     },
     {
-      "name": "tsconfig",
-      "path": "../configs/ts"
+      "name": "configs",
+      "path": "../configs"
     },
     {
-      "name": "eslint",
-      "path": "../configs/eslint"
-    },
-    {
-      "name": "stylelint",
-      "path": "../configs/stylelint"
-    },
-    {
-      "name": "landing",
-      "path": "../landing"
+      "name": "integration",
+      "path": "../integration"
     },
     {
       "name": "driver",
@@ -119,6 +115,9 @@
         "mode": "auto"
       }
     ],
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "always"
+    },
     "files.associations": {
       "xstring": "cpp",
       "algorithm": "cpp",
@@ -243,6 +242,7 @@
       "syncer",
       "Syncer",
       "Synnax",
+      "synnaxlabs",
       "tauri",
       "Tauri",
       "telem",

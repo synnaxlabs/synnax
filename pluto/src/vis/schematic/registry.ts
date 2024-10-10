@@ -15,23 +15,28 @@ import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import {
   ButtonForm,
-  CommonNonToggleForm,
+  CommonStyleForm,
   CommonToggleForm,
   LightForm,
+  OffPageReferenceForm,
   SetpointForm,
-  SolenoidValveForm,
   type SymbolFormProps,
   TankForm,
+  TextBoxForm,
   ValueForm,
 } from "@/vis/schematic/Forms";
 import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { DEFAULT_BORDER_RADIUS } from "@/vis/schematic/primitives/Primitives";
 import {
+  Agitator,
+  AgitatorPreview,
+  AgitatorProps,
   AngledReliefValve,
   AngledReliefValvePreview,
   AngledValve,
   AngledValvePreview,
   type AngledValveProps,
+  type OffPageReferenceProps,
   Box,
   BoxPreview,
   type BoxProps,
@@ -48,14 +53,26 @@ import {
   CheckValve,
   CheckValvePreview,
   type CheckValveProps,
+  Compressor,
+  CompressorPreview,
+  type CompressorProps,
+  CrossBeamAgitator,
+  CrossBeamAgitatorPreview,
+  type CrossBeamAgitatorProps,
   ElectricRegulator,
   ElectricRegulatorPreview,
   type ElectricRegulatorProps,
   Filter,
   FilterPreview,
   type FilterProps,
+  FlatBladeAgitator,
+  FlatBladeAgitatorPreview,
+  type FlatBladeAgitatorProps,
   FourWayValve,
   FourWayValvePreview,
+  HelicalAgitator,
+  HelicalAgitatorPreview,
+  type HelicalAgitatorProps,
   Light,
   LightPreview,
   type LightProps,
@@ -65,12 +82,20 @@ import {
   NeedleValve,
   NeedleValvePreview,
   type NeedleValveProps,
+  OffPageReference,
+  OffPageReferencePreview,
   Orifice,
   OrificePreview,
   type OrificeProps,
+  PaddleAgitator,
+  PaddleAgitatorPreview,
+  type PaddleAgitatorProps,
   PistonPump,
   PistonPumpPreview,
   type PistonPumpProps,
+  PropellerAgitator,
+  PropellerAgitatorPreview,
+  PropellerAgitatorProps,
   Pump,
   PumpPreview,
   type PumpProps,
@@ -102,6 +127,9 @@ import {
   Tank,
   TankPreview,
   type TankProps,
+  TextBox,
+  TextBoxPreview,
+  type TextBoxProps,
   ThreeWayValve,
   ThreeWayValvePreview,
   type ThreeWayValveProps,
@@ -130,32 +158,41 @@ const Z_INDEX_UPPER = 4;
 const Z_INDEX_LOWER = 2;
 
 const VARIANTS = [
+  "agitator",
   "angledReliefValve",
   "angledValve",
+  "offPageReference",
   "box",
   "burstDisc",
   "button",
   "cap",
   "cavityPump",
   "checkValve",
+  "compressor",
+  "crossBeamAgitator",
   "electricRegulator",
   "filter",
+  "flatBladeAgitator",
   "fourWayValve",
-  "setpoint",
+  "helicalAgitator",
   "light",
   "manualValve",
   "needleValve",
   "orifice",
+  "paddleAgitator",
+  "propellerAgitator",
   "pistonPump",
   "pump",
   "regulator",
   "reliefValve",
   "rotaryMixer",
   "screwPump",
+  "setpoint",
   "solenoidValve",
   "staticMixer",
   "switch",
   "tank",
+  "textBox",
   "threeWayValve",
   "vacuumPump",
   "value",
@@ -165,22 +202,14 @@ const VARIANTS = [
 export const typeZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof typeZ>;
 
-const ZERO_PROPS = {
-  orientation: "left" as const,
-};
+const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
 
 const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("string", {
     connections: [
-      {
-        from: "valueStream",
-        to: "rollingAverage",
-      },
-      {
-        from: "rollingAverage",
-        to: "stringifier",
-      },
+      { from: "valueStream", to: "rollingAverage" },
+      { from: "rollingAverage", to: "stringifier" },
     ],
     segments: {
       valueStream: telem.streamChannelValue({ channel: 0 }),
@@ -195,9 +224,7 @@ const ZERO_NUMERIC_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("number", {
     connections: [],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 0 }),
-    },
+    segments: { valueStream: telem.streamChannelValue({ channel: 0 }) },
     outlet: "valueStream",
   }),
 };
@@ -206,9 +233,7 @@ const ZERO_NUMERIC_SINK_PROPS = {
   ...ZERO_PROPS,
   sink: telem.sinkPipeline("number", {
     connections: [],
-    segments: {
-      setter: control.setChannelValue({ channel: 0 }),
-    },
+    segments: { setter: control.setChannelValue({ channel: 0 }) },
     inlet: "setter",
   }),
 };
@@ -216,12 +241,7 @@ const ZERO_NUMERIC_SINK_PROPS = {
 const ZERO_BOOLEAN_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("boolean", {
-    connections: [
-      {
-        from: "valueStream",
-        to: "threshold",
-      },
-    ],
+    connections: [{ from: "valueStream", to: "threshold" }],
     segments: {
       valueStream: telem.streamChannelValue({ channel: 0 }),
       threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
@@ -232,13 +252,9 @@ const ZERO_BOOLEAN_SOURCE_PROPS = {
 
 const ZERO_BOOLEAN_SINK_PROPS = {
   ...ZERO_PROPS,
+  control: { show: true },
   sink: telem.sinkPipeline("boolean", {
-    connections: [
-      {
-        from: "setpoint",
-        to: "setter",
-      },
-    ],
+    connections: [{ from: "setpoint", to: "setter" }],
     segments: {
       setter: control.setChannelValue({ channel: 0 }),
       setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
@@ -247,22 +263,19 @@ const ZERO_BOOLEAN_SINK_PROPS = {
   }),
 };
 
-const ZERO_TOGGLE_PROPS = {
-  ...ZERO_BOOLEAN_SOURCE_PROPS,
-  ...ZERO_BOOLEAN_SINK_PROPS,
-};
+const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_PROPS };
 
-type zeroLabelReturn = {
-  label: LabelExtensionProps;
-};
+type zeroLabelReturn = { label: LabelExtensionProps };
 
 const zeroLabel = (label: string): zeroLabelReturn => ({
-  label: {
-    label,
-    level: "p",
-    orientation: "top",
-  },
+  label: { label, level: "p", orientation: "top", maxInlineSize: 150, align: "center" },
 });
+
+const ZERO_DIMENSIONS = { width: 125, height: 200 };
+
+const ZERO_BOX_PROPS = { dimensions: ZERO_DIMENSIONS };
+
+const ZERO_BOX_BORDER_RADIUS = 3;
 
 const threeWayValve: Spec<ThreeWayValveProps> = {
   name: "Three Way Valve",
@@ -295,7 +308,7 @@ const valve: Spec<ValveProps> = {
 const solenoidValve: Spec<SolenoidValveProps> = {
   name: "Solenoid Valve",
   key: "solenoidValve",
-  Form: SolenoidValveForm,
+  Form: CommonToggleForm,
   Symbol: SolenoidValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -366,16 +379,14 @@ const screwPump: Spec<ScrewPumpProps> = {
 const tank: Spec<TankProps> = {
   name: "Tank",
   key: "tank",
-  Form: () => TankForm({ includeBorderRadius: true }),
+  Form: TankForm,
   Symbol: Tank,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("Tank"),
-    dimensions: {
-      width: 100,
-      height: 200,
-    },
     borderRadius: DEFAULT_BORDER_RADIUS,
+    ...ZERO_BOX_PROPS,
     ...ZERO_PROPS,
   }),
   Preview: TankPreview,
@@ -385,15 +396,14 @@ const tank: Spec<TankProps> = {
 const box: Spec<BoxProps> = {
   name: "Box",
   key: "box",
-  Form: TankForm,
+  Form: () => TankForm({ includeBorderRadius: true }),
   Symbol: Box,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("Box"),
-    dimensions: {
-      width: 100,
-      height: 200,
-    },
+    borderRadius: ZERO_BOX_BORDER_RADIUS,
+    ...ZERO_BOX_PROPS,
     ...ZERO_PROPS,
   }),
   Preview: BoxPreview,
@@ -403,7 +413,7 @@ const box: Spec<BoxProps> = {
 const reliefValve: Spec<ReliefValveProps> = {
   name: "Relief Valve",
   key: "reliefValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: ReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -417,7 +427,7 @@ const reliefValve: Spec<ReliefValveProps> = {
 const regulator: Spec<RegulatorProps> = {
   name: "Regulator",
   key: "regulator",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: Regulator,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -431,7 +441,7 @@ const regulator: Spec<RegulatorProps> = {
 const electricRegulator: Spec<ElectricRegulatorProps> = {
   name: "Electric Regulator",
   key: "electricRegulator",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: ElectricRegulator,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -445,7 +455,7 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
 const burstDisc: Spec<ReliefValveProps> = {
   name: "Burst Disc",
   key: "burstDisc",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: BurstDisc,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -459,7 +469,7 @@ const burstDisc: Spec<ReliefValveProps> = {
 const cap: Spec<ReliefValveProps> = {
   name: "Cap",
   key: "cap",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: Cap,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -473,7 +483,7 @@ const cap: Spec<ReliefValveProps> = {
 const manualValve: Spec<ManualValveProps> = {
   name: "Manual Valve",
   key: "manualValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: ManualValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -487,7 +497,7 @@ const manualValve: Spec<ManualValveProps> = {
 const filter: Spec<FilterProps> = {
   name: "Filter",
   key: "filter",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: Filter,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -501,7 +511,7 @@ const filter: Spec<FilterProps> = {
 const needleValve: Spec<NeedleValveProps> = {
   name: "Needle Valve",
   key: "needleValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: NeedleValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -515,7 +525,7 @@ const needleValve: Spec<NeedleValveProps> = {
 const checkValve: Spec<CheckValveProps> = {
   name: "Check Valve",
   key: "checkValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: CheckValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -529,7 +539,7 @@ const checkValve: Spec<CheckValveProps> = {
 const orifice: Spec<OrificeProps> = {
   name: "Orifice",
   key: "orifice",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: Orifice,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -543,7 +553,7 @@ const orifice: Spec<OrificeProps> = {
 const angledReliefValve: Spec<ReliefValveProps> = {
   name: "Angled Relief Valve",
   key: "angledReliefValve",
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   Symbol: AngledReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -564,6 +574,7 @@ const value: Spec<ValueProps> = {
     color: t.colors.gray.l9.rgba255,
     units: "psi",
     level: "h5",
+    inlineSize: 70,
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
@@ -581,6 +592,7 @@ const button: Spec<ButtonProps> = {
     color: t.colors.primary.z.rgba255,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
+    scale: null,
   }),
   zIndex: Z_INDEX_UPPER,
 };
@@ -594,6 +606,7 @@ const switch_: Spec<SwitchProps> = {
   defaultProps: () => ({
     ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,
+    scale: null,
   }),
   zIndex: Z_INDEX_UPPER,
 };
@@ -644,7 +657,7 @@ const staticMixer: Spec<StaticMixerProps> = {
   name: "Static Mixer",
   key: "staticMixer",
   Symbol: StaticMixer,
-  Form: CommonNonToggleForm,
+  Form: CommonStyleForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Static Mixer"),
@@ -687,8 +700,9 @@ const setpoint: Spec<SetpointProps> = {
   key: "setpoint",
   Symbol: Setpoint,
   Form: SetpointForm,
-  defaultProps: () => ({
+  defaultProps: (t) => ({
     units: "mV",
+    color: t.colors.gray.l4.rgba255,
     ...zeroLabel("Setpoint"),
     ...ZERO_NUMERIC_SOURCE_PROPS,
     ...ZERO_NUMERIC_SINK_PROPS,
@@ -697,14 +711,148 @@ const setpoint: Spec<SetpointProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const agitator: Spec<AgitatorProps> = {
+  name: "Agitator",
+  key: "agitator",
+  Symbol: Agitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: AgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const propellerAgitator: Spec<PropellerAgitatorProps> = {
+  name: "Propeller Agitator",
+  key: "propellerAgitator",
+  Symbol: PropellerAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Propeller Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: PropellerAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
+  name: "Flat Blade Agitator",
+  key: "flatBladeAgitator",
+  Symbol: FlatBladeAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flat Blade Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: FlatBladeAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const paddleAgitator: Spec<PaddleAgitatorProps> = {
+  name: "Paddle Agitator",
+  key: "paddleAgitator",
+  Symbol: PaddleAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Paddle Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: PaddleAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
+  name: "Cross Beam Agitator",
+  key: "crossBeamAgitator",
+  Symbol: CrossBeamAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Cross Beam Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: CrossBeamAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const helicalAgitator: Spec<HelicalAgitatorProps> = {
+  name: "Helical Agitator",
+  key: "helicalAgitator",
+  Symbol: HelicalAgitator,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Helical Agitator"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: HelicalAgitatorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const compressor: Spec<CompressorProps> = {
+  name: "Compressor",
+  key: "compressor",
+  Symbol: Compressor,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: CompressorPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const textBox: Spec<TextBoxProps> = {
+  name: "Text Box",
+  key: "textBox",
+  Symbol: TextBox,
+  Form: TextBoxForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    autoFit: true,
+    align: "center",
+    ...zeroLabel("Text Box"),
+    ...ZERO_PROPS,
+    ...ZERO_BOX_PROPS,
+    level: "p",
+    text: "Text Box",
+    width: 75,
+  }),
+  Preview: TextBoxPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const offPageReference: Spec<OffPageReferenceProps> = {
+  name: "Off Page Reference",
+  key: "offPageReference",
+  Form: OffPageReferenceForm,
+  Symbol: OffPageReference,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    orientation: "right",
+    ...zeroLabel("Off Page Reference"),
+  }),
+  Preview: OffPageReferencePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
-  light,
-  switch: switch_,
   button,
-  setpoint,
   tank,
+  switch: switch_,
+  offPageReference,
+  light,
+  setpoint,
   box,
+  textBox,
   valve,
   solenoidValve,
   threeWayValve,
@@ -728,4 +876,11 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   cap,
   filter,
   orifice,
+  agitator,
+  propellerAgitator,
+  flatBladeAgitator,
+  paddleAgitator,
+  crossBeamAgitator,
+  helicalAgitator,
+  compressor,
 };

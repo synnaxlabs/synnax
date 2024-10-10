@@ -29,7 +29,7 @@ from synnax.ranger.client import RangeClient
 from synnax.signals.signals import Registry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
-from synnax.user.client import UserClient
+from synnax.user.client import Client as UserClient
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.group import Client as GroupClient
 

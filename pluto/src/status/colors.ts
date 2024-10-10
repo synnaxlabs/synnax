@@ -12,7 +12,7 @@ import { type status } from "@/status/aether";
 export const variantColors: Record<status.Variant, string> = {
   info: "var(--pluto-text-color)",
   error: "var(--pluto-error-z)",
-  warning: "var(--pluto-warning-z)",
+  warning: "var(--pluto-warning-m1)",
   success: "var(--pluto-primary-z)",
   loading: "var(--pluto-text-color)",
   disabled: "var(--pluto-gray-l6)",

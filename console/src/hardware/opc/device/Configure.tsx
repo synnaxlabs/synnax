@@ -22,7 +22,7 @@ import {
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -43,10 +43,12 @@ import {
 } from "@/hardware/opc/device/types";
 import { Layout } from "@/layout";
 
-const configureZ = z.object({
+const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   connection: connectionConfigZ,
 });
+
+type FormSchema = z.infer<typeof formSchema>;
 
 export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
 
@@ -56,10 +58,11 @@ export const createConfigureLayout =
   (device?: string, initial: Omit<Partial<Layout.State>, "type"> = {}) =>
   (): Layout.State => {
     const { name = "OPC UA.Connect", location = "modal", ...rest } = initial;
+    const key = device ?? initial.key ?? CONFIGURE_LAYOUT_TYPE;
     return {
-      key: device ?? initial.key ?? CONFIGURE_LAYOUT_TYPE,
+      key,
       type: CONFIGURE_LAYOUT_TYPE,
-      windowKey: device ?? initial.key ?? CONFIGURE_LAYOUT_TYPE,
+      windowKey: key,
       name,
       icon: "Logo.OPC",
       window: {
@@ -72,25 +75,75 @@ export const createConfigureLayout =
     };
   };
 
-export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
+export const Configure: Layout.Renderer = ({ onClose, layoutKey }): ReactElement => {
+  const client = Synnax.use();
+  const initial = useQuery<[FormSchema, Properties | undefined], Error>({
+    queryKey: ["device", layoutKey, client?.key],
+    queryFn: async () => {
+      if (client == null || layoutKey === CONFIGURE_LAYOUT_TYPE)
+        return [
+          {
+            name: "My OPC Server",
+            connection: {
+              endpoint: "opc.tcp://localhost:4840",
+              username: "",
+              password: "",
+              serverCertificate: "",
+              clientCertificate: "",
+              clientPrivateKey: "",
+              securityPolicy: "None",
+              securityMode: "None",
+            },
+          },
+          undefined,
+        ];
+      const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
+      return [
+        {
+          name: dev.name,
+          connection: dev.properties.connection,
+        },
+        dev.properties,
+      ];
+    },
+  });
+  if (initial.isPending)
+    return <Status.Text.Centered variant="info">Loading...</Status.Text.Centered>;
+  if (initial.isError)
+    return (
+      <Status.Text.Centered variant="error">Error loading device</Status.Text.Centered>
+    );
+  const [initialData, initialProperties] = initial.data;
+  return (
+    <ConfigureInternal
+      onClose={onClose}
+      layoutKey={layoutKey}
+      properties={initialProperties}
+      initialValues={initialData}
+      visible
+      focused
+    />
+  );
+};
+
+interface ConfigureInternalProps extends Layout.RendererProps {
+  properties?: Properties;
+  initialValues: FormSchema;
+}
+
+const ConfigureInternal = ({
+  layoutKey,
+  onClose,
+  initialValues,
+  properties,
+}: ConfigureInternalProps): ReactElement => {
   const client = Synnax.use();
   const [connState, setConnState] = useState<TestConnCommandState | null>(null);
+  const addStatus = Status.useAggregator();
 
   const methods = Form.use({
-    values: {
-      name: "My OPC UA Server",
-      connection: {
-        endpoint: "opc.tcp://0.0.0.0:4840",
-        username: "",
-        password: "",
-        serverCertificate: "",
-        clientCertificate: "",
-        clientPrivateKey: "",
-        securityPolicy: "None",
-        securityMode: "None",
-      },
-    },
-    schema: configureZ,
+    values: initialValues,
+    schema: formSchema,
   });
 
   const testConnection = useMutation<void, Error, void>({
@@ -106,6 +159,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       );
       setConnState(t);
     },
+    onError: (e) => addStatus({ variant: "error", message: e.message }),
   });
 
   const confirm = useMutation<void, Error, void>({
@@ -115,16 +169,16 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       await testConnection.mutateAsync();
       if (connState?.variant !== "success") return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
+      const key = layoutKey === CONFIGURE_LAYOUT_TYPE ? uuidv4() : layoutKey;
       try {
         await client.hardware.devices.create({
-          key: uuidv4(),
+          key,
           name: methods.get<string>("name").value,
           model: "opc",
           make: "opc",
           rack: rack.key,
           location: methods.get<string>("connection.endpoint").value,
           properties: {
-            connection: methods.get<Properties>("connection").value,
             read: {
               index: 0,
               channels: {},
@@ -132,7 +186,9 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
             write: {
               index: 0,
               channels: {},
-            }
+            },
+            ...properties,
+            connection: methods.get<Properties>("connection").value,
           },
           configured: true,
         });
@@ -161,7 +217,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
             inputProps={{
               level: "h2",
               variant: "natural",
-              placeholder: "name",
+              placeholder: "OPC Server",
             }}
           />
           <Form.Field<string> path="connection.endpoint">
@@ -238,7 +294,9 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
             triggers={[SAVE_TRIGGER]}
             loading={testConnection.isPending}
             disabled={testConnection.isPending}
-            onClick={() => testConnection.mutate()}
+            onClick={() => {
+              testConnection.mutate();
+            }}
           >
             Test Connection
           </Button.Button>

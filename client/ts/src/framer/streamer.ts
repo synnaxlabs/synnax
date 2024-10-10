@@ -9,7 +9,6 @@
 
 import { EOF, errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
 import { observe } from "@synnaxlabs/x";
-import { type CrudeTimeStamp, TimeStamp } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type Key, type Params } from "@/channel/payload";
@@ -18,10 +17,7 @@ import { ReadFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
-const reqZ = z.object({
-  start: TimeStamp.z.optional(),
-  keys: z.number().array(),
-});
+const reqZ = z.object({ keys: z.number().array() , downsampleFactor: z.number() });
 
 const resZ = z.object({
   frame: frameZ,
@@ -32,12 +28,13 @@ const ENDPOINT = "/frame/stream";
 
 export interface StreamerConfig {
   channels: Params;
-  from?: CrudeTimeStamp;
+  downsampleFactor?: number;
 }
 
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadFrameAdapter;
+  private readonly downsampleFactor: number;
 
   private constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
@@ -45,6 +42,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
+    this.downsampleFactor = 1;
   }
 
   get keys(): Key[] {
@@ -54,12 +52,14 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   static async _open(
     retriever: Retriever,
     client: StreamClient,
-    { channels, from }: StreamerConfig,
+    { channels, downsampleFactor }: StreamerConfig,
   ): Promise<Streamer> {
     const adapter = await ReadFrameAdapter.open(retriever, channels);
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
-    stream.send({ start: new TimeStamp(from), keys: adapter.keys });
+    stream.send({ keys: adapter.keys, downsampleFactor: downsampleFactor ?? 1 });
+    const [, err] = await stream.receive();
+    if (err != null) throw err;
     return streamer;
   }
 
@@ -77,9 +77,9 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     return this.adapter.adapt(new Frame((await this.stream.receive()).frame));
   }
 
-  async update(params: Params): Promise<void> {
-    await this.adapter.update(params);
-    this.stream.send({ keys: this.adapter.keys });
+  async update(channels: Params): Promise<void> {
+    await this.adapter.update(channels);
+    this.stream.send({ keys: this.adapter.keys, downsampleFactor: this.downsampleFactor });
   }
 
   close(): void {

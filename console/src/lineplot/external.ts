@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { LAYOUT_TYPE, LinePlot } from "@/lineplot/LinePlot";
+import { ContextMenu, LAYOUT_TYPE, LinePlot } from "@/lineplot/LinePlot";
 
+export * from "@/lineplot/file";
 export * from "@/lineplot/LinePlot";
 export * from "@/lineplot/middleware";
 export * from "@/lineplot/NavControls";
@@ -20,4 +21,8 @@ export * from "@/lineplot/useTriggerHold";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: LinePlot,
+};
+
+export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
+  [LAYOUT_TYPE]: ContextMenu,
 };

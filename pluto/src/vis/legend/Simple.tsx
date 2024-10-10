@@ -27,6 +27,37 @@ export interface SimpleProps extends Omit<ContainerProps, "value" | "onChange"> 
   onPositionChange?: ContainerProps["onChange"];
 }
 
+export const legendSwatches = (
+  data: SimpleEntry[],
+  onEntryChange: SimpleProps["onEntryChange"],
+  onVisibleChange?: (visible: boolean) => void,
+): ReactElement[] =>
+  data
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .map(({ key, color, label }) => (
+      <Align.Space
+        key={key}
+        style={{ cursor: "pointer" }}
+        direction="x"
+        align="center"
+        size="small"
+      >
+        <Color.Swatch
+          value={color}
+          onChange={(c) => onEntryChange?.({ key, color: c, label })}
+          onVisibleChange={onVisibleChange}
+          draggable={false}
+          size="small"
+        />
+        <Text.MaybeEditable
+          level="small"
+          value={label}
+          onChange={(l) => onEntryChange?.({ key, color, label: l })}
+          noWrap
+        />
+      </Align.Space>
+    ));
+
 export const Simple = ({
   data = [],
   onEntryChange,
@@ -45,31 +76,7 @@ export const Simple = ({
       value={position}
       onChange={onPositionChange}
     >
-      {data
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .map(({ key, color, label }) => (
-          <Align.Space
-            key={key}
-            style={{ cursor: "pointer" }}
-            direction="x"
-            align="center"
-            size="small"
-          >
-            <Color.Swatch
-              value={color}
-              onChange={(c) => onEntryChange?.({ key, color: c, label })}
-              onVisibleChange={setPickerVisible}
-              draggable={false}
-              size="small"
-            />
-            <Text.MaybeEditable
-              level="small"
-              value={label}
-              onChange={(l) => onEntryChange?.({ key, color, label: l })}
-              noWrap
-            />
-          </Align.Space>
-        ))}
+      {legendSwatches(data, onEntryChange, setPickerVisible)}
     </Container>
   );
 };

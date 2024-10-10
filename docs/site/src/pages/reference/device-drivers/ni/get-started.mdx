@@ -3,10 +3,11 @@ layout: "@/layouts/MainLayout.astro"
 title: "NI | Get Started"
 heading: "National Instruments Device Driver"
 description: "Learn how to acquire data from and control National Instruments hardware using Synnax."
+next: "Configure a Device"
+nextURL: "/reference/device-drivers/ni/configure-device"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
-import Note from "@/components/Note.astro";
+import { Divider, Note } from "@synnaxlabs/pluto";
 
 The [National Instruments (NI)](https://www.ni.com/en-us.html) device driver allows 
 Synnax to directly connect to your NI hardware, including CompactDAQ, CompactRIO, and 
@@ -33,10 +34,10 @@ National Instruments' DAQmx and System Configuration drivers must be installed f
 hardware. Instructions for installing DAQmx can be found on the 
 [National Instruments website.](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html#532710)
 Instructions for installing System Configuration can be found on the [following page.](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html)
-<Note variant="warning">
+<Note.Note variant="warning">
 If you have a Synnax cluster already running before installing DAQmx, you'll need to 
 restart the cluster for Synnax to recognize the DAQmx installation.
-</Note>
+</Note.Note>
 
 <Divider.Divider direction="x" />
 

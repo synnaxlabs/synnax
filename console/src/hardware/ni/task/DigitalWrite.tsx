@@ -33,7 +33,7 @@ import {
   DOChan,
   ZERO_DIGITAL_WRITE_PAYLOAD,
   ZERO_DO_CHAN,
-} from "@/hardware/ni/task/types";
+} from "@/hardware/ni/task/migrations";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
@@ -53,6 +53,7 @@ export const configureDigitalWriteLayout = (
 ): Layout.State<TaskLayoutArgs<DigitalWritePayload>> => ({
   name: "Configure NI Digital Write Task",
   key: id.id(),
+  icon: "Logo.NI",
   type: DIGITAL_WRITE_TYPE,
   windowKey: DIGITAL_WRITE_TYPE,
   location: "mosaic",

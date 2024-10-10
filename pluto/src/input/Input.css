@@ -49,6 +49,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         height: 100%;
+        color: var(--pluto-input-color);
 
         padding: 0 1.5rem;
 
@@ -121,6 +122,22 @@
     & .pluto-text-icon svg:not(.logo) path:is(:not([fill="none"]), [stroke="#000"]) {
         stroke: var(--pluto-gray-l6);
         fill: var(--pluto-gray-l6);
+    }
+}
+
+.pluto-input__end-content {
+    position: absolute;
+    right: -0.5rem;
+    top: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding-right: 1.5rem;
+    pointer-events: none;
+    z-index: 0;
+    * {
+        color: var(--pluto-gray-l6);
+        transform: scale(0.9);
     }
 }
 

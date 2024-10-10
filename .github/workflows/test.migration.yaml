@@ -32,9 +32,12 @@ jobs:
               - "x/**"
               - "freighter/**"
               - ".github/workflows/test.client.yaml"
+              - ".github/workflows/test.migration.yaml"
 
   test-on-both-servers:
+    needs: setup
     runs-on: ubuntu-latest
+    if: needs.setup.outputs.changed == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -51,17 +54,22 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install Poetry
         run: |
           pip install poetry
           poetry config virtualenvs.create false
           poetry install
+          poetry shell
         working-directory: ./client/py
 
       - name: Python Test with Main Server
         run: pytest --cov=freighter --cov-report xml:coverage.xml
+        working-directory: ./client/py
+
+      - name: Exit Poetry Shell
+        run: exit
         working-directory: ./client/py
 
       - name: Stop Main Server
@@ -91,10 +99,13 @@ jobs:
       - name: Start Current Server
         run: docker run -d --name synnax-current -p 9090:9090 -v data:/usr/local/synnax/data -e SYNNAX_DATA=/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
-      - name: Checkout Main Branch for Tests (Again)
-        uses: actions/checkout@v3
-        with:
-          ref: main
+      - name: Install Poetry
+        run: |
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install
+          poetry shell
+        working-directory: ./client/py
 
       - name: Python Test with Current Server
         run: pytest --cov=freighter --cov-report xml:coverage.xml

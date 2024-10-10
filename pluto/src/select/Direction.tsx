@@ -32,7 +32,7 @@ const DATA: Entry[] = [
   },
   {
     key: "y",
-    icon: <Icon.Arrow.Down />,
+    icon: <Icon.Arrow.Up />,
   },
 ];
 
@@ -41,25 +41,21 @@ const defaultSelectDirectionButton = ({
   entry,
   onClick,
   selected,
-}: ButtonOptionProps<direction.Crude, Entry>): ReactElement => {
-  return (
-    <CoreButton.Icon
-      key={key}
-      variant={selected ? "filled" : "outlined"}
-      onClick={onClick}
-    >
-      {entry.icon}
-    </CoreButton.Icon>
-  );
-};
+}: ButtonOptionProps<direction.Crude, Entry>): ReactElement => (
+  <CoreButton.Icon
+    key={key}
+    variant={selected ? "filled" : "outlined"}
+    onClick={onClick}
+  >
+    {entry.icon}
+  </CoreButton.Icon>
+);
 
 export const Direction = ({
   children = defaultSelectDirectionButton,
   ...props
-}: DirectionProps): ReactElement => {
-  return (
-    <Button {...props} allowMultiple={false} data={DATA}>
-      {children}
-    </Button>
-  );
-};
+}: DirectionProps): ReactElement => (
+  <Button {...props} allowMultiple={false} data={DATA}>
+    {children}
+  </Button>
+);

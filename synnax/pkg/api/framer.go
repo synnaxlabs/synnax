@@ -11,14 +11,18 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	framesvc "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -27,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 )
 
 type Frame = framer.Frame
@@ -37,7 +40,7 @@ type FrameService struct {
 	authProvider
 	dbProvider
 	accessProvider
-	Internal *framer.Service
+	Internal *framesvc.Service
 }
 
 func NewFrameService(p Provider) *FrameService {
@@ -63,7 +66,7 @@ func (s *FrameService) FrameDelete(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Objects: req.Keys.OntologyIDs(),
+		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -126,6 +129,13 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 	if err != nil {
 		return nil, err
 	}
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: framer.OntologyIDs(req.Keys),
+	}); err != nil {
+		return nil, err
+	}
 	iter, err := s.Internal.NewStreamIterator(ctx, framer.IteratorConfig{
 		Bounds:    req.Bounds,
 		Keys:      req.Keys,
@@ -144,14 +154,15 @@ type (
 )
 
 func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error {
-	streamer, err := s.openStreamer(ctx, stream)
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_streamer")))
+	defer cancel()
+	streamer, err := s.openStreamer(sCtx, getSubject(ctx), stream)
 	if err != nil {
 		return err
 	}
 	var (
-		sCtx, cancel = signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_streamer")))
-		receiver     = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
-		sender       = &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
+		receiver = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
+		sender   = &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
 			Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
 			Transform: func(ctx context.Context, res FrameStreamerResponse) (FrameStreamerResponse, bool, error) {
 				if res.Error != nil {
@@ -162,7 +173,7 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 		}
 		pipe = plumber.New()
 	)
-	defer cancel()
+
 	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, "streamer", streamer)
 	plumber.SetSink[FrameStreamerResponse](pipe, "sender", sender)
 	plumber.SetSource[FrameStreamerRequest](pipe, "receiver", receiver)
@@ -172,16 +183,27 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 	return sCtx.Wait()
 }
 
-func (s *FrameService) openStreamer(ctx context.Context, stream StreamerStream) (framer.Streamer, error) {
+func (s *FrameService) openStreamer(
+	ctx context.Context,
+	subject ontology.ID,
+	stream StreamerStream,
+) (streamer framer.Streamer, err error) {
 	req, err := stream.Receive()
 	if err != nil {
 		return nil, err
 	}
-	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{
-		Start: req.Start,
-		Keys:  req.Keys,
-	})
-	return reader, err
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.Retrieve,
+		Objects: framer.OntologyIDs(req.Keys),
+	}); err != nil {
+		return nil, err
+	}
+	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys, DownsampleFactor: req.DownsampleFactor})
+	if err != nil {
+		return nil, err
+	}
+	return reader, stream.Send(framer.StreamerResponse{})
 }
 
 type FrameWriterConfig struct {
@@ -269,7 +291,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	w, err := s.openWriter(ctx, stream)
+	w, err := s.openWriter(ctx, getSubject(_ctx), stream)
 	if err != nil {
 		return err
 	}
@@ -311,9 +333,21 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	return ctx.Wait()
 }
 
-func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, error) {
+func (s *FrameService) openWriter(
+	ctx context.Context,
+	subject ontology.ID,
+	srv FrameWriterStream,
+) (framer.StreamWriter, error) {
 	req, err := srv.Receive()
 	if err != nil {
+		return nil, err
+	}
+
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.Create,
+		Objects: framer.OntologyIDs(req.Config.Keys),
+	}); err != nil {
 		return nil, err
 	}
 

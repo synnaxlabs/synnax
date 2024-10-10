@@ -16,7 +16,7 @@
     z-index: 11;
     pointer-events: none;
     background: var(--pluto-gray-l1);
-    border: var(--pluto-border);
+    border: var(--pluto-border-l4);
     border-radius: calc(var(--pluto-border-radius) * 2);
     box-shadow: var(--pluto-shadow-menu);
     padding: 1rem 1.5rem;
@@ -49,16 +49,14 @@
             );
             &::after {
                 right: -2rem;
-                border-color: transparent transparent transparent
-                    var(--pluto-border-color);
+                border-color: transparent transparent transparent var(--pluto-gray-l4);
             }
         }
         &.pluto--right {
             transform: translate(calc(var(--pos-x) + 1rem), calc(var(--pos-y) - 50%));
             &::after {
                 left: -2rem;
-                border-color: transparent var(--pluto-border-color) transparent
-                    transparent;
+                border-color: transparent var(--pluto-gray-l4) transparent transparent;
             }
         }
 
@@ -91,7 +89,7 @@
 
     &.pluto--top {
         &::after {
-            border-color: var(--pluto-border-color) transparent transparent transparent;
+            border-color: var(--pluto-gray-l4) transparent transparent transparent;
             top: 100%;
         }
         &.pluto--right {
@@ -107,7 +105,7 @@
 
     &.pluto--bottom {
         &::after {
-            border-color: transparent transparent var(--pluto-border-color) transparent;
+            border-color: transparent transparent var(--pluto-gray-l4) transparent;
             bottom: 100%;
         }
         &.pluto--right {

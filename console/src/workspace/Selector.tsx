@@ -34,7 +34,7 @@ import { add, setActive } from "@/workspace/slice";
 
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
-  const d = useDispatch();
+  const dispatch = useDispatch();
   const place = Layout.usePlacer();
   const active = useSelectActive();
   const dProps = Dropdown.use();
@@ -42,18 +42,19 @@ export const Selector = (): ReactElement => {
     (v: string | null) => {
       dProps.close();
       if (v === null) {
-        d(setActive(null));
-        d(Layout.clearWorkspace());
+        dispatch(setActive(null));
+        dispatch(Layout.clearWorkspace());
         return;
       }
       void (async () => {
         if (v == null) {
-          d(setActive(null));
+          dispatch(setActive(null));
           return;
-        } else if (client == null) return;
+        }
+        if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
-        d(add({ workspaces: [ws] }));
-        d(
+        dispatch(add({ workspaces: [ws] }));
+        dispatch(
           Layout.setWorkspace({
             slice: ws.layout as unknown as Layout.SliceState,
             keepNav: false,
@@ -61,7 +62,7 @@ export const Selector = (): ReactElement => {
         );
       })();
     },
-    [active, client, d, dProps.close],
+    [active, client, dispatch, dProps.close],
   );
 
   return (
@@ -89,7 +90,7 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack direction="y" style={{ width: 500, height: 200 }}>
+      <Align.Pack direction="y" borderShade={4} style={{ width: 500, height: 200 }}>
         <Cluster.NoneConnectedBoundary>
           <List.List>
             <List.Selector

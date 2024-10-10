@@ -18,8 +18,8 @@ import {
   axisStateZ,
   type ParsedAxisState,
   type RenderResult,
-} from "@/vis/axis/aether/axis";
-import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/aether/ticks";
+} from "@/vis/axis/axis";
+import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
 import { type render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 4;
@@ -81,7 +81,8 @@ export class Canvas implements Axis {
         p.y + 5 + d.height,
       );
     });
-    return { size: maxTickDims.height + TICK_LINE_SIZE };
+    // Add some extra padding to the bottom of the axis.
+    return { size: maxTickDims.height + TICK_LINE_SIZE + 6 };
   }
 
   drawTop(ctx: AxisProps): RenderResult {

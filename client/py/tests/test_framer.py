@@ -395,8 +395,83 @@ class TestStreamer:
             with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))
-                frame = s.read()
+                frame = s.read(timeout=1)
                 all(frame[channel.key] == data)
+
+    def test_open_streamer_no_channels(self, client: sy.Synnax):
+        """Should not throw an exception when a streamer is opened with no channels"""
+        with client.open_streamer([]):
+            pass
+
+
+    @pytest.mark.focus
+    def test_open_streamer_channel_not_found(self, client: sy.Synnax):
+        """Should throw an exception when a streamer is opened with an unknown channel"""
+        with pytest.raises(sy.NotFoundError):
+            with client.open_streamer([123]):
+                pass
+
+    def test_update_channels(self, channel: sy.Channel, client: sy.Synnax):
+        """Should update the list of channels to stream"""
+        with client.open_streamer([]) as s:
+            s.update_channels([channel.key])
+            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                data = np.random.rand(1).astype(np.float64)
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = s.read(timeout=1)
+                all(frame[channel.key] == data)
+
+    def test_timeout_seconds(self, channel: sy.Channel, client: sy.Synnax):
+        """Should return None after the specified timeout is exceeded"""
+        with client.open_streamer([]) as s:
+            start = sy.TimeStamp.now()
+            f = s.read(timeout=0.1)
+            assert f is None
+            assert abs(TimeSpan.since(start).seconds - 0.1) < 0.05
+
+    def test_timeout_timespan(self, channel: sy.Channel, client: sy.Synnax):
+        """Should return None after the specified timeout is exceeded"""
+        with client.open_streamer([]) as s:
+            start = sy.TimeStamp.now()
+            f = s.read(timeout=100 * TimeSpan.MILLISECOND)
+            assert f is None
+            assert abs(TimeSpan.since(start).seconds - 0.1) < 0.05
+
+    def test_downsample(self, channel: sy.Channel, client: sy.Synnax):
+        """Should correctly stream data for a channel"""
+        with client.open_streamer(channel.key, 1) as s:
+            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = s.read(timeout=1)
+                assert all(frame[channel.key] == data)
+        with client.open_streamer(channel.key, 2) as s:
+            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                data = [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
+                expect = [1.0,3.0,5.0,7.0,9.0]
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = s.read(timeout=1)
+                assert all(frame[channel.key] == expect)
+        with client.open_streamer(channel.key, 10) as s:
+            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                data = [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
+                expect = [1.0]
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = s.read(timeout=1)
+                assert all(frame[channel.key] == expect)
+        with client.open_streamer(channel.key, 20) as s:
+            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                data = [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
+                expect = [1.0]
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = s.read(timeout=1)
+                assert all(frame[channel.key] == expect)
+        with client.open_streamer(channel.key, -1) as s:
+            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = s.read(timeout=1)
+                assert all(frame[channel.key] == data)
 
 
 @pytest.mark.framer
@@ -404,9 +479,40 @@ class TestAsyncStreamer:
     @pytest.mark.asyncio
     async def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
         with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
-            async with await client.open_async_streamer(channel.key) as s:
+            async with await client.open_async_streamer(channel.key,1) as s:
                 time.sleep(0.1)
                 data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = await s.read()
+                assert all(frame[channel.key] == data)
+        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+            async with await client.open_async_streamer(channel.key, 2) as s:
+                time.sleep(0.1)
+                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+                expect = [1.0, 3.0, 5.0, 7.0, 9.0]
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = await s.read()
+                assert all(frame[channel.key] == expect)
+        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+            async with await client.open_async_streamer(channel.key, 10) as s:
+                time.sleep(0.1)
+                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+                expect = [1.0]
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = await s.read()
+                assert all(frame[channel.key] == expect)
+        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+            async with await client.open_async_streamer(channel.key, 20) as s:
+                time.sleep(0.1)
+                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+                expect = [1.0]
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = await s.read()
+                assert all(frame[channel.key] == expect)
+        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+            async with await client.open_async_streamer(channel.key, -1) as s:
+                time.sleep(0.1)
+                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 w.write(pd.DataFrame({channel.key: data}))
                 frame = await s.read()
                 assert all(frame[channel.key] == data)
@@ -507,3 +613,5 @@ class TestDeleter:
                     TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))
                 ),
             )
+
+

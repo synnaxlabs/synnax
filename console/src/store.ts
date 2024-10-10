@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Reducer, Store } from "@reduxjs/toolkit";
-import { combineReducers, Tuple } from "@reduxjs/toolkit";
+import { combineReducers, type Reducer, type Store, Tuple } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep } from "@synnaxlabs/x";
@@ -17,6 +16,7 @@ import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -26,7 +26,21 @@ import { Workspace } from "@/workspace";
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   ...Layout.PERSIST_EXCLUDE,
   Cluster.PERSIST_EXCLUDE,
+  ...Schematic.PERSIST_EXCLUDE,
 ];
+
+const ZERO_STATE: RootState = {
+  [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
+  [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
+  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
+  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
+  [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
+  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
+  [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
+  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
+  [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
+};
 
 const reducer = combineReducers({
   [Drift.SLICE_NAME]: Drift.reducer,
@@ -38,6 +52,7 @@ const reducer = combineReducers({
   [Docs.SLICE_NAME]: Docs.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Permissions.SLICE_NAME]: Permissions.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -50,6 +65,7 @@ export interface RootState {
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Permissions.SLICE_NAME]: Permissions.SliceState;
 }
 
 export type RootAction =
@@ -61,15 +77,12 @@ export type RootAction =
   | LinePlot.Action
   | Schematic.Action
   | Range.Action
+  | Permissions.Action
   | Workspace.Action;
-
-export type Payload = RootAction["payload"];
 
 export type RootStore = Store<RootState, RootAction>;
 
-const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
-  visible: false,
-};
+const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = { visible: false };
 
 export const migrateState = (prev: RootState): RootState => {
   console.log("--------------- Migrating State ---------------");
@@ -82,6 +95,7 @@ export const migrateState = (prev: RootState): RootState => {
   const range = Range.migrateSlice(prev.range);
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
+  const permissions = Permissions.migrateSlice(prev.permissions);
   console.log("--------------- Migrated State ---------------");
   return {
     ...prev,
@@ -93,11 +107,13 @@ export const migrateState = (prev: RootState): RootState => {
     range,
     docs,
     cluster,
+    permissions,
   };
 };
 
 const newStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
+    initial: ZERO_STATE,
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });

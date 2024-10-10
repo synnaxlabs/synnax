@@ -10,11 +10,11 @@
 package atomic_test
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/atomic"
-	"regexp"
-	"sync"
 )
 
 var _ = Describe("SeqNum", func() {
@@ -56,15 +56,6 @@ var _ = Describe("SeqNum", func() {
 			}
 			wg.Wait()
 			Expect(c.Value()).To(Equal(int64(10000)))
-		})
-	})
-	Describe("Regex", func() {
-		It("should regex", func() {
-			c, err := regexp.Compile("^Dog$")
-			if err != nil {
-				panic(err)
-			}
-			Expect(c.MatchString("Dog")).To(BeTrue())
 		})
 	})
 })

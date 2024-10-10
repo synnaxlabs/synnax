@@ -1,66 +1,119 @@
-// Copyright 2024 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 import "@/menu/Item.css";
 
 import { type FunctionComponent, type ReactElement } from "react";
 
+import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useMenuContext } from "@/menu/Menu";
+import { Text as TriggersText } from "@/triggers/Text";
+import { Trigger } from "@/triggers/triggers";
 
-const menuItemFactory =
-  <E extends Pick<Button.ButtonProps, "className" | "onClick" | "size">>(
-    Base: FunctionComponent<E>,
-    defaultProps?: Partial<E>,
-  ): FunctionComponent<E & { itemKey: string }> =>
-  // eslint-disable-next-line react/display-name
-  (props): ReactElement => {
-    const { itemKey, className, onClick, size, ...rest } = {
-      ...defaultProps,
-      ...props,
-    };
+export interface MenuItemExtraProps {
+  itemKey: string;
+  trigger?: Trigger;
+}
 
-    const { onClick: ctxOnClick, selected, level, iconSpacing } = useMenuContext();
+export interface ItemProps extends Button.ButtonProps, MenuItemExtraProps {}
 
-    const handleClick: Button.ButtonProps["onClick"] = (e) => {
-      ctxOnClick(itemKey);
-      onClick?.(e);
-    };
-    const _selected = selected === itemKey;
-    return (
-      // @ts-expect-error - generic element props
-      <Base
-        level={level}
-        {...rest}
-        onClick={handleClick}
-        variant="text"
-        className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
-        size={size ?? iconSpacing}
-      />
-    );
+export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
+  const { itemKey, trigger, className, onClick, size, ...rest } = props;
+
+  const { onClick: ctxOnClick, selected, level = "p", iconSpacing } = useMenuContext();
+
+  const handleClick: Button.ButtonProps["onClick"] = (e) => {
+    ctxOnClick(itemKey);
+    onClick?.(e);
   };
 
-export interface ItemProps extends Button.ButtonProps {
-  itemKey: string;
-}
-export const CoreItem = menuItemFactory(Button.Button, { noWrap: true });
+  const _selected = selected === itemKey;
 
-export interface ItemIconProps extends Button.IconProps {
-  itemKey: string;
-}
-const ItemIcon = menuItemFactory(Button.Icon);
+  return (
+    <Button.Button
+      level={level}
+      {...rest}
+      noWrap={true}
+      onClick={handleClick}
+      variant="text"
+      className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
+      size={size ?? iconSpacing}
+      endIcon={
+        trigger && (
+          <Align.Space
+            className={CSS(CSS.BE("menu-item", "trigger"))}
+            direction="x"
+            size={0.5}
+          >
+            <TriggersText level={level} trigger={trigger} />
+          </Align.Space>
+        )
+      }
+    />
+  );
+};
 
-const ItemLink = menuItemFactory(Button.Link, { noWrap: true });
-export interface MenuItemLinkProps extends Button.LinkProps {
-  itemKey: string;
-}
+export interface ItemIconProps extends Button.IconProps, MenuItemExtraProps {}
+
+export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement => {
+  const { itemKey, trigger, className, onClick, size, ...rest } = props;
+
+  const { onClick: ctxOnClick, selected, iconSpacing } = useMenuContext();
+
+  const handleClick: Button.ButtonProps["onClick"] = (e) => {
+    ctxOnClick(itemKey);
+    onClick?.(e);
+  };
+
+  const _selected = selected === itemKey;
+
+  return (
+    <Button.Icon
+      {...rest}
+      onClick={handleClick}
+      variant="text"
+      className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
+      size={size ?? iconSpacing}
+    />
+  );
+};
+
+export interface ItemLinkProps extends Button.LinkProps, MenuItemExtraProps {}
+
+export const ItemLink: FunctionComponent<ItemLinkProps> = (props): ReactElement => {
+  const { itemKey, trigger, className, onClick, size, ...rest } = props;
+
+  const { onClick: ctxOnClick, selected, level = "p", iconSpacing } = useMenuContext();
+
+  const handleClick: Button.ButtonProps["onClick"] = (e) => {
+    ctxOnClick(itemKey);
+    onClick?.(e);
+  };
+
+  const _selected = selected === itemKey;
+
+  return (
+    <Button.Link
+      level={level}
+      {...rest}
+      noWrap={true}
+      onClick={handleClick}
+      variant="text"
+      className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
+      size={size ?? iconSpacing}
+      endIcon={
+        trigger && (
+          <Align.Space
+            className={CSS(CSS.BE("menu-item", "trigger"))}
+            direction="x"
+            size={0.5}
+          >
+            <TriggersText level={level} trigger={trigger} />
+          </Align.Space>
+        )
+      }
+    />
+  );
+};
 
 type CoreItemType = typeof CoreItem;
 

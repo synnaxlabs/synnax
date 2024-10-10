@@ -70,9 +70,9 @@ class ChannelWriter:
     @trace("debug")
     def delete(self, channels: ChannelParams) -> None:
         normal = normalize_channel_params(channels)
-        req = _DeleteRequest(**{normal.variant: normal.params})
+        req = _DeleteRequest(**{normal.variant: normal.channels})
         send_required(self._client, _DELETE_ENDPOINT, req, Empty)
-        self._cache.delete(normal.params)
+        self._cache.delete(normal.channels)
 
     @trace("debug")
     def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
