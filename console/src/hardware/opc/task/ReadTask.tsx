@@ -34,7 +34,6 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { type DigitalWriteStateDetails } from "@/hardware/ni/task/types";
 import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
@@ -130,7 +129,7 @@ const Wrapped = ({
     ),
   });
 
-  const taskState = useObserveState<DigitalWriteStateDetails>(
+  const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,

@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { device, task } from "@synnaxlabs/client";
+import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import * as v0 from "@/hardware/ni/task/migrations/v0";
 
 export const unitsVoltsZ = z.literal("Volts");
 export type UnitsVolts = z.infer<typeof unitsVoltsZ>;
@@ -191,6 +194,7 @@ const excitSourceZ = z.enum(["Internal", "External", "None"]);
 export type ExcitationSource = z.infer<typeof excitSourceZ>;
 
 const baseAIChanZ = z.object({
+  device: device.deviceKeyZ,
   name: z.string(),
   key: z.string(),
   channel: z.number().optional(),
@@ -241,6 +245,7 @@ export type AIAccelChan = z.infer<typeof aiAccelChanZ>;
 export const ZERO_AI_ACCEL_CHAN: AIAccelChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_accel",
   channel: 0,
   port: 0,
@@ -271,6 +276,7 @@ export type AIAccel4WireDCVoltageChan = z.infer<typeof aiAccel4WireDCVoltageChan
 export const ZERO_AI_ACCEL_4WIRE_DC_VOLTAGE_CHAN: AIAccel4WireDCVoltageChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_accel_4_wire_dc_voltage",
   units: "g",
   channel: 0,
@@ -299,6 +305,7 @@ export type AIAccelChargeChan = z.infer<typeof aiAccelChargeChanZ>;
 export const ZERO_AI_ACCEL_CHARGE_CHAN: AIAccelChargeChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_accel_charge",
   channel: 0,
   port: 0,
@@ -336,6 +343,7 @@ export type AIBridgeChan = z.infer<typeof aiBridgeChanZ>;
 export const ZERO_AI_BRIDGE_CHAN: AIBridgeChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_bridge",
   units: "mVoltsPerVolt",
   channel: 0,
@@ -366,6 +374,7 @@ export type AIChargeChan = z.infer<typeof aiChargeChan>;
 export const ZERO_AI_CHARGE_CHAN: AIChargeChan = {
   name: "",
   key: "",
+  device: "",
   channel: 0,
   type: "ai_charge",
   port: 0,
@@ -404,6 +413,7 @@ export type AICurrentChan = z.infer<typeof aiCurrentChanZ>;
 export const ZERO_AI_CURRENT_CHAN: AICurrentChan = {
   name: "",
   key: "",
+  device: "",
   channel: 0,
   port: 0,
   type: "ai_current",
@@ -434,6 +444,7 @@ export type AICurrentRMSChan = z.infer<typeof aiCurrentRMSChanZ>;
 export const ZERO_AI_CURRENT_RMS_CHAN: AICurrentRMSChan = {
   name: "",
   key: "",
+  device: "",
   channel: 0,
   type: "ai_current_rms",
   port: 0,
@@ -470,6 +481,7 @@ export type AIForceBridgePolynomialChan = z.infer<typeof aiForceBridgePolynomial
 export const ZERO_AI_FORCE_BRIDGE_POLYNOMIAL_CHAN: AIForceBridgePolynomialChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_force_bridge_polynomial",
   channel: 0,
   port: 0,
@@ -511,6 +523,7 @@ export type AIForceBridgeTableChan = z.infer<typeof aiForceBridgeTableChanZ>;
 export const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_force_bridge_table",
   channel: 0,
   port: 0,
@@ -554,6 +567,7 @@ export type AIForceBridgeTwoPointLinChan = z.infer<typeof aiForceBridgeTwoPointL
 export const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_force_bridge_two_point_lin",
   channel: 0,
   port: 0,
@@ -594,6 +608,7 @@ export type AIForceEPEChan = z.infer<typeof aiForgeIEPEChanZ>;
 export const ZERO_AI_FORCE_IEPE_CHAN: AIForceEPEChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_force_iepe",
   channel: 0,
   port: 0,
@@ -625,6 +640,7 @@ export type AIFreqVoltageChan = z.infer<typeof aiFreqVoltageChanZ>;
 export const ZERO_AI_FREQ_VOLTAGE_CHAN: AIFreqVoltageChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_freq_voltage",
   channel: 0,
   port: 0,
@@ -654,6 +670,7 @@ export type AIMicrophoneChan = z.infer<typeof aiMicrophoneChanZ>;
 export const ZERO_AI_MICROPHONE_CHAN: AIMicrophoneChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_microphone",
   channel: 0,
   port: 0,
@@ -694,6 +711,7 @@ export type AIPressureBridgePolynomialChan = z.infer<
 export const ZERO_AI_PRESSURE_BRIDGE_POLYNOMIAL_CHAN: AIPressureBridgePolynomialChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_pressure_bridge_polynomial",
   channel: 0,
   port: 0,
@@ -734,6 +752,7 @@ export type AIPressureBridgeTableChan = z.infer<typeof aiPressureBridgeTableChan
 export const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_pressure_bridge_table",
   channel: 0,
   port: 0,
@@ -780,6 +799,7 @@ export const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPoin
   {
     name: "",
     key: "",
+    device: "",
     type: "ai_pressure_bridge_two_point_lin",
     channel: 0,
     port: 0,
@@ -822,6 +842,7 @@ export type AIResistanceChan = z.infer<typeof aiResistanceChanZ>;
 export const ZERO_AI_RESISTANCE_CHAN: AIResistanceChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_resistance",
   channel: 0,
   port: 0,
@@ -879,6 +900,7 @@ export type AIRosetteStrainGageChan = z.infer<typeof aiRosetteStrainGageChanZ>;
 export const ZERO_AI_ROSETTE_STRAIN_GAGE_CHAN: AIRosetteStrainGageChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_rosette_strain_gage",
   channel: 0,
   port: 0,
@@ -928,6 +950,7 @@ export type AIRTDChan = z.infer<typeof aiRTDChanZ>;
 export const ZERO_AI_RTD_CHAN: AIRTDChan = {
   name: "",
   key: "",
+  device: "",
   channel: 0,
   type: "ai_rtd",
   port: 0,
@@ -973,6 +996,7 @@ export type AIStrainGageChan = z.infer<typeof aiStrainGageChan>;
 export const ZERO_AI_STRAIN_GAGE_CHAN: AIStrainGageChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_strain_gauge",
   channel: 0,
   port: 0,
@@ -1003,6 +1027,7 @@ export type AITempBuiltInChan = z.infer<typeof aiTempBuiltInChanZ>;
 export const ZERO_AI_TEMP_BUILTIN_CHAN: AITempBuiltInChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_temp_builtin",
   channel: 0,
   port: 0,
@@ -1049,6 +1074,7 @@ export type AIThermocoupleChan = z.infer<typeof aiThermocoupleChanZ>;
 export const ZERO_AI_THERMOCOUPLE_CHAN: AIThermocoupleChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_thermocouple",
   channel: 0,
   port: 0,
@@ -1082,6 +1108,7 @@ export type AIThermistorChanIex = z.infer<typeof aiThermistorChanIex>;
 export const ZERO_AI_THERMISTOR_CHAN_IEX: AIThermistorChanIex = {
   name: "",
   key: "",
+  device: "",
   type: "ai_thermistor_iex",
   channel: 0,
   port: 0,
@@ -1118,6 +1145,7 @@ export type AIThermistorChanVex = z.infer<typeof aiThermistorChanVex>;
 export const ZERO_AI_THERMISTOR_CHAN_VEX: AIThermistorChanVex = {
   name: "",
   key: "",
+  device: "",
   channel: 0,
   type: "ai_thermistor_vex",
   port: 0,
@@ -1162,6 +1190,7 @@ export type AITorqueBridgePolynomialChan = z.infer<
 export const ZERO_AI_TORQUE_BRIDGE_POLYNOMIAL_CHAN: AITorqueBridgePolynomialChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_torque_bridge_polynomial",
   channel: 0,
   port: 0,
@@ -1203,6 +1232,7 @@ export type AITorqueBridgeTableChan = z.infer<typeof aiTorqueBridgeTableChanZ>;
 export const ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN: AITorqueBridgeTableChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_torque_bridge_table",
   channel: 0,
   port: 0,
@@ -1248,6 +1278,7 @@ export type AITorqueBridgeTwoPointLinChan = z.infer<
 export const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLinChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_torque_bridge_two_point_lin",
   channel: 0,
   port: 0,
@@ -1297,6 +1328,7 @@ export type AIVelocityEPEChan = z.infer<typeof aiVelocityIEPEChanZ>;
 export const ZERO_AI_VELOCITY_EPE_CHAN: AIVelocityEPEChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_velocity_iepe",
   channel: 0,
   port: 0,
@@ -1331,6 +1363,7 @@ export type AIVoltageChan = z.infer<typeof aiVoltageChanZ>;
 export const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_voltage",
   terminalConfig: "Cfg_Default",
   channel: 0,
@@ -1358,6 +1391,7 @@ export type AIVoltageRMSChan = z.infer<typeof aiVoltageRMSChanZ>;
 export const ZERO_AI_VOLTAGE_RMS_CHAN: AIVoltageRMSChan = {
   name: "",
   key: "",
+  device: "",
   type: "ai_voltage_rms",
   channel: 0,
   port: 0,
@@ -1388,6 +1422,7 @@ export type AIVoltageChanWithExcit = z.infer<typeof aiVoltageChanWithExcitZ>;
 export const ZERO_AI_VOLTAGE_CHAN_WITH_EXCIT: AIVoltageChanWithExcit = {
   name: "",
   key: "",
+  device: "",
   type: "ai_voltage_with_excit",
   channel: 0,
   port: 0,
@@ -1539,7 +1574,7 @@ const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");
 
 export const analogReadTaskConfigZ = z
   .object({
-    device: deviceKeyZ,
+    version: z.literal("1.0.0"),
     sampleRate: z.number().min(0).max(50000),
     streamRate: z.number().min(0).max(50000),
     channels: z.array(aiChan),
@@ -1555,14 +1590,16 @@ export const analogReadTaskConfigZ = z
     },
   )
   .superRefine((cfg, ctx) => {
-    const ports = new Map<number, number>();
-    cfg.channels.forEach(({ port }) => ports.set(port, (ports.get(port) ?? 0) + 1));
+    const ports = new Map<string, number>();
+    cfg.channels.forEach(({ port, device }) =>
+      ports.set(`${device}/${port}`, (ports.get(`${device}/${port}`) ?? 0) + 1),
+    );
     cfg.channels.forEach((channel, i) => {
-      if ((ports.get(channel.port) ?? 0) < 2) return;
+      if ((ports.get(`${channel.device}/${channel.port}`) ?? 0) < 2) return;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["channels", i, "port"],
-        message: `Port ${channel.port} has already been used`,
+        message: `Port ${channel.port} has already been used on device`,
       });
     });
   })
@@ -1611,7 +1648,7 @@ export const ANALOG_READ_TYPE = "ni_analog_read";
 export type AnalogReadType = typeof ANALOG_READ_TYPE;
 
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadTaskConfig = {
-  device: "",
+  version: "1.0.0",
   sampleRate: 10,
   streamRate: 5,
   channels: [],
@@ -1712,3 +1749,19 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
 
 export type Task = AnalogRead | DigitalWrite | DigitalRead;
 export type Chan = DIChan | AIChan | DOChan;
+
+export const analogReadTaskMigration = migrate.createMigration<
+  v0.AnalogReadTaskConfig,
+  AnalogReadTaskConfig
+>({
+  name: "hardware.ni.task.analogRead",
+  migrate: (s) => ({
+    ...s,
+    version: "1.0.0",
+    device: undefined,
+    channels: s.channels.map((c) => ({
+      device: s.device,
+      ...c,
+    })),
+  }),
+});
