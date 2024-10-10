@@ -53,7 +53,6 @@ import {
   copySelection,
   internalCreate,
   pasteSelection,
-  purgeState,
   setControlStatus,
   setEdges,
   setEditable,

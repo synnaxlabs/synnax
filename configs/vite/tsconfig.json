@@ -4,7 +4,7 @@
     "baseUrl": ".",
     "noEmit": false,
     "outDir": "dist",
-    "declaration": true,
+    "declaration": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*"]
 }
