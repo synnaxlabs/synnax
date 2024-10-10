@@ -21,7 +21,7 @@ rand = "0.8.5"
 
 [dependencies]
 tauri = { version = "2.0.0-rc.11", features = ["devtools"] }
-tauri-plugin-store = "2.0.0-rc.3"
+tauri-plugin-store = "2"
 tauri-plugin-deep-link = "2.0.0-rc.5"
 tauri-plugin-fs = "2.0.0-rc.4"
 tauri-plugin-shell = "2.0.0-rc.3"
