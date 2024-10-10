@@ -55,6 +55,7 @@ import {
   MdAlignVerticalCenter,
   MdAlignVerticalTop,
   MdAreaChart,
+  MdArticle,
   MdAutoAwesome,
   MdDataArray,
   MdDataObject,
@@ -369,7 +370,7 @@ export const Icon: IconType = {
   SplitX: wrapIcon(VscSplitHorizontal, "split-x"),
   SplitY: wrapIcon(VscSplitVertical, "split-y"),
   AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
-  Log: wrapIcon(RiFileListLine, "log"),
+  Log: wrapIcon(MdArticle, "log"),
 };
 
 export interface IconType {

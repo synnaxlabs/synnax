@@ -16,7 +16,7 @@ export const Log: Layout.Renderer = () => {
       },
     ],
     segments: {
-      valueStream: telem.streamChannelValue({ channel: 1048612 }),
+      valueStream: telem.streamChannelValue({ channel: 1048635 }),
       stringifier: telem.stringifyNumber({ precision: 2 }),
     },
     outlet: "stringifier",
@@ -28,14 +28,15 @@ export const SELECTABLE: Layout.Selectable = {
   key: LAYOUT_TYPE,
   title: "Log",
   icon: <Icon.Log />,
-  create: () => create(),
+  create: (key) => create({ key }),
 };
 
-export const create = (): Layout.State => {
-  const key = id.id();
+export const create = (initial: Omit<Partial<Layout.State>, "type">): Layout.State => {
+  const key = initial.key ?? id.id();
   return {
     key,
     name: "Log",
+    icon: "Log",
     location: "mosaic",
     type: LAYOUT_TYPE,
     windowKey: key,
