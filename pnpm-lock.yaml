@@ -21,7 +21,7 @@ overrides:
   zod: ^3.23.8
   node-fetch: ^2.7.0
   prettier: ^3.3.3
-  '@tauri-apps/api': ^2.0.0
+  '@tauri-apps/api': ^2.0.2
   eslint: ^9.12.0
 
 importers:
@@ -217,7 +217,7 @@ importers:
         specifier: ^5.59.9
         version: 5.59.9(react@18.3.1)
       '@tauri-apps/api':
-        specifier: ^2.0.0
+        specifier: ^2.0.2
         version: 2.0.2
       '@tauri-apps/plugin-deep-link':
         specifier: ^2.0.0
@@ -400,7 +400,7 @@ importers:
         specifier: workspace:*
         version: link:../configs/vite
       '@tauri-apps/api':
-        specifier: ^2.0.0
+        specifier: ^2.0.2
         version: 2.0.2
       '@types/react':
         specifier: ^18.3.11
@@ -442,7 +442,7 @@ importers:
         specifier: workspace:*
         version: link:../..
       '@tauri-apps/api':
-        specifier: ^2.0.0
+        specifier: ^2.0.2
         version: 2.0.2
       react:
         specifier: ^18.3.1
