@@ -50,9 +50,6 @@
     "vite": "^5.4.8",
     "vitest": "^2.1.2"
   },
-  "peerDependencies": {
-    "zod": "3.23.8"
-  },
   "type": "module",
   "types": "dist/index.d.ts",
   "module": "dist/client.js"

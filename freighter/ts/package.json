@@ -38,9 +38,6 @@
     "vite": "^5.4.8",
     "vitest": "^2.1.2"
   },
-  "peerDependencies": {
-    "zod": "3.23.8"
-  },
   "main": "dist/freighter.cjs",
   "module": "dist/freighter.js",
   "types": "dist/index.d.ts"

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Key, type Keyed } from "@synnaxlabs/x";
-import memoize from "proxy-memoize";
+import { memoize } from "proxy-memoize";
 import { useCallback } from "react";
 import { useSelector } from "react-redux";
 

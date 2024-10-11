@@ -80,7 +80,7 @@
       "vitest": "^2.1.2",
       "@vitest/coverage-v8": "^2.1.2",
       "typescript": "^5.6.3",
-      "proxy-memoize": "^1.2.0",
+      "proxy-memoize": "2.0.3",
       "@tanstack/react-virtual": "^3.10.8",
       "zod": "^3.23.8",
       "node-fetch": "^2.7.0",
