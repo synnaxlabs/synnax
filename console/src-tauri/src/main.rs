@@ -7,10 +7,10 @@ extern crate cocoa;
 #[cfg(target_os = "macos")]
 extern crate objc;
 
-use tauri::{Window, Emitter};
-use device_query::{DeviceQuery, DeviceState, DeviceEvents, MouseState};
+use device_query::{DeviceEvents, DeviceQuery, DeviceState, MouseState};
 use std::thread;
 use std::time::Duration;
+use tauri::{Emitter, Window};
 
 #[cfg(target_os = "macos")]
 struct UnsafeWindowHandle(*mut std::ffi::c_void);
@@ -21,8 +21,11 @@ unsafe impl Sync for UnsafeWindowHandle {}
 
 #[cfg(target_os = "macos")]
 fn set_transparent_titlebar(win: &Window, transparent: bool) {
-    let ns_window_handle = UnsafeWindowHandle(win.ns_window().expect("Failed to create window handle"));
-    use cocoa::appkit::{NSView, NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility};
+    let ns_window_handle =
+        UnsafeWindowHandle(win.ns_window().expect("Failed to create window handle"));
+    use cocoa::appkit::{
+        NSView, NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility,
+    };
     let id = ns_window_handle.0 as cocoa::base::id;
     unsafe {
         let mut style_mask = id.styleMask();
@@ -38,8 +41,7 @@ fn set_transparent_titlebar(win: &Window, transparent: bool) {
         });
         id.setTitlebarAppearsTransparent_(cocoa::base::YES);
         let close = id.standardWindowButton_(NSWindowButton::NSWindowCloseButton);
-        let miniaturize =
-            id.standardWindowButton_(NSWindowButton::NSWindowMiniaturizeButton);
+        let miniaturize = id.standardWindowButton_(NSWindowButton::NSWindowMiniaturizeButton);
         let zoom = id.standardWindowButton_(NSWindowButton::NSWindowZoomButton);
         let window_buttons = vec![close, miniaturize, zoom];
         for button in window_buttons {
@@ -53,15 +55,16 @@ fn set_transparent_titlebar(_: &Window, _: bool) {}
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::new().build())
         .on_page_load(|window, _| {
-            set_transparent_titlebar(&window.window(), true,);
+            set_transparent_titlebar(&window.window(), true);
             return;
         })
         .on_window_event(move |win, event| match event {
-            tauri::WindowEvent::Focused {..} => {
+            tauri::WindowEvent::Focused { .. } => {
                 set_transparent_titlebar(win, true);
-            },
-            tauri::WindowEvent::ThemeChanged {..} => {
+            }
+            tauri::WindowEvent::ThemeChanged { .. } => {
                 set_transparent_titlebar(win, true);
             }
             tauri::WindowEvent::Resized(size) => {
@@ -69,30 +72,34 @@ fn main() {
                 let screen = monitor.size();
                 if size != screen {
                     set_transparent_titlebar(win, true);
-                }  
-            },
-            tauri::WindowEvent::Moved(position)=> {
+                }
+            }
+            tauri::WindowEvent::Moved(position) => {
                 if position.x != 0 && position.y != 0 {
                     set_transparent_titlebar(win, true);
                 }
-           },
+            }
             _ => (),
-         })
+        })
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_process::init()) .setup(|app| {
+        .plugin(tauri_plugin_process::init())
+        .setup(|app| {
             #[cfg(desktop)]
-            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
             let app_handle = app.handle().clone();
             thread::spawn(move || {
                 let app_handle = app_handle.clone();
                 let device_state = DeviceState::new();
                 let _guard = device_state.on_mouse_up(move |_pos| {
                     let state: MouseState = DeviceState::new().get_mouse();
-                    app_handle.emit("mouse_up", state.coords).expect("Failed to emit event");
+                    app_handle
+                        .emit("mouse_up", state.coords)
+                        .expect("Failed to emit event");
                 });
                 loop {
                     thread::sleep(Duration::from_secs(1));

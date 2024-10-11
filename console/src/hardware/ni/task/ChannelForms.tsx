@@ -645,6 +645,7 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
       `${prefix}.colOptions`,
     );
     const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const tableSchema = z.record(z.array(z.unknown()));
     const preScaledField = Form.useField<number[]>({ path: `${prefix}.preScaledVals` });
     const scaledField = Form.useField<number[]>({ path: `${prefix}.scaledVals` });

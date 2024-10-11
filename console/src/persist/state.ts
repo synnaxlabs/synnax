@@ -18,7 +18,7 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { TauriKV } from "@/persist/kv";
+import { createTauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
@@ -52,10 +52,9 @@ const KEEP_HISTORY = 4;
 export const hardClearAndReload = () => {
   const appWindow = getCurrentWindow();
   if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
-  const db = new TauriKV();
-  db.clear().finally(() => {
-    window.location.reload();
-  });
+  createTauriKV()
+    .then(async (db) => await db.clear())
+    .finally(window.location.reload);
 };
 
 export const open = async <S extends RequiredState>({
@@ -65,7 +64,7 @@ export const open = async <S extends RequiredState>({
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
   const appWindow = getCurrentWindow();
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
-  const db = new TauriKV();
+  const db = await createTauriKV();
   let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
 
   console.log(`Latest database version key is ${version}`);
