@@ -7,10 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action, UnknownAction } from "@reduxjs/toolkit";
+import { type Action, type UnknownAction } from "@reduxjs/toolkit";
 import { debounce as debounceF, type dimensions, type xy } from "@synnaxlabs/x";
-import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
-import { emit, listen, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
+import {
+  emit,
+  type Event as TauriEvent,
+  listen,
+  TauriEvent as TauriEventKey,
+  type UnlistenFn,
+} from "@tauri-apps/api/event";
 import {
   getAllWebviewWindows as getAll,
   getCurrentWebviewWindow as getCurrentWindow,
@@ -25,7 +30,7 @@ import {
 
 import { type Event, type Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
-import { setWindowProps, SetWindowPropsPayload, type StoreState } from "@/state";
+import { setWindowProps, type SetWindowPropsPayload, type StoreState } from "@/state";
 import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const actionEvent = "drift://action";

@@ -34,18 +34,22 @@ export const selectMultiple = (state: StoreState, keys: string[]): State[] =>
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
-export const selectRanges = (key: string): XAxisRecord<Range.Range[]> => {
-  return useMemoSelect(
-    (state: StoreState & Range.StoreState) => {
-      const p = select(state, key);
-      return {
-        x1: Range.selectMultiple(state, p.ranges.x1),
-        x2: Range.selectMultiple(state, p.ranges.x2),
-      };
-    },
+export const selectRanges = (
+  state: StoreState & Range.StoreState,
+  key: string,
+): XAxisRecord<Range.Range[]> => {
+  const ranges = select(state, key).ranges;
+  return {
+    x1: Range.selectMultiple(state, ranges.x1),
+    x2: Range.selectMultiple(state, ranges.x2),
+  };
+};
+
+export const useSelectRanges = (key: string): XAxisRecord<Range.Range[]> =>
+  useMemoSelect(
+    (state: StoreState & Range.StoreState) => selectRanges(state, key),
     [key],
   );
-};
 
 export const selectToolbar = (state: StoreState): ToolbarState =>
   selectSliceState(state).toolbar;
