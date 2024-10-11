@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { runtime } from "@synnaxlabs/x";
-import memoize from "proxy-memoize";
+import { memoize} from "proxy-memoize";
 
 export const proxyMemo: typeof memoize = (fn, opts) => {
   if (runtime.RUNTIME === "browser") return memoize(fn, opts);
