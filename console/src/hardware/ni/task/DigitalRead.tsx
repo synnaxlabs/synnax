@@ -42,7 +42,7 @@ import {
   DigitalReadType,
   ZERO_DI_CHAN,
   ZERO_DIGITAL_READ_PAYLOAD,
-} from "@/hardware/ni/task/types";
+} from "@/hardware/ni/task/migrations";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
