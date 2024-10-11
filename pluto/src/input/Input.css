@@ -210,6 +210,11 @@
             --pluto-bg: var(--pluto-gray-l3);
             background: var(--pluto-bg) !important;
         }
+        &:focus-within {
+            transition:
+                background 0s ease-in-out,
+                border-color 0s ease-in-out;
+        }
     }
 }
 
