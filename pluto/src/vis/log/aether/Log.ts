@@ -41,7 +41,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   static readonly z = logState;
   schema = Log.z;
   values: MultiSeries = new MultiSeries([]);
-  offsetRef: number = 0;
+  offsetRef: bigint = 0n;
 
   async afterUpdate(): Promise<void> {
     const { internal: i } = this;
@@ -50,16 +50,17 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
-    await this.internal.telem.value();
+    const [_, series] = await this.internal.telem.value();
+    this.values = new MultiSeries(series);
     if (this.state.scrollPosition != null && this.prevState.scrollPosition == null)
-      this.offsetRef = this.values.length;
+      this.offsetRef = this.values.alignmentBounds.upper;
     i.stopListeningTelem?.();
-    i.stopListeningTelem = i.telem.onChange(() => {
+    i.stopListeningTelem = i.telem.onChange(() =>
       this.internal.telem.value().then(([_, series]) => {
         this.values = new MultiSeries(series);
         this.requestRender();
-      });
-    });
+      }),
+    );
     this.requestRender();
   }
 
@@ -116,46 +117,47 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       this.values.length,
     );
     const clearScissor = renderCtx.scissor(b, xy.ZERO, ["upper2d"]);
-    let range: [number, number];
+    let range: Iterable<any>;
     if (this.state.scrollPosition == null)
-      range = [this.values.length - visibleLineCount, this.values.length];
+      range = this.values.subIterator(
+        this.values.length - visibleLineCount,
+        this.values.length,
+      );
     else {
       // scrollPosition tells us how many pixels we've moved in relation
       // to the offset ref.
-      const scrollPos = Math.ceil(this.state.scrollPosition / lineHeight);
-      range = [
-        this.offsetRef + scrollPos - visibleLineCount,
+      const scrollPos = BigInt(Math.ceil(this.state.scrollPosition / lineHeight));
+      range = this.values.subAlignmentIterator(
+        this.offsetRef + scrollPos - BigInt(visibleLineCount),
         this.offsetRef + scrollPos,
-      ];
+      );
     }
-    this.renderElements(range[0], range[1]);
+    this.renderElements(range);
     this.maybeUpdateTotalHeight();
     clearScissor();
     return async ({ canvases }) => renderCtx.erase(b, xy.ZERO, ...canvases);
   }
 
-  private renderElements(start: number, end: number): void {
+  private renderElements(iter: Iterable<any>): void {
     const { render: renderCtx } = this.internal;
     const b = box.construct(this.state.region);
     if (box.areaIsZero(b)) return;
     const canvas = renderCtx.upper2d;
     const draw2d = new Draw2D(canvas, this.internal.theme);
-    const lineHeight =
-      this.internal.theme.typography[this.state.font].size *
-      this.internal.theme.sizes.base;
     const clearScissor = renderCtx.scissor(b, xy.ZERO, ["upper2d"]);
-    for (let i = start; i < end; i++) {
-      const value = this.values.at(i);
-      if (value == null) continue;
+    let i = 0;
+    for (const value of iter) {
+      if (i % 100 == 0) console.log(i);
       draw2d.text({
         text: this.values.dataType.equals(DataType.JSON)
           ? JSON.stringify(value)
           : value.toString(),
         level: this.state.font,
         shade: 9,
-        position: xy.translateY(box.topLeft(b), (i - start) * lineHeight),
+        position: xy.translateY(box.topLeft(b), i * this.lineHeight),
         code: true,
       });
+      i++;
     }
     clearScissor();
   }

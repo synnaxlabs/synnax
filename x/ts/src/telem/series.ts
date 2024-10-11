@@ -43,6 +43,8 @@ interface GL {
   bufferUsage: GLBufferUsage;
 }
 
+export interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
+
 export interface SeriesDigest {
   key: string;
   dataType: string;
@@ -362,7 +364,9 @@ export class Series<T extends TelemValue = TelemValue> {
 
   /** @returns the underlying buffer backing this array. */
   get buffer(): ArrayBufferLike {
-    return this._data;
+    if (this._data instanceof ArrayBuffer || this._data instanceof SharedArrayBuffer)
+      return this._data;
+    return (this._data as TypedArray).buffer;
   }
 
   private get underlyingData(): TypedArray {
@@ -378,7 +382,7 @@ export class Series<T extends TelemValue = TelemValue> {
   toStrings(): string[] {
     if (!this.dataType.matches(DataType.STRING, DataType.UUID))
       throw new Error("cannot convert non-string series to strings");
-    return new TextDecoder().decode(this.buffer).split("\n").slice(0, -1);
+    return new TextDecoder().decode(this.underlyingData).split("\n").slice(0, -1);
   }
 
   toUUIDs(): string[] {
@@ -388,7 +392,7 @@ export class Series<T extends TelemValue = TelemValue> {
     const r = Array(this.length);
 
     for (let i = 0; i < this.length; i++) {
-      const v = this.buffer.slice(i * den, (i + 1) * den);
+      const v = this.underlyingData.slice(i * den, (i + 1) * den);
       const id = Array.from(new Uint8Array(v), (b) => b.toString(16).padStart(2, "0"))
         .join("")
         .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
@@ -401,7 +405,7 @@ export class Series<T extends TelemValue = TelemValue> {
     if (!this.dataType.equals(DataType.JSON))
       throw new Error("cannot convert non-string series to strings");
     return new TextDecoder()
-      .decode(this.buffer)
+      .decode(this.underlyingData)
       .split("\n")
       .slice(0, -1)
       .map((s) => schema.parse(binary.JSON_CODEC.decodeString(s)));
@@ -415,7 +419,7 @@ export class Series<T extends TelemValue = TelemValue> {
 
   /** @returns the capacity of the series in bytes. */
   get byteCapacity(): Size {
-    return new Size(this.buffer.byteLength);
+    return new Size(this.underlyingData.byteLength);
   }
 
   /** @returns the capacity of the series in samples. */
@@ -551,6 +555,19 @@ export class Series<T extends TelemValue = TelemValue> {
     return addSamples(this.max, -this.min);
   }
 
+  atAlignment(alignment: bigint, required: true): T;
+
+  atAlignment(alignment: bigint, required?: false): T | undefined;
+
+  atAlignment(alignment: bigint, required?: boolean): T | undefined {
+    const index = Number(alignment - this.alignment);
+    if (index < 0 || index >= this.length) {
+      if (required === true) throw new Error(`[series] - no value at index ${index}`);
+      return undefined;
+    }
+    return this.at(index, required as true);
+  }
+
   at(index: number, required: true): T;
 
   at(index: number, required?: false): T | undefined;
@@ -645,7 +662,7 @@ export class Series<T extends TelemValue = TelemValue> {
       // This means we can buffer the entire array in a single go.
       gl.bufferData(
         gl.ARRAY_BUFFER,
-        this.buffer,
+        this.underlyingData,
         bufferUsage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW,
       );
       this.gl.prevBuffer = FULL_BUFFER;
@@ -741,8 +758,16 @@ export class Series<T extends TelemValue = TelemValue> {
     return this.sliceSub(true, start, end);
   }
 
+  subIterator(start: number, end?: number): IterableIterator<T> {
+    return new SubIterator(this, start, end ?? this.length);
+  }
+
+  subAlignmentIterator(start: bigint, end: bigint): IterableIterator<T> {
+    return new SubAlignmentIterator(this, start, end);
+  }
+
   private subBytes(start: number, end?: number): Series {
-    if (start >= 0 && (end == null || end >= this.byteLength.valueOf())) this;
+    if (start >= 0 && (end == null || end >= this.byteLength.valueOf())) return this;
     const data = this.data.subarray(start, end);
     return new Series({
       data,
@@ -756,7 +781,9 @@ export class Series<T extends TelemValue = TelemValue> {
 
   private sliceSub(sub: boolean, start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.length)) return this;
-    const data = sub ? this.data.subarray(start, end) : this.data.slice(start, end);
+    let data: TypedArray;
+    if (sub) data = this.data.subarray(start, end);
+    else data = this.data.slice(start, end);
     return new Series({
       data,
       dataType: this.dataType,
@@ -776,6 +803,50 @@ export class Series<T extends TelemValue = TelemValue> {
       glBufferUsage: "static",
       alignment,
     });
+  }
+}
+
+class SubIterator<T> implements Iterator<T>, Iterable<T> {
+  private readonly series: Series;
+  private readonly end: number;
+  private index: number;
+
+  constructor(series: Series, start: number, end: number) {
+    this.series = series;
+    const b = bounds.construct(0, series.length);
+    this.end = bounds.clamp(b, end);
+    this.index = bounds.clamp(b, start);
+  }
+
+  next(): IteratorResult<T> {
+    if (this.index >= this.end) return { done: true, value: undefined };
+    return { done: false, value: this.series.at(this.index++, true) as T };
+  }
+
+  [Symbol.iterator](): Iterator<T> {
+    return this;
+  }
+}
+
+class SubAlignmentIterator<T> implements Iterator<T>, Iterable<T> {
+  private readonly series: Series;
+  private readonly end: bigint;
+  private index: bigint;
+
+  constructor(series: Series, start: bigint, end: bigint) {
+    this.series = series;
+    const b = series.alignmentBounds;
+    this.end = bounds.clamp(b, end);
+    this.index = bounds.clamp(b, start);
+  }
+
+  next(): IteratorResult<T> {
+    if (this.index >= this.end) return { done: true, value: undefined };
+    return { done: false, value: this.series.atAlignment(this.index++, true) as T };
+  }
+
+  [Symbol.iterator](): Iterator<T> {
+    return this;
   }
 }
 
@@ -907,12 +978,42 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     );
   }
 
+  get alignment(): bigint {
+    if (this.series.length === 0) return 0n;
+    return this.series[0].alignment;
+  }
+
+  get alignmentBounds(): bounds.Bounds<bigint> {
+    if (this.series.length === 0) return bounds.construct(0n, 0n);
+    return bounds.construct(
+      this.series[0].alignmentBounds.lower,
+      this.series[this.series.length - 1].alignmentBounds.upper,
+    );
+  }
+
   push(series: Series<T>): void {
     this.series.push(series);
   }
 
   get length(): number {
     return this.series.reduce((a, b) => a + b.length, 0);
+  }
+
+  atAlignment(alignment: bigint, required: true): T;
+
+  atAlignment(alignment: bigint, required?: false): T | undefined;
+
+  atAlignment(alignment: bigint, required?: boolean): T | undefined {
+    if (this.series.length === 0) {
+      if (required) throw new Error(`[series] - no value at alignment ${alignment}`);
+      return undefined;
+    }
+    for (const ser of this.series) {
+      if (bounds.contains(ser.alignmentBounds, alignment))
+        return ser.atAlignment(alignment, required as true);
+    }
+    if (required) throw new Error(`[series] - no value at alignment ${alignment}`);
+    return undefined;
   }
 
   at(index: number, required: true): T;
@@ -927,6 +1028,14 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     }
     if (required) throw new Error(`[series] - no value at index ${index}`);
     return undefined;
+  }
+
+  subIterator(start: number, end?: number): IterableIterator<T> {
+    return new MultiSubIterator(this, start, end ?? this.length);
+  }
+
+  subAlignmentIterator(start: bigint, end: bigint): IterableIterator<T> {
+    return new MultiSubAlignmentIterator(this, start, end);
   }
 
   get byteLength(): Size {
@@ -979,6 +1088,59 @@ class MultiSeriesIterator<T extends TelemValue = TelemValue> implements Iterator
   }
 
   [Symbol.toStringTag] = "MultiSeriesIterator";
+}
+
+class MultiSubIterator<T extends TelemValue = TelemValue>
+  implements IterableIterator<T>
+{
+  private readonly series: MultiSeries<T>;
+  private index: number;
+  private end: number;
+
+  constructor(series: MultiSeries<T>, start: number, end: number) {
+    this.series = series;
+    this.end = end;
+    this.index = start;
+  }
+
+  next(): IteratorResult<T> {
+    if (this.index >= this.end) return { done: true, value: undefined };
+    return { done: false, value: this.series.at(this.index++, true) as T };
+  }
+
+  [Symbol.iterator](): Iterator<T> {
+    return this;
+  }
+}
+
+class MultiSubAlignmentIterator<T extends TelemValue = TelemValue>
+  implements IterableIterator<T>
+{
+  private readonly series: MultiSeries<T>;
+  private index: bigint;
+  private end: bigint;
+
+  constructor(series: MultiSeries<T>, start: bigint, end: bigint) {
+    this.series = series;
+    this.end = end;
+    this.index = start;
+  }
+
+  next(): IteratorResult<T> {
+    if (this.index >= this.end) return { done: true, value: undefined };
+    for (let i = 0; i < this.series.series.length; i++) {
+      const ser = this.series.series[i];
+      if (bounds.contains(ser.alignmentBounds, this.index))
+        return { done: false, value: ser.atAlignment(this.index++, true) as T };
+      if (i === this.series.series.length - 1) break;
+      else this.index = this.series.series[i + 1].alignmentBounds.lower;
+    }
+    return { done: true, value: undefined };
+  }
+
+  [Symbol.iterator](): Iterator<T> {
+    return this;
+  }
 }
 
 export type SeriesPayload = z.infer<typeof Series.crudeZ>;
