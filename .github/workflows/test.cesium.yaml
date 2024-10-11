@@ -4,22 +4,18 @@ on:
     branches:
       - rc
       - main
-
   push:
     branches:
       - rc
       - main
       - sy-1375-run-ci-tests-on-windows-and-macos
-
   workflow_dispatch:
-
 jobs:
   setup:
     name: "Setup"
     runs-on: ubuntu-latest
     outputs:
       changed: ${{ steps.filter.outputs.changed }}
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -36,15 +32,16 @@ jobs:
               - '.github/workflows/test.cesium.yaml'
 
   test:
+    name: "Test - ${{ matrix.os }}"
     needs: setup
     if: needs.setup.outputs.changed == 'true'
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -55,6 +52,6 @@ jobs:
             "cesium/go.sum"
             "x/go/go.sum"
 
-      - name: Test - ${{ matrix.os }}
-        run: go test -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
+      - name: Test
+        run: go test -v -shuffle=on ./...
         working-directory: ./cesium
