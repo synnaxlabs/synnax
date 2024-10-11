@@ -114,6 +114,8 @@ const nullArrayZ = z
   .union([z.null(), z.undefined()])
   .transform(() => new Uint8Array().buffer as ArrayBuffer);
 
+const NEW_LINE = 10;
+
 /**
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
@@ -145,7 +147,10 @@ export class Series<T extends TelemValue = TelemValue> {
   private writePos: number = FULL_BUFFER;
   /** Tracks the number of entities currently using this array. */
   private _refCount: number = 0;
+  /** Caches the length of the array for variable length data types. */
   private _cachedLength?: number;
+  /** Caches the indexes of the array for variable length data types. */
+  private _cachedIndexes?: number[];
 
   static readonly crudeZ = z.object({
     timeRange: TimeRange.z.optional(),
@@ -320,20 +325,39 @@ export class Series<T extends TelemValue = TelemValue> {
   write(other: Series): number {
     if (!other.dataType.equals(this.dataType))
       throw new Error("buffer must be of the same type as this array");
+    if (this.dataType.isVariable) return this.writeVariable(other);
+    return this.writeFixed(other);
+  }
 
-    // We've filled the entire underlying buffer
+  private writeVariable(other: Series): number {
+    if (this.writePos === FULL_BUFFER) return 0;
+    const available = this.byteCapacity.valueOf() - this.writePos;
+    const toWrite = other.subBytes(0, available);
+    this.writeToUnderlyingData(toWrite);
+    this.writePos += toWrite.byteLength.valueOf();
+    if (this._cachedLength != null) {
+      this._cachedLength += toWrite.length;
+      this.calculateCachedLength();
+    }
+    return toWrite.length;
+  }
+
+  private writeFixed(other: Series): number {
     if (this.writePos === FULL_BUFFER) return 0;
     const available = this.capacity - this.writePos;
-
-    const toWrite = available < other.length ? other.slice(0, available) : other;
-    this.underlyingData.set(
-      toWrite.data as unknown as ArrayLike<bigint> & ArrayLike<number>,
-      this.writePos,
-    );
-    this.maybeRecomputeMinMax(toWrite);
+    const toWrite = other.sub(0, available);
+    this.writeToUnderlyingData(toWrite);
     this._cachedLength = undefined;
+    this.maybeRecomputeMinMax(toWrite);
     this.writePos += toWrite.length;
     return toWrite.length;
+  }
+
+  private writeToUnderlyingData(data: Series) {
+    this.underlyingData.set(
+      data.data as unknown as ArrayLike<bigint> & ArrayLike<number>,
+      this.writePos,
+    );
   }
 
   /** @returns the underlying buffer backing this array. */
@@ -396,12 +420,14 @@ export class Series<T extends TelemValue = TelemValue> {
 
   /** @returns the capacity of the series in samples. */
   get capacity(): number {
+    if (this.dataType.isVariable) return this.byteCapacity.valueOf();
     return this.dataType.density.length(this.byteCapacity);
   }
 
   /** @returns the length of the series in bytes. */
   get byteLength(): Size {
     if (this.writePos === FULL_BUFFER) return this.byteCapacity;
+    if (this.dataType.isVariable) return new Size(this.writePos);
     return this.dataType.density.size(this.writePos);
   }
 
@@ -417,9 +443,13 @@ export class Series<T extends TelemValue = TelemValue> {
     if (!this.dataType.isVariable)
       throw new Error("cannot calculate length of a non-variable length data type");
     let cl = 0;
-    this.data.forEach((v) => {
-      if (v === 10) cl++;
+    const ci: number[] = [0];
+    this.data.forEach((v, i) => {
+      if (v !== NEW_LINE) return;
+      cl++;
+      ci.push(i + 1);
     });
+    this._cachedIndexes = ci;
     this._cachedLength = cl;
     return cl;
   }
@@ -537,23 +567,28 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   private atVariable(index: number, required: boolean): T | undefined {
-    if (index < 0) index = this.length + index;
     let start = 0;
     let end = 0;
-    for (let i = 0; i < this.data.length; i++) {
-      if (this.data[i] === 10) {
-        if (index === 0) {
-          end = i;
-          break;
+    if (this._cachedIndexes != null) {
+      start = this._cachedIndexes[index];
+      end = this._cachedIndexes[index + 1] - 1;
+    } else {
+      if (index < 0) index = this.length + index;
+      for (let i = 0; i < this.data.length; i++) {
+        if (this.data[i] === NEW_LINE) {
+          if (index === 0) {
+            end = i;
+            break;
+          }
+          start = i + 1;
+          index--;
         }
-        start = i + 1;
-        index--;
       }
-    }
-    if (end === 0) end = this.data.length;
-    if (start >= end || index > 0) {
-      if (required) throw new Error(`[series] - no value at index ${index}`);
-      return undefined;
+      if (end === 0) end = this.data.length;
+      if (start >= end || index > 0) {
+        if (required) throw new Error(`[series] - no value at index ${index}`);
+        return undefined;
+      }
     }
     const slice = this.data.slice(start, end);
     if (this.dataType.equals(DataType.STRING))
@@ -699,8 +734,29 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   slice(start: number, end?: number): Series {
+    return this.sliceSub(false, start, end);
+  }
+
+  sub(start: number, end?: number): Series {
+    return this.sliceSub(true, start, end);
+  }
+
+  private subBytes(start: number, end?: number): Series {
+    if (start >= 0 && (end == null || end >= this.byteLength.valueOf())) this;
+    const data = this.data.subarray(start, end);
+    return new Series({
+      data,
+      dataType: this.dataType,
+      timeRange: this._timeRange,
+      sampleOffset: this.sampleOffset,
+      glBufferUsage: this.gl.bufferUsage,
+      alignment: this.alignment + BigInt(start),
+    });
+  }
+
+  private sliceSub(sub: boolean, start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.length)) return this;
-    const data = this.data.slice(start, end);
+    const data = sub ? this.data.subarray(start, end) : this.data.slice(start, end);
     return new Series({
       data,
       dataType: this.dataType,
@@ -741,7 +797,7 @@ class StringSeriesIterator implements Iterator<string> {
   next(): IteratorResult<string> {
     const start = this.index;
     const data = this.series.data;
-    while (this.index < data.length && data[this.index] !== 10) this.index++;
+    while (this.index < data.length && data[this.index] !== NEW_LINE) this.index++;
     const end = this.index;
     if (start === end) return { done: true, value: undefined };
     this.index++;

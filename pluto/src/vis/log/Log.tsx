@@ -67,14 +67,17 @@ export const Log = Aether.wrap<LogProps>(
           onScroll={(e) => {
             const el = e.target as HTMLDivElement;
             const elScrollPos = el.scrollTop + el.clientHeight;
-            if (elScrollPos == el.scrollHeight) {
+            if (elScrollPos > el.scrollHeight - 100) {
               snapRef.current = null;
               if (scrollPosRef.current != null)
                 setState((s) => ({ ...s, scrollPosition: null }));
               return;
             }
             if (snapRef.current == null) snapRef.current = el.scrollHeight;
-            setState((s) => ({ ...s, scrollPosition: elScrollPos - snapRef.current }));
+            setState((s) => ({
+              ...s,
+              scrollPosition: elScrollPos - (snapRef.current ?? el.scrollHeight),
+            }));
           }}
         >
           <div style={{ height: totalHeight }} />

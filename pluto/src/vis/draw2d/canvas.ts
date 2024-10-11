@@ -574,7 +574,8 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   set font(value: string) {
-    this.wrapped.font = scaleFontSize(value, this.scale_.x);
+    // this.wrapped.font = scaleFontSize(value, this.scale_.x);
+    this.wrapped.font = "12px 'Geist Mono'";
   }
 
   get fontKerning(): CanvasFontKerning {

@@ -64,6 +64,7 @@ import {
   MdFiberManualRecord,
   MdFileUpload,
   MdFilterCenterFocus,
+  MdGrain,
   MdHardware,
   MdInsights,
   MdKeyboardAlt,
@@ -106,6 +107,7 @@ import {
   PiCaretRight,
   PiCaretUpBold,
   PiDownloadSimple,
+  PiListFill,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
 } from "react-icons/pi";
@@ -248,7 +250,7 @@ export const Icon: IconType = {
   Expand: wrapIcon(AiOutlineExpand, "expand"),
   Cluster: wrapIcon(HiSquare3Stack3D, "cluster"),
   Loading: wrapIcon(AiOutlineLoading, "loading", { className: "media--spin" }),
-  Schematic: wrapIcon(FaStream, "schematic"),
+  Schematic: wrapIcon(MdGrain, "schematic"),
   Caret: {
     Right: wrapIcon(PiCaretRight, "caret-right"),
     Bottom: wrapIcon(PiCaretDown, "caret-bottom"),
@@ -370,7 +372,7 @@ export const Icon: IconType = {
   SplitX: wrapIcon(VscSplitHorizontal, "split-x"),
   SplitY: wrapIcon(VscSplitVertical, "split-y"),
   AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
-  Log: wrapIcon(MdArticle, "log"),
+  Log: wrapIcon(FaStream, "log"),
 };
 
 export interface IconType {

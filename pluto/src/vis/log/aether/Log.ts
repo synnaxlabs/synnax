@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Destructor } from "@synnaxlabs/x";
+import { DataType, Destructor, MultiSeries } from "@synnaxlabs/x";
 import { box, xy } from "@synnaxlabs/x/spatial";
 import { z } from "zod";
 
@@ -23,23 +23,15 @@ export const logState = z.object({
   region: box.box,
   scrollPosition: z.number().or(z.null()),
   totalHeight: z.number(),
-  telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
+  telem: telem.seriesSourceSpecZ.optional().default(telem.noopSeriesSourceSpec),
   font: text.levelZ.optional().default("p"),
   color: color.Color.z.optional().default(color.ZERO),
 });
 
-class Values {
-  entries: string[] = [];
-
-  push(value: string): void {
-    this.entries.push(value);
-  }
-}
-
 interface InternalState {
   theme: theming.Theme;
   render: render.Context;
-  telem: telem.StringSource;
+  telem: telem.SeriesSource;
   textColor: color.Color;
   stopListeningTelem?: Destructor;
 }
@@ -48,7 +40,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   static readonly TYPE = "log";
   static readonly z = logState;
   schema = Log.z;
-  values: Values = new Values();
+  values: MultiSeries = new MultiSeries([]);
   offsetRef: number = 0;
 
   async afterUpdate(): Promise<void> {
@@ -60,12 +52,12 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
     await this.internal.telem.value();
     if (this.state.scrollPosition != null && this.prevState.scrollPosition == null) {
-      this.offsetRef = this.values.entries.length;
+      this.offsetRef = this.values.length;
     }
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      this.internal.telem.value().then((v) => {
-        this.values.push(v);
+      this.internal.telem.value().then(([b, series]) => {
+        this.values = new MultiSeries(series);
         this.requestRender();
       });
     });
@@ -99,7 +91,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     // For the user, it really only matters if the size of the scroll bar
     // changes enough to be visually noticeable. We'll say 5px is the threshold.
     // 1. Calculate the total height
-    const totalHeight = this.values.entries.length * this.lineHeight;
+    const totalHeight = this.values.length * this.lineHeight;
     const prevScrollHeight = this.calculateScrollbarHeight(this.state.totalHeight);
     const nextScrollHeight = this.calculateScrollbarHeight(totalHeight);
     if (Math.abs(prevScrollHeight - nextScrollHeight) > 5)
@@ -122,15 +114,12 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       this.internal.theme.sizes.base;
     const visibleLineCount = Math.min(
       Math.floor(box.height(b) / lineHeight),
-      this.values.entries.length,
+      this.values.length,
     );
     const clearScissor = renderCtx.scissor(b, xy.ZERO, ["upper2d"]);
     let range: [number, number];
     if (this.state.scrollPosition == null)
-      range = [
-        this.values.entries.length - visibleLineCount,
-        this.values.entries.length,
-      ];
+      range = [this.values.length - visibleLineCount, this.values.length];
     else {
       // scrollPosition tells us how many pixels we've moved in relation
       // to the offset ref.
@@ -156,12 +145,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       this.internal.theme.typography[this.state.font].size *
       this.internal.theme.sizes.base;
     const clearScissor = renderCtx.scissor(b, xy.ZERO, ["upper2d"]);
-
     for (let i = start; i < end; i++) {
-      const value = this.values.entries.at(i);
+      const value = this.values.at(i);
       if (value == null) continue;
       draw2d.text({
-        text: `${i}-${value}`,
+        text: this.values.dataType.equals(DataType.JSON)
+          ? JSON.stringify(value)
+          : value.toString(),
         level: this.state.font,
         shade: 9,
         position: xy.translateY(box.topLeft(b), (i - start) * lineHeight),

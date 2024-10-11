@@ -10,14 +10,20 @@
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type Theme,themeZ } from "@/theming/core/theme";
+import { type Theme, themeZ } from "@/theming/core/theme";
 
 const CONTEXT_KEY = "pluto-theming-context";
 
+export const fontSpecZ = z.object({
+  name: z.string(),
+  url: z.string(),
+});
+
 const providerStateZ = z.object({
   theme: themeZ,
+  fontURLs: z.array(fontSpecZ),
   // For some reason the generate type is too deep, so we need to cast it to ZodTypeAny
-}) as z.ZodTypeAny;
+});
 
 export class Provider extends aether.Composite<typeof providerStateZ> {
   static readonly TYPE: string = "theming.Provider";
@@ -26,6 +32,17 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
 
   async afterUpdate(): Promise<void> {
     this.ctx.set(CONTEXT_KEY, this.state.theme);
+    await this.loadFonts();
+  }
+
+  private async loadFonts(): Promise<void> {
+    await Promise.all(
+      this.state.fontURLs.map(async ({ name, url }) => {
+        const face = new FontFace(name, `url(${url})`);
+        await face.load();
+        self.fonts.add(face);
+      }),
+    );
   }
 }
 

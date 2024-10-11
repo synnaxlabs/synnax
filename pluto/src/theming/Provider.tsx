@@ -9,6 +9,7 @@
 
 import "@/theming/theme.css";
 
+import interWoff from "@fontsource-variable/inter/files/inter-latin-standard-normal.woff2";
 import { deep } from "@synnaxlabs/x";
 import {
   createContext,
@@ -28,6 +29,7 @@ import { Input } from "@/input";
 import { type SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";
+import geistMono from "@/theming/GeistMono-Regular.woff2";
 
 export interface ContextValue {
   theme: theming.Theme;
@@ -127,10 +129,22 @@ export const Provider = Aether.wrap<ProviderProps>(
       aetherKey,
       type: theming.Provider.TYPE,
       schema: theming.Provider.z,
-      initialState: { theme: ret.theme },
+      initialState: {
+        theme: ret.theme,
+        fontURLs: [
+          {
+            name: "Inter Variable",
+            url: interWoff,
+          },
+          {
+            name: "Geist Mono",
+            url: geistMono,
+          },
+        ],
+      },
     });
 
-    useEffect(() => setAetherTheme({ theme: ret.theme }), [ret.theme]);
+    useEffect(() => setAetherTheme((p) => ({ ...p, theme: ret.theme })), [ret.theme]);
 
     useLayoutEffect(() => {
       if (applyCSSVars) CSS.applyVars(document.documentElement, toCSSVars(ret.theme));

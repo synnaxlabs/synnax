@@ -354,6 +354,7 @@ describe("Series", () => {
       expect(series.write(writeTwo)).toEqual(2);
       expect(series.length).toEqual(3);
     });
+
     it("should recompute cached max and min correctly", () => {
       const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });
       series.enrich();
@@ -362,6 +363,7 @@ describe("Series", () => {
       expect(series.max).toEqual(3);
       expect(series.min).toEqual(2);
     });
+
     it("should correctly adjust the sample offset of a written array", () => {
       const series = Series.alloc({
         capacity: 2,
@@ -501,12 +503,14 @@ describe("Series", () => {
       const outStrings = s.toStrings();
       expect(outStrings).toEqual(["apple", "banana", "carrot"]);
     });
+
     it("should throw an error if the series is not of type string", () => {
       const s = new Series({ data: new Float32Array([1, 2, 3]) });
       expect(() => {
         s.toStrings();
       }).toThrow();
     });
+
     it("should not throw an error if the series is of type UUID", () => {
       const s = new Series({
         data: new Uint8Array([1, 2, 3]),
@@ -516,10 +520,49 @@ describe("Series", () => {
         s.toStrings();
       }).not.toThrow();
     });
+
     it("should return an array of length 0 if the series is empty", () => {
       const s = new Series({ data: new Float32Array([]), dataType: DataType.STRING });
       const outStrings = s.toStrings();
       expect(outStrings).toEqual([]);
+    });
+
+    it("should allow allocation of a particular byte capacity", () => {
+      const s = Series.alloc({ capacity: 10, dataType: DataType.STRING });
+      expect(s.byteCapacity).toEqual(Size.bytes(10));
+    });
+
+    it("should allow a caller to write to the series", () => {
+      const s = Series.alloc({ capacity: 10, dataType: DataType.STRING });
+      const writeOne = new Series({ data: ["apple"] });
+      const written = s.write(writeOne);
+      expect(written).toEqual(1);
+      expect(s.length).toEqual(1);
+      expect(s.at(0)).toEqual("apple");
+    });
+
+    it("should allow a caller to write to the series multiple times", () => {
+      const s = Series.alloc({ capacity: 100, dataType: DataType.STRING });
+      const writeOne = new Series({ data: ["apple"] });
+      const writeTwo = new Series({ data: ["banana", "carrot"] });
+      const written = s.write(writeOne);
+      expect(written).toEqual(1);
+      const writtenTwo = s.write(writeTwo);
+      expect(writtenTwo).toEqual(2);
+      expect(s.length).toEqual(3);
+      expect(s.at(0)).toEqual("apple");
+      expect(s.at(1)).toEqual("banana");
+      expect(s.at(2)).toEqual("carrot");
+    });
+
+    it("should prevent the caller from writing past the series capacity", () => {
+      const s = Series.alloc({ capacity: 10, dataType: DataType.STRING });
+      const writeOne = new Series({ data: ["apple"] });
+      const writeTwo = new Series({ data: ["banana", "carrot"] });
+      const written = s.write(writeOne);
+      expect(written).toEqual(1);
+      const writtenTwo = s.write(writeTwo);
+      expect(writtenTwo).toEqual(0);
     });
   });
 

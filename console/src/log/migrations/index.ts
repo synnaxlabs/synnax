@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type LinePlot } from "@/lineplot";
-import { Log } from "@/log";
-import { type Schematic } from "@/schematic";
+import { migrate } from "@synnaxlabs/x";
 
-export type LayoutType = LinePlot.LayoutType | Schematic.LayoutType | Log.LayoutType;
+import * as v0 from "@/log/migrations/v0";
+
+export type State = v0.State;
+export type SliceState = v0.SliceState;
+export const ZERO_SLICE_STATE = v0.ZERO_SLICE_STATE;
+export const ZERO_STATE = v0.ZERO_STATE;

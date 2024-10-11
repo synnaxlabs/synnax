@@ -1,25 +1,19 @@
 import { Icon } from "@synnaxlabs/media";
 import { Log as Core, telem } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { deep, id, TimeSpan } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
+import { useSelect } from "@/log/selectors";
+import { internalCreate, State, ZERO_STATE } from "@/log/slice";
 
 export type LayoutType = "log";
 export const LAYOUT_TYPE = "log";
 
-export const Log: Layout.Renderer = () => {
-  const t = telem.sourcePipeline("string", {
-    connections: [
-      {
-        from: "valueStream",
-        to: "stringifier",
-      },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 1048635 }),
-      stringifier: telem.stringifyNumber({ precision: 2 }),
-    },
-    outlet: "stringifier",
+export const Log: Layout.Renderer = ({ layoutKey }) => {
+  const log = useSelect(layoutKey);
+  const t = telem.streamChannelData({
+    channel: log.channels[0] ?? 0,
+    timeSpan: TimeSpan.seconds(5),
   });
   return <Core.Log telem={t} />;
 };
@@ -31,14 +25,27 @@ export const SELECTABLE: Layout.Selectable = {
   create: (key) => create({ key }),
 };
 
-export const create = (initial: Omit<Partial<Layout.State>, "type">): Layout.State => {
-  const key = initial.key ?? id.id();
-  return {
-    key,
-    name: "Log",
-    icon: "Log",
-    location: "mosaic",
-    type: LAYOUT_TYPE,
-    windowKey: key,
+export const create =
+  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  ({ dispatch }) => {
+    const { name = "Log", location = "mosaic", window, tab, ...rest } = initial;
+    const key = initial.key ?? id.id();
+    dispatch(
+      internalCreate({
+        ...deep.copy(ZERO_STATE),
+        ...rest,
+        key,
+      }),
+    );
+
+    return {
+      key,
+      name,
+      icon: "Log",
+      location,
+      type: LAYOUT_TYPE,
+      windowKey: key,
+      window,
+      tab,
+    };
   };
-};

@@ -69,12 +69,13 @@ for cmd, state in VALVES.items():
     )
 
 for sensor in SENSORS:
-    client.channels.create(
+    s = client.channels.create(
         name=sensor,
         data_type=sy.DataType.FLOAT32,
         index=daq_time.key,
         retrieve_if_name_exists=True,
     )
+    print(s.name, s.key)
 
 loop = sy.Loop(sy.Rate.HZ * 30, precise=True)
 

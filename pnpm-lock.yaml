@@ -439,7 +439,7 @@ importers:
     dependencies:
       '@reduxjs/toolkit':
         specifier: ^2.2.7
-        version: 2.2.7(react-redux@9.1.2(@types/react@18.2.79)(react@18.2.0)(redux@5.0.1))(react@18.2.0)
+        version: 2.2.7(react-redux@9.1.2(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
       '@synnaxlabs/drift':
         specifier: workspace:*
         version: link:../..
@@ -596,6 +596,9 @@ importers:
       mathjs:
         specifier: ^13.1.1
         version: 13.1.1
+      non.geist:
+        specifier: ^1.0.4
+        version: 1.0.4
       proxy-memoize:
         specifier: 1.2.0
         version: 1.2.0
@@ -5230,6 +5233,9 @@ packages:
   node-releases@2.0.18:
     resolution: {integrity: sha512-d9VeXT4SJ7ZeOqGX6R5EM022wpL+eWPooLI+5UpWn2jCT1aosUQEhQP214x33Wkwx3JQMvIm+tIoVOdodFS40g==}
 
+  non.geist@1.0.4:
+    resolution: {integrity: sha512-2spmLTgz5ipZrFGLiI1YkiHb8Yit0yFySPvWzal3wCwCFilMFQQ/Jwwz4lcEatwIKUpOeMYwyFwP8MJ8EVKqGA==}
+
   nopt@5.0.0:
     resolution: {integrity: sha512-Tbj67rffqceeLpcRXrT7vKAN8CwfPeIBgM7E6iBkmKLV7bEMwpGgYLGv0jACUsECaa/vuxP0IjEont6umdMgtQ==}
     engines: {node: '>=6'}
@@ -8706,7 +8712,7 @@ snapshots:
       - '@types/react'
       - immer
 
-  '@reduxjs/toolkit@2.2.7(react-redux@9.1.2(@types/react@18.2.79)(react@18.2.0)(redux@5.0.1))(react@18.2.0)':
+  '@reduxjs/toolkit@2.2.7(react-redux@9.1.2(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)':
     dependencies:
       immer: 10.1.1
       redux: 5.0.1
@@ -8714,7 +8720,7 @@ snapshots:
       reselect: 5.1.1
     optionalDependencies:
       react: 18.2.0
-      react-redux: 9.1.2(@types/react@18.2.79)(react@18.2.0)(redux@5.0.1)
+      react-redux: 9.1.2(@types/react@18.2.79)(react@18.2.0)
 
   '@reduxjs/toolkit@2.2.7(react-redux@9.1.2(@types/react@18.3.10)(react@18.3.1)(redux@5.0.1))(react@18.3.1)':
     dependencies:
@@ -9286,7 +9292,7 @@ snapshots:
 
   '@types/ioredis@4.28.10':
     dependencies:
-      '@types/node': 22.7.4
+      '@types/node': 20.14.15
 
   '@types/keygrip@1.0.6': {}
 
@@ -9356,6 +9362,7 @@ snapshots:
   '@types/node@22.7.4':
     dependencies:
       undici-types: 6.19.8
+    optional: true
 
   '@types/offscreencanvas@2019.7.3': {}
 
@@ -12444,6 +12451,8 @@ snapshots:
 
   node-releases@2.0.18: {}
 
+  non.geist@1.0.4: {}
+
   nopt@5.0.0:
     dependencies:
       abbrev: 1.1.1
@@ -12828,14 +12837,13 @@ snapshots:
     optionalDependencies:
       react-dom: 18.3.1(react@18.3.1)
 
-  react-redux@9.1.2(@types/react@18.2.79)(react@18.2.0)(redux@5.0.1):
+  react-redux@9.1.2(@types/react@18.2.79)(react@18.2.0):
     dependencies:
       '@types/use-sync-external-store': 0.0.3
       react: 18.2.0
       use-sync-external-store: 1.2.2(react@18.2.0)
     optionalDependencies:
       '@types/react': 18.2.79
-      redux: 5.0.1
     optional: true
 
   react-redux@9.1.2(@types/react@18.3.10)(react@18.3.1)(redux@5.0.1):
