@@ -103,6 +103,8 @@ export const Rule = Aether.wrap<RuleProps>(
 
     const viewportEl = selectViewportEl(ref?.current);
 
+    return null;
+
     const content = (
       <div
         ref={ref}

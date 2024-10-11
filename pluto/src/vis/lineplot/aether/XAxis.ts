@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, type scale, TimeRange } from "@synnaxlabs/x";
+import { type bounds, box, type scale, TimeRange, xy } from "@synnaxlabs/x";
 
 import { type FindResult } from "@/vis/line/aether/line";
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/vis/lineplot/aether/axis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
 import { range } from "@/vis/lineplot/range/aether";
+import { rule } from "@/vis/rule/aether";
 
 export const xAxisStateZ = coreAxisStateZ;
 
@@ -24,7 +25,10 @@ export interface XAxisRenderProps extends AxisRenderProps {
   exposure: number;
 }
 
-export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provider> {
+export class XAxis extends CoreAxis<
+  typeof coreAxisStateZ,
+  YAxis | range.Provider | rule.Rule
+> {
   static readonly TYPE = "XAxis";
   schema = coreAxisStateZ;
 
@@ -38,6 +42,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     this.renderAxis(props, dataToDecimal.reverse());
     await this.renderYAxes(props, dataToDecimal);
     await this.renderRangeAnnotations(props, dataToDecimal);
+    await this.renderRules(props, dataToDecimal.reverse());
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
   }
@@ -105,7 +110,30 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     );
   }
 
+  private async renderRules(
+    { container, plot, canvases }: XAxisRenderProps,
+    decimalToDataScale: scale.Scale,
+  ): Promise<void> {
+    if (!canvases.includes("upper2d")) return;
+    const { location } = this.state;
+    const { render } = this.internal;
+    // const scissor = box.construct(
+    //   box.left(container),
+    //   box.top(plot),
+    //   box.width(container),
+    //   box.height(plot),
+    // );
+    // const clearScissor = render.scissor(scissor, xy.ZERO, ["upper2d"]);
+    const props = { container, plot, decimalToDataScale, location };
+    await Promise.all(this.rules.map(async (el) => await el.render(props)));
+    // clearScissor();
+  }
+
   private async dataBounds(): Promise<bounds.Bounds[]> {
     return await Promise.all(this.yAxes.map(async (el) => await el.xBounds()));
+  }
+
+  private get rules(): readonly rule.Rule[] {
+    return this.childrenOfType(rule.Rule.TYPE);
   }
 }

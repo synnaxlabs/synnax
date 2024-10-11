@@ -18,6 +18,7 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
+import { Playback } from "@/playback";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { Version } from "@/version";
@@ -40,6 +41,7 @@ const ZERO_STATE: RootState = {
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
+  [Playback.SLICE_NAME]: Playback.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -53,6 +55,7 @@ const reducer = combineReducers({
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [Permissions.SLICE_NAME]: Permissions.reducer,
+  [Playback.SLICE_NAME]: Playback.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -66,6 +69,7 @@ export interface RootState {
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Permissions.SLICE_NAME]: Permissions.SliceState;
+  [Playback.SLICE_NAME]: Playback.SliceState;
 }
 
 export type RootAction =
@@ -78,7 +82,8 @@ export type RootAction =
   | Schematic.Action
   | Range.Action
   | Permissions.Action
-  | Workspace.Action;
+  | Workspace.Action
+  | Playback.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 

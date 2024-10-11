@@ -60,7 +60,7 @@ export const TimeRangeChip = ({
       >
         {startTS}
       </Text.DateTime>
-      <Icon.Arrow.Right color="var(--pluto-text-color)" />
+      <Icon.Arrow.Right color={CSS.shadeVar(shade)} />
       {isOpen ? (
         <Text.Text level={level}>Now</Text.Text>
       ) : (

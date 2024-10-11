@@ -82,6 +82,7 @@ import {
   typedLineKeyToString,
   ZERO_STATE,
 } from "@/lineplot/slice";
+import { useSelectCursor } from "@/playback/selector";
 import { Range } from "@/range";
 import { overviewLayout } from "@/range/external";
 import { Workspace } from "@/workspace";
@@ -379,6 +380,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     );
   };
 
+  const pos = useSelectCursor();
+
   return (
     <PMenu.ContextMenu
       {...props}
@@ -390,7 +393,17 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           title={name}
           axes={axes}
           lines={propsLines}
-          rules={vis.rules}
+          rules={[
+            {
+              key: "1",
+              axis: "x1",
+              label: "Cursor",
+              lineWidth: 2,
+              lineDash: 0,
+              position: pos,
+              color: "#3774D0",
+            },
+          ]}
           clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={handleTitleChange}
           visible={visible}

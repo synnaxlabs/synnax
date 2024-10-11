@@ -14,20 +14,33 @@ import {
   box,
   CrudeTimeRange,
   CrudeTimeSpan,
+  CrudeTimeStamp,
   scale,
   TimeRange,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
-import { ReactElement, useCallback, useRef } from "react";
+import { re } from "mathjs";
+import {
+  createContext,
+  PropsWithChildren,
+  ReactElement,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { useRequiredContext } from "@/hooks/useRequiredContext";
 import { Ranger } from "@/ranger";
 import { Text } from "@/text";
-import { Triggers } from "@/triggers";
 
 export interface BarSpec {
   key: string;
@@ -37,50 +50,66 @@ export interface BarSpec {
   color: Color.Crude;
 }
 
-export interface TimelineProps extends Align.SpaceProps, Pick<BarProps, "onTranslate"> {
-  bars: BarSpec[];
+export interface TimelineProps extends Align.SpaceProps {}
+
+export interface ContextValue {
+  dataToDecimalScale: scale.Scale<number>;
+  register: (key: string, timeRange: CrudeTimeRange) => void;
 }
 
-export const Timeline = ({ className, bars, onTranslate, ...props }: TimelineProps) => {
-  const maxBounds = bounds.max(
-    bars.map((b) => {
-      const tr = new TimeRange(b.timeRange);
-      return {
-        lower: Number(tr.start.valueOf()),
-        upper: Number(tr.end.valueOf()),
-      };
-    }),
+export const Context = createContext<ContextValue | null>(null);
+
+export const useContext = () => useRequiredContext(Context);
+
+export interface ProviderProps extends PropsWithChildren<{}> {}
+
+export const Provider = ({ children }: ProviderProps) => {
+  const [ds, setDS] = useState<scale.Scale<number>>(scale.Scale.scale<number>(0, 1));
+  const barsRef = useRef<Record<string, CrudeTimeRange>>({});
+  const updateScale = useCallback(() => {
+    const bars = Object.values(barsRef.current);
+    const maxBounds = bounds.max(
+      bars.map((b) => {
+        const tr = new TimeRange(b);
+        return {
+          lower: Number(tr.start.valueOf()),
+          upper: Number(tr.end.valueOf()),
+        };
+      }),
+    );
+    setDS(scale.Scale.scale<number>(maxBounds).scale(0, 1));
+  }, []);
+
+  const register = useCallback(
+    (key: string, timeRange: CrudeTimeRange) => {
+      barsRef.current[key] = timeRange;
+      updateScale();
+    },
+    [updateScale],
   );
-  const s = scale.Scale.scale<number>(maxBounds).scale(0, 1);
+
+  const ctxValue = useMemo(() => ({ dataToDecimalScale: ds, register }), [ds, re]);
+
+  return <Context.Provider value={ctxValue}>{children}</Context.Provider>;
+};
+
+export const Timeline = ({ className, ...props }: TimelineProps) => {
   return (
-    <Align.Space
-      direction="y"
-      className={CSS(CSS.B("timeline"), className)}
-      size="small"
-      {...props}
-    >
-      {bars.map((spec) => (
-        <Track
-          key={spec.key}
-          bars={[spec]}
-          dataToDecimalScale={s}
-          onTranslate={onTranslate}
-        />
-      ))}
-    </Align.Space>
+    <Provider>
+      <Align.Space
+        direction="y"
+        className={CSS(CSS.B("timeline"), className)}
+        size="small"
+        {...props}
+      />
+    </Provider>
   );
 };
 
-export interface TrackProps
-  extends Align.SpaceProps,
-    Pick<BarProps, "dataToDecimalScale" | "onTranslate"> {
-  bars: BarSpec[];
-}
+export interface TrackProps extends Align.SpaceProps, Pick<BarProps, "onTranslate"> {}
 
 export const Track = ({
   className,
-  bars,
-  dataToDecimalScale,
   onTranslate,
   ...props
 }: TrackProps): ReactElement => (
@@ -89,37 +118,40 @@ export const Track = ({
     className={CSS(CSS.B("timeline-track"), className)}
     size={0.5}
     {...props}
-  >
-    {bars.map((spec) => (
-      <Bar
-        key={spec.key}
-        spec={spec}
-        dataToDecimalScale={dataToDecimalScale}
-        onTranslate={onTranslate}
-      />
-    ))}
-  </Align.Space>
+  />
 );
 
-export interface BarProps extends Omit<Align.SpaceProps, "color"> {
-  spec: BarSpec;
-  dataToDecimalScale: scale.Scale<number>;
+export interface BarProps
+  extends Omit<Align.SpaceProps, "color">,
+    Omit<BarSpec, "key"> {
   onTranslate?: (bar: string, offset: TimeSpan) => void;
 }
 
 export const Bar = ({
-  dataToDecimalScale,
   className,
-  spec: { key, label, timeRange, color, offset = 0 },
+  key,
+  label,
+  timeRange,
+  color,
+  offset = 0,
   onTranslate,
   ...props
 }: BarProps) => {
+  const { dataToDecimalScale, register } = useContext();
   const tr = new TimeRange(timeRange);
   const off = new TimeSpan(offset);
   const left = dataToDecimalScale.pos(Number(tr.start.valueOf() + off.valueOf()));
   const right = dataToDecimalScale.pos(Number(tr.end.valueOf() + off.valueOf()));
+
   const parsedColor = new Color.Color(color);
   const barRef = useRef<HTMLDivElement>(null);
+
+  const k = useId();
+
+  useEffect(() => {
+    register(k, timeRange);
+  }, [k, register, timeRange]);
+
   const bOffsetRef = useSyncedRef(off);
   const offsetRef = useRef<TimeSpan>(off);
   const startDrag = useCursorDrag({
@@ -133,7 +165,7 @@ export const Bar = ({
       if (ev.altKey) width *= 0.1;
       const dragSizeDecimal = width / totalSize;
       onTranslate?.(
-        key,
+        "",
         new TimeSpan(dataToDecimalScale.reverse().dim(dragSizeDecimal)).add(
           offsetRef.current,
         ),
@@ -160,5 +192,49 @@ export const Bar = ({
       <Text.Text level="p">{label}</Text.Text>
       <Ranger.TimeRangeChip level="small" timeRange={tr} />
     </Align.Space>
+  );
+};
+
+export interface CursorProps {
+  position: CrudeTimeStamp;
+  onPositionChange?: (position: CrudeTimeStamp) => void;
+}
+
+export const Cursor = ({ position, onPositionChange }: CursorProps) => {
+  const { dataToDecimalScale } = useContext();
+  const pos = new TimeStamp(position);
+  const left = dataToDecimalScale.pos(Number(pos.valueOf()));
+  const [hoverPos, setHoverPos] = useState<number | null>(null);
+
+  return (
+    <div
+      className={CSS.BE("cursor", "container")}
+      onMouseMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setHoverPos((e.clientX - rect.left) / rect.width);
+      }}
+      onMouseLeave={() => setHoverPos(null)}
+      onClick={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        const ts = dataToDecimalScale.reverse().pos(pos);
+        onPositionChange?.(ts);
+      }}
+    >
+      {hoverPos != null && (
+        <div
+          className={CSS(CSS.B("cursor"), CSS.B("cursor-preview"))}
+          style={{
+            left: `${hoverPos * 100}%`,
+          }}
+        />
+      )}
+      <div
+        className={CSS.B("cursor")}
+        style={{
+          left: `${left * 100}%`,
+        }}
+      />
+    </div>
   );
 };

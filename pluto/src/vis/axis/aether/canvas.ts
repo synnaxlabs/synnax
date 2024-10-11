@@ -18,8 +18,8 @@ import {
   axisStateZ,
   type ParsedAxisState,
   type RenderResult,
-} from "@/vis/axis/axis";
-import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
+} from "@/vis/axis/aether/axis";
+import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/aether/ticks";
 import { type render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 4;
