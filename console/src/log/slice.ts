@@ -30,6 +30,11 @@ export interface SetChannelsPayload {
   channels: channel.Key[];
 }
 
+export interface SetRetentionPayload {
+  key: string;
+  retention: number;
+}
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
@@ -41,10 +46,13 @@ export const { actions, reducer } = createSlice({
     setChannels: (state, { payload }: PayloadAction<SetChannelsPayload>) => {
       state.logs[payload.key].channels = payload.channels;
     },
+    setRetention: (state, { payload }: PayloadAction<SetRetentionPayload>) => {
+      state.logs[payload.key].retention = payload.retention;
+    },
   },
 });
 
-export const { create: internalCreate, setChannels } = actions;
+export const { create: internalCreate, setChannels, setRetention } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 

@@ -51,12 +51,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
     await this.internal.telem.value();
-    if (this.state.scrollPosition != null && this.prevState.scrollPosition == null) {
+    if (this.state.scrollPosition != null && this.prevState.scrollPosition == null)
       this.offsetRef = this.values.length;
-    }
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      this.internal.telem.value().then(([b, series]) => {
+      this.internal.telem.value().then(([_, series]) => {
         this.values = new MultiSeries(series);
         this.requestRender();
       });
@@ -155,6 +154,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         level: this.state.font,
         shade: 9,
         position: xy.translateY(box.topLeft(b), (i - start) * lineHeight),
+        code: true,
       });
     }
     clearScissor();

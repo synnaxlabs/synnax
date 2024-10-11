@@ -7,7 +7,7 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { useSelect } from "@/log/selectors";
-import { setChannels } from "@/log/slice";
+import { setChannels, setRetention } from "@/log/slice";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -17,20 +17,27 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const d = useDispatch();
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelect(layoutKey);
-  const handleChannelChange = (v: channel.Key[]) => {
-    d(setChannels({ key: layoutKey, channels: v }));
-  };
+  const handleChannelChange = (v: channel.Key) =>
+    d(setChannels({ key: layoutKey, channels: [v ?? 0] }));
   return (
     <>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Log />}>{name}</ToolbarTitle>
       </ToolbarHeader>
-      <Align.Space style={{ padding: "2rem", width: "100%" }}>
-        <Input.Item direction="x" label="Channels" grow>
-          <Channel.SelectMultiple
-            value={state.channels}
+      <Align.Space style={{ padding: "2rem", width: "100%" }} direction="x">
+        <Input.Item label="Channel" grow>
+          <Channel.SelectSingle
+            value={state.channels[0]}
             onChange={handleChannelChange}
             searchOptions={{ internal: undefined }}
+          />
+        </Input.Item>
+        <Input.Item label="Minimum Retention" grow>
+          <Input.Numeric
+            value={state.retention}
+            onChange={(v) => d(setRetention({ key: layoutKey, retention: v }))}
+            placeholder="Retention"
+            endContent="s"
           />
         </Input.Item>
       </Align.Space>

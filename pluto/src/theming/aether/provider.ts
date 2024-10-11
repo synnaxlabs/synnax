@@ -40,6 +40,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
       this.state.fontURLs.map(async ({ name, url }) => {
         const face = new FontFace(name, `url(${url})`);
         await face.load();
+        // @ts-expect-error - font loading
         self.fonts.add(face);
       }),
     );

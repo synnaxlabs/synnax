@@ -1,6 +1,9 @@
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Log as Core, telem } from "@synnaxlabs/pluto";
 import { deep, id, TimeSpan } from "@synnaxlabs/x";
+import { useCallback } from "react";
+import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
 import { useSelect } from "@/log/selectors";
@@ -10,12 +13,28 @@ export type LayoutType = "log";
 export const LAYOUT_TYPE = "log";
 
 export const Log: Layout.Renderer = ({ layoutKey }) => {
+  const winKey = useSelectWindowKey() as string;
   const log = useSelect(layoutKey);
-  const t = telem.streamChannelData({
-    channel: log.channels[0] ?? 0,
-    timeSpan: TimeSpan.seconds(5),
-  });
-  return <Core.Log telem={t} />;
+  const dispatch = useDispatch();
+  let t: telem.SeriesSourceSpec;
+  if (log.channels[0] == null || log.channels[0] === 0) t = telem.noopSeriesSourceSpec;
+  else
+    t = telem.streamChannelData({
+      channel: log.channels[0] ?? 0,
+      timeSpan: TimeSpan.seconds(log.retention),
+    });
+
+  const handleDoubleClick = useCallback(() => {
+    dispatch(
+      Layout.setNavDrawerVisible({
+        windowKey: winKey,
+        key: "visualization",
+        value: true,
+      }),
+    );
+  }, [winKey, dispatch]);
+
+  return <Core.Log telem={t} onDoubleClick={handleDoubleClick} />;
 };
 
 export const SELECTABLE: Layout.Selectable = {
@@ -30,14 +49,7 @@ export const create =
   ({ dispatch }) => {
     const { name = "Log", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? id.id();
-    dispatch(
-      internalCreate({
-        ...deep.copy(ZERO_STATE),
-        ...rest,
-        key,
-      }),
-    );
-
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,
       name,
