@@ -10,13 +10,24 @@
  */
 
 .pluto-log {
+    position: relative;
     height: 100%;
     padding-top: 0.5rem;
     padding-left: 1rem;
     padding-bottom: 0.5rem;
 
-    & .pluto-log__scroll {
+    & .pluto-log__content {
         height: 100%;
-        overflow-y: auto;
+    }
+
+    & .pluto-log__live {
+        position: absolute;
+        top: 2rem;
+        right: 2rem;
+        opacity: 0;
+        transition: opacity 0.15s;
+        &.pluto--visible {
+            opacity: 1;
+        }
     }
 }

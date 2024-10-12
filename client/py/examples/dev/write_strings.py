@@ -9,7 +9,7 @@ ch = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-loop = sy.Loop(sy.Rate.HZ * 50)
+loop = sy.Loop(sy.Rate.HZ * 5)
 
 i = 0
 

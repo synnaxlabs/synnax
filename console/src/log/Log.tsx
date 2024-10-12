@@ -12,7 +12,7 @@ import { internalCreate, State, ZERO_STATE } from "@/log/slice";
 export type LayoutType = "log";
 export const LAYOUT_TYPE = "log";
 
-export const Log: Layout.Renderer = ({ layoutKey }) => {
+export const Log: Layout.Renderer = ({ layoutKey, visible }) => {
   const winKey = useSelectWindowKey() as string;
   const log = useSelect(layoutKey);
   const dispatch = useDispatch();
@@ -34,7 +34,7 @@ export const Log: Layout.Renderer = ({ layoutKey }) => {
     );
   }, [winKey, dispatch]);
 
-  return <Core.Log telem={t} onDoubleClick={handleDoubleClick} />;
+  return <Core.Log telem={t} onDoubleClick={handleDoubleClick} visible={visible} />;
 };
 
 export const SELECTABLE: Layout.Selectable = {

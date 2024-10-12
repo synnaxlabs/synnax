@@ -9,7 +9,8 @@
 
 import "@/vis/log/log.css";
 
-import { box } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/media";
+import { box, Optional } from "@synnaxlabs/x";
 import { ReactElement, useCallback, useEffect, useRef } from "react";
 import { z } from "zod";
 
@@ -17,42 +18,41 @@ import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useCombinedRefs, useSyncedRef } from "@/hooks";
+import { useCombinedRefs } from "@/hooks";
 import { useMemoDeepEqualProps } from "@/memo";
-import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 import { log } from "@/vis/log/aether";
 
 export interface LogProps
-  extends Omit<
-      z.input<typeof log.logState>,
-      "region" | "totalHeight" | "scrollPosition"
+  extends Optional<
+      Omit<z.input<typeof log.logState>, "region" | "scrollPosition" | "scrollback">,
+      "visible"
     >,
     Omit<Align.SpaceProps, "color"> {}
 
 export const Log = Aether.wrap<LogProps>(
   "Log",
-  ({ aetherKey, font, className, color, telem, ...props }): ReactElement | null => {
-    const memoProps = useMemoDeepEqualProps({ font, color, telem });
-    const elRef = useRef<HTMLDivElement | null>(null);
-    const [, { scrollPosition, totalHeight }, setState] = Aether.use({
+  ({
+    aetherKey,
+    font,
+    className,
+    visible = true,
+    color,
+    telem,
+    ...props
+  }): ReactElement | null => {
+    const memoProps = useMemoDeepEqualProps({ font, color, telem, visible });
+    const [, { scrollback }, setState] = Aether.use({
       aetherKey,
       type: log.Log.TYPE,
       schema: log.logState,
       initialState: {
         region: box.ZERO,
-        scrollPosition: null,
-        totalHeight: 0,
+        scrollback: false,
+        scrollPosition: 0,
         ...memoProps,
       },
     });
-
-    const scrollPosRef = useSyncedRef(scrollPosition);
-    const snapRef = useRef<number | null>(null);
-    useEffect(() => {
-      if (elRef.current == null || snapRef.current != null) return;
-      elRef.current.scrollTop = elRef.current.scrollHeight ?? 0;
-    }, [totalHeight]);
 
     useEffect(() => {
       setState((s) => ({ ...s, ...memoProps }));
@@ -61,8 +61,6 @@ export const Log = Aether.wrap<LogProps>(
     const resizeRef = Canvas.useRegion(
       useCallback(
         (b) => {
-          if (snapRef.current == null && elRef.current != null)
-            elRef.current.scrollTop = elRef.current.scrollHeight;
           setState((s) => ({ ...s, region: b }));
         },
         [setState],
@@ -70,54 +68,30 @@ export const Log = Aether.wrap<LogProps>(
     );
 
     const logRef = useRef<HTMLDivElement | null>(null);
+    const combinedRef = useCombinedRefs(logRef, resizeRef);
 
-    Triggers.use({
-      triggers: [["Control", "MouseLeft"]],
-      region: logRef,
-      regionMustBeElement: false,
-      callback: useCallback(({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        elRef.current?.scrollTo({ top: elRef.current?.scrollHeight });
-        setState((s) => ({ ...s, scrollPosition: null }));
-      }, []),
-    });
-
-    const combinedRef = useCombinedRefs(elRef, resizeRef);
     return (
-      <div ref={logRef} className={CSS(CSS.B("log"), className)} {...props}>
-        {scrollPosition != null && (
-          <Button.Button
-            style={{ position: "absolute", top: 0, right: 0 }}
-            variant="text"
-            onClick={() => {
-              elRef.current?.scrollTo({ top: elRef.current?.scrollHeight });
-              setState((s) => ({ ...s, scrollPosition: null }));
-            }}
-          >
-            Back to live
-          </Button.Button>
-        )}
-        <div
-          className={CSS.BE("log", "scroll")}
-          ref={combinedRef}
-          onScroll={(e) => {
-            const el = e.target as HTMLDivElement;
-            const elScrollPos = el.scrollTop + el.clientHeight;
-            if (elScrollPos > el.scrollHeight - 100) {
-              snapRef.current = null;
-              if (scrollPosRef.current != null)
-                setState((s) => ({ ...s, scrollPosition: null }));
-              return;
-            }
-            if (snapRef.current == null) snapRef.current = el.scrollHeight;
-            setState((s) => ({
-              ...s,
-              scrollPosition: elScrollPos - (snapRef.current ?? el.scrollHeight),
-            }));
+      <div
+        ref={combinedRef}
+        className={CSS(CSS.B("log"), className)}
+        onWheel={(e) => {
+          setState((s) => ({
+            ...s,
+            scrollPosition: s.scrollPosition - e.deltaY,
+          }));
+        }}
+        {...props}
+      >
+        <Button.Icon
+          className={CSS(CSS.BE("log", "live"), CSS.visible(scrollback))}
+          variant="outlined"
+          onClick={() => {
+            setState((s) => ({ ...s, scrollback: false }));
           }}
+          tooltip="Return to Live"
         >
-          <div style={{ height: totalHeight * 1.02 }} />
-        </div>
+          <Icon.Dynamic style={{ color: "var(--pluto-error-p1)" }} />
+        </Button.Icon>
       </div>
     );
   },
