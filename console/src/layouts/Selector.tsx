@@ -20,9 +20,9 @@ import { Schematic } from "@/schematic";
 const SELECTABLES: Layout.Selectable[] = [
   LinePlot.SELECTABLE,
   Schematic.SELECTABLE,
+  ...Log.SELECTABLES,
   ...NI.SELECTABLES,
   ...OPC.SELECTABLES,
-  ...Log.SELECTABLES,
 ];
 
 export const SELECTOR_TYPE = "visLayoutSelector";

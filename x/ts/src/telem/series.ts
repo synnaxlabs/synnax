@@ -103,6 +103,11 @@ export interface SeriesMemInfo {
   glBuffer: boolean;
 }
 
+const noopIterableIterator: IterableIterator<never> = {
+  [Symbol.iterator]: () => noopIterableIterator,
+  next: () => ({ done: true, value: undefined }),
+};
+
 const stringArrayZ = z.string().transform(
   (s) =>
     new Uint8Array(
@@ -763,7 +768,11 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   subAlignmentIterator(start: bigint, end: bigint): IterableIterator<T> {
-    return new SubAlignmentIterator(this, start, end);
+    return new SubIterator(
+      this,
+      Number(start - this.alignment),
+      Number(end - this.alignment),
+    );
   }
 
   private subBytes(start: number, end?: number): Series {
@@ -821,28 +830,6 @@ class SubIterator<T> implements Iterator<T>, Iterable<T> {
   next(): IteratorResult<T> {
     if (this.index >= this.end) return { done: true, value: undefined };
     return { done: false, value: this.series.at(this.index++, true) as T };
-  }
-
-  [Symbol.iterator](): Iterator<T> {
-    return this;
-  }
-}
-
-class SubAlignmentIterator<T> implements Iterator<T>, Iterable<T> {
-  private readonly series: Series;
-  private readonly end: bigint;
-  private index: bigint;
-
-  constructor(series: Series, start: bigint, end: bigint) {
-    this.series = series;
-    const b = series.alignmentBounds;
-    this.end = bounds.clamp(b, end);
-    this.index = bounds.clamp(b, start);
-  }
-
-  next(): IteratorResult<T> {
-    if (this.index >= this.end) return { done: true, value: undefined };
-    return { done: false, value: this.series.atAlignment(this.index++, true) as T };
   }
 
   [Symbol.iterator](): Iterator<T> {
@@ -1035,7 +1022,45 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   }
 
   subAlignmentIterator(start: bigint, end: bigint): IterableIterator<T> {
-    return new MultiSubAlignmentIterator(this, start, end);
+    if (start >= this.alignmentBounds.upper || end <= this.alignmentBounds.lower)
+      return noopIterableIterator;
+    let startIdx = 0;
+    for (let i = 0; i < this.series.length; i++) {
+      const ser = this.series[i];
+      if (start < ser.alignment) break;
+      else if (start >= ser.alignmentBounds.upper) startIdx += ser.length;
+      else if (bounds.contains(ser.alignmentBounds, start)) {
+        startIdx += Number(start - ser.alignment);
+        break;
+      }
+    }
+    let endIdx = 0;
+    for (let i = 0; i < this.series.length; i++) {
+      const ser = this.series[i];
+      if (end < ser.alignment) break;
+      else if (end >= ser.alignmentBounds.upper) endIdx += ser.length;
+      else if (bounds.contains(ser.alignmentBounds, end)) {
+        endIdx += Number(end - ser.alignment);
+        break;
+      }
+    }
+    console.log(startIdx, endIdx);
+    return new MultiSubIterator(this, startIdx, endIdx);
+  }
+
+  subAlignmentSpanIterator(start: bigint, span: number): IterableIterator<T> {
+    if (start >= this.alignmentBounds.upper) return noopIterableIterator;
+    let startIdx = 0;
+    for (let i = 0; i < this.series.length; i++) {
+      const ser = this.series[i];
+      if (start < ser.alignment) break;
+      else if (start >= ser.alignmentBounds.upper) startIdx += ser.length;
+      else if (bounds.contains(ser.alignmentBounds, start)) {
+        startIdx += Number(start - ser.alignment);
+        break;
+      }
+    }
+    return new MultiSubIterator(this, startIdx, startIdx + span);
   }
 
   get byteLength(): Size {
@@ -1106,36 +1131,6 @@ class MultiSubIterator<T extends TelemValue = TelemValue>
   next(): IteratorResult<T> {
     if (this.index >= this.end) return { done: true, value: undefined };
     return { done: false, value: this.series.at(this.index++, true) as T };
-  }
-
-  [Symbol.iterator](): Iterator<T> {
-    return this;
-  }
-}
-
-class MultiSubAlignmentIterator<T extends TelemValue = TelemValue>
-  implements IterableIterator<T>
-{
-  private readonly series: MultiSeries<T>;
-  private index: bigint;
-  private end: bigint;
-
-  constructor(series: MultiSeries<T>, start: bigint, end: bigint) {
-    this.series = series;
-    this.end = end;
-    this.index = start;
-  }
-
-  next(): IteratorResult<T> {
-    if (this.index >= this.end) return { done: true, value: undefined };
-    for (let i = 0; i < this.series.series.length; i++) {
-      const ser = this.series.series[i];
-      if (bounds.contains(ser.alignmentBounds, this.index))
-        return { done: false, value: ser.atAlignment(this.index++, true) as T };
-      if (i === this.series.series.length - 1) break;
-      else this.index = this.series.series[i + 1].alignmentBounds.lower;
-    }
-    return { done: true, value: undefined };
   }
 
   [Symbol.iterator](): Iterator<T> {

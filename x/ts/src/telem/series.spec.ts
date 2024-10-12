@@ -855,6 +855,82 @@ describe("MultiSeries", () => {
       expect(iter.next().value).toEqual(6);
       expect(iter.next().done).toBeTruthy();
     });
+
+    it("Should work correctly when starting at an alignment before the first series", () => {
+      const a = new Series({
+        data: new Float32Array([1, 2, 3, 4, 5]),
+        alignment: 2n,
+      });
+      const b = new Series({
+        data: new Float32Array([6, 7, 8, 9, 10]),
+        alignment: 8n,
+      });
+      const multi = new MultiSeries([a, b]);
+      const iter = multi.subAlignmentIterator(1n, 9n);
+      expect(iter.next().value).toEqual(1);
+      expect(iter.next().value).toEqual(2);
+      expect(iter.next().value).toEqual(3);
+      expect(iter.next().value).toEqual(4);
+      expect(iter.next().value).toEqual(5);
+      expect(iter.next().value).toEqual(6);
+      expect(iter.next().done).toBeTruthy();
+    });
+
+    it("should work correctly when staring at an alignment equal to the upper bound of the first series", () => {
+      const a = new Series({
+        data: new Float32Array([1, 2, 3, 4, 5]),
+        alignment: 2n,
+      });
+      const b = new Series({
+        data: new Float32Array([6, 7, 8, 9, 10]),
+        alignment: 8n,
+      });
+      console.log(a.alignmentBounds.upper);
+      const multi = new MultiSeries([a, b]);
+      const iter = multi.subAlignmentIterator(7n, 10n);
+      expect(iter.next().value).toEqual(6);
+      expect(iter.next().value).toEqual(7);
+      expect(iter.next().done).toBeTruthy();
+    });
+
+    it("should work correctly when the starting alignment is between two series", () => {
+      const a = new Series({
+        data: new Float32Array([1, 2, 3, 4, 5]),
+        alignment: 2n,
+      });
+      const b = new Series({
+        data: new Float32Array([6, 7, 8, 9, 10]),
+        alignment: 10n,
+      });
+      const multi = new MultiSeries([a, b]);
+      const iter = multi.subAlignmentIterator(7n, 12n);
+      expect(iter.next().value).toEqual(6);
+      expect(iter.next().value).toEqual(7);
+      expect(iter.next().done).toBeTruthy();
+    });
+
+    it("Should work correctly when ending at an alignment after the last series", () => {
+      const a = new Series({
+        data: new Float32Array([1, 2, 3, 4, 5]),
+        alignment: 2n,
+      });
+      const b = new Series({
+        data: new Float32Array([6, 7, 8, 9, 10]),
+        alignment: 8n,
+      });
+      const multi = new MultiSeries([a, b]);
+      const iter = multi.subAlignmentIterator(3n, 20n);
+      expect(iter.next().value).toEqual(2);
+      expect(iter.next().value).toEqual(3);
+      expect(iter.next().value).toEqual(4);
+      expect(iter.next().value).toEqual(5);
+      expect(iter.next().value).toEqual(6);
+      expect(iter.next().value).toEqual(7);
+      expect(iter.next().value).toEqual(8);
+      expect(iter.next().value).toEqual(9);
+      expect(iter.next().value).toEqual(10);
+      expect(iter.next().done).toBeTruthy();
+    });
   });
 
   describe("array construction", () => {

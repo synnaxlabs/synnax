@@ -57,6 +57,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() =>
       this.internal.telem.value().then(([_, series]) => {
+        if (this.state.scrollPosition != null) return;
         this.values = new MultiSeries(series);
         this.requestRender();
       }),
@@ -127,9 +128,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       // scrollPosition tells us how many pixels we've moved in relation
       // to the offset ref.
       const scrollPos = BigInt(Math.ceil(this.state.scrollPosition / lineHeight));
-      range = this.values.subAlignmentIterator(
+      range = this.values.subAlignmentSpanIterator(
         this.offsetRef + scrollPos - BigInt(visibleLineCount),
-        this.offsetRef + scrollPos,
+        visibleLineCount,
       );
     }
     this.renderElements(range);
@@ -147,7 +148,6 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const clearScissor = renderCtx.scissor(b, xy.ZERO, ["upper2d"]);
     let i = 0;
     for (const value of iter) {
-      if (i % 100 == 0) console.log(i);
       draw2d.text({
         text: this.values.dataType.equals(DataType.JSON)
           ? JSON.stringify(value)

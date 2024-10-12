@@ -15,9 +15,11 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs, useSyncedRef } from "@/hooks";
 import { useMemoDeepEqualProps } from "@/memo";
+import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 import { log } from "@/vis/log/aether";
 
@@ -67,9 +69,34 @@ export const Log = Aether.wrap<LogProps>(
       ),
     );
 
+    const logRef = useRef<HTMLDivElement | null>(null);
+
+    Triggers.use({
+      triggers: [["Control", "MouseLeft"]],
+      region: logRef,
+      regionMustBeElement: false,
+      callback: useCallback(({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        elRef.current?.scrollTo({ top: elRef.current?.scrollHeight });
+        setState((s) => ({ ...s, scrollPosition: null }));
+      }, []),
+    });
+
     const combinedRef = useCombinedRefs(elRef, resizeRef);
     return (
-      <div className={CSS(CSS.B("log"), className)} {...props}>
+      <div ref={logRef} className={CSS(CSS.B("log"), className)} {...props}>
+        {scrollPosition != null && (
+          <Button.Button
+            style={{ position: "absolute", top: 0, right: 0 }}
+            variant="text"
+            onClick={() => {
+              elRef.current?.scrollTo({ top: elRef.current?.scrollHeight });
+              setState((s) => ({ ...s, scrollPosition: null }));
+            }}
+          >
+            Back to live
+          </Button.Button>
+        )}
         <div
           className={CSS.BE("log", "scroll")}
           ref={combinedRef}
@@ -89,7 +116,7 @@ export const Log = Aether.wrap<LogProps>(
             }));
           }}
         >
-          <div style={{ height: totalHeight }} />
+          <div style={{ height: totalHeight * 1.02 }} />
         </div>
       </div>
     );

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
+import { re } from "mathjs";
 import {
   type MutableRefObject,
   type RefObject,
@@ -39,6 +40,7 @@ export interface UseProps extends MatchOptions {
   triggers?: Trigger[];
   region?: RefObject<HTMLElement>;
   callback?: (e: UseEvent) => void;
+  regionMustBeElement?: boolean;
 }
 
 export const use = ({
@@ -47,6 +49,7 @@ export const use = ({
   region,
   loose,
   double,
+  regionMustBeElement,
 }: UseProps): void => {
   const { listen } = useContext();
   const memoTriggers = useMemoCompare(
@@ -68,12 +71,12 @@ export const use = ({
       let added = res[0];
       const removed = res[1];
       if (added.length === 0 && removed.length === 0) return;
-      added = filterInRegion(e.target, e.cursor, added, region);
+      added = filterInRegion(e.target, e.cursor, added, region, regionMustBeElement);
       const base = { target: e.target, cursor: e.cursor };
       if (added.length > 0) f?.({ ...base, stage: "start", triggers: added });
       if (removed.length > 0) f?.({ ...base, stage: "end", triggers: removed });
     });
-  }, [f, memoTriggers, listen, loose, region, double]);
+  }, [f, memoTriggers, listen, loose, region, double, regionMustBeElement]);
 };
 
 const filterInRegion = (
@@ -81,13 +84,14 @@ const filterInRegion = (
   cursor: xy.XY,
   added: Trigger[],
   region?: RefObject<HTMLElement>,
+  regionMustBeElement?: boolean,
 ): Trigger[] => {
   if (region == null) return added;
   if (region.current == null) return [];
   const b = box.construct(region.current);
   return added.filter((t) => {
-    if (t.some((v) => v.includes("Mouse")))
-      return box.contains(b, cursor) && target === region.current;
+    const rg = regionMustBeElement ?? t.some((v) => v.includes("Mouse"));
+    if (rg) return box.contains(b, cursor) && target === region.current;
     return box.contains(b, cursor);
   });
 };
