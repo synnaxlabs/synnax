@@ -9,6 +9,7 @@ on:
     branches:
       - rc
       - main
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
 
 jobs:
@@ -49,9 +50,9 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: |
-            "alamos/go/go.sum"
-            "cesium/go.sum"
-            "x/go/go.sum"
+            alamos/go/go.sum
+            cesium/go.sum
+            x/go/go.sum
 
       - name: Test
         run: go test -v -shuffle=on ./...

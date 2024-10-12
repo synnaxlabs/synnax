@@ -53,12 +53,12 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: |
-            "alamos/go/go.sum"
-            "aspen/go.sum"
-            "cesium/go.sum"
-            "freighter/go/go.sum"
-            "synnax/go.sum"
-            "x/go/go.sum"
+            alamos/go/go.sum
+            aspen/go.sum
+            cesium/go.sum
+            freighter/go/go.sum
+            synnax/go.sum
+            x/go/go.sum
 
       - name: Test
         run: go test -v -shuffle=on ./...
