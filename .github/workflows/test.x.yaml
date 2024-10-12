@@ -67,6 +67,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -88,14 +91,6 @@ jobs:
       - name: Test
         run: pnpm test:x
 
-  lint-ts:
-    name: "Lint: TypeScript"
-    needs: setup
-    if: needs.setup.outputs.ts == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
       - name: Lint
+        if: matrix.lint == true
         run: pnpm lint:x
