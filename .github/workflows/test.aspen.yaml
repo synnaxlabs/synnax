@@ -1,4 +1,5 @@
-name: "Test - Aspen"
+name: "Test: Aspen"
+
 on:
   pull_request:
     branches:
@@ -8,13 +9,18 @@ on:
     branches:
       - rc
       - main
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
+
 jobs:
-  test:
+  setup:
+    name: "Setup"
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
@@ -22,33 +28,34 @@ jobs:
         with:
           filters: |
             changed:
-                - 'aspen/**'
-                - 'x/**'
-                - '.github/workflows/test.aspen.yaml'
+              - '.github/workflows/test.aspen.yaml'
+              - 'alamos/go/**''
+              - 'aspen/**'
+              - 'freighter/go/**''
+              - 'x/go/**'
+
+  test:
+    name: "Test (${{ matrix.os }})"
+    needs: setup
+    if: needs.setup.outputs.changed == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
-        if: steps.filter.outputs.changed == 'true'
         with:
           go-version-file: "go.work"
           cache-dependency-path: |
-            "alamos/go/go.sum"
-            "aspen/go.sum"
-            "cesium/go.sum"
-            "freighter/go/go.sum"
-            "synnax/go.sum"
-            "x/go/go.sum"
+            alamos/go/go.sum
+            aspen/go.sum
+            freighter/go/go.sum
+            x/go/go.sum
 
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: go test -v --covermode=atomic --coverprofile=coverage.txt ./...
+        run: go test -v -shuffle=on ./...
         working-directory: ./aspen
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./aspen
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: aspen
