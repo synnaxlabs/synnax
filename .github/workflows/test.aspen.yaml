@@ -29,7 +29,7 @@ jobs:
           filters: |
             changed:
               - '.github/workflows/test.aspen.yaml'
-              - 'alamos/go/**''
+              - 'alamos/go/**'
               - 'aspen/**'
               - 'freighter/go/**''
               - 'x/go/**'
