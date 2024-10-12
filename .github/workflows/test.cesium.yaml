@@ -1,4 +1,4 @@
-name: "Test - Cesium"
+name: "Test: Cesium"
 on:
   pull_request:
     branches:
@@ -47,11 +47,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: "go.work"
-          cache: "gomod"
-          # cache-dependency-path: |
-          #   "alamos/go/go.sum"
-          #   "cesium/go.sum"
-          #   "x/go/go.sum"
+          cache-dependency-path: |
+            "alamos/go/go.sum"
+            "cesium/go.sum"
+            "x/go/go.sum"
 
       - name: Test
         run: go test -v -shuffle=on ./...
