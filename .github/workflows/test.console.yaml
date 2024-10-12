@@ -69,12 +69,6 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build Pluto
-        run: pnpm build:pluto
-
-      - name: Build Drift
-        run: pnpm build:drift
-
       - name: Build
         run: pnpm build:console-vite
 
