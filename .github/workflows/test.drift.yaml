@@ -9,11 +9,12 @@ on:
     branches:
       - rc
       - main
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
 
 jobs:
   setup:
-    name: "Setup"
+    name: Setup
     runs-on: ubuntu-latest
     outputs:
       changed: ${{ steps.filter.outputs.changed }}
@@ -27,56 +28,48 @@ jobs:
         with:
           filters: |
             changed:
-              - ".github/workflows/test.drift.yaml
+              - .github/workflows/test.drift.yaml
+              - configs/eslint/**
+              - configs/stylelint/**
+              - configs/ts/**
+              - configs/vite/**
               - drift/**
-              - "x/ts/**
+              - x/ts/**
 
   test:
-    name: "Run Tests"
-    runs-on: ubuntu-latest
+    name: Test
+    needs: setup
+    if: needs.setup.outputs.changed == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - "drift/**"
-              - ".github/workflows/test.drift.yaml"
+        uses: actions/checkout@v4
 
       - name: Set up pnpm
-        if: steps.filter.outputs.changed == 'true'
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+        uses: pnpm/action-setup@v4
 
-      - name: Set up Node
-        if: steps.filter.outputs.changed == 'true'
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: package.json
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
-      - name: Build Drift
-        if: steps.filter.outputs.changed == 'true'
+      - name: Build
         run: pnpm build:drift
 
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm cov:drift
+        run: pnpm test:drift
 
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./drift
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: drift
+      - name: Lint
+        if: matrix.lint == true
+        run: pnpm lint:drift

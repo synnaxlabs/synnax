@@ -13,7 +13,7 @@ on:
 
 jobs:
   setup:
-    name: "Setup"
+    name: Setup
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.filter.outputs.go }}
@@ -28,15 +28,19 @@ jobs:
         with:
           filters: |
             go:
-              - 'alamos/go/**'
-              - 'x/go/**'
-              - '.github/workflows/test.x.yaml'
+              - .github/workflows/test.x.yaml
+              - alamos/go/**
+              - x/go/**
             ts:
-              - 'x/typescript/**'
-              - '.github/workflows/test.x.yaml'
+              - .github/workflows/test.x.yaml
+              - configs/eslint/**
+              - configs/stylelint/**
+              - configs/ts/**
+              - configs/vite/**
+              - x/ts/**
 
   go:
-    name: "Test: Go (${{ matrix.os }})"
+    name: Go (${{ matrix.os }})
     needs: setup
     if: needs.setup.outputs.go == 'true'
     strategy:
@@ -50,7 +54,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: "go.work"
+          go-version-file: go.work
           cache-dependency-path: |
             alamos/go/go.sum
             x/go/go.sum
@@ -60,7 +64,7 @@ jobs:
         working-directory: ./x/go
 
   test-ts:
-    name: "Test: TypeScript (${{ matrix.os }})"
+    name: TypeScript (${{ matrix.os }})
     needs: setup
     if: needs.setup.outputs.ts == 'true'
     strategy:
@@ -80,12 +84,15 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: "package.json"
+          node-version-file: package.json
           cache: pnpm
-          cache-dependency-path: "pnpm-lock.yaml"
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Dependencies
         run: pnpm install
+
+      - name: Build
+        run: pnpm build:x
 
       - name: Test
         run: pnpm test:x
