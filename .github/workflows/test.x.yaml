@@ -9,6 +9,7 @@ on:
     branches:
       - rc
       - main
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
 
 jobs:
@@ -86,3 +87,6 @@ jobs:
 
       - name: Test
         run: pnpm test:x
+
+      - name: Lint
+        run: pnpm lint:x

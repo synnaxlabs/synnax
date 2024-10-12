@@ -46,6 +46,7 @@
     "lint:client": "npx turbo lint --filter @synnaxlabs/client",
     "lint:drift": "npx turbo lint --filter @synnaxlabs/drift",
     "lint:alamos": "npx turbo lint --filter @synnaxlabs/alamos",
+    "lint:x": "npx turbo lint --filter @synnaxlabs/x",
     "fix": "npx turbo fix",
     "fix:pluto": "npx turbo fix --filter @synnaxlabs/pluto",
     "fix:console": "npx turbo fix --filter console",
