@@ -1,4 +1,5 @@
-name: "Test - X"
+name: "Test: X"
+
 on:
   pull_request:
     branches:
@@ -8,7 +9,9 @@ on:
     branches:
       - rc
       - main
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
+
 jobs:
   setup:
     name: "Setup"
@@ -16,7 +19,6 @@ jobs:
     outputs:
       go: ${{ steps.filter.outputs.go }}
       ts: ${{ steps.filter.outputs.ts }}
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -27,32 +29,32 @@ jobs:
         with:
           filters: |
             go:
+              - 'alamos/go/**'
               - 'x/go/**'
               - '.github/workflows/test.x.yaml'
             ts:
               - 'x/typescript/**'
               - '.github/workflows/test.x.yaml'
 
-  golang:
+  go:
+    name: "Test: Go (${{ matrix.os }})"
     needs: setup
     if: needs.setup.outputs.go == 'true'
-    name: "Test: Go (${{ matrix.os }})"
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: "go.work"
           cache-dependency-path: |
-            "alamos/go/go.sum"
-            "x/go/go.sum"
+            alamos/go/go.sum
+            x/go/go.sum
 
       - name: Test
         run: go test -v -shuffle=on ./...
@@ -71,18 +73,18 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          run_install: true
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
 
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "*"
+          node-version-file: "package.json"
           cache: pnpm
-          cache-dependency-path: |
-            "pnpm-lock.yaml"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install Dependencies
+        run: pnpm install
 
       - name: Test
         run: pnpm test:x
