@@ -55,4 +55,4 @@ jobs:
 
       - name: Test
         run: go test -v -shuffle=on ./...
-        working-directory: ./cesium
+        working-directory: cesium

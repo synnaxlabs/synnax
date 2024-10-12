@@ -61,9 +61,9 @@ jobs:
 
       - name: Test
         run: go test -v -shuffle=on ./...
-        working-directory: ./x/go
+        working-directory: x/go
 
-  test-ts:
+  ts:
     name: TypeScript (${{ matrix.os }})
     needs: setup
     if: needs.setup.outputs.ts == 'true'
