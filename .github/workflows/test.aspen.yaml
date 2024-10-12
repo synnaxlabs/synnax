@@ -31,7 +31,7 @@ jobs:
               - '.github/workflows/test.aspen.yaml'
               - 'alamos/go/**'
               - 'aspen/**'
-              - 'freighter/go/**''
+              - 'freighter/go/**'
               - 'x/go/**'
 
   test:
