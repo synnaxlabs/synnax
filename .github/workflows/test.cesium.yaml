@@ -1,4 +1,5 @@
 name: "Test: Cesium"
+
 on:
   pull_request:
     branches:
@@ -8,8 +9,8 @@ on:
     branches:
       - rc
       - main
-      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
+
 jobs:
   setup:
     name: "Setup"
@@ -26,17 +27,16 @@ jobs:
         with:
           filters: |
             changed:
+              - '.github/workflows/test.cesium.yaml'
               - 'alamos/go/**'
               - 'cesium/**'
               - 'x/go/**'
-              - '.github/workflows/test.cesium.yaml'
 
   test:
     name: "Test (${{ matrix.os }})"
     needs: setup
     if: needs.setup.outputs.changed == 'true'
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -44,7 +44,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: "go.work"

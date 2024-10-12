@@ -1,4 +1,5 @@
-name: "Test - Synnax"
+name: "Test: Synnax"
+
 on:
   pull_request:
     branches:
@@ -8,13 +9,18 @@ on:
     branches:
       - rc
       - main
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
+
 jobs:
-  test:
+  setup:
+    name: "Setup"
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
@@ -22,16 +28,28 @@ jobs:
         with:
           filters: |
             changed:
-              - 'synnax/**'
-              - 'cesium/**'
-              - 'aspen/**'
-              - 'x/**'
-              - 'freighter/go/**'
               - '.github/workflows/test.synnax.yaml'
+              - 'alamos/go/**'
+              - 'aspen/**'
+              - 'cesium/**'
+              - 'freighter/go/**'
+              - 'synnax/**'
+              - 'x/**'
+
+  test:
+    name: "Test (${{ matrix.os }})"
+    needs: setup
+    if: needs.setup.outputs.changed == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
-        if: steps.filter.outputs.changed == 'true'
         with:
           go-version-file: "go.work"
           cache-dependency-path: |
@@ -42,17 +60,6 @@ jobs:
             "synnax/go.sum"
             "x/go/go.sum"
 
-
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: go test -tags="noui development" -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
+        run: go test -v -shuffle=on ./...
         working-directory: ./synnax
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./synnax
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: synnax
