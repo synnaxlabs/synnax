@@ -1,4 +1,5 @@
-name: "Test - Console"
+name: "Test: Console"
+
 on:
   pull_request:
     branches:
@@ -8,64 +9,73 @@ on:
     branches:
       - rc
       - main
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
+
 jobs:
-  test:
-    name: "Run Tests"
+  setup:
+    name: Setup
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.ref }}
           filters: |
             changed:
-              - "console/**"
-              - "pluto/**"
-              - "client/ts/**"
-              - "freighter/ts/**"
-              - "x/ts/**"
-              - ".github/workflows/test.console.yaml"
+              - .github/workflows/test.drift.yaml
+              - alamos/ts/**
+              - client/ts/**
+              - configs/eslint/**
+              - configs/stylelint/**
+              - configs/ts/**
+              - configs/vite/**
+              - drift/**
+              - console/**
+              - pluto/**
+              - x/media/**
+              - x/ts/**
+
+  test:
+    name: Test
+    needs: setup
+    if: needs.setup.outputs.changed == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up pnpm
-        if: steps.filter.outputs.changed == 'true'
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+        uses: pnpm/action-setup@v4
 
-      - name: Set up Node
-        if: steps.filter.outputs.changed == 'true'
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: package.json
           cache: pnpm
+          cache-depnendency-path: pnpm-lock.yaml
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
-      - name: Turbo Cache
-        uses: actions/cache@v3
-        with:
-          path: .turbo-cache
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
-
-      - name: Build Pluto
-        if: needs.setup.outputs.changed == 'true'
-        run: pnpm build:pluto
-    
-      - name: Build Drift
-        if: needs.setup.outputs.changed == 'true'
-        run: pnpm build:drift
+      - name: Build
+        run: pnpm build-vite
+        working-directory: ./console
 
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
         run: pnpm test:console
- 
 
+      - name: Lint
+        if: matrix.lint == true
+        run: pnpm lint:console

@@ -9,6 +9,7 @@ on:
     branches:
       - rc
       - main
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
 
 jobs:
@@ -57,4 +58,4 @@ jobs:
 
       - name: Test
         run: go test -v -shuffle=on ./...
-        working-directory: ./aspen
+        working-directory: aspen
