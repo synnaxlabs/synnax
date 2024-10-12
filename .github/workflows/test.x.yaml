@@ -90,6 +90,7 @@ jobs:
 
   lint-ts:
     name: "Lint: TypeScript"
+    needs: setup
     if: needs.setup.outputs.ts == 'true'
     runs-on: ubuntu-latest
     steps:
