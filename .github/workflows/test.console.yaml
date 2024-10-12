@@ -64,7 +64,7 @@ jobs:
         with:
           node-version-file: package.json
           cache: pnpm
-          cache-depnendency-path: pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Dependencies
         run: pnpm install
@@ -76,8 +76,7 @@ jobs:
         run: pnpm build:drift
 
       - name: Build
-        run: pnpm build-vite
-        working-directory: console
+        run: pnpm build:console-vite
 
       - name: Test
         run: pnpm test:console
