@@ -60,7 +60,7 @@ jobs:
         run: go test -v -shuffle=on ./...
         working-directory: ./x/go
 
-  typescript:
+  test-ts:
     name: "Test: TypeScript (${{ matrix.os }})"
     needs: setup
     if: needs.setup.outputs.ts == 'true'
@@ -87,6 +87,14 @@ jobs:
 
       - name: Test
         run: pnpm test:x
+
+  lint-ts:
+    name: "Lint: TypeScript"
+    if: needs.setup.outputs.ts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Lint
         run: pnpm lint:x
