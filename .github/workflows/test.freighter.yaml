@@ -89,7 +89,7 @@ jobs:
           repository-cache: true
 
       - name: Test
-        run: bazel test //freighter/cpp:freighter_test --nocache_test_results
+        run: bazel test --test_output=all //freighter/cpp:freighter_test --nocache_test_results
 
   go:
     name: Go (${{ matrix.os }})

@@ -5,6 +5,18 @@
       "path": ".."
     },
     {
+      "name": "alamos/go",
+      "path": "../alamos/go"
+    },
+    {
+      "name": "alamos/py",
+      "path": "../alamos/py"
+    },
+    {
+      "name": "alamos/ts",
+      "path": "../alamos/ts"
+    },
+    {
       "name": "aspen",
       "path": "../aspen"
     },
@@ -13,16 +25,36 @@
       "path": "../cesium"
     },
     {
-      "name": "client/ts",
-      "path": "../client/ts"
+      "name": "configs/eslint",
+      "path": "../configs/eslint"
+    },
+    {
+      "name": "configs/stylelint",
+      "path": "../configs/stylelint"
+    },
+    {
+      "name": "configs/ts",
+      "path": "../configs/ts"
+    },
+    {
+      "name": "configs/vite",
+      "path": "../configs/vite"
+    },
+    {
+      "name": "console",
+      "path": "../console"
+    },
+    {
+      "name": "client/cpp",
+      "path": "../client/cpp"
     },
     {
       "name": "client/py",
       "path": "../client/py"
     },
     {
-      "name": "client/cpp",
-      "path": "../client/cpp"
+      "name": "client/ts",
+      "path": "../client/ts"
     },
     {
       "name": "docs/site",
@@ -37,12 +69,8 @@
       "path": "../drift"
     },
     {
-      "name": "freighter/ts",
-      "path": "../freighter/ts"
-    },
-    {
-      "name": "freighter/py",
-      "path": "../freighter/py"
+      "name": "driver",
+      "path": "../driver"
     },
     {
       "name": "freighter/cpp",
@@ -53,20 +81,24 @@
       "path": "../freighter/go"
     },
     {
-      "name": "freighter/integration",
-      "path": "../freighter/integration"
+      "name": "freighter/py",
+      "path": "../freighter/py"
     },
     {
-      "name": "server",
-      "path": "../synnax"
+      "name": "freighter/ts",
+      "path": "../freighter/ts"
+    },
+    {
+      "name": "media",
+      "path": "../x/media"
     },
     {
       "name": "pluto",
       "path": "../pluto"
     },
     {
-      "name": "console",
-      "path": "../console"
+      "name": "server",
+      "path": "../synnax"
     },
     {
       "name": "x/go",
@@ -75,34 +107,6 @@
     {
       "name": "x/ts",
       "path": "../x/ts"
-    },
-    {
-      "name": "alamos/py",
-      "path": "../alamos/py"
-    },
-    {
-      "name": "alamos/go",
-      "path": "../alamos/go"
-    },
-    {
-      "name": "alamos/ts",
-      "path": "../alamos/ts"
-    },
-    {
-      "name": "x/media",
-      "path": "../x/media"
-    },
-    {
-      "name": "configs",
-      "path": "../configs"
-    },
-    {
-      "name": "integration",
-      "path": "../integration"
-    },
-    {
-      "name": "driver",
-      "path": "../driver"
     }
   ],
   "settings": {
