@@ -42,62 +42,55 @@ static PyObject* my_PyCompileString(const char *str, const char *filename, int s
 */
 import "C"
 import (
-	"embed"
 	"fmt"
 	xembed "github.com/synnaxlabs/x/embed"
 	"github.com/synnaxlabs/x/errors"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
+	"log"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"unsafe"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (
-	initOnce  sync.Once
-	initError error
+	initPython             sync.Once
+	initPythonError        error
+	synnaxPythonInstallDir = filepath.Join(os.TempDir(), "synnax")
 )
-
-var globalsC *C.PyObject
-
-//go:generate sh build.sh
-//go:embed all:python_install
-var embeddedPython embed.FS
-
-const synnaxPythonInstallDir = "/tmp/synnax"
 
 // Initialize Python and NumPy
 func init() {
-	initOnce.Do(func() {
+	initPython.Do(func() {
 		dir, err := xembed.Extract(embeddedPython, synnaxPythonInstallDir)
 		if err != nil {
-			initError = fmt.Errorf("failed to extract embedded Python files: %v", err)
-			logrus.Error(initError)
+			initPythonError = errors.Newf("failed to extract embedded Python files: %v", err)
 			return
 		}
-		pythonHome := C.CString(dir + "/python_install")
+		pythonHomePath := filepath.Join(dir, "python_install")
+		pythonHome := C.CString(pythonHomePath)
 		defer C.free(unsafe.Pointer(pythonHome))
 		wPythonHome := C.Py_DecodeLocale(pythonHome, nil)
 		defer C.PyMem_Free(unsafe.Pointer(wPythonHome))
 		C.Py_SetPythonHome(wPythonHome)
 		C.Py_Initialize()
 		if res := C.init_numpy(); res != 0 {
-			initError = fmt.Errorf("failed to initialize NumPy")
-			logrus.Error(initError)
+			initPythonError = errors.New("failed to initialize NumPy")
 			return
 		}
 		initGlobals()
 	})
 }
 
+var globalsC *C.PyObject
+
 // Initialize the Python globals dictionary and import necessary modules
 func initGlobals() {
 	globalsC = C.PyDict_New()
 	if globalsC == nil {
-		initError = fmt.Errorf("failed to create Python globals dictionary")
-		logrus.Error(initError)
+		initPythonError = errors.Newf("failed to create Python globals dictionary")
 		return
 	}
 	// Import NumPy and add it to globals
@@ -106,8 +99,8 @@ func initGlobals() {
 	numpyModule := C.PyImport_ImportModule(numpyName)
 	if numpyModule == nil {
 		C.PyErr_Print()
-		initError = fmt.Errorf("failed to import numpy")
-		logrus.Error(initError)
+		initPythonError = fmt.Errorf("failed to import numpy")
+		log.Print(initPythonError)
 		return
 	}
 	npKey := C.CString("np")
@@ -129,7 +122,7 @@ func compile(code string) (*C.PyObject, error) {
 	compiledCode := C.my_PyCompileString(cCode, filename, C.Py_file_input)
 	if compiledCode == nil {
 		C.PyErr_Print()
-		return nil, fmt.Errorf("failed to compile code")
+		return nil, errors.Newf("failed to compile code")
 	}
 	// Increase the reference count to keep it in the cache
 	C.Py_IncRef(compiledCode)
@@ -140,8 +133,8 @@ func compile(code string) (*C.PyObject, error) {
 // Exec executes Python code and returns a telem.Series
 func Exec(code string, ctx map[string]interface{}) (telem.Series, error) {
 	var s telem.Series
-	if initError != nil {
-		return s, initError
+	if initPythonError != nil {
+		return s, initPythonError
 	}
 	compiled, err := compile(code)
 	if err != nil {
