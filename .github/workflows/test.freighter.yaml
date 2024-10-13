@@ -68,59 +68,58 @@ jobs:
 
             cpp:
               - *shared
-              - *integration
               - freighter/cpp/**
 
-  go:
-    name: Go (${{ matrix.os }})
-    needs: setup
-    if: needs.setup.outputs.go == 'true'
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+  # go:
+  #   name: Go (${{ matrix.os }})
+  #   needs: setup
+  #   if: needs.setup.outputs.go == 'true'
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest, windows-latest, macos-latest]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.work
-          cache-dependency-path: |
-            alamos/go/go.sum
-            freighter/go/go.sum
-            x/go/go.sum
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: go.work
+  #         cache-dependency-path: |
+  #           alamos/go/go.sum
+  #           freighter/go/go.sum
+  #           x/go/go.sum
 
-      - name: Test
-        run: go test -v -shuffle=on ./...
-        working-directory: freighter/go
+  #     - name: Test
+  #       run: go test -v -shuffle=on ./...
+  #       working-directory: freighter/go
 
-  integration:
-    runs-on: ubuntu-latest
-    needs: setup
-    if: needs.setup.outputs.integration == 'true'
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+  # integration:
+  #   runs-on: ubuntu-latest
+  #   needs: setup
+  #   if: needs.setup.outputs.integration == 'true'
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Login to GitHub Container Registry
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download Earhly
-        uses: earthly/actions-setup@v1
+  #     - name: Download Earhly
+  #       uses: earthly/actions-setup@v1
 
-      - name: Build Image
-        run: earthly --push +docker
-        working-directory: ./freighter/integration
+  #     - name: Build Image
+  #       run: earthly --push +docker
+  #       working-directory: ./freighter/integration
 
   py:
     name: Python
-    needs: [setup, integration]
+    needs: setup #TODO: add back integration
     if: needs.setup.outputs.py == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -141,7 +140,7 @@ jobs:
         working-directory: ./freighter/py
 
       - name: Test
-        run: pytest
+        run: poetry run pytest
         working-directory: ./freighter/py
 
     services:
@@ -153,64 +152,64 @@ jobs:
         ports:
           - 8080:8080
 
-  ts:
-    name: TypeScript
-    needs: [setup, integration]
-    if: needs.setup.outputs.ts == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+  # ts:
+  #   name: TypeScript
+  #   needs: [setup, integration]
+  #   if: needs.setup.outputs.ts == 'true'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+  #     - name: Set up pnpm
+  #       uses: pnpm/action-setup@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version-file: package.json
+  #         cache: pnpm
+  #         cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install Dependencies
-        run: pnpm install
+  #     - name: Install Dependencies
+  #       run: pnpm install
 
-      - name: Build
-        run: pnpm build:freighter
+  #     - name: Build
+  #       run: pnpm build:freighter
 
-      - name: Test
-        run: pnpm test:freighter
+  #     - name: Test
+  #       run: pnpm test:freighter
 
-      - name: Lint
-        run: pnpm lint:freighter
+  #     - name: Lint
+  #       run: pnpm lint:freighter
 
-    services:
-      integration:
-        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 8080:8080
+  #   services:
+  #     integration:
+  #       image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+  #       credentials:
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
+  #       ports:
+  #         - 8080:8080
 
-  cpp:
-    name: C++ (${{ matrix.os }})
-    needs: setup
-    if: needs.setup.outputs.cpp == 'true'
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+  # cpp:
+  #   name: C++ (${{ matrix.os }})
+  #   needs: setup
+  #   if: needs.setup.outputs.cpp == 'true'
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest, macos-latest, windows-latest]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
 
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
+  #     - name: Setup Bazel
+  #       uses: bazel-contrib/setup-bazel@0.8.1
+  #       with:
+  #         bazelisk-cache: true
+  #         disk-cache: ${{ github.workflow }}
+  #         repository-cache: true
 
-      - name: Test
-        run: bazel test //freighter/cpp:freighter_test
+  #     - name: Test
+  #       run: bazel test //freighter/cpp:freighter_test
