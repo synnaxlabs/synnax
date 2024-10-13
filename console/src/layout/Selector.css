@@ -12,6 +12,6 @@
 .console-vis-layout-selector {
     container-type: size;
     & .pluto-btn {
-        width: 175px;
+        width: 100px;
     }
 }

@@ -62,7 +62,7 @@ const Base = ({
               variant="outlined"
               onClick={() => place(create(layoutKey))}
               startIcon={icon}
-              style={{ flexBasis: "200px" }}
+              style={{ flexBasis: "185px" }}
             >
               {title}
             </Button.Button>

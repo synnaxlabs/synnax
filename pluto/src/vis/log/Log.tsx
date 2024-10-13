@@ -67,12 +67,9 @@ export const Log = Aether.wrap<LogProps>(
       ),
     );
 
-    const logRef = useRef<HTMLDivElement | null>(null);
-    const combinedRef = useCombinedRefs(logRef, resizeRef);
-
     return (
       <div
-        ref={combinedRef}
+        ref={resizeRef}
         className={CSS(CSS.B("log"), className)}
         onWheel={(e) => {
           setState((s) => ({

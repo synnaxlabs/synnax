@@ -176,8 +176,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     this.renderElements(draw2d, range);
     this.renderScrollbar(draw2d);
     clearScissor();
+    const eraseRegion = box.copy(this.state.region);
     return async ({ canvases }) =>
-      renderCtx.erase(this.state.region, xy.ZERO, ...canvases);
+      renderCtx.erase(eraseRegion, { x: 10, y: 10 }, ...canvases);
   }
 
   private renderScrollbar(draw2d: Draw2D): void {
@@ -199,10 +200,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
     draw2d.container({
       region: box.construct(
-        {
-          x: box.right(reg) - 6,
-          y: yPos,
-        },
+        { x: box.right(reg) - 6, y: yPos },
         { width: 6, height: bHeight },
       ),
       bordered: false,
