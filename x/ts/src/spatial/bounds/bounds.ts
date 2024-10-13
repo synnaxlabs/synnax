@@ -222,14 +222,19 @@ export const linspace = <T extends numeric.Value = number>(bounds: Crude<T>): T[
   }) as T[];
 };
 
+/**
+ *
+ *
+ * @param bounds
+ * @param target
+ * @returns
+ */
 export const findInsertPosition = <T extends numeric.Value>(
   bounds: Array<Crude<T>>,
   target: T,
 ): { index: number; position: number } => {
   const _bounds = bounds.map((b) => construct<T>(b));
-  const index = _bounds.findIndex(
-    (b, i) => contains<T>(b, target) || target < _bounds[i].lower,
-  );
+  const index = _bounds.findIndex((b) => contains<T>(b, target) || target < b.lower);
   if (index === -1) return { index: bounds.length, position: 0 };
   const b = _bounds[index];
   if (contains(b, target)) return { index, position: Number(target - b.lower) };
@@ -343,4 +348,192 @@ export const exposure = <T extends numeric.Value = number>(
   if (bg.lower <= f.lower && bg.upper >= f.upper) return span(f) / span(bg);
   if (bg.lower <= f.lower) return (bg.upper - f.lower) / span(bg);
   return (f.upper - bg.lower) / span(bg);
+};
+
+/**
+ * Traverse the given bounds by the distance, returning the end point of the traversal.
+ * Traversal works by 'skipping' over integers that are not within the array of bounds.
+ *
+ * @example
+ * bounds.traverse(
+ *  [[0, 10], [20, 30]]
+ *  5,
+ *  5,
+ * )
+ * // => 10
+ * @example
+ * bounds.traverse(
+ * [[0, 10], [20, 30]]
+ * 5,
+ * 10,
+ * )
+ * // => 25
+ * @example
+ * bounds.traverse(
+ * [[0, 10], [20, 30]]
+ * 15,
+ * 5,
+ * )
+ * // => 25
+ * @example
+ * bounds.traverse(
+ * [[0, 10], [20, 30]]
+ * 15,
+ * 30,
+ * )
+ * // => 30
+ * @example
+ * bounds.traverse(
+ * [[0, 5], [5, 10], [15, 20]]
+ * 17,
+ * -7
+ * ) // => 5
+ *
+ *
+ * @param start
+ * @param dist
+ * @param bounds
+ */
+export const traverse = <T extends numeric.Value = number>(
+  bounds: Array<Crude<T>>,
+  start: T,
+  dist: T,
+): T => {
+  const _bounds = bounds.map((b) => construct(b));
+
+  const dir = dist > 0 ? 1 : dist < 0 ? -1 : 0;
+
+  // If there's no distance to traverse, return the starting point
+  if (dir === 0) return start;
+
+  let remainingDist = dist;
+  let currentPosition = start as number | bigint;
+
+  while (math.equal(remainingDist, 0) === false) {
+    // Find the bound we're currently in or adjacent to
+    const index = _bounds.findIndex((b) => {
+      if (dir > 0) {
+        // For positive direction, check if currentPosition >= lower and < upper
+        return currentPosition >= b.lower && currentPosition < b.upper;
+      } else {
+        // For negative direction, check if currentPosition > lower and <= upper
+        return currentPosition > b.lower && currentPosition <= b.upper;
+      }
+    });
+
+    if (index !== -1) {
+      // We're inside a bound
+      const b = _bounds[index];
+      let distanceInBound: T;
+
+      if (dir > 0) {
+        distanceInBound = math.sub(b.upper, currentPosition) as T;
+      } else {
+        distanceInBound = math.sub(currentPosition, b.lower) as T;
+      }
+
+      // Determine how much we can move within this bound
+      if (distanceInBound > (0 as T)) {
+        const moveDist = math.min(math.abs(remainingDist), distanceInBound) as T;
+        currentPosition = math.add(
+          currentPosition,
+          dir > 0 ? moveDist : -moveDist,
+        ) as T;
+        remainingDist = math.sub(remainingDist, dir > 0 ? moveDist : -moveDist) as T;
+
+        // If we've exhausted the distance, return the current position
+        if (remainingDist === (0 as T)) return currentPosition as T;
+        continue;
+      }
+    }
+
+    // If we're not inside any bound, or we've reached the boundary
+    if (dir > 0) {
+      // Move to the next bound's lower value
+      const nextBounds = _bounds.filter((b) => b.lower > currentPosition);
+      if (nextBounds.length > 0) {
+        currentPosition = nextBounds[0].lower;
+      } else {
+        // No more bounds in this direction
+        return currentPosition as T;
+      }
+    } else {
+      // Move to the previous bound's upper value
+      const prevBounds = _bounds.filter((b) => b.upper < currentPosition);
+      if (prevBounds.length > 0) {
+        currentPosition = prevBounds[prevBounds.length - 1].upper;
+      } else {
+        // No more bounds in this direction
+        return currentPosition as T;
+      }
+    }
+  }
+  return currentPosition as T;
+};
+
+/**
+ * Returns the number of values within the given bounds, 'skip'ing over values that are
+ * not within the bounds.
+ *
+ * @example
+ * bounds.distance(
+ *  [[0, 10], [20, 30]]
+ *  5,
+ *  5,
+ * ) // => 0
+ *
+ * @example
+ * bounds.distance(
+ * [[0, 10], [20, 30]]
+ * 5,
+ * 25,
+ * ) // => 10
+ *
+ * @example
+ * bounds.distance(
+ * [[0, 10], [20, 30]]
+ * 15,
+ * 25,
+ * ) // => 5
+ *
+ * @example
+ * bounds.distance(
+ * [[0, 10], [20, 30]]
+ * 15,
+ * 5,
+ * ) // => 5
+ *
+ * @param bounds
+ * @param a - The start value.
+ * @param b  - The end value.
+ */
+export const distance = <T extends numeric.Value = number>(
+  bounds: Array<Crude<T>>,
+  a: T,
+  b: T,
+): T => {
+  const _bounds = bounds.map((b) => construct<T>(b));
+
+  // If start and end are the same, the distance is zero
+  if (a === b) return (typeof a === "bigint" ? 0n : 0) as T;
+
+  // Determine the interval between a and b
+  const interval = a < b ? construct([a, b]) : construct([b, a]);
+
+  let totalDistance: T = (typeof a === "bigint" ? 0n : 0) as T;
+
+  for (const bound of _bounds) {
+    // Find the overlap between the interval and the current bound
+    const overlapLower = bound.lower > interval.lower ? bound.lower : interval.lower;
+    const overlapUpper = bound.upper < interval.upper ? bound.upper : interval.upper;
+
+    // If there is an overlap, add its span to the total distance
+    if (overlapLower < overlapUpper) {
+      const overlapSpan = (overlapUpper - overlapLower) as T;
+      // @ts-expect-error - typescript doesn't recognize that totalDistance is a number
+      totalDistance = (totalDistance + overlapSpan) as T;
+    }
+  }
+
+  return totalDistance;
 };

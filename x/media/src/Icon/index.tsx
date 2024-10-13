@@ -38,6 +38,7 @@ import {
   FaBookOpen,
   FaDocker,
   FaLinux,
+  FaProjectDiagram,
   FaStream,
   FaWindows,
 } from "react-icons/fa";
@@ -46,7 +47,7 @@ import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
-import { IoBookSharp, IoCopy, IoTime } from "react-icons/io5";
+import { IoBookSharp, IoCopy, IoShapes, IoTime } from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,
   MdAlignHorizontalLeft,
@@ -111,7 +112,11 @@ import {
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
 } from "react-icons/pi";
-import { RiFileListLine, RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
+import {
+  RiFileListLine,
+  RiSettings3Fill as RiSettingsFill,
+  RiShapesFill,
+} from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,
@@ -250,7 +255,7 @@ export const Icon: IconType = {
   Expand: wrapIcon(AiOutlineExpand, "expand"),
   Cluster: wrapIcon(HiSquare3Stack3D, "cluster"),
   Loading: wrapIcon(AiOutlineLoading, "loading", { className: "media--spin" }),
-  Schematic: wrapIcon(MdGrain, "schematic"),
+  Schematic: wrapIcon(IoShapes, "schematic"),
   Caret: {
     Right: wrapIcon(PiCaretRight, "caret-right"),
     Bottom: wrapIcon(PiCaretDown, "caret-bottom"),

@@ -35,6 +35,10 @@ export interface SetRetentionPayload {
   retention: number;
 }
 
+export interface SetRemoteCreatedPayload {
+  key: string;
+}
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
@@ -49,10 +53,18 @@ export const { actions, reducer } = createSlice({
     setRetention: (state, { payload }: PayloadAction<SetRetentionPayload>) => {
       state.logs[payload.key].retention = payload.retention;
     },
+    setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
+      state.logs[payload.key].remoteCreated = true;
+    },
   },
 });
 
-export const { create: internalCreate, setChannels, setRetention } = actions;
+export const {
+  create: internalCreate,
+  setChannels,
+  setRetention,
+  setRemoteCreated,
+} = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 

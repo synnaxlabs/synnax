@@ -42,14 +42,14 @@ export const Log = Aether.wrap<LogProps>(
     ...props
   }): ReactElement | null => {
     const memoProps = useMemoDeepEqualProps({ font, color, telem, visible });
-    const [, { scrollback }, setState] = Aether.use({
+    const [, { scrolling: scrollback }, setState] = Aether.use({
       aetherKey,
       type: log.Log.TYPE,
       schema: log.logState,
       initialState: {
         region: box.ZERO,
-        scrollback: false,
-        scrollPosition: 0,
+        scrolling: false,
+        wheelPos: 0,
         ...memoProps,
       },
     });
@@ -77,7 +77,8 @@ export const Log = Aether.wrap<LogProps>(
         onWheel={(e) => {
           setState((s) => ({
             ...s,
-            scrollPosition: s.scrollPosition - e.deltaY,
+            wheelPos: s.wheelPos - e.deltaY,
+            scrolling: s.scrolling ? s.scrolling : e.deltaY < 0,
           }));
         }}
         {...props}
@@ -86,7 +87,7 @@ export const Log = Aether.wrap<LogProps>(
           className={CSS(CSS.BE("log", "live"), CSS.visible(scrollback))}
           variant="outlined"
           onClick={() => {
-            setState((s) => ({ ...s, scrollback: false }));
+            setState((s) => ({ ...s, scrolling: false }));
           }}
           tooltip="Return to Live"
         >

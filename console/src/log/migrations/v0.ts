@@ -6,6 +6,7 @@ export const stateZ = z.object({
   version: z.literal("0.0.0"),
   retention: z.number(),
   channels: channel.keyZ.array(),
+  remoteCreated: z.boolean(),
 });
 
 export type State = z.input<typeof stateZ>;
@@ -15,6 +16,7 @@ export const ZERO_STATE: State = {
   version: "0.0.0",
   retention: TimeSpan.seconds(30).seconds,
   channels: [],
+  remoteCreated: false,
 };
 
 export const sliceStateZ = z.object({

@@ -52,7 +52,7 @@ const Base = ({
         <Align.Space
           direction="x"
           wrap
-          style={{ width: "500px" }}
+          style={{ maxWidth: "500px", width: "100%" }}
           justify="center"
           size={2.5}
         >

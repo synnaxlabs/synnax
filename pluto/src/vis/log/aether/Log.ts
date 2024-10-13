@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Destructor, MultiSeries } from "@synnaxlabs/x";
-import { bounds, box, xy } from "@synnaxlabs/x/spatial";
+import { DataType, Destructor, MultiSeries, TelemValue } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x/spatial";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -21,8 +21,8 @@ import { render } from "@/vis/render";
 
 export const logState = z.object({
   region: box.box,
-  scrollPosition: z.number(),
-  scrollback: z.boolean(),
+  wheelPos: z.number(),
+  scrolling: z.boolean(),
   visible: z.boolean(),
   telem: telem.seriesSourceSpecZ.optional().default(telem.noopSeriesSourceSpec),
   font: text.levelZ.optional().default("p"),
@@ -41,15 +41,20 @@ interface ScrollbackState {
   offset: bigint;
   offsetRef: bigint;
   scrollRef: number;
-  overScrollCompensation: number;
 }
+
+const ZERO_SCROLLBACK: ScrollbackState = {
+  offset: 0n,
+  offsetRef: 0n,
+  scrollRef: 0,
+};
 
 export class Log extends aether.Leaf<typeof logState, InternalState> {
   static readonly TYPE = "log";
   static readonly z = logState;
   schema = Log.z;
   values: MultiSeries = new MultiSeries([]);
-  scrollback: ScrollbackState | null = null;
+  scrollState: ScrollbackState = ZERO_SCROLLBACK;
 
   async afterUpdate(): Promise<void> {
     const { internal: i } = this;
@@ -59,41 +64,43 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
 
-    if (this.state.scrollback == false && this.prevState.scrollback == true)
-      this.scrollback = null;
+    const { scrolling, wheelPos } = this.state;
 
-    // We're in scrollback mode
-    if (this.scrollback != null) {
-      const dist = Math.ceil(
-        (this.state.scrollPosition - this.scrollback.scrollRef) / this.lineHeight,
+    const justEnteredScrollback = this.state.scrolling && !this.prevState.scrolling;
+    if (justEnteredScrollback) {
+      const off = this.values.alignmentBounds.upper - 1n;
+      this.scrollState = {
+        offset: off,
+        offsetRef: off,
+        scrollRef: this.state.wheelPos,
+      };
+    } else if (scrolling) {
+      const { scrollState, values } = this;
+      const dist = Math.ceil((wheelPos - this.scrollState.scrollRef) / this.lineHeight);
+      // console.log({
+      //   bounds: this.values.series.map((s) => s.alignmentBounds),
+      //   start: scrollState.offsetRef,
+      //   dist: -BigInt(dist),
+      // });
+      scrollState.offset = this.values.traverseAlignment(
+        scrollState.offsetRef,
+        -BigInt(dist),
       );
-      this.scrollback.offset = this.scrollback.offsetRef - BigInt(dist);
-      // This means we've scrolled to the very first element.
+      // This means that the last element is visible at the top of the viewport, so we
+      // should stop scrolling.
       if (
-        this.scrollback.offset <
-        this.values.alignmentBounds.lower + BigInt(this.visibleLineCount)
+        scrollState.offset <
+        values.alignmentBounds.lower + BigInt(this.visibleLineCount)
       ) {
-        this.scrollback.offset = this.values.alignmentBounds.lower;
-        this.setState((s) => ({ ...s, scrollPosition: this.prevState.scrollPosition }));
+        scrollState.offset = values.alignmentBounds.lower;
+        // Set the wheel position back to it's previous location so we can scroll back
+        // down without jumping.
+        this.setState((s) => ({ ...s, wheelPos: this.prevState.wheelPos }));
       }
-      // Should we exit scrollback mode?
-      if (this.scrollback.offset >= this.values.alignmentBounds.upper) {
-        this.scrollback = null;
-        this.setState((s) => ({ ...s, scrollback: false }));
-      }
-    } else {
-      // Not in scrollback mode. Should we enter it?
-      const scrolledUp = this.state.scrollPosition > this.prevState.scrollPosition;
-      if (scrolledUp) {
-        const off = this.values.alignmentBounds.upper - 1n;
-        this.scrollback = {
-          offset: off,
-          offsetRef: off,
-          scrollRef: this.state.scrollPosition,
-          overScrollCompensation: 0,
-        };
-        this.setState((s) => ({ ...s, scrollback: true }));
-      }
+      // If we've scrolled back to the bottom fo the log, stop scrolling and go back
+      // to live mode.
+      if (scrollState.offset >= values.alignmentBounds.upper)
+        this.setState((s) => ({ ...s, scrolling: false }));
     }
 
     const [_, series] = await this.internal.telem.value();
@@ -144,42 +151,48 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
   async render(): Promise<render.Cleanup | undefined> {
     const { render: renderCtx } = this.internal;
-    const b = box.construct(this.state.region);
-    if (box.areaIsZero(b)) return undefined;
-    if (!this.state.visible) return async () => renderCtx.erase(b, xy.ZERO, "upper2d");
-    const clearScissor = renderCtx.scissor(b, xy.ZERO, ["upper2d"]);
+    const region = this.state.region;
+    if (box.areaIsZero(region)) return undefined;
+    if (!this.state.visible)
+      return async () => renderCtx.erase(region, xy.ZERO, "upper2d");
     let range: Iterable<any>;
-    if (this.scrollback == null)
+    if (!this.state.scrolling)
       range = this.values.subIterator(
         this.values.length - this.visibleLineCount,
         this.values.length,
       );
     else {
-      range = this.values.subAlignmentSpanIterator(
-        this.scrollback.offset - BigInt(this.visibleLineCount),
-        this.visibleLineCount,
+      const start = this.values.traverseAlignment(
+        this.scrollState.offset,
+        -BigInt(this.visibleLineCount),
       );
+      range = this.values.subAlignmentSpanIterator(start, this.visibleLineCount);
     }
 
-    this.renderElements(range);
-    clearScissor();
-    return async ({ canvases }) => renderCtx.erase(b, xy.ZERO, ...canvases);
-  }
-
-  private renderElements(iter: Iterable<any>): void {
-    const { render: renderCtx } = this.internal;
     const reg = this.state.region;
-    if (box.areaIsZero(reg)) return;
     const canvas = renderCtx.upper2d;
     const draw2d = new Draw2D(canvas, this.internal.theme);
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, ["upper2d"]);
-    let i = 0;
+    this.renderElements(draw2d, range);
+    this.renderScrollbar(draw2d);
+    clearScissor();
+    return async ({ canvases }) =>
+      renderCtx.erase(this.state.region, xy.ZERO, ...canvases);
+  }
+
+  private renderScrollbar(draw2d: Draw2D): void {
+    const reg = this.state.region;
     const bHeight = (box.height(reg) / this.totalHeight) * box.height(reg);
     let yPos = box.bottom(reg) - bHeight;
-    if (this.scrollback != null)
+    if (this.state.scrolling)
       yPos -=
-        (Number(this.values.alignmentBounds.upper - this.scrollback.offset) /
-          Number(bounds.span(this.values.alignmentBounds))) *
+        (Number(
+          this.values.distance(
+            this.values.alignmentBounds.upper,
+            this.scrollState.offset,
+          ),
+        ) /
+          this.values.length) *
         box.height(reg);
 
     if (yPos < 0) yPos = box.top(reg);
@@ -195,11 +208,17 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       bordered: false,
       backgroundColor: (t) => t.colors.gray.l4,
     });
+  }
+
+  private renderElements(draw2D: Draw2D, iter: Iterable<TelemValue>): void {
+    const reg = this.state.region;
+    let i = 0;
     for (const value of iter) {
-      draw2d.text({
-        text: this.values.dataType.equals(DataType.JSON)
-          ? JSON.stringify(value)
-          : value.toString(),
+      const text = this.values.dataType.equals(DataType.JSON)
+        ? JSON.stringify(value)
+        : value.toString();
+      draw2D.text({
+        text,
         level: this.state.font,
         shade: 9,
         position: xy.translate(box.topLeft(reg), { x: 6, y: i * this.lineHeight + 6 }),
@@ -207,7 +226,6 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       });
       i++;
     }
-    clearScissor();
   }
 }
 

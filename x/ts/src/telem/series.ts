@@ -1077,6 +1077,16 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     return new this.dataType.Array(buf);
   }
 
+  traverseAlignment(start: bigint, dist: bigint): bigint {
+    const b = this.series.map((s) => s.alignmentBounds);
+    return bounds.traverse(b, start, dist);
+  }
+
+  distance(start: bigint, end: bigint): bigint {
+    const b = this.series.map((s) => s.alignmentBounds);
+    return bounds.distance(b, start, end);
+  }
+
   [Symbol.iterator](): Iterator<T> {
     if (this.series.length === 0)
       return {

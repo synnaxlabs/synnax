@@ -146,6 +146,7 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
     ) as w:
         i = 0
         while loop.wait():
+            i += 1
             try:
                 while True:
                     f = streamer.read(0)
@@ -208,10 +209,13 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
                     DAQ_STATE[FUEL_PT_1] -= delta
                     DAQ_STATE[FUEL_PT_2] -= delta
 
+
                 clamped = clamp_pts(DAQ_STATE)
                 randomized = introduce_randomness(clamped)
                 translated = translate_valves(randomized)
                 translated[DAQ_TIME] = sy.TimeStamp.now()
+
+                translated[OX_PT_1] = i
                 ok = w.write(translated)
 
             except Exception as e:
