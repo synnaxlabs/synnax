@@ -48,7 +48,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
-	"reflect"
 	"runtime"
 	"sync"
 	"unsafe"
@@ -60,10 +59,8 @@ var (
 	initOnce  sync.Once
 	initError error
 )
-var (
-	globalsC   *C.PyObject
-	globalsMtx sync.Mutex
-)
+
+var globalsC *C.PyObject
 
 //go:generate sh build.sh
 //go:embed all:python_install
@@ -97,8 +94,6 @@ func init() {
 
 // Initialize the Python globals dictionary and import necessary modules
 func initGlobals() {
-	globalsMtx.Lock()
-	defer globalsMtx.Unlock()
 	globalsC = C.PyDict_New()
 	if globalsC == nil {
 		initError = fmt.Errorf("failed to create Python globals dictionary")
@@ -152,15 +147,13 @@ func Exec(code string, ctx map[string]interface{}) (telem.Series, error) {
 	if err != nil {
 		return s, err
 	}
-	globalsMtx.Lock()
-	defer globalsMtx.Unlock()
 	localsC := C.PyDict_New()
 	if localsC == nil {
 		return s, errors.Newf("failed to create Python locals dictionary")
 	}
 	defer C.Py_DecRef(localsC)
 
-	// Set ctx variables
+	// Set ctx variables in locals
 	if len(ctx) > 0 {
 		// Prepare arrays of keys and values
 		var (
@@ -182,26 +175,28 @@ func Exec(code string, ctx map[string]interface{}) (telem.Series, error) {
 			values[i] = pyObj
 			i++
 		}
-		C.set_dict_items(globalsC, &keys[0], &values[0], C.int(count))
+		C.set_dict_items(localsC, &keys[0], &values[0], C.int(count))
 		for i := 0; i < count; i++ {
 			C.free(unsafe.Pointer(keys[i]))
 		}
 	}
 
-	// Execute the compiled code object
-	ret := C.PyEval_EvalCode(compiled, globalsC, nil)
+	// Execute the compiled code object with locals
+	ret := C.PyEval_EvalCode(compiled, globalsC, localsC)
 	if ret == nil {
 		C.PyErr_Print()
 		return s, errors.New("failed to execute code")
 	}
 	C.Py_DecRef(ret) // Decrease ref count for the result of execution
 
-	// Retrieve 'result' from locals or ctx
+	// Retrieve 'result' from locals
 	cr := C.CString("result")
 	defer C.free(unsafe.Pointer(cr))
 	r := C.PyDict_GetItemString(localsC, cr)
 	if r == nil {
-		if r = C.PyDict_GetItemString(globalsC, cr); r == nil {
+		// If 'result' not in locals, check in globals (in case code modifies globals)
+		r = C.PyDict_GetItemString(globalsC, cr)
+		if r == nil {
 			return s, errors.New("no 'result' variable in ctx or locals")
 		}
 	}
@@ -289,13 +284,11 @@ func ToSeries(pyArray *C.PyObject) (telem.Series, error) {
 	for i := 0; i < nDim; i++ {
 		length *= int(dimsSlice[i])
 	}
-	itemSize := int(C.PyArray_ITEMSIZE(arr))
-	totalSize := length * itemSize
-	var dataBytes []byte
-	sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&dataBytes))
-	sliceHeader.Data = uintptr(unsafe.Pointer(data))
-	sliceHeader.Len = totalSize
-	sliceHeader.Cap = totalSize
+	var (
+		itemSize  = int(C.PyArray_ITEMSIZE(arr))
+		totalSize = length * itemSize
+		dataBytes = unsafe.Slice((*byte)(data), totalSize)
+	)
 	runtime.KeepAlive(pyArray)
 	return telem.Series{DataType: dt, Data: dataBytes}, nil
 }
