@@ -27,12 +27,14 @@ jobs:
         id: filter
         with:
           filters: |
-            go:
+            shared: &shared
               - .github/workflows/test.x.yaml
+            go:
+              - *shared
               - alamos/go/**
               - x/go/**
             ts:
-              - .github/workflows/test.x.yaml
+              - *shared
               - configs/eslint/**
               - configs/stylelint/**
               - configs/ts/**

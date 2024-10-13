@@ -1,4 +1,5 @@
-name: "Test - Freighter"
+name: "Test: Freighter"
+
 on:
   pull_request:
     branches:
@@ -8,130 +9,144 @@ on:
     branches:
       - rc
       - main
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
+
 permissions:
   contents: write
   packages: write
+
 jobs:
-  test-go:
+  setup:
+    name: Setup
     runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      integration: ${{ steps.filter.outputs.integration }}
+      cpp: ${{ steps.filter.outputs.cpp }}
+      py: ${{ steps.filter.outputs.py }}
+      ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            changed:
-              - "freighter/go/**"
-              - "freighter/integration/**"
-              - ".github/workflows/test.freighter.yaml"
+            shared: &shared
+              - .github/workflows/test.freighter.yaml
+
+            go: &go
+              - *shared
+              - alamos/go/**
+              - freighter/go/**
+              - x/go/**
+
+            integration: &integration
+              - *shared
+              - *go
+              - freighter/integration/**
+              - x/go/**
+
+            py:
+              - *shared
+              - *integration
+              - alamos/py/**
+              - freighter/py/**
+
+            ts:
+              - *shared
+              - *integration
+              - alamos/ts/**
+              - freighter/ts/**
+              - configs/eslint/**
+              - configs/stylelint/**
+              - configs/ts/**
+              - configs/vite/**
+              - x/ts/**
+
+            cpp:
+              - *shared
+              - *integration
+              - freighter/cpp/**
+
+  go:
+    name: Go (${{ matrix.os }})
+    needs: setup
+    if: needs.setup.outputs.go == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
-        if: steps.filter.outputs.changed == 'true'
         with:
-          go-version-file: "go.work"
+          go-version-file: go.work
           cache-dependency-path: |
-            "alamos/go/go.sum"
-            "aspen/go.sum"
-            "cesium/go.sum"
-            "freighter/go/go.sum"
-            "synnax/go.sum"
-            "x/go/go.sum"
+            alamos/go/go.sum
+            freighter/go/go.sum
+            x/go/go.sum
 
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: go test -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
-        working-directory: ./freighter/go
+        run: go test -v -shuffle=on ./...
+        working-directory: freighter/go
 
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./freighter/go
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freightergo
-
-  build-integration-image:
+  integration:
     runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.integration == 'true'
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - "freighter/integration/**"
-              - ".github/workflows/test.freighter.yaml"
+        uses: actions/checkout@v4
 
       - name: Login to Github Container Registry
-        if: steps.filter.outputs.changed == 'true'
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download latest earthly
-        if: steps.filter.outputs.changed == 'true'
+      - name: Download Earhly
         uses: earthly/actions-setup@v1
 
       - name: Build Image
-        if: steps.filter.outputs.changed == 'true'
         run: earthly --push +docker
         working-directory: ./freighter/integration
 
   test-python:
-    needs: [build-integration-image]
-    runs-on: ubuntu-latest
+    name: Python (${{ matrix.os }})
+    needs: [integration, setup]
+    if: needs.setup.outputs.py == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - "freighter/py/**"
-              - "freighter/integration/**"
-              - ".github/workflows/test.freighter.yaml"
-
-      - name: Set up Python
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
+        uses: actions/checkout@v4
 
       - name: Install Poetry
-        if: steps.filter.outputs.changed == 'true'
-        run: |
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: freighter/py/pyproject.toml
+          cache: poetry
+
+      - name: Install Dependencies
+        run: poetry install
         working-directory: ./freighter/py
 
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: pytest --cov=freighter --cov-report xml:coverage.xml
+        run: pytest
         working-directory: ./freighter/py
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./freighter/py
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freighterpy
 
     services:
       integration:
@@ -143,50 +158,42 @@ jobs:
           - 8080:8080
 
   test-typescript:
-    needs: [build-integration-image]
-    runs-on: ubuntu-latest
+    name: TypeScript (${{ matrix.os }})
+    needs: [integration, setup]
+    if: needs.setup.outputs.ts == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - "freighter/ts/**"
-              - "freighter/integration/**"
-              - ".github/workflows/test.freighter.yaml"
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
 
-      - name: Setup pnpm
-        if: steps.filter.outputs.changed == 'true'
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Setup Node
-        if: steps.filter.outputs.changed == 'true'
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: package.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build:freighter
 
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm cov:freighter
+        run: pnpm test:freighter
 
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./freighter/ts
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freighterts
+      - name: Lint
+        if: matrix.lint == true
+        run: pnpm lint:freighter
 
     services:
       integration:
@@ -198,10 +205,16 @@ jobs:
           - 8080:8080
 
   test-cpp:
-    runs-on: windows-latest
+    name: C++ (${{ matrix.os }})
+    needs: [integration, setup]
+    if: needs.setup.outputs.cpp == 'true'
+    strategy:
+      matrix:
+        os: [windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1

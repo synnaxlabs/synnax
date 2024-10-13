@@ -45,6 +45,10 @@
       "path": "../freighter/py"
     },
     {
+      "name": "freighter/cpp",
+      "path": "../freighter/cpp"
+    },
+    {
       "name": "freighter/go",
       "path": "../freighter/go"
     },
