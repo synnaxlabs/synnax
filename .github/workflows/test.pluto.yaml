@@ -12,8 +12,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  setup:
-    name: Setup
+  changes:
+    name: Changes
     runs-on: ubuntu-latest
     outputs:
       changed: ${{ steps.filter.outputs.changed }}
@@ -40,8 +40,8 @@ jobs:
 
   test:
     name: Test
-    needs: setup
-    if: needs.setup.outputs.changed == 'true'
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]

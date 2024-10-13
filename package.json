@@ -55,14 +55,9 @@
     "fix:client": "npx turbo fix --filter @synnaxlabs/client",
     "fix:drift": "npx turbo fix --filter @synnaxlabs/drift",
     "fix:alamos": "npx turbo fix --filter @synnaxlabs/alamos",
-    "genApi": "npx turbo genApi",
-    "genApi:client": "npx turbo genApi --filter @synnaxlabs/client",
-    "checkApi": "npx turbo checkApi",
-    "checkApi:client": "npx turbo checkApi --filter @synnaxlabs/client",
     "devtools": "npx turbo devtools --filter console"
   },
   "devDependencies": {
-    "@microsoft/api-extractor": "^7.47.9",
     "prettier": "^3.3.3",
     "turbo": "^2.1.3"
   },

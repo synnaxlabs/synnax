@@ -29,9 +29,7 @@
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix",
-    "genApi": "tsc --noEmit && vite build && npx api-extractor run --local",
-    "checkApi": "tsc --noEmit && vite build && npx api-extractor run"
+    "fix": "eslint \"src/**/*.ts*\" --fix"
   },
   "dependencies": {
     "@synnaxlabs/freighter": "workspace:*",
