@@ -44,12 +44,10 @@ import "C"
 import (
 	"embed"
 	"fmt"
+	xembed "github.com/synnaxlabs/x/embed"
 	"github.com/synnaxlabs/x/errors"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"sync"
@@ -67,44 +65,16 @@ var (
 	globalsMtx sync.Mutex
 )
 
+//go:generate sh build.sh
 //go:embed all:python_install
 var embeddedPython embed.FS
 
 const synnaxPythonInstallDir = "/tmp/synnax"
 
-// Extract embedded Python files
-func extractEmbeddedPython() (string, error) {
-	if _, err := os.Stat(synnaxPythonInstallDir); err == nil {
-		return synnaxPythonInstallDir, nil
-	}
-	err := os.MkdirAll(synnaxPythonInstallDir, 0755)
-	if err != nil {
-		return "", err
-	}
-	err = fs.WalkDir(embeddedPython, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		data, err := embeddedPython.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		destPath := filepath.Join(synnaxPythonInstallDir, path)
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return err
-		}
-		return os.WriteFile(destPath, data, 0644)
-	})
-	return synnaxPythonInstallDir, err
-}
-
 // Initialize Python and NumPy
 func init() {
 	initOnce.Do(func() {
-		dir, err := extractEmbeddedPython()
+		dir, err := xembed.Extract(embeddedPython, synnaxPythonInstallDir)
 		if err != nil {
 			initError = fmt.Errorf("failed to extract embedded Python files: %v", err)
 			logrus.Error(initError)
@@ -112,17 +82,15 @@ func init() {
 		}
 		pythonHome := C.CString(dir + "/python_install")
 		defer C.free(unsafe.Pointer(pythonHome))
-		wpythonHome := C.Py_DecodeLocale(pythonHome, nil)
-		defer C.PyMem_Free(unsafe.Pointer(wpythonHome))
-		C.Py_SetPythonHome(wpythonHome)
+		wPythonHome := C.Py_DecodeLocale(pythonHome, nil)
+		defer C.PyMem_Free(unsafe.Pointer(wPythonHome))
+		C.Py_SetPythonHome(wPythonHome)
 		C.Py_Initialize()
-		res := C.init_numpy()
-		if res != 0 {
+		if res := C.init_numpy(); res != 0 {
 			initError = fmt.Errorf("failed to initialize NumPy")
 			logrus.Error(initError)
 			return
 		}
-		// Initialize globals
 		initGlobals()
 	})
 }
