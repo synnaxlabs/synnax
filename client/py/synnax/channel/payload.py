@@ -37,6 +37,8 @@ class ChannelPayload(Payload):
     index: ChannelKey = 0
     internal: bool = False
     virtual: bool = False
+    expression: str = ""
+    requires: ChannelKeys = []
 
     def __str__(self):
         return f"Channel(name={self.name}, key={self.key})"

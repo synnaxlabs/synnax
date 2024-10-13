@@ -199,7 +199,13 @@ type Channel struct {
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Internal determines if a channel is a channel created by Synnax or
 	// created by the user.
-	Internal bool `json:"internal" msgpack:"internal"`
+	Internal   bool   `json:"internal" msgpack:"internal"`
+	Requires   []Key  `json:"requires" msgpack:"requires"`
+	Expression string `json:"expression" msgpack:"expression"`
+}
+
+func (c Channel) IsCalculated() bool {
+	return c.Virtual && c.Expression != ""
 }
 
 func (c Channel) String() string {

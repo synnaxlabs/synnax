@@ -13,7 +13,6 @@ import (
 	"context"
 	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/computron/math"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -183,7 +182,6 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 		return err
 	}
 
-	avg := avgDuration(100)
 	var (
 		receiver = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
 		sender   = &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
@@ -191,26 +189,6 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 			Transform: func(ctx context.Context, res FrameStreamerResponse) (FrameStreamerResponse, bool, error) {
 				if res.Error != nil {
 					res.Error = errors.Encode(ctx, res.Error, false)
-				}
-				for i, s := range res.Frame.Series {
-					if s.DataType != telem.Float32T {
-						continue
-					}
-					stop := avg()
-					mathS, err := math.New(s)
-					if err != nil {
-						logrus.Info(err)
-					}
-					rs, err := math.Exec("result = arr**2 - arr + 20", map[string]interface{}{
-						"arr": mathS,
-					}, nil)
-					if err != nil {
-						logrus.Info(err)
-					}
-					rs.TimeRange = s.TimeRange
-					rs.Alignment = s.Alignment
-					res.Frame.Series[i] = rs
-					stop()
 				}
 				return res, true, nil
 			},

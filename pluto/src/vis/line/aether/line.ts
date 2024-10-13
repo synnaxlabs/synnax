@@ -301,7 +301,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       downsample,
       DEFAULT_OVERLAP_THRESHOLD,
     );
-    console.log(digests(ops));
+    console.log(xData, yData);
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,

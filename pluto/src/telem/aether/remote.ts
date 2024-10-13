@@ -101,6 +101,7 @@ export class StreamChannelValue
   }
 
   private async updateStreamHandler(): Promise<void> {
+    console.log("Updating stream handler");
     await this.removeStreamHandler?.();
     const handler: client.StreamHandler = (data) => {
       const res = data[this.channelKey];
@@ -118,14 +119,18 @@ export class StreamChannelValue
   }
 }
 
+interface SelectedChannelProperties
+  extends Pick<channel.Payload, "key" | "dataType" | "virtual"> {}
+
 const fetchChannelProperties = async (
   client: client.ChannelClient,
   channel: channel.KeyOrName,
   fetchFromIndex: boolean,
-): Promise<{ key: channel.Key; dataType: DataType }> => {
+): Promise<SelectedChannelProperties> => {
   const c = await client.retrieveChannel(channel);
-  if (!fetchFromIndex || c.isIndex) return { key: c.key, dataType: c.dataType };
-  return { key: c.index, dataType: DataType.TIMESTAMP };
+  if (!fetchFromIndex || c.isIndex)
+    return { key: c.key, dataType: c.dataType, virtual: c.virtual };
+  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false };
 };
 
 const channelDataSourcePropsZ = z.object({
@@ -212,7 +217,8 @@ export class StreamChannelData
     if (channel === 0) return [bounds.ZERO, []];
     const now = TimeStamp.now();
     const ch = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
-    if (!this.valid) await this.read(ch.key);
+    if (!this.valid) await this.read(ch);
+    if (ch.dataType.isVariable) return [bounds.ZERO, this.data];
     let b = bounds.max(
       this.data
         .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
@@ -226,12 +232,14 @@ export class StreamChannelData
     return [b, this.data];
   }
 
-  private async read(key: channel.Key): Promise<void> {
+  private async read({ key, virtual }: SelectedChannelProperties): Promise<void> {
     const tr = TimeStamp.now().spanRange(-this.props.timeSpan);
-    const res = await this.client.read(tr, [key]);
-    const newData = res[key].data;
-    newData.forEach((d) => d.acquire());
-    this.data.push(...newData);
+    if (!virtual) {
+      const res = await this.client.read(tr, [key]);
+      const newData = res[key].data;
+      newData.forEach((d) => d.acquire());
+      this.data.push(...newData);
+    }
     await this.updateStreamHandler(key);
     this.valid = true;
   }
