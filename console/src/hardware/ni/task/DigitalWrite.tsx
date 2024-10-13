@@ -33,7 +33,7 @@ import {
   DOChan,
   ZERO_DIGITAL_WRITE_PAYLOAD,
   ZERO_DO_CHAN,
-} from "@/hardware/ni/task/types";
+} from "@/hardware/ni/task/migrations";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,

@@ -284,9 +284,9 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				}
 				idxW.internal[key] = &unaryWriterState{Writer: *unaryW}
 			}
-			if transfer.Occurred() {
-				controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
-			}
+		}
+		if transfer.Occurred() {
+			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
 		}
 	}
 

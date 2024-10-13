@@ -18,6 +18,7 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
@@ -41,6 +42,7 @@ const LINK_HANDLERS: Link.Handler[] = [
   LinePlotServices.linkHandler,
   RangeServices.linkHandler,
   SchematicServices.linkHandler,
+  Task.linkHandler,
   Workspace.linkHandler,
 ];
 

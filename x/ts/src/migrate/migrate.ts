@@ -10,6 +10,7 @@
 import { z } from "zod";
 
 import { compare } from "@/compare";
+import { Optional } from "@/optional";
 
 export const semVerZ = z.string().regex(/^\d+\.\d+\.\d+$/);
 
@@ -158,22 +159,27 @@ interface MigratorProps<O extends Migratable, ZO extends z.ZodTypeAny = z.ZodTyp
   name: string;
   migrations: Migrations;
   def: O;
+  defaultVersion?: string;
   targetSchema?: ZO;
 }
 
+export type Migrator = <I extends Optional<Migratable, "version">, O>(v: I) => O;
+
 export const migrator = <
-  I extends Migratable,
+  I extends Optional<Migratable, "version">,
   O extends Migratable,
   ZO extends z.ZodTypeAny = z.ZodTypeAny,
 >({
   name,
   migrations,
   targetSchema,
+  defaultVersion,
   def,
 }: MigratorProps<O, ZO>): ((v: I) => O) => {
   const latestMigrationVersion = Object.keys(migrations).sort(compareSemVer).pop();
   if (latestMigrationVersion == null)
-    return (v: Migratable) => {
+    return (v: I) => {
+      if (v.version == null) v.version = defaultVersion;
       if (v.version !== def.version) {
         console.log(
           `${name} version ${v.version} is newer than latest version of ${def.version}. 
@@ -216,9 +222,22 @@ export const migrator = <
       return def;
     }
   };
-  return (v: Migratable): O => {
+  return (v: I): O => {
     try {
-      return f(v) as O;
+      if (v.version == null) {
+        if (defaultVersion != null) {
+          console.log(
+            `${name} version is null. Setting version to default of ${defaultVersion}`,
+          );
+          v.version = defaultVersion;
+        } else {
+          console.log(
+            `${name} version is null and no default version set. Exiting with default`,
+          );
+          return def;
+        }
+      }
+      return f(v as Migratable) as O;
     } catch (e) {
       console.log(`${name} failed to parse final result. Exiting with default`);
       console.error(e);

@@ -25,8 +25,17 @@ import {
   Triggers,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { caseconv, deep, Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
+import {
+  caseconv,
+  deep,
+  Key,
+  Keyed,
+  migrate,
+  Optional,
+  UnknownRecord,
+} from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
+import { Migratable } from "node_modules/@synnaxlabs/x/dist/src/migrate/migrate";
 import { FC, ReactElement, useCallback, useId, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
@@ -360,6 +369,7 @@ export interface TaskLayoutArgs<P extends task.Payload> {
 export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
   Wrapped: FC<WrappedTaskLayoutProps<T, P>>,
   zeroPayload: P,
+  migrator?: migrate.Migrator,
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const client = Synnax.use();
@@ -389,6 +399,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
           if (e instanceof SyntaxError) key = altKey;
         }
         const t = await client.hardware.tasks.retrieve(key, { includeState: true });
+        if (migrator != null) t.config = migrator(t.config as Migratable);
         return { initialValues: t as unknown as P, task: t as T, layoutKey };
       },
     });

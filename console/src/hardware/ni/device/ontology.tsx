@@ -42,7 +42,7 @@ export const ContextMenuItems = ({
   };
   const handleCreateAnalogReadTask = () => {
     maybeConfigure();
-    place(configureAnalogReadLayout(args));
+    place(configureAnalogReadLayout({ create: true }));
   };
   const handleCreateDigitalWriteTask = () => {
     maybeConfigure();

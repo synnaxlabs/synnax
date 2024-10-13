@@ -75,19 +75,28 @@ describe("framer.Frame", () => {
         expect(f.colType).toEqual("name");
       });
 
-      test("from payload", () => {
-        const f = new framer.Frame({
-          keys: [12],
-          series: [
-            {
-              dataType: new DataType("float32"),
-              data: new SharedArrayBuffer(12),
-            },
-          ],
+      describe("payload parsing", () => {
+        it("should correctly parse a series payload", () => {
+          const f = new framer.Frame({
+            keys: [12],
+            series: [
+              { dataType: new DataType("float32"), data: new SharedArrayBuffer(12) },
+            ],
+          });
+          expect(f.length.valueOf()).toEqual(3);
+          expect(f.columns.length).toEqual(1);
+          expect(f.series.length).toEqual(1);
         });
-        expect(f.length.valueOf()).toEqual(3);
-        expect(f.columns.length).toEqual(1);
-        expect(f.series.length).toEqual(1);
+
+        it("should correctly parse a series with null data", () => {
+          const f = new framer.Frame({
+            keys: [12],
+            series: [{ dataType: "float32", data: null }],
+          });
+          expect(f.length.valueOf()).toEqual(0);
+          expect(f.columns.length).toEqual(1);
+          expect(f.series.length).toEqual(1);
+        });
       });
 
       test("from record", () => {

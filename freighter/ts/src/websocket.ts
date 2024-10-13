@@ -13,11 +13,11 @@ import { z } from "zod";
 import { decodeError, EOF, errorZ, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
-import type { Stream, StreamClient } from "@/stream";
+import { type Stream, type StreamClient } from "@/stream";
 
 const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
   if (runtime.RUNTIME !== "node") return (t) => new WebSocket(t);
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   return (t) => new (require("ws").WebSocket)(t, { rejectUnauthorized: false });
 };
 
