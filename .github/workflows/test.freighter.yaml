@@ -45,7 +45,6 @@ jobs:
               - x/go/**
 
             integration: &integration
-              - *shared
               - *go
               - freighter/integration/**
               - x/go/**
@@ -119,15 +118,11 @@ jobs:
         run: earthly --push +docker
         working-directory: ./freighter/integration
 
-  test-python:
-    name: Python (${{ matrix.os }})
-    needs: [integration, setup]
+  py:
+    name: Python
+    needs: [setup, integration]
     if: needs.setup.outputs.py == 'true'
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -158,18 +153,11 @@ jobs:
         ports:
           - 8080:8080
 
-  test-typescript:
-    name: TypeScript (${{ matrix.os }})
-    needs: [integration, setup]
+  ts:
+    name: TypeScript
+    needs: [setup, integration]
     if: needs.setup.outputs.ts == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        include:
-          - os: ubuntu-latest
-            lint: true
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -194,7 +182,6 @@ jobs:
         run: pnpm test:freighter
 
       - name: Lint
-        if: matrix.lint == true
         run: pnpm lint:freighter
 
     services:
@@ -206,25 +193,24 @@ jobs:
         ports:
           - 8080:8080
 
-  # test-cpp:
-  #   name: C++ (${{ matrix.os }})
-  #   needs: [integration, setup]
-  #   if: needs.setup.outputs.cpp == 'true'
-  #   strategy:
-  #     matrix:
-  #       os: [windows-latest]
-  #   runs-on: ${{ matrix.os }}
-  #   steps:
-  #     - name: Checkout Repository
-  #       uses: actions/checkout@v4
+  cpp:
+    name: C++ (${{ matrix.os }})
+    needs: setup
+    if: needs.setup.outputs.cpp == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-  #     - name: Setup Bazel
-  #       uses: bazel-contrib/setup-bazel@0.8.1
-  #       with:
-  #         bazelisk-cache: true
-  #         disk-cache: ${{ github.workflow }}
-  #         repository-cache: true
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
 
-  #     - name: Run Tests
-  #       run: bazel test //freighter/cpp:freighter_test
-  #       shell: bash
+      - name: Test
+        run: bazel test //freighter/cpp:freighter_test
