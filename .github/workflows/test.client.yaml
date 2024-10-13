@@ -22,8 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       server: ${{ steps.filter.outputs.server }}
-      py: ${{ steps.filter.outputs.python }}
-      ts: ${{ steps.filter.outputs.typescript }}
+      py: ${{ steps.filter.outputs.py }}
+      ts: ${{ steps.filter.outputs.ts }}
       cpp: ${{ steps.filter.outputs.cpp }}
     steps:
       - name: Checkout Repository
