@@ -165,38 +165,3 @@ func formatNameMatcher(name string) func(name string) bool {
 		return rx.MatchString
 	}
 }
-
-func RetrieveRequiredKeys(ctx context.Context, r Readable, keys Keys) (Keys, error) {
-	keys = lo.Uniq(keys)
-	results := make([]Channel, 0, len(keys))
-	if err := r.
-		NewRetrieve().
-		Entries(&results).
-		WhereKeys(keys...).Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	for _, ch := range results {
-		if ch.IsCalculated() {
-			keys = lo.Filter(keys, func(k Key, _ int) bool { return k != ch.Key() })
-			keys = append(keys, ch.Requires...)
-		}
-	}
-	return lo.Uniq(keys), nil
-}
-
-func RetrieveRequiredKeys2(ctx context.Context, r Readable, keys Keys) (Keys, error) {
-	keys = lo.Uniq(keys)
-	results := make([]Channel, 0, len(keys))
-	if err := r.
-		NewRetrieve().
-		Entries(&results).
-		WhereKeys(keys...).Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	for _, ch := range results {
-		if ch.IsCalculated() {
-			keys = append(keys, ch.Requires...)
-		}
-	}
-	return lo.Uniq(keys), nil
-}

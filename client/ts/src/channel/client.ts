@@ -107,6 +107,11 @@ export class Channel {
    * database, but can still be used for streaming purposes.
    */
   readonly virtual: boolean;
+  /**
+   *
+   */
+  readonly expression: string;
+  readonly requires: Key[];
 
   constructor({
     dataType,
@@ -120,6 +125,8 @@ export class Channel {
     virtual = false,
     frameClient,
     alias,
+    expression = "",
+    requires = [],
   }: NewPayload & {
     frameClient?: framer.Client;
     density?: CrudeDensity;
@@ -134,6 +141,8 @@ export class Channel {
     this.internal = internal;
     this.alias = alias;
     this.virtual = virtual;
+    this.expression = expression;
+    this.requires = requires ?? [];
     this._frameClient = frameClient ?? null;
   }
 
@@ -158,6 +167,8 @@ export class Channel {
       index: this.index,
       isIndex: this.isIndex,
       internal: this.internal,
+      expression: this.expression,
+      requires: this.requires,
     });
   }
 

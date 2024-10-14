@@ -120,7 +120,7 @@ const MainUnderContext = (): ReactElement => {
         haul={{ useState: useHaulState }}
         alamos={{
           level: "debug",
-          include: ["aether.control-state"],
+          include: [],
         }}
       >
         <Vis.Canvas>

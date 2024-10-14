@@ -33,9 +33,9 @@ type streamer struct {
 type StreamerConfig = Request
 
 func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
-	keys, err := channel.RetrieveRequiredKeys(ctx, r.cfg.ChannelReader, cfg.Keys)
+	err := r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil)
 	return &streamer{
-		keys:    keys,
+		keys:    cfg.Keys,
 		addr:    address.Rand(),
 		demands: r.demands,
 		relay:   r,

@@ -92,6 +92,10 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
 		}
+		if ch.Expression != "" {
+			channels[i].Leaseholder = core.Free
+			channels[i].Virtual = true
+		}
 	}
 	batch := lp.createRouter.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))

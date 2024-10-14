@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, math,Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, math, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
@@ -129,6 +129,7 @@ export class Dynamic {
         Number(this.buffer.alignment + BigInt(this.buffer.length) - series.alignment),
       ) > 1
     ) {
+      console.log(series.alignment);
       // This case occurs when the alignment of the incoming series does not match
       // the alignment of the current buffer. In this case, we flush the current buffer
       // and allocate a new one.

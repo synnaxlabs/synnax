@@ -12,6 +12,7 @@ package telem
 import (
 	"encoding/binary"
 	"github.com/synnaxlabs/x/types"
+	"math"
 )
 
 func NewSeries[T types.Numeric](data []T) (series Series) {
@@ -63,9 +64,15 @@ func Unmarshal[T types.Numeric](series Series) []T {
 func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	switch dt {
 	case Float64T:
-		panic("marshal tool does not implement support for float64 (yet)!")
+		return func(b []byte, v T) {
+			bits := math.Float64bits(float64(v))
+			ByteOrder.PutUint64(b, bits)
+		}
 	case Float32T:
-		panic("marshal tool does not implement support for float32 (yet)!")
+		return func(b []byte, v T) {
+			bits := math.Float32bits(float32(v))
+			ByteOrder.PutUint32(b, bits)
+		}
 	case Int64T:
 		return func(b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
 	case Int32T:
@@ -91,9 +98,15 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) T {
 	switch dt {
 	case Float64T:
-		panic("unmarshal tool does not implement support for float64 (yet)!")
+		return func(b []byte) T {
+			bits := ByteOrder.Uint64(b)
+			return T(math.Float64frombits(bits))
+		}
 	case Float32T:
-		panic("unmarshal tool does not implement support for float32 (yet)!")
+		return func(b []byte) T {
+			bits := ByteOrder.Uint32(b)
+			return T(math.Float32frombits(bits))
+		}
 	case Int64T:
 		return func(b []byte) T { return T(ByteOrder.Uint64(b)) }
 	case Int32T:

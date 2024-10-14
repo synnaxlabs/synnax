@@ -13,8 +13,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"github.com/sirupsen/logrus"
-	"github.com/synnaxlabs/computron"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -23,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/telem"
 	"os"
 	"os/signal"
 	"time"
@@ -103,22 +100,6 @@ func start(cmd *cobra.Command) {
 		verifier          = viper.GetString(string(decodedName))
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
-
-	s1 := telem.NewSeriesV[int32](1, 2, 3, 4, 5)
-	arr1, err := main.New(s1)
-	if err != nil {
-		logrus.Error(err)
-	}
-	s2 := telem.NewSeriesV[int32](1, 2, 3, 4, 5)
-	arr2, err := main.New(s2)
-	if err != nil {
-		logrus.Error(err)
-	}
-	res, err := main.Exec("result = arr1 + arr2", map[string]interface{}{
-		"arr1": arr1,
-		"arr2": arr2,
-	}, nil)
-	logrus.Info(telem.Unmarshal[int32](res))
 
 	if autoCert {
 		if err := generateAutoCerts(ins); err != nil {
@@ -227,7 +208,11 @@ func start(cmd *cobra.Command) {
 			Signals:      dist.Signals,
 			Channel:      dist.Channel,
 		})
-		frameSvc, err := framer.NewService(dist.Framer, dist.Channel)
+		frameSvc, err := framer.OpenService(framer.Config{
+			Instrumentation: ins.Child("framer"),
+			Framer:          dist.Framer,
+			Channel:         dist.Channel,
+		})
 		if err != nil {
 			return err
 		}

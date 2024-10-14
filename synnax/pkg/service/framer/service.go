@@ -11,10 +11,11 @@ package framer
 
 import (
 	"context"
-	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/computron"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculated"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -24,6 +25,7 @@ import (
 )
 
 type Config struct {
+	alamos.Instrumentation
 	Framer  *framer.Service
 	Channel channel.Readable
 }
@@ -43,12 +45,16 @@ func (c Config) Validate() error {
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
-type Service struct{ Config }
+type Service struct {
+	Config
+	Calculated *calculated.Service
+}
 
 func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*framer.Iterator, error) {
 	return s.Framer.OpenIterator(ctx, cfg)
@@ -67,87 +73,75 @@ func (s *Service) NewDeleter() framer.Deleter {
 }
 
 func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (framer.Streamer, error) {
-	keys, err := channel.RetrieveRequiredKeys2(ctx, s.Channel, cfg.Keys)
-	if err != nil {
+	var channels []channel.Channel
+	if err := s.Config.Channel.NewRetrieve().WhereKeys(cfg.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	ch := make([]channel.Channel, 0)
-	if err := s.Channel.NewRetrieve().WhereKeys(keys...).Entries(&ch).Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	calc := calculator{channels: ch}
-	sc := &streamCalculator{internal: calc}
-	sc.Transform = sc.transform
-	inter, err := s.Framer.NewStreamer(ctx, cfg)
-	if err != nil {
-		return inter, err
+	for _, ch := range channels {
+		if ch.IsCalculated() {
+			if _, err := s.Calculated.Request(ctx, ch.Key()); err != nil {
+				return nil, err
+			}
+		}
 	}
 	p := plumber.New()
-	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](p, "internal", inter)
-	plumber.SetSegment[framer.StreamerResponse, framer.StreamerResponse](p, "transform", sc)
-	plumber.MustConnect[framer.StreamerResponse](p, "internal", "transform", 10)
+	ut := &updaterTransform{
+		c:        s.Calculated,
+		channels: s.Config.Channel,
+	}
+	ut.Transform = ut.transform
+	strm, err := s.Framer.NewStreamer(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	plumber.SetSegment(p, "streamer", strm)
+	plumber.SetSegment[framer.StreamerRequest, framer.StreamerRequest](p, "updater", ut)
+	plumber.MustConnect[framer.StreamerRequest](p, "updater", "streamer", 10)
 	seg := &plumber.Segment[framer.StreamerRequest, framer.StreamerResponse]{
 		Pipeline:         p,
-		RouteInletsTo:    []address.Address{"internal"},
-		RouteOutletsFrom: []address.Address{"transform"},
+		RouteInletsTo:    []address.Address{"updater"},
+		RouteOutletsFrom: []address.Address{"streamer"},
 	}
 	return seg, nil
 }
 
-func NewService(cfgs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
-	return &Service{Config: cfg}, err
+type updaterTransform struct {
+	c        *calculated.Service
+	channels channel.Readable
+	confluence.LinearTransform[framer.StreamerRequest, framer.StreamerRequest]
 }
 
-type streamCalculator struct {
-	internal calculator
-	confluence.LinearTransform[framer.StreamerResponse, framer.StreamerResponse]
-}
-
-func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerResponse) (framer.StreamerResponse, bool, error) {
-	i.Frame = s.internal.transform(i.Frame)
-	return i, true, nil
-}
-
-type calculator struct {
-	channels []channel.Channel
-}
-
-func (c calculator) transform(fr framer.Frame) framer.Frame {
-	for _, ch := range c.channels {
+func (t *updaterTransform) transform(ctx context.Context, req framer.StreamerRequest) (framer.StreamerRequest, bool, error) {
+	var channels []channel.Channel
+	if err := t.channels.NewRetrieve().WhereKeys(req.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
+		return req, true, err
+	}
+	for _, ch := range channels {
 		if ch.IsCalculated() {
-			fr = c.calculate(ch, fr)
+			if _, err := t.c.Request(ctx, ch.Key()); err != nil {
+				return req, true, nil
+			}
 		}
 	}
-	return fr
+	return req, true, nil
 }
 
-func (c calculator) calculate(ch channel.Channel, fr framer.Frame) framer.Frame {
-	globals := make(map[string]interface{})
-	for _, k := range ch.Requires {
-		s := fr.Get(k)
-		if len(s) == 0 {
-			continue
-		}
-		obj, err := main.New(s[0])
-		if err != nil {
-			continue
-		}
-		ch, found := lo.Find(c.channels, func(ch channel.Channel) bool {
-			return ch.Key() == k
-		})
-		if !found {
-			continue
-		}
-		globals[ch.Name] = obj
-	}
-	os, err := main.Exec(ch.Expression, globals)
+func OpenService(cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
-		return fr
+		return nil, err
 	}
-	os.TimeRange = fr.Series[0].TimeRange
-	os.Alignment = fr.Series[0].Alignment
-	fr.Series = append(fr.Series, os)
-	fr.Keys = append(fr.Keys, ch.Key())
-	return fr
+	s := &Service{Config: cfg}
+	computer, err := computron.New(computron.Config{Instrumentation: cfg.Child("computron")})
+	if err != nil {
+		return nil, err
+	}
+	calc, err := calculated.Open(calculated.Config{
+		Instrumentation: cfg.Instrumentation.Child("calculated"),
+		Computron:       computer,
+		Channel:         cfg.Channel,
+		Framer:          cfg.Framer,
+	})
+	s.Calculated = calc
+	return s, err
 }

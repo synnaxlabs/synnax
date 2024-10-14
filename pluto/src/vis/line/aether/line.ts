@@ -301,7 +301,6 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       downsample,
       DEFAULT_OVERLAP_THRESHOLD,
     );
-    console.log(xData, yData);
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,
@@ -409,7 +408,6 @@ const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
 
 const seriesOverlap = (x: Series, ys: Series, overlapThreshold: TimeSpan): boolean => {
-  return true;
   // This is just a runtime check that both series' have time ranges defined.
   const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
   if (!haveTimeRanges)

@@ -31,6 +31,26 @@ describe("Channel", () => {
       expect(channel.dataType).toEqual(DataType.FLOAT32);
     });
 
+    test("create calculated", async () => {
+      const chOne = new Channel({
+        name: "test",
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      client.channels.create(chOne);
+      let calculatedCH = new Channel({
+        name: "test",
+        virtual: true,
+        dataType: DataType.FLOAT32,
+        expression: "test * 2",
+        requires: [chOne.key],
+      });
+      calculatedCH = await client.channels.create(calculatedCH);
+      expect(calculatedCH.key).not.toEqual(0);
+      expect(calculatedCH.virtual).toEqual(true);
+      expect(calculatedCH.expression).toEqual("test * 2");
+    });
+
     test("create index and indexed pair", async () => {
       const one = await client.channels.create({
         name: "Time",

@@ -1,8 +1,11 @@
+import "@/code/Editor.css";
+
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Input, Theming } from "@synnaxlabs/pluto";
 import * as monaco from "monaco-editor";
 import { useEffect, useRef } from "react";
 
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
 export const EDITOR_LAYOUT_TYPE = "code_editor";
@@ -32,13 +35,7 @@ export interface EditorProps
   extends Input.Control<string>,
     Omit<Align.SpaceProps, "value" | "onChange"> {}
 
-export const Editor = ({
-  value,
-  onChange,
-  className,
-  style,
-  ...props
-}: EditorProps) => {
+export const Editor = ({ value, onChange, className, ...props }: EditorProps) => {
   const editorRef = useRef<HTMLDivElement | null>(null); // A ref to store the editor DOM element
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // A ref to store the Monaco editor instance
   const theme = Theming.use();
@@ -55,7 +52,7 @@ export const Editor = ({
         },
       ],
       colors: {
-        "editor.background": theme.colors.gray.l1.hex,
+        "editor.background": theme.colors.gray.l2.hex,
         "editor.foreground": theme.colors.gray.l9.hex,
         "editor.selectionBackground": theme.colors.gray.l3.hex,
         "editor.lineHighlightBackground": theme.colors.gray.l2.hex,
@@ -80,10 +77,15 @@ export const Editor = ({
   }, [theme.key]);
 
   return (
-    <Align.Space direction="y" grow style={{ height: "100%", ...style }} {...props}>
+    <Align.Space
+      direction="y"
+      grow
+      {...props}
+      className={CSS(className, CSS.B("editor"))}
+    >
       <div ref={editorRef} style={{ height: "100%", position: "relative" }} />
     </Align.Space>
   );
 };
 
-export const EditorLayout: Layout.Renderer = ({ layoutKey }) => {};
+export const EditorLayout: Layout.Renderer = ({ layout }) => {};

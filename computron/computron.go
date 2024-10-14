@@ -43,55 +43,147 @@ static PyObject* my_PyCompileString(const char *str, const char *filename, int s
 import "C"
 import (
 	"fmt"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/config"
 	xembed "github.com/synnaxlabs/x/embed"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
-	"log"
+	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
+	"strings"
 	"unsafe"
 )
 
-var (
-	initPython             sync.Once
-	initPythonError        error
-	synnaxPythonInstallDir = filepath.Join(os.TempDir(), "synnax")
+const (
+	targetPythonVersion             = "3.9.13"
+	dirPerm             os.FileMode = 0755
+	filePerm            os.FileMode = 0644
 )
 
-// Initialize Python and NumPy
-func init() {
-	initPython.Do(func() {
-		dir, err := xembed.Extract(embeddedPython, synnaxPythonInstallDir)
-		if err != nil {
-			initPythonError = errors.Newf("failed to extract embedded Python files: %v", err)
-			return
-		}
-		pythonHomePath := filepath.Join(dir, "python_install")
-		pythonHome := C.CString(pythonHomePath)
-		defer C.free(unsafe.Pointer(pythonHome))
-		wPythonHome := C.Py_DecodeLocale(pythonHome, nil)
-		defer C.PyMem_Free(unsafe.Pointer(wPythonHome))
-		C.Py_SetPythonHome(wPythonHome)
-		C.Py_Initialize()
-		if res := C.init_numpy(); res != 0 {
-			initPythonError = errors.New("failed to initialize NumPy")
-			return
-		}
-		initGlobals()
-	})
+type Config struct {
+	// Instrumentation is used for logging, tracing, and metrics
+	alamos.Instrumentation
+	// PythonInstallDir is the directory where the embedded Python installation is
+	// extracted.
+	// [OPTIONAL] [DEFAULT: /tmp/synnax/computron]
+	PythonInstallDir string
 }
 
-var globalsC *C.PyObject
+var (
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for the computron service.
+	DefaultConfig = Config{
+		PythonInstallDir: filepath.Join(os.TempDir(), "synnax", "computron"),
+	}
+)
 
-// Initialize the Python globals dictionary and import necessary modules
-func initGlobals() {
-	globalsC = C.PyDict_New()
-	if globalsC == nil {
-		initPythonError = errors.Newf("failed to create Python globals dictionary")
-		return
+// Validate implements config.Config.
+func (c Config) Validate() error {
+	v := validate.New("computron")
+	validate.NotEmptyString(v, "PythonInstallDir", c.PythonInstallDir)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.PythonInstallDir = override.String(c.PythonInstallDir, other.PythonInstallDir)
+	return c
+}
+
+type Interpreter struct {
+	cfg     Config
+	globals *C.PyObject
+}
+
+func New(cfgs ...Config) (*Interpreter, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	cfg.L.Info("starting embedded Python service",
+		zap.String("install_dir", cfg.PythonInstallDir),
+		zap.String("version", targetPythonVersion),
+	)
+	s := &Interpreter{cfg: cfg}
+	if err := s.initPython(); err != nil {
+		return nil, err
+	}
+	err = s.initGlobals()
+	s.cfg.L.Info("embedded Python service started successfully")
+	return s, err
+}
+
+func (s *Interpreter) initPython() error {
+	// Check if the directory exists
+	installDir := filepath.Join(s.cfg.PythonInstallDir, "python_install")
+	if _, err := os.Stat(s.cfg.PythonInstallDir); err != nil && !os.IsNotExist(err) {
+		return errors.Wrapf(err, "failed to check Python installation directory")
+	}
+	// Read the contents of the VERSION file
+	contents, err := os.ReadFile(filepath.Join(installDir, "VERSION"))
+	v := string(contents)
+	v = strings.ReplaceAll(v, " ", "")
+	if err != nil && !os.IsNotExist(err) {
+		return errors.Wrapf(err, "failed to read Python version file")
+	}
+	if strings.Contains(v, targetPythonVersion) {
+		// Check if the version is the same as the embedded Python version. If so,
+		// everything is already set up and we can return early.
+		s.cfg.L.Debug("Python already installed. skipping installation")
+	} else {
+		s.cfg.L.Debug("extracting embedded Python installation. this may take a few seconds")
+		if err := xembed.Extract(
+			embeddedPython,
+			s.cfg.PythonInstallDir,
+			dirPerm,
+			filePerm,
+		); err != nil {
+			return errors.Newf("failed to extract embedded Python files: %v", err)
+		}
+		s.cfg.L.Debug("embedded Python installation extracted")
+	}
+	pythonHome := C.CString(installDir)
+	defer C.free(unsafe.Pointer(pythonHome))
+	wPythonHome := C.Py_DecodeLocale(pythonHome, nil)
+	defer C.PyMem_Free(unsafe.Pointer(wPythonHome))
+
+	// Lock the OS thread before initializing Python
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	C.Py_SetPythonHome(wPythonHome)
+	C.Py_Initialize()
+	// Initialize threading support
+	C.PyEval_InitThreads()
+
+	if res := C.init_numpy(); res != 0 {
+		return errors.New("failed to initialize NumPy")
+	}
+
+	// Release the GIL acquired by PyEval_InitThreads()
+	C.PyEval_SaveThread()
+
+	return nil
+}
+
+func (s *Interpreter) initGlobals() error {
+	// Lock the OS thread
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	// Acquire the GIL
+	gstate := C.PyGILState_Ensure()
+	defer C.PyGILState_Release(gstate)
+
+	s.globals = C.PyDict_New()
+	if s.globals == nil {
+		return errors.Newf("failed to create Python globals dictionary")
 	}
 	// Import NumPy and add it to globals
 	numpyName := C.CString("numpy")
@@ -99,19 +191,36 @@ func initGlobals() {
 	numpyModule := C.PyImport_ImportModule(numpyName)
 	if numpyModule == nil {
 		C.PyErr_Print()
-		initPythonError = fmt.Errorf("failed to import numpy")
-		log.Print(initPythonError)
-		return
+		return fmt.Errorf("failed to import numpy")
 	}
 	npKey := C.CString("np")
 	defer C.free(unsafe.Pointer(npKey))
-	C.PyDict_SetItemString(globalsC, npKey, numpyModule)
+	C.PyDict_SetItemString(s.globals, npKey, numpyModule)
 	C.Py_DecRef(numpyModule)
+	return nil
+}
+
+type Calculation struct {
+	globals  *C.PyObject
+	compiled *C.PyObject
+}
+
+func (s *Interpreter) NewCalculation(code string) (*Calculation, error) {
+	compiled, err := compile(code)
+	return &Calculation{compiled: compiled, globals: s.globals}, err
 }
 
 var compiledCodeCache xsync.Map[string, *C.PyObject]
 
 func compile(code string) (*C.PyObject, error) {
+	// Lock the OS thread
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	// Acquire the GIL
+	gstate := C.PyGILState_Ensure()
+	defer C.PyGILState_Release(gstate)
+
 	if compiledCode, exists := compiledCodeCache.Load(code); exists {
 		return compiledCode, nil
 	}
@@ -130,16 +239,18 @@ func compile(code string) (*C.PyObject, error) {
 	return compiledCode, nil
 }
 
-// Exec executes Python code and returns a telem.Series
-func Exec(code string, ctx map[string]interface{}) (telem.Series, error) {
+// Run executes Python code and returns a telem.Series
+func (c *Calculation) Run(ctx map[string]interface{}) (telem.Series, error) {
 	var s telem.Series
-	if initPythonError != nil {
-		return s, initPythonError
-	}
-	compiled, err := compile(code)
-	if err != nil {
-		return s, err
-	}
+
+	// Lock the OS thread
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	// Acquire the GIL
+	gstate := C.PyGILState_Ensure()
+	defer C.PyGILState_Release(gstate)
+
 	localsC := C.PyDict_New()
 	if localsC == nil {
 		return s, errors.Newf("failed to create Python locals dictionary")
@@ -175,7 +286,7 @@ func Exec(code string, ctx map[string]interface{}) (telem.Series, error) {
 	}
 
 	// Execute the compiled code object with locals
-	ret := C.PyEval_EvalCode(compiled, globalsC, localsC)
+	ret := C.PyEval_EvalCode(c.compiled, c.globals, localsC)
 	if ret == nil {
 		C.PyErr_Print()
 		return s, errors.New("failed to execute code")
@@ -188,7 +299,7 @@ func Exec(code string, ctx map[string]interface{}) (telem.Series, error) {
 	r := C.PyDict_GetItemString(localsC, cr)
 	if r == nil {
 		// If 'result' not in locals, check in globals (in case code modifies globals)
-		r = C.PyDict_GetItemString(globalsC, cr)
+		r = C.PyDict_GetItemString(c.globals, cr)
 		if r == nil {
 			return s, errors.New("no 'result' variable in ctx or locals")
 		}
@@ -228,8 +339,16 @@ var (
 	}
 )
 
-// New creates a NumPy array from a telem.Series
-func New(s telem.Series) (*C.PyObject, error) {
+// NewSeries creates a NumPy array from a telem.Series
+func NewSeries(s telem.Series) (*C.PyObject, error) {
+	// Lock the OS thread
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	// Acquire the GIL
+	gstate := C.PyGILState_Ensure()
+	defer C.PyGILState_Release(gstate)
+
 	v, ok := toNP[s.DataType]
 	if !ok {
 		return nil, fmt.Errorf("unsupported data type: %v", s.DataType)
@@ -254,6 +373,15 @@ func ToSeries(pyArray *C.PyObject) (telem.Series, error) {
 	if pyArray == nil {
 		return s, errors.New("pyArray is nil")
 	}
+
+	// Lock the OS thread
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	// Acquire the GIL
+	gState := C.PyGILState_Ensure()
+	defer C.PyGILState_Release(gState)
+
 	if C.is_array(pyArray) == 0 {
 		return s, errors.Newf("cannot convert non-NumPy object to Series")
 	}

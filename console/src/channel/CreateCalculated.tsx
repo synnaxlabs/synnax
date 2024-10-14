@@ -11,6 +11,7 @@ import { channel, DataType, Rate } from "@synnaxlabs/client";
 import {
   Align,
   Button,
+  Channel,
   Form,
   Input,
   Nav,
@@ -73,13 +74,16 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
       isIndex: false,
       leaseholder: 0,
       rate: Rate.hz(0),
-      virtual: false,
+      virtual: true,
+      expression: "result = np.array([])",
+      requires: [],
     },
   });
   const [createMore, setCreateMore] = useState(false);
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
+      console.log(methods.validate(), methods.value());
       if (!methods.validate() || client == null) return;
       const d = methods.value();
       d.dataType = d.dataType.toString();
@@ -96,6 +100,8 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
           virtual: false,
           rate: Rate.hz(0),
           internal: false,
+          expression: "",
+          requires: [],
         });
     },
   });
@@ -133,26 +139,22 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
               )}
             </Form.Field>
           </Align.Space>
-          <Code.Editor
-            value={`
-def calculate(channel):
-  var = 1
-  return var * channel
 
-output = calculate(input)
-return output
-            `}
-            lang="python"
-            onChange={console.log}
-            bordered
-            rounded
-            borderShade={4}
-            style={{
-              background: "var(--pluto-gray-l1)",
-              borderRadius: "1rem",
-              padding: "3rem 0",
-            }}
-          />
+          <Form.Field<string> path="expression" grow>
+            {({ value, onChange }) => (
+              <Code.Editor
+                value={value}
+                lang="python"
+                onChange={onChange}
+                bordered
+                rounded
+                style={{ height: 150 }}
+              />
+            )}
+          </Form.Field>
+          <Form.Field<channel.Key[]> path="requires" label="Requires" grow>
+            {(p) => <Channel.SelectMultiple zIndex={100} {...p} />}
+          </Form.Field>
         </Form.Form>
       </Align.Space>
       <Layout.BottomNavBar>

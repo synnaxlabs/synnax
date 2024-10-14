@@ -1,0 +1,9 @@
+.console-editor {
+    height: 100%;
+    background: var(--pluto-gray-l2);
+    padding: 2rem 0;
+    border-color: var(--pluto-gray-l4);
+    &:has(.focused) {
+        border-color: var(--pluto-primary-z);
+    }
+}
