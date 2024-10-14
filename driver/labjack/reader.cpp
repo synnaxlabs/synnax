@@ -30,6 +30,9 @@ std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
     for (auto &channel : this->reader_config.channels) {
         keys.push_back(channel.channel_key);
     }
+    for (auto &index_key : this->reader_config.index_keys) {
+        keys.push_back(index_key);
+    }
     return keys;
 }
 

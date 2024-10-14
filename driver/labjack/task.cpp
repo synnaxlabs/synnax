@@ -87,6 +87,12 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
 
     std::vector<synnax::ChannelKey> channel_keys = source->get_channel_keys();
 
+    LOG(INFO) << "Creating writer config \n";
+    //print channel keys
+    for (auto &key : channel_keys) {
+        LOG(INFO) << "Channel key: " << key;
+    }
+
     auto writer_config = synnax::WriterConfig{
         .channels = channel_keys,
         .start = synnax::TimeStamp::now(),
