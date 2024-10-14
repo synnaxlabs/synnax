@@ -9,7 +9,7 @@
 
 import "@/modal/Modal.css";
 
-import { ReactElement, useRef } from "react";
+import { ReactElement, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
@@ -37,9 +37,10 @@ export const Dialog = ({
   style,
   ...props
 }: ModalProps): ReactElement => {
-  const ref = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const visibleRef = useRef(visible);
   useClickOutside({
-    ref,
+    ref: dialogRef,
     exclude: (e: MouseEvent) => {
       const parent = findParent(
         e.target as HTMLElement,
@@ -49,7 +50,23 @@ export const Dialog = ({
     },
     onClickOutside: close,
   });
-  Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
+
+  const handleTrigger = useCallback(
+    (e: Triggers.UseEvent) => {
+      if (!visibleRef.current || e.stage !== "start") return;
+      // TODO: Check if there are any children that have the CSS.visible(true) class applied
+      // This is to prevent the dropdown from closing when the user is typing in a select
+      // or other dialog that uses the same trigger. If there are children that match this
+      // return early.
+      const interactiveChildren = dialogRef.current?.querySelectorAll(
+        `.${CSS.visible(true)}`,
+      );
+      if (interactiveChildren && interactiveChildren.length > 0) return;
+      close();
+    },
+    [close],
+  );
+  Triggers.use({ triggers: [["Escape"]], callback: handleTrigger, loose: true });
   return (
     <Align.Space
       className={CSS(
@@ -68,7 +85,7 @@ export const Dialog = ({
         )}
         role="dialog"
         empty
-        ref={ref}
+        ref={dialogRef}
         {...props}
         style={{ zIndex: enabled ? 11 : undefined, ...style }}
       >
