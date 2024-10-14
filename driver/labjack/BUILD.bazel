@@ -73,6 +73,22 @@ cc_test(
     }),
 )
 
+cc_test(
+    name = "reader_test",
+    srcs = ["reader_test.cpp"],
+    deps = [
+        ":labjack",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
+    ],
+    linkopts = select({
+            # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
+            "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+            "//conditions:default": [],
+    })
+)
+
+
 cc_binary(
     name = "eReadNames",
     srcs = ["eReadNames.c"],
@@ -91,6 +107,7 @@ cc_binary(
             "//conditions:default": [],
         }),
 )
+
 
 
 

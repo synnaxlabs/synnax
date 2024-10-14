@@ -30,14 +30,14 @@ labjack::ReaderTask::ReaderTask(
 }
 
 void labjack::ReaderTask::exec(task::Command &cmd) {
-    if (cmd.key == "start") {
+    if (cmd.type == "start") {
         LOG(INFO) << "[labjack.task] started reader task " << this->task.name;
         this->start(cmd.key);
-    } else if (cmd.key == "stop") {
+    } else if (cmd.type == "stop") {
         LOG(INFO) << "[labjack.task] stopped reader task " << this->task.name;
         this->stop(cmd.key);
     } else {
-        LOG(ERROR) << "unkown command type: " << cmd.type;
+        LOG(ERROR) << "unknown command type: " << cmd.type;
     }
 }
 
@@ -75,6 +75,9 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     auto parser = config::Parser(task.config);
     ReaderConfig reader_config(parser);
 
+
+    LOG(INFO) << "Constructing task \n\n";
+
     auto source = std::make_shared<labjack::Source>(
             1, // TODO: changel handle
         ctx,
@@ -92,6 +95,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
                 : synnax::WriterMode::StreamOnly,
         .enable_auto_commit = true
     };
+
 
     auto p = std::make_unique<labjack::ReaderTask>(
         ctx,

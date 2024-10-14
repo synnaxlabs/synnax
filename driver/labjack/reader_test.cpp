@@ -36,20 +36,35 @@ TEST(read_tests, labjack_t4){
     auto config = json{
             {"sample_rate", 1000},             // TODO: actually make sure these work
             {"stream_rate", 100},              // TODO: actually make sure these work
-            {"device_type", "LabJack T4"},     // TODO: change name
-            {"device_key", "T4-001"},          // TODO: change to actual serial number of device we ahve
-            {"serial_number", "440123456"},    // TODO: change to actual serial number of device
+            {"device_type", "T4"},
+            {"device_key", "440022190"},          // TODO: change to actual serial number of device we ahve
+            {"serial_number", "440022190"},    // TODO: change to actual serial number of device
             {"connection_type", "USB"},
             {"data_saving", true},
             {"channels", json::array({
                  {
                          {"location", "AIN0"},
                          {"enabled", true},
-                         {"data_type", "FLOAT32"}, // TODO: make sure this is the actual data typ eof the device
+                         {"data_type", "float32"}, // TODO: make sure this is the actual data type of the device
                          {"channel_key", data.key},
                          {"range", 10.0},
                          {"channel_types", "AIN"}
-                 }
+                 }//,
+//                 {
+//                     {"location", "AIN1"},
+//                     {"enabled", true},
+//                     {"data_type", "float32"}, // TODO: make sure this is the actual data type of the device
+//                     {"channel_key", data.key},
+//                     {"range", 10.0},
+//                     {"channel_types", "AIN"}
+//                 }//,
+//                 {
+//                         {"location", "FIO4"},
+//                         {"enabled", true},
+//                         {"data_type", "uint8"}, // TODO: make sure this is the actual data type of the device
+//                         {"channel_key", data.key},
+//                         {"channel_types", "DIN"}
+//                 }
             })},
             {"index_keys", json::array({time.key})},
             {"channel_map", {
@@ -59,13 +74,16 @@ TEST(read_tests, labjack_t4){
 
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
-    auto mockCtx = std::make_shared<task::Context>(client);
+    auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300)); // TODO: remove? don't know what i need this
 
     auto reader_task = labjack::ReaderTask::configure(mockCtx, task);
 
-    reader_task.start();
+    // create commands
+    auto start_cmd = task::Command{task.key, "start", {}};
+    auto stop_cmd = task::Command{task.key, "stop", {}};
+    reader_task->exec(start_cmd);
     std::this_thread::sleep_for(std::chrono::seconds(300));
-    reader_task.stop();
+    reader_task->exec(stop_cmd);
 
 }

@@ -34,8 +34,10 @@ std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
 }
 
 void labjack::Source::init(){
+    LOG(INFO) << "initializing labjack device";
     // If already open, will return the same handle as opened device
     // TODO get device type and connection type from the config
+    LOG(INFO) << "Serial number is: " << this->reader_config.serial_number; //TODO: remove
     LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
 
     // iterate through the channels, for the ones that analog device, need to set the resolution index
@@ -56,6 +58,7 @@ void labjack::Source::init(){
 
 
 std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &breaker) {
+//    std::cout << "reading from labjack device";
     int err, error_address;
     int msDelay = 1000; // TODO: change period?
 
@@ -63,7 +66,7 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
     locations.reserve(this->reader_config.channels.size());
 
     std::vector<double> values;
-    locations.resize(this->reader_config.channels.size());
+    values.resize(this->reader_config.channels.size());
 
     // TODO: move this to init
     int num_names = 0;
@@ -81,12 +84,21 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
     if (SkippedIntervals > 0) {
         printf("SkippedIntervals: %d\n", SkippedIntervals);
     }
+//    LOG(INFO) << "Handle: " << this->handle;
+//    LOG(INFO) << "Num names: " << num_names;
+//    LOG(INFO) << "Locations: " << locations.size();
+//    // iterate through locations
+//    for (const auto &location : locations) {
+//        LOG(INFO) << "Location: " << location;
+//    }
+//    LOG(INFO) << "Values: " << values.size();
     err = LJM_eReadNames(
             this->handle,
             num_names,
             locations.data(),
             values.data(),
             &error_address);
+
 //    auto tf = synnax::TimeStamp::now().value;
     // TOOD: add a breaker for sleep
 
@@ -110,6 +122,9 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
 
     // iterate through locations
     // for each location, find the corresponding channel in the config
+//    std::cout << "constructing frame: " << std::endl;
+    std::cout << "Num names: " << num_names << std::endl;
+    std::cout << "index_keys size: " << this->reader_config.index_keys.size() << std::endl;
     auto f = synnax::Frame(num_names + this->reader_config.index_keys.size());
     int index = 0;
     for(const auto &location : locations) {
@@ -118,17 +133,26 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
                auto key = this->reader_config.channel_map[channel.location];
                auto s = synnax::Series(channel.data_type, 1);
                write_to_series(s, values[index], channel.data_type);
+                f.add(key, std::move(s));
             }
         }
         index++;
     }
     // add index channels
-    for(auto channel : this->reader_config.channels){
-        if(channel.channel_types == "INDEX"){
-            auto t = synnax::Series(synnax::TIMESTAMP, {synnax::TimeStamp::now().value});
-            f.add(channel.channel_key, std::move(t));
-        }
+//    for(auto channel : this->reader_config.channels){
+//        if(channel.channel_types == "INDEX"){
+//            auto t = synnax::Series(synnax::TIMESTAMP, {synnax::TimeStamp::now().value});
+//            f.add(channel.channel_key, std::move(t));
+//        }
+//    }
+    for(auto index_key : this->reader_config.index_keys){
+        auto t = synnax::Series(synnax::TIMESTAMP, 1);
+        t.write(synnax::TimeStamp::now().value);
+        f.add(index_key, std::move(t));
     }
+    // print frame
+    std::cout << "Frame: " << f << std::endl;
+
     return std::make_pair(std::move(f), freighter::NIL);
 
 }

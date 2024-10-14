@@ -60,6 +60,7 @@ namespace labjack{
         std::string connection_type; // used to open devices
         std::map<std::string, uint32_t> channel_map; // move this into class instead of reader config
         int num_index = 0; // TODO: remove this isn't being used?
+        int num_channels = 0; // TODO: remove this isn't being used?
         bool data_saving;
 
         ReaderConfig() = default;
@@ -77,6 +78,7 @@ namespace labjack{
             // Parse the channels
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 channels.emplace_back(ReaderChannelConfig(channel_parser));
+                this->channel_map[channels.back().location] = channels.back().channel_key;
             });
         }
     };
@@ -95,6 +97,7 @@ public:
             ctx(ctx),
             task(task),
             reader_config(reader_config) {
+        LOG(INFO) << "creating labjack source";
         this->init();
     }
 
