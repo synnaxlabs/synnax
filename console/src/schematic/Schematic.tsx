@@ -207,12 +207,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const acquireControl = useCallback(
     (v: boolean) => {
-      dispatch(
-        toggleControl({
-          key: layoutKey,
-          status: v ? "acquired" : "released",
-        }),
-      );
+      dispatch(toggleControl({ key: layoutKey, status: v ? "acquired" : "released" }));
     },
     [layoutKey],
   );

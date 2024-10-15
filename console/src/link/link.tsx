@@ -119,7 +119,7 @@ export const CopyMenuItem = (): ReactElement => (
 
 export interface CopyToClipboardProps {
   clusterKey?: string;
-  name: string;
+  name?: string;
   ontologyID?: ontology.IDPayload;
 }
 
@@ -129,10 +129,11 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
   return ({ ontologyID, name, clusterKey }) => {
     let url = "synnax://cluster/";
     const key = clusterKey ?? activeClusterKey;
+    const linkMessage = name == null ? "" : `to ${name}`;
     if (key == null)
       return addStatus({
         variant: "error",
-        message: `Failed to copy link to ${name} to clipboard`,
+        message: `Failed to copy link ${linkMessage} to clipboard`,
         description: "No active cluster found",
       });
     url += key;
@@ -141,13 +142,14 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
       () =>
         addStatus({
           variant: "success",
-          message: `Link to ${name} copied to clipboard.`,
+          message: `Link ${linkMessage} copied to clipboard.`,
         }),
-      () =>
+      () => {
         addStatus({
           variant: "error",
-          message: `Failed to copy link to ${name} to clipboard.`,
-        }),
+          message: `Failed to copy link ${linkMessage} to clipboard.`,
+        });
+      },
     );
   };
 };

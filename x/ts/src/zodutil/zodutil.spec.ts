@@ -13,7 +13,7 @@ import { z } from "zod";
 import { zodutil } from "@/zodutil";
 
 describe("zodutil", () => {
-  describe("getFieldShemaPath", () => {
+  describe("getFieldSchemaPath", () => {
     interface Spec {
       path: string;
       expected: string;
@@ -54,12 +54,10 @@ describe("zodutil", () => {
       { path: "array.0.0.0" },
       { path: "arrayOfObjects.0.a" },
     ];
-    spec.forEach(({ path }) => {
-      it(`should return not null for ${path}`, () => {
-        schema.shape.arrayOfObjects.element.shape.a;
-        expect(zodutil.getFieldSchema(schema, path)).not.toBeNull();
-      });
-    });
+    spec.forEach(({ path }) =>
+      it(`should return not null for ${path}`, () =>
+        expect(zodutil.getFieldSchema(schema, path)).not.toBeNull()),
+    );
     it("should return null for invalid path and optional is true", () => {
       expect(zodutil.getFieldSchema(schema, "a.b.c.d", { optional: true })).toBeNull();
     });

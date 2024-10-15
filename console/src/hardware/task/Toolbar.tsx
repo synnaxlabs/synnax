@@ -13,24 +13,32 @@ import {
   Align,
   Button,
   List,
-  Menu,
+  Menu as PMenu,
   Observe,
   Status,
   Synnax,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
+import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Menu } from "@/components/menu";
+import { Confirm } from "@/confirm";
+import { createTaskLayout } from "@/hardware/task/ontology";
 import { Layout } from "@/layout";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-
   const [tasks, setTasks] = useState<task.Task[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const menuProps = PMenu.useContextMenu();
+  const addStatus = Status.useAggregator();
+  const dispatch = useDispatch();
+  const placer = Layout.usePlacer();
 
   useAsyncEffect(async () => {
     if (client == null) return;
@@ -43,7 +51,7 @@ const Content = (): ReactElement => {
   Observe.useListener({
     key: [client?.key, "tasks.state"],
     open: async () => client?.hardware.tasks.openStateObserver(),
-    onChange: async (state) =>
+    onChange: (state) =>
       setTasks((prev) => {
         const task = prev.find((t) => t.key === state.task);
         if (task != null) task.state = state;
@@ -60,7 +68,7 @@ const Content = (): ReactElement => {
       const addedOrUpdated = update
         .filter((u) => u.variant === "set")
         .map((u) => u.key);
-      client?.hardware.tasks.retrieve(addedOrUpdated).then((nextTasks) => {
+      client.hardware.tasks.retrieve(addedOrUpdated).then((nextTasks) => {
         setTasks((prev) => {
           const next = prev
             .filter((t) => !removed.includes(t.key))
@@ -80,74 +88,98 @@ const Content = (): ReactElement => {
     },
   });
 
-  const [selected, setSelected] = useState<string[]>([]);
+  const confirm = Confirm.useModal();
 
-  const menuProps = Menu.useContextMenu();
-
-  const addStatus = Status.useAggregator();
-  const dispatch = useDispatch();
-
-  const del = useMutation<void, Error, string[], task.Task[]>({
-    onMutate: (keys: string[]) => {
-      setSelected([]);
-      const toDelete: task.Task[] = [];
-      setTasks((prev) => {
-        const next = prev.filter((t) => {
-          const includes = keys.includes(t.key.toString());
-          if (includes) toDelete.push(t);
-          return !includes;
-        });
-        return [...next];
-      });
-      return toDelete;
-    },
+  const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {
-      if (client == null) return;
+      setSelected([]);
+      if (client == null) throw new Error("Client not available");
+      const deletedNames = tasks
+        .filter((task) => keys.includes(task.key))
+        .map((task) => task.name);
+      const names = strings.naturalLanguageJoin(deletedNames, "tasks");
+      if (
+        !(await confirm({
+          message: `Are you sure you want to delete ${names}?`,
+          description: "This action cannot be undone.",
+          cancel: { label: "Cancel" },
+          confirm: { label: "Delete", variant: "error" },
+        }))
+      )
+        return;
       await client.hardware.tasks.delete(keys.map((k) => BigInt(k)));
       dispatch(Layout.remove({ keys }));
-      setSelected([]);
+      setTasks((prev) => {
+        const next = prev.filter((t) => !keys.includes(t.key.toString()));
+        return [...next];
+      });
     },
-    onError: ({ message }, _, toDelete) => {
+    onError: (e) => {
+      if (errors.CANCELED.matches(e)) return;
       addStatus({
         variant: "error",
         message: "Failed to delete tasks",
-        description: message,
+        description: e.message,
       });
-      if (toDelete != null) setTasks((prev) => [...prev, ...toDelete]);
     },
   });
 
   return (
-    <Menu.ContextMenu
+    <PMenu.ContextMenu
       menu={({ keys }) => {
         const selected = keys.map((k) => tasks.find((t) => t.key === k));
         const canStart = selected.some((t) => t?.state?.details?.running !== true);
         const canStop = selected.some((t) => t?.state?.details?.running === true);
+        const someSelected = selected.length > 0;
+        const isSingle = selected.length === 1;
+        const handleEdit = (key: string): void => {
+          const type = tasks.find((t) => t.key === key)?.type;
+          if (type == null)
+            return addStatus({
+              variant: "error",
+              message: "Failed to open task details",
+              description: `Task with key ${key} not found`,
+            });
+          const layout = createTaskLayout(key, type);
+          placer(layout);
+        };
         return (
-          <Menu.Menu
+          <PMenu.Menu
             level="small"
             iconSpacing="small"
             onChange={{
-              delete: () => del.mutate(keys),
+              delete: () => handleDelete.mutate(keys),
               start: () => selected.forEach((t) => t?.executeCommand("start")),
               stop: () => selected.forEach((t) => t?.executeCommand("stop")),
+              edit: () => handleEdit(keys[0]),
             }}
           >
             {canStart && (
-              <Menu.Item startIcon={<Icon.Play />} itemKey="start">
-                Start Tasks
-              </Menu.Item>
+              <PMenu.Item startIcon={<Icon.Play />} itemKey="start">
+                {isSingle ? "Start Task" : "Start Tasks"}
+              </PMenu.Item>
             )}
             {canStop && (
-              <Menu.Item startIcon={<Icon.Pause />} itemKey="stop">
-                Stop Tasks
-              </Menu.Item>
+              <PMenu.Item startIcon={<Icon.Pause />} itemKey="stop">
+                {isSingle ? "Stop Task" : "Stop Tasks"}
+              </PMenu.Item>
             )}
-            <Menu.Divider />
-            <Menu.Item startIcon={<Icon.Delete />} itemKey="delete">
-              Delete
-            </Menu.Item>
-          </Menu.Menu>
+            {canStart || (canStop && <PMenu.Divider />)}
+            {isSingle && (
+              <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
+                Edit Configuration
+              </PMenu.Item>
+            )}
+            {someSelected && (
+              <>
+                <PMenu.Item startIcon={<Icon.Delete />} itemKey="delete">
+                  Delete
+                </PMenu.Item>
+                <PMenu.Divider />
+              </>
+            )}
+            <Menu.HardReloadItem />
+          </PMenu.Menu>
         );
       }}
       {...menuProps}
@@ -159,12 +191,12 @@ const Content = (): ReactElement => {
         <List.List data={tasks}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>
-              {(props) => <TaskListTem {...props} />}
+              {({ key, ...props }) => <TaskListItem key={key} {...props} />}
             </List.Core>
           </List.Selector>
         </List.List>
       </Align.Space>
-    </Menu.ContextMenu>
+    </PMenu.ContextMenu>
   );
 };
 
@@ -178,9 +210,19 @@ export const Toolbar: Layout.NavDrawerItem = {
   maxSize: 400,
 };
 
-export const TaskListTem = (props: List.ItemProps<string, task.Task>) => {
-  const { entry } = props;
-  const logo = entry.type.includes("ni") ? <Icon.Logo.NI /> : <Icon.Task />;
+const TaskListItem = (props: List.ItemProps<string, task.Task>) => {
+  const {
+    entry,
+    entry: { type },
+  } = props;
+  const logo = type.startsWith("ni") ? (
+    <Icon.Logo.NI />
+  ) : type.startsWith("opc") ? (
+    <Icon.Logo.OPC />
+  ) : (
+    <Icon.Task />
+  );
+
   return (
     <List.ItemFrame {...props} justify="spaceBetween" align="center" rightAligned>
       <Align.Space direction="y" size="small">
@@ -199,11 +241,11 @@ export const TaskListTem = (props: List.ItemProps<string, task.Task>) => {
       </Align.Space>
       <Button.Icon
         variant="outlined"
-        onClick={() => {
+        onClick={() =>
           entry.executeCommand(
             entry.state?.details?.running === true ? "stop" : "start",
-          );
-        }}
+          )
+        }
       >
         {entry.state?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
       </Button.Icon>
