@@ -37,7 +37,7 @@ export const InputFilePath = ({
     })();
   };
   return (
-    <Align.Pack className={CSS.B("input-file-path")} {...props}>
+    <Align.Pack className={CSS.B("input-file-path")} borderShade={4} {...props}>
       <Button.Button
         level="p"
         className={CSS.B("path")}
