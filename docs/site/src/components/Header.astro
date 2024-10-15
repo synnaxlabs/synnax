@@ -37,12 +37,12 @@ const url = Astro.url.pathname;
                 level="h5">Reference</Text.Link
             >
             <Text.Link
-                href="/guides"
+                href="/guides/"
                 className={url.includes("guides") ? "active" : ""}
                 level="h5">Guides</Text.Link
             >
             <Text.Link
-                href="/releases"
+                href="/releases/"
                 className={url.includes("releases") ? "active" : ""}
                 level="h5">Releases</Text.Link
             >
@@ -131,7 +131,7 @@ const url = Astro.url.pathname;
 
             .pluto-text-link:hover {
                 text-decoration: none;
-                .pluto-text-link__text {
+                & .pluto-text {
                     color: var(--pluto-gray-l10);
                 }
                 &:before {

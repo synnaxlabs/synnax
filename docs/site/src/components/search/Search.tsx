@@ -65,6 +65,7 @@ export const Search = (): ReactElement => {
           variant="outlined"
           justify="center"
           size="medium"
+          endContent={<Triggers.Text level="small" trigger={["Control", "K"]} />}
         >
           Search Synnax
         </Button.Button>
