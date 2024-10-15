@@ -32,15 +32,16 @@ const url = Astro.url.pathname;
     <Align.Space className="bottom" justify="center" align="center">
         <Align.Space direction="x" className="header-content" size={5} justify="start">
             <Text.Link
-                href="/reference/"
-                className={url.includes("reference") ? "active" : ""}
-                level="h5">Reference</Text.Link
-            >
-            <Text.Link
                 href="/guides/"
                 className={url.includes("guides") ? "active" : ""}
                 level="h5">Guides</Text.Link
             >
+            <Text.Link
+                href="/reference/"
+                className={url.includes("reference") ? "active" : ""}
+                level="h5">Reference</Text.Link
+            >
+
             <Text.Link
                 href="/releases/"
                 className={url.includes("releases") ? "active" : ""}

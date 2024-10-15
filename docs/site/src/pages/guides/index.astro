@@ -1,5 +1,58 @@
 ---
-import IndexContent from "@/pages/index.mdx";
+import PageNav from "@/components/PageNav/PageNav.astro";
+import Main from "@/layouts/Main.astro";
+import ReleaseTile from "@/pages/guides/ReleaseTile.astro";
+import Tile from "@/pages/guides/Tile.astro";
+import { Icon } from "@synnaxlabs/media";
+import { Align, Text } from "@synnaxlabs/pluto";
 ---
 
-<IndexContent />
+<Main frontmatter={{ title: "Guides" }}>
+    <PageNav />
+    <Align.Space direction="y" className="guides" el="article" grow>
+        <Align.Space direction="x" size={10}>
+            <Align.Space
+                direction="x"
+                grow
+                justify="center"
+                align="center"
+                style={{ paddingTop: "5rem" }}
+            >
+                <Tile />
+            </Align.Space>
+            <Align.Space direction="y" size={10}>
+                <Align.Space direction="y">
+                    <Text.Text level="h1">Synnax Docs</Text.Text>
+                    <Text.Text level="p" shade={7}>
+                        Guides, resources, and references to help you operate hardware
+                        with Synnax.
+                    </Text.Text>
+                    <Align.Space direction="x" align="center" wrap>
+                        <Text.Link
+                            level="p"
+                            href="https://www.linkedin.com/company/synnaxlabs/"
+                        >
+                            Follow us on LinkedIn
+                        </Text.Link>
+                        <Icon.Circle style={{ color: "var(--pluto-gray-l6)" }} />
+                        <Text.Link
+                            level="p"
+                            href="https://github.com/synnaxlabs/synnax/releases"
+                            >Star us on GitHub</Text.Link
+                        >
+                    </Align.Space>
+                </Align.Space>
+                <ReleaseTile />
+            </Align.Space>
+        </Align.Space>
+    </Align.Space>
+</Main>
+
+<style is:global>
+    .guides {
+        margin-right: auto;
+        padding-left: 8rem;
+        margin-top: 5rem;
+        max-width: 950px;
+    }
+</style>
