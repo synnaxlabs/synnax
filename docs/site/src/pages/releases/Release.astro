@@ -1,0 +1,38 @@
+---
+import { Align, Text } from "@synnaxlabs/pluto";
+const { date, version, title } = Astro.props;
+---
+
+<Align.Space direction="x" className="release">
+    <Align.Space direction="y" size="small" className="meta">
+        <Text.Text level="h4">Version {version}</Text.Text>
+        <Text.Text level="p" shade={8}>{date}</Text.Text>
+    </Align.Space>
+    <Align.Space direction="y" className="details" size="large">
+        <Text.Text level="h2" className="title">{title}</Text.Text>
+        <Align.Space direction="y">
+            <slot />
+        </Align.Space>
+    </Align.Space>
+</Align.Space>
+
+<style is:global>
+    .release {
+        padding: 5rem 0rem;
+        max-width: 1200px;
+        position: relative;
+        margin: 0 auto;
+        .meta {
+            height: fit-content;
+            position: sticky;
+            top: 120px;
+            padding-left: 3rem;
+            flex-basis: 400px;
+            flex-grow: 1;
+        }
+        .details {
+            flex-basis: 600px;
+            flex-grow: 3;
+        }
+    }
+</style>
