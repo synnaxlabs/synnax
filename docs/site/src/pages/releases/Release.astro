@@ -52,4 +52,15 @@ const { date, version, title, breakingChanges } = Astro.props;
             color: var(--pluto-success-z);
         }
     }
+    @media (max-width: 750px) {
+        .release {
+            flex-direction: column !important;
+            .meta {
+                position: unset;
+                flex-basis: fit-content;
+                padding-left: 0;
+                padding-bottom: 4rem;
+            }
+        }
+    }
 </style>
