@@ -7,6 +7,7 @@ const props = Astro.props;
 
 <style is:global>
     .on-this-page {
+        top: 22rem;
         width: 235px;
 
         @media (max-width: 1000px) {
@@ -34,7 +35,7 @@ const props = Astro.props;
             white-space: normal;
             height: fit-content;
             display: block;
-            padding: 0.75rem 2rem;
+            padding: 0.75rem 2rem !important;
             transition: box-shadow 0.2s ease;
             background: none !important;
             & small {

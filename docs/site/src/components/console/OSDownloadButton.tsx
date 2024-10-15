@@ -79,6 +79,7 @@ export const SynnaxConsoleDownloadButton = (): ReactElement | null => {
   if (updateFile == null) return null;
   return (
     <OSDownloadButton
+      className="os-download-button"
       name={updateFile.version}
       size="large"
       entries={[
