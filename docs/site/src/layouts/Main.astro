@@ -59,11 +59,17 @@ const {
 
     <script>
         import { getVersion } from "@/util/fetchVersion";
-        getVersion().then((version) => {
-            const versionElement = document.querySelector(".version");
-            if (versionElement == null) return;
-            versionElement.innerHTML = "v" + version.split(".").slice(0, -1).join(".");
-        });
+        const updateVersion = () => {
+            getVersion().then((version) => {
+                const versionElement = document.querySelectorAll(".version");
+                versionElement.forEach((element) => {
+                    if (element.classList.contains("full")) element.innerHTML = version;
+                    else element.innerHTML = version.split(".").slice(0, -1).join(".");
+                });
+            });
+        };
+        updateVersion();
+        document.addEventListener("astro:after-swap", updateVersion);
     </script>
 
     <style is:global>
