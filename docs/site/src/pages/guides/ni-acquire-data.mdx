@@ -1,0 +1,57 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Acquire Data from NI Devices "
+description: "Learn how to acquire data from National Instruments (NI) devices using Synnax."
+---
+import { Align } from "@synnaxlabs/pluto";
+import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
+import { StepText } from "@/components/StepText";
+import { Image } from "@/components/Media";
+
+<iframe width="100%" 
+style={{ 
+    width: "100%", 
+    aspectRatio: 16/9, 
+    border: "var(--pluto-border)", 
+    borderRadius: "1rem", 
+    margin: "5rem 0",
+    boxShadow: "var(--pluto-shadow-menu)"
+    }}
+src="https://www.youtube.com/embed/OJtVBfRwooA?si=-z_ghGw4L1V5iECB" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+In this guide, we'll walk you through the process of acquiring data from National 
+Instruments (NI) devices using Synnax. We'll be collecting [thermocouple](https://en.wikipedia.org/wiki/Thermocouple) data from a 
+[cDAQ-9174](https://www.ni.com/en-us/shop/model/cdaq-9174.html?srsltid=AfmBOooEhdxpDWlxV68OV_4slLcRfi6s_5eiUkntifNNbOK8Gz1hjdMU), 
+although this process can be universally applied to any NI device and channel type.
+
+## <StepText level="h2" step={1}>Installing NI DAQmx Drivers</StepText>
+
+Our first step is to install the NI DAQmx driver. Synnax uses DAQmx to communicate with
+your NI card. It's important to note that Synnax only supports the Windows version of
+this driver, and won't work on MacOS or Linux.
+
+Installation instructions are available [here](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html). 
+These instructions will also guide you through installing [NI MAX](https://www.ni.com/en-us/support/downloads/drivers/download.ni-max.html),
+which is a useful tool for configuring and testing your NI devices. NI MAX also let's you 
+simulate a device (such as the one we're using in this guide) if you don't have one on hand.
+
+## <StepText level="h2" step={2}>Installing Synnax</StepText>
+
+Next, we'll need to install the latest version of the Synnax Console. Here's a handy
+download button to get you started.
+
+<Align.Space direction="y" justify="center" align="center">
+  <SynnaxConsoleDownloadButton client:load />
+</Align.Space>
+
+Once the download is complete, simply click on the installer and follow the instructions
+to install Synnax on your machine.
+
+When you start the console, you'll see a screen like this:
+
+<Image id="console/get-started/window" client:only="react" />
+
+## <StepText level="h2" step={3}>Connecting your NI Device</StepText>
+
+Now that you have both the DAQmx driver and Synnax installed, it's time to connect your 
+NI device. 
