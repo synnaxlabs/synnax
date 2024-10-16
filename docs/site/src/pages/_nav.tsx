@@ -18,6 +18,7 @@ import { pythonClientNav } from "@/pages/reference/python-client/_nav";
 import { typescriptClientNav } from "@/pages/reference/typescript-client/_nav";
 import { operationsNav } from "@/pages/guides/operations/_nav";
 import { controlNav } from "@/pages/reference/control/_nav";
+import { comparisonNav } from "@/pages/guides/comparison/_nav";
 
 export const componentsPages = [
   {
@@ -44,4 +45,5 @@ export const guidesPages = [
   analystNav,
   sysAdminNav,
   operationsNav,
+  comparisonNav,
 ];

@@ -1,6 +1,7 @@
 ---
 import PageNav from "@/components/PageNav/PageNav.astro";
 import Main from "@/layouts/Main.astro";
+import OneBillionRowsTile from "@/pages/guides/comparison/one-billion-rows/OneBillionRowsTile.astro";
 import ReleaseTile from "@/pages/guides/ReleaseTile.astro";
 import Tile from "@/pages/guides/Tile.astro";
 import { Icon } from "@synnaxlabs/media";
@@ -9,7 +10,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
 
 <Main frontmatter={{ title: "Guides" }}>
     <PageNav />
-    <Align.Space direction="y" className="guides" el="article" grow>
+    <Align.Space direction="y" className="guides" el="article" grow size={10}>
         <Align.Space direction="x" size={10}>
             <Align.Space
                 direction="x"
@@ -45,6 +46,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
                 <ReleaseTile />
             </Align.Space>
         </Align.Space>
+        <OneBillionRowsTile />
     </Align.Space>
 </Main>
 
