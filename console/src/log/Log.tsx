@@ -1,7 +1,7 @@
 import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
-import { Log as Core, telem, usePrevious } from "@synnaxlabs/pluto";
+import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitiveIsZero, TimeSpan, UnknownRecord } from "@synnaxlabs/x";
 import { ReactElement, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -57,7 +57,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   let t: telem.SeriesSourceSpec;
   const ch = log.channels[0];
-  if (primitiveIsZero(ch)) t = telem.noopSeriesSourceSpec;
+  const zeroChannel = primitiveIsZero(ch);
+  if (zeroChannel) t = telem.noopSeriesSourceSpec;
   else
     t = telem.streamChannelData({
       channel: ch,
@@ -73,7 +74,31 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [winKey, dispatch]);
 
-  return <Core.Log telem={t} onDoubleClick={handleDoubleClick} visible={visible} />;
+  return (
+    <Core.Log
+      telem={t}
+      onDoubleClick={handleDoubleClick}
+      emptyContent={
+        <Align.Center>
+          {zeroChannel ? (
+            <Align.Space direction="x" size="small" align="center">
+              <Text.Text level="p" shade={6}>
+                No channel configured for log.
+              </Text.Text>
+              <Text.Link level="p" onClick={handleDoubleClick}>
+                Configure here.
+              </Text.Link>
+            </Align.Space>
+          ) : (
+            <Text.Text level="h4" shade={6}>
+              No data received yet.
+            </Text.Text>
+          )}
+        </Align.Center>
+      }
+      visible={visible}
+    />
+  );
 };
 
 export const Log: Layout.Renderer = ({ layoutKey, ...props }): ReactElement | null => {

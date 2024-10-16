@@ -20,7 +20,6 @@ import { Link } from "@/link";
 import { Log } from "@/log";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { Range } from "@/range";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Log" });
@@ -55,76 +54,14 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   }).mutate;
 };
 
-const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({
-      client,
-      selection: { resources, parent },
-      state,
-      services,
-    }) => {
-      if (parent == null) return;
-      const logs = await Promise.all(
-        resources.map(
-          async (res) =>
-            await client.workspaces.log.copy(res.id.key, res.name + " (copy)", false),
-        ),
-      );
-      const otgIDs = logs.map(({ key }) => new ontology.ID({ type: "log", key }));
-      const otg = await client.ontology.retrieve(otgIDs);
-      state.setResources([...state.resources, ...otg]);
-      const nextTree = Tree.setNode({
-        tree: state.nodes,
-        destination: parent.key,
-        additions: Ontology.toTreeNodes(services, otg),
-      });
-      state.setNodes([...nextTree]);
-      Tree.startRenaming(otg[0].id.toString());
-    },
-    onError: (err, { addStatus }) => {
-      addStatus({
-        variant: "error",
-        message: "Failed to copy log",
-        description: err.message,
-      });
-    },
-  }).mutate;
-
-const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({ client, selection: { resources, parent }, store }) => {
-      const activeRange = Range.selectActiveKey(store.getState());
-      if (activeRange == null || parent == null) return;
-      const logs = await Promise.all(
-        resources.map(
-          async (res) =>
-            await client.workspaces.log.copy(res.id.key, res.name + " (snap)", true),
-        ),
-      );
-      const otgIDs = logs.map(({ key }) => new ontology.ID({ type: "log", key }));
-      const rangeID = new ontology.ID({ type: "range", key: activeRange });
-      await client.ontology.moveChildren(
-        new ontology.ID(parent.key),
-        rangeID,
-        ...otgIDs,
-      );
-    },
-  }).mutate;
-
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { resources },
   } = props;
-  const activeRange = Range.useSelect();
   const del = useDelete();
-  const copy = useCopy();
-  const snapshot = useRangeSnapshot();
-  // const handleExport = Log.useExport(resources[0].name);
   const handleLink = Link.useCopyToClipboard();
   const onSelect = useAsyncActionMenu("log.menu", {
     delete: () => del(props),
-    copy: () => copy(props),
-    rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>
       handleLink({
@@ -138,12 +75,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Menu.RenameItem />
       <Menu.DeleteItem />
       <PMenu.Divider />
-      {resources.every((r) => r.data?.snapshot === false) && (
-        <Range.SnapshotMenuItem range={activeRange} />
-      )}
-      <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
-        Copy
-      </PMenu.Item>
       <PMenu.Divider />
       {isSingle && (
         <>

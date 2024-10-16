@@ -23,10 +23,12 @@ export const logState = z.object({
   region: box.box,
   wheelPos: z.number(),
   scrolling: z.boolean(),
+  empty: z.boolean(),
   visible: z.boolean(),
   telem: telem.seriesSourceSpecZ.optional().default(telem.noopSeriesSourceSpec),
   font: text.levelZ.optional().default("p"),
   color: color.Color.z.optional().default(color.ZERO),
+  overshoot: xy.xy.optional().default({ x: 0, y: 0 }),
 });
 
 interface InternalState {
@@ -77,11 +79,6 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     } else if (scrolling) {
       const { scrollState, values } = this;
       const dist = Math.ceil((wheelPos - this.scrollState.scrollRef) / this.lineHeight);
-      // console.log({
-      //   bounds: this.values.series.map((s) => s.alignmentBounds),
-      //   start: scrollState.offsetRef,
-      //   dist: -BigInt(dist),
-      // });
       scrollState.offset = this.values.traverseAlignment(
         scrollState.offsetRef,
         -BigInt(dist),
@@ -105,14 +102,22 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
     const [_, series] = await this.internal.telem.value();
     this.values = new MultiSeries(series);
+    this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() =>
       this.internal.telem.value().then(([_, series]) => {
+        this.checkEmpty();
         this.values = new MultiSeries(series);
         this.requestRender();
       }),
     );
     this.requestRender();
+  }
+
+  private checkEmpty(): void {
+    const actuallyEmpty = this.values.length === 0;
+    if (actuallyEmpty === this.state.empty) return;
+    this.setState((s) => ({ ...s, empty: actuallyEmpty }));
   }
 
   async afterDelete(): Promise<void> {
@@ -178,7 +183,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
     return async ({ canvases }) =>
-      renderCtx.erase(eraseRegion, { x: 10, y: 10 }, ...canvases);
+      renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
   }
 
   private renderScrollbar(draw2d: Draw2D): void {

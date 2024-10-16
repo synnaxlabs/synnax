@@ -25,7 +25,6 @@ export const linkHandler: Link.Handler = async ({
       ...(log.data as unknown as State),
       key: log.key,
       name: log.name,
-      editable: false,
     });
     placer(layoutCreator);
   } catch (e) {

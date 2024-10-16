@@ -11,24 +11,29 @@ import "@/vis/log/log.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { box, Optional } from "@synnaxlabs/x";
-import { ReactElement, useCallback, useEffect, useRef } from "react";
+import { ReactElement, useCallback, useEffect } from "react";
 import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useCombinedRefs } from "@/hooks";
 import { useMemoDeepEqualProps } from "@/memo";
+import { Status } from "@/status";
 import { Canvas } from "@/vis/canvas";
 import { log } from "@/vis/log/aether";
 
 export interface LogProps
   extends Optional<
-      Omit<z.input<typeof log.logState>, "region" | "scrollPosition" | "scrollback">,
+      Omit<
+        z.input<typeof log.logState>,
+        "region" | "scrollPosition" | "scrollback" | "empty" | "scrolling" | "wheelPos"
+      >,
       "visible"
     >,
-    Omit<Align.SpaceProps, "color"> {}
+    Omit<Align.SpaceProps, "color"> {
+  emptyContent?: ReactElement;
+}
 
 export const Log = Aether.wrap<LogProps>(
   "Log",
@@ -37,16 +42,22 @@ export const Log = Aether.wrap<LogProps>(
     font,
     className,
     visible = true,
+    emptyContent = (
+      <Status.Text.Centered level="h3" variant="disabled" hideIcon>
+        Empty Log
+      </Status.Text.Centered>
+    ),
     color,
     telem,
     ...props
   }): ReactElement | null => {
     const memoProps = useMemoDeepEqualProps({ font, color, telem, visible });
-    const [, { scrolling: scrollback }, setState] = Aether.use({
+    const [, { scrolling, empty }, setState] = Aether.use({
       aetherKey,
       type: log.Log.TYPE,
       schema: log.logState,
       initialState: {
+        empty: true,
         region: box.ZERO,
         scrolling: false,
         wheelPos: 0,
@@ -59,12 +70,7 @@ export const Log = Aether.wrap<LogProps>(
     }, [memoProps, setState]);
 
     const resizeRef = Canvas.useRegion(
-      useCallback(
-        (b) => {
-          setState((s) => ({ ...s, region: b }));
-        },
-        [setState],
-      ),
+      useCallback((b) => setState((s) => ({ ...s, region: b })), [setState]),
     );
 
     return (
@@ -80,12 +86,11 @@ export const Log = Aether.wrap<LogProps>(
         }}
         {...props}
       >
+        {empty && emptyContent}
         <Button.Icon
-          className={CSS(CSS.BE("log", "live"), CSS.visible(scrollback))}
+          className={CSS(CSS.BE("log", "live"), CSS.visible(scrolling))}
           variant="outlined"
-          onClick={() => {
-            setState((s) => ({ ...s, scrolling: false }));
-          }}
+          onClick={() => setState((s) => ({ ...s, scrolling: false }))}
           tooltip="Return to Live"
         >
           <Icon.Dynamic style={{ color: "var(--pluto-error-p1)" }} />
