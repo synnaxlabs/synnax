@@ -14,7 +14,7 @@ export const comparisonNav: PageNavNode = {
   name: "Comparisons",
   children: [
     {
-      name: "Performance",
+      name: "Database Performance",
       href: "/guides/comparison/one-billion-rows",
       key: "/guides/comparison/one-billion-rows",
     },
