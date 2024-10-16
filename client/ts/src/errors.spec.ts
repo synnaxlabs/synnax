@@ -52,16 +52,16 @@ describe("error", () => {
 
 const client = newClient();
 
-test("Match NotFoundError", async () => {
+test("client", async () => {
   expect.assertions(2);
   try {
     await client.channels.retrieve(id.id());
-  } catch (error) {
-    expect(NotFoundError.matches(error)).toBe(true);
+  } catch (e) {
+    expect(NotFoundError.matches(e)).toBe(true);
   }
   try {
     await client.workspaces.schematic.retrieve(uuid());
-  } catch (error) {
-    expect(NotFoundError.matches(error)).toBe(true);
+  } catch (e) {
+    expect(NotFoundError.matches(e)).toBe(true);
   }
 });
