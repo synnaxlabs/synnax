@@ -56,6 +56,7 @@ import {
   MdAlignVerticalTop,
   MdAreaChart,
   MdAutoAwesome,
+  MdCommit,
   MdDataArray,
   MdDataObject,
   MdEdit,
@@ -369,6 +370,7 @@ export const Icon: IconType = {
   SplitX: wrapIcon(VscSplitHorizontal, "split-x"),
   SplitY: wrapIcon(VscSplitVertical, "split-y"),
   AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
+  Commit: wrapIcon(MdCommit, "commit"),
 };
 
 export interface IconType {
@@ -512,4 +514,5 @@ export interface IconType {
   SplitX: IconFC;
   SplitY: IconFC;
   AutoFitWidth: IconFC;
+  Commit: IconFC;
 }
