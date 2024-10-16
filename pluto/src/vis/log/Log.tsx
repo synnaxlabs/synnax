@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/log/log.css";
+import "@/vis/Log/Log.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { box, Optional } from "@synnaxlabs/x";
