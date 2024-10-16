@@ -15,7 +15,13 @@ import { type Text } from "@/text";
 /** Props for the {@link Link} component. */
 export interface LinkProps<L extends Text.Level = "h1">
   extends ButtonProps,
-    Pick<Text.LinkProps<L>, "href" | "target"> {}
+    Pick<Text.LinkProps<L>, "href" | "target"> {
+  autoFormat?: boolean;
+}
+
+const SCHEME_SEPARATOR = "://";
+const HTTP_SECURE_SCHEME = "https" + SCHEME_SEPARATOR;
+
 /**
  * Use.Link renders a button that looks like a link and redirects to the given href
  * when clicked.
@@ -29,8 +35,12 @@ export interface LinkProps<L extends Text.Level = "h1">
 export const Link = <L extends Text.Level = "h1">({
   href,
   target,
+  autoFormat = false,
   ...props
 }: LinkProps<L>): ReactElement => {
+  if (autoFormat && href != null && !href.includes(SCHEME_SEPARATOR))
+    // @ts-expect-error - generic element issues
+    href = HTTP_SECURE_SCHEME + newHref;
   // @ts-expect-error - generic element issues
   return <Button<"a"> el="a" href={href} target={target} {...props} />;
 };

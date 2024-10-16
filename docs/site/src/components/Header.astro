@@ -44,7 +44,7 @@ const url = Astro.url.pathname;
             <Text.Link
                 href="/releases/"
                 className={url.includes("releases") ? "active" : ""}
-                level="h5">Releases</Text.Link
+                level="h5">Release Notes</Text.Link
             >
         </Align.Space>
     </Align.Space>
@@ -112,8 +112,8 @@ const url = Astro.url.pathname;
 
             .pluto-text-link {
                 .pluto-text {
-                    font-size: 2.3333rem;
-                    font-weight: 350;
+                    font-size: 13.5px;
+                    font-weight: 425;
                     color: var(--pluto-gray-l7);
                 }
                 position: relative;
@@ -123,7 +123,7 @@ const url = Astro.url.pathname;
                     position: absolute;
                     width: 0%;
                     height: var(--pluto-border-width);
-                    bottom: -6px;
+                    bottom: -7px;
                     left: 0%;
                     border-bottom: var(--pluto-border);
                     border-color: var(--pluto-primary-z);

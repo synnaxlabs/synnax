@@ -61,6 +61,7 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
           variant="outlined"
           href={value}
           target="_blank"
+          autoFormat
           style={{ padding: "1rem" }}
         >
           <Icon.LinkExternal />

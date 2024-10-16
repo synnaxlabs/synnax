@@ -15,6 +15,7 @@ import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { OSSelectButton } from "@/components/platform/PlatformTabs";
+import { Text } from "@synnaxlabs/pluto";
 
 interface ItemOffset {
   id: string;
@@ -23,7 +24,7 @@ interface ItemOffset {
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
-export const OnThisPage = ({
+export const ReleaseList = ({
   headings = [],
   url,
 }: {
@@ -32,46 +33,6 @@ export const OnThisPage = ({
 }): ReactElement => {
   const toc = useRef<HTMLDivElement>(null);
   const [currentID, setCurrentID] = useState("");
-
-  useEffect(() => {
-    const i = setInterval(() => {
-      const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-      const headerLinks = document.querySelectorAll(
-        ".on-this-page .header-link",
-      ) as unknown as HTMLElement[];
-      headerLinks.forEach((link) => {
-        // check if there's a matching title
-        const title = Array.from(titles).find((title) => {
-          return title.id === link.id;
-        });
-        if (title == null) {
-          // set the link display to none
-          link.style.display = "none";
-        } else {
-          link.style.display = "block";
-        }
-      });
-    }, 200);
-    return () => clearInterval(i);
-  }, []);
-
-  // useEffect(() => {
-  //   const getItemOffsets = (): void => {
-  //     const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-  //     const headerLinks = document.querySelectorAll(".on-this-page .header-link");
-
-  //     itemOffsets.current = Array.from(titles).map((title) => ({
-  //       id: title.id,
-  //       topOffset: title.getBoundingClientRect().top + window.scrollY,
-  //     }));
-  //   };
-
-  //   getItemOffsets();
-  //   window.addEventListener("resize", getItemOffsets);
-  //   return () => {
-  //     window.removeEventListener("resize", getItemOffsets);
-  //   };
-  // }, []);
 
   useEffect(() => {
     if (toc.current == null) return;
@@ -91,14 +52,14 @@ export const OnThisPage = ({
       // Negative top margin accounts for `scroll-margin`.
       // Negative bottom margin means heading needs to be towards top of viewport to trigger intersection.
       rootMargin: "-50px 0% -66%",
-      threshold: 1,
+      threshold: 0.15,
     };
 
     const headingsObserver = new IntersectionObserver(setCurrent, observerOptions);
 
     // Observe all the headings in the main page content.
     document
-      .querySelectorAll("article :is(h1,h2,h3)")
+      .querySelectorAll("article :is(h6)")
       .forEach((h) => headingsObserver.observe(h));
 
     // Stop observing when the component is unmounted.
@@ -110,15 +71,12 @@ export const OnThisPage = ({
   if (headings.length === 0) return <></>;
 
   return (
-    <Align.Space el="nav" className="on-this-page" size={2}>
-      <Header.Header id={ON_THIS_PAGE_ID} className="heading" level="h4">
-        <Header.Title>On this page</Header.Title>
-      </Header.Header>
-      <OSSelectButton />
+    <Align.Space el="nav" className="release-list" size={2}>
+      <Text.Text level="h5">History</Text.Text>
       <div ref={toc}>
         <Menu.Menu value={currentID}>
           {headings
-            .filter(({ depth }) => depth > 1 && depth <= 3)
+            .filter(({ depth }) => depth === 6)
             .map((heading) => {
               return (
                 <Menu.Item.Link

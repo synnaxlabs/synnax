@@ -1,16 +1,12 @@
 ---
 import Header from "@/components/Header.astro";
-import PageNav from "@/components/PageNav/PageNav.astro";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
 import { ViewTransitions } from "astro:transitions";
-import OnThisPage from "@/components/OnThisPage/OnThisPage.astro";
 import { SEO } from "astro-seo";
 import Footer from "@/components/Footer.astro";
-import Article from "@/components/article/Article.astro";
 const {
-    headings,
-    frontmatter: { title, heading, description, url, next, nextURL, prev, prevURL },
+    frontmatter: { title, description, url },
 } = Astro.props;
 ---
 

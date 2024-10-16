@@ -1,11 +1,12 @@
 ---
 import { Align, Text } from "@synnaxlabs/pluto";
 const { date, version, title, breakingChanges } = Astro.props;
+const id = version.split(".").join("-");
 ---
 
-<Align.Space direction="x" className="release">
+<Align.Space direction="x" id={version.split(".").join("-")} className="release" empty>
     <Align.Space direction="y" size="small" className="meta">
-        <Text.Text level="h4">Version {version}</Text.Text>
+        <Text.Text level="h3" weight={500}>Version {version}</Text.Text>
         <Text.Text level="p" shade={8}>{date}</Text.Text>
         {
             breakingChanges ? (
@@ -37,12 +38,13 @@ const { date, version, title, breakingChanges } = Astro.props;
             height: fit-content;
             position: sticky;
             top: 120px;
+            padding-top: 1rem;
             padding-left: 3rem;
-            flex-basis: 400px;
+            flex-basis: 375px;
             flex-grow: 1;
         }
         .details {
-            flex-basis: 600px;
+            flex-basis: 650px;
             flex-grow: 3;
         }
         .breaking-changes {
