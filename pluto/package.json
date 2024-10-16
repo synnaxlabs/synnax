@@ -25,7 +25,6 @@
     "mathjs": "^13.2.0",
     "proxy-memoize": "2.0.3",
     "react": "^18.3.1",
-    "non.geist": "^1.0.4",
     "react-color": "^2.19.3",
     "react-query": "^3.39.3",
     "reactflow": "^11.11.4",

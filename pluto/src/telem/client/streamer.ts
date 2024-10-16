@@ -132,27 +132,27 @@ export class Streamer {
       cache,
       instrumentation: { L },
     } = this.props;
-    // try {
-    for await (const frame of streamer) {
-      const changed: ReadResponse[] = [];
-      for (const k of frame.keys) {
-        const series = frame.get(k);
-        const unary = cache.get(k);
-        const out = unary.writeDynamic(series.series);
-        changed.push(new ReadResponse(unary.channel, out));
+    try {
+      for await (const frame of streamer) {
+        const changed: ReadResponse[] = [];
+        for (const k of frame.keys) {
+          const series = frame.get(k);
+          const unary = cache.get(k);
+          const out = unary.writeDynamic(series.series);
+          changed.push(new ReadResponse(unary.channel, out));
+        }
+        this.listeners.forEach((entry, handler) => {
+          if (!entry.valid) return;
+          const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
+          if (notify.length === 0) return;
+          const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
+          handler(d);
+        });
       }
-      this.listeners.forEach((entry, handler) => {
-        if (!entry.valid) return;
-        const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
-        if (notify.length === 0) return;
-        const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
-        handler(d);
-      });
+    } catch (e) {
+      L.error("streamer run loop failed", { error: e }, true);
+      throw e;
     }
-    // } catch (e) {
-    //   L.error("streamer run loop failed", { error: e }, true);
-    //   throw e;
-    // }
   }
 
   async close(): Promise<void> {
