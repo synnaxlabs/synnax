@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { MatchableErrorType } from "@synnaxlabs/freighter/src/errors";
+import { id } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -24,6 +25,7 @@ import {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
+import { newClient } from "@/setupspecs";
 
 describe("error", () => {
   describe("type matching", () => {
@@ -45,4 +47,15 @@ describe("error", () => {
       test(`matches ${typeName}`, () => expect(type.matches(error)).toBeTruthy()),
     );
   });
+});
+
+const client = newClient();
+
+test("Match NotFoundError", async () => {
+  expect.assertions(1);
+  try {
+    await client.channels.retrieve(id.id());
+  } catch (error) {
+    expect(NotFoundError.matches(error)).toBe(true);
+  }
 });
