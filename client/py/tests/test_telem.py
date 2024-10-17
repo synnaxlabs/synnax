@@ -84,8 +84,12 @@ class TestTimeStamp:
     )
     def test_construction(self, crude: CrudeTimeStamp, expected: TimeStamp):
         """Should initialize a timestamp from a variety of types"""
-        assert TimeStamp(crude) == expected, f"{TimeSpan(TimeStamp(crude) -
-                                                      TimeStamp(expected))}"
+        delta = TimeSpan(TimeStamp(crude) - TimeStamp(expected)
+        assert TimeStamp(crude) == expected, f"""
+        Expected: {TimeStamp(expected)}
+        Got: {TimeStamp(crude)}
+        Delta: {delta}
+        """
 
     def test_after_false(self):
         """Should return true if the timestamp is after the given timestamp"""
