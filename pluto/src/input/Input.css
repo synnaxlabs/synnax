@@ -197,6 +197,27 @@
     }
 }
 
+.pluto-input--button {
+    & .pluto-input__internal {
+        transition:
+            background 0.15s ease-in-out,
+            border-color 0.15s ease-in-out;
+        &:hover:not(.pluto--disabled):not(:focus-within) {
+            --pluto-bg: var(--pluto-gray-l3);
+            background: var(--pluto-bg) !important;
+        }
+        &:active:not(.pluto--disabled):not(:focus-within) {
+            --pluto-bg: var(--pluto-gray-l3);
+            background: var(--pluto-bg) !important;
+        }
+        &:focus-within {
+            transition:
+                background 0s ease-in-out,
+                border-color 0s ease-in-out;
+        }
+    }
+}
+
 input[type="number"]::-webkit-inner-spin-button {
     /* stylelint-disable-next-line property-no-vendor-prefix */
     -webkit-appearance: none;
