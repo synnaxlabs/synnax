@@ -7,12 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 import uuid
-from datetime import datetime, timedelta, timezone, UTC
+from datetime import datetime, timedelta, timezone, UTC, tzinfo
+import dateutil
 
 import numpy as np
 import pandas as pd
 import pytest
-from pytz import timezone as pytz_timezone
 
 from synnax import (
     ContiguityError,
@@ -32,6 +32,8 @@ from synnax import (
 )
 
 _now = TimeStamp.now()
+
+EST = dateutil.tz.gettz("EST")
 
 
 @pytest.mark.telem
@@ -55,7 +57,12 @@ class TestTimeStamp:
             (timedelta(seconds=105), TimeStamp(105 * TimeSpan.SECOND)),
             (np.datetime64(1000, "ms"), TimeStamp(1000 * TimeSpan.MILLISECOND)),
             (
-                datetime(2022, 2, 22, 15, 41, 50, tzinfo=pytz_timezone("EST")),
+                datetime(2022, 2, 22, 15, 41, 50, tzinfo=EST),
+                TimeStamp(1645562510000000000),
+            ),
+            (
+                # EST
+                datetime(2022, 2, 22, 15, 41, 50, tzinfo=EST),
                 TimeStamp(1645562510000000000),
             ),
             (
@@ -63,12 +70,12 @@ class TestTimeStamp:
                 TimeStamp(1645544510000000000),
             ),
             (
-                datetime(2022, 2, 22, 10, 41, 50, tzinfo=pytz_timezone("EST")),
+                datetime(2022, 2, 22, 10, 41, 50, tzinfo=EST),
                 TimeStamp(1645544510000000000),
             ),
             (
                 pd.Timestamp(
-                    datetime(2022, 2, 22, 15, 41, 50, tzinfo=pytz_timezone("EST"))
+                    datetime(2022, 2, 22, 15, 41, 50, tzinfo=EST)
                 ),
                 TimeStamp(1645562510000000000),
             ),
@@ -77,7 +84,8 @@ class TestTimeStamp:
     )
     def test_construction(self, crude: CrudeTimeStamp, expected: TimeStamp):
         """Should initialize a timestamp from a variety of types"""
-        assert TimeStamp(crude) == expected
+        assert TimeStamp(crude) == expected, f"{TimeSpan(TimeStamp(crude) -
+                                                      TimeStamp(expected))}"
 
     def test_after_false(self):
         """Should return true if the timestamp is after the given timestamp"""
