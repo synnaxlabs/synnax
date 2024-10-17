@@ -86,7 +86,7 @@ void ScannerTask::scan() {
         }
     }
 
-    LOG(INFO) << "devices json: "  << devices.dump(4);
+    LOG(INFO) << "devices json: "  << devices.dump(4); // TODO: remove once labjack dev is done
 }
 
 void ScannerTask::create_devices() {

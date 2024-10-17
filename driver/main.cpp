@@ -110,9 +110,13 @@ int main(int argc, char *argv[]) {
         LOG(INFO) << "[driver] NI integration is not enabled or the required DLLs are not available";
 #endif
 
-    // auto labjack_enabled = // TODO: add the labjack integration to the driver cfg
-    std::unique_ptr<labjack::Factory> labjack_factory = std::make_unique<labjack::Factory>();
-    factories.push_back(std::move(labjack_factory));
+    auto labjack_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), labjack::INTEGRATION_NAME);
+    if(labjack_enabled != cfg.integrations.end()){
+        std::unique_ptr<labjack::Factory> labjack_factory = std::make_unique<labjack::Factory>();
+        factories.push_back(std::move(labjack_factory));
+    } else
+        LOG(INFO) << "[driver] LabJack integration is not enabled";
+
 
     auto factory = std::make_unique<task::MultiFactory>(std::move(factories));
     task_manager = std::make_unique<task::Manager>(
