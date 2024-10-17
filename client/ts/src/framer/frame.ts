@@ -422,7 +422,7 @@ export const seriesToPayload = (series: Series): SeriesPayload => {
   return {
     timeRange: series._timeRange,
     dataType: series.dataType,
-    data: new Uint8Array(series.data),
+    data: new Uint8Array(series.data.buffer),
     alignment: series.alignment,
   };
 };

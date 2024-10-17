@@ -90,7 +90,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               </Text.Link>
             </Align.Space>
           ) : (
-            <Text.Text level="h4" shade={6}>
+            <Text.Text level="p" shade={6}>
               No data received yet.
             </Text.Text>
           )}
