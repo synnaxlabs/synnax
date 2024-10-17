@@ -209,7 +209,6 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
                     DAQ_STATE[FUEL_PT_1] -= delta
                     DAQ_STATE[FUEL_PT_2] -= delta
 
-
                 clamped = clamp_pts(DAQ_STATE)
                 randomized = introduce_randomness(clamped)
                 translated = translate_valves(randomized)

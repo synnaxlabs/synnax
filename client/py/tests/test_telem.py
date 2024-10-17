@@ -6,8 +6,9 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
 import uuid
-from datetime import datetime, timedelta, timezone, UTC, tzinfo
+from datetime import datetime, timedelta, timezone, UTC
 import dateutil
 
 import numpy as np
@@ -74,9 +75,7 @@ class TestTimeStamp:
                 TimeStamp(1645544510000000000),
             ),
             (
-                pd.Timestamp(
-                    datetime(2022, 2, 22, 15, 41, 50, tzinfo=EST)
-                ),
+                pd.Timestamp(datetime(2022, 2, 22, 15, 41, 50, tzinfo=EST)),
                 TimeStamp(1645562510000000000),
             ),
             (np.int64(1000), TimeStamp(1 * TimeSpan.MICROSECOND)),
@@ -85,7 +84,9 @@ class TestTimeStamp:
     def test_construction(self, crude: CrudeTimeStamp, expected: TimeStamp):
         """Should initialize a timestamp from a variety of types"""
         delta = TimeSpan(TimeStamp(crude) - TimeStamp(expected))
-        assert TimeStamp(crude) == expected, f"""
+        assert (
+            TimeStamp(crude) == expected
+        ), f"""
         Expected: {TimeStamp(expected)}
         Got: {TimeStamp(crude)}
         Delta: {delta}

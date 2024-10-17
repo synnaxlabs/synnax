@@ -507,7 +507,6 @@ class _Receiver(AsyncThread):
                 self.state[key] = frame.series[i][-1]
             self._process()
 
-
     def stop(self):
         self.loop.call_soon_threadsafe(self.shutdown_future.set_result, None)
         self.join()
