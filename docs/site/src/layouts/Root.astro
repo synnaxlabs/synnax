@@ -2,6 +2,7 @@
 import Header from "@/components/Header.astro";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
+import "@fontsource/geist-mono";
 import { ViewTransitions } from "astro:transitions";
 import { SEO } from "astro-seo";
 import Footer from "@/components/Footer.astro";
@@ -47,15 +48,6 @@ const {
     <script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
-        addCodeButtonListeners();
-        startUpdatingIframeHref();
-        document.addEventListener("astro:after-swap", () => {
-            addCodeButtonListeners();
-            startUpdatingIframeHref();
-        });
-    </script>
-
-    <script>
         import { getVersion } from "@/util/fetchVersion";
         const updateVersion = () => {
             getVersion().then((version) => {
@@ -67,7 +59,13 @@ const {
             });
         };
         updateVersion();
-        document.addEventListener("astro:after-swap", updateVersion);
+        addCodeButtonListeners();
+        startUpdatingIframeHref();
+        document.addEventListener("astro:after-swap", () => {
+            updateVersion();
+            addCodeButtonListeners();
+            startUpdatingIframeHref();
+        });
     </script>
 
     <style is:global>
@@ -1009,11 +1007,6 @@ const {
                 padding: 0 2rem;
                 max-width: 1340px;
             }
-            @media (max-width: 768px) {
-                & > section {
-                    flex-direction: column;
-                }
-            }
         }
 
         nav {
@@ -1057,13 +1050,14 @@ const {
         }
 
         & code:not(:is(h1, h2, h3, h4, h5, h6) code) {
-            font-size: var(--pluto-tiny-size);
-            line-height: var(--pluto-tiny-line-height);
+            font-size: var(--pluto-small-size);
+            line-height: var(--pluto-small-line-height);
         }
 
         code {
             font-size: inherit;
             line-height: inherit;
+            font-family: "Geist Mono";
             color: var(--pluto-text-color);
             border-radius: var(--pluto-border-radius);
         }

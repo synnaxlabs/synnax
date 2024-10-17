@@ -90,7 +90,7 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
 
   if (width == null) return null;
-  if (width > 800) return tree;
+  if (width > 865) return tree;
   return (
     <Dropdown.Dialog visible={visible} close={close} variant="floating">
       <Button.Button

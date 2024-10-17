@@ -15,10 +15,12 @@ import { type Text } from "@/text";
 /** Props for the {@link Link} component. */
 export interface LinkProps<L extends Text.Level = "h1">
   extends ButtonProps,
-    Pick<Text.LinkProps<L>, "href" | "target"> {}
+    Pick<Text.LinkProps<L>, "href" | "target"> {
+  autoFormat?: boolean;
+}
 
-const schemeSeperator = "://";
-const httpSecureScheme = "https" + schemeSeperator;
+const SCHEME_SEPARATOR = "://";
+const HTTP_SECURE_SCHEME = "https" + SCHEME_SEPARATOR;
 
 /**
  * Use.Link renders a button that looks like a link and redirects to the given href
@@ -29,16 +31,16 @@ const httpSecureScheme = "https" + schemeSeperator;
  * @param props.href - The URL to redirect to when the button is clicked.
  * @param props.target - The target of the link. Defaults to "_self".
  */
+
 export const Link = <L extends Text.Level = "h1">({
   href,
   target,
+  autoFormat = false,
   ...props
 }: LinkProps<L>): ReactElement => {
-  let newHref = href;
-  if (newHref != null && !newHref.includes(schemeSeperator))
+  if (autoFormat && href != null && !href.includes(SCHEME_SEPARATOR))
     // @ts-expect-error - generic element issues
-    newHref = httpSecureScheme + newHref;
-
+    href = HTTP_SECURE_SCHEME + newHref;
   // @ts-expect-error - generic element issues
-  return <Button<"a"> el="a" href={newHref} target={target} {...props} />;
+  return <Button<"a"> el="a" href={href} target={target} {...props} />;
 };

@@ -1,12 +1,12 @@
 ---
-import Main from "@/layouts/Main.astro";
+import Root from "@/layouts/Root.astro";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Divider, Text } from "@synnaxlabs/pluto";
-import Release0320 from "@/pages/releases/0-32-0.mdx";
-import Release0310 from "@/pages/releases/0-31-0.mdx";
+import { Align, Text } from "@synnaxlabs/pluto";
+import ReleaseList from "@/components/releases/ReleaseList.astro";
+const { headings } = Astro.props;
 ---
 
-<Main frontmatter={{ title: "Releases" }}>
+<Root frontmatter={{ title: "Releases" }}>
     <Align.Space direction="y" className="releases" el="article" grow>
         <Align.Space
             direction="x"
@@ -38,16 +38,25 @@ import Release0310 from "@/pages/releases/0-31-0.mdx";
             </Align.Space>
             <Text.Text level="h1" className="latest version full" transition:persist />
         </Align.Space>
-        <Divider.Divider direction="x" />
-        <Release0320 />
-        <Divider.Divider direction="x" />
-        <Release0310 />
+        <slot />
     </Align.Space>
-</Main>
+    <ReleaseList headings={headings} url={Astro.url} />
+</Root>
 
 <style is:global>
     .releases {
         margin: 0 auto;
+        padding-right: 7rem;
+        & .release-wrapper {
+            position: relative;
+        }
+        & h6 {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            margin: 0 !important;
+        }
         .header {
             width: 100%;
             min-height: 260px;
