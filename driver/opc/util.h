@@ -345,7 +345,7 @@ inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val
         };
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_BOOLEAN]))
         return {
-            synnax::UINT128, true
+            synnax::UINT8, true
         };
     if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return {synnax::FLOAT32, false};
     if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return {synnax::FLOAT64, false};
