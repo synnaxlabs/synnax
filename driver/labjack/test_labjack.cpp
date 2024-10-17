@@ -223,7 +223,7 @@ int multi_ain(){
     double aValuesAIN[NUM_FRAMES_AIN] = {0};
     const char * aNamesAIN[NUM_FRAMES_AIN] = {"AIN0", "AIN1", "FIO4"};
 
-    int msDelay = 10; // sets sample rate?
+    int msDelay = 1000; // sets sample rate?
 
     // Open first found LabJack
     handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");

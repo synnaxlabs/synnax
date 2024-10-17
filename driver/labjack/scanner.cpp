@@ -102,9 +102,9 @@ void ScannerTask::create_devices() {
 
         auto new_device = synnax::Device(
             key,
-            device["device_type"].get<std::string>(),    //name
-            synnax::taskKeyRack(this->task.key),         // rack key
-            device["connection_type"].get<std::string>(), //location
+            device["device_type"].get<std::string>(),           // name
+            synnax::taskKeyRack(this->task.key),                // rack key
+            device["connection_type"].get<std::string>(),       // location
             std::to_string(device["serial_number"].get<int>()),
             "LabJack",
             device["device_type"].get<std::string>(),

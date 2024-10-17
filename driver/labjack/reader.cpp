@@ -27,12 +27,10 @@ void labjack::Source::stopped_with_err(const freighter::Error &err) {
 
 std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
-    for (auto &channel : this->reader_config.channels) {
+    for (auto &channel : this->reader_config.channels)
         keys.push_back(channel.channel_key);
-    }
-    for (auto &index_key : this->reader_config.index_keys) {
+    for (auto &index_key : this->reader_config.index_keys)
         keys.push_back(index_key);
-    }
     return keys;
 }
 
@@ -46,14 +44,19 @@ void labjack::Source::init(){
     // iterate through the channels, for the ones that analog device, need to set the resolution index
     for (auto &channel : this->reader_config.channels) {
         if (channel.channel_types == "AIN") {
-            int err = WriteName(this->handle, channel.location.c_str(), 0);
+            std::string name = channel.location + "_RESOLUTION_INDEX";
+            int err = WriteName(this->handle, name.c_str(), 0);
+//            if(this->reader_config.device_type != "T4") {
+//                auto name = channel.location + "_RANGE";
+//                err = WriteName(this->handle, channel.location.c_str(), 0);
+//            }
         }
         // TODO: if its T7/T8, will need to set range/gain configs like so:
     }
     int msDelay = 1000;
     auto err = LJM_StartInterval(
             this->handle, // TODO: need to keep unique to device will need to change once i want to define multiple intervals to read data at on a songel device
-            msDelay * 1000
+            msDelay * 4
     );
 
     // TODO: check error
@@ -80,21 +83,12 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
         }
     }
 
-//    auto t0 = synnax::TimeStamp::now().value;
     int SkippedIntervals;
     err = LJM_WaitForNextInterval(this->handle, &SkippedIntervals);
     ErrorCheck(err, "LJM_WaitForNextInterval");
     if (SkippedIntervals > 0) {
         printf("SkippedIntervals: %d\n", SkippedIntervals);
     }
-//    LOG(INFO) << "Handle: " << this->handle;
-//    LOG(INFO) << "Num names: " << num_names;
-//    LOG(INFO) << "Locations: " << locations.size();
-//    // iterate through locations
-//    for (const auto &location : locations) {
-//        LOG(INFO) << "Location: " << location;
-//    }
-//    LOG(INFO) << "Values: " << values.size();
     err = LJM_eReadNames(
             this->handle,
             num_names,
@@ -102,32 +96,14 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
             values.data(),
             &error_address);
 
-//    auto tf = synnax::TimeStamp::now().value;
     // TOOD: add a breaker for sleep
 
     // Error checking
     if (err != LJME_NOERROR) {
         std::cerr << "Error in LJM_eReadNames: " << err << std::endl;
-        // Handle error appropriately
     }
-
-    // Print values
-    std::cout << std::fixed << std::setprecision(6);  // Set precision for floating-point output
-    for (int i = 0; i < num_names; ++i) {
-        std::cout << locations[i] << " : " << values[i] << " V";
-        if (i < num_names - 1) {
-            std::cout << ", ";
-        }
-    }
-    std::cout << std::endl;
-
-    // now i need to construct the frame
-
     // iterate through locations
     // for each location, find the corresponding channel in the config
-//    std::cout << "constructing frame: " << std::endl;
-    std::cout << "Num names: " << num_names << std::endl;
-    std::cout << "index_keys size: " << this->reader_config.index_keys.size() << std::endl;
     auto f = synnax::Frame(num_names + this->reader_config.index_keys.size());
     int index = 0;
     for(const auto &location : locations) {
@@ -141,23 +117,15 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
         }
         index++;
     }
-    // add index channels
-//    for(auto channel : this->reader_config.channels){
-//        if(channel.channel_types == "INDEX"){
-//            auto t = synnax::Series(synnax::TIMESTAMP, {synnax::TimeStamp::now().value});
-//            f.add(channel.channel_key, std::move(t));
-//        }
-//    }
     for(auto index_key : this->reader_config.index_keys){
         auto t = synnax::Series(synnax::TIMESTAMP, 1);
         t.write(synnax::TimeStamp::now().value);
         f.add(index_key, std::move(t));
     }
-    // print frame
-    std::cout << "Frame: " << f << std::endl;
+
+//    LOG(INFO) << "Frame: " << f << std::endl;
 
     return std::make_pair(std::move(f), freighter::NIL);
-
 }
 
 labjack::Source::~Source() {
@@ -182,3 +150,4 @@ void labjack::Source::write_to_series(
         LOG(ERROR) << "Unsupported data type: " << data_type.value;
     }
 }
+
