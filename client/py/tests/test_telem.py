@@ -84,7 +84,7 @@ class TestTimeStamp:
     )
     def test_construction(self, crude: CrudeTimeStamp, expected: TimeStamp):
         """Should initialize a timestamp from a variety of types"""
-        delta = TimeSpan(TimeStamp(crude) - TimeStamp(expected)
+        delta = TimeSpan(TimeStamp(crude) - TimeStamp(expected))
         assert TimeStamp(crude) == expected, f"""
         Expected: {TimeStamp(expected)}
         Got: {TimeStamp(crude)}
