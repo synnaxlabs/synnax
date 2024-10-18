@@ -466,6 +466,7 @@ func maybeSetBasePermission(
 			"range":       access.All,
 			"range-alias": access.All,
 			"workspace":   access.All,
+			"log":         access.All,
 			"lineplot":    access.All,
 			"rack":        access.All,
 			"device":      access.All,
