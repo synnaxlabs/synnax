@@ -32,6 +32,7 @@ cc_library(
     deps = [
         ":labjack_headers",
         ":labjack_lib",
+        "//driver/breaker",
         "//client/cpp:synnax",
         "//driver/errors",
         "//driver/task",

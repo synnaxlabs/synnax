@@ -106,7 +106,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     auto p = std::make_unique<labjack::ReaderTask>(
         ctx,
         task,
-        source,
+        std::move(source),
         writer_config,
         breaker_config
     );

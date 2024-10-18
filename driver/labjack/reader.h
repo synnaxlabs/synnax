@@ -24,6 +24,7 @@
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/queue/ts_queue.h" // TODO: move out of ni
+#include "driver/breaker/breaker.h"
 
 
 namespace labjack{
@@ -74,6 +75,7 @@ namespace labjack{
                   serial_number(parser.optional<std::string>("serial_number", "")),
                   connection_type(parser.optional<std::string>("connection_type", "")),
                   data_saving(parser.optional<bool>("data_saving", false)) {
+            LOG(INFO) << "sample rate: " << sample_rate.value;
 
             // Parse the channels
             parser.iter("channels", [this](config::Parser &channel_parser) {
@@ -99,11 +101,25 @@ public:
         ) : handle(handle),
             ctx(ctx),
             task(task),
-            reader_config(reader_config) {
+            reader_config(std::move(reader_config)) {
+        // TODO: default construct breaker?
+        auto breaker_config = breaker::Config{
+                .name = task.name,
+                .base_interval = 1 * SECOND,
+                .max_retries = 20,
+                .scale = 1.2,
+        };
+        this->breaker = breaker::Breaker(breaker_config);
+        LOG(INFO) << "Constructed source";
+        LOG(INFO) << "reader config stuff " << this->reader_config.device_type;
+        LOG(INFO) << "sample rate: " << this->reader_config.sample_rate.value;
+        LOG(INFO) << "reader_config address in constructor: " << (void*)&this->reader_config;
+
     }
 
     // destructor
     ~Source();
+
 
     std::vector<synnax::ChannelKey> get_channel_keys();
 

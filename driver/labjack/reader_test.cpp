@@ -34,8 +34,8 @@ TEST(read_tests, labjack_t4){
 
     // TODO: set task_key in init/constructor of reader source, same with name
     auto config = json{
-            {"sample_rate", 300},             // TODO: actually make sure these work
-            {"stream_rate", 100},              // TODO: actually make sure these work
+            {"sample_rate", 2000},             // TODO: actually make sure these work
+            {"stream_rate", 2},              // TODO: actually make sure these work
             {"device_type", "T4"},
             {"device_key", "440022190"},          // TODO: change to actual serial number of device we ahve
             {"serial_number", "440022190"},    // TODO: change to actual serial number of device

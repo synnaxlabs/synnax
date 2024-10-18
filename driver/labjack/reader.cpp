@@ -39,31 +39,48 @@ void labjack::Source::init(){
 }
 
 void labjack::Source::init_stream(){
-    double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
-    int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
-    double scanRate = SCANS_PER_READ;
+    LOG(INFO) << "initializing labjack device";
+    LOG(INFO) << "reader_config address in init: " << (void*)&this->reader_config;
 
-    this->num_samples_per_chan = SCANS_PER_READ;
-    this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ; // TODO: i might not need this
 
-    LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
-    this->port_addresses.resize(this->reader_config.phys_channels.size());
-
-    std::vector<const char*> phys_channel_names;
-    for (const auto& channel : this->reader_config.phys_channels) {
-        phys_channel_names.push_back(channel.c_str());
-    }
-
-    auto err = LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL);
-    ErrorCheck(err, "[labjack.reader] LJM_NamesToAddresses error");
-
-    err = LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate);
-    ErrorCheck(err, "[labjack.reader] LJM_eStreamStart error");
+    LOG(INFO) << "reader config stuff" << this->reader_config.device_type;
+    LOG(INFO) << "sample rate: " << this->reader_config.sample_rate.value;
+//    double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
+//    LOG(INFO) << "INIT_SCAN_RATE: " << INIT_SCAN_RATE;
+//    LOG(INFO) << "Stream rate is: " << this->reader_config.stream_rate.value;
+//    int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
+//    double scanRate = SCANS_PER_READ;
+//    LOG(INFO) << "checkpoint";
+//    this->num_samples_per_chan = SCANS_PER_READ;
+//    this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ; // TODO: i might not need this
+//
+//    LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
+//    this->port_addresses.resize(this->reader_config.phys_channels.size());
+//
+//    std::vector<const char*> phys_channel_names;
+//    for (const auto& channel : this->reader_config.phys_channels) {
+//        phys_channel_names.push_back(channel.c_str());
+//    }
+//
+//    LOG(INFO) << "getting port addresses";
+//    auto err = LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL);
+//    ErrorCheck(err, "[labjack.reader] LJM_NamesToAddresses error");
+//
+//    err = LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate);
+//    ErrorCheck(err, "[labjack.reader] LJM_eStreamStart error");
+    LOG(INFO) << "Finished init";
 };
 
 freighter::Error labjack::Source::start(const std::string &cmd_key){
-    if(this->breaker.running()) return freighter::NIL;
-    this->breaker.start();
+    LOG(INFO) << "reader_config address in start: " << (void*)&this->reader_config;
+    LOG(INFO) << "starting labjack device";
+//    if(this->breaker.running()) {
+//        LOG(INFO) << "breaker already running";
+//        return freighter::NIL;
+//    }
+//    LOG(INFO) << "starting breaker";
+//    this->breaker.start();
+    LOG(INFO) << "breaker started";
     this->init(); // TODO: do some error handling here before you actually start the sample thread
     this->sample_thread = std::thread(&labjack::Source::acquire_data, this);
     ctx->setState({
@@ -79,8 +96,8 @@ freighter::Error labjack::Source::start(const std::string &cmd_key){
 };
 
 freighter::Error labjack::Source::stop(const std::string &cmd_key) {
-    if(this->breaker.running()) return freighter::NIL;
-    this->breaker.stop();
+//    if(!this->breaker.running()) return freighter::NIL;
+//    this->breaker.stop();
 
     if(this->sample_thread.joinable()) this->sample_thread.join();
     auto err = LJM_eStreamStop(handle);
@@ -164,7 +181,8 @@ void labjack::Source::acquire_data(){
     int numSkippedScans = 0;
     int totalSkippedScans = 0;
     int deviceScanBacklog = 0;
-    while(this->breaker.running()){
+//    while(this->breaker.running()){
+    while(true){
         DataPacket data_packet;
         data_packet.data.resize(1000); // TODO: change size to be variable
 
