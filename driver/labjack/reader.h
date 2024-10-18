@@ -149,8 +149,7 @@ private:
     TSQueue<DataPacket> data_queue;
     std::thread sample_thread;
     std::vector<int> port_addresses;
-    int buffer_size; // TODO: actually use this eventually
-    breaker::Breaker breaker;
-
+    int buffer_size = 0; // TODO: actually use this eventually
+    int num_samples_per_chan = 0;
 };
 }

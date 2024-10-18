@@ -35,14 +35,16 @@ std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
 }
 
 void labjack::Source::init(){
-//    this->init_basic();
     this->init_stream();
 }
 
 void labjack::Source::init_stream(){
-    double INIT_SCAN_RATE = 2000;
-    int SCANS_PER_READ = (int)INIT_SCAN_RATE / 2;
+    double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
+    int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
     double scanRate = SCANS_PER_READ;
+
+    this->num_samples_per_chan = SCANS_PER_READ;
+    this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ; // TODO: i might not need this
 
     LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
     this->port_addresses.resize(this->reader_config.phys_channels.size());
@@ -53,11 +55,13 @@ void labjack::Source::init_stream(){
     }
 
     auto err = LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL);
+    ErrorCheck(err, "[labjack.reader] LJM_NamesToAddresses error");
 
     err = LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate);
+    ErrorCheck(err, "[labjack.reader] LJM_eStreamStart error");
 };
 
-freighter::Error labjack:Source::start(const std::string &&cmd_key){
+freighter::Error labjack::Source::start(const std::string &cmd_key){
     if(this->breaker.running()) return freighter::NIL;
     this->breaker.start();
     this->init(); // TODO: do some error handling here before you actually start the sample thread
@@ -76,9 +80,12 @@ freighter::Error labjack:Source::start(const std::string &&cmd_key){
 
 freighter::Error labjack::Source::stop(const std::string &cmd_key) {
     if(this->breaker.running()) return freighter::NIL;
-    this->breaker.stop()
+    this->breaker.stop();
+
     if(this->sample_thread.joinable()) this->sample_thread.join();
     auto err = LJM_eStreamStop(handle);
+    ErrorCheck(err, "[labjack.reader] LJM_eStreamStop error");
+
     CloseOrDie(this->handle);
     ctx->setState({
           .task = task.key,
@@ -89,7 +96,7 @@ freighter::Error labjack::Source::stop(const std::string &cmd_key) {
                   {"message", "Task stopped successfully"}
           }
     });
-    return freighter:NIL;
+    return freighter::NIL;
 }
 
 
@@ -97,26 +104,26 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
     // sleep for a millisecond
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
 
-    int SCANS_PER_READ = 1000;
+    int SCANS_PER_READ = num_samples_per_chan;
     auto [d, err] = data_queue.dequeue();
 
     uint64_t incr = ((d.tf - d.t0) / SCANS_PER_READ);
 
     auto f = synnax::Frame(this->reader_config.phys_channels.size() + this->reader_config.index_keys.size());
-    int index = 0;
+    int channel_count = 0;
     for(const auto &location : this->reader_config.phys_channels) {
         for(const auto &channel : this->reader_config.channels) {
             if(channel.location == location) {
                 auto key = this->reader_config.channel_map[channel.location];
                 auto s = synnax::Series(channel.data_type, SCANS_PER_READ);
                 for (int sample = 0; sample < SCANS_PER_READ; sample++) {
-                    write_to_series(s, d.data[sample * this->reader_config.phys_channels.size() + index], channel.data_type);
-//                    LOG(INFO) << "data: " << d.data[sample * this->reader_config.phys_channels.size() + index];
+                    write_to_series(s, d.data[sample * this->reader_config.phys_channels.size() + channel_count], channel.data_type);
+//                    LOG(INFO) << "data: " << d.data[sample * this->reader_config.phys_channels.size() + channel_count];
                 }
                 f.add(key, std::move(s));
             }
         }
-        index++;
+        channel_count++;
     }
 
     for( auto index_key : this->reader_config.index_keys){
@@ -157,12 +164,14 @@ void labjack::Source::acquire_data(){
     int numSkippedScans = 0;
     int totalSkippedScans = 0;
     int deviceScanBacklog = 0;
-    while(true){
+    while(this->breaker.running()){
         DataPacket data_packet;
         data_packet.data.resize(1000); // TODO: change size to be variable
 
         data_packet.t0 = synnax::TimeStamp::now().value;
-        LJM_eStreamRead(this->handle, data_packet.data.data(), &numSkippedScans, &deviceScanBacklog);
+
+        auto err = LJM_eStreamRead(this->handle, data_packet.data.data(), &numSkippedScans, &deviceScanBacklog);
+        ErrorCheck(err, "[labjack.reader] LJM_eStreamRead error");
         data_packet.tf = synnax::TimeStamp::now().value;
 
         data_queue.enqueue(data_packet);
