@@ -399,10 +399,16 @@ void Stream(int handle, int numChannels, const char ** channelNames,
         printf("\n");
         printf("  1st scan out of %d:\n", scansPerRead);
         for (channel = 0; channel < numChannels; channel++) {
-            for(int sample = 0; sample < 1000; sample++) {
-                printf("    %s = %0.5f\n", channelNames[channel], aData[channel * sample]);
-            }
+            printf("    %s = %0.5f\n", channelNames[channel], aData[channel]);
         }
+
+//        for (channel = 0; channel < numChannels; channel++) {
+//            for(int sample = 0; sample < 1000; sample++) {
+//                printf("    %s = %0.5f\n", channelNames[channel], aData[channel * sample]);
+//                printf("%0.5f\n", aData[channel * sample]);
+//
+//            }
+//        }
 
 
         numSkippedScans = CountAndOutputNumSkippedSamples(numChannels, scansPerRead, aData);
@@ -442,8 +448,8 @@ int basic_stream(){
 
     // Channels/Addresses to stream. NUM_CHANNELS can be less than or equal to
     // the size of CHANNEL_NAMES
-    enum { NUM_CHANNELS = 2 };
-    const char * CHANNEL_NAMES[] = {"AIN0", "AIN1"};
+    enum { NUM_CHANNELS = 3 };
+    const char * CHANNEL_NAMES[] = {"AIN0", "AIN1", "FIO4"};
 
     // Open first found LabJack
     handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
