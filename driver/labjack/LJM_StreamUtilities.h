@@ -104,7 +104,7 @@ void PrintScans(int numScans, int numChannels, const char ** channelNames,
 	const int MAX_NUM = MAX_SCANS_TO_PRINT;
 	int limitScans = numScans > MAX_NUM;
 	int maxScansPerChannel = limitScans ? MAX_NUM : numScans;
-	char * formatString;
+	const char * formatString;
 	unsigned short temp;
 	unsigned char * bytes;
 

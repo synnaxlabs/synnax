@@ -44,19 +44,26 @@ void labjack::Source::init(){
     // iterate through the channels, for the ones that analog device, need to set the resolution index
     for (auto &channel : this->reader_config.channels) {
         if (channel.channel_types == "AIN") {
+
             std::string name = channel.location + "_RESOLUTION_INDEX";
             int err = WriteName(this->handle, name.c_str(), 0);
-//            if(this->reader_config.device_type != "T4") {
-//                auto name = channel.location + "_RANGE";
-//                err = WriteName(this->handle, channel.location.c_str(), 0);
-//            }
+
+            if(this->reader_config.device_type == "T7" || this->reader_config.device_type == "T8") {
+                auto name = channel.location + "_RANGE";
+                err = WriteName(this->handle, name.c_str(), 0);
+            }
+            if(this->reader_config.device_type == "T7") {
+                auto name = channel.location + "_NEGATIVE_CH";
+                err = WriteName(this->handle, name.c_str(), 10.0);
+            }
+
         }
-        // TODO: if its T7/T8, will need to set range/gain configs like so:
     }
-    int msDelay = 1000;
+    LOG(INFO) << "Sample rate: " << this->reader_config.sample_rate.value;
+//    int msDelay = 1000;
     auto err = LJM_StartInterval(
             this->handle, // TODO: need to keep unique to device will need to change once i want to define multiple intervals to read data at on a songel device
-            msDelay * 4
+            this->reader_config.sample_rate.period().microseconds()
     );
 
     // TODO: check error
@@ -86,9 +93,9 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
     int SkippedIntervals;
     err = LJM_WaitForNextInterval(this->handle, &SkippedIntervals);
     ErrorCheck(err, "LJM_WaitForNextInterval");
-    if (SkippedIntervals > 0) {
-        printf("SkippedIntervals: %d\n", SkippedIntervals);
-    }
+//    if (SkippedIntervals > 0) {
+//        printf("SkippedIntervals: %d\n", SkippedIntervals);
+//    }
     err = LJM_eReadNames(
             this->handle,
             num_names,

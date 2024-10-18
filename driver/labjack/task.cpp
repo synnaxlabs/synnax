@@ -73,13 +73,13 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     };
 
     auto parser = config::Parser(task.config);
-    ReaderConfig reader_config(parser);
+    ReaderConfig reader_config(parser);//
 
 
     LOG(INFO) << "Constructing task \n\n";
 
     auto source = std::make_shared<labjack::Source>(
-            1, // TODO: changel handle
+        1, // TODO: changel handle
         ctx,
         task,
         reader_config
