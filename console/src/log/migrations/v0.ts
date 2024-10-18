@@ -14,7 +14,7 @@ export type State = z.input<typeof stateZ>;
 export const ZERO_STATE: State = {
   key: "",
   version: "0.0.0",
-  retention: TimeSpan.seconds(30).seconds,
+  retention: TimeSpan.hours(1).seconds,
   channels: [],
   remoteCreated: false,
 };

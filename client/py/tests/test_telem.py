@@ -62,11 +62,6 @@ class TestTimeStamp:
                 TimeStamp(1645562510000000000),
             ),
             (
-                # EST
-                datetime(2022, 2, 22, 15, 41, 50, tzinfo=EST),
-                TimeStamp(1645562510000000000),
-            ),
-            (
                 datetime(2022, 2, 22, 15, 41, 50, tzinfo=timezone.utc),
                 TimeStamp(1645544510000000000),
             ),

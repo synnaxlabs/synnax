@@ -7,7 +7,7 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { useSelect } from "@/log/selectors";
-import { setChannels, setRetention } from "@/log/slice";
+import { setChannels } from "@/log/slice";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -30,14 +30,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
             value={state.channels[0]}
             onChange={handleChannelChange}
             searchOptions={{ internal: undefined }}
-          />
-        </Input.Item>
-        <Input.Item label="Minimum Retention" grow>
-          <Input.Numeric
-            value={state.retention}
-            onChange={(v) => d(setRetention({ key: layoutKey, retention: v }))}
-            placeholder="Retention"
-            endContent="s"
           />
         </Input.Item>
       </Align.Space>

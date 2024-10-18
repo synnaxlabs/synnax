@@ -65,6 +65,7 @@ func (s Series) Split() [][]byte {
 	return o
 }
 
+// ValueAt returns the value at the given index in the series.
 func ValueAt[T types.Numeric](s Series, i int64) T {
 	b := s.Data[i*int64(s.DataType.Density()) : (i+1)*int64(s.DataType.Density())]
 	return UnmarshalF[T](s.DataType)(b)

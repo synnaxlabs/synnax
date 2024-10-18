@@ -14,7 +14,6 @@
 package api
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
 	"go/types"
 
 	"github.com/samber/lo"
@@ -36,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"

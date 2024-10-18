@@ -23,7 +23,7 @@ type Log struct {
 var _ gorp.Entry[uuid.UUID] = Log{}
 
 // GorpKey implements gorp.Entry.
-func (s Log) GorpKey() uuid.UUID { return s.Key }
+func (l Log) GorpKey() uuid.UUID { return l.Key }
 
 // SetOptions implements gorp.Entry.
-func (s Log) SetOptions() []interface{} { return nil }
+func (l Log) SetOptions() []interface{} { return nil }

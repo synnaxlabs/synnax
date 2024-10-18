@@ -36,8 +36,8 @@ func (w Writer) Create(
 		return
 	}
 	otgID := OntologyID(s.Key)
-	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
-		return err
+	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+		return
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
@@ -69,9 +69,9 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Log]().WhereKeys(key).Change(func(p Log) Log {
-		p.Name = name
-		return p
+	return gorp.NewUpdate[uuid.UUID, Log]().WhereKeys(key).Change(func(l Log) Log {
+		l.Name = name
+		return l
 	}).Exec(ctx, w.tx)
 }
 
@@ -80,9 +80,9 @@ func (w Writer) SetData(
 	key uuid.UUID,
 	data string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, Log]().WhereKeys(key).ChangeErr(func(s Log) (Log, error) {
-		s.Data = data
-		return s, nil
+	return gorp.NewUpdate[uuid.UUID, Log]().WhereKeys(key).Change(func(l Log) Log {
+		l.Data = data
+		return l
 	}).Exec(ctx, w.tx)
 }
 

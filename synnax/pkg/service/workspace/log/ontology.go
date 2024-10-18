@@ -46,8 +46,8 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 }
 
 func OntologyIDsFromLogs(logs []Log) []ontology.ID {
-	return lo.Map(logs, func(s Log, _ int) ontology.ID {
-		return OntologyID(s.Key)
+	return lo.Map(logs, func(l Log, _ int) ontology.ID {
+		return OntologyID(l.Key)
 	})
 }
 
@@ -59,10 +59,10 @@ var _schema = &ontology.Schema{
 	},
 }
 
-func newResource(s Log) schema.Resource {
-	e := schema.NewResource(_schema, OntologyID(s.Key), s.Name)
-	schema.Set(e, "key", s.Key.String())
-	schema.Set(e, "name", s.Name)
+func newResource(l Log) schema.Resource {
+	e := schema.NewResource(_schema, OntologyID(l.Key), l.Name)
+	schema.Set(e, "key", l.Key.String())
+	schema.Set(e, "name", l.Name)
 	return e
 }
 
