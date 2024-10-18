@@ -1,10 +1,10 @@
-import Release from "@/pages/releases/Release.astro";
+import Release from "@/components/releases/Release.astro";
 import { Image } from "@/components/Media";
 import Diagram from "@/components/Diagram.astro";
 
-<Release 
-version="0.32" 
-date="Oct 9, 2024" 
+<Release
+version="0.32.0"
+date="Oct 9, 2024"
 title="Multi-Device NI Analog Read Tasks"
 >
 
@@ -18,7 +18,7 @@ The new version allows you to acquire data from multiple devices in a single tas
 1. You have multiple devices and you want to acquire data from all of them synchronously.
 2. You have many different cards on a single chassis (e.g. cDAQ-9174) and you need to avoid hitting the maximum number of allowed tasks.
 
-Instead of choosing the device at the top level of the task, you can now specify the 
+Instead of choosing the device at the top level of the task, you can now specify the
 device for each channel.
 
 ### Breaking Changes

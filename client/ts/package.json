@@ -37,21 +37,20 @@
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "async-mutex": "^0.5.0",
-    "zod": "3.23.8"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^22.5.4",
-    "@vitest/coverage-v8": "^2.1.0",
-    "eslint": "^9.10.0",
+    "@types/node": "^22.7.5",
+    "@vitest/coverage-v8": "^2.1.2",
+    "eslint": "^9.12.0",
+    "uuid": "^10.0.0",
+    "@types/uuid": "^10.0.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.6.2",
-    "vite": "5.4.4",
-    "vitest": "^2.1.0"
-  },
-  "peerDependencies": {
-    "zod": "3.23.8"
+    "typescript": "^5.6.3",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
   },
   "type": "module",
   "types": "dist/index.d.ts",

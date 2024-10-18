@@ -262,7 +262,7 @@ export const ZERO_AI_ACCEL_CHAN: AIAccelChan = {
 };
 
 // 2 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccel4wiredcvoltagechan.html
-const aiAccel4WireDCVoltageChanZ = baseAiAccelChanZ.extend({
+export const aiAccel4WireDCVoltageChanZ = baseAiAccelChanZ.extend({
   type: z.literal("ai_accel_4_wire_dc_voltage"),
   units: accelerationUnitsZ,
   voltageExcitSource: excitSourceZ,
@@ -294,7 +294,7 @@ export const ZERO_AI_ACCEL_4WIRE_DC_VOLTAGE_CHAN: AIAccel4WireDCVoltageChan = {
 };
 
 // 3 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchargechan.html
-const aiAccelChargeChanZ = baseAiAccelChanZ.extend({
+export const aiAccelChargeChanZ = baseAiAccelChanZ.extend({
   type: z.literal("ai_accel_charge"),
   units: accelerationUnitsZ,
   customScale: scaleZ,
@@ -360,7 +360,7 @@ export const ZERO_AI_BRIDGE_CHAN: AIBridgeChan = {
 };
 
 // 5 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaichargechan.html
-const aiChargeChan = baseAIChanZ.extend({
+export const aiChargeChan = baseAIChanZ.extend({
   type: z.literal("ai_charge"),
   terminalConfig: terminalConfigZ,
   minVal: z.number(),
@@ -428,7 +428,7 @@ export const ZERO_AI_CURRENT_CHAN: AICurrentChan = {
 };
 
 // 7 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentrmschan.html
-const aiCurrentRMSChanZ = baseAIChanZ.extend({
+export const aiCurrentRMSChanZ = baseAIChanZ.extend({
   type: z.literal("ai_current_rms"),
   terminalConfig: terminalConfigZ,
   minVal: z.number(),
@@ -459,7 +459,7 @@ export const ZERO_AI_CURRENT_RMS_CHAN: AICurrentRMSChan = {
 };
 
 // 8 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgepolynomialchan.html
-const aiForceBridgePolynomialChanZ = baseAIChanZ.extend({
+export const aiForceBridgePolynomialChanZ = baseAIChanZ.extend({
   type: z.literal("ai_force_bridge_polynomial"),
   terminalConfig: terminalConfigZ,
   minVal: z.number(),
@@ -625,7 +625,7 @@ export const ZERO_AI_FORCE_IEPE_CHAN: AIForceEPEChan = {
 };
 
 // 12 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaifreqvoltagechan.html
-const aiFreqVoltageChanZ = baseAIChanZ.extend({
+export const aiFreqVoltageChanZ = baseAIChanZ.extend({
   type: z.literal("ai_freq_voltage"),
   minVal: z.number(),
   maxVal: z.number(),
@@ -688,7 +688,7 @@ export const pressureUnitsZ = z.enum(["PoundsPerSquareInch", "Pascals", "Bar"]);
 export type PressureUnits = z.infer<typeof pressureUnitsZ>;
 
 // 14 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgepolynomialchan.html
-const aiPressureBridgePolynomialChanZ = baseAIChanZ.extend({
+export const aiPressureBridgePolynomialChanZ = baseAIChanZ.extend({
   type: z.literal("ai_pressure_bridge_polynomial"),
   minVal: z.number(),
   maxVal: z.number(),
@@ -858,7 +858,7 @@ export const ZERO_AI_RESISTANCE_CHAN: AIResistanceChan = {
 };
 
 // 18 -  https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairosettestraingagechan.html
-const aiRosetteStrainGageChanZ = baseAIChanZ.extend({
+export const aiRosetteStrainGageChanZ = baseAIChanZ.extend({
   type: z.literal("ai_rosette_strain_gage"),
   terminalConfig: terminalConfigZ,
   minVal: z.number(),
@@ -1089,7 +1089,7 @@ export const ZERO_AI_THERMOCOUPLE_CHAN: AIThermocoupleChan = {
 };
 
 // 23 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithrmstrchaniex.html
-const aiThermistorChanIex = baseAIChanZ.extend({
+export const aiThermistorChanIex = baseAIChanZ.extend({
   key: z.string(),
   type: z.literal("ai_thermistor_iex"),
   minVal: z.number(),
@@ -1125,7 +1125,7 @@ export const ZERO_AI_THERMISTOR_CHAN_IEX: AIThermistorChanIex = {
 };
 
 // 24 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgepolynomialchan.html
-const aiThermistorChanVex = baseAIChanZ.extend({
+export const aiThermistorChanVex = baseAIChanZ.extend({
   key: z.string(),
   type: z.literal("ai_thermistor_vex"),
   minVal: z.number(),
@@ -1166,7 +1166,7 @@ export const torqueUnitsZ = z.enum(["NewtonMeters", "InchOunces", "FootPounds"])
 export type TorqueUnits = z.infer<typeof torqueUnitsZ>;
 
 // 25 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgepolynomialchan.html
-const aiTorqueBridgePolynomialChanZ = baseAIChanZ.extend({
+export const aiTorqueBridgePolynomialChanZ = baseAIChanZ.extend({
   key: z.string(),
   type: z.literal("ai_torque_bridge_polynomial"),
   minVal: z.number(),
@@ -1376,7 +1376,7 @@ export const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
 };
 
 // 30 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagermschan.html
-const aiVoltageRMSChanZ = baseAIChanZ.extend({
+export const aiVoltageRMSChanZ = baseAIChanZ.extend({
   key: z.string(),
   type: z.literal("ai_voltage_rms"),
   terminalConfig: terminalConfigZ,
@@ -1404,7 +1404,7 @@ export const ZERO_AI_VOLTAGE_RMS_CHAN: AIVoltageRMSChan = {
 };
 
 // 31 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechanwithexcit.html
-const aiVoltageChanWithExcitZ = baseAIChanZ.extend({
+export const aiVoltageChanWithExcitZ = baseAIChanZ.extend({
   type: z.literal("ai_voltage_with_excit"),
   terminalConfig: terminalConfigZ,
   minVal: z.number(),

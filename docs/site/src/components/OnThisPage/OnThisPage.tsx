@@ -21,6 +21,8 @@ interface ItemOffset {
   topOffset: number;
 }
 
+const ON_THIS_PAGE_ID = "on-this-page-heading";
+
 export const OnThisPage = ({
   headings = [],
   url,
@@ -28,15 +30,15 @@ export const OnThisPage = ({
   headings?: MarkdownHeading[];
   url: string;
 }): ReactElement => {
-  const toc = useRef<HTMLDivElement | null>();
-  const onThisPageID = "on-this-page-heading";
-  const itemOffsets = useRef<ItemOffset[]>([]);
+  const toc = useRef<HTMLDivElement>(null);
   const [currentID, setCurrentID] = useState("");
 
   useEffect(() => {
     const i = setInterval(() => {
       const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-      const headerLinks = document.querySelectorAll(".on-this-page .header-link");
+      const headerLinks = document.querySelectorAll(
+        ".on-this-page .header-link",
+      ) as unknown as HTMLElement[];
       headerLinks.forEach((link) => {
         // check if there's a matching title
         const title = Array.from(titles).find((title) => {
@@ -53,23 +55,23 @@ export const OnThisPage = ({
     return () => clearInterval(i);
   }, []);
 
-  useEffect(() => {
-    const getItemOffsets = (): void => {
-      const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-      const headerLinks = document.querySelectorAll(".on-this-page .header-link");
+  // useEffect(() => {
+  //   const getItemOffsets = (): void => {
+  //     const titles = document.querySelectorAll("article :is(h1, h2, h3)");
+  //     const headerLinks = document.querySelectorAll(".on-this-page .header-link");
 
-      itemOffsets.current = Array.from(titles).map((title) => ({
-        id: title.id,
-        topOffset: title.getBoundingClientRect().top + window.scrollY,
-      }));
-    };
+  //     itemOffsets.current = Array.from(titles).map((title) => ({
+  //       id: title.id,
+  //       topOffset: title.getBoundingClientRect().top + window.scrollY,
+  //     }));
+  //   };
 
-    getItemOffsets();
-    window.addEventListener("resize", getItemOffsets);
-    return () => {
-      window.removeEventListener("resize", getItemOffsets);
-    };
-  }, []);
+  //   getItemOffsets();
+  //   window.addEventListener("resize", getItemOffsets);
+  //   return () => {
+  //     window.removeEventListener("resize", getItemOffsets);
+  //   };
+  // }, []);
 
   useEffect(() => {
     if (toc.current == null) return;
@@ -78,7 +80,7 @@ export const OnThisPage = ({
       for (const entry of entries) {
         if (entry.isIntersecting) {
           const { id } = entry.target;
-          if (id === onThisPageID) continue;
+          if (id === ON_THIS_PAGE_ID) continue;
           setCurrentID(entry.target.id);
           break;
         }
@@ -109,7 +111,7 @@ export const OnThisPage = ({
 
   return (
     <Align.Space el="nav" className="on-this-page" size={2}>
-      <Header.Header id={onThisPageID} className="heading" level="h4">
+      <Header.Header id={ON_THIS_PAGE_ID} className="heading" level="h4">
         <Header.Title>On this page</Header.Title>
       </Header.Header>
       <OSSelectButton />

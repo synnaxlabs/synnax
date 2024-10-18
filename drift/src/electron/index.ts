@@ -131,7 +131,7 @@ export const listenOnMain = ({ mainWindow, createWindow }: ListenOnMainProps) =>
   const idsToLabels = new Map<number, string>();
   labelsToIDs.set(MAIN_WINDOW, mainWindow.id);
   idsToLabels.set(mainWindow.id, MAIN_WINDOW);
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ipcMain, BrowserWindow } = require("electron");
   const listenOnSender = <A>(ev: string, f: (win: BrowserWindow, args: A) => void) =>
     ipcMain.on(ev, (e: IpcMainEvent, args: A) => {
@@ -262,7 +262,7 @@ interface API {
 const API_NAME = "driftAPI";
 
 export const exposeAPI = () => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ipcRenderer, contextBridge } = require("electron");
   const api: API = {
     send: (channel, ...args) => {

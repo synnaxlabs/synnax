@@ -18,9 +18,7 @@
     "skipLibCheck": true,
     "declarationMap": true,
     "paths": {
-      "@/*": [
-        "src/*"
-      ]
+      "@/*": ["src/*"]
     }
   }
 }
