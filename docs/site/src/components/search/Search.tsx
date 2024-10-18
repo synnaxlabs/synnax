@@ -64,9 +64,10 @@ export const Search = (): ReactElement => {
           onClick={d.open}
           variant="outlined"
           justify="center"
-          size="medium"
+          size="small"
+          endContent={<Triggers.Text level="small" trigger={["Control", "K"]} />}
         >
-          Search Synnax
+          Search
         </Button.Button>
         <SearchDialogContent d={d} />
       </Dropdown.Dialog>
@@ -191,7 +192,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
               ref={inputRef}
               placeholder={
                 <Text.WithIcon level="small" startIcon={<Icon.Search />}>
-                  Search Synnax
+                  Search
                 </Text.WithIcon>
               }
               autoFocus

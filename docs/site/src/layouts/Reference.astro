@@ -1,0 +1,24 @@
+---
+import Article from "@/components/article/Article.astro";
+import OnThisPage from "@/components/OnThisPage/OnThisPage.astro";
+import PageNav from "@/components/PageNav/PageNav.astro";
+import Main from "@/layouts/Root.astro";
+const { headings, frontmatter } = Astro.props;
+const { title, heading, description, url, next, nextURL, prev, prevURL } = frontmatter;
+---
+
+<Main frontmatter={frontmatter} headings={headings}>
+    <PageNav />
+    <Article
+        url={url}
+        title={heading ?? title}
+        description={description}
+        next={next}
+        prev={prev}
+        nextURL={nextURL}
+        prevURL={prevURL}
+    >
+        <slot />
+    </Article>
+    <OnThisPage headings={headings} url={Astro.url} />
+</Main>

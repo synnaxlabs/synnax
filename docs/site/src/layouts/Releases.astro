@@ -1,0 +1,102 @@
+---
+import Root from "@/layouts/Root.astro";
+import { Icon } from "@synnaxlabs/media";
+import { Align, Text } from "@synnaxlabs/pluto";
+import ReleaseList from "@/components/releases/ReleaseList.astro";
+const { headings } = Astro.props;
+---
+
+<Root frontmatter={{ title: "Releases" }}>
+    <Align.Space direction="y" className="releases" el="article" grow>
+        <Align.Space
+            direction="x"
+            className="header"
+            justify="spaceBetween"
+            align="center"
+        >
+            <Align.Space direction="y" justify="center" size="large">
+                <Text.Text level="h1">Releases</Text.Text>
+                <Align.Space direction="y" size="small">
+                    <Text.Text level="p" shade={7}>
+                        Latest updates and improvements to Synnax.
+                    </Text.Text>
+                    <Align.Space direction="x" align="center" wrap>
+                        <Text.Link
+                            level="p"
+                            href="https://www.linkedin.com/company/synnaxlabs/"
+                        >
+                            Follow us on LinkedIn
+                        </Text.Link>
+                        <Icon.Circle style={{ color: "var(--pluto-gray-l6)" }} />
+                        <Text.Link
+                            level="p"
+                            href="https://github.com/synnaxlabs/synnax/releases"
+                            >View releases on GitHub</Text.Link
+                        >
+                    </Align.Space>
+                </Align.Space>
+            </Align.Space>
+            <Text.Text level="h1" className="latest version full" transition:persist />
+        </Align.Space>
+        <slot />
+    </Align.Space>
+    <ReleaseList headings={headings} url={Astro.url} />
+</Root>
+
+<style is:global>
+    .releases {
+        margin: 0 auto;
+        padding-right: 7rem;
+        & .release-wrapper {
+            position: relative;
+        }
+        & h6 {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            margin: 0 !important;
+        }
+        .header {
+            width: 100%;
+            min-height: 260px;
+            height: 35vh;
+            padding-left: 12rem;
+            padding-right: 12rem;
+            background-size: 2rem 2rem;
+            background-image: radial-gradient(
+                var(--pluto-gray-l4) 0.5px,
+                transparent 0.5px
+            );
+            position: relative;
+            mask-image: radial-gradient(circle, black 90%, transparent);
+
+            & .latest {
+                position: absolute;
+                right: 12rem;
+                z-index: -1;
+                font-size: 34rem;
+                font-weight: 700;
+                color: var(--pluto-gray-l3-45);
+            }
+            @media (max-width: 1150px) {
+                .latest {
+                    display: none;
+                }
+            }
+        }
+        & video,
+        img:not(.diagram img) {
+            width: 100%;
+            border-radius: 1.5rem !important;
+            border: var(--pluto-border-l4);
+            box-shadow: var(--pluto-shadow-l4);
+            margin: 3rem 0;
+            box-shadow: var(--pluto-shadow-menu);
+
+            @media (prefers-color-scheme: dark) {
+                box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
+            }
+        }
+    }
+</style>

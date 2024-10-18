@@ -17,7 +17,7 @@ const { preview, ...props } = Astro.props;
         align-items: center;
         margin: 5rem 0;
         width: 100%;
-        border-radius: 2rem;
+        border-radius: 1.5rem;
         border: 1px solid var(--pluto-dark-gray-l14);
         box-shadow: 0 0 1rem 0.5rem var(--pluto-dark-gray-l14);
         background-image: radial-gradient(
@@ -29,10 +29,10 @@ const { preview, ...props } = Astro.props;
         padding: 5rem;
 
         @media (prefers-color-scheme: dark) {
-            border: 1px solid var(--pluto-dark-gray-l4);
+            border: 1px solid var(--pluto-dark-gray-l2);
             box-shadow: none;
             background-image: radial-gradient(
-                var(--pluto-gray-l5-70) 0.5px,
+                var(--pluto-gray-l4-70) 0.5px,
                 transparent 0.5px
             );
         }
@@ -46,7 +46,7 @@ const { preview, ...props } = Astro.props;
             );
             @media (prefers-color-scheme: dark) {
                 background-image: radial-gradient(
-                    var(--pluto-dark-gray-l4) 0.5px,
+                    var(--pluto-dark-gray-l3) 0.5px,
                     transparent 0.5px
                 );
             }
