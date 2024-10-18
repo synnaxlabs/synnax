@@ -1,16 +1,13 @@
 ---
 import Header from "@/components/Header.astro";
-import PageNav from "@/components/PageNav/PageNav.astro";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
+import "@fontsource/geist-mono";
 import { ViewTransitions } from "astro:transitions";
-import OnThisPage from "@/components/OnThisPage/OnThisPage.astro";
 import { SEO } from "astro-seo";
 import Footer from "@/components/Footer.astro";
-import Article from "@/components/article/Article.astro";
 const {
-    headings,
-    frontmatter: { title, heading, description, url, next, nextURL, prev, prevURL },
+    frontmatter: { title, description, url },
 } = Astro.props;
 ---
 
@@ -38,22 +35,10 @@ const {
         />
         <ViewTransitions />
     </head>
-    <Header />
+    <Header url={url} />
     <main>
         <section>
-            <PageNav />
-            <Article
-                url={url}
-                title={heading ?? title}
-                description={description}
-                next={next}
-                prev={prev}
-                nextURL={nextURL}
-                prevURL={prevURL}
-            >
-                <slot />
-            </Article>
-            <OnThisPage headings={headings} url={Astro.url} />
+            <slot />
         </section>
     </main>
     <Footer />
@@ -61,20 +46,23 @@ const {
     <script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
+        import { getVersion } from "@/util/fetchVersion";
+        const updateVersion = () => {
+            getVersion().then((version) => {
+                const versionElement = document.querySelectorAll(".version");
+                versionElement.forEach((element) => {
+                    if (element.classList.contains("full")) element.innerHTML = version;
+                    else element.innerHTML = version.split(".").slice(0, -1).join(".");
+                });
+            });
+        };
+        updateVersion();
         addCodeButtonListeners();
         startUpdatingIframeHref();
         document.addEventListener("astro:after-swap", () => {
+            updateVersion();
             addCodeButtonListeners();
             startUpdatingIframeHref();
-        });
-    </script>
-
-    <script>
-        import { getVersion } from "@/util/fetchVersion";
-        getVersion().then((version) => {
-            const versionElement = document.querySelector(".version");
-            if (versionElement == null) return;
-            versionElement.innerHTML = "v" + version.split(".").slice(0, -1).join(".");
         });
     </script>
 
@@ -1017,11 +1005,6 @@ const {
                 padding: 0 2rem;
                 max-width: 1340px;
             }
-            @media (max-width: 768px) {
-                & > section {
-                    flex-direction: column;
-                }
-            }
         }
 
         nav {
@@ -1065,13 +1048,14 @@ const {
         }
 
         & code:not(:is(h1, h2, h3, h4, h5, h6) code) {
-            font-size: var(--pluto-tiny-size);
-            line-height: var(--pluto-tiny-line-height);
+            font-size: var(--pluto-small-size);
+            line-height: var(--pluto-small-line-height);
         }
 
         code {
             font-size: inherit;
             line-height: inherit;
+            font-family: "Geist Mono";
             color: var(--pluto-text-color);
             border-radius: var(--pluto-border-radius);
         }

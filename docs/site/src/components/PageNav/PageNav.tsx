@@ -86,28 +86,11 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
 
   const { visible, toggle, close } = Dropdown.use({ initialVisible: false });
 
-  const content: Tabs.TabsProps["content"] = ({ tabKey }) => {
-    switch (tabKey) {
-      case "guides":
-        return <Guides currentPage={currentPage} />;
-      default:
-        return <Reference currentPage={currentPage} />;
-    }
-  };
-
-  const tabsProps = Tabs.useStatic({
-    selected: selectedTab,
-    tabs: [
-      { tabKey: "reference", name: "Reference" },
-      { tabKey: "guides", name: "Guides" },
-    ],
-    content,
-  });
-
-  const tree = <Tabs.Tabs {...tabsProps} />;
+  let tree = <Reference currentPage={currentPage} />;
+  if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
 
   if (width == null) return null;
-  if (width > 800) return tree;
+  if (width > 865) return tree;
   return (
     <Dropdown.Dialog visible={visible} close={close} variant="floating">
       <Button.Button
