@@ -135,9 +135,7 @@ export const useImport = (workspaceKey?: string): (() => void) => {
   const confirm = Confirm.useModal();
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const activeKey = Workspace.useSelectActiveKey();
-  if (workspaceKey != null && activeKey !== workspaceKey)
-    dispatch(Workspace.setActive(workspaceKey));
+  const activeWorkspaceKey = Workspace.useSelectActiveKey();
 
   return useMutation<void, Error>({
     mutationFn: async () => {
@@ -148,6 +146,21 @@ export const useImport = (workspaceKey?: string): (() => void) => {
         directory: false,
       });
       if (paths == null) return;
+      if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
+        let ws = Workspace.select(store.getState(), workspaceKey);
+        if (ws == null) {
+          if (client == null) throw new Error("Cannot reach cluster");
+          ws = await client.workspaces.retrieve(workspaceKey);
+        }
+        dispatch(Workspace.add({ workspaces: [ws] }));
+        dispatch(
+          Layout.setWorkspace({
+            slice: ws.layout as unknown as Layout.SliceState,
+            keepNav: false,
+          }),
+        );
+      }
+
       for (const path of paths) {
         const rawData = await readFile(path);
         const fileName = path.split("/").pop();
