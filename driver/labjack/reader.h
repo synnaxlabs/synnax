@@ -112,6 +112,15 @@ public:
 
     void init();
 
+    void init_basic();
+
+    void init_stream();
+
+
+
+    std::pair<Frame, freighter::Error> read_basic(breaker::Breaker &breaker);
+    std::pair<Frame, freighter::Error> read_stream(breaker::Breaker &breaker);
+
     void write_to_series(
             synnax::Series &series,
             double &data,

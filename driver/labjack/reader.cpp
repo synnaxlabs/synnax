@@ -35,6 +35,11 @@ std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
 }
 
 void labjack::Source::init(){
+    this->init_basic();
+    //this->init_stream();
+}
+
+void labjack::Source::init_basic(){
     LOG(INFO) << "initializing labjack device";
     // If already open, will return the same handle as opened device
     // TODO get device type and connection type from the config
@@ -69,8 +74,70 @@ void labjack::Source::init(){
     // TODO: check error
 }
 
-
 std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &breaker) {
+//    return this->read_basic(breaker);
+    return this->read_stream(breaker);
+}
+
+
+std::pair<Frame, freighter::Error> labjack::Source::read_stream(breaker::Breaker &breaker) {
+    std::vector<const char*> locations;
+    locations.reserve(this->reader_config.channels.size());
+
+    double INIT_SCAN_RATE = 2000;
+    int SCANS_PER_READ = (int)INIT_SCAN_RATE / 2;
+
+    const int NUM_READS = 1000;
+
+    int err, iteration, channel;
+    int numSkippedScans = 0;
+    int totalSkippedScans = 0;
+    int deviceScanBacklog = 0;
+    int LJMScanBacklog = 0;
+    unsigned int receiveBufferBytesSize = 0;
+    unsigned int receiveBufferBytesBacklog = 0;
+    int connectionType;
+
+    // TODO: move this to init
+    int num_phys_channels = 0;
+    for (const auto& channel : this->reader_config.channels) {
+        if (channel.enabled) {
+            locations.push_back(channel.location.c_str());
+            num_phys_channels++;
+        }
+    }
+
+    int * aScanList = (int*)malloc(sizeof(int) * num_phys_channels);
+
+    unsigned int aDataSize = num_phys_channels * SCANS_PER_READ;
+    double * aData = (double*)malloc(sizeof(double) * aDataSize);
+
+    err = LJM_NamesToAddresses(num_phys_channels, locations.data(), aScanList, NULL);
+    // TODO: check for error
+    double scanRate = SCANS_PER_READ;
+    err = LJM_eStreamStart(handle, SCANS_PER_READ, num_phys_channels, aScanList, &scanRate);
+
+    for(iteration = 0; iteration < NUM_READS; iteration++) {
+        err = LJM_eStreamRead(handle, aData, &numSkippedScans, &deviceScanBacklog);
+        printf("iteration: %d - deviceScanBacklog: %d, LJMScanBacklog: %d",
+               iteration, deviceScanBacklog, LJMScanBacklog);
+        // TODO: if connection mode isn't usb, need to do some extra work to check
+        for (channel = 0; channel < num_phys_channels; channel++) {
+            for(int sample = 0; sample < 1000; sample++) {
+                printf("    %s = %0.5f\n", locations[channel], aData[channel * sample]);
+            }
+        }
+    }
+    err = LJM_eStreamStop(handle);
+
+    free(aData);
+    free(aScanList);
+
+    auto f = synnax::Frame(num_phys_channels + this->reader_config.index_keys.size());
+    return std::make_pair(std::move(f), freighter::NIL);
+}
+
+std::pair<Frame, freighter::Error> labjack::Source::read_basic(breaker::Breaker &breaker) {
 //    std::cout << "reading from labjack device";
     int err, error_address;
     int msDelay = 1000; // TODO: change period?
