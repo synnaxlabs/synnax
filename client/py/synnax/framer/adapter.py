@@ -21,6 +21,7 @@ from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, CrudeFrame
 from synnax.telem.series import CrudeSeries, Series
 
+
 class ReadFrameAdapter:
     __adapter: dict[ChannelKey, ChannelName] | None
     retriever: ChannelRetriever

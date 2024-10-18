@@ -31,6 +31,10 @@
     }
 }
 
-.synnax-icon-schematic {
+.synnax-icon-log {
     transform: scale(0.85);
+}
+
+.synnax-icon-schematic {
+    transform: scale(1);
 }

@@ -19,6 +19,7 @@ export type RelationshipDelete = change.Delete<Relationship, undefined>;
 
 export const resourceTypeZ = z.union([
   z.literal("label"),
+  z.literal("log"),
   z.literal("allow_all"),
   z.literal("builtin"),
   z.literal("cluster"),

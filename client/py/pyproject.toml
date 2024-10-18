@@ -25,7 +25,7 @@ isort = "^5.10.1"
 profile = "black"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 pandas = "^2.0.2"
 rich = "^13.4.1"
 pick = "^2.0.2"
