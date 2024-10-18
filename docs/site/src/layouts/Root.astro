@@ -3,6 +3,7 @@ import Header from "@/components/Header.astro";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@fontsource/geist-mono";
+import PostHog from "@/components/PostHog.astro";
 import { ViewTransitions } from "astro:transitions";
 import { SEO } from "astro-seo";
 import Footer from "@/components/Footer.astro";
@@ -13,6 +14,7 @@ const {
 
 <html>
     <head>
+        <PostHog />
         <SEO
             title={title}
             titleTemplate="%s | Synnax"
