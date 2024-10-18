@@ -30,24 +30,30 @@ const url = Astro.url.pathname;
         </Align.Space>
     </Align.Space>
     <Align.Space className="bottom" justify="center" align="center">
-        <Align.Space direction="x" className="header-content" size={5} justify="start">
-            <Text.Link href="/" className={url === "/" ? "active" : ""} level="h5"
-                >Get Started</Text.Link
-            >
-            <Text.Link
-                href="/guides/"
-                className={url.includes("guides") ? "active" : ""}
-                level="h5">Guides</Text.Link
-            >
-            <Text.Link
-                href="/reference/"
-                className={url.includes("reference") ? "active" : ""}
-                level="h5">Reference</Text.Link
-            >
-            <Text.Link
-                href="/releases/"
-                className={url.includes("releases") ? "active" : ""}
-                level="h5">Release Notes</Text.Link
+        <Align.Space direction="x" className="header-content" justify="spaceBetween">
+            <Align.Space direction="x" size={5} align="center">
+                <Text.Link href="/" className={url === "/" ? "active" : ""} level="h5"
+                    >Docs Home</Text.Link
+                >
+                <Text.Link
+                    href="/guides/"
+                    className={url.includes("guides") ? "active" : ""}
+                    level="h5">Guides</Text.Link
+                >
+                <Text.Link
+                    href="/reference/"
+                    className={url.includes("reference") ? "active" : ""}
+                    level="h5">Reference</Text.Link
+                >
+                <Text.Link
+                    href="/releases/"
+                    className={url.includes("releases") ? "active" : ""}
+                    level="h5">Release Notes</Text.Link
+                >
+            </Align.Space>
+            <Button.Button size="small">
+                <Icon.Download slot="startIcon" />
+                Install Now</Button.Button
             >
         </Align.Space>
     </Align.Space>
@@ -108,6 +114,9 @@ const url = Astro.url.pathname;
         .bottom {
             .header-content {
                 padding: 0 10rem;
+                & .pluto-text {
+                    font-weight: 450;
+                }
             }
             height: 5.5rem;
             border-bottom: var(--pluto-border);
