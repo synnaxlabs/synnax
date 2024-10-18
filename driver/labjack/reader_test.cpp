@@ -77,11 +77,12 @@ TEST(read_tests, labjack_t4){
     std::this_thread::sleep_for(std::chrono::milliseconds(300)); // TODO: remove? don't know what i need this
 
     auto reader_task = labjack::ReaderTask::configure(mockCtx, task);
-
+    LOG(INFO) << "Task constructed";
     // create commands
     auto start_cmd = task::Command{task.key, "start", {}};
     auto stop_cmd = task::Command{task.key, "stop", {}};
     reader_task->exec(start_cmd);
+    LOG(INFO) << "Task started";
     std::this_thread::sleep_for(std::chrono::seconds(30000));
     reader_task->exec(stop_cmd);
 

@@ -75,8 +75,8 @@ void labjack::Source::init_basic(){
 }
 
 void labjack::Source::init_stream(){
-
-    double INIT_SCAN_RATE = 1000;
+    LOG(INFO) << "init stream ";
+    double INIT_SCAN_RATE = 2000;
     int SCANS_PER_READ = (int)INIT_SCAN_RATE / 2;
     double scanRate = SCANS_PER_READ;
 
@@ -93,18 +93,25 @@ void labjack::Source::init_stream(){
     err = LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate);
 
     // run acquire data thread
-    std::thread t(&labjack::Source::acquire_data, this);
+    this->sample_thread = std::thread(&labjack::Source::acquire_data, this);
+
+    LOG(INFO) << "finished init stream";
 
 };
 
 
 std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &breaker) {
+//    LOG(INFO) << "read";
 //    return this->read_basic(breaker);
-    return this->read_stream(breaker);
+//    return this->read_stream(breaker);
+    return this->read_stream2(breaker);
 }
 
 
 std::pair<Frame, freighter::Error> labjack::Source::read_stream2(breaker::Breaker &breaker) {
+    // sleep for a millisecond
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+
     int SCANS_PER_READ = 1000;
     auto [d, err] = data_queue.dequeue();
 
@@ -119,6 +126,8 @@ std::pair<Frame, freighter::Error> labjack::Source::read_stream2(breaker::Breake
                 auto s = synnax::Series(channel.data_type, SCANS_PER_READ);
                 for (int sample = 0; sample < SCANS_PER_READ; sample++) {
                     write_to_series(s, d.data[sample * this->reader_config.phys_channels.size() + index], channel.data_type);
+                    // print data:
+//                    LOG(INFO) << "data: " << d.data[sample * this->reader_config.phys_channels.size() + index];
                 }
                 f.add(key, std::move(s));
             }
