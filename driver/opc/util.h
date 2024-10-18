@@ -343,6 +343,10 @@ inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val
         return {
             synnax::UINT128, true
         };
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_BOOLEAN]))
+        return {
+            synnax::UINT8, true
+        };
     if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return {synnax::FLOAT32, false};
     if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return {synnax::FLOAT64, false};
     if (val.type == &UA_TYPES[UA_TYPES_SBYTE]) return {synnax::INT8, false};
@@ -356,6 +360,7 @@ inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val
     if (val.type == &UA_TYPES[UA_TYPES_STRING]) return {synnax::STRING, false};
     if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) return {synnax::TIMESTAMP, false};
     if (val.type == &UA_TYPES[UA_TYPES_GUID]) return {synnax::UINT128, false};
+    if (val.type == &UA_TYPES[UA_TYPES_BOOLEAN]) return {synnax::UINT8, false};
     LOG(ERROR) << "[opc.scanner] Unknown data type: " << val.type->typeName;
     return {synnax::DATA_TYPE_UNKNOWN, false};
 }
