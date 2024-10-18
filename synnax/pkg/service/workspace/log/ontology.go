@@ -24,16 +24,19 @@ import (
 
 const ontologyType ontology.Type = "log"
 
+// OntologyID returns unique identifier for the log within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
 }
 
+// OntologyIDs returns unique identifiers for the logs within the ontology.
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
 		return OntologyID(key)
 	})
 }
 
+// KeysFromOntologyIDs extracts the keys of the logs from the ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -45,6 +48,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
+// OntologyIDsFromLogs returns the ontology IDs of the logs.
 func OntologyIDsFromLogs(logs []Log) []ontology.ID {
 	return lo.Map(logs, func(l Log, _ int) ontology.ID {
 		return OntologyID(l.Key)

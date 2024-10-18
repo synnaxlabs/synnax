@@ -18,12 +18,18 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Writer is used to create, update, and delete logs within Synnax. The writer
+// executes all operations within the transaction provided to the Service.NewWriter
+// method. If no transaction is provided, the writer will execute operations directly
+// on the database.
 type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 }
 
+// Create creates the given log within the workspace provided. If the log does not
+// have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
 	ws uuid.UUID,
@@ -64,6 +70,7 @@ func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UU
 	return k, true, err
 }
 
+// Rename renames the log with the given key to the provided name.
 func (w Writer) Rename(
 	ctx context.Context,
 	key uuid.UUID,
@@ -75,6 +82,7 @@ func (w Writer) Rename(
 	}).Exec(ctx, w.tx)
 }
 
+// SetData sets the data of the log with the given key to the provided data.
 func (w Writer) SetData(
 	ctx context.Context,
 	key uuid.UUID,
@@ -86,18 +94,18 @@ func (w Writer) SetData(
 	}).Exec(ctx, w.tx)
 }
 
+// Delete deletes the logs with the given keys.
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
-) error {
-	err := gorp.NewDelete[uuid.UUID, Log]().WhereKeys(keys...).Exec(ctx, w.tx)
-	if err != nil {
-		return err
+) (err error) {
+	if err = gorp.NewDelete[uuid.UUID, Log]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+		return
 	}
 	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
+		if err = w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+			return
 		}
 	}
-	return nil
+	return
 }
