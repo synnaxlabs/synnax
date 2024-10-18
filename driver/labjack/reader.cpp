@@ -81,7 +81,7 @@ freighter::Error labjack::Source::start(const std::string &cmd_key){
 //    LOG(INFO) << "starting breaker";
 //    this->breaker.start();
     LOG(INFO) << "breaker started";
-    this->init(); // TODO: do some error handling here before you actually start the sample thread
+//    this->init(); // TODO: do some error handling here before you actually start the sample thread
     this->sample_thread = std::thread(&labjack::Source::acquire_data, this);
     ctx->setState({
           .task = task.key,

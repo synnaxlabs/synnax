@@ -16,6 +16,7 @@
 labjack::ReaderTask::ReaderTask(
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
+        std::shared_ptr<labjack::Source> labjack_source,
         std::shared_ptr<pipeline::Source> source,
         synnax::WriterConfig writer_config,
         const breaker::Config breaker_config
@@ -26,7 +27,9 @@ labjack::ReaderTask::ReaderTask(
                     ctx->client,
                     writer_config,
                     source,
-                    breaker_config)){
+                    breaker_config)
+            ),
+        source(labjack_source){
 }
 
 void labjack::ReaderTask::exec(task::Command &cmd) {
@@ -106,7 +109,8 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     auto p = std::make_unique<labjack::ReaderTask>(
         ctx,
         task,
-        std::move(source),
+        source,
+        source,
         writer_config,
         breaker_config
     );

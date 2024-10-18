@@ -40,6 +40,7 @@ namespace labjack {
         explicit ReaderTask(
                 const std::shared_ptr <task::Context> &ctx,
                 synnax::Task task,
+                std::shared_ptr <labjack::Source> labjack_source,
                 std::shared_ptr <pipeline::Source> source,
                 synnax::WriterConfig writer_config,
                 const breaker::Config breaker_config);

@@ -101,7 +101,7 @@ public:
         ) : handle(handle),
             ctx(ctx),
             task(task),
-            reader_config(std::move(reader_config)) {
+            reader_config(reader_config) {
         // TODO: default construct breaker?
         auto breaker_config = breaker::Config{
                 .name = task.name,
@@ -114,6 +114,7 @@ public:
         LOG(INFO) << "reader config stuff " << this->reader_config.device_type;
         LOG(INFO) << "sample rate: " << this->reader_config.sample_rate.value;
         LOG(INFO) << "reader_config address in constructor: " << (void*)&this->reader_config;
+        this->init();
 
     }
 
