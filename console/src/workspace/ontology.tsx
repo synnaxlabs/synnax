@@ -9,10 +9,11 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
+import { useDispatch, useStore } from "react-redux";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
@@ -24,7 +25,8 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
-import { selectActiveKey } from "@/workspace/selectors";
+import { type RootState } from "@/store";
+import { select, selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -63,8 +65,31 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   }).mutate;
 };
 
-const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
+  const dispatch = useDispatch();
+  const store = useStore<RootState>();
+  const activeWS = useSelectActiveKey();
+  const client = Synnax.use();
+  return async (key) => {
+    if (activeWS === key) return;
+    let ws = select(store.getState(), key);
+    if (ws == null) {
+      if (client == null) throw new Error("Cannot reach cluster");
+      ws = await client.workspaces.retrieve(key);
+    }
+    dispatch(add({ workspaces: [ws] }));
+    dispatch(
+      Layout.setWorkspace({
+        slice: ws.layout as unknown as Layout.SliceState,
+        keepNav: false,
+      }),
+    );
+  };
+};
+
+const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const maybeChangeWorkspace = useMaybeChangeWorkspace();
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({
       selection,
       placeLayout,
@@ -81,6 +106,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       const otg = await client.ontology.retrieve(
         new ontology.ID({ key: schematic.key, type: "schematic" }),
       );
+      maybeChangeWorkspace(workspace);
       placeLayout(
         Schematic.create({
           ...(schematic.data as unknown as Schematic.State),
@@ -106,9 +132,11 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       });
     },
   }).mutate;
+};
 
-const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const maybeChangeWorkspace = useMaybeChangeWorkspace();
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     mutationFn: async ({
       selection,
       placeLayout,
@@ -124,6 +152,7 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       const otg = await client.ontology.retrieve(
         new ontology.ID({ key: linePlot.key, type: "lineplot" }),
       );
+      maybeChangeWorkspace(workspace);
       placeLayout(
         LinePlot.create({
           ...(linePlot.data as unknown as LinePlot.SliceState),
@@ -148,26 +177,27 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       });
     },
   }).mutate;
+};
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection,
     selection: { resources },
   } = props;
-  const del = useDelete();
-  const createSchematic = useCreateSchematic();
-  const createLinePlot = useCreateLinePlot();
-  const importLinePlot = LinePlot.useImport();
+  const handleDelete = useDelete();
   const group = Group.useCreateFromSelection();
-  const handleLink = Link.useCopyToClipboard();
+  const createPlot = useCreateLinePlot();
+  const importPlot = LinePlot.useImport(selection.resources[0].id.key);
+  const createSchematic = useCreateSchematic();
   const importSchematic = Schematic.useImport(selection.resources[0].id.key);
+  const handleLink = Link.useCopyToClipboard();
   const handleSelect = {
-    delete: () => del(props),
+    delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
-    plot: () => createLinePlot(props),
-    importLinePlot: () => importLinePlot(),
-    schematic: () => createSchematic(props),
+    createPlot: () => createPlot(props),
+    importPlot: () => importPlot(),
+    createSchematic: () => createSchematic(props),
     importSchematic: () => importSchematic(),
     link: () =>
       handleLink({
@@ -190,19 +220,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       <PMenu.Divider />
       {singleResource && (
         <>
-          <PMenu.Item itemKey="plot" startIcon={<LinePlotServices.CreateIcon />}>
+          <PMenu.Item itemKey="createPlot" startIcon={<LinePlotServices.CreateIcon />}>
             Create New Line Plot
           </PMenu.Item>
-          <PMenu.Item
-            itemKey="importLinePlot"
-            startIcon={<LinePlotServices.ImportIcon />}
-          >
+          <PMenu.Item itemKey="importPlot" startIcon={<LinePlotServices.ImportIcon />}>
             Import Line Plot
           </PMenu.Item>
           {canCreateSchematic && (
             <>
               <PMenu.Item
-                itemKey="schematic"
+                itemKey="createSchematic"
                 startIcon={<SchematicServices.CreateIcon />}
               >
                 Create New Schematic

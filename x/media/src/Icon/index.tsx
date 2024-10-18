@@ -56,8 +56,8 @@ import {
   MdAlignVerticalCenter,
   MdAlignVerticalTop,
   MdAreaChart,
-  MdArticle,
   MdAutoAwesome,
+  MdCommit,
   MdDataArray,
   MdDataObject,
   MdEdit,
@@ -65,7 +65,6 @@ import {
   MdFiberManualRecord,
   MdFileUpload,
   MdFilterCenterFocus,
-  MdGrain,
   MdHardware,
   MdInsights,
   MdKeyboardAlt,
@@ -377,6 +376,7 @@ export const Icon: IconType = {
   SplitX: wrapIcon(VscSplitHorizontal, "split-x"),
   SplitY: wrapIcon(VscSplitVertical, "split-y"),
   AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
+  Commit: wrapIcon(MdCommit, "commit"),
   Log: wrapIcon(FaStream, "log"),
 };
 
@@ -521,5 +521,6 @@ export interface IconType {
   SplitX: IconFC;
   SplitY: IconFC;
   AutoFitWidth: IconFC;
+  Commit: IconFC;
   Log: IconFC;
 }
