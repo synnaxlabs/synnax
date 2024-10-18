@@ -1,7 +1,0 @@
-{
-  "extends": "../../configs/api-extractor/api-extractor.json",
-  "projectFolder": ".",
-  "docModel": {
-    "projectFolderUrl": "https://github.com/synnaxlabs/synnax/tree/main/client/ts"
-  }
-}
