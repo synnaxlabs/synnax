@@ -40,15 +40,12 @@ class TestTiming:
         assert sum(accumulated_precise) < sum(accumulated_standard)
 
     def test_sleep_rate(self):
-        """Should sleep correctly based on a rate argument
-        """
+        """Should sleep correctly based on a rate argument"""
         t = sy.Timer()
         sy.sleep(100 * sy.Rate.HZ, precise=True)
         print((100 * sy.Rate.HZ).period)
         assert t.elapsed() < sy.TimeSpan.MILLISECOND * 11
         assert t.elapsed() > sy.TimeSpan.MILLISECOND * 9
-
-
 
     def test_loop(self):
         """Test that the loop holds timing consistent even when operations in the loop
@@ -65,7 +62,3 @@ class TestTiming:
                 sy.sleep(sy.TimeSpan.MILLISECOND * 5, precise=True)
         end = time.perf_counter_ns()
         assert sy.TimeSpan(end - start) < sy.TimeSpan.MILLISECOND * 110
-
-
-
-

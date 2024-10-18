@@ -86,7 +86,6 @@ class ClusterChannelRetriever:
         return res.channels[0]
 
 
-
 class CacheChannelRetriever:
     _retriever: ChannelRetriever
     _channels: dict[ChannelKey, ChannelPayload]

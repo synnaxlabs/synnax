@@ -9,6 +9,7 @@
 
 import { describe, expect, it, test } from "vitest";
 
+import { numeric } from "@/numeric";
 import { type NumberCouple } from "@/spatial/base";
 import * as bounds from "@/spatial/bounds/bounds";
 
@@ -232,6 +233,146 @@ describe("Bounds", () => {
       });
     });
   });
+
+  describe("traverse", () => {
+    interface Spec<T extends numeric.Value> {
+      bounds: Array<bounds.Crude<T>>;
+      start: T;
+      dist: T;
+      expected: T;
+    }
+
+    const SPECS: Spec<numeric.Value>[] = [
+      {
+        bounds: [
+          [0, 10],
+          [10, 20],
+        ],
+        start: 5,
+        dist: 5,
+        expected: 10,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 12,
+        dist: 3,
+        expected: 18,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 12,
+        dist: -3,
+        expected: 7,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 10,
+        dist: -3,
+        expected: 7,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 15,
+        dist: -3,
+        expected: 7,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 16,
+        dist: -3,
+        expected: 8,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 16,
+        dist: 12,
+        expected: 20,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 16,
+        dist: -20,
+        expected: 0,
+      },
+      {
+        bounds: [[620n, 726n]],
+        start: 724n,
+        dist: -6n,
+        expected: 718n,
+      },
+    ];
+    SPECS.forEach(({ bounds: b, start, dist, expected }) => {
+      test(`should return ${expected} for ${b} and ${start} and ${dist}`, () => {
+        expect(bounds.traverse(b, start, dist)).toEqual(expected);
+      });
+    });
+  });
+
+  describe("distance", () => {
+    interface Spec<T extends numeric.Value> {
+      bounds: Array<bounds.Crude<T>>;
+      start: T;
+      end: T;
+      expected: T;
+    }
+
+    const SPECS: Spec<numeric.Value>[] = [
+      {
+        bounds: [
+          [0, 10],
+          [10, 20],
+        ],
+        start: 5,
+        end: 15,
+        expected: 10,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 12,
+        end: 18,
+        expected: 3,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 10,
+        end: 5,
+        expected: 5,
+      },
+    ];
+    SPECS.forEach(({ bounds: b, start, end, expected }) => {
+      test(`should return ${expected} for ${b} and ${start} and ${end}`, () => {
+        expect(bounds.distance(b, start, end)).toEqual(expected);
+      });
+    });
+  });
+
   describe("insert", () => {
     describe("formal cases", () => {
       interface Spec {

@@ -26,8 +26,28 @@ export const add = <V extends Value>(a: V, b: Value): V => {
 export const closeTo = (a: number, b: number, epsilon = 0.0001): boolean =>
   Math.abs(a - b) < epsilon;
 
+export const equal = <V extends Value>(a: V, b: Value): boolean => {
+  if (typeof a === "bigint") return a === BigInt(b);
+  return a === Number(b);
+};
+
 /** @returns the nearest number to num with 1 significant digit. */
 export const roundToNearestMagnitude = (num: number): number => {
   const magnitude = Math.pow(10, Math.floor(Math.log10(num)));
   return Math.round(num / magnitude) * magnitude;
+};
+
+export const min = <V extends Value>(a: V, b: Value): V => {
+  if (typeof a === "bigint") return (a < BigInt(b) ? a : BigInt(b)) as V;
+  return (a < Number(b) ? a : Number(b)) as V;
+};
+
+export const max = <V extends Value>(a: V, b: Value): V => {
+  if (typeof a === "bigint") return (a > BigInt(b) ? a : BigInt(b)) as V;
+  return (a > Number(b) ? a : Number(b)) as V;
+};
+
+export const abs = <V extends Value>(a: V): V => {
+  if (typeof a === "bigint") return (a < 0n ? -a : a) as V;
+  return (a < 0 ? -a : a) as V;
 };

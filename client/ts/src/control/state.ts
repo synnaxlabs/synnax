@@ -47,7 +47,7 @@ export class StateTracker
 
   constructor(streamer: FrameStreamer) {
     super(streamer, (frame) => {
-      const update: Update = this.codec.decode(frame.series[0].buffer);
+      const update: Update = this.codec.decode(frame.series[0].data);
       this.merge(update);
       return [update.transfers, true];
     });

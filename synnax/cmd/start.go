@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
 	"os"
 	"os/signal"
 	"time"
@@ -200,6 +201,13 @@ func start(cmd *cobra.Command) {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		})
+		if err != nil {
+			return err
+		}
+		logSvc, err := log.NewService(log.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil {
+			return err
+		}
 		hardwareSvc, err := hardware.OpenService(ctx, hardware.Config{
 			DB:           gorpDB,
 			Ontology:     dist.Ontology,
@@ -244,6 +252,7 @@ func start(cmd *cobra.Command) {
 			Ontology:        dist.Ontology,
 			Group:           dist.Group,
 			Ranger:          rangeSvc,
+			Log:             logSvc,
 			Workspace:       workspaceSvc,
 			Label:           labelSvc,
 			Hardware:        hardwareSvc,

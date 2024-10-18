@@ -34,6 +34,6 @@ client.hardware.devices.create(
             model="PXI-6255",
             location="dev2",
             identifier="dev2",
-        )
+        ),
     ]
 )
