@@ -1,7 +1,5 @@
 # Release Candidate Pull Request
 
-The following
-
 ## Key Information
 
 - **Version Number**:
@@ -10,45 +8,43 @@ The following
 
 ### Version Consistency
 
-I have verified that the following packages have the same minor version number:
+I have verified that the following files have the same minor version number:
 
-- [ ] x/ts
-- [ ] alamos/ts
-- [ ] freighter/ts
-- [ ] client/ts
 - [ ] alamos/py
-- [ ] freighter/py
+- [ ] alamos/ts
 - [ ] client/py
-- [ ] server
-- [ ] drift
-- [ ] pluto
+- [ ] client/ts
 - [ ] console
+- [ ] drift
+- [ ] freighter/py
+- [ ] freighter/ts
+- [ ] pluto
+- [ ] x/media
+- [ ] x/ts
 - [ ] root package.json file
 
 #### Version Conflicts
 
-I have verified that, when released, the following packages will not conflict with any
-previously released packages:
+I have verified that, when released, the following packages will not conflict with any previously released packages:
 
-- [ ] [x/ts](https://www.npmjs.com/package/@synnaxlabs/x)
-- [ ] [alamos/ts](https://www.npmjs.com/package/@synnaxlabs/alamos)
-- [ ] [freighter/ts](https://www.npmjs.com/package/@synnaxlabs/freighter)
-- [ ] [client/ts](https://www.npmjs.com/package/@synnaxlabs/client)
 - [ ] [alamos/py](https://pypi.org/project/alamos/)
-- [ ] [freighter/py](https://pypi.org/project/synnax-freighter/)
+- [ ] [alamos/ts](https://www.npmjs.com/package/@synnaxlabs/alamos)
+- [ ] [client/ts](https://www.npmjs.com/package/@synnaxlabs/client)
 - [ ] [client/py](https://pypi.org/project/synnax/)
-- [ ] [server](https://github.com/synnaxlabs/synnax/releases)
-- [ ] [drift](https://www.npmjs.com/package/@synnaxlabs/drift)
-- [ ] [pluto](https://npmjs.com/package/@synnaxlabs/pluto)
 - [ ] [console](https://github.com/synnaxlabs/synnax/releases)
+- [ ] [drift](https://www.npmjs.com/package/@synnaxlabs/drift)
+- [ ] [freighter/py](https://pypi.org/project/synnax-freighter/)
+- [ ] [freighter/ts](https://www.npmjs.com/package/@synnaxlabs/freighter)
+- [ ] [pluto](https://npmjs.com/package/@synnaxlabs/pluto)
+- [ ] [server](https://github.com/synnaxlabs/synnax/releases)
+- [ ] [x/ts](https://www.npmjs.com/package/@synnaxlabs/x)
 
 ## User Documentation
 
 ### Content Changes
 
 I have verified that user facing documentation for each of the following services has
-been updated to match any changes in the release candidate. If not, I will note why the
-documentation has been left stale.
+been updated to match any changes in the release candidate.
 
 - [ ] reference/concepts
 - [ ] reference/cluster
@@ -80,33 +76,38 @@ I have verified that code examples for each of the following services run correc
 
 I can successfully:
 
-- [ ] Open connect a cluster dialog from cluster toolbar.
-- [ ] Open connect a cluster dialog from command search bar.
-- [ ] Test a cluster connection from connect a cluster dialog.
-- [ ] Connect a cluster by selecting it from cluster toolbar.
-- [ ] Connect a cluster by opening context menu from cluster toolbar.
-- [ ] Disconnect from a cluster by selecting it from cluster toolbar.
-- [ ] Disconnect a cluster by selecting it from the cluster toolbar.
-- [ ] Copy a link to a cluster and open it from outside Synnax.
-- [ ] Remove a cluster.
-- [ ] Rename a cluster.
+- Dropdown
+  - [ ] Add a new cluster
+  - [ ] Connect a cluster by selecting
+  - [ ] Disconnect a cluster by selecting
+  - Context Menu
+    - [ ] Connect a cluster
+    - [ ] Disconnect the active cluster
+    - [ ] Rename a cluster
+    - [ ] Remove a cluster
+    - [ ] Copy a link to a cluster
+- [ ] Open connect a cluster dialog from the command palette
+- [ ] Test a cluster connection in the connect a cluster modal
+- [ ] Open a cluster from a link
 
 ### Labels
 
-- [ ] I can successfully open the label editing dialog from the command palette.
-- [ ] I can add a new label.
-- [ ] I can edit an existing label.
+I can successfully:
+
+- [ ] Open the label edit dialog from the command palette.
+- [ ] Add a new label.
+- [ ] Edit an existing label.
 
 ### Ranges
 
 I can successfully:
 
-- [ ] Create Range Modal
+- Create Range Modal
   - [ ] Create a new local range.
   - [ ] Create a new persisted range.
   - [ ] Set parent range
   - [ ] Add labels
-- [ ] Range Layout
+- Range Layout
   - [ ] Rename range.
   - [ ] Rename range from tab.
   - [ ] Change start and end times.
@@ -116,13 +117,13 @@ I can successfully:
   - [ ] Add child ranges.
   - [ ] Open snapshots.
   - [ ] Navigate to and from child ranges
-- [ ] Search and Command Palette
-  - [ ] Open an existing range window
+- Search and Command Palette
+  - [ ] Open an existing range layout window
   - [ ] Open create range dialog
-- [ ] Range Toolbar
+- Range Toolbar
   - [ ] Open create range modal from toolbar link when no range exists
   - [ ] Switch the active range by clicking
-  - [ ] Context Menu
+  - Context Menu
     - [ ] Open create range modal
     - [ ] Rename range
     - [ ] Set active range
