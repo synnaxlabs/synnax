@@ -27,7 +27,7 @@
 
 
 namespace labjack{
-
+    const std::string LOG_READER_PREFIX = "[labjack_reader]";
     struct ReaderChannelConfig {
         std::string location;
         bool enabled = true;
@@ -100,8 +100,6 @@ public:
             ctx(ctx),
             task(task),
             reader_config(reader_config) {
-        LOG(INFO) << "creating labjack source";
-        this->init();
     }
 
     // destructor
@@ -115,14 +113,13 @@ public:
 
     void init();
 
-    void init_basic();
+    freighter::Error stop(const std::string &cmd_key);
+
+    freighter::Error start(const std::string &cmd_key);
+
+//    void init_basic();
 
     void init_stream();
-
-    std::pair<Frame, freighter::Error> read_basic(breaker::Breaker &breaker);
-    std::pair<Frame, freighter::Error> read_stream(breaker::Breaker &breaker);
-
-    std::pair<Frame, freighter::Error> read_stream2(breaker::Breaker &breaker);
 
     void acquire_data();
 
@@ -131,6 +128,8 @@ public:
             double &data,
             synnax::DataType data_type
         );
+
+    void stop();
 
 private:
 
@@ -151,6 +150,7 @@ private:
     std::thread sample_thread;
     std::vector<int> port_addresses;
     int buffer_size; // TODO: actually use this eventually
+    breaker::Breaker breaker;
 
 };
 }
