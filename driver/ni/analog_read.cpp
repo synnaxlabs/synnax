@@ -214,7 +214,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
     // Construct and populate index channel
 
-    size_t s = d.samples_read_per_channel;
+    size_t s = d.samples_read_per_channel; // TODO: Remove this why is this here
     // Construct and populate synnax frame
     size_t data_index = 0;
     for (int ch = 0; ch < num_channels; ch++) {

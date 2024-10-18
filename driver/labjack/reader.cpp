@@ -81,10 +81,16 @@ void labjack::Source::init_stream(){
     double scanRate = SCANS_PER_READ;
 
     LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
-    this->port_addreses.resize(this->reader_config.phys_channels.size());
+    this->port_addresses.resize(this->reader_config.phys_channels.size());
 
-    err = LHM_NamesToAddresses(this->phys_channels.size(), this->phys_channels.data(), this->port_addresses.data(), NULL);
-    err = LJM_eStreamStart(handle, SCANS_PER_READ, this->phys_channels.size(), this->port_addresses.data(), &scanRate);
+    std::vector<const char*> phys_channel_names;
+    for (const auto& channel : this->reader_config.phys_channels) {
+        phys_channel_names.push_back(channel.c_str());
+    }
+
+    auto err = LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL);
+
+    err = LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate);
 
     // run acquire data thread
     std::thread t(&labjack::Source::acquire_data, this);
@@ -102,17 +108,17 @@ std::pair<Frame, freighter::Error> labjack::Source::read_stream2(breaker::Breake
     int SCANS_PER_READ = 1000;
     auto [d, err] = data_queue.dequeue();
 
-    uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
+    uint64_t incr = ((d.tf - d.t0) / SCANS_PER_READ);
 
-    auto f = synnax::Frame(num_phys_channels + this->reader_config.index_keys.size());
+    auto f = synnax::Frame(this->reader_config.phys_channels.size() + this->reader_config.index_keys.size());
     int index = 0;
-    for(const auto &location : locations) {
+    for(const auto &location : this->reader_config.phys_channels) {
         for(const auto &channel : this->reader_config.channels) {
             if(channel.location == location) {
                 auto key = this->reader_config.channel_map[channel.location];
                 auto s = synnax::Series(channel.data_type, SCANS_PER_READ);
                 for (int sample = 0; sample < SCANS_PER_READ; sample++) {
-                    write_to_series(s, d.data[sample * num_phys_channels + index], channel.data_type);
+                    write_to_series(s, d.data[sample * this->reader_config.phys_channels.size() + index], channel.data_type);
                 }
                 f.add(key, std::move(s));
             }
@@ -133,86 +139,86 @@ std::pair<Frame, freighter::Error> labjack::Source::read_stream2(breaker::Breake
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
-}
+
 std::pair<Frame, freighter::Error> labjack::Source::read_stream(breaker::Breaker &breaker) {
-    std::vector<const char*> locations;
-    locations.reserve(this->reader_config.channels.size());
-
-    double INIT_SCAN_RATE = 1000;
-    int SCANS_PER_READ = (int)INIT_SCAN_RATE / 2;
-
-//    const int NUM_READS = 1000;
-
-    int err, iteration, channel;
-    int numSkippedScans = 0;
-    int totalSkippedScans = 0;
-    int deviceScanBacklog = 0;
-    int LJMScanBacklog = 0;
-    unsigned int receiveBufferBytesSize = 0;
-    unsigned int receiveBufferBytesBacklog = 0;
-    int connectionType;
-
-
-    int * aScanList = (int*)malloc(sizeof(int) * num_phys_channels);
-
-    unsigned int aDataSize = num_phys_channels * SCANS_PER_READ;
-    double * aData = (double*)malloc(sizeof(double) * aDataSize);
-
-    err = LJM_NamesToAddresses(num_phys_channels, locations.data(), aScanList, NULL);
-    // TODO: check for error
-    double scanRate = SCANS_PER_READ;
-    auto t0 = synnax::TimeStamp::now().value;
-    err = LJM_eStreamStart(handle, SCANS_PER_READ, num_phys_channels, aScanList, &scanRate);
-    auto tf = synnax::TimeStamp::now().value;
-//    LOG(INFO) << "tf: " << tf << " t0: " << t0 << " diff " << tf - t0;
-
-    uint64_t incr = (tf - t0) / SCANS_PER_READ;
-
-
-//    for(iteration = 0; iteration < NUM_READS; iteration++) {
-//        err = LJM_eStreamRead(handle, aData, &numSkippedScans, &deviceScanBacklog);
-//        printf("iteration: %d - deviceScanBacklog: %d, LJMScanBacklog: %d",
-//               iteration, deviceScanBacklog, LJMScanBacklog);
-        // TODO: if connection mode isn't usb, need to do some extra work to check
-//        for (channel = 0; channel < num_phys_channels; channel++) {
-//            for(int sample = 0; sample < 1000; sample++) {
-//                printf("    %s = %0.5f\n", locations[channel], aData[channel * sample]);
+//    std::vector<const char*> locations;
+//    locations.reserve(this->reader_config.channels.size());
+//
+//    double INIT_SCAN_RATE = 1000;
+//    int SCANS_PER_READ = (int)INIT_SCAN_RATE / 2;
+//
+////    const int NUM_READS = 1000;
+//
+//    int err, iteration, channel;
+//    int numSkippedScans = 0;
+//    int totalSkippedScans = 0;
+//    int deviceScanBacklog = 0;
+//    int LJMScanBacklog = 0;
+//    unsigned int receiveBufferBytesSize = 0;
+//    unsigned int receiveBufferBytesBacklog = 0;
+//    int connectionType;
+//
+//
+//    int * aScanList = (int*)malloc(sizeof(int) * num_phys_channels);
+//
+//    unsigned int aDataSize = num_phys_channels * SCANS_PER_READ;
+//    double * aData = (double*)malloc(sizeof(double) * aDataSize);
+//
+//    err = LJM_NamesToAddresses(num_phys_channels, locations.data(), aScanList, NULL);
+//    // TODO: check for error
+//    double scanRate = SCANS_PER_READ;
+//    auto t0 = synnax::TimeStamp::now().value;
+//    err = LJM_eStreamStart(handle, SCANS_PER_READ, num_phys_channels, aScanList, &scanRate);
+//    auto tf = synnax::TimeStamp::now().value;
+////    LOG(INFO) << "tf: " << tf << " t0: " << t0 << " diff " << tf - t0;
+//
+//    uint64_t incr = (tf - t0) / SCANS_PER_READ;
+//
+//
+////    for(iteration = 0; iteration < NUM_READS; iteration++) {
+////        err = LJM_eStreamRead(handle, aData, &numSkippedScans, &deviceScanBacklog);
+////        printf("iteration: %d - deviceScanBacklog: %d, LJMScanBacklog: %d",
+////               iteration, deviceScanBacklog, LJMScanBacklog);
+//        // TODO: if connection mode isn't usb, need to do some extra work to check
+////        for (channel = 0; channel < num_phys_channels; channel++) {
+////            for(int sample = 0; sample < 1000; sample++) {
+////                printf("    %s = %0.5f\n", locations[channel], aData[channel * sample]);
+////            }
+////        }
+////    }
+//
+//    err = LJM_eStreamRead(handle, aData, &numSkippedScans, &deviceScanBacklog);
+//    auto f = synnax::Frame(num_phys_channels + this->reader_config.index_keys.size());
+//    int index = 0;
+//    for(const auto &location : locations) {
+//        for(const auto &channel : this->reader_config.channels) {
+//            if(channel.location == location) {
+//                auto key = this->reader_config.channel_map[channel.location];
+//                auto s = synnax::Series(channel.data_type, SCANS_PER_READ);
+//                for (int sample = 0; sample < SCANS_PER_READ; sample++) {
+//                    write_to_series(s, aData[sample * num_phys_channels + index], channel.data_type);
+//                }
+//                f.add(key, std::move(s));
 //            }
 //        }
+////        LOG(INFO) << "index: " << index << " location: " << location;
+//        index++;
 //    }
-
-    err = LJM_eStreamRead(handle, aData, &numSkippedScans, &deviceScanBacklog);
-    auto f = synnax::Frame(num_phys_channels + this->reader_config.index_keys.size());
-    int index = 0;
-    for(const auto &location : locations) {
-        for(const auto &channel : this->reader_config.channels) {
-            if(channel.location == location) {
-                auto key = this->reader_config.channel_map[channel.location];
-                auto s = synnax::Series(channel.data_type, SCANS_PER_READ);
-                for (int sample = 0; sample < SCANS_PER_READ; sample++) {
-                    write_to_series(s, aData[sample * num_phys_channels + index], channel.data_type);
-                }
-                f.add(key, std::move(s));
-            }
-        }
-//        LOG(INFO) << "index: " << index << " location: " << location;
-        index++;
-    }
-
-    for( auto index_key : this->reader_config.index_keys){
-        auto t = synnax::Series(synnax::TIMESTAMP, SCANS_PER_READ);
-        for (uint64_t i = 0; i < SCANS_PER_READ; i++){
-            t.write(t0 + incr * i);
-        }
-        f.add(index_key, std::move(t));
-    }
-
-    err = LJM_eStreamStop(handle);
-
-    free(aData);
-    free(aScanList);
-
-//    auto f = synnax::Frame(num_phys_channels + this->reader_config.index_keys.size());
+//
+//    for( auto index_key : this->reader_config.index_keys){
+//        auto t = synnax::Series(synnax::TIMESTAMP, SCANS_PER_READ);
+//        for (uint64_t i = 0; i < SCANS_PER_READ; i++){
+//            t.write(t0 + incr * i);
+//        }
+//        f.add(index_key, std::move(t));
+//    }
+//
+//    err = LJM_eStreamStop(handle);
+//
+//    free(aData);
+//    free(aScanList);
+//
+    auto f = synnax::Frame(1 + this->reader_config.index_keys.size());
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
@@ -311,13 +317,13 @@ void labjack::Source::acquire_data(){
     while(true){
         DataPacket data_packet;
         data_packet.data.resize(1000); // TODO: change size to be variable
+
         data_packet.t0 = synnax::TimeStamp::now().value;
-
         LJM_eStreamRead(this->handle, data_packet.data.data(), &numSkippedScans, &deviceScanBacklog);
+        data_packet.tf = synnax::TimeStamp::now().value;
 
-        data_packet.tf = synnax;:TimeStamp::now().value;
         data_queue.enqueue(data_packet);
     }
 
-    err = LJM_eStreamStop(handle);
+    auto err = LJM_eStreamStop(handle);
 }

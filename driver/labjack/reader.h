@@ -23,7 +23,7 @@
 #include "driver/errors/errors.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
-#include "driver/ni/ts_queue.h" // TODO: move out of ni
+#include "driver/queue/ts_queue.h" // TODO: move out of ni
 
 
 namespace labjack{
@@ -52,7 +52,6 @@ namespace labjack{
         std::string device_type;
         std::string device_key;
         std::vector<ReaderChannelConfig> channels;
-        std::vector<std::string> phys_channels;
         synnax::Rate sample_rate = synnax::Rate(1); // TODO: change default?
         synnax::Rate stream_rate = synnax::Rate(1); // TODO: change default?
         std::string task_name;
@@ -61,7 +60,7 @@ namespace labjack{
         std::string serial_number; // used to open devices
         std::string connection_type; // used to open devices
         std::map<std::string, uint32_t> channel_map; // move this into class instead of reader config
-        int num_phys_channels = 0; // TODO: remove this isn't being used?
+        std::vector<std::string> phys_channels;
         bool data_saving;
 
         ReaderConfig() = default;
@@ -80,8 +79,8 @@ namespace labjack{
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 channels.emplace_back(ReaderChannelConfig(channel_parser));
                 this->channel_map[channels.back().location] = channels.back().channel_key;
-                if(channel.enabled)
-                    this->phys_channels.push_back(channel.location);
+                if(channels.back().enabled)
+                    this->phys_channels.push_back(channels.back().location);
 
             });
         }
@@ -143,10 +142,9 @@ private:
 
     /// @brief shared resources between daq sampling thread and acquisition thread
     struct DataPacket {
-        td::vector<double> data;
+        std::vector<double> data;
         uint64_t t0; // initial timestamp
         uint64_t tf; // final timestamp
-        int32 samples_read_per_channel;
     };
 
     TSQueue<DataPacket> data_queue;

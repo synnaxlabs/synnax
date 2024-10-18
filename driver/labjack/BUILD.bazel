@@ -38,6 +38,7 @@ cc_library(
         "//driver/pipeline",
         "//driver/loop",
         "//driver/config",
+        "//driver/queue",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
     ],
