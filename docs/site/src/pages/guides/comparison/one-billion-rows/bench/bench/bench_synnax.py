@@ -1,9 +1,4 @@
-from bench.config import (
-    new_data_iterator,
-    ITERATIONS,
-    START_TIME,
-    TOTAL_ROWS,
-)
+from bench.config import TestConfig
 import synnax as sy
 from contextlib import contextmanager
 import docker
@@ -50,32 +45,27 @@ def start_synnax():
         c.remove()
 
 
-def bench_synnax():
+def bench_synnax(cfg: TestConfig):
     with start_synnax():
         client = sy.Synnax()
-        time_ch = client.channels.create(
-            name="time",
-            data_type="timestamp",
-            is_index=True,
-            retrieve_if_name_exists=True
-        )
-        client.channels.create(
-            name="data",
-            data_type="float32",
-            index=time_ch.key,
-            retrieve_if_name_exists=True
-        )
+        time_ch = client.channels.create(cfg.channels[0])
+        cfg.channels[0] = time_ch
+        for ch in cfg.channels[1:]:
+            ch.index = time_ch.key
+        oc = client.channels.create(cfg.channels[1:])
+        cfg.channels[1:] = oc
+        print(cfg.channels)
         total_time = sy.TimeSpan.SECOND * 0
+        print(cfg.channels)
         with client.open_writer(
-            start=START_TIME,
-            channels=["time", "data"],
+            start=cfg._start_time,
+            channels=[c.key for c in cfg.channels],
             enable_auto_commit=True,
             auto_index_persist_interval=sy.TimeSpan(-1),
         ) as w:
-            for i, df in enumerate(new_data_iterator()):
+            for i, df in enumerate(cfg.frames(index=False)):
                 perf_start = sy.TimeStamp.now()
                 w.write(df)
                 total_time += sy.TimeSpan.since(perf_start)
-                print(f"Iteration {i + 1}/{ITERATIONS} completed.")
-
+                print(f"Iteration {i + 1}/{cfg.iterations} completed.")
         return total_time

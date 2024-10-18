@@ -1,14 +1,14 @@
-from bench.bench_influx import bench_influx
 from bench.bench_synnax import bench_synnax
-from bench.bench_timescale import bench_timescale
+from bench.config import TestConfig
 
 if __name__ == "__main__":
     print("Synnax:")
-    print(bench_synnax())
+    cfg = TestConfig()
+    print(bench_synnax(cfg))
 
-    print("Influx:")
-    print(bench_influx())
+    # print("Influx:")
+    # print(bench_influx())
 
-    print("Timescale:")
-    print(bench_timescale())
+    # print("Timescale:")
+    # print(bench_timescale())
 
