@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
-import { re } from "mathjs";
 import {
   type MutableRefObject,
   type RefObject,

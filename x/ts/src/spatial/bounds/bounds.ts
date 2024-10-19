@@ -223,11 +223,81 @@ export const linspace = <T extends numeric.Value = number>(bounds: Crude<T>): T[
 };
 
 /**
+ * Finds the index and position where a target value should be inserted into an array
+ * of bounds.
  *
+ * Crucially, this function assumes that the bounds are ORDERED and NON-OVERLAPPING.
  *
- * @param bounds
- * @param target
- * @returns
+ * @template T
+ * @param {Array<Crude<T>>} bounds - An array of crude bounds. Each bound can either be
+ * an array of length 2 or an object with `lower` and `upper` properties.
+ * @param {T} target - The target value to insert.
+ *
+ * @returns {{ index: number, position: number }} An object containing:
+ * - `index`: The index in the bounds array where the target belongs.
+ * - `position`: The position within the bound where the target fits. If the target is
+ * outside all bounds, the index will be where a new bound can be inserted.
+ *
+ * @example
+ * // Target within an existing bound
+ * const bounds = [[0, 10], [20, 30]];
+ * const target = 5;
+ * const result = findInsertPosition(bounds, target);
+ * // { index: 0, position: 5 }
+ *
+ * @example
+ * // Target greater than all bounds
+ * const bounds = [[0, 10], [20, 30]];
+ * const target = 35;
+ * const result = findInsertPosition(bounds, target);
+ *  // { index: 2, position: 0 }
+ *
+ * @example
+ * // Target less than all bounds
+ * const bounds = [[10, 20], [30, 40]];
+ * const target = 5;
+ * const result = findInsertPosition(bounds, target);
+ *  // { index: 0, position: 0 }
+ *
+ * @example
+ * // Target overlaps between bounds
+ * const bounds = [[0, 10], [20, 30]];
+ * const target = 15;
+ * const result = findInsertPosition(bounds, target);
+ *  // { index: 1, position: 0 }
+ *
+ * @example
+ * // Empty bounds array
+ * const bounds = [];
+ * const target = 5;
+ * const result = findInsertPosition(bounds, target);
+ *  // { index: 0, position: 0 }
+ *
+ * @example
+ * // Target exactly at lower bound
+ * const bounds = [[0, 10], [20, 30]];
+ * const target = 10;
+ * const result = findInsertPosition(bounds, target);
+ *  // { index: 1, position: 0 }
+ *
+ * @example
+ * // Target exactly at upper bound
+ * const bounds = [[0, 10], [20, 30]];
+ * const target = 30;
+ * const result = findInsertPosition(bounds, target);
+ *  // { index: 2, position: 0 }
+ *
+ * @example
+ * // Target inside bounds with exact fit
+ * const bounds = [[0, 5], [5, 10]];
+ * const target = 5;
+ * const result = findInsertPosition(bounds, target);
+ *  // { index: 1, position: 0 }
+ *
+ * @throws {Error} If invalid bounds are provided, such as bounds arrays not being of
+ * length 2.
+ *
+ * @see {@link construct} for constructing valid bounds.
  */
 export const findInsertPosition = <T extends numeric.Value>(
   bounds: Array<Crude<T>>,
@@ -270,6 +340,7 @@ const ZERO_PLAN: InsertionPlan = {
  * that may overlap. The plan is used to determine how to splice the new array into the
  * existing array. The following are important constraints:
  *
+ * Crucially, this function assumes that the bounds are ORDERED and NON-OVERLAPPING.
  *
  * 1. If the new bound is entirely contained within an existing bound, the new bound
  * is not inserted and the plan is null.
@@ -323,76 +394,91 @@ export const buildInsertionPlan = <T extends numeric.Value>(
   };
 };
 
-export const insert = <T extends numeric.Value = number>(
-  bounds: Array<Crude<T>>,
-  value: Crude<T>,
-): Array<Bounds<T>> => {
-  const plan = buildInsertionPlan(bounds, value);
-  const out = bounds.map((b) => construct(b));
-  if (plan == null) return out;
-  const _target = construct(value);
-  _target.lower = math.add(_target.lower, plan.removeBefore);
-  _target.upper = math.sub(_target.upper, plan.removeAfter);
-  out.splice(plan.insertInto, plan.deleteInBetween, _target);
-  return out;
-};
-
-export const exposure = <T extends numeric.Value = number>(
-  background_: Crude<T>,
-  filter_: Crude<T>,
-): number => {
-  const bg = construct(background_);
-  const f = construct(filter_);
-  if (bg.upper <= f.lower || bg.lower >= f.upper) return 0;
-  if (bg.lower >= f.lower && bg.upper <= f.upper) return 1;
-  if (bg.lower <= f.lower && bg.upper >= f.upper) return span(f) / span(bg);
-  if (bg.lower <= f.lower) return (bg.upper - f.lower) / span(bg);
-  return (f.upper - bg.lower) / span(bg);
-};
-
 /**
- * Traverse the given bounds by the distance, returning the end point of the traversal.
- * Traversal works by 'skipping' over integers that are not within the array of bounds.
+ * Traverse the given bounds by the specified distance, starting from a given point, and
+ * return the end point of the traversal. The traversal 'skips' over integers that are
+ * not within the array of bounds, moving only within the defined bounds. Traversing
+ * across multiple bounds is handled smoothly, with direction determined by the sign of
+ * the distance.
+ *
+ * Crucially, this function assumes that the bounds are ORDERED and NON-OVERLAPPING.
+ *
+ * If the distance takes the traversal beyond the bounds, it returns the last valid point
+ * within the bounds or the first valid point depending on direction.
+ *
+ * @template T
+ * @param {Array<Crude<T>>} bounds - An array of crude bounds (array of length 2 or
+ * objects with `lower` and `upper` properties).
+ * @param {T} start - The starting point of the traversal.
+ * @param {T} dist - The distance to traverse. Positive values move forwards, and
+ * negative values move backwards.
+ *
+ * Edge Cases:
+ *
+ * 1. **Traversal beyond the last bound**: If the traversal moves beyond the last
+ * bound (in either direction), the traversal ends at the last valid position within
+ * the bounds.
+ *    - Example: `traverse([[0, 10], [20, 30]], 25, 10); // => 30`
+ *      (stops at the upper limit of the last bound)
+ *
+ * 2. **Traversal from a point outside the bounds**: If the starting point is outside
+ *      the bounds and the traversal distance would move within bounds, it finds the
+ *      closest bound and continues traversal from there.
+ *    - Example: `traverse([[0, 10], [20, 30]], 15, 5); // => 25` (enters the second bound)
+ *
+ * 3. **Distance of 0**: If the distance is `0`, the traversal will return the starting
+ *      point without moving.
+ *    - Example: `traverse([[0, 10], [20, 30]], 5, 0); // => 5`
+ *
+ * @returns {T} The end point of the traversal within the bounds.
  *
  * @example
- * bounds.traverse(
- *  [[0, 10], [20, 30]]
- *  5,
- *  5,
- * )
+ * // Traversing 5 units forward from 5, ending exactly at the upper bound of the first
+ * range.
+ * traverse([[0, 10], [20, 30]], 5, 5);
  * // => 10
+ *
  * @example
- * bounds.traverse(
- * [[0, 10], [20, 30]]
- * 5,
- * 10,
- * )
+ * // Traversing 10 units forward from 5, crossing from the first range to the second.
+ * traverse([[0, 10], [20, 30]], 5, 10);
  * // => 25
+ *
  * @example
- * bounds.traverse(
- * [[0, 10], [20, 30]]
- * 15,
- * 5,
- * )
+ * // Traversing 5 units forward starting outside the bounds, the traversal enters the
+ * // second bound.
+ * traverse([[0, 10], [20, 30]], 15, 5);
  * // => 25
+ *
  * @example
- * bounds.traverse(
- * [[0, 10], [20, 30]]
- * 15,
- * 30,
- * )
+ * // Traversing 30 units forward, stopping at the upper end of the second bound.
+ * traverse([[0, 10], [20, 30]], 15, 30);
  * // => 30
+ *
  * @example
- * bounds.traverse(
- * [[0, 5], [5, 10], [15, 20]]
- * 17,
- * -7
- * ) // => 5
+ * // Traversing 7 units backward starting from 17, moving into the first bound.
+ * traverse([[0, 5], [5, 10], [15, 20]], 17, -7);
+ * // => 5
  *
+ * @example
+ * // Traversing beyond the last bound in a positive direction.
+ * traverse([[0, 10], [20, 30]], 25, 10);
+ * // => 30 (stops at the upper limit of the last bound)
  *
- * @param start
- * @param dist
- * @param bounds
+ * @example
+ * // Traversing backward from a point not within any bound.
+ * traverse([[0, 5], [10, 15]], 20, -10);
+ * // => 15 (stops at the upper limit of the nearest previous bound)
+ *
+ * @example
+ * // Traversing a distance of 0 from a point returns the starting point.
+ * traverse([[0, 10], [20, 30]], 5, 0);
+ * // => 5
+ *
+ * @throws {Error} If invalid bounds are provided, such as bounds arrays not being of
+ * length 2.
+ *
+ * @see {@link construct} for constructing valid bounds.
+ *
  */
 export const traverse = <T extends numeric.Value = number>(
   bounds: Array<Crude<T>>,
@@ -412,27 +498,16 @@ export const traverse = <T extends numeric.Value = number>(
   while (math.equal(remainingDist, 0) === false) {
     // Find the bound we're currently in or adjacent to
     const index = _bounds.findIndex((b) => {
-      if (dir > 0) {
-        // For positive direction, check if currentPosition >= lower and < upper
-        return currentPosition >= b.lower && currentPosition < b.upper;
-      } else {
-        // For negative direction, check if currentPosition > lower and <= upper
-        return currentPosition > b.lower && currentPosition <= b.upper;
-      }
+      if (dir > 0) return currentPosition >= b.lower && currentPosition < b.upper;
+      return currentPosition > b.lower && currentPosition <= b.upper;
     });
 
     if (index !== -1) {
-      // We're inside a bound
       const b = _bounds[index];
       let distanceInBound: T;
+      if (dir > 0) distanceInBound = math.sub(b.upper, currentPosition) as T;
+      else distanceInBound = math.sub(currentPosition, b.lower) as T;
 
-      if (dir > 0) {
-        distanceInBound = math.sub(b.upper, currentPosition) as T;
-      } else {
-        distanceInBound = math.sub(currentPosition, b.lower) as T;
-      }
-
-      // Determine how much we can move within this bound
       if (distanceInBound > (0 as T)) {
         const moveDist = math.min(math.abs(remainingDist), distanceInBound) as T;
         currentPosition = math.add(
@@ -442,7 +517,7 @@ export const traverse = <T extends numeric.Value = number>(
         remainingDist = math.sub(remainingDist, dir > 0 ? moveDist : -moveDist) as T;
 
         // If we've exhausted the distance, return the current position
-        if (remainingDist === (0 as T)) return currentPosition as T;
+        if (math.equal(remainingDist, 0)) return currentPosition as T;
         continue;
       }
     }
@@ -451,21 +526,16 @@ export const traverse = <T extends numeric.Value = number>(
     if (dir > 0) {
       // Move to the next bound's lower value
       const nextBounds = _bounds.filter((b) => b.lower > currentPosition);
-      if (nextBounds.length > 0) {
-        currentPosition = nextBounds[0].lower;
-      } else {
-        // No more bounds in this direction
-        return currentPosition as T;
-      }
+      if (nextBounds.length > 0) currentPosition = nextBounds[0].lower;
+      // No more bounds in this direction
+      else return currentPosition as T;
     } else {
       // Move to the previous bound's upper value
       const prevBounds = _bounds.filter((b) => b.upper < currentPosition);
-      if (prevBounds.length > 0) {
+      if (prevBounds.length > 0)
         currentPosition = prevBounds[prevBounds.length - 1].upper;
-      } else {
-        // No more bounds in this direction
-        return currentPosition as T;
-      }
+      // No more bounds in this direction
+      else return currentPosition as T;
     }
   }
   return currentPosition as T;
@@ -474,6 +544,8 @@ export const traverse = <T extends numeric.Value = number>(
 /**
  * Returns the number of values within the given bounds, 'skip'ing over values that are
  * not within the bounds.
+ *
+ * Crucially, this function assumes that the bounds are ORDERED and NON-OVERLAPPING.
  *
  * @example
  * bounds.distance(

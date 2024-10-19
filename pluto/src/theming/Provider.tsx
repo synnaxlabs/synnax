@@ -9,6 +9,7 @@
 
 import "@/theming/theme.css";
 
+import geistMono from "@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2";
 import interWoff from "@fontsource-variable/inter/files/inter-latin-standard-normal.woff2";
 import { deep } from "@synnaxlabs/x";
 import {
@@ -29,7 +30,6 @@ import { Input } from "@/input";
 import { type SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";
-import geistMono from "@/theming/GeistMono-Regular.woff2";
 
 export interface ContextValue {
   theme: theming.Theme;

@@ -88,12 +88,16 @@ export const Log = Aether.wrap<LogProps>(
       >
         {empty && emptyContent}
         <Button.Icon
-          className={CSS(CSS.BE("log", "live"), CSS.visible(scrolling))}
+          className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
           variant="outlined"
-          onClick={() => setState((s) => ({ ...s, scrolling: false }))}
-          tooltip="Return to Live"
+          onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
+          tooltip={
+            scrolling
+              ? "Auto Scroll Paused. Click to Resume"
+              : "Auto Scroll Enabled. Click to Pause"
+          }
         >
-          <Icon.Dynamic style={{ color: "var(--pluto-error-p1)" }} />
+          <Icon.Dynamic />
         </Button.Icon>
       </div>
     );

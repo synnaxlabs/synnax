@@ -1044,7 +1044,6 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
         break;
       }
     }
-    console.log(startIdx, endIdx);
     return new MultiSubIterator(this, startIdx, endIdx);
   }
 

@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import {
+  log as clientLog,
+  ontology,
+  schematic as clientSchematic,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
@@ -106,12 +110,12 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
         data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
       });
       const otg = await client.ontology.retrieve(
-        new ontology.ID({ key: schematic.key, type: "schematic" }),
+        new ontology.ID({ key: schematic.key, type: clientSchematic.ONTOLOGY_TYPE }),
       );
       maybeChangeWorkspace(workspace);
       placeLayout(
         Schematic.create({
-          ...(schematic.data as unknown as Schematic.State),
+          ...schematic.data,
           key: schematic.key,
           name: schematic.name,
           snapshot: schematic.snapshot,
@@ -194,15 +198,15 @@ const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       const workspace = selection.resources[0].id.key;
       const log = await client.workspaces.log.create(workspace, {
         name: "New Log",
-        data: deep.copy(Log.ZERO_STATE) as unknown as UnknownRecord,
+        data: deep.copy(Log.ZERO_STATE),
       });
       const otg = await client.ontology.retrieve(
-        new ontology.ID({ key: log.key, type: "log" }),
+        new ontology.ID({ key: log.key, type: clientLog.ONTOLOGY_TYPE }),
       );
       maybeChangeWorkspace(workspace);
       placeLayout(
         Log.create({
-          ...(log.data as unknown as Log.State),
+          ...log.data,
           key: log.key,
           name: log.name,
         }),

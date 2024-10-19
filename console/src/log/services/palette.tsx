@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import { create } from "@/log/Log";
 import { type Command } from "@/palette/Palette";
 
-export const createCommand: Command = {
+const createCommand: Command = {
   key: "create-log",
   name: "Create a Log",
   icon: <Icon.Log />,

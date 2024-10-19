@@ -203,7 +203,7 @@ importers:
         version: 5.1.0
       '@reduxjs/toolkit':
         specifier: ^2.2.8
-        version: 2.2.8(react-redux@9.1.2(@types/react@18.3.11)(react@18.3.1)(redux@5.0.1))(react@18.3.1)
+        version: 2.2.8(react-redux@9.1.2(@types/react@18.3.11)(react@18.3.1))(react@18.3.1)
       '@synnaxlabs/client':
         specifier: workspace:*
         version: link:../client/ts
@@ -394,7 +394,7 @@ importers:
     dependencies:
       '@reduxjs/toolkit':
         specifier: ^2.2.8
-        version: 2.2.8(react-redux@9.1.2(@types/react@18.3.11)(react@18.3.1)(redux@5.0.1))(react@18.3.1)
+        version: 2.2.8(react-redux@9.1.2(@types/react@18.3.11)(react@18.3.1))(react@18.3.1)
       '@synnaxlabs/x':
         specifier: workspace:*
         version: link:../x/ts
@@ -446,7 +446,7 @@ importers:
     dependencies:
       '@reduxjs/toolkit':
         specifier: ^2.2.8
-        version: 2.2.8(react-redux@9.1.2(@types/react@18.3.11)(react@18.3.1)(redux@5.0.1))(react@18.3.1)
+        version: 2.2.8(react-redux@9.1.2(@types/react@18.3.11)(react@18.3.1))(react@18.3.1)
       '@synnaxlabs/drift':
         specifier: workspace:*
         version: link:../..
@@ -568,6 +568,9 @@ importers:
   pluto:
     dependencies:
       '@fontsource-variable/inter':
+        specifier: ^5.1.0
+        version: 5.1.0
+      '@fontsource/geist-mono':
         specifier: ^5.1.0
         version: 5.1.0
       '@synnaxlabs/alamos':
@@ -8307,7 +8310,7 @@ snapshots:
       - '@types/react'
       - immer
 
-  '@reduxjs/toolkit@2.2.8(react-redux@9.1.2(@types/react@18.3.11)(react@18.3.1)(redux@5.0.1))(react@18.3.1)':
+  '@reduxjs/toolkit@2.2.8(react-redux@9.1.2(@types/react@18.3.11)(react@18.3.1))(react@18.3.1)':
     dependencies:
       immer: 10.1.1
       redux: 5.0.1

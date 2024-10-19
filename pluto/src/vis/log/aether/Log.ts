@@ -31,6 +31,8 @@ export const logState = z.object({
   overshoot: xy.xy.optional().default({ x: 0, y: 0 }),
 });
 
+const SCROLLBAR_RENDER_THRESHOLD = 0.98;
+
 interface InternalState {
   theme: theming.Theme;
   render: render.Context;
@@ -188,10 +190,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
   private renderScrollbar(draw2d: Draw2D): void {
     const reg = this.state.region;
-    const bHeight = (box.height(reg) / this.totalHeight) * box.height(reg);
-    let yPos = box.bottom(reg) - bHeight;
+    const scrollbarHeight = (box.height(reg) / this.totalHeight) * box.height(reg);
+    if (scrollbarHeight >= box.height(reg) * SCROLLBAR_RENDER_THRESHOLD) return;
+    let scrollbarYPos = box.bottom(reg) - scrollbarHeight;
     if (this.state.scrolling)
-      yPos -=
+      scrollbarYPos -=
         (Number(
           this.values.distance(
             this.values.alignmentBounds.upper,
@@ -201,12 +204,12 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
           this.values.length) *
         box.height(reg);
 
-    if (yPos < 0) yPos = box.top(reg);
+    if (scrollbarYPos < 0) scrollbarYPos = box.top(reg);
 
     draw2d.container({
       region: box.construct(
-        { x: box.right(reg) - 6, y: yPos },
-        { width: 6, height: bHeight },
+        { x: box.right(reg) - 6, y: scrollbarYPos },
+        { width: 6, height: scrollbarHeight },
       ),
       bordered: false,
       backgroundColor: (t) => t.colors.gray.l4,

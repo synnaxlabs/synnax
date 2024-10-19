@@ -24,10 +24,11 @@
         position: absolute;
         top: 2rem;
         right: 2rem;
-        opacity: 0;
-        transition: opacity 0.15s;
-        &.pluto--visible {
-            opacity: 1;
+        & .synnax-icon {
+            color: var(--pluto-success-z) !important;
+        }
+        &.pluto--active .synnax-icon {
+            color: var(--pluto-error-z) !important;
         }
     }
 }

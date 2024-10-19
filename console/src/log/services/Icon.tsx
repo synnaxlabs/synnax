@@ -11,12 +11,6 @@ import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon } from "@synnaxlabs/pluto";
 import { ReactElement } from "react";
 
-export const ImportIcon = (): ReactElement => (
-  <PIcon.Import>
-    <Icon.Log />
-  </PIcon.Import>
-);
-
 export const CreateIcon = (): ReactElement => (
   <PIcon.Create>
     <Icon.Log />

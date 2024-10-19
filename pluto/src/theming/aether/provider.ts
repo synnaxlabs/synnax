@@ -22,7 +22,6 @@ export const fontSpecZ = z.object({
 const providerStateZ = z.object({
   theme: themeZ,
   fontURLs: z.array(fontSpecZ),
-  // For some reason the generate type is too deep, so we need to cast it to ZodTypeAny
 });
 
 export class Provider extends aether.Composite<typeof providerStateZ> {

@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
@@ -43,6 +52,8 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
+const DEFAULT_RETENTION = TimeSpan.days(1).seconds;
+
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const winKey = useSelectWindowKey() as string;
   const log = useSelect(layoutKey);
@@ -62,7 +73,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   else
     t = telem.streamChannelData({
       channel: ch,
-      timeSpan: TimeSpan.seconds(log.retention),
+      timeSpan: DEFAULT_RETENTION,
     });
   const handleDoubleClick = useCallback(() => {
     dispatch(
@@ -83,7 +94,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           {zeroChannel ? (
             <Align.Space direction="x" size="small" align="center">
               <Text.Text level="p" shade={6}>
-                No channel configured for log.
+                No channel configured for {name}.
               </Text.Text>
               <Text.Link level="p" onClick={handleDoubleClick}>
                 Configure here.
