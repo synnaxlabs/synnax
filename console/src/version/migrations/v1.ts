@@ -24,8 +24,8 @@ export const ZERO_SLICE_STATE: SliceState = {
   silenced: false,
 };
 
-export const migrate: (v: v0.SliceState) => SliceState = (v) => ({
+export const migrate: (state: v0.SliceState) => SliceState = (state) => ({
   version: "1.0.0",
-  consoleVersion: v.version,
+  consoleVersion: state.version,
   silenced: false,
 });
