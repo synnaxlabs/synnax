@@ -61,7 +61,7 @@ export const OpenUpdateDialogAction = () => {
   const placer = Layout.usePlacer();
   return (
     <Button.Button variant="outlined" size="small" onClick={() => placer(infoLayout)}>
-      Update Action
+      Update
     </Button.Button>
   );
 };

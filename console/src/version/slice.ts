@@ -27,6 +27,7 @@ export const { actions, reducer } = createSlice({
   initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (state, { payload: version }: SetVersionAction) => {
+      if (state.consoleVersion === version) return;
       state.consoleVersion = version;
       state.silenced = false;
     },
