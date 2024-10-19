@@ -31,7 +31,7 @@ describe("migrations", () => {
     const V1_STATE: v1.SliceState = {
       version: "1.0.0",
       consoleVersion,
-      silenced: false,
+      updateNotificationsSilenced: false,
     };
     it(`should migrate slice from ${V0_STATE.version} to latest`, () => {
       const migrated = migrateSlice(V0_STATE);

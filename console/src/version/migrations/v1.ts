@@ -14,18 +14,18 @@ import * as v0 from "@/version/migrations/v0";
 export const sliceStateZ = z.object({
   version: z.literal("1.0.0"),
   consoleVersion: z.string(),
-  silenced: z.boolean(),
+  updateNotificationsSilenced: z.boolean(),
 });
 export type SliceState = z.infer<typeof sliceStateZ>;
 
 export const ZERO_SLICE_STATE: SliceState = {
   version: "1.0.0",
   consoleVersion: "0.0.0",
-  silenced: false,
+  updateNotificationsSilenced: false,
 };
 
 export const migrate: (state: v0.SliceState) => SliceState = (state) => ({
   version: "1.0.0",
   consoleVersion: state.version,
-  silenced: false,
+  updateNotificationsSilenced: false,
 });

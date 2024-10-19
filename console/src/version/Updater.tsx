@@ -17,12 +17,12 @@ import { useDispatch } from "react-redux";
 import { Layout } from "@/layout";
 import { type NotificationAdapter } from "@/notifications/Notifications";
 import { infoLayout } from "@/version/Info";
-import { useSelectSilenced } from "@/version/selectors";
-import { silence } from "@/version/slice";
+import { useSelectUpdateNotificationsSilenced } from "@/version/selectors";
+import { silenceUpdateNotifications } from "@/version/slice";
 
 export const useCheckForUpdates = (): boolean => {
   const addStatus = Status.useAggregator();
-  const isSilenced = useSelectSilenced();
+  const isSilenced = useSelectUpdateNotificationsSilenced();
   const [available, setAvailable] = useState(false);
 
   const checkForUpdates = async (addNotifications: boolean) => {
@@ -69,7 +69,7 @@ export const OpenUpdateDialogAction = () => {
 const SilenceAction = () => {
   const dispatch = useDispatch();
   return (
-    <Button.Icon variant="text" onClick={() => dispatch(silence())}>
+    <Button.Icon variant="text" onClick={() => dispatch(silenceUpdateNotifications())}>
       <Icon.Snooze />
     </Button.Icon>
   );

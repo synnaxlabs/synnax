@@ -20,7 +20,8 @@ export const selectVersion = (state: StoreState): string =>
 
 export const useSelectVersion = (): string => useMemoSelect(selectVersion, []);
 
-export const selectSilenced = (state: StoreState): boolean =>
-  selectSliceState(state).silenced;
+export const selectUpdateNotificationsSilenced = (state: StoreState): boolean =>
+  selectSliceState(state).updateNotificationsSilenced;
 
-export const useSelectSilenced = (): boolean => useMemoSelect(selectSilenced, []);
+export const useSelectUpdateNotificationsSilenced = (): boolean =>
+  useMemoSelect(selectUpdateNotificationsSilenced, []);

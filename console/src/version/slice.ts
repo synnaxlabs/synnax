@@ -29,14 +29,14 @@ export const { actions, reducer } = createSlice({
     set: (state, { payload: version }: SetVersionAction) => {
       if (state.consoleVersion === version) return;
       state.consoleVersion = version;
-      state.silenced = false;
+      state.updateNotificationsSilenced = false;
     },
-    silence: (state) => {
-      state.silenced = true;
+    silenceUpdateNotifications: (state) => {
+      state.updateNotificationsSilenced = true;
     },
   },
 });
 
-export const { set, silence } = actions;
+export const { set, silenceUpdateNotifications } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
