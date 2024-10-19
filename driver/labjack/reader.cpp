@@ -67,6 +67,7 @@ void labjack::Source::init_stream(){
 
         }
     }
+
     // TODO: figure out if i need to set this
     //    auto err = LJM_StartInterval(
     //            this->handle,
