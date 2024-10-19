@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, log } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Channel, Input } from "@synnaxlabs/pluto";
 import { ReactElement } from "react";
@@ -15,6 +15,7 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { useSelect } from "@/log/selectors";
 import { setChannels } from "@/log/slice";
 
@@ -32,6 +33,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
     <>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Log />}>{name}</ToolbarTitle>
+        <Align.Space direction="x">
+          <Link.ToolbarCopyButton
+            name={name}
+            ontologyID={{ key: state.key, type: log.ONTOLOGY_TYPE }}
+          />
+        </Align.Space>
       </ToolbarHeader>
       <Align.Space style={{ padding: "2rem", width: "100%" }} direction="x">
         <Input.Item label="Channel" grow>
