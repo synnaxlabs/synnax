@@ -115,9 +115,9 @@ class DigitalWriteSink final : public pipeline::Sink{
 public:
 
     explicit DigitalWriteSink(
-            TaskHandle task_handle,
-            const std::shared_ptr<task::COntext> &ctx,
-            const synnax::Task &task
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task &task,
+            const labjack::WriterConfig &writer_config
         );
 
     ~DigitalWriteSink();

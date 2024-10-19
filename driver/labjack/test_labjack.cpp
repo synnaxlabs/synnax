@@ -501,17 +501,17 @@ int digital_out()
 
     // Set DIO state on the LabJack
 
-    for(int i = 0 ; i < 1000; i++){
+    for(int i = 0 ; i < 100000; i++){
         value = 1;
         err = LJM_eWriteName(handle, name, value);
         ErrorCheck(err, "LJM_eWriteName");
         printf("\nSet %s state : %f\n", name, value);
-        Sleep(200);
+        Sleep(100);
         value = 0;
         err = LJM_eWriteName(handle, name, value);
         ErrorCheck(err, "LJM_eWriteName");
         printf("\nSet %s state : %f\n", name, value);
-        Sleep(200);
+        Sleep(100);
     }
 
 

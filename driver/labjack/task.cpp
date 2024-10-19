@@ -75,10 +75,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     };
 
     auto parser = config::Parser(task.config);
-    ReaderConfig reader_config(parser);//
-
-
-    LOG(INFO) << "Constructing task \n\n";
+    ReaderConfig reader_config(parser);
 
     auto source = std::make_shared<labjack::Source>(
         ctx,
@@ -160,4 +157,75 @@ std::unique_ptr <task::Task> configure(
         .scale = 1.2
     };
 
+    auto parser = config::Parser(task.config);
+    WriterConfig writer_config(parser);
+
+    auto sink = std::make_shared<labjack::Sink>(
+        ctx,
+        task,
+        writer_config
+    );
+
+    std::vector<synnax::ChannelKey> cmd_keys = sink->get_cmd_channel_keys();
+    std::vector<synnax::ChannelKey> state_keys = sink->get_state_channel_keys();
+
+    auto state_writer_config = synnax::WriterConfig{
+        .channels = state_keys,
+        .start = synnax::TimeStamp::now(),
+        .mode = writer_config.data_saving
+                ? synnax::WriterMode::PersistStream
+                : synnax::WriterMode::StreamOnly,
+        .enable_auto_commit = true
+    };
+
+    auto cmd_streamer_config = synnax::StreamerConfig{
+        .channels = cmd_keys,
+    };
+
+    auto state_source = sink->state_source;
+
+    auto p = std::make_unique<labjack::WriterTask>(
+        ctx,
+        task,
+        sink,
+        sink,
+        state_source,
+        state_writer_config,
+        cmd_streamer_config,
+        breaker_config
+    );
+
+    ctx->setState({
+                          .task = task.key,
+                          .variant = "success",
+                          .details = {
+                                  {"running", false},
+                                  {"message", "Successfully configured task"}
+                          }
+                  });
+
+    LOG(INFO) << "[labjack.writer] successfully configured task " << task.name;
+    return p;
+}
+
+void labjack::WriterTask::exec(task::Command &cmd){
+    if(cmd.type == "start") this->start(cmd.key);
+    else if(cmd.type == "stop") this->stop(cmd.key);
+    else LOG(ERROR) << "unknown command type: " << cmd.type;
+}
+
+void labjack::WriterTask::start(const std::string &key){
+    if(this->running.exchange(true)) return;
+    sink->start(key);
+    this->cmd_pipe.start();
+    this->state_pipe.start();
+}
+
+void labjack::stop() { this->stop(""); }
+
+void labjack::WriterTask::stop(const std::string &key){
+    if(!this->running.exchange(false)) return;
+    this->cmd_pipe.stop();
+    this->state_pipe.stop();
+    this->sink->stop(key);
 }
