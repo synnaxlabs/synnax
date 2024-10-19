@@ -56,7 +56,7 @@ void labjack::ReaderTask::stop() { this->stop("");}
 
 
 void labjack::ReaderTask::start(const std::string &cmd_key){
-    if(this->running.exchange(true)) return; // TODO: add a ok check for the task and source?
+    if(this->running.exchange(true)) return;
     this->source->start(cmd_key);
     this->read_pipe.start();
     LOG(INFO) << "[labjack.task] successfully started task " << this->task.name;
@@ -67,7 +67,6 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
         const synnax::Task &task){
     LOG(INFO) << "[labjack.task] configuring task " << task.name;
 
-    // TODO: consolidate all the palces we use the breaker config to one place
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 *SECOND,
@@ -82,7 +81,6 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     LOG(INFO) << "Constructing task \n\n";
 
     auto source = std::make_shared<labjack::Source>(
-        1, // TODO: changel handle
         ctx,
         task,
         reader_config

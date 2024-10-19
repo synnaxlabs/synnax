@@ -45,7 +45,7 @@ void labjack::Source::init_stream(){
     double scanRate = INIT_SCAN_RATE;
 
     this->num_samples_per_chan = SCANS_PER_READ;
-    this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ; // TODO: i might not need this
+    this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ;
     LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
 
     // iterate through the channels, for the ones that analog device, need to set the resolution index

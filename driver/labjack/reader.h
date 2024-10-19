@@ -23,7 +23,7 @@
 #include "driver/errors/errors.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
-#include "driver/queue/ts_queue.h" // TODO: move out of ni
+#include "driver/queue/ts_queue.h"
 #include "driver/breaker/breaker.h"
 
 
@@ -53,8 +53,8 @@ namespace labjack{
         std::string device_type;
         std::string device_key;
         std::vector<ReaderChannelConfig> channels;
-        synnax::Rate sample_rate = synnax::Rate(1); // TODO: change default?
-        synnax::Rate stream_rate = synnax::Rate(1); // TODO: change default?
+        synnax::Rate sample_rate = synnax::Rate(1);
+        synnax::Rate stream_rate = synnax::Rate(1);
         std::string task_name;
         synnax::ChannelKey task_key;
         std::set<uint32_t> index_keys;
@@ -94,12 +94,10 @@ namespace labjack{
 class Source : public pipeline::Source{
 public:
     explicit Source (
-            int handle,
             const std::shared_ptr<task::Context> &ctx,
             const synnax::Task task,
             const ReaderConfig &reader_config
-        ) : handle(handle),
-            ctx(ctx),
+        ) : ctx(ctx),
             task(task),
             reader_config(reader_config) {
         // TODO: default construct breaker?
@@ -161,7 +159,7 @@ private:
     TSQueue<DataPacket> data_queue;
     std::thread sample_thread;
     std::vector<int> port_addresses;
-    int buffer_size = 0; // TODO: actually use this eventually
+    int buffer_size = 0;
     int num_samples_per_chan = 0;
 };
 }
