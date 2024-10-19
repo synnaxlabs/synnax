@@ -302,16 +302,20 @@ class StateSource final : public pipeline::Source {
 public:
     explicit StateSource() = default;
 
-    explicit StateSource(float state_rate,
-                         synnax::ChannelKey &state_index_key,
-                         std::vector<synnax::ChannelKey> &state_channel_keys);
+    explicit StateSource(
+            float state_rate,   // TODO: should this be a float?
+            synnax::ChannelKey &state_index_key,
+            std::map<synnax::ChannelKey, out_state> state_map
+        );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
 
     synnax::Frame get_state();
 
-    void update_state(std::queue<synnax::ChannelKey> &modified_state_keys,
-                      std::queue<std::uint8_t> &modified_state_values);
+    void update_state(
+            std::queue<synnax::ChannelKey> &modified_state_keys,
+          std::queue<std::uint8_t> &modified_state_values
+      );
 
 private:
     std::mutex state_mutex;
@@ -330,7 +334,7 @@ struct WriterConfig {
     float state_rate = 0;
     std::string device_name;
     std::string device_key;
-    std::string task_name;
+    std::string task_name;                  // TODO: why do i need this
     synnax::ChannelKey task_key;
 
     std::vector<synnax::ChannelKey> state_channel_keys;
@@ -343,9 +347,11 @@ struct WriterConfig {
 
 class DigitalWriteSink final : public pipeline::Sink {
 public:
-    explicit DigitalWriteSink(TaskHandle task_handle,
-                              const std::shared_ptr<task::Context> &ctx,
-                              const synnax::Task &task);
+    explicit DigitalWriteSink(
+            TaskHandle task_handle,
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task &task
+        );
 
     ~DigitalWriteSink();
 
@@ -367,7 +373,7 @@ public:
 
     std::vector<synnax::ChannelKey> get_state_channel_keys();
 
-    void get_index_keys();
+    void get_index_keys();          // TODO: probably rename this function if its void return
 
     bool ok();
 
@@ -527,7 +533,7 @@ public:
                         synnax::Task task,
                         std::shared_ptr<pipeline::Sink> sink,
                         std::shared_ptr<ni::DigitalWriteSink> ni_sink,
-                        std::shared_ptr<pipeline::Source> writer_state_source,
+                        std::shared_ptr<pipeline::Source> writer_state_source, // TODO: change to just state_source
                         synnax::WriterConfig writer_config,
                         synnax::StreamerConfig streamer_config,
                         const breaker::Config breaker_config);
@@ -554,8 +560,8 @@ private:
     std::atomic<bool> running = false;
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
-    pipeline::Control cmd_write_pipe;
-    pipeline::Acquisition state_write_pipe;
+    pipeline::Control cmd_write_pipe;           // TODO: change to cmd_pipe
+    pipeline::Acquisition state_write_pipe;     // TODO: change to state_pipe
     bool ok_state = true;
     std::shared_ptr<ni::DigitalWriteSink> sink;
 }; // class WriterTask

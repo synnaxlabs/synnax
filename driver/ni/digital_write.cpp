@@ -70,7 +70,8 @@ ni::DigitalWriteSink::DigitalWriteSink(
     this->writer_state_source = std::make_shared<ni::StateSource>(
         this->writer_config.state_rate,
         this->writer_config.state_index_key,
-        this->writer_config.state_channel_keys);
+        this->writer_config.state_channel_keys
+    );
 }
 
 
@@ -282,6 +283,7 @@ std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_cmd_channel_keys() {
     for (auto &channel: this->writer_config.channels)
         if (channel.channel_type != "index" && channel.enabled) 
             keys.push_back(channel.channel_key);
+    // Don't need index key as we're only using this for streaming cmds
     return keys;
 }
 
