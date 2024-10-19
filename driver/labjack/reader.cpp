@@ -46,7 +46,8 @@ void labjack::Source::init_stream(){
 
     this->num_samples_per_chan = SCANS_PER_READ;
     this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ;
-    LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
+
+    LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle); // TODO: error check
 
     // iterate through the channels, for the ones that analog device, need to set the resolution index
     for (auto &channel : this->reader_config.channels) {
@@ -66,13 +67,11 @@ void labjack::Source::init_stream(){
 
         }
     }
-
     // TODO: figure out if i need to set this
     //    auto err = LJM_StartInterval(
     //            this->handle,
     //            this->reader_config.sample_rate.period().microseconds()
     //    );
-
     this->port_addresses.resize(this->reader_config.phys_channels.size());
 
     std::vector<const char*> phys_channel_names;
@@ -85,20 +84,16 @@ void labjack::Source::init_stream(){
 
     err = LJM_eStreamStop(handle);
     err = LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate);
-//    ErrorCheck(err, "[labjack.reader] LJM_eStreamStart error");
-    LOG(INFO) << "Finished init";
+    ErrorCheck(err, "[labjack.reader] LJM_eStreamStart error");
 };
 
 freighter::Error labjack::Source::start(const std::string &cmd_key){
-    LOG(INFO) << "reader_config address in start: " << (void*)&this->reader_config;
     LOG(INFO) << "starting labjack device";
     if(this->breaker.running()) {
         LOG(INFO) << "breaker already running";
         return freighter::NIL;
     }
-    LOG(INFO) << "starting breaker";
     this->breaker.start();
-    LOG(INFO) << "breaker started";
     this->init(); // TODO: do some error handling here before you actually start the sample thread
     this->sample_thread = std::thread(&labjack::Source::acquire_data, this);
     ctx->setState({
@@ -173,7 +168,7 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
 
 labjack::Source::~Source() {
     this->stop("");
-    auto err = LJM_CleanInterval(this->handle);
+//    auto err = LJM_CleanInterval(this->handle);
     PrintErrorIfError(err, "LJM_CleanInterval");
     CloseOrDie(this->handle);
 }

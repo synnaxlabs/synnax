@@ -158,7 +158,7 @@ std::unique_ptr <task::Task> configure(
     auto parser = config::Parser(task.config);
     WriterConfig writer_config(parser);
 
-    auto sink = std::make_shared<labjack::Sink>(
+    auto sink = std::make_shared<labjack::WriteSink>(
         ctx,
         task,
         writer_config

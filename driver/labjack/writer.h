@@ -28,7 +28,7 @@
 #include "driver/breaker/breaker.h"
 
 namespace labjack{
-struct output_state{
+struct out_state{
     std::string location = "";
     double state = 0.0;
     synnax::DataType data_type = synnax::FLOAT64;
@@ -43,7 +43,7 @@ public:
     explicit StateSource(
         synnax::Rate state_rate, // TODO: make this synnax::Rate?
         synnax::ChannelKey &state_index_key,
-        std::map<synnax::ChannelKey, out_state> state_map
+        std::map<synnax::ChannelKey, labjack::out_state> state_map
     );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
@@ -56,18 +56,17 @@ public:
         );
 
 
-
 private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
     synnax::Rate state_rate = synnax::Rate(1);
-    std::map<synnax::ChannelKey, out_state> state_map; // alll values are
+    std::map<synnax::ChannelKey, labjack::out_state> state_map; // alll values are
     synnax::ChannelKey state_index_key;
     loop::Timer timer;
 };  // class StateSource
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                   WriteSink                                   //
+//                                   WriterChannelConfig                         //
 ///////////////////////////////////////////////////////////////////////////////////
 struct WriterChannelConfig{
     std::string location;
@@ -90,6 +89,9 @@ struct WriterChannelConfig{
     }
 };
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                   WriterConfig                                //
+///////////////////////////////////////////////////////////////////////////////////
 struct WriterConfig{
     std::string device_type;
     std::string device_key;
@@ -100,7 +102,7 @@ struct WriterConfig{
     bool data_saving;
     std::string task_name;
     synnax::ChannelKey task_key;
-    std::map<synnax::ChannelKey, out_state> initial_state_map;
+    std::map<synnax::ChannelKey, labjack::out_state> initial_state_map;
 
     WriterConfig() = default;
 
@@ -120,7 +122,7 @@ struct WriterConfig{
             if(channels.back().data_type == synnax::UINT8){
                 initial_val = 1.0;
             }
-            initial_state_map[channels.back().state_key] = out_state{
+            initial_state_map[channels.back().state_key] = labjack::out_state{
                 .location = channels.back().location,
                 .state = initial_val,
                 .data_type = channels.back().data_typeg
@@ -130,18 +132,21 @@ struct WriterConfig{
 
 }; // struct WriterConfig
 
-class DigitalWriteSink final : public pipeline::Sink{
+///////////////////////////////////////////////////////////////////////////////////
+//                                   WriteSink                                   //
+///////////////////////////////////////////////////////////////////////////////////
+class WriteSink final : public pipeline::Sink{
 public:
 
-    explicit DigitalWriteSink(
+    explicit WriteSink(
             const std::shared_ptr<task::Context> &ctx,
             const synnax::Task &task,
             const labjack::WriterConfig &writer_config
         );
 
-    ~DigitalWriteSink();
+    ~WriteSink();
 
-    int init();
+    void init();
 
     freighter::Error write(synnax::Frame frame) override;
 
@@ -156,6 +161,7 @@ public:
     std::shared_ptr<labjack::StateSource> state_source;
 
 private:
+    int handle;
     std::shared_ptr<task::Context> ctx;
     WriterConfig writer_config;
     breaker::Breaker breaker;
@@ -164,12 +170,5 @@ private:
 }; // class DigitalWriteSink
 
 
-}
-
+} // namespace labjack
 // TODO: add a cycle function to catch errors before hand?
-
-// receive command that has key and value
-// reference map, modify map, and do a write to the device
-// can this be done with one function call or seperately? if must be done seperately,iterate through command frame and make each write
-// mutex is for this state map:
-// state map  maps FIOX --> pair<state, synnax channel key>
