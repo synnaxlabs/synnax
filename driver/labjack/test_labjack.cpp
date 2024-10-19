@@ -441,7 +441,7 @@ int basic_stream(){
 
     // How many scans to get per call to LJM_eStreamRead. INIT_SCAN_RATE/2 is
     // recommended
-    int SCANS_PER_READ = (int)INIT_SCAN_RATE / 2;
+    int SCANS_PER_READ = (int)INIT_SCAN_RATE / 1000;
 
     // How many times to call LJM_eStreamRead before calling LJM_eStreamStop
     const int NUM_READS = 1000;

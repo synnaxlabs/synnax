@@ -34,8 +34,8 @@ TEST(read_tests, labjack_t4){
 
     // TODO: set task_key in init/constructor of reader source, same with name
     auto config = json{
-            {"sample_rate", 2000},             // TODO: actually make sure these work
-            {"stream_rate", 2},              // TODO: actually make sure these work
+            {"sample_rate", 10000},             // TODO: actually make sure these work
+            {"stream_rate", 30},              // TODO: actually make sure these work
             {"device_type", "T4"},
             {"device_key", "440022190"},          // TODO: change to actual serial number of device we ahve
             {"serial_number", "440022190"},    // TODO: change to actual serial number of device
@@ -74,16 +74,15 @@ TEST(read_tests, labjack_t4){
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300)); // TODO: remove? don't know what i need this
+//    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // TODO: remove? don't know what i need this
 
     auto reader_task = labjack::ReaderTask::configure(mockCtx, task);
-    LOG(INFO) << "Task constructed";
     // create commands
     auto start_cmd = task::Command{task.key, "start", {}};
     auto stop_cmd = task::Command{task.key, "stop", {}};
     reader_task->exec(start_cmd);
-    LOG(INFO) << "Task started";
     std::this_thread::sleep_for(std::chrono::seconds(30000));
+//    std::this_thread::sleep_for(std::chrono::seconds(2));
     reader_task->exec(stop_cmd);
 
 }

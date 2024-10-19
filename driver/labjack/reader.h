@@ -110,11 +110,6 @@ public:
                 .scale = 1.2,
         };
         this->breaker = breaker::Breaker(breaker_config);
-        LOG(INFO) << "Constructed source";
-        LOG(INFO) << "reader config stuff " << this->reader_config.device_type;
-        LOG(INFO) << "sample rate: " << this->reader_config.sample_rate.value;
-        LOG(INFO) << "reader_config address in constructor: " << (void*)&this->reader_config;
-        this->init();
 
     }
 
