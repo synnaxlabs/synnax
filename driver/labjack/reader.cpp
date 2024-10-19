@@ -39,16 +39,40 @@ void labjack::Source::init(){
 }
 
 void labjack::Source::init_stream(){
-    LOG(INFO) << "initializing labjack device";
 
     double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
     int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
     double scanRate = INIT_SCAN_RATE;
-    LOG(INFO) << "scan rate: " << scanRate;
+
     this->num_samples_per_chan = SCANS_PER_READ;
     this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ; // TODO: i might not need this
-    LOG(INFO) << "buffer size: " << this->buffer_size;
     LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
+
+    // iterate through the channels, for the ones that analog device, need to set the resolution index
+    for (auto &channel : this->reader_config.channels) {
+        if (channel.channel_types == "AIN") {
+
+            std::string name = channel.location + "_RESOLUTION_INDEX";
+            int err = WriteName(this->handle, name.c_str(), 0);
+
+            if(this->reader_config.device_type == "T7" || this->reader_config.device_type == "T8") {
+                auto name = channel.location + "_RANGE";
+                err = WriteName(this->handle, name.c_str(), 0);
+            }
+            if(this->reader_config.device_type == "T7") {
+                auto name = channel.location + "_NEGATIVE_CH";
+                err = WriteName(this->handle, name.c_str(), 10.0);
+            }
+
+        }
+    }
+
+    // TODO: figure out if i need to set this
+    //    auto err = LJM_StartInterval(
+    //            this->handle,
+    //            this->reader_config.sample_rate.period().microseconds()
+    //    );
+
     this->port_addresses.resize(this->reader_config.phys_channels.size());
 
     std::vector<const char*> phys_channel_names;
@@ -129,7 +153,6 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
                 auto s = synnax::Series(channel.data_type, SCANS_PER_READ);
                 for (int sample = 0; sample < SCANS_PER_READ; sample++) {
                     write_to_series(s, d.data[sample * this->reader_config.phys_channels.size() + channel_count], channel.data_type);
-//                    LOG(INFO) << "data: " << d.data[sample * this->reader_config.phys_channels.size() + channel_count];
                 }
                 f.add(key, std::move(s));
             }
@@ -183,49 +206,8 @@ void labjack::Source::acquire_data(){
         auto err = LJM_eStreamRead(this->handle, data_packet.data.data(), &numSkippedScans, &deviceScanBacklog);
         data_packet.tf = synnax::TimeStamp::now().value;
         ErrorCheck(err, "[labjack.reader] LJM_eStreamRead error");
-//        LOG(INFO) << "time difference: " << data_packet.tf - data_packet.t0;
         data_queue.enqueue(data_packet);
     }
 
     auto err = LJM_eStreamStop(handle);
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// I might need later
-
-//void labjack::Source::init_basic(){
-//    LOG(INFO) << "initializing labjack device";
-//    // If already open, will return the same handle as opened device
-//    // TODO get device type and connection type from the config
-//    LOG(INFO) << "Serial number is: " << this->reader_config.serial_number; //TODO: remove
-//    LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
-//
-//    // iterate through the channels, for the ones that analog device, need to set the resolution index
-//    for (auto &channel : this->reader_config.channels) {
-//        if (channel.channel_types == "AIN") {
-//
-//            std::string name = channel.location + "_RESOLUTION_INDEX";
-//            int err = WriteName(this->handle, name.c_str(), 0);
-//
-//            if(this->reader_config.device_type == "T7" || this->reader_config.device_type == "T8") {
-//                auto name = channel.location + "_RANGE";
-//                err = WriteName(this->handle, name.c_str(), 0);
-//            }
-//            if(this->reader_config.device_type == "T7") {
-//                auto name = channel.location + "_NEGATIVE_CH";
-//                err = WriteName(this->handle, name.c_str(), 10.0);
-//            }
-//
-//        }
-//    }
-//    LOG(INFO) << "Sample rate: " << this->reader_config.sample_rate.value;
-////    int msDelay = 1000;
-//    auto err = LJM_StartInterval(
-//            this->handle, // TODO: need to keep unique to device will need to change once i want to define multiple intervals to read data at on a songel device
-//            this->reader_config.sample_rate.period().microseconds()
-//    );
-//
-//    // TODO: check error
-//}

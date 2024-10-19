@@ -162,7 +162,7 @@ TEST(read_tests, labjack_t4_ai_fio){
 
     // TODO: set task_key in init/constructor of reader source, same with name
     auto config = json{
-            {"sample_rate", 10000},             // TODO: actually make sure these work
+            {"sample_rate", 5000},             // TODO: actually make sure these work
             {"stream_rate", 30},              // TODO: actually make sure these work
             {"device_type", "T4"},
             {"device_key", "440022190"},          // TODO: change to actual serial number of device we ahve
