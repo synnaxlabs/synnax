@@ -44,7 +44,6 @@ void labjack::ReaderTask::exec(task::Command &cmd) {
     }
 }
 
-
 void labjack::ReaderTask::stop(const std::string &cmd_key) {
     if(!this->running.exchange(false)) return;
     this->read_pipe.stop();
@@ -117,7 +116,6 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     LOG(INFO) << "[labjack.task] successfully configured task " << task.name;
     return p;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriterTask                                 //

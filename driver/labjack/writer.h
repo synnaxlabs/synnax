@@ -28,6 +28,11 @@
 #include "driver/breaker/breaker.h"
 
 namespace labjack{
+struct output_state{
+    std::string location = "";
+    double state = 0.0;
+    synnax::DataType data_type = synnax::FLOAT64;
+}};
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -36,9 +41,9 @@ public:
     explicit StateSource() = default;
 
     explicit StateSource(
-        double state_rate, // TODO: make this synnax::Rate?
+        synnax::Rate state_rate, // TODO: make this synnax::Rate?
         synnax::ChannelKey &state_index_key,
-        std::vector<synnax::ChannelKey> &state_keys
+        std::map<synnax::ChannelKey, out_state> state_map
     );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
@@ -47,13 +52,16 @@ public:
 
     void update_state(
             std::queue<synnax::ChannelKey> &modified_state_keys,
-            std::queue<std::int8_t> &modified_state_values
+            std::queue<std::double> &modified_state_values
         );
+
+
+
 private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
     synnax::Rate state_rate = synnax::Rate(1);
-    std::map<synnax::ChannelKey, uint8_t> state_map;
+    std::map<synnax::ChannelKey, out_state> state_map; // alll values are
     synnax::ChannelKey state_index_key;
     loop::Timer timer;
 };  // class StateSource
@@ -92,6 +100,7 @@ struct WriterConfig{
     bool data_saving;
     std::string task_name;
     synnax::ChannelKey task_key;
+    std::map<synnax::ChannelKey, out_state> initial_state_map;
 
     WriterConfig() = default;
 
@@ -106,6 +115,16 @@ struct WriterConfig{
         // Parse the channels
         parse.iter("channels", [this](config::Parser &channel_parser){
             channels.emplace_back(WriterChannelConfig(channel_parser));
+
+            double initial_val = 0.0;
+            if(channels.back().data_type == synnax::UINT8){
+                initial_val = 1.0;
+            }
+            initial_state_map[channels.back().state_key] = out_state{
+                .location = channels.back().location,
+                .state = initial_val,
+                .data_type = channels.back().data_typeg
+            };
         }
     }
 
