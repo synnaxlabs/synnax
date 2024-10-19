@@ -23,6 +23,7 @@ using json = nlohmann::json;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                   Basic Tests                                                //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 //TEST(read_tests, labjack_t4){
 //    auto client = std::make_shared<synnax::Synnax>(new_test_client());
 //
@@ -32,20 +33,19 @@ using json = nlohmann::json;
 //    auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
 //    ASSERT_FALSE(dErr) << dErr.message();
 //
-//    // TODO: set task_key in init/constructor of reader source, same with name
 //    auto config = json{
-//            {"sample_rate", 10000},             // TODO: actually make sure these work
-//            {"stream_rate", 30},              // TODO: actually make sure these work
+//            {"sample_rate", 10000},
+//            {"stream_rate", 30},
 //            {"device_type", "T4"},
-//            {"device_key", "440022190"},          // TODO: change to actual serial number of device we ahve
-//            {"serial_number", "440022190"},    // TODO: change to actual serial number of device
+//            {"device_key", "440022190"},
+//            {"serial_number", "440022190"},
 //            {"connection_type", "USB"},
 //            {"data_saving", true},
 //            {"channels", json::array({
 //                 {
 //                         {"location", "AIN0"},
 //                         {"enabled", true},
-//                         {"data_type", "float32"}, // TODO: make sure this is the actual data type of the device
+//                         {"data_type", "float32"},
 //                         {"channel_key", data.key},
 //                         {"range", 10.0},
 //                         {"channel_types", "AIN"}
@@ -53,7 +53,7 @@ using json = nlohmann::json;
 ////                 {
 ////                     {"location", "AIN1"},
 ////                     {"enabled", true},
-////                     {"data_type", "float32"}, // TODO: make sure this is the actual data type of the device
+////                     {"data_type", "float32"},
 ////                     {"channel_key", data.key},
 ////                     {"range", 10.0},
 ////                     {"channel_types", "AIN"}
@@ -61,7 +61,7 @@ using json = nlohmann::json;
 ////                 {
 ////                         {"location", "FIO4"},
 ////                         {"enabled", true},
-////                         {"data_type", "uint8"}, // TODO: make sure this is the actual data type of the device
+////                         {"data_type", "uint8"},
 ////                         {"channel_key", data.key},
 ////                         {"channel_types", "DIN"}
 ////                 }
@@ -74,7 +74,6 @@ using json = nlohmann::json;
 //
 //    auto task = synnax::Task("my_task", "labjack_read", to_string(config));
 //    auto mockCtx = std::make_shared<task::MockContext>(client);
-////    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // TODO: remove? don't know what i need this
 //
 //    auto reader_task = labjack::ReaderTask::configure(mockCtx, task);
 //    // create commands
@@ -100,20 +99,19 @@ using json = nlohmann::json;
 //    ASSERT_FALSE(dErr2) << dErr2.message();
 //
 //
-//    // TODO: set task_key in init/constructor of reader source, same with name
 //    auto config = json{
-//            {"sample_rate", 10000},             // TODO: actually make sure these work
-//            {"stream_rate", 30},              // TODO: actually make sure these work
+//            {"sample_rate", 10000},
+//            {"stream_rate", 30},
 //            {"device_type", "T4"},
-//            {"device_key", "440022190"},          // TODO: change to actual serial number of device we ahve
-//            {"serial_number", "440022190"},    // TODO: change to actual serial number of device
+//            {"device_key", "440022190"},
+//            {"serial_number", "440022190"},
 //            {"connection_type", "USB"},
 //            {"data_saving", true},
 //            {"channels", json::array({
 //                             {
 //                                     {"location", "AIN0"},
 //                                     {"enabled", true},
-//                                     {"data_type", "float32"}, // TODO: make sure this is the actual data type of the device
+//                                     {"data_type", "float32"},
 //                                     {"channel_key", data1.key},
 //                                     {"range", 10.0},
 //                                     {"channel_types", "AIN"}
@@ -121,7 +119,7 @@ using json = nlohmann::json;
 //                             {
 //                                 {"location", "AIN1"},
 //                                 {"enabled", true},
-//                                 {"data_type", "float32"}, // TODO: make sure this is the actual data type of the device
+//                                 {"data_type", "float32"},
 //                                 {"channel_key", data2.key},
 //                                 {"range", 10.0},
 //                                 {"channel_types", "AIN"}
@@ -132,7 +130,6 @@ using json = nlohmann::json;
 //
 //    auto task = synnax::Task("my_task", "labjack_read", to_string(config));
 //    auto mockCtx = std::make_shared<task::MockContext>(client);
-//    //    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // TODO: remove? don't know what i need this
 //
 //    auto reader_task = labjack::ReaderTask::configure(mockCtx, task);
 //    // create commands
@@ -160,20 +157,19 @@ TEST(read_tests, labjack_t4_ai_fio){
     auto [data3, dErr3] = client->channels.create("di", synnax::SY_UINT8, time.key, false);
     ASSERT_FALSE(dErr3) << dErr3.message();
 
-    // TODO: set task_key in init/constructor of reader source, same with name
     auto config = json{
-            {"sample_rate", 5000},             // TODO: actually make sure these work
-            {"stream_rate", 30},              // TODO: actually make sure these work
+            {"sample_rate", 5000},
+            {"stream_rate", 30},
             {"device_type", "T4"},
-            {"device_key", "440022190"},          // TODO: change to actual serial number of device we ahve
-            {"serial_number", "440022190"},    // TODO: change to actual serial number of device
+            {"device_key", "440022190"},
+            {"serial_number", "440022190"},
             {"connection_type", "USB"},
             {"data_saving", true},
             {"channels", json::array({
                                              {
                                                      {"location", "AIN0"},
                                                      {"enabled", true},
-                                                     {"data_type", "float32"}, // TODO: make sure this is the actual data type of the device
+                                                     {"data_type", "float32"},
                                                      {"channel_key", data1.key},
                                                      {"range", 10.0},
                                                      {"channel_types", "AIN"}
@@ -181,7 +177,7 @@ TEST(read_tests, labjack_t4_ai_fio){
                                              {
                                                      {"location", "AIN1"},
                                                      {"enabled", true},
-                                                     {"data_type", "float32"}, // TODO: make sure this is the actual data type of the device
+                                                     {"data_type", "float32"},
                                                      {"channel_key", data2.key},
                                                      {"range", 10.0},
                                                      {"channel_types", "AIN"}
@@ -189,7 +185,7 @@ TEST(read_tests, labjack_t4_ai_fio){
                                              {
                                                      {"location", "FIO4"},
                                                      {"enabled", true},
-                                                     {"data_type", "uint8"}, // TODO: make sure this is the actual data type of the device
+                                                     {"data_type", "uint8"},
                                                      {"channel_key", data3.key},
                                                      {"channel_types", "DIN"}
                                              }
@@ -199,7 +195,6 @@ TEST(read_tests, labjack_t4_ai_fio){
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
-    //    std::this_thread::sleep_for(std::chrono::milliseconds(30)); // TODO: remove? don't know what i need this
 
     auto reader_task = labjack::ReaderTask::configure(mockCtx, task);
     // create commands
@@ -207,7 +202,6 @@ TEST(read_tests, labjack_t4_ai_fio){
     auto stop_cmd = task::Command{task.key, "stop", {}};
     reader_task->exec(start_cmd);
     std::this_thread::sleep_for(std::chrono::seconds(30000));
-    //    std::this_thread::sleep_for(std::chrono::seconds(2));
     reader_task->exec(stop_cmd);
 
 }
