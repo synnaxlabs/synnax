@@ -14,6 +14,7 @@ import Main from "@/layouts/Root.astro";
             font-size: var(--pluto-h1-size) !important;
             line-height: var(--pluto-h1-line-height) !important;
             color: var(--pluto-gray-l10) !important;
+            font-weight: var(--pluto-h1-weight) !important;
         }
         [data-custom-class="subtitle"],
         [data-custom-class="subtitle"] * {
@@ -21,6 +22,7 @@ import Main from "@/layouts/Root.astro";
             color: var(--pluto-gray-l7) !important;
             font-size: var(--pluto-h5-size) !important;
             line-height: var(--pluto-h5-line-height) !important;
+            font-weight: var(--pluto-h5-weight) !important;
         }
         [data-custom-class="heading_1"],
         [data-custom-class="heading_1"] * {
@@ -28,6 +30,7 @@ import Main from "@/layouts/Root.astro";
             color: var(--pluto-gray-l9) !important;
             font-size: var(--pluto-h4-size) !important;
             line-height: var(--pluto-h4-line-height) !important;
+            font-weight: var(--pluto-h4-weight) !important;
         }
         [data-custom-class="heading_2"],
         [data-custom-class="heading_2"] * {
@@ -35,6 +38,7 @@ import Main from "@/layouts/Root.astro";
             color: var(--pluto-gray-l9) !important;
             font-size: var(--pluto-h4-size) !important;
             line-height: var(--pluto-h4-line-height) !important;
+            font-weight: var(--pluto-h4-weight) !important;
         }
         [data-custom-class="body_text"],
         [data-custom-class="body_text"] * {
@@ -42,13 +46,27 @@ import Main from "@/layouts/Root.astro";
             font-family: var(--pluto-font-family);
             font-size: var(--pluto-p-size) !important;
             line-height: var(--pluto-p-line-height) !important;
+            &:not(:is(strong, [data-custom-class="heading_1"])) {
+                font-weight: var(--pluto-p-weight) !important;
+            }
         }
         [data-custom-class="link"],
         [data-custom-class="link"] * {
             color: var(--pluto-primary-z) !important;
-            font-size: 14px !important;
+            font-size: var(--pluto-p-size) !important;
             font-family: var(--pluto-font-family);
+            font-weight: var(--pluto-p-weight) !important;
             word-break: break-word !important;
+        }
+        .article-title {
+            margin-bottom: 2rem;
+            &::after {
+                content: "";
+                display: block;
+                width: 100px;
+                height: 2px;
+                background: var(--pluto-primary-z);
+            }
         }
     </style>
 
@@ -57,7 +75,7 @@ import Main from "@/layouts/Root.astro";
             <div>
                 <strong
                     ><span style="font-size: 26px;"
-                        ><span data-custom-class="title"
+                        ><span data-custom-class="title" class="article-title"
                             ><bdt class="block-component"></bdt><bdt class="question"
                                 >Privacy Policy</bdt
                             ><bdt class="statement-end-if-in-editor"></bdt></span
