@@ -35,7 +35,7 @@ namespace labjack{
         synnax::DataType data_type;
         uint32_t channel_key;
         double range = 10.0;
-        std::string channel_types = ""; // TODO: change to channel_type
+        std::string channel_type = "";
 
         ReaderChannelConfig() = default;
 
@@ -45,7 +45,7 @@ namespace labjack{
                   data_type(parser.required<std::string>("data_type")),
                   channel_key(parser.required<uint32_t>("channel_key")),
                   range(parser.optional<double>("range", 10.0)),
-                  channel_types(parser.optional<std::string>("channel_types", "")) {
+                  channel_type(parser.optional<std::string>("channel_types", "")) {
         }
     };
 
@@ -55,7 +55,6 @@ namespace labjack{
         std::vector<ReaderChannelConfig> channels;
         synnax::Rate sample_rate = synnax::Rate(1);
         synnax::Rate stream_rate = synnax::Rate(1);
-        std::string task_name; // TODO: remove if im not using anywhere?
         synnax::ChannelKey task_key;
         std::set<uint32_t> index_keys;
         std::string serial_number; // used to open devices
@@ -110,7 +109,6 @@ public:
 
     }
 
-    // destructor
     ~Source();
 
 
@@ -125,8 +123,6 @@ public:
     freighter::Error stop(const std::string &cmd_key);
 
     freighter::Error start(const std::string &cmd_key);
-
-//    void init_basic();
 
     void init_stream();
 

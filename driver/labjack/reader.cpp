@@ -51,7 +51,7 @@ void labjack::Source::init_stream(){
 
     // iterate through the channels, for the ones that analog device, need to set the resolution index
     for (auto &channel : this->reader_config.channels) {
-        if (channel.channel_types == "AIN") {
+        if (channel.channel_type == "AIN") {
 
             std::string name = channel.location + "_RESOLUTION_INDEX";
             int err = WriteName(this->handle, name.c_str(), 0);
@@ -169,7 +169,7 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
 labjack::Source::~Source() {
     this->stop("");
 //    auto err = LJM_CleanInterval(this->handle);
-    PrintErrorIfError(err, "LJM_CleanInterval");
+//    PrintErrorIfError(err, "LJM_CleanInterval");
     CloseOrDie(this->handle);
 }
 void labjack::Source::write_to_series(
@@ -203,6 +203,5 @@ void labjack::Source::acquire_data(){
         ErrorCheck(err, "[labjack.reader] LJM_eStreamRead error");
         data_queue.enqueue(data_packet);
     }
-
     auto err = LJM_eStreamStop(handle);
 }
