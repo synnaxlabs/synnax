@@ -120,3 +120,44 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     LOG(INFO) << "[labjack.task] successfully configured task " << task.name;
     return p;
 }
+
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                    WriterTask                                 //
+///////////////////////////////////////////////////////////////////////////////////
+labjack::WriterTask::WriterTask(
+        const std::shared_ptr<task::Context> &ctx,
+        synnax::Task task,
+        std::shared_ptr<pipeline::Sink> sink,
+        std::shared_ptr<labjack::Sink> labjack_sink,
+        std::shared_ptr<labjack::Source> state_source,
+        synnax::WriterConfig writer_Config,
+        synnax::StreamerConfig streamer_config,
+        const breaker::Config breaker_config
+) : ctx(ctx),
+    task(task),
+    write_pipe(
+        pipeline::Control(
+            ctx->client,
+            streamer_config,
+            sink,
+            breaker_config
+        )
+    ),
+    state_source(state_source), // TODO: i dont know if I need this
+    labjack_sink(labjack_sink){
+}
+
+std::unique_ptr <task::Task> configure(
+        const std::shared_ptr <task::Context> &ctx,
+        const synnax::Task &task
+){
+
+    auto breaker_config = breaker::Config{
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2
+    };
+
+}

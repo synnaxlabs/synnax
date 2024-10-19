@@ -35,7 +35,7 @@ namespace labjack{
         synnax::DataType data_type;
         uint32_t channel_key;
         double range = 10.0;
-        std::string channel_types = "";
+        std::string channel_types = ""; // TODO: change to channel_type
 
         ReaderChannelConfig() = default;
 
@@ -55,7 +55,7 @@ namespace labjack{
         std::vector<ReaderChannelConfig> channels;
         synnax::Rate sample_rate = synnax::Rate(1);
         synnax::Rate stream_rate = synnax::Rate(1);
-        std::string task_name;
+        std::string task_name; // TODO: remove if im not using anywhere?
         synnax::ChannelKey task_key;
         std::set<uint32_t> index_keys;
         std::string serial_number; // used to open devices
@@ -75,7 +75,6 @@ namespace labjack{
                   serial_number(parser.optional<std::string>("serial_number", "")),
                   connection_type(parser.optional<std::string>("connection_type", "")),
                   data_saving(parser.optional<bool>("data_saving", false)) {
-            LOG(INFO) << "sample rate: " << sample_rate.value;
 
             // Parse the channels
             parser.iter("channels", [this](config::Parser &channel_parser) {
