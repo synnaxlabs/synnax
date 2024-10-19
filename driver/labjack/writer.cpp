@@ -20,6 +20,7 @@ labjack::StateSource::StateSource(
     this->timer = loop::Timer(this->state_rate); // check if ic an move this to member initializer list
 }
 
+
 std::pair<synnax::Frame, freighter::Error> labjack::StateSource::read(
     breaker::Breaker &breaker){
     std::unique_lock<std::mutex> lock(this->state_mutex);
