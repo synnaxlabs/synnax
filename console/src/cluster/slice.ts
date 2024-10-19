@@ -13,11 +13,13 @@ import * as latest from "@/cluster/migrations";
 
 export type Cluster = latest.Cluster;
 export type SliceState = latest.SliceState;
+export type LocalState = latest.LocalState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
+export const LOCAL_PROPS = latest.LOCAL_PROPS;
 export const migrateSlice = latest.migrateSlice;
 export const LOCAL_CLUSTER_KEY = latest.LOCAL_CLUSTER_KEY;
 export const isLocalCluster = latest.isLocalCluster;
-
+export const LOCAL = latest.LOCAL;
 export const SLICE_NAME = "cluster";
 
 /**
@@ -45,6 +47,8 @@ export interface RenamePayload {
   key: string;
   name: string;
 }
+
+export interface SetLocalStatePayload extends Partial<LocalState> {}
 
 export const {
   actions,
@@ -77,6 +81,9 @@ export const {
       cluster.name = name;
       if (cluster.props != null) cluster.props.name = name;
     },
+    setLocalState: (state, { payload }: PayloadAction<SetLocalStatePayload>) => {
+      state.localState = { ...state.localState, ...payload };
+    },
   },
 });
 
@@ -93,6 +100,7 @@ export const {
   setActive,
   remove,
   rename,
+  setLocalState,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
