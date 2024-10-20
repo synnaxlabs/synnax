@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "driver/labjack/reader.h"
+#include "driver/labjack/writer.h"
 #include "driver/labjack/task.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -148,10 +149,10 @@ labjack::WriterTask::WriterTask(
             breaker_config
         )
     ),
-    labjack_sink(labjack_sink){
+    sink(labjack_sink){
 }
 
-std::unique_ptr <task::Task> configure(
+std::unique_ptr <task::Task> labjack::WriterTask::configure(
         const std::shared_ptr <task::Context> &ctx,
         const synnax::Task &task
 ){
@@ -227,7 +228,7 @@ void labjack::WriterTask::start(const std::string &key){
     this->state_pipe.start();
 }
 
-void labjack::stop() { this->stop(""); }
+void labjack::WriterTask::stop() { this->stop(""); }
 
 void labjack::WriterTask::stop(const std::string &key){
     if(!this->running.exchange(false)) return;

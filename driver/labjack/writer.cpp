@@ -58,9 +58,9 @@ double series_to_val(const synnax::Series &series){
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::StateSource::StateSource(
-    synnax::Rate state_rate, // TODO: make this synnax::Rate?
-    synnax::ChannelKey &state_index_key,
-    std::map<synnax::ChannelKey, out_state> state_map
+    const synnax::Rate state_rate, // TODO: make this synnax::Rate?
+    const synnax::ChannelKey &state_index_key,
+    const std::map<synnax::ChannelKey, out_state> state_map
 ) : state_rate(state_rate),
     state_index_key(state_index_key),
     state_map(state_map){
@@ -95,7 +95,7 @@ synnax::Frame labjack::StateSource::get_state(){
         );
     }
 
-    return state_Frame;
+    return state_frame;
 }
 
 void labjack::StateSource::update_state(synnax::Frame frame){ // maybe just pass the key and value?
@@ -105,7 +105,7 @@ void labjack::StateSource::update_state(synnax::Frame frame){ // maybe just pass
         if (key == this->state_index_key) continue;
         double value = series_to_val(frame.series->at(frame_index));
         this->state_map[key].state = value;
-        this->frame_index++;
+        frame_index++;
     }
 
     waiting_reader.notify_one();
@@ -114,7 +114,6 @@ void labjack::StateSource::update_state(synnax::Frame frame){ // maybe just pass
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   WriteSink                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-
 labjack::WriteSink::WriteSink(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task,
@@ -128,25 +127,27 @@ labjack::WriteSink::WriteSink(
         .base_interval = 1 * SECOND,
         .max_retries = 20,
         .scale = 1.2,
-    }
+    };
 
     this->breaker = breaker::Breaker(breaker_config);
 
-    this->state_source = std::make_shared<labjack::StateSource(
+    this->get_index_keys(); // retrieve state index from first state channel
+
+    this->state_source = std::make_shared<labjack::StateSource>(
         writer_config.state_rate,
         writer_config.state_index_key,
         writer_config.initial_state_map
     );
 }
 
-~labjack::WriteSink::WriteSink(){
+labjack::WriteSink::~WriteSink(){
     this->stop("");
     CloseOrDie(this->handle);
 }
 
 void labjack::WriteSink::init(){
-    auto err = LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle);
-    ErrorCheck(err, "[labjack.writer] LJM_Open error on serial num: %s ", this->reader_config.serial_number);
+    auto err = LJM_Open(LJM_dtANY, LJM_ctANY, this->writer_config.serial_number.c_str(), &this->handle);
+    ErrorCheck(err, "[labjack.writer] LJM_Open error on serial num: %s ", this->writer_config.serial_number);
 }
 
 freighter::Error labjack::WriteSink::write(synnax::Frame frame){
@@ -157,12 +158,11 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame){
         auto err = LJM_eWriteName(this->handle, loc.c_str(), value);
         frame_index++;
     }
-    this-state_source->update_state(frame);
+    this->state_source->update_state(std::move(frame));
     return freighter::NIL;
 }
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key){
-    PrintErrorIfError(err, "LJM_CleanInterval");
     CloseOrDie(this->handle);
     ctx->setState({
                           .task = task.key,
@@ -191,7 +191,7 @@ freighter::Error labjack::WriteSink::start(const std::string &cmd_key){
 }
 
 std::vector<synnax::ChannelKey> labjack::WriteSink::get_cmd_channel_keys(){ // TODO: rename to get_cmd_keys
-    std::vector<synnax::ChannelKey> keys
+    std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->writer_config.channels){
         if(channel.enabled) keys.push_back(channel.cmd_key);
     }
@@ -206,4 +206,19 @@ std::vector<synnax::ChannelKey> labjack::WriteSink::get_state_channel_keys(){ //
     }
     keys.push_back(this->writer_config.state_index_key);
     return keys;
+}
+
+void labjack::WriteSink::get_index_keys(){
+    if(this->writer_config.channels.empty()){
+        LOG(ERROR) << "[labjack.writer] No channels configured";
+        return;
+    }
+
+    auto state_channel = this->writer_config.channels[0].state_key;
+    auto [state_channel_info, err] = this->ctx->client->channels.retrieve(state_channel);
+    if(err){
+        LOG(ERROR) << "[labjack.writer] Failed to retrieve state channel: " << state_channel;
+        return;
+    }
+    this->writer_config.state_index_key = state_channel_info.index;
 }

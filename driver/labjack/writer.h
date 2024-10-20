@@ -43,9 +43,9 @@ public:
     explicit StateSource() = default;
 
     explicit StateSource(
-        synnax::Rate state_rate, // TODO: make this synnax::Rate?
-        synnax::ChannelKey &state_index_key,
-        std::map<synnax::ChannelKey, labjack::out_state> state_map
+        const synnax::Rate state_rate, // TODO: make this synnax::Rate?
+        const synnax::ChannelKey &state_index_key,
+        const std::map<synnax::ChannelKey, labjack::out_state> state_map
     );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
@@ -102,6 +102,7 @@ struct WriterConfig{
     std::string task_name;
     synnax::ChannelKey task_key;
     std::map<synnax::ChannelKey, labjack::out_state> initial_state_map;
+    synnax::ChannelKey state_index_key;
 
     WriterConfig() = default;
 
@@ -129,7 +130,6 @@ struct WriterConfig{
             };
         });
     }
-
 }; // struct WriterConfig
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -159,6 +159,10 @@ public:
     std::vector<synnax::ChannelKey> get_state_channel_keys();
 
     std::shared_ptr<labjack::StateSource> state_source;
+
+    void get_index_keys();
+
+
 
 private:
     int handle;
