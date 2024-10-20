@@ -27,6 +27,7 @@
     "clsx": "^2.1.1",
     "dotenv": "^16.4.5",
     "html-escaper": "^3.0.3",
+    "posthog-js": "^1.174.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "shiki": "^1.22.0"

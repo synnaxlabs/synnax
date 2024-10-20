@@ -80,8 +80,8 @@ export type RootAction =
   | Cluster.Action
   | LinePlot.Action
   | Schematic.Action
-  | Range.Action
   | Permissions.Action
+  | Version.Action
   | Workspace.Action
   | Log.Action;
 

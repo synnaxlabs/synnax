@@ -167,6 +167,7 @@ export const Button = Tooltip.wrap(
         noWrap
         style={pStyle}
         startIcon={startIcon}
+        color={color}
         {...props}
       >
         {children}
