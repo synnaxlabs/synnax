@@ -1,0 +1,120 @@
+cc_library(
+    name = "labjack_headers",
+    hdrs = [
+        "LabJackM.h",
+        "LabJackMModbusMap.h",
+        "LJM_StreamUtilities.h",
+        "LJM_Utilities.h",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "labjack_lib",
+    deps = ["@labjack//:labjackm_lib"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "labjack",
+    hdrs = [
+        "labjack.h",
+        "scanner.h",
+        "reader.h",
+        "task.h",
+    ],
+    srcs = [
+        "scanner.cpp",
+        "factory.cpp",
+        "reader.cpp",
+        "task.cpp",
+    ],
+    deps = [
+        ":labjack_headers",
+        ":labjack_lib",
+        "//driver/breaker",
+        "//client/cpp:synnax",
+        "//driver/errors",
+        "//driver/task",
+        "//driver/pipeline",
+        "//driver/loop",
+        "//driver/config",
+        "//driver/queue",
+        "@com_github_google_glog//:glog",
+        "@nlohmann_json//:json",
+    ],
+    copts = select({
+        "@bazel_tools//src/conditions:windows": [
+            "/DWIN32_LEAN_AND_MEAN",
+            "/DNOMINMAX",
+            "/D_WIN32_WINNT=0x0601",  # Target Windows 7 or later
+            "/D_WINSOCK_DEPRECATED_NO_WARNINGS",
+            "/D_CRT_SECURE_NO_WARNINGS",
+        ],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@bazel_tools//src/conditions:windows": ["/DEFAULTLIB:ws2_32.lib"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "scanner_test",
+    srcs = ["scanner_test.cpp"],
+    deps = [
+        ":labjack",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
+    ],
+    linkopts = select({
+        # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
+        "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "reader_test",
+    srcs = ["reader_test.cpp"],
+    deps = [
+        ":labjack",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
+    ],
+    linkopts = select({
+            # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
+            "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+            "//conditions:default": [],
+    })
+)
+
+
+cc_binary(
+    name = "eReadNames",
+    srcs = ["eReadNames.c"],
+    deps = [":labjack_headers"],
+)
+
+cc_binary(
+    name = "test",
+    srcs = ["test_labjack.cpp"],
+    deps = [
+        ":labjack_headers",
+        ":labjack_lib",
+    ],
+     linkopts = select({
+            "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+            "//conditions:default": [],
+        }),
+)
+
+
+
+
+#filegroup(
+#    name = "labjackm_dll",
+#    srcs = ["LabJackM.dll"],  # Adjust this path if necessary
+#    visibility = ["//visibility:public"],
+#)

@@ -211,7 +211,7 @@ TEST(NiTaskTests, test_NI_digital_reader_task) {
 
     auto [data, dErr] = client->channels.create( // analog input channel
         "acq_data2",
-        synnax::UINT8,
+        synnax::SY_UINT8,
         time.key,
         false
     );
@@ -300,7 +300,7 @@ TEST(NiTaskTests, test_NI_digital_reader_task) {
             // check series type before casting
             if (frame.series->
                 at(i)
-                .data_type == synnax::UINT8) {
+                .data_type == synnax::SY_UINT8) {
                 auto s = frame.series->at(i).uint8();
                 for (
                     int j = 0;
@@ -377,7 +377,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     auto [ack, aErr] = client->channels.create( // ack channel
         "do_state",
-        synnax::UINT8,
+        synnax::SY_UINT8,
         ack_idx.key,
         false
     );
@@ -388,7 +388,7 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
 
     auto [cmd, cErr] = client->channels.create( // cmd channel
         "do_cmd",
-        synnax::UINT8,
+        synnax::SY_UINT8,
         cmd_idx.key,
         false
     );

@@ -86,12 +86,13 @@ ni::ScannerTask::~ScannerTask() {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-ni::ReaderTask::ReaderTask(const std::shared_ptr<task::Context> &ctx,
-                           synnax::Task task,
-                           std::shared_ptr<pipeline::Source> source,
-                           std::shared_ptr<ni::Source> ni_source,
-                           synnax::WriterConfig writer_config,
-                           const breaker::Config breaker_config
+ni::ReaderTask::ReaderTask(
+        const std::shared_ptr<task::Context> &ctx,
+        synnax::Task task,
+        std::shared_ptr<pipeline::Source> source,
+        std::shared_ptr<ni::Source> ni_source,
+        synnax::WriterConfig writer_config,
+        const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
     daq_read_pipe(
@@ -142,12 +143,14 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     // start and stop to catch any immediate errors
     if (ni_source->ok()) ni_source->cycle();
 
-    auto p = std::make_unique<ni::ReaderTask>(ctx,
-                                              task,
-                                              source,
-                                              ni_source,
-                                              writer_config,
-                                              breaker_config);
+    auto p = std::make_unique<ni::ReaderTask>(
+            ctx,
+            task,
+            source,
+            ni_source,
+            writer_config,
+            breaker_config
+        );
 
     if (!ni_source->ok()) {
         LOG(ERROR) << "[ni.task] failed to configure task " << task.name;
@@ -175,15 +178,15 @@ void ni::ReaderTask::exec(task::Command &cmd) {
     } else if (cmd.type == "stop") {
         LOG(INFO) << "[ni.task] stopped reader task " << this->task.name;
         this->stop(cmd.key);
-    } else {
+    } else
         LOG(ERROR) << "unknown command type: " << cmd.type;
-    }
+
 }
 
 void ni::ReaderTask::stop() { this->stop(""); }
 
 void ni::ReaderTask::stop(const std::string &cmd_key) {
-    if (!this->running.exchange(false)) {
+    if (!this->running.exchange(false)) { // TODO: if running false, return silenelty as task is already stopped
         LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
                 this->running << " ok: "
                 << this->ok();
@@ -223,15 +226,21 @@ ni::WriterTask::WriterTask(const std::shared_ptr<task::Context> &ctx,
 ) : ctx(ctx),
     task(task),
     cmd_write_pipe(
-        pipeline::Control(ctx->client,
-                          cmd_streamer_config,
-                          std::move(sink),
-                          breaker_config)),
+        pipeline::Control(
+            ctx->client,
+            cmd_streamer_config,
+            std::move(sink),
+            breaker_config
+        )
+    ),
     state_write_pipe(
-        pipeline::Acquisition(ctx->client,
-                              state_writer_config,
-                              state_source,
-                              breaker_config)),
+        pipeline::Acquisition(
+            ctx->client,
+            state_writer_config,
+            state_source,
+            breaker_config
+        )
+    ),
     sink(ni_sink) {
 }
 
@@ -276,14 +285,16 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     auto state_writer = daq_writer->writer_state_source;
 
     VLOG(1) << "[ni.writer] constructed writer for " << task.name;
-    auto p = std::make_unique<ni::WriterTask>(ctx,
-                                              task,
-                                              daq_writer,
-                                              daq_writer,
-                                              state_writer,
-                                              state_writer_config,
-                                              cmd_streamer_config,
-                                              breaker_config);
+    auto p = std::make_unique<ni::WriterTask>(
+            ctx,
+            task,
+            daq_writer,
+            daq_writer,
+            state_writer,
+            state_writer_config,
+            cmd_streamer_config,
+            breaker_config
+        );
 
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[ni.writer] failed to construct writer for " << task.name;

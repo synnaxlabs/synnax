@@ -25,7 +25,7 @@ TEST(FramerTests, testWriteBasic) {
     ASSERT_FALSE(tErr) << tErr.message();
     auto [data, dErr] = client.channels.create(
         "data",
-        synnax::UINT8,
+        synnax::SY_UINT8,
         time.key,
         false
     );
@@ -128,7 +128,7 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
     ASSERT_FALSE(t_err) << t_err.message();
     auto [data, d_err] = client.channels.create(
         "data",
-        synnax::UINT8,
+        synnax::SY_UINT8,
         time.key,
         false
     );
