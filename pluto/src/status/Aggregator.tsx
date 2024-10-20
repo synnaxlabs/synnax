@@ -23,8 +23,10 @@ import { Aether } from "@/aether";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
+export type AddStatusFn = (status: status.CrudeSpec) => void;
+
 interface ContextValue extends z.infer<typeof status.aggregatorStateZ> {
-  add: (status: status.CrudeSpec) => void;
+  add: AddStatusFn;
 }
 
 const ZERO_CONTEXT_VALUE: ContextValue = {
@@ -76,7 +78,7 @@ export const Aggregator = Aether.wrap<AggregatorProps>(
   },
 );
 
-export const useAggregator = (): ContextValue["add"] => useContext(Context).add;
+export const useAggregator = (): AddStatusFn => useContext(Context).add;
 
 export interface UseNotificationsProps {
   expiration?: TimeSpan;

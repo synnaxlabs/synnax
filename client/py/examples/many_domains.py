@@ -34,8 +34,14 @@ data = np.sin(np.linspace(0, 2 * np.pi, count))
 for i in range(100):
     # Every write, we will write 100 sample points over 1 second.
     stamps = np.linspace(start, start + 1 * sy.TimeSpan.SECOND, count, dtype=np.int64)
-    time_ch.write(start=start, data=stamps, )
-    data_ch.write(start=start, data=data, )
+    time_ch.write(
+        start=start,
+        data=stamps,
+    )
+    data_ch.write(
+        start=start,
+        data=data,
+    )
 
     # The next domain starts 2 seconds after the previous one finishes.
     start = start + 2 * sy.TimeSpan.SECOND

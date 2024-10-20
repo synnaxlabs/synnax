@@ -395,7 +395,7 @@ export const Schematic: Layout.Renderer = ({
     name: "Schematic",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect: useSelect,
+    useSelect,
     fetcher: async (client, layoutKey) => {
       const { key, data } = await client.workspaces.schematic.retrieve(layoutKey);
       return { key, ...data } as unknown as State;

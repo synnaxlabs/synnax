@@ -206,6 +206,17 @@ I can successfully:
 - [ ] Add a value to the schematic and display live data.
 - [ ] Add a valve to the schematic and actuate it.
 
+### Logs
+
+I can successfully:
+
+- [] Create a new log from the mosaic.
+- [] Create a new log from the workspace context menu in the resources view.
+- [] Create a new log from the command search bar.
+- [] Stream data from a virtual channel in the schematic.
+- [] Stream data from a persisted channel in the schematic.
+- [] Scroll to see historical data.
+
 ### Workspaces
 
 I can successfully:

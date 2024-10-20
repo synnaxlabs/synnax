@@ -18,14 +18,21 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Config is the configuration for opening a line plot service.
 type Config struct {
-	DB       *gorp.DB
+	// DB is the database that the line plot service will store line plots in.
+	// [REQUIRED]
+	DB *gorp.DB
+	// Ontology is used to define relationships between line plots and other entities in
+	// the Synnax resource graph.
+	// [REQUIRED]
 	Ontology *ontology.Ontology
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening a line plot service.
+	DefaultConfig = Config{}
 )
 
 // Override implements config.Properties.
@@ -43,8 +50,12 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
+// Service is the primary service for retrieving and modifying line plots from Synnax.
 type Service struct{ Config }
 
+// NewService instantiates a new line plot service using the provided configurations. Each
+// configuration will be used as an override for the previous configuration in the list.
+// See the Config struct for information on which fields should be set.
 func NewService(configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
@@ -55,6 +66,9 @@ func NewService(configs ...Config) (*Service, error) {
 	return s, nil
 }
 
+// NewWriter opens a new writer for creating, updating, and deleting line plots in Synnax. If
+// tx is nil, the writer will perform operations directly against the underlying gorp.DB provided
+// to the line plot service. If tx is provided, the writer will use that transaction.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
@@ -63,6 +77,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
+// NewRetrieve opens a new query builder for retrieving line plots from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   gorp.NewRetrieve[uuid.UUID, LinePlot](),

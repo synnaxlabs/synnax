@@ -14,6 +14,7 @@ import { Group } from "@/group";
 import { Device } from "@/hardware/device";
 import { Task } from "@/hardware/task";
 import { LinePlotServices } from "@/lineplot/services";
+import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
 import { Builtin } from "@/ontology/builtin";
 import { RangeServices } from "@/range/services";
@@ -53,4 +54,5 @@ export const SERVICES: Ontology.Services = {
   framer: EMPTY_ONTOLOGY_SERVICE,
   policy: EMPTY_ONTOLOGY_SERVICE,
   allow_all: EMPTY_ONTOLOGY_SERVICE,
+  log: LogServices.ONTOLOGY_SERVICE,
 };

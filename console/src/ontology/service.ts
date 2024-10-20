@@ -36,10 +36,11 @@ export interface HandleMosaicDropProps {
   placeLayout: Layout.Placer;
   nodeKey: number;
   location: location.Location;
+  addStatus: Status.AddStatusFn;
   id: ontology.ID;
 }
 
-export type HandleMosaicDrop = (props: HandleMosaicDropProps) => void | Promise<void>;
+export type HandleMosaicDrop = (props: HandleMosaicDropProps) => void;
 
 export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection"> {
   selection: {

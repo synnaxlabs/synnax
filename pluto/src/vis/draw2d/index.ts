@@ -61,6 +61,7 @@ export interface DrawTextProps {
   weight?: text.Weight;
   shade?: text.Shade;
   maxWidth?: number;
+  code?: boolean;
 }
 
 export interface DrawTextInCenterProps
@@ -269,8 +270,16 @@ export class Draw2D {
     return this.text({ text, position: box.topLeft(pos), level });
   }
 
-  text({ text, position, level = "p", weight, shade, maxWidth }: DrawTextProps): void {
-    this.canvas.font = fontString(this.theme, level, weight);
+  text({
+    text,
+    position,
+    level = "p",
+    weight,
+    shade,
+    maxWidth,
+    code,
+  }: DrawTextProps): void {
+    this.canvas.font = fontString(this.theme, level, weight, code);
     if (shade == null) this.canvas.fillStyle = this.theme.colors.text.hex;
     else this.canvas.fillStyle = this.theme.colors.gray[`l${shade}`].hex;
     this.canvas.textBaseline = "top";

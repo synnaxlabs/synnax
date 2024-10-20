@@ -397,10 +397,5 @@ var _ = Describe("Telem", func() {
 			unmarshalled := telem.UnmarshalSlice[int16](marshalled, telem.Int16T)
 			Expect(og).To(Equal(unmarshalled))
 		})
-		Specify("marshal float not implemented", func() {
-			og := []float64{1.1, 2, 3, 4}
-			Expect(func() { telem.MarshalSlice(og, telem.Float64T) }).To(Panic())
-			Expect(func() { telem.UnmarshalSlice[float64]([]byte{0, 1, 2, 3}, telem.Float64T) }).To(Panic())
-		})
 	})
 })

@@ -213,21 +213,31 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   id,
   location,
   nodeKey,
+  addStatus,
   placeLayout,
 }) => {
   void (async () => {
-    const schematic = await client.workspaces.schematic.retrieve(id.key);
-    placeLayout(
-      Schematic.create({
-        name: schematic.name,
-        ...(schematic.data as unknown as Schematic.State),
-        location: "mosaic",
-        tab: {
-          mosaicKey: nodeKey,
-          location,
-        },
-      }),
-    );
+    try {
+      const schematic = await client.workspaces.schematic.retrieve(id.key);
+      placeLayout(
+        Schematic.create({
+          name: schematic.name,
+          ...(schematic.data as unknown as Schematic.State),
+          key: id.key,
+          location: "mosaic",
+          tab: {
+            mosaicKey: nodeKey,
+            location,
+          },
+        }),
+      );
+    } catch (err) {
+      addStatus({
+        variant: "error",
+        message: "Failed to load schematic",
+        description: (err as Error).message,
+      });
+    }
   })();
 };
 
