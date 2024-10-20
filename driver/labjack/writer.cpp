@@ -7,6 +7,53 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "driver/labjack/writer.h"
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Helper                                     //
+///////////////////////////////////////////////////////////////////////////////////
+synnax::Series val_to_series(double val, synnax::DataType data_type){ // no discard
+
+    if(data_type == synnax::FLOAT64)
+        return synnax::Series(static_cast<double>(val), synnax::FLOAT64);
+    if(data_type == synnax::FLOAT32)
+        return synnax::Series(static_cast<float>(val), synnax::FLOAT32);
+    if(data_type == synnax::INT32)
+        return synnax::Series(static_cast<int32_t>(val), synnax::INT32);
+    if(data_type == synnax::INT16)
+        return synnax::Series(static_cast<int16_t>(val), synnax::INT16);
+    if(data_type == synnax::INT8)
+        return synnax::Series(static_cast<int8_t>(val), synnax::INT8);
+    if(data_type == synnax::UINT32)
+        return synnax::Series(static_cast<uint32_t>(val), synnax::UINT32);
+    if(data_type == synnax::SY_UINT16)
+        return synnax::Series(static_cast<uint16_t>(val), synnax::SY_UINT16);
+    if(data_type == synnax::SY_UINT8)
+        return synnax::Series(static_cast<uint8_t>(val), synnax::SY_UINT8);
+    LOG(ERROR) << "[labjack.writer] Invalid data type";
+}
+
+double series_to_val(const synnax::Series &series){
+    synnax::DataType data_type = series.data_type;
+    if(data_type == synnax::FLOAT64)
+        return static_cast<double>(series.values<double>()[0]);
+    if(data_type == synnax::FLOAT32)
+        return static_cast<double>(series.values<float>()[0]);
+    if(data_type == synnax::INT32)
+        return static_cast<double>(series.values<int32_t>()[0]);
+    if(data_type == synnax::INT16)
+        return static_cast<double>(series.values<int16_t>()[0]);
+    if(data_type == synnax::INT8)
+        return static_cast<double>(series.values<int8_t>()[0]);
+    if(data_type == synnax::UINT32)
+        return static_cast<double>(series.values<uint32_t>()[0]);
+    if(data_type == synnax::SY_UINT16)
+        return static_cast<double>(series.values<uint16_t>()[0]);
+    if(data_type == synnax::SY_UINT8)
+        return static_cast<double>(series.values<uint8_t>()[0]);
+    LOG(ERROR) << "[labjack.writer] Invalid data type";
+}
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -30,33 +77,35 @@ std::pair<synnax::Frame, freighter::Error> labjack::StateSource::read(
     return std::make_pair(this->get_state(), freighter::NIL);
 }
 
-synnax::Frame ni::StateSource::get_state(){
+synnax::Frame labjack::StateSource::get_state(){
     // frame size = # monitored states + 1 index channel for all those states
-    auto state_Frame = synnax::Frame(this->state_map.size() + 1);
-    state_Frame.add(
+    auto state_frame = synnax::Frame(this->state_map.size() + 1);
+    state_frame.add(
         this->state_index_key,
         synnax::Series(
-            synnax::Timestamp::now().value,
+            synnax::TimeStamp::now().value,
             synnax::TIMESTAMP
         )
     );
     for(auto &[key, value]: this->state_map) {
-        state_Frame.add(
-                key,
-                synnax::Series(value.state, value.data_type)
+        auto s = val_to_series(value.state, value.data_type);
+        state_frame.add(
+            key,
+            std::move(s)
         );
     }
 
     return state_Frame;
 }
 
-void ni::StateSource::update_state(synnax::Frame frame){
+void labjack::StateSource::update_state(synnax::Frame frame){ // maybe just pass the key and value?
     std::unique_lock<std::mutex> lock(this->state_mutex);
-    //TODO: come back to and implement this
+    auto frame_index = 0;
     for (auto key: *(frame.channels)){
         if (key == this->state_index_key) continue;
-        auto value = frame.get(key).value;
+        double value = series_to_val(frame.series->at(frame_index));
         this->state_map[key].state = value;
+        this->frame_index++;
     }
 
     waiting_reader.notify_one();
@@ -101,10 +150,12 @@ void labjack::WriteSink::init(){
 }
 
 freighter::Error labjack::WriteSink::write(synnax::Frame frame){
+    auto frame_index = 0;
     for(auto key: *(frame.channels)){
-        double value = 0;
+        double value = series_to_val(frame.series->at(frame_index));
         std::string loc = this->writer_config.initial_state_map[key].location;
         auto err = LJM_eWriteName(this->handle, loc.c_str(), value);
+        frame_index++;
     }
     this-state_source->update_state(frame);
     return freighter::NIL;

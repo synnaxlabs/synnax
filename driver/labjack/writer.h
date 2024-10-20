@@ -27,13 +27,14 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/breaker/breaker.h"
+#include "driver/loop/loop.h"
 
 namespace labjack{
 struct out_state{
     std::string location = "";
     double state = 0.0;
     synnax::DataType data_type = synnax::FLOAT64;
-}};
+};
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -51,10 +52,7 @@ public:
 
     synnax::Frame get_state(); // TODO: maybe i don't need this
 
-    void update_state(
-            std::queue<synnax::ChannelKey> &modified_state_keys,
-            std::queue<std::double> &modified_state_values
-        );
+    void update_state(synnax::Frame frame);
 
 
 private:
@@ -113,22 +111,23 @@ struct WriterConfig{
            state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),
            serial_number(parser.optional<std::string>("serial_number", "")),
            connection_type(parser.optional<std::string>("connection_type", "")),
-           data_saving(parser.optional<bool>("data_saving", false)){
-
+           data_saving(parser.optional<bool>("data_saving", false)
+       ){
         // Parse the channels
-        parse.iter("channels", [this](config::Parser &channel_parser){
+        parser.iter("channels", [this](config::Parser &channel_parser){
             channels.emplace_back(WriterChannelConfig(channel_parser));
 
             double initial_val = 0.0;
-            if(channels.back().data_type == synnax::UINT8){
+            if(channels.back().data_type == synnax::SY_UINT8){
                 initial_val = 1.0;
             }
+
             initial_state_map[channels.back().state_key] = labjack::out_state{
                 .location = channels.back().location,
                 .state = initial_val,
-                .data_type = channels.back().data_typeg
+                .data_type = channels.back().data_type
             };
-        }
+        });
     }
 
 }; // struct WriterConfig
@@ -151,9 +150,9 @@ public:
 
     freighter::Error write(synnax::Frame frame) override;
 
-    freighter::Error stop(const std::string &cmd_key) override;
+    freighter::Error stop(const std::string &cmd_key);
 
-    freighter Error start(const std::string &cmd_key) override;
+    freighter::Error start(const std::string &cmd_key);
 
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 

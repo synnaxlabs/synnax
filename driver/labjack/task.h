@@ -28,6 +28,7 @@
 #include "driver/breaker/breaker.h"
 #include "driver/config/config.h"
 
+#include "driver/labjack/writer.h"
 #include "driver/labjack/reader.h"
 
 namespace labjack {
@@ -78,11 +79,12 @@ namespace labjack {
                 const std::shared_ptr <task::Context> &ctx,
                 synnax::Task task,
                 std::shared_ptr<pipeline::Sink> sink,
-                std::shared_ptr<labjack::Sink> labjack_sink,
+                std::shared_ptr<labjack::WriteSink> labjack_sink,
                 std::shared_ptr<pipeline::Source> state_source,
                 synnax::WriterConfig writer_config,
                 synnax::StreamerConfig streamer_config,
-                const breaker::Config breaker_config);
+                const breaker::Config breaker_config
+            );
 
         void exec(task::Command &cmd) override;
 
@@ -98,7 +100,6 @@ namespace labjack {
                 const std::shared_ptr <task::Context> &ctx,
                 const synnax::Task &task
         );
-    };
 
     private:
         std::atomic<bool> running = false;
@@ -106,8 +107,9 @@ namespace labjack {
         synnax::Task task;
         pipeline::Control cmd_pipe;
         pipeline::Acquisition state_pipe;
-        std::shared_ptr <labjack::Sink> sink;
-    }; // class WriterTask
-}
+        std::shared_ptr <labjack::WriteSink> sink;
+    };
+} // namespace
+
 
 // TODO: add a check to see if the libraries are available

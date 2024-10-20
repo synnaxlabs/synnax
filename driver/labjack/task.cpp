@@ -125,14 +125,14 @@ labjack::WriterTask::WriterTask(
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         std::shared_ptr<pipeline::Sink> sink,
-        std::shared_ptr<labjack::Sink> labjack_sink,
-        std::shared_ptr<labjack::Source> state_source,
-        synnax::WriterConfig writer_Config,
+        std::shared_ptr<labjack::WriteSink> labjack_sink,
+        std::shared_ptr<pipeline::Source> state_source,
+        synnax::WriterConfig writer_config,
         synnax::StreamerConfig streamer_config,
         const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
-    write_pipe(
+    cmd_pipe(
         pipeline::Control(
             ctx->client,
             streamer_config,
@@ -140,7 +140,14 @@ labjack::WriterTask::WriterTask(
             breaker_config
         )
     ),
-    state_source(state_source), // TODO: i dont know if I need this
+    state_pipe(
+        pipeline::Acquisition(
+            ctx->client,
+            writer_config,
+            state_source,
+            breaker_config
+        )
+    ),
     labjack_sink(labjack_sink){
 }
 

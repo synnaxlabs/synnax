@@ -21,12 +21,14 @@ cc_library(
         "labjack.h",
         "scanner.h",
         "reader.h",
+        "writer.h",
         "task.h",
     ],
     srcs = [
         "scanner.cpp",
         "factory.cpp",
         "reader.cpp",
+        "writer.cpp",
         "task.cpp",
     ],
     deps = [
