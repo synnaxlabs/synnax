@@ -9,13 +9,23 @@
 
 import { type ReactElement, useState, useEffect } from "react";
 
-import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
+
+const OSToUpdateFilePlatform: Record<
+  "MacOS" | "Linux" | "Windows" | "Docker",
+  keyof UpdateFile["platforms"]
+> = {
+  MacOS: "darwin-x86_64",
+  Linux: "linux-x86_64",
+  Windows: "windows-x86_64",
+  Docker: "docker",
+};
 
 export interface OSDownloadButtonEntry {
   os: runtime.OS;
   href: string;
+  version: string;
 }
 
 export interface OSDownloadButtonProps extends Omit<Button.LinkProps, "href"> {
@@ -23,20 +33,19 @@ export interface OSDownloadButtonProps extends Omit<Button.LinkProps, "href"> {
   entries: OSDownloadButtonEntry[];
 }
 
-export const OSDownloadButton = ({
-  entries = [],
-  name,
-  ...props
-}: OSDownloadButtonProps): ReactElement | null => {
+export const useConsoleDownloadHref = (): OSDownloadButtonEntry | null => {
+  const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
+  useEffect(() => {
+    fetch(JSON_URL)
+      .then(async (response) => await response.json())
+      .then((f) => setUpdateFile(f as UpdateFile))
+      .catch(() => setUpdateFile(null));
+  }, []);
+  if (updateFile == null) return null;
   const os = runtime.getOS();
-  const entry = entries.find((entry) => entry.os === os);
-  if (entry == null) return null;
-  const { href } = entry;
-  return (
-    <Button.Link href={href} startIcon={<Icon.Download />} {...props}>
-      Download {name} for {os}
-    </Button.Link>
-  );
+  const platform = OSToUpdateFilePlatform[os];
+  const href = updateFile.platforms[platform].url;
+  return { os, href, version: updateFile.version };
 };
 
 export interface UpdateFile {
@@ -51,47 +60,20 @@ export interface UpdateFile {
     "windows-x86_64": {
       url: string;
     };
+    docker: {
+      url: string;
+    };
   };
 }
-
-const OSToUpdateFilePlatform: Record<
-  "MacOS" | "Linux" | "Windows",
-  keyof UpdateFile["platforms"]
-> = {
-  MacOS: "darwin-x86_64",
-  Linux: "linux-x86_64",
-  Windows: "windows-x86_64",
-};
 
 const JSON_URL =
   "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.json";
 
 export const SynnaxConsoleDownloadButton = (): ReactElement | null => {
-  const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
-
-  useEffect(() => {
-    fetch(JSON_URL)
-      .then(async (response) => await response.json())
-      .then((f) => setUpdateFile(f as UpdateFile))
-      .catch(() => setUpdateFile(null));
-  }, []);
-
-  if (updateFile == null) return null;
+  const entry = useConsoleDownloadHref();
   return (
-    <OSDownloadButton
-      className="os-download-button"
-      name={updateFile.version}
-      size="large"
-      entries={[
-        {
-          os: "MacOS",
-          href: updateFile.platforms[OSToUpdateFilePlatform.MacOS].url,
-        },
-        {
-          os: "Windows",
-          href: updateFile.platforms[OSToUpdateFilePlatform.Windows].url,
-        },
-      ]}
-    />
+    <Button.Link className="os-download-button" href={entry?.href}>
+      Download Console {entry?.version} for {entry?.os}
+    </Button.Link>
   );
 };

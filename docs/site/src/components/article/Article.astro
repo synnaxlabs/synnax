@@ -2,13 +2,22 @@
 import Breadcrumb from "@/components/article/Breadcrumb.astro";
 import NextPrev from "@/components/NextPrev.astro";
 import { Align, Text } from "@synnaxlabs/pluto";
-const { title, description, url, next, prev, nextURL, prevURL, published } =
-    Astro.props;
+const {
+    title,
+    description,
+    breadcrumb = true,
+    url,
+    next,
+    prev,
+    nextURL,
+    prevURL,
+    published,
+} = Astro.props;
 ---
 
 <article transition:animate="none">
     <Align.Space direction="x" justify="spaceBetween">
-        <Breadcrumb url={url} />
+        {breadcrumb && <Breadcrumb url={url} />}
         {
             published != null && (
                 <Align.Space direction="x" size="small">

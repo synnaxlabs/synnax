@@ -1,11 +1,10 @@
 ---
-import PageNav from "@/components/PageNav/PageNav.astro";
 import Root from "@/layouts/Root.astro";
 import OneBillionRowsTile from "@/pages/guides/comparison/one-billion-rows/OneBillionRowsTile.astro";
 import ReleaseTile from "@/pages/guides/ReleaseTile.astro";
 import Tile from "@/pages/guides/Tile.astro";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Button, Text } from "@synnaxlabs/pluto";
+import { Align, Text } from "@synnaxlabs/pluto";
 ---
 
 <Root frontmatter={{ title: "Guides" }}>
@@ -105,6 +104,8 @@ import { Align, Button, Text } from "@synnaxlabs/pluto";
 
     <style is:global>
         section {
+            --root-box-shadow: var(--pluto-shadow-menu);
+            --root-border-radius: 1rem;
             border-left: var(--pluto-border);
             border-right: var(--pluto-border);
         }
@@ -158,7 +159,7 @@ import { Align, Button, Text } from "@synnaxlabs/pluto";
             }
 
             & .download {
-                border-radius: 1rem;
+                border-radius: var(--root-border-radius);
                 height: 5rem;
                 width: 5rem;
                 & svg {
@@ -174,9 +175,9 @@ import { Align, Button, Text } from "@synnaxlabs/pluto";
             position: relative;
             height: 425px;
             aspect-ratio: 1;
-            border-radius: 2rem;
+            border-radius: var(--root-border-radius);
             border: var(--pluto-border-l4);
-            box-shadow: var(--pluto-shadow-menu);
+            box-shadow: var(--root-box-shadow);
             cursor: pointer;
             transition: all 0.3s;
 
@@ -208,13 +209,13 @@ import { Align, Button, Text } from "@synnaxlabs/pluto";
         }
         .chip {
             text-decoration: none !important;
-            border-radius: 2rem;
+            border-radius: var(--root-border-radius);
             background-color: var(--pluto-gray-l1);
             flex-basis: 50%;
             transition: all 0.2s;
             cursor: pointer;
             border-color: var(--pluto-gray-l4);
-            box-shadow: var(--pluto-shadow-menu);
+            box-shadow: var(--root-box-shadow);
             padding-left: 5rem;
             &.guide {
                 background-size: cover;
