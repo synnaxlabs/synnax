@@ -305,7 +305,7 @@ public:
     explicit StateSource(
             float state_rate,   // TODO: should this be a float?
             synnax::ChannelKey &state_index_key,
-            std::map<synnax::ChannelKey, out_state> state_map
+            std::vector<synnax::ChannelKey> &state_channel_keys
         );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
