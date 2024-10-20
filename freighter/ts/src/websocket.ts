@@ -21,13 +21,13 @@ const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
   return (t) => new (require("ws").WebSocket)(t, { rejectUnauthorized: false });
 };
 
-const MessageSchema = z.object({
+const messageSchema = z.object({
   type: z.enum(["data", "close", "open"]),
-  payload: z.unknown().optional(),
+  payload: z.instanceof(Uint8Array).optional(),
   error: z.optional(errorZ),
 });
 
-type Message = z.infer<typeof MessageSchema>;
+type Message = z.infer<typeof messageSchema>;
 
 type ReceiveCallbacksQueue = Array<{
   resolve: (msg: Message) => void;
@@ -118,14 +118,19 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   }
 
   private listenForMessages(): void {
-    this.ws.onmessage = (ev: MessageEvent<Uint8Array>) =>
-      this.addMessage(this.encoder.decode(ev.data, MessageSchema));
+    this.ws.onmessage = this.onMessage.bind(this);
+    this.ws.onclose = this.onClose.bind(this);
+  }
 
-    this.ws.onclose = (ev: CloseEvent) =>
-      this.addMessage({
-        type: "close",
-        error: { type: isNormalClosure(ev) ? EOF.TYPE : StreamClosed.TYPE, data: "" },
-      });
+  private onMessage(ev: MessageEvent<Uint8Array>): void {
+    this.addMessage(this.encoder.decode(ev.data, messageSchema));
+  }
+
+  private onClose(ev: CloseEvent): void {
+    this.addMessage({
+      type: "close",
+      error: { type: isNormalClosure(ev) ? EOF.TYPE : StreamClosed.TYPE, data: "" },
+    });
   }
 }
 

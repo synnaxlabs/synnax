@@ -12,6 +12,7 @@ package core
 import (
 	"fmt"
 	"strings"
+	"sort"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -138,6 +139,32 @@ func (f Frame) String() string {
 
 	b.WriteString("\n}")
 	return b.String()
+}
+
+func (f *Frame) Sort() {
+	sort.Sort(&frameSorter{f: f})
+}
+
+// frameSorter is a helper type that implements sort.Interface for sorting Frame.
+type frameSorter struct {
+	f *Frame
+}
+
+// Len returns the number of Keys in the Frame.
+func (fs *frameSorter) Len() int {
+	return len(fs.f.Keys)
+}
+
+// Less compares two Keys in the Frame.
+// Modify this method if channel.Key requires a different comparison mechanism.
+func (fs *frameSorter) Less(i, j int) bool {
+	return fs.f.Keys[i] < fs.f.Keys[j]
+}
+
+// Swap exchanges the Keys and corresponding Series at indices i and j.
+func (fs *frameSorter) Swap(i, j int) {
+	fs.f.Keys[i], fs.f.Keys[j] = fs.f.Keys[j], fs.f.Keys[i]
+	fs.f.Series[i], fs.f.Series[j] = fs.f.Series[j], fs.f.Series[i]
 }
 
 func MergeFrames(frames []Frame) (f Frame) {

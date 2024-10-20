@@ -13,10 +13,11 @@ import {
   type Stream,
   type StreamClient,
 } from "@synnaxlabs/freighter";
-import { control } from "@synnaxlabs/x";
+import { binary, control } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
   type CrudeTimeStamp,
+  Size,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
@@ -77,6 +78,7 @@ const reqZ = z.object({
   command: z.nativeEnum(Command),
   config: netConfigZ.optional(),
   frame: frameZ.optional(),
+  buffer: z.instanceof(Uint8Array).optional(),
 });
 
 interface Request extends z.infer<typeof reqZ> {}
@@ -114,6 +116,7 @@ export interface WriterConfig {
   // persisted. To persist every commit to guarantee minimal loss of data, set
   // auto_index_persist_interval to AlwaysAutoIndexPersist.
   autoIndexPersistInterval?: TimeSpan;
+  useExperimentalCodec?: boolean;
 }
 
 /**
@@ -158,11 +161,17 @@ export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
-  private errAccumulated: boolean = false;
+  private readonly useExperimentalCodec: boolean;
+  private _bytesWritten: number = 0;
 
-  private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: WriteAdapter) {
+  private constructor(
+    stream: Stream<typeof reqZ, typeof resZ>,
+    adapter: WriteAdapter,
+    useExperimentalCodec = false,
+  ) {
     this.stream = new StreamProxy("Writer", stream);
     this.adapter = adapter;
+    this.useExperimentalCodec = useExperimentalCodec;
   }
 
   static async _open(
@@ -177,11 +186,12 @@ export class Writer {
       errOnUnauthorized = false,
       enableAutoCommit = false,
       autoIndexPersistInterval = TimeSpan.SECOND,
+      useExperimentalCodec = false,
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteAdapter.open(retriever, channels);
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
-    const writer = new Writer(stream, adapter);
+    const writer = new Writer(stream, adapter, useExperimentalCodec);
     await writer.execute({
       command: Command.Open,
       config: {
@@ -234,8 +244,19 @@ export class Writer {
   ): Promise<boolean> {
     if (await this.checkForAccumulatedError()) return false;
     const frame = await this.adapter.adapt(channelsOrData, series);
-    this.stream.send({ command: Command.Write, frame: frame.toPayload() });
+    let req: Request;
+    if (this.useExperimentalCodec) {
+      req = { command: Command.Write, buffer: this.adapter.encode(frame) };
+    } else {
+      req = { command: Command.Write, frame: frame.toPayload() };
+    }
+    this._bytesWritten += binary.JSON_CODEC.encode(req).byteLength;
+    this.stream.send(req);
     return true;
+  }
+
+  get byteLength(): Size {
+    return new Size(this._bytesWritten);
   }
 
   async setAuthority(value: number): Promise<boolean>;

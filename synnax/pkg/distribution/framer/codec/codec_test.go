@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package encoder_test
+package codec_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -15,25 +15,17 @@ import (
 	"github.com/onsi/gomega/gmeasure"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/encoder"
 	"github.com/synnaxlabs/x/telem"
 	"time"
 )
 
 var _ = Describe("Encoder", func() {
-
 	var experiment *gmeasure.Experiment
-
 	typeSlice := []telem.DataType{
 		"uint8", "uint16", "uint16",
 	}
-	keySlice := channel.Keys{
-		1141, 2434, 3234,
-	}
-	var cd encoder.Codec = encoder.New(
-		typeSlice,
-		keySlice,
-	)
+	keySlice := channel.Keys{1141, 2434, 3234}
+	cd := codec.NewCodec(typeSlice, keySlice)
 	// All the same
 	series1 := telem.Series{}
 	series2 := telem.Series{}
@@ -76,6 +68,18 @@ var _ = Describe("Encoder", func() {
 			testStruct := framer.Frame{
 				Keys:   keySlice,
 				Series: []telem.Series{series1, series2, series3},
+			}
+			experiment.MeasureDuration("runtime", func() {
+				byteArray, err := cd.Encode(testStruct)
+				returnStruct, err := cd.Decode(byteArray)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(testStruct).To(Equal(returnStruct))
+			}, gmeasure.Annotation("second"))
+		})
+		It("Everything is the same", func() {
+			testStruct := framer.Frame{
+				Keys:   []channel.Key{3234, 1141, 2434},
+				Series: []telem.Series{series2, series1, series3},
 			}
 			experiment.MeasureDuration("runtime", func() {
 				byteArray, err := cd.Encode(testStruct)

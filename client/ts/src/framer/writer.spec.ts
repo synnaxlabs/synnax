@@ -9,7 +9,7 @@
 
 import { id } from "@synnaxlabs/x";
 import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnauthorizedError, ValidationError } from "@/errors";
@@ -293,6 +293,60 @@ describe("Writer", () => {
       const res = await client.read(TimeRange.MAX, ch.key);
       expect(res.length).toEqual(data.length);
       expect(res.data).toEqual(data);
+    });
+  });
+
+  describe.only("performance", async () => {
+    const NUM_CHANNELS = 200;
+    const ITERATIONS = 10000;
+
+    const idx = await client.channels.create(
+      {
+        name: "time",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      },
+      { retrieveIfNameExists: true },
+    );
+    const channels = await client.channels.create(
+      Array.from({ length: NUM_CHANNELS }, (_, i) => ({
+        name: `ch-${i}`,
+        dataType: DataType.FLOAT64,
+        index: idx.key,
+      })),
+      { retrieveIfNameExists: true },
+    );
+    const channelKeys = channels.map((c) => c.key);
+    const values = Object.fromEntries(channelKeys.map((k) => [k, 1]));
+    channelKeys.push(idx.key);
+
+    let wStart = TimeStamp.now();
+
+    [true, false].forEach((reg) => {
+      it(
+        `should write 100,000 frames - reg codec - ${reg}`,
+        async () => {
+          if (!reg) wStart = wStart.sub(TimeSpan.hours(10));
+          const writer = await client.openWriter({
+            start: wStart,
+            channels: channelKeys,
+            enableAutoCommit: true,
+            useExperimentalCodec: reg,
+          });
+          const start = performance.now();
+          try {
+            for (let i = 0; i < ITERATIONS; i++) {
+              values[idx.key] = wStart.add(TimeSpan.nanoseconds(i)).valueOf();
+              await writer.write(values);
+            }
+          } finally {
+            await writer.close();
+          }
+          console.log(writer.byteLength.toString());
+          console.log(TimeSpan.milliseconds(performance.now() - start).toString());
+        },
+        { timeout: 10000000 },
+      );
     });
   });
 });

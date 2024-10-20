@@ -11,6 +11,7 @@ import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
+import { Codec } from "@/framer/encoder";
 import { type Crude, Frame } from "@/framer/frame";
 
 export class ReadAdapter {
@@ -69,11 +70,13 @@ export class WriteAdapter {
   private adapter: Map<channel.Name, channel.Key> | null;
   retriever: channel.Retriever;
   keys: channel.Key[];
+  codec: Codec;
 
   private constructor(retriever: channel.Retriever) {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
+    this.codec = new Codec([], []);
   }
 
   static async open(
@@ -99,6 +102,10 @@ export class WriteAdapter {
       results.map((c) => [c.name, c.key]),
     );
     this.keys = results.map((c) => c.key);
+    this.codec = new Codec(
+      this.keys,
+      results.map((c) => c.dataType),
+    );
   }
 
   private async fetchChannel(ch: channel.Key | channel.Name): Promise<channel.Payload> {
@@ -111,6 +118,10 @@ export class WriteAdapter {
     if (typeof k === "number") return k;
     const res = await this.fetchChannel(k);
     return res.key;
+  }
+
+  encode(frame: Frame): Uint8Array {
+    return this.codec.encode(frame.toPayload());
   }
 
   async adapt(
