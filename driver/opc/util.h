@@ -289,6 +289,7 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
         if (dt == synnax::FLOAT64)
             return synnax::Series(static_cast<double>(value));
     }
+    LOG(INFO) << "test";
     return Series(1);
 }
 
