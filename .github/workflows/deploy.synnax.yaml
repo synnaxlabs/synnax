@@ -140,15 +140,6 @@ jobs:
           cmake --build . --config RelWithDebInfo --target install
         working-directory: driver/vendor/open62541/open62541
 
-      - name: Bazel Clean
-        if: needs.setup.outputs.changed == 'true'
-        run: |
-          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            bazel --output_user_root=C:/tmp clean
-          else
-            bazel clean
-          fi
-
       - name: Build Driver on Windows
         if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
         run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define use_ni=true
