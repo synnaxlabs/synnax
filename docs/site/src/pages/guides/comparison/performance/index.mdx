@@ -9,22 +9,68 @@ import { Divider, Note } from "@synnaxlabs/pluto";
 import Table from "@/components/Table.astro";
 import Diagram from "@/components/Diagram.astro";
 
-In this article, we'll be comparing the performance of Synnax to two other leading
-time-series databases: [TimescaleDB](https://www.timescale.com/) and [InfluxDB](https://www.influxdata.com/index/).
+In this article we'll be compare the performance of Synnax to two other leading
+time-series databases: [TimescaleDB](https://www.timescale.com/) and 
+[InfluxDB](https://www.influxdata.com/index/).
 
 Performance is one of many factors to consider when evaluating the time-series 
 database for your use case: scalability, reliability, and query language are also important 
-to consider. Timescale, Influx, and Synnax all have their strengths and weaknesses. 
+to consider. Synnax, Timescale, and Influx all have their strengths and weaknesses. This
+article is part of a larger series comparing Synnax to other software tools.
 
-Synnax is specifically built for storing and streaming hardware sensor data. Our 
-database excels at read and write throughput for low cardinality time series workloads.
+We'll start off with a high-level overview of the three databases, explaining their
+architecture and ideal use cases. We'll briefly explain our test methodology and setup,
+and then dive into the results.
 
-<Note.Note variant="info">
-Performance benchmarks are often controversial, as companies choose specific workloads
-optimized for their database architecture. In our evaluation, we'll be cherry picking
-a scenario as well. Our goal is to prove that **Synnax is by far the fastest data storage & 
-streaming solution for high-speed hardware sensor data.** 
-</Note.Note>
+<Divider.Divider direction="x" />
+
+## Database Overviews
+
+TimeScale, Influx, and Synnax are all time-series database, although the authors had 
+different workloads and feature priorities in mind when building them.
+
+### Synnax
+
+[Synnax](https://synnaxlabs.com) is specifically built for storing and streaming 
+hardware sensor data. Unlike the other two databases, it is not designed for general 
+purpose time-series workloads, such as user analytics, log data, or financial tracking. 
+
+It follows a [channel](/reference/concepts/overview) based data model, where every sensor,
+actuator, or data source has its own named bucket of data called a *channel*. Synnax's
+query model is much simpler than the the other two databases, and focuses on quality
+integration with programming languages through client libraries. It's well suited for
+scientific and industrial applications.
+
+Notably, Synnax supports real-time streaming of data, much like you would find in a tool like
+[Apache Kafka](https://kafka.apache.org/) or a protocol like [MQTT](https://mqtt.org/).
+This makes Synnax ideal for industrial applications requiring real-time control, 
+monitoring, and data processing.
+
+Its storage engine is designed for high performance and extremely low latency for 
+low cardinality data. As we'll show in the results, Synnax dramatically outperforms
+Timescale and Influx when ingesting, reading, and streaming large volumes of data from
+small numbers of sensors (1 - 10,000).
+
+Synnax is so fast and reliable that teams often use it in high-performance, mission 
+critical environments such as firing rocket and jet engines.
+
+### Timescale
+
+[TimescaleDB](https://www.timescale.com/) is a general-purpose time-series database
+built on top of PostgreSQL. It uses a traditional, [relational](https://en.wikipedia.org/wiki/Relational_model?ref=timescale.com)
+data model where each row in a table represents a single event or measurement.
+
+Because it extends Postgres, Timescale integrates well with existing SQL applications,
+and makes it easy to integrate metadata with real-time telemetry. The Postgres database
+is one of the most widely used databases in the world, and is known for its reliability
+and consistency across a variety of workloads.
+
+### Influx
+
+[InfluxDB](https://www.influxdata.com) is a time-series database built around a [tagset](https://docs.influxdata.com/influxdb/cloud-serverless/write-data/best-practices/schema-design/)
+data model. Each measurement has a set of tags, which are key-value pairs that describe
+the data. This makes Influx ideal for storing and querying data with many dimensions,
+such as user analytics.
 
 <Divider.Divider direction="x" />
 
@@ -137,3 +183,10 @@ We'll be using the following hardware for our test:
     <td>2TB Apple SSD</td>
   </tr>
 </Table>
+<Note.Note variant="info">
+Performance benchmarks are often controversial, as companies choose specific workloads
+optimized for their database architecture. In our evaluation, we'll be cherry picking
+a scenario as well. Our goal is to prove that **Synnax is by far the fastest data storage & 
+streaming solution for high-speed hardware sensor data.** 
+</Note.Note>
+
