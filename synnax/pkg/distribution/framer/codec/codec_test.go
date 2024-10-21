@@ -15,6 +15,7 @@ import (
 	"github.com/onsi/gomega/gmeasure"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/x/telem"
 	"time"
 )
@@ -70,7 +71,7 @@ var _ = Describe("Encoder", func() {
 				Series: []telem.Series{series1, series2, series3},
 			}
 			experiment.MeasureDuration("runtime", func() {
-				byteArray, err := cd.Encode(testStruct)
+				byteArray, err := cd.Encode(testStruct, 0)
 				returnStruct, err := cd.Decode(byteArray)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(testStruct).To(Equal(returnStruct))
@@ -82,7 +83,7 @@ var _ = Describe("Encoder", func() {
 				Series: []telem.Series{series2, series1, series3},
 			}
 			experiment.MeasureDuration("runtime", func() {
-				byteArray, err := cd.Encode(testStruct)
+				byteArray, err := cd.Encode(testStruct, 0)
 				returnStruct, err := cd.Decode(byteArray)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(testStruct).To(Equal(returnStruct))
@@ -93,7 +94,7 @@ var _ = Describe("Encoder", func() {
 				Keys:   keySlice[0:2],
 				Series: []telem.Series{series1, series2},
 			}
-			byteArray, err := cd.Encode(testStruct)
+			byteArray, err := cd.Encode(testStruct, 0)
 			returnStruct, err := cd.Decode(byteArray)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testStruct).To(Equal(returnStruct))
@@ -103,7 +104,7 @@ var _ = Describe("Encoder", func() {
 				Keys:   keySlice,
 				Series: []telem.Series{series1, series2, series4},
 			}
-			byteArray, err := cd.Encode(testStruct)
+			byteArray, err := cd.Encode(testStruct, 0)
 			returnStruct, err := cd.Decode(byteArray)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testStruct).To(Equal(returnStruct))
@@ -113,7 +114,7 @@ var _ = Describe("Encoder", func() {
 				Keys:   keySlice,
 				Series: []telem.Series{series1, series2, series5},
 			}
-			byteArray, err := cd.Encode(testStruct)
+			byteArray, err := cd.Encode(testStruct, 0)
 			returnStruct, err := cd.Decode(byteArray)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testStruct).To(Equal(returnStruct))
@@ -123,7 +124,7 @@ var _ = Describe("Encoder", func() {
 				Keys:   keySlice[0:2],
 				Series: []telem.Series{series1, series4},
 			}
-			byteArray, err := cd.Encode(testStruct)
+			byteArray, err := cd.Encode(testStruct, 0)
 			returnStruct, err := cd.Decode(byteArray)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testStruct).To(Equal(returnStruct))
@@ -133,7 +134,7 @@ var _ = Describe("Encoder", func() {
 				Keys:   keySlice[0:2],
 				Series: []telem.Series{series1, series5},
 			}
-			byteArray, err := cd.Encode(testStruct)
+			byteArray, err := cd.Encode(testStruct, 0)
 			returnStruct, err := cd.Decode(byteArray)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testStruct).To(Equal(returnStruct))

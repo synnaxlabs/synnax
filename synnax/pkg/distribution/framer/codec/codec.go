@@ -14,33 +14,36 @@
 package codec
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
+	"io"
 )
 
-type Base struct {
+type Bse struct {
 	keys         channel.Keys
 	keyDataTypes map[channel.Key]telem.DataType
 }
 
 var byteOrder = binary.LittleEndian
 
-func NewCodec(dataTypes []telem.DataType, channels channel.Keys) Base {
+func NewCodec(dataTypes []telem.DataType, channels channel.Keys) Bse {
 	keyDataTypes := make(map[channel.Key]telem.DataType, len(channels))
 	for i, key := range channels {
 		keyDataTypes[key] = dataTypes[i]
 	}
-	return Base{keys: channels, keyDataTypes: keyDataTypes}
+	return Bse{keys: channels, keyDataTypes: keyDataTypes}
 }
 
-func (m Base) Encode(src framer.Frame) (dst []byte, err error) {
+func (m Bse) Encode(src framer.Frame, startOffset int) (dst []byte, err error) {
 	var (
 		curDataSize                                      = -1
 		startTime, endTime               telem.TimeStamp = 0, 0
-		byteArraySize                                    = 1
+		byteArraySize                                    = startOffset + 1
 		sizeFlag, alignFlag, channelFlag                 = true, true, true
 	)
 	if len(src.Keys) != len(m.keys) {
@@ -73,7 +76,7 @@ func (m Base) Encode(src framer.Frame) (dst []byte, err error) {
 		byteArraySize += 16
 	}
 	encoded := make([]byte, byteArraySize)
-	byteArraySize = 0
+	byteArraySize = startOffset
 	encoded[byteArraySize] = (types.BoolToUint8(sizeFlag) << 2) | (types.BoolToUint8(alignFlag) << 1) | types.BoolToUint8(channelFlag)
 	byteArraySize += 1
 	if sizeFlag {
@@ -110,63 +113,115 @@ func (m Base) Encode(src framer.Frame) (dst []byte, err error) {
 	return encoded, nil
 }
 
-func (m Base) Decode(src []byte) (dst framer.Frame, err error) {
-	if len(src) < 1 {
-		return
-	}
+func (m Bse) Decode(src []byte) (dst framer.Frame, err error) {
+	b := bytes.NewReader(src)
+	return m.DecodeStream(b)
+}
+
+func (m Bse) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	var (
-		returnStruct                            = framer.Frame{}
-		sizeFlag, alignFlag, channelFlag bool   = false, false, false
-		index                            int    = 0
-		sizeRepresentation, currSize     uint32 = 0, 0
-		timeRangeStart, timeRangeEnd     uint64 = 0, 0
+		sizeFlag, alignFlag, channelFlag bool
+		sizeRepresentation               uint32
+		timeRangeStart, timeRangeEnd     uint64
+		frame                            framer.Frame
 	)
-	sizeFlag = types.NumericToTBool((src[index] >> 2) & 1)
-	alignFlag = types.NumericToTBool((src[index] >> 1) & 1)
-	channelFlag = types.NumericToTBool(src[index] & 1)
-	index += 1
+
+	// Read the flag byte
+	var flagByte byte
+	if err := binary.Read(reader, byteOrder, &flagByte); err != nil {
+		return frame, err
+	}
+
+	sizeFlag = ((flagByte >> 2) & 1) == 1
+	alignFlag = ((flagByte >> 1) & 1) == 1
+	channelFlag = (flagByte & 1) == 1
+
+	// Read size representation if sizeFlag is true
 	if sizeFlag {
-		sizeRepresentation = byteOrder.Uint32(src[index:])
-		index += 4
-	}
-	if alignFlag {
-		timeRangeStart = byteOrder.Uint64(src[index:])
-		timeRangeEnd = byteOrder.Uint64(src[index+8:])
-		index += 16
-	}
-	if channelFlag {
-		returnStruct.Keys = m.keys
-	}
-	for _, k := range m.keys {
-		if !channelFlag {
-			if index >= len(src) || channel.Key(byteOrder.Uint32(src[index:])) != k {
-				continue
-			}
-			returnStruct.Keys = append(returnStruct.Keys, channel.Key(byteOrder.Uint32(src[index:])))
-			index += 4
+		if err := binary.Read(reader, byteOrder, &sizeRepresentation); err != nil {
+			return frame, err
 		}
-		currSize = 0
+	}
+
+	// Read time range if alignFlag is true
+	if alignFlag {
+		if err := binary.Read(reader, byteOrder, &timeRangeStart); err != nil {
+			return frame, err
+		}
+		if err := binary.Read(reader, byteOrder, &timeRangeEnd); err != nil {
+			return frame, err
+		}
+	}
+
+	// Prepare to read series data
+	keys := m.keys
+	if !channelFlag {
+		keys = nil
+	}
+
+	for {
+		var key channel.Key
+		if !channelFlag {
+			var keyVal uint32
+			if err := binary.Read(reader, byteOrder, &keyVal); err != nil {
+				if err == io.EOF {
+					break
+				}
+				return frame, err
+			}
+			key = channel.Key(keyVal)
+		} else {
+			if len(keys) == 0 {
+				break
+			}
+			key = keys[0]
+			keys = keys[1:]
+		}
+		frame.Keys = append(frame.Keys, key)
+
+		// Determine data size
+		var currSize uint32
 		if !sizeFlag {
-			currSize = byteOrder.Uint32(src[index:])
-			index += 4
+			if err := binary.Read(reader, byteOrder, &currSize); err != nil {
+				return frame, err
+			}
 		} else {
 			currSize = sizeRepresentation
 		}
-		currSeries := telem.Series{}
-		currSeries.DataType = m.keyDataTypes[k]
-		byteArraySlice := int(currSize) * int(currSeries.DataType.Density())
-		currSeries.Data = make([]byte, byteArraySlice)
-		copy(currSeries.Data, src[index:index+byteArraySlice])
-		index += byteArraySlice
-		if !alignFlag {
-			currSeries.TimeRange.Start = telem.TimeStamp(byteOrder.Uint64(src[index:]))
-			currSeries.TimeRange.End = telem.TimeStamp(byteOrder.Uint64(src[index+8:]))
-			index += 16
-		} else {
-			currSeries.TimeRange.Start = telem.TimeStamp(timeRangeStart)
-			currSeries.TimeRange.End = telem.TimeStamp(timeRangeEnd)
+
+		// Read series data
+		dataType, exists := m.keyDataTypes[key]
+		if !exists {
+			return frame, fmt.Errorf("unknown channel key: %v", key)
 		}
-		returnStruct.Series = append(returnStruct.Series, currSeries)
+
+		dataLength := int(currSize) * int(dataType.Density())
+		data := make([]byte, dataLength)
+		if _, err := io.ReadFull(reader, data); err != nil {
+			return frame, err
+		}
+
+		// Read time range if alignFlag is false
+		startTime, endTime := timeRangeStart, timeRangeEnd
+		if !alignFlag {
+			if err := binary.Read(reader, byteOrder, &startTime); err != nil {
+				return frame, err
+			}
+			if err := binary.Read(reader, byteOrder, &endTime); err != nil {
+				return frame, err
+			}
+		}
+
+		// Append series to frame
+		frame.Series = append(frame.Series, telem.Series{
+			DataType: dataType,
+			Data:     data,
+			TimeRange: telem.TimeRange{
+				Start: telem.TimeStamp(startTime),
+				End:   telem.TimeStamp(endTime),
+			},
+		})
 	}
-	return returnStruct, nil
+
+	return frame, nil
 }

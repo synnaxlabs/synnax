@@ -264,7 +264,6 @@ type FrameWriterRequest struct {
 	Config  FrameWriterConfig `json:"config" msgpack:"config"`
 	Command WriterCommand     `json:"command" msgpack:"command"`
 	Frame   Frame             `json:"frame" msgpack:"frame"`
-	Buffer  []byte            `json:"buffer" msgpack:"buffer"`
 }
 
 type (
@@ -407,7 +406,8 @@ func (s *FrameService) openWriter(
 }
 
 type WebSocketCodec struct {
-	base codec.Base
+	base         codec.Bse
+	lowPerfCodec xbinary.Codec
 }
 
 var _ xbinary.Codec = (*WebSocketCodec)(nil)
@@ -417,31 +417,113 @@ func (w *WebSocketCodec) Decode(
 	data []byte,
 	value interface{},
 ) error {
-	return nil
+	r := bytes.NewReader(data)
+	return w.DecodeStream(ctx, r, value)
 }
+
+var (
+	highPerfSpecialChar = []byte{0x00, 0x00, 0x01}
+	lowPerfSpecialChar  = []byte{0x00, 0x00, 0x00}
+)
 
 func (w *WebSocketCodec) DecodeStream(
 	ctx context.Context,
 	r io.Reader,
 	value interface{},
 ) error {
+	v := value.(*fhttp.WSMessage[FrameWriterRequest])
+
+	// 3 bytes for special character
+	sc := make([]byte, 3)
+	if _, err := io.ReadFull(r, sc); err != nil {
+		return err
+	}
+
+	// If the special character matches the special character for the low performance codec
+	if bytes.Equal(sc, lowPerfSpecialChar) {
+		return w.lowPerfCodec.DecodeStream(ctx, r, value)
+	}
+
+	// Read 1 byte for the message type
+	t := new(uint8)
+	if err := binary.Read(r, binary.LittleEndian, t); err != nil {
+		return err
+	}
+	if *t == 1 {
+		v.Type = fhttp.WSMsgTypeData
+	} else {
+		v.Type = fhttp.WSMsgTypeClose
+	}
+
+	// Read 4 bytes for the error length
+	errLen := new(uint32)
+	if err := binary.Read(r, binary.LittleEndian, errLen); err != nil {
+		return err
+	}
+	errData := make([]byte, *errLen)
+	if _, err := io.ReadFull(r, errData); err != nil {
+		return err
+	}
+	pld := &v.Err
+	pld.Unmarshal(string(errData))
+	v.Err = *pld
+
+	// Read the rest
+	fr, err := w.base.DecodeStream(r)
+	if err != nil {
+		return err
+	}
+	v.Payload.Command = writer.Data
+	v.Payload.Frame = fr
+	return nil
 }
 
 func (w *WebSocketCodec) Encode(ctx context.Context, value interface{}) ([]byte, error) {
 	v := value.(*fhttp.WSMessage[FrameWriterRequest])
-
-	byteSize := 1 + 4 + len(v.Err.Type) + 1 + len(v.Err.Data)
-	data := make([]byte, byteSize)
-	b := bytes.NewBuffer(data)
-	if v.Type == fhttp.WSMsgTypeData {
-		b.Write([]byte{1})
-	} else {
-		b.Write([]byte{2})
+	if v.Payload.Command != writer.Data {
+		b, err := w.lowPerfCodec.Encode(ctx, value)
+		if err != nil {
+			return nil, err
+		}
+		lowPerfSpecialChar := []byte{0x00, 0x00, 0x00}
+		return append(lowPerfSpecialChar, b...), nil
 	}
-	u32Bytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(u32Bytes, uint32(len(v.Err.Type)))
-	b.Write(u32Bytes)
-	b.Write([]byte(v.Err.Type))
-	b.Write([]byte{1, 1, 1})
+
+	// 3 bytes for special character
+	// 1 byte for the message type
+	// 4 bytes for the uint32 length
+	wsHeaderSize := 3 + 1 + 4 + len(v.Err.Type) + 1 + len(v.Err.Data)
+	// Header size for the framer message
+	data, err := w.base.Encode(v.Payload.Frame, wsHeaderSize)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(data)
+
+	if _, err = buf.Write(highPerfSpecialChar); err != nil {
+		return nil, nil
+	}
+
+	// Write the message type
+	if v.Type == fhttp.WSMsgTypeData {
+		if err = binary.Write(buf, binary.LittleEndian, uint8(1)); err != nil {
+			return nil, err
+		}
+	} else {
+		if err = binary.Write(buf, binary.LittleEndian, uint8(2)); err != nil {
+			return nil, err
+		}
+	}
+
+	// Write error information
+	errString := v.Err.Error()
+	if err = binary.Write(buf, binary.LittleEndian, uint32(len(errString))); err != nil {
+		return nil, err
+	}
+	if _, err = buf.Write([]byte(errString)); err != nil {
+		return nil, err
+	}
+
 	return data, nil
 }
