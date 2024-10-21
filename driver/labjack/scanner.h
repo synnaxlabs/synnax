@@ -79,5 +79,5 @@ private:
  T4
  T7
  T8
- DIGIT (thought it is eol)
+ DIGIT (though it is eol)
  */
