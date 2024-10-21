@@ -73,7 +73,8 @@ namespace labjack{
                   index_keys(parser.optional<std::set<uint32_t>>("index_keys", {})),
                   serial_number(parser.optional<std::string>("serial_number", "")),
                   connection_type(parser.optional<std::string>("connection_type", "")),
-                  data_saving(parser.optional<bool>("data_saving", false)) {
+                  data_saving(parser.optional<bool>("data_saving", false)
+          ) {
 
             // Parse the channels
             parser.iter("channels", [this](config::Parser &channel_parser) {

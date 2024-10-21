@@ -21,12 +21,14 @@ cc_library(
         "labjack.h",
         "scanner.h",
         "reader.h",
+        "writer.h",
         "task.h",
     ],
     srcs = [
         "scanner.cpp",
         "factory.cpp",
         "reader.cpp",
+        "writer.cpp",
         "task.cpp",
     ],
     deps = [
@@ -78,6 +80,21 @@ cc_test(
 cc_test(
     name = "reader_test",
     srcs = ["reader_test.cpp"],
+    deps = [
+        ":labjack",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
+    ],
+    linkopts = select({
+            # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
+            "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
+            "//conditions:default": [],
+    })
+)
+
+cc_test(
+    name = "writer_test",
+    srcs = ["writer_test.cpp"],
     deps = [
         ":labjack",
         "@com_google_googletest//:gtest_main",
