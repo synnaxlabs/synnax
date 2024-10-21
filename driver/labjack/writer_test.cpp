@@ -23,3 +23,32 @@ using json = nlohmann::json;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                   Basic Tests                                                //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+TEST(write_tests, labjack_t4){
+
+    LOG(INFO)  << "Test labjack writes t4";
+
+    auto client std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto [state_idx, tErr1] = client->channels.create("do_state_idx", synnax::TIMESTAMP, 0, true);
+    ASSERT_FALSE(tErr1) << tErr1.message();
+
+    auto [cmd_idx, tErr2] = channel->channels.create("do_cmd_idx", synnax::INT32, true);
+    ASSERT_FALSE(tErr2) << tErr2.message();
+
+    // TODO: test schematic using a float channel
+    auto [state, aErr] = client->channels.create("do_state", synnax::SY_UINT8, state_idx.key, false);
+    ASSERT_FALSE(aErr) << aErr.message();
+
+    auto [cmd, cErr] = client->channels.create("do_cmd", synnax::SY_UINT8, cmd_idx.key, false);
+    ASSERT_FALSE(cErr) << cErr.message();
+
+    // create a writer to write commands out the cmd pipe
+    auto cmd_writer_config = synnax::WriterConfig{
+        .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
+        .start = TimeStamp::now(),
+        .mode = synnax::StreamOnly
+    };
+
+
+}
