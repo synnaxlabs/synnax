@@ -11,7 +11,6 @@
 
 .pluto-space {
     display: flex;
-    border-color: var(--pluto-space-border-shade);
 }
 
 .pluto-space--medium {

@@ -49,7 +49,7 @@ export class Task<
   readonly name: string;
   readonly internal: boolean;
   readonly type: T;
-  readonly config: C;
+  config: C;
   readonly snapshot: boolean;
   state?: State<D>;
   private readonly frameClient: framer.Client | null;

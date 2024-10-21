@@ -46,7 +46,7 @@ import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
-import { IoBookSharp, IoCopy, IoTime } from "react-icons/io5";
+import { IoBookSharp, IoCopy, IoNotificationsOff, IoTime } from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,
   MdAlignHorizontalLeft,
@@ -56,6 +56,7 @@ import {
   MdAlignVerticalTop,
   MdAreaChart,
   MdAutoAwesome,
+  MdCommit,
   MdDataArray,
   MdDataObject,
   MdEdit,
@@ -369,6 +370,8 @@ export const Icon: IconType = {
   SplitX: wrapIcon(VscSplitHorizontal, "split-x"),
   SplitY: wrapIcon(VscSplitVertical, "split-y"),
   AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
+  Commit: wrapIcon(MdCommit, "commit"),
+  Snooze: wrapIcon(IoNotificationsOff, "snooze"),
 };
 
 export interface IconType {
@@ -460,6 +463,7 @@ export interface IconType {
   Zoom: IconFC;
   Pan: IconFC;
   Selection: IconFC;
+  Snooze: IconFC;
   Tooltip: IconFC;
   Annotate: IconFC;
   Rule: IconFC;
@@ -512,4 +516,5 @@ export interface IconType {
   SplitX: IconFC;
   SplitY: IconFC;
   AutoFitWidth: IconFC;
+  Commit: IconFC;
 }

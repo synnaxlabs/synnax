@@ -17,6 +17,11 @@ indent_style = tab
 # |||| PYTHON ||||
 # uses defaults
 
+# |||| JAVASCRIPT ||||
+
+[*.{js,jsx,cjs,mjs}]
+indent_size = 2
+
 # |||| TYPESCRIPT ||||
 
 [*.{ts,tsx}]

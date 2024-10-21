@@ -49,6 +49,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         height: 100%;
+        color: var(--pluto-input-color);
 
         padding: 0 1.5rem;
 
@@ -64,7 +65,7 @@
     }
 
     & > .pluto-input__internal:focus-within {
-        border-color: var(--pluto-input-color, var(--pluto-primary-z)) !important;
+        border-color: var(--pluto-primary-z) !important;
         & input {
             outline: none;
         }
@@ -192,6 +193,27 @@
         padding-left: 1px;
         & * {
             color: var(--pluto-gray-l5);
+        }
+    }
+}
+
+.pluto-input--button {
+    & .pluto-input__internal {
+        transition:
+            background 0.15s ease-in-out,
+            border-color 0.15s ease-in-out;
+        &:hover:not(.pluto--disabled):not(:focus-within) {
+            --pluto-bg: var(--pluto-gray-l3);
+            background: var(--pluto-bg) !important;
+        }
+        &:active:not(.pluto--disabled):not(:focus-within) {
+            --pluto-bg: var(--pluto-gray-l3);
+            background: var(--pluto-bg) !important;
+        }
+        &:focus-within {
+            transition:
+                background 0s ease-in-out,
+                border-color 0s ease-in-out;
         }
     }
 }

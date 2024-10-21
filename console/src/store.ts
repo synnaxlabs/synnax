@@ -26,6 +26,7 @@ import { Workspace } from "@/workspace";
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   ...Layout.PERSIST_EXCLUDE,
   Cluster.PERSIST_EXCLUDE,
+  ...Schematic.PERSIST_EXCLUDE,
 ];
 
 const ZERO_STATE: RootState = {
@@ -75,8 +76,8 @@ export type RootAction =
   | Cluster.Action
   | LinePlot.Action
   | Schematic.Action
-  | Range.Action
   | Permissions.Action
+  | Version.Action
   | Workspace.Action;
 
 export type RootStore = Store<RootState, RootAction>;

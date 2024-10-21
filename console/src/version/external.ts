@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
-import { NotificationAdapter } from "@/notifications/Notifications";
+import { type Layout } from "@/layout";
+import { type NotificationAdapter } from "@/notifications/Notifications";
 import { Info, infoLayout } from "@/version/Info";
 import { notificationAdapter } from "@/version/Updater";
 

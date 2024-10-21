@@ -55,6 +55,7 @@ const initialPermissions = {
   keys: {},
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formSchema = permissionsZ.extend({
   keys: consolePolicyKeysZ,
 });

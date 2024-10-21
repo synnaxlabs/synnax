@@ -18,7 +18,6 @@ import { Group } from "@/group";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 
@@ -94,16 +93,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const singleResource = nodes.length === 1;
   const first = resources[0];
   const del = useDelete();
-  const handleLink = Link.useCopyToClipboard();
   const group = Group.useCreateFromSelection();
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: () => del(props),
-    link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
     rename: () => Tree.startRenaming(nodes[0].key),
     group: () => group(props),
   };
@@ -133,7 +126,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      {singleResource && <Link.CopyMenuItem />}
       {customMenuItems}
       <PMenu.Divider />
       <Menu.HardReloadItem />

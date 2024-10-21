@@ -31,6 +31,7 @@ interface MetaDataProps {
   rangeKey: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const metaDataFormSchema = z.object({
   pairs: kv.stringPairZ.array(),
 });
@@ -61,6 +62,7 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
           variant="outlined"
           href={value}
           target="_blank"
+          autoFormat
           style={{ padding: "1rem" }}
         >
           <Icon.LinkExternal />

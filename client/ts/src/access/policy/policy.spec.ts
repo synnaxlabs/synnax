@@ -30,7 +30,7 @@ describe("Policy", () => {
           objects: [user.ONTOLOGY_TYPE, channel.ONTOLOGY_TYPE],
           actions: "delete",
         });
-        expect(policy.key).exist;
+        expect(policy.key).toBeDefined();
         expect(policy.subjects.length).toEqual(1);
         expect(policy.subjects[0].key).toEqual("");
         expect(policy.subjects[0].type).toEqual(user.ONTOLOGY_TYPE);
@@ -48,7 +48,7 @@ describe("Policy", () => {
           objects: [],
           actions: [],
         });
-        expect(policy.key).exist;
+        expect(policy.key).toBeDefined();
         expect(policy.subjects).toHaveLength(0);
         expect(policy.objects).toHaveLength(0);
         expect(policy.actions).toHaveLength(0);
@@ -61,7 +61,7 @@ describe("Policy", () => {
           objects: [],
           actions: [],
         });
-        expect(policy.key).exist;
+        expect(policy.key).toBeDefined();
         expect(policy.subjects.length).toEqual(1);
         expect(policy.subjects[0].key).toEqual("1");
         expect(policy.subjects[0].type).toEqual(user.ONTOLOGY_TYPE);
@@ -79,7 +79,7 @@ describe("Policy", () => {
           objects: { type: channel.ONTOLOGY_TYPE, key: "3" },
           actions: ["delete", "retrieve"],
         });
-        expect(policy.key).exist;
+        expect(policy.key).toBeDefined();
         expect(policy.subjects.length).toEqual(2);
         expect(policy.subjects[0].key).toEqual("1");
         expect(policy.subjects[0].type).toEqual(user.ONTOLOGY_TYPE);
@@ -134,7 +134,7 @@ describe("Policy", () => {
           },
         ]);
         expect(policies.length).toEqual(2);
-        expect(policies[0].key).exist;
+        expect(policies[0].key).toBeDefined();
         expect(policies[0].subjects.length).toEqual(1);
         expect(policies[0].subjects[0].key).toEqual("");
         expect(policies[0].subjects[0].type).toEqual(user.ONTOLOGY_TYPE);
@@ -144,7 +144,7 @@ describe("Policy", () => {
         expect(policies[0].objects[0].type).toEqual(user.ONTOLOGY_TYPE);
         expect(policies[0].objects[1].type).toEqual(schematic.ONTOLOGY_TYPE);
         expect(policies[0].actions).toEqual(["retrieve"]);
-        expect(policies[1].key).exist;
+        expect(policies[1].key).toBeDefined();
         expect(policies[1].subjects.length).toEqual(2);
         expect(policies[1].subjects[0].key).toEqual("");
         expect(policies[1].subjects[1].key).toEqual("");
