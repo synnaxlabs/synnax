@@ -90,7 +90,7 @@ synnax::Frame labjack::StateSource::get_state(){
     for(auto &[key, value]: this->state_map) {
         auto s = val_to_series(value.state, value.data_type);
         state_frame.add(
-            key,
+            value.state_key,
             std::move(s)
         );
     }
@@ -134,9 +134,9 @@ labjack::WriteSink::WriteSink(
     this->get_index_keys(); // retrieve state index from first state channel
 
     this->state_source = std::make_shared<labjack::StateSource>(
-        writer_config.state_rate,
-        writer_config.state_index_key,
-        writer_config.initial_state_map
+        this->writer_config.state_rate,
+        this->writer_config.state_index_key,
+        this->writer_config.initial_state_map
     );
 }
 

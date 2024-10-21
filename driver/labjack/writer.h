@@ -34,6 +34,7 @@ struct out_state{
     std::string location = "";
     double state = 0.0;
     synnax::DataType data_type = synnax::FLOAT64;
+    synnax::ChannelKey state_key = 0;
 };
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
@@ -122,11 +123,11 @@ struct WriterConfig{
             if(channels.back().data_type == synnax::SY_UINT8){
                 initial_val = 1.0;
             }
-
-            initial_state_map[channels.back().state_key] = labjack::out_state{
+            initial_state_map[channels.back().cmd_key] = labjack::out_state{
                 .location = channels.back().location,
                 .state = initial_val,
-                .data_type = channels.back().data_type
+                .data_type = channels.back().data_type,
+                .state_key = channels.back().state_key
             };
         });
     }

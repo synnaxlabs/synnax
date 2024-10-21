@@ -28,12 +28,12 @@ TEST(write_tests, labjack_t4){
 
     LOG(INFO)  << "Test labjack writes t4";
 
-    auto client std::make_shared<synnax::Synnax>(new_test_client());
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [state_idx, tErr1] = client->channels.create("do_state_idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr1) << tErr1.message();
 
-    auto [cmd_idx, tErr2] = channel->channels.create("do_cmd_idx", synnax::INT32, true);
+    auto [cmd_idx, tErr2] = client->channels.create("do_cmd_idx", synnax::TIMESTAMP,0, true);
     ASSERT_FALSE(tErr2) << tErr2.message();
 
     // TODO: test schematic using a float channel
@@ -43,12 +43,34 @@ TEST(write_tests, labjack_t4){
     auto [cmd, cErr] = client->channels.create("do_cmd", synnax::SY_UINT8, cmd_idx.key, false);
     ASSERT_FALSE(cErr) << cErr.message();
 
-    // create a writer to write commands out the cmd pipe
-    auto cmd_writer_config = synnax::WriterConfig{
-        .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
-        .start = TimeStamp::now(),
-        .mode = synnax::StreamOnly
+
+    auto config = json{
+            {"device_type", "T4"},
+            {"device_key", "440022190"},
+            {"serial_number", "440022190"},
+            {"connection_type", "USB"},
+            {"channels", json::array({
+                                 {
+                                         {"location", "FIO4"},
+                                         {"enabled", true},
+                                         {"data_type", "uint8"},
+                                         {"cmd_key", cmd.key},
+                                         {"state_key", state.key},
+                                         {"channel_types", "DIO"}
+                                     }
+                             })},
+            {"data_saving", true},
+            {"state_rate", 10}
     };
 
+    auto task = synnax::Task("my_task", "labjack_write", to_string(config));
+    auto mockCtx = std::make_shared<task::MockContext>(client);
 
+    auto writer_task = labjack::WriterTask::configure(mockCtx, task);
+
+    auto start_cmd = task::Command(task.key, "start", {});
+    auto stop_cmd = task::Command{task.key, "stop", {}};
+    writer_task->exec(start_cmd);
+    std::this_thread::sleep_for(std::chrono::seconds(300000));
+    writer_task->exec(stop_cmd);
 }
