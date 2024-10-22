@@ -1,0 +1,29 @@
+import Release from "@/components/releases/Release.astro";
+import { Image } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+
+<Release 
+version="0.32.0" 
+date="Oct 9, 2024" 
+title="Multi-Device NI Analog Read Tasks"
+>
+
+<Image client:only="react" id="releases/0-32-0/thumbnail" />
+
+### Summary
+
+Synnax version 0.32 makes an improvement to [National Instruments Analog Read tasks](/reference/device-drivers/ni/analog-read-task).
+The new version allows you to acquire data from multiple devices in a single task. This is useful in one of two scenarios:
+
+1. You have multiple devices and you want to acquire data from all of them synchronously.
+2. You have many different cards on a single chassis (e.g. cDAQ-9174) and you need to avoid hitting the maximum number of allowed tasks.
+
+Instead of choosing the device at the top level of the task, you can now specify the 
+device for each channel.
+
+### Breaking Changes
+
+This release does **not** introduce any breaking changes. Previous NI analog read tasks
+will be migrated to the new format automatically.
+
+</Release>

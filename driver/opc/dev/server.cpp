@@ -72,6 +72,19 @@ int main() {
                               UA_NODEID_NULL, attr3, NULL, NULL);
 
 
+    // add a boolean variable node to the adresspace
+    UA_VariableAttributes attr4 = UA_VariableAttributes_default;
+    UA_Boolean myBoolean = true;
+    UA_Variant_setScalarCopy(&attr4.value, &myBoolean, &UA_TYPES[UA_TYPES_BOOLEAN]);
+    attr4.description = UA_LOCALIZEDTEXT_ALLOC("en-US", "the boolean value");
+    attr4.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US", "the boolean value");
+    attr4.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+    UA_NodeId myBooleanNodeId = UA_NODEID_STRING_ALLOC(1, "the.boolean");
+    UA_QualifiedName myBooleanName = UA_QUALIFIEDNAME_ALLOC(1, "the boolean value");
+    UA_Server_addVariableNode(server, myBooleanNodeId, parentNodeId,
+                              parentReferenceNodeId, myBooleanName,
+                              UA_NODEID_NULL, attr4, NULL, NULL);
+
     /* allocations on the heap need to be freed */
     UA_VariableAttributes_clear(&attr);
     UA_NodeId_clear(&myIntegerNodeId);

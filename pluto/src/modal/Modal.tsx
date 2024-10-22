@@ -54,14 +54,8 @@ export const Dialog = ({
   const handleTrigger = useCallback(
     (e: Triggers.UseEvent) => {
       if (!visibleRef.current || e.stage !== "start") return;
-      // TODO: Check if there are any children that have the CSS.visible(true) class applied
-      // This is to prevent the dropdown from closing when the user is typing in a select
-      // or other dialog that uses the same trigger. If there are children that match this
-      // return early.
-      const interactiveChildren = dialogRef.current?.querySelectorAll(
-        `.${CSS.visible(true)}`,
-      );
-      if (interactiveChildren && interactiveChildren.length > 0) return;
+      const visChildren = dialogRef.current?.querySelectorAll(`.${CSS.visible(true)}`);
+      if (visChildren && visChildren.length > 0) return;
       close();
     },
     [close],

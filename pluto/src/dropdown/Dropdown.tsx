@@ -314,26 +314,25 @@ const calcConnectedDialog = ({
     invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
   );
 
-  if (runtime.getOS() === "MacOS") {
-    let parent: HTMLElement | null = target.parentElement;
-    while (parent != null) {
-      const style = window.getComputedStyle(parent);
-      if (style.getPropertyValue("container-type") !== "normal") {
-        container = box.construct(parent);
-        if (location.y === "bottom")
-          adjustedDialog = box.translate(
-            adjustedDialog,
-            xy.scale(box.topLeft(container), -1),
-          );
-        else
-          adjustedDialog = box.translate(adjustedDialog, {
-            x: -box.left(container),
-            y: -(box.bottom(container) - box.bottom(win)),
-          });
-        break;
-      }
-      parent = parent.parentElement;
+  if (runtime.getOS() !== "MacOS") return { adjustedDialog, location };
+  let parent: HTMLElement | null = target.parentElement;
+  while (parent != null) {
+    const style = window.getComputedStyle(parent);
+    if (style.getPropertyValue("container-type") !== "normal") {
+      container = box.construct(parent);
+      if (location.y === "bottom")
+        adjustedDialog = box.translate(
+          adjustedDialog,
+          xy.scale(box.topLeft(container), -1),
+        );
+      else
+        adjustedDialog = box.translate(adjustedDialog, {
+          x: -box.left(container),
+          y: -(box.bottom(container) - box.bottom(win)),
+        });
+      break;
     }
+    parent = parent.parentElement;
   }
   return { adjustedDialog, location };
 };

@@ -106,7 +106,9 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: MacOS - Import Apple Developer Certificate
-        if: matrix.platform == 'macos-12'
+        # Only notarize on MacOS and on push events, not on PRs. This prevents excessive
+        # notarization requests and long CI times on PRs.
+        if: matrix.platform == 'macos-12' && github.event_name == 'push'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -121,7 +123,8 @@ jobs:
           security find-identity -v -p codesigning build.keychain
 
       - name: MacOS - Verify Certificate
-        if: matrix.platform == 'macos-12'
+        # Same as above - only notarize on MacOS and on push events, not on PRs
+        if: matrix.platform == 'macos-12' && github.event_name == 'push'
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           echo "Cert info"
