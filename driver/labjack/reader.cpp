@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "driver/labjack/reader.h"
+#include "driver/labjack/util.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   Source                                      //
@@ -47,8 +48,10 @@ void labjack::Source::init_stream(){
     this->num_samples_per_chan = SCANS_PER_READ;
     this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ;
 
-    LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle); // TODO: error check
-
+    {
+        std::lock_guard<std::mutex> lock(labjack::device_mutex);
+        LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle); // TODO: error check
+    }
     // iterate through the channels, for the ones that analog device, need to set the resolution index
     for (auto &channel : this->reader_config.channels) {
         if (channel.channel_type == "AIN") {

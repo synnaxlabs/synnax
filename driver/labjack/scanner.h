@@ -25,6 +25,8 @@
 #include "driver/breaker/breaker.h"
 #include "driver/task/task.h"
 
+// Currently supports: T7, T4, T5, Digit products.
+
 namespace labjack{
 
 const std::string SCAN_CMD_TYPE = "scan";
@@ -68,16 +70,6 @@ private:
     std::shared_ptr<task::Context> ctx;
     std::shared_ptr<std::thread> thread = nullptr;
     breaker::Breaker breaker;
-    synnax::Rate scan_rate = synnax::Rate(1);
+    synnax::Rate scan_rate = synnax::Rate(5);
 };
-
-
 };
-
-/*
- Supported device types
- T4
- T7
- T8
- DIGIT (though it is eol)
- */

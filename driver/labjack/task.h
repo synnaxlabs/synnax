@@ -15,12 +15,10 @@
 #include <memory>
 #include <thread>
 #include <set>
-#include <condition_variable>
 
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/synnax.h"
-
 
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"

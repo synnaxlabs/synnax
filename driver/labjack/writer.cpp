@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include "driver/labjack/writer.h"
+#include "driver/labjack/util.h"
+#include <thread>
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Helper                                     //
@@ -146,7 +148,11 @@ labjack::WriteSink::~WriteSink(){
 }
 
 void labjack::WriteSink::init(){
-    auto err = LJM_Open(LJM_dtANY, LJM_ctANY, this->writer_config.serial_number.c_str(), &this->handle);
+    int err;
+    {
+        std::lock_guard<std::mutex> lock(labjack::device_mutex);
+         err = LJM_Open(LJM_dtANY, LJM_ctANY, this->writer_config.serial_number.c_str(), &this->handle);
+    }
     ErrorCheck(err, "[labjack.writer] LJM_Open error on serial num: %s ", this->writer_config.serial_number);
 }
 

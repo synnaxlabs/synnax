@@ -21,6 +21,7 @@ cc_library(
         "labjack.h",
         "scanner.h",
         "reader.h",
+        "util.h",
         "writer.h",
         "task.h",
     ],

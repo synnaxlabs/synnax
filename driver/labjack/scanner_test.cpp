@@ -31,10 +31,7 @@ TEST(LabjackScannerTests, test_valid_scan){
     );
 
     auto mockCtx = std::make_shared<task::MockContext>(client);
-
-    //create a scanner
     labjack::ScannerTask scanner = labjack::ScannerTask(mockCtx, task);
-//    scanner.scan();
     // sleep for 3 seconds
     std::this_thread::sleep_for(std::chrono::seconds(3));
 

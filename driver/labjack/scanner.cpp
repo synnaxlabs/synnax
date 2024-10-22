@@ -14,6 +14,7 @@
 #include "scanner.h"
 #include "glog/logging.h"
 #include "driver/config/config.h"
+#include "driver/labjack/util.h"
 
 using namespace labjack;
 
@@ -56,16 +57,23 @@ void ScannerTask::scan() {
     int aIPAddresses[LJM_LIST_ALL_SIZE];
     int NumFound = 0;
 
-    // Get the device keys
-    int err = LJM_ListAll(
-            DeviceType,
-            ConnectionType,
-            &NumFound,
-            aDeviceTypes,
-            aConnectionTypes,
-            aSerialNumbers,
-            aIPAddresses
+    int err;
+    {
+        std::lock_guard<std::mutex> lock(labjack::device_mutex);
+        err = LJM_ListAll(
+                DeviceType,
+                ConnectionType,
+                &NumFound,
+                aDeviceTypes,
+                aConnectionTypes,
+                aSerialNumbers,
+                aIPAddresses
         );
+    }
+    char err_name[LJM_MAX_NAME_SIZE];
+    LJM_ErrorToString(err, err_name);
+    LOG(ERROR) << "LJM_ListAll error: " << err_name;
+    // TODO: deal with error checks which will cause exit
     ErrorCheck(
             err,
             "LJM_ListAll with device type: %s, connection type: %s",
