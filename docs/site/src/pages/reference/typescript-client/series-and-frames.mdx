@@ -8,9 +8,9 @@ nextURL: "/reference/typescript-client/timestamps"
 prev: "Delete Data"
 prevURL: "/reference/typescript-client/delete-data"
 ---
-import { Divider } from "@synnaxlabs/pluto"
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Series and Frames are the two fundamental structures used for working with
 channel data in Synnax. This guide will walk you through how to use the `Frame`
@@ -31,7 +31,7 @@ Here are a few simple ways to construct a series:
 ```typescript
 import { Series } from "@synnaxlabs/client";
 
-// Construct a series from an array of numbers. In this case, the series will 
+// Construct a series from an array of numbers. In this case, the series will
 // automatically be of type float64.
 const series = new Series([1, 2, 3, 4, 5]);
 
@@ -50,9 +50,9 @@ const series = new Series(new Float32Array([1, 2, 3, 4, 5]));
 // Construct a series from a JSON object. This is useful when you have a series
 // that has been serialized to JSON.
 const series = new Series([
-  { red: "cherry" }, 
-  { yellow: "banana" }, 
-  {orange: "orange" }
+  { red: "cherry" },
+  { yellow: "banana" },
+  { orange: "orange" },
 ]);
 ```
 
@@ -149,7 +149,7 @@ recorded without needing to query an index channel.
 
 The `start` field represents the timestamp for the first sample, and the `end`
 field represents a timestamp just after the last sample (start-inclusive,
-end-exclusive). 
+end-exclusive).
 
 We can also define a time range when constructing the series:
 
@@ -161,7 +161,7 @@ const start = TimeStamp.now();
 const series = new Series({
   data: [1, 2, 3, 4, 5],
   dataType: "float64",
-  timeRange: new TimeRange({ start, end: start.add(TimeSpan.seconds(6)) })
+  timeRange: new TimeRange({ start, end: start.add(TimeSpan.seconds(6)) }),
 });
 ```
 
@@ -210,6 +210,7 @@ console.log(series.bounds); // { lower: 1, upper: 5 }
 
 A frame is a collection of series from multiple channels. Frames are returned
 by
+
 - The `read` method of the Synnax data client (`client.read`)
 - The `read` method of a `Streamer` instance (`client.openStreamer`)
 - The `value` property of an `Iterator` instance (`client.openIterator`)
@@ -224,9 +225,9 @@ import { Frame } from "@synnaxlabs/client";
 
 // Construct a frame for the given channel names.
 const frame = new Frame({
-  "channel1": new Series([1, 2, 3, 4, 5]),
-  "channel2": new Series([5, 4, 3, 2, 1]),
-  "channel3": new Series([1, 1, 1, 1, 1]),
+  channel1: new Series([1, 2, 3, 4, 5]),
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1, 1, 1, 1]),
 });
 
 // Construct a frame for the given channel keys
@@ -238,29 +239,32 @@ const frame = new Frame({
 });
 
 // Construct a frame from a map
-const frame = new Frame(new Map([
-  ["channel1", new Series([1, 2, 3, 4, 5])],
-  ["channel2", new Series([5, 4, 3, 2, 1])],
-  ["channel3", new Series([1, 1, 1, 1, 1])],
-]));
+const frame = new Frame(
+  new Map([
+    ["channel1", new Series([1, 2, 3, 4, 5])],
+    ["channel2", new Series([5, 4, 3, 2, 1])],
+    ["channel3", new Series([1, 1, 1, 1, 1])],
+  ]),
+);
 
 // Or from an array of keys and series
-const frame = new Frame(["channel1", "channel2", "channel3"], [
-  new Series([1, 2, 3, 4, 5]),
-  new Series([5, 4, 3, 2, 1]),
-  new Series([1, 1, 1, 1, 1]),
-]);
-
-// Or construct a frame with multiple series for a single channel
-const frame = new Frame({
-  "channel1": [
+const frame = new Frame(
+  ["channel1", "channel2", "channel3"],
+  [
     new Series([1, 2, 3, 4, 5]),
     new Series([5, 4, 3, 2, 1]),
     new Series([1, 1, 1, 1, 1]),
   ],
-  "channel2": [
+);
+
+// Or construct a frame with multiple series for a single channel
+const frame = new Frame({
+  channel1: [
     new Series([1, 2, 3, 4, 5]),
+    new Series([5, 4, 3, 2, 1]),
+    new Series([1, 1, 1, 1, 1]),
   ],
+  channel2: [new Series([1, 2, 3, 4, 5])],
 });
 ```
 
@@ -277,9 +281,9 @@ instance:
 import { MultiSeries } from "@synnaxlabs/client";
 
 const frame = new Frame({
-  "channel1": [new Series([1, 2]), new Series([3, 4, 5])],
-  "channel2": new Series([5, 4, 3, 2, 1]),
-  "channel3": new Series([1, 1, 1, 1, 1]),
+  channel1: [new Series([1, 2]), new Series([3, 4, 5])],
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1, 1, 1, 1]),
 });
 
 const multiSeries: MultiSeries = frame.get("channel1");
@@ -301,9 +305,9 @@ value for each channel in the frame:
 
 ```typescript
 const frame = new Frame({
-  "channel1": new Series([1, 2, 3, 4, 5]),
-  "channel2": new Series([5, 4, 3, 2, 1]),
-  "channel3": new Series([1, 1]),
+  channel1: new Series([1, 2, 3, 4, 5]),
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1]),
 });
 
 const obj = frame.at(3);
@@ -315,9 +319,9 @@ any of the channels are missing:
 
 ```typescript
 const frame = new Frame({
-  "channel1": new Series([1, 2, 3, 4, 5]),
-  "channel2": new Series([5, 4, 3, 2, 1]),
-  "channel3": new Series([1, 1]),
+  channel1: new Series([1, 2, 3, 4, 5]),
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1]),
 });
 
 const obj = frame.at(3, true); // Throws an error

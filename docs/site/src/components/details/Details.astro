@@ -27,14 +27,19 @@
                 border: none !important;
             }
         }
-        table {
+        .table-wrapper {
             margin: 0.5rem 0 !important;
+            border: none !important;
+        }
+        &:not([open]):active {
+            border-color: var(--pluto-gray-l5);
         }
         summary {
             &::marker {
                 content: none;
             }
             position: relative;
+            cursor: pointer;
 
             p,
             small,

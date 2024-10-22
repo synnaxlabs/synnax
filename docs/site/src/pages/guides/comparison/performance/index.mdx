@@ -1,6 +1,6 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Performance Compared: Synnax vs Timescale vs Influx"
+title: "Performance Compared: Synnax vs. Timescale vs. Influx"
 description: "See how Synnax compares in performance to other time series databases."
 published: "Oct 15, 2024"
 ---
@@ -13,8 +13,11 @@ import { Tabs } from "@/components/Tabs";
 import { StepText } from "@/components/StepText";
 import Details from "@/components/details/Details.astro";
 import Summary from "@/components/details/Summary.astro";
+import { Icon } from "@synnaxlabs/media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
-<Diagram style={{ padding: "20rem" }}>
+<Diagram style={{ padding: "20rem" }} variant="boxes">
   <svg
     width="592"
     height="100"
@@ -178,7 +181,47 @@ such as user analytics.
 
 We'll be comparing the performance of Synnax, Timescale, and Influx across four separate
 tests. The first three tests focus on ingestion performance, while the fourth test focuses
-on read performance.
+on read performance. We'll be running the tests on a single machine with the following
+specifications:
+
+<Table>
+  <tr>
+    <td>
+      <b>Processor</b>
+    </td>
+    <td>12 Core Apple M2 Max</td>
+  </tr>
+  <tr>
+    <td>
+      <b>Memory</b>
+    </td>
+    <td>64GB DDR4</td>
+  </tr>
+  <tr>
+    <td>
+      <b>Storage</b>
+    </td>
+    <td>2TB Apple SSD</td>
+  </tr>
+</Table>
+
+We'll pull the latest open source versions of each database, which, at the time of writing,
+are:
+
+- [Synnax v0.32](reference/cluster/installation?platform=linux)
+- [InfluxDB v2.7.10](https://www.influxdata.com/downloads/)
+- [Timescale v2.17.1](https://github.com/timescale/timescaledb/releases)
+
+### Disclaimer
+
+Performance benchmarks are often controversial, as companies cherry pick workloads
+optimized for their database architecture. **We're doing the same here**. Our goal is to
+illustrate the scenarios in which Synnax shines: high-speed, low-latency data ingestion
+from relatively small numbers of sensors.
+
+That being said, we'll also show where Synnax falls short, and where Timescale and Influx
+are better suited. As always, we recommend running your own benchmarks on workloads
+suitable to your use case - it's the best way to evaluate the performance of a database.
 
 <Divider.Divider direction="x" />
 
@@ -303,7 +346,7 @@ We'll also measure the average memory and CPU usage of each database during the 
 
 <Details>
   {/* prettier-ignore */}
-  <Summary><Text.Text level="small" weight={500}>Tabulated Data - Throughput in Samples/s</Text.Text></Summary>
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Throughput in Samples/s</Text.WithIcon></Summary>
   <Table>
     <tbody>
       <tr>
@@ -386,7 +429,7 @@ of the other two databases.
   <figcaption>Memory Comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes. </figcaption>
 </figure>
 <Details>
-<Summary><Text.Text level="small" weight={500}>Tabulated Data - Memory Usage in GB</Text.Text></Summary>
+<Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory usage in GB</Text.WithIcon></Summary>
 <Table>
   <tbody>
     <tr>
@@ -490,93 +533,94 @@ of the other two databases.
 </figure>
 
 <Details>
-<Summary><Text.Text level="small" weight={500}>Tabulated Data - CPU Usage</Text.Text></Summary>
-<Table>
-  <tbody>
-    <tr>
-      <td>
-        <b>Configuration</b>
-      </td>
-      <td>
-        <b>1</b>
-      </td>
-      <td>
-        <b>2</b>
-      </td>
-      <td>
-        <b>3</b>
-      </td>
-      <td>
-        <b>4</b>
-      </td>
-      <td>
-        <b>5</b>
-      </td>
-      <td>
-        <b>6</b>
-      </td>
-      <td>
-        <b>7</b>
-      </td>
-      <td>
-        <b>8</b>
-      </td>
-      <td>
-        <b>9</b>
-      </td>
-      <td>
-        <b>10</b>
-      </td>
-    </tr>
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - CPU Usage</Text.WithIcon></Summary>
+  <Table>
+    <tbody>
+      <tr>
+        <td>
+          <b>Configuration</b>
+        </td>
+        <td>
+          <b>1</b>
+        </td>
+        <td>
+          <b>2</b>
+        </td>
+        <td>
+          <b>3</b>
+        </td>
+        <td>
+          <b>4</b>
+        </td>
+        <td>
+          <b>5</b>
+        </td>
+        <td>
+          <b>6</b>
+        </td>
+        <td>
+          <b>7</b>
+        </td>
+        <td>
+          <b>8</b>
+        </td>
+        <td>
+          <b>9</b>
+        </td>
+        <td>
+          <b>10</b>
+        </td>
+      </tr>
 
-    <tr>
-      <td>
-        <b>Synnax</b>
-        <td>63%</td>
-        <td>65%</td>
-        <td>67%</td>
-        <td>68%</td>
-        <td>70%</td>
-        <td>72%</td>
-        <td>74%</td>
-        <td>76%</td>
-        <td>78%</td>
-        <td>80%</td>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <b>Timescale</b>
-        <td>25%</td>
-        <td>23%</td>
-        <td>26%</td>
-        <td>25%</td>
-        <td>27%</td>
-        <td>35%</td>
-        <td>50%</td>
-        <td>65%</td>
-        <td>75%</td>
-        <td>83%</td>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <b>Influx</b>
-        <td>47%</td>
-        <td>37%</td>
-        <td>49%</td>
-        <td>48%</td>
-        <td>43%</td>
-        <td>42%</td>
-        <td>86%</td>
-        <td>78%</td>
-        <td>82%</td>
-        <td>83%</td>
-      </td>
-    </tr>
+      <tr>
+        <td>
+          <b>Synnax</b>
+          <td>63%</td>
+          <td>65%</td>
+          <td>67%</td>
+          <td>68%</td>
+          <td>70%</td>
+          <td>72%</td>
+          <td>74%</td>
+          <td>76%</td>
+          <td>78%</td>
+          <td>80%</td>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <b>Timescale</b>
+          <td>25%</td>
+          <td>23%</td>
+          <td>26%</td>
+          <td>25%</td>
+          <td>27%</td>
+          <td>35%</td>
+          <td>50%</td>
+          <td>65%</td>
+          <td>75%</td>
+          <td>83%</td>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <b>Influx</b>
+          <td>47%</td>
+          <td>37%</td>
+          <td>49%</td>
+          <td>48%</td>
+          <td>43%</td>
+          <td>42%</td>
+          <td>86%</td>
+          <td>78%</td>
+          <td>82%</td>
+          <td>83%</td>
+        </td>
+      </tr>
 
-  </tbody>
-</Table>
+    </tbody>
+
+  </Table>
 </Details>
 
 <Divider.Divider direction="x" />
@@ -694,7 +738,7 @@ channels we insert data for.
 
 <Details>
   {/* prettier-ignore */}
-  <Summary><Text.Text level="small" weight={500}>Tabulated Data - Throughput in Samples/s</Text.Text></Summary>
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Throughput in Samples/s</Text.WithIcon></Summary>
 <Table>
   <tbody>
     <tr>
@@ -757,10 +801,10 @@ channels we insert data for.
         <b>Timescale</b>
       </td>
       <td>610K</td>
-      <td>1.73M</td>
-      <td>2.34M</td>
+      <td>1.7M</td>
+      <td>2.3M</td>
       <td>9.4M</td>
-      <td>7.95M</td>
+      <td>7.9M</td>
       <td>15.7M</td>
       <td>18.8M</td>
       <td>28.5M</td>
@@ -789,6 +833,10 @@ channels we insert data for.
 </Table>
 </Details>
 
+At low channel counts, Synnax outperforms both Timescale and Influx by a wide margin. As
+the counts increase past 1000, Synnax's performance begins to degrade, while Timescale and
+Influx remain relatively stable.
+
 ### Memory Usage
 
 <figure>
@@ -803,7 +851,7 @@ channels we insert data for.
 
 <Details>
   {/* prettier-ignore */}
-  <Summary><Text.Text level="small" weight={500}>Tabulated Data - Memory Usage in GB</Text.Text></Summary>
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory Usage in GB</Text.WithIcon></Summary>
 <Table>
   <tbody>
     <tr>
@@ -899,10 +947,6 @@ channels we insert data for.
 
 </Details>
 
-At low channel counts, Synnax outperforms both Timescale and Influx by a wide margin. As
-the counts increase past 1000, Synnax's performance begins to degrade, while Timescale and
-Influx remain relatively stable.
-
 ### CPU Usage
 
 <figure>
@@ -917,7 +961,7 @@ Influx remain relatively stable.
 
 <Details>
   {/* prettier-ignore */}
-  <Summary><Text.Text level="small" weight={500}>Tabulated Data - CPU Usage</Text.Text></Summary>
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - CPU Usage</Text.WithIcon></Summary>
   <Table>
     <tbody>
       <tr>
@@ -986,7 +1030,8 @@ Influx remain relatively stable.
 
 <Divider.Divider direction="x" />
 
-## <StepText level="h2" name="Test" step={3}>One Billion Rows</StepText>
+{/* prettier-ignore */}
+<StepText level="h2" name="Test" step={3}>  One Billion Row Ingestion</StepText>
 
 Inspired by the [1 billion row challenge](https://1brc.dev/), we'll be inserting 1 billion
 rows of data into each database to see how they handle the load.
@@ -994,37 +1039,18 @@ rows of data into each database to see how they handle the load.
 We'll use 50 channels, each with a batch size of 50,000 rows per channel to insert the
 data.
 
-### Results
+<figure>
+  <Image
+    client:only="react"
+    id="guides/comparison/performance/one-billion-row-ingestion"
+    themed={false}
+    style={{ padding: "5rem" }}
+  />
+  {/* prettier-ignore */}
+  <figcaption>Synnax Ingests 1 Billion Rows in 44 seconds, 12x faster than Timescale and 17x faster than Influx.</figcaption>
+</figure>
 
-<Divider.Divider direction="x" />
+## Synnax Architecture
 
-## Methodology
-
-We'll be using the following hardware for our test:
-
-<Table>
-  <tr>
-    <td>
-      <b>Processor</b>
-    </td>
-    <td>12 Core Apple M2 Max</td>
-  </tr>
-  <tr>
-    <td>
-      <b>Memory</b>
-    </td>
-    <td>64GB DDR4</td>
-  </tr>
-  <tr>
-    <td>
-      <b>Storage</b>
-    </td>
-    <td>2TB Apple SSD</td>
-  </tr>
-</Table>
-<Note.Note variant="info">
-  Performance benchmarks are often controversial, as companies choose specific workloads
-  optimized for their database architecture. In our evaluation, we'll be cherry picking
-  a scenario as well. Our goal is to prove that **Synnax is by far the fastest data
-  storage & streaming solution for high-speed hardware sensor data.**
-</Note.Note>
+Why is Synnax so much faster than Timescale and Influx for ingesting large volumes of
+data? The anw

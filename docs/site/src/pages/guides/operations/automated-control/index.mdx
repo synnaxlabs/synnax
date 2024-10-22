@@ -6,11 +6,9 @@ description: "Write a control sequence for pressurizing a tank."
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
 import { Image, Video } from "@/components/Media";
-import Details from "@/components/details/Details.astro";
-import Summary from "@/components/details/Summary.astro";
-export const components = { pre: Code, details: Details, summary: Summary };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 One of the most powerful tools Synnax has to offer is the ability to easily write
 control sequences in Python. These control sequences can be run from a command line to

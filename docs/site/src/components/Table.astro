@@ -8,6 +8,14 @@ const props = Astro.props;
 
 <style>
     .table-wrapper {
+        border: var(--pluto-border);
+        border-radius: 1rem;
+        margin: 3rem 0;
         overflow-x: auto;
+        table > :not(caption) > * {
+            border-width: 1px 0;
+            border-color: var(--pluto-border-color);
+            border-style: solid;
+        }
     }
 </style>

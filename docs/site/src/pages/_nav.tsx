@@ -22,7 +22,7 @@ import { comparisonNav } from "@/pages/guides/comparison/_nav";
 
 export const componentsPages = [
   {
-    name: "Get Started",
+    name: "Reference",
     key: "/reference/",
     href: "/reference/",
   },
@@ -38,7 +38,7 @@ export const componentsPages = [
 
 export const guidesPages = [
   {
-    name: "Get Started",
+    name: "Installation and Setup",
     key: "/guides/",
     href: "/guides/",
   },

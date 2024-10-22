@@ -3,8 +3,9 @@ layout: "@/layouts/Reference.astro"
 title: "Exploratory Analysis in Python"
 description: "Use Python to explore and analyze data in Synnax"
 ---
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 import { Image } from "@/components/Media";
 import { Note } from "@synnaxlabs/pluto";
@@ -24,30 +25,30 @@ than the ones used in this guide.
 
 #### Install the Synnax Console
 
-We're going to use the Synnax Console to plot our data. To install it, follow 
+We're going to use the Synnax Console to plot our data. To install it, follow
 the instructions [here](/reference/console/get-started).
 
 #### Install and authenticate the Python client
 
-Finally, you'll need to make sure you have the `synnax` Python client installed and 
+Finally, you'll need to make sure you have the `synnax` Python client installed and
 authenticated with your cluster. A guide for doing so is available [here](/reference/python-client/get-started).
 
 ## Importing a data set
 
-Our first step is to import a data set into Synnax. We'll be using a sample CSV file 
+Our first step is to import a data set into Synnax. We'll be using a sample CSV file
 we've generated just for this guide. To download it, run the following command:
 
 ```bash
 curl -O https://raw.githubusercontent.com/synnaxlabs/synnax/main/docs/examples/april_9_wetdress.csv
 ```
 
-Next, we'll use the CLI to import our data set into Synnax. To do so, run 
+Next, we'll use the CLI to import our data set into Synnax. To do so, run
 
 ```bash
 synnax ingest april_9_wetdress.csv
 ```
 
-This command will begin an interactive import process that will prompt us with a few 
+This command will begin an interactive import process that will prompt us with a few
 questions:
 
 ```
@@ -78,10 +79,10 @@ The following channels were not found in the database:
 │ ec_tc_1         │
 │ Time            │
 └─────────────────┘
-Would you like to create them? [y/n] (y): 
+Would you like to create them? [y/n] (y):
 ```
 
-We do want to create them, so we'll just hit enter. 
+We do want to create them, so we'll just hit enter.
 
 ```
 Any any channels indexes (e.g. timestamps)? [y/n] (y):
@@ -100,14 +101,14 @@ You can enter 'all' for all channels or a comma-separated list of:
     1) Names (e.g. 'channel1, channel2, channel3')
     2) Channel indices (e.g. '1, 2, 3')
     3) A pattern to match (e.g. 'channel*, sensor*')
-    
-channels: 
+
+channels:
 ```
 
 We'll enter `Time`, and move on to the next step:
 
 ```
-Do all non-indexed channels have the same data rate or index? [y/n] (y): 
+Do all non-indexed channels have the same data rate or index? [y/n] (y):
 ```
 
 This question asks us if our `Time` column represents the timestamps for all of the other
@@ -115,7 +116,7 @@ columns in the data set. In our case, it does, so we'll enter `y` and continue. 
 will then ask us to enter the name of our time column:
 
 ```
-Enter the name of an index or a data rate: 
+Enter the name of an index or a data rate:
 ```
 
 Again, we'll enter `Time` and continue. Then, Synnax will ask us about how we'd like
@@ -130,7 +131,7 @@ Please select an option for assigning data types:
 │ Assign the same data type to all channels (excluding indexes) │
 │ Group channels by data type                                   │
 └───────────────────────────────────────────────────────────────┘
-Select an option # [0/1/2] (0): 
+Select an option # [0/1/2] (0):
 ```
 
 We'll select the first option, which will automatically guess the channel's data types
@@ -138,15 +139,15 @@ from the data in the file. We've now successfully created all of the channels in
 data set.
 
 <Note.Note variant="info">
- The next time we import a data set with the same channels, Synnax will
-automatically detect the channels and skip this process.
+  The next time we import a data set with the same channels, Synnax will automatically
+  detect the channels and skip this process.
 </Note.Note>
 
 Now, Synnax will ask us to confirm the starting timestamp for our data set.
 
 ```
 Identified start timestamp for file as 2023-04-10T12:07:23.662716-04:00.
-Is this correct? [y/n] (y): 
+Is this correct? [y/n] (y):
 ```
 
 This looks right, so we'll hit enter. Finally, Synnax will ask us to name our data set,
@@ -154,7 +155,7 @@ which we'll use to reference it in future steps.
 
 ```
 Please enter a name for the data set
-Name (4_9_wetdress_data_cleaned.csv): 
+Name (4_9_wetdress_data_cleaned.csv):
 ```
 
 We'll enter `April 9 Wetdress` and hit enter. Synnax will then begin importing the data
@@ -166,7 +167,7 @@ set. When it's done, we'll see the following message:
 
 ## Plotting our data set
 
-Now that we've imported our data set, we can use Python to analyze it. We'll create a 
+Now that we've imported our data set, we can use Python to analyze it. We'll create a
 new Python file and instantiate the Synnax client:
 
 ```python
@@ -181,14 +182,14 @@ Next, we'll retrieve the range referencing the data we just imported:
 data = client.ranges.retrieve("April 9 Wetdress")
 ```
 
-`ec_pressure_12` on our data set contains our flowmeter's pressure differential readings 
+`ec_pressure_12` on our data set contains our flowmeter's pressure differential readings
 in psi. To make things easier to work with, we'll alias `ec_pressure_12` to `flow_dp`:
 
 ```python
 data.ec_pressure_12.set_alias("flow_dp")
 ```
 
-Next, we'll filter our data set to only include samples where `flow_dp` is greater than 
+Next, we'll filter our data set to only include samples where `flow_dp` is greater than
 5 psi
 
 ```python
@@ -197,7 +198,7 @@ filtered_dp = data.flow_dp[pressure_mask]
 filtered_time = data.Time[pressure_mask]
 ```
 
-We'll also clean up our `Time` channel to use elapsed seconds instead of unix epoch 
+We'll also clean up our `Time` channel to use elapsed seconds instead of unix epoch
 nanoseconds. We can use the `sy.elapsed_seconds` utility to accomplish this:
 
 ```python
@@ -223,4 +224,8 @@ python plot.py
 
 This will open a window with the following plot:
 
-<Image client:only="react" id="guides/analyst/exploratory-analysis-in-python/filter-results" themed={false} />
+<Image
+  client:only="react"
+  id="guides/analyst/exploratory-analysis-in-python/filter-results"
+  themed={false}
+/>

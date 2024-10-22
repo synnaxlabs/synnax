@@ -4,14 +4,15 @@ title: "Installing Certificates"
 heading: "Installing Certificates"
 description: "Deploying a single node cluster to production"
 ---
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 import { Icon } from "@synnaxlabs/media";
 import { Tabs } from "@/components/Tabs";
 
-This page is a guide on how to efficiently install CA certificates on client machines 
-to enable communication with a cluster using a self-signed certificate. Select your 
+This page is a guide on how to efficiently install CA certificates on client machines
+to enable communication with a cluster using a self-signed certificate. Select your
 operating system below.
 
 <Tabs
@@ -26,12 +27,13 @@ operating system below.
 ## Windows
 
 To start off, you'll need to pull the CA certificate from the cluster. Once you have the
-certificate, you can install it using the `Import-Certificate` command. Note that you 
+certificate, you can install it using the `Import-Certificate` command. Note that you
 may need to open powershell as an administrator to run the command.
 
 ```powershell
 Import-Certificate -FilePath PATH_TO_CA_CRT -CertStoreLocation Cert:\LocalMachine\Root
 ```
+
 </Fragment>
 <Icon.OS.MacOS slot="macos-icon" />
 <Fragment slot="macos">
@@ -44,7 +46,7 @@ access to the cluster, you can use the `scp` command to pull the certificate:
 scp user@cluster:/path/to/ca.crt /tmp/synnax-ca.crt
 ```
 
-Otherwise, you can copy and paste the certificate into a new file. Open a new terminal 
+Otherwise, you can copy and paste the certificate into a new file. Open a new terminal
 and run the following command:
 
 ```bash

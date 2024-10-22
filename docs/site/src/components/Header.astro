@@ -4,6 +4,7 @@ import { Icon, Logo } from "@synnaxlabs/media";
 import Search from "@/components/search/Search.astro";
 import { Button, Text } from "@synnaxlabs/pluto";
 const url = Astro.url.pathname;
+import { ModeSwitch } from "@/components/EnterpriseSwitch";
 ---
 
 <Align.Space className="main-header" justify="center" align="center" el="header" empty>
@@ -51,10 +52,7 @@ const url = Astro.url.pathname;
                     level="h5">Release Notes</Text.Link
                 >
             </Align.Space>
-            <Button.Button size="small">
-                <Icon.Download slot="startIcon" />
-                Download</Button.Button
-            >
+            <ModeSwitch client:only="react" />
         </Align.Space>
     </Align.Space>
 </Align.Space>
@@ -63,10 +61,29 @@ const url = Astro.url.pathname;
     .main-header {
         position: sticky;
         top: 0;
-        background: var(--pluto-gray-l0-70);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: var(--pluto-gray-l0-75);
+        backdrop-filter: blur(3rem);
+        -webkit-backdrop-filter: blur(3rem);
         z-index: 100;
+
+        .mode-switch {
+            border-left: var(--pluto-border);
+            border-right: var(--pluto-border);
+            padding: 0 2rem;
+            height: 5.5rem;
+            button {
+                * {
+                    font-size: var(--pluto-tiny-size);
+                    line-height: var(--pluto-tiny-line-height);
+                    color: var(--pluto-gray-l10) !important;
+                }
+                background: none;
+                &.active {
+                    background: var(--pluto-primary-z-20);
+                    border: 1px solid var(--pluto-primary-z-60);
+                }
+            }
+        }
 
         .top {
             height: 9rem;
@@ -99,14 +116,6 @@ const url = Astro.url.pathname;
                     & text {
                         display: none;
                     }
-                }
-            }
-        }
-
-        @media (max-width: 1100px) {
-            .bottom {
-                .header-content {
-                    justify-content: center !important;
                 }
             }
         }

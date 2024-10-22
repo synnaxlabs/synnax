@@ -52,6 +52,7 @@ const {
         flex-grow: 1;
         margin-bottom: 25rem;
         min-width: 0;
+        min-height: 100vh;
         .article-title {
             width: fit-content;
             text-wrap: balance;
@@ -86,8 +87,8 @@ const {
             }
         }
 
-        @media (max-width: 700px) {
-            padding: 2rem;
+        @media (max-width: 900px) {
+            padding: 5rem 3rem;
         }
 
         .article-title::after {
@@ -109,9 +110,31 @@ const {
         h4,
         h5,
         h6,
-        p,
-        table {
+        p {
             margin: 3rem 0;
+        }
+
+        :is(h1, h2, h3).pluto-text {
+            & a {
+                color: var(--pluto-gray-l7);
+                opacity: 0;
+                margin-left: 2rem;
+                position: relative;
+                transition: all 0.2s;
+                & svg {
+                    position: absolute;
+                    top: 50%;
+                    transform: translateY(-50%);
+                }
+            }
+            &:hover {
+                & a {
+                    opacity: 1;
+                    &:hover {
+                        color: var(--pluto-gray-l9);
+                    }
+                }
+            }
         }
 
         video,
@@ -185,6 +208,47 @@ const {
                 font-weight: 450 !important;
                 line-height: calc(var(--pluto-small-line-height) * 1.2);
             }
+        }
+
+        table > :not(caption) > * > * {
+            position: relative;
+            border-width: 0 1px;
+            padding: 1.25rem 1.5rem;
+        }
+
+        table td {
+            font-size: var(--pluto-small-size);
+            line-height: var(--pluto-small-line-height);
+            vertical-align: baseline;
+        }
+
+        table tr {
+            border-bottom: var(--pluto-border);
+        }
+
+        table thead th {
+            padding: 1.5rem 1.5rem;
+            font-weight: 600;
+        }
+
+        table thead tr {
+            border: none;
+            border-width: 2px;
+        }
+
+        table th {
+            border-bottom: var(--pluto-border);
+            text-align: start;
+        }
+
+        table {
+            table-layout: auto;
+            width: calc(100% - 4px);
+            border-spacing: 0;
+            background: transparent;
+            border-collapse: collapse;
+            overflow-x: auto;
+            border-style: hidden;
         }
     }
 </style>

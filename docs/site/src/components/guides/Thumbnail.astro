@@ -1,0 +1,37 @@
+---
+import { Align, Text } from "@synnaxlabs/pluto";
+const { title, description, class: cn, ...props } = Astro.props;
+---
+
+<Align.Space direction="y" empty className=`guides-thumbnail ${cn}` {...props}>
+    <Align.Space direction="y" justify="center" align="center" grow>
+        <slot />
+    </Align.Space>
+    <Align.Space direction="y" className="header" size="small">
+        <Text.Text level="h4" shade={9}>{title}</Text.Text>
+        <Text.Text level="small" shade={7}>{description}</Text.Text>
+    </Align.Space>
+</Align.Space>
+
+<style is:global>
+    .guides-thumbnail {
+        min-height: 400px;
+        border: var(--pluto-border-l4);
+        box-shadow: var(--pluto-shadow-menu);
+        border-radius: 2rem;
+        overflow: hidden;
+        cursor: pointer;
+        h4,
+        p {
+            margin: 0;
+        }
+        &:active {
+            border-color: var(--pluto-gray-l5);
+        }
+        .header {
+            background: var(--pluto-gray-l1);
+            padding: 4rem 5rem;
+            border-top: var(--pluto-border-l4);
+        }
+    }
+</style>

@@ -50,6 +50,7 @@ const {
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
         import { getVersion } from "@/util/fetchVersion";
+        import { bigint } from "astro:schema";
         const updateVersion = () => {
             getVersion().then((version) => {
                 const versionElement = document.querySelectorAll(".version");
@@ -59,13 +60,28 @@ const {
                 });
             });
         };
+
+        const bindClickHandlersToHeadingAnchors = () => {
+            const anchors = document.querySelectorAll(".heading-anchor");
+            anchors.forEach((anchor) => {
+                anchor.addEventListener("click", () => {
+                    const url = window.location.href;
+                    const newUrl = url.split("#")[0];
+                    const hash = anchor.getAttribute("href");
+                    navigator.clipboard.writeText(newUrl + hash);
+                });
+            });
+        };
+
         updateVersion();
         addCodeButtonListeners();
         startUpdatingIframeHref();
+        bindClickHandlersToHeadingAnchors();
         document.addEventListener("astro:after-swap", () => {
             updateVersion();
             addCodeButtonListeners();
             startUpdatingIframeHref();
+            bindClickHandlersToHeadingAnchors();
         });
     </script>
 
@@ -402,7 +418,7 @@ const {
             --pluto-dark-text-on-primary: #d5d5d5;
             --pluto-dark-border-color: #191919;
 
-            --pluto-text-on-primary: #ededed;
+            --pluto-text-on-primary: var(--pluto-gray-l10);
 
             @media (prefers-color-scheme: dark) {
                 --pluto-primary-m1: #164fa0;
@@ -689,7 +705,7 @@ const {
                 --pluto-black-rgb: 0, 0, 0;
                 --pluto-text-color: #d5d5d5;
                 --pluto-text-color-rgb: 213, 213, 213;
-                --pluto-text-on-primary: #d5d5d5;
+                --pluto-text-on-primary: var(--pluto-gray-l10);
                 --pluto-border-color: #191919;
                 --pluto-theme-name: Synnax Dark;
                 --pluto-theme-key: synnax-dark;
@@ -1078,67 +1094,6 @@ const {
 
         li {
             font-size: var(--pluto-p-size);
-        }
-
-        summary {
-            width: max-content;
-
-            &::marker {
-                color: var(--pluto-text-color);
-                font-family: var(--pluto-font-family);
-                font-size: var(--pluto-p-size);
-            }
-
-            &:hover {
-                cursor: pointer;
-            }
-        }
-
-        table > :not(caption) > * {
-            border-width: 1px 0;
-            border-color: var(--pluto-border-color);
-            border-style: solid;
-        }
-
-        table > :not(caption) > * > * {
-            position: relative;
-            border-width: 0 1px;
-            padding: 1.25rem 1.5rem;
-        }
-
-        table td {
-            font-size: var(--pluto-small-size);
-            line-height: var(--pluto-small-line-height);
-            vertical-align: baseline;
-        }
-
-        table tr {
-            border-bottom: var(--pluto-border);
-        }
-
-        table thead th {
-            padding: 1.5rem 1.5rem;
-            font-weight: 600;
-        }
-
-        table thead tr {
-            border: none;
-            border-width: 2px;
-        }
-
-        table th {
-            border-bottom: var(--pluto-border);
-            text-align: start;
-        }
-
-        table {
-            table-layout: auto;
-            width: calc(100% - 4px);
-            border-spacing: 0;
-            background: transparent;
-            border-collapse: collapse;
-            overflow-x: auto;
-            border-style: hidden;
         }
     </style>
 </html>

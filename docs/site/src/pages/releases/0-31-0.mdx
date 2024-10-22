@@ -8,8 +8,8 @@ import Diagram from "@/components/Diagram.astro";
     title="User Registration & Access Control"
 >
 
-<Diagram preview>
-<Image client:only="react" id="releases/0-31-0/thumbnail" />
+<Diagram variant="preview">
+  <Image client:only="react" id="releases/0-31-0/thumbnail" />
 </Diagram>
 
 ### Summary
@@ -19,8 +19,9 @@ import Diagram from "@/components/Diagram.astro";
 Synnax version 0.31 introduces long awaited user registration and access control features.
 You can now register users via the [command palette](/reference/console/ui-overview#search-and-command-palette).
 Once registered, one of two permissions can be granted to a user: admin and schematic edit.
-- **Admin** users have the permission to perform any task, including registering, removing, 
-and changing the permissions of other users. 
+
+- **Admin** users have the permission to perform any task, including registering, removing,
+  and changing the permissions of other users.
 - **Schematic edit** defines whether a user is allowed to create and edit schematics.
 
 These two permission sets are the first of many to come.

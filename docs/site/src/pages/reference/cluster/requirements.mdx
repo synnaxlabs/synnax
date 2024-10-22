@@ -7,9 +7,10 @@ nextURL: "/reference/cluster/cli-reference"
 prev: "Production"
 prevURL: "/reference/cluster/production"
 ---
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
-import { Divider } from "@synnaxlabs/pluto"
+
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+import { Divider } from "@synnaxlabs/pluto";
 
 This page lists the hardware and software requirements for deploying a Synnax
 cluster.
@@ -39,36 +40,36 @@ following table provides bare minimum requirements for testing as well as a
 recommended minimum configuration for production.
 
 <table>
-    <thead>
-        <th>Specification</th>
-        <th>Minimum</th>
-        <th>Recomendation</th>
-    </thead>
-    <tbody>
-        <tr>
-            <td>CPU (# Cores)</td>
-            <td>2</td>
-            <td>4</td>
-        </tr>
-        <tr>
-            <td>Memory per CPU (GB)</td>
-            <td>2</td>
-            <td>4</td>
-        </tr>
-        <tr>
-            <td>Storage per CPU (GB)</td>
-            <td>50</td>
-            <td>320</td>
-        </tr>
-        <tr>
-            <td>Storage Throughput (IOPS) </td>
-            <td>100</td>
-            <td>500</td>
-        </tr>
-        <tr>
-            <td>Storage Throughput (MB/s)</td>
-            <td>20</td>
-            <td>100</td>
-        </tr>
-    </tbody>
+  <thead>
+    <th>Specification</th>
+    <th>Minimum</th>
+    <th>Recomendation</th>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CPU (# Cores)</td>
+      <td>2</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <td>Memory per CPU (GB)</td>
+      <td>2</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <td>Storage per CPU (GB)</td>
+      <td>50</td>
+      <td>320</td>
+    </tr>
+    <tr>
+      <td>Storage Throughput (IOPS) </td>
+      <td>100</td>
+      <td>500</td>
+    </tr>
+    <tr>
+      <td>Storage Throughput (MB/s)</td>
+      <td>20</td>
+      <td>100</td>
+    </tr>
+  </tbody>
 </table>

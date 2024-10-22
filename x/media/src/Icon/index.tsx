@@ -29,7 +29,7 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiLinkExternal, BiRename } from "react-icons/bi";
-import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import { BsLightbulbFill, BsShiftFill, BsTable } from "react-icons/bs";
 import {
   FaAlignCenter,
   FaAlignLeft,
@@ -330,7 +330,7 @@ export const Icon: IconType = {
   Sync: wrapIcon(AiOutlineSync, "sync"),
   Search: wrapIcon(PiMagnifyingGlassBold, "search"),
   Auto: wrapIcon(MdAutoAwesome, "auto"),
-  Table: wrapIcon(MdOutlineTableRows, "table"),
+  Table: wrapIcon(BsTable, "table"),
   Align: {
     Right: wrapIcon(MdAlignHorizontalRight, "align-right"),
     Left: wrapIcon(MdAlignHorizontalLeft, "align-left"),

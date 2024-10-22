@@ -5,8 +5,9 @@ description: "Manage Synnax using a systemd service."
 prev: "CLI Reference"
 prevURL: "/reference/cluster/cli-reference"
 ---
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Using a systemd service is a great way to manage a Synnax node. Here is an
 example service file (typically kept in `/lib/systemd/system/synnax/service`):
@@ -30,5 +31,5 @@ ExecStart = /home/synnax/synnax --listen="localhost:9090"
 WantedBy = multi-user.target
 ```
 
-{/*This page could have a little bit more added to it. Why do we want to use a
-systemd service, important things in the service file, etc.*/}
+{/_This page could have a little bit more added to it. Why do we want to use a
+systemd service, important things in the service file, etc._/}

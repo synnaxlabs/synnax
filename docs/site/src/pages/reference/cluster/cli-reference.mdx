@@ -7,16 +7,17 @@ nextURL: "/reference/cluster/systemd-service"
 prev: "Requirements"
 prevURL: "/reference/cluster/requirements"
 ---
-import { Divider } from "@synnaxlabs/pluto"
+
+import { Divider } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
-import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 import { Table } from "@/components/Table";
 import { Tabs } from "@/components/Tabs";
 
 <Divider.Divider direction="x" />
 
-## Start 
+## Start
 
 The `start` command starts a node in a Synnax cluster, bootstrapping a new cluster if
 necessary.
@@ -25,7 +26,7 @@ necessary.
 
 #### Starting a single-node cluster
 
-We can use the `i` and `m` flags to start a single node in insecure mode with an 
+We can use the `i` and `m` flags to start a single node in insecure mode with an
 in-memory data store:
 
 ```cmd
@@ -34,7 +35,7 @@ synnax start -l localhost:9090 -im
 
 #### Joining a node to an existing cluster
 
-We can use the `p` flag to join a node to an existing cluster. If the node has no 
+We can use the `p` flag to join a node to an existing cluster. If the node has no
 existing cluster data, it will attempt to join the cluster by repeatedly contacting
 each peer in the list until successful:
 
@@ -45,211 +46,215 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
 ### Flags
 
 <Table
-    columns={[
-        {
-            key: "option",
-            name: "Flag",
-            type: "code",
-            width: 150,
-        },
-        { key: "default", name: "Default", type: "code" },
-        { key: "description", name: "Description", type: "html"} 
-    ]}
-    data={[
-        {
-            option: "--listen/-l",
-            default: "localhost:9090",
-            description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes. This
+  columns={[
+    {
+      key: "option",
+      name: "Flag",
+      type: "code",
+      width: 150,
+    },
+    { key: "default", name: "Default", type: "code" },
+    { key: "description", name: "Description", type: "html" },
+  ]}
+  data={[
+    {
+      option: "--listen/-l",
+      default: "localhost:9090",
+      description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes. This
                 is also the address and port that will be advertised to peers in the cluster.`,
-        },
-        {
-            option: "--peers/-p",
-            default: "[]",
-            description: `A list of comma separated peer nodes in an existing cluster. If this list is not empty, the node will
+    },
+    {
+      option: "--peers/-p",
+      default: "[]",
+      description: `A list of comma separated peer nodes in an existing cluster. If this list is not empty, the node will
             attempt to join the cluster by connecting to each peer in the list. If the list is empty and no existing cluster
             data is found, the node will bootstrap a new cluster.`,
-        },
-        {
-            option: "--data/-d",
-            default: "/usr/local/synnax/data",
-            description:
-                "The file path to the storage device where Synnax will keep its data.",
-        },
-        {
-            option: "--verbose/-v",
-            default: "false",
-            description: "Enables human-readable logging.",
-        },
-        {
-            option: "--insecure/-i",
-            default: "false",
-            description:
-                "Starts the node without TLS encryption. This is not recommended for production use.",
-        },
-        {
-            option: "--mem/-m",
-            default: "false",
-            description:
-                `Starts the node with an in-memory data store. In this mode, all data will
+    },
+    {
+      option: "--data/-d",
+      default: "/usr/local/synnax/data",
+      description:
+        "The file path to the storage device where Synnax will keep its data.",
+    },
+    {
+      option: "--verbose/-v",
+      default: "false",
+      description: "Enables human-readable logging.",
+    },
+    {
+      option: "--insecure/-i",
+      default: "false",
+      description:
+        "Starts the node without TLS encryption. This is not recommended for production use.",
+    },
+    {
+      option: "--mem/-m",
+      default: "false",
+      description: `Starts the node with an in-memory data store. In this mode, all data will
                 kept in memory, will not be stored on disk, and will be lost when the node is
                 restarted. This can be useful for testing and development, but is not recommended
                 for production use.`,
-        },
-        {
-            option: "--config/c",
-            default: "~/.synnax.yaml",
-            description: `Path to a JSON, YAML, or TOML configuration file that can
+    },
+    {
+      option: "--config/c",
+      default: "~/.synnax.yaml",
+      description: `Path to a JSON, YAML, or TOML configuration file that can
                 be used to set the node's configuration instead of using flags or environment variables.
                 See <a href="#configuration-files">Configuration Files</a> for more information.`,
-        },
-        {
-            option: "--certs-dir",
-            default: "/usr/local/synnax/certs",
-            description:
-                "Path to the directory containing the TLS certificates for the node.",
-        },
-        {
-            option: "--ca-cert",
-            default: "ca.crt",
-            description: "Path to the CA certificate file relative to the certs-dir.",
-        },
-        {
-            option: "--node-cert",
-            default: "node.crt",
-            description: "Path to the node certificate file relative to the certs-dir.",
-        },
-        {
-            option: "--node-key",
-            default: "node.key",
-            description: "Path to the node key file relative to the certs-dir.",
-        },
-        {
-            option: "--username",
-            default: "synnax",
-            description: "Username for the database root user."
-        },
-        {
-            option: "--password",
-            default: "seldon",
-            description: "Password for the database root user.",
-        },
-        {
-            option: "--license-key",
-            default: "\"\"",
-            description: "License key to use Synnax outside of demo mode.",
-        },
-        {
-            option: "--debug",
-            default: "false",
-            description: "Enables debug logging output. We recommend against using this in production, as it generates a very large amount of output.",
-        },
-        {
-            option: "--slow-consumer-timeout",
-            default: "2.5s",
-            description: "The duration after which a telemetry streamer will be closed by the server if it stops receiving messages. It's rarely necessary to change this value."
-        },
-        {
-            option: "--no-driver",
-            default: "false",
-            description: "Disables the driver for the Synnax database. This is useful when you want to run Synnax as a standalone server without any device integration."
-        },
-        {
-            option: "--disable-integrations",
-            default: "\"\"",
-            description: "Comma separated list of device integrations to disable. This is useful when you don't want particular integrations."   
-        },
-        {
-            option: "--enable-integrations",
-            default: "ni,opc",
-            description: "Comma separated list of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default."
-        }
-    ]}
+    },
+    {
+      option: "--certs-dir",
+      default: "/usr/local/synnax/certs",
+      description:
+        "Path to the directory containing the TLS certificates for the node.",
+    },
+    {
+      option: "--ca-cert",
+      default: "ca.crt",
+      description: "Path to the CA certificate file relative to the certs-dir.",
+    },
+    {
+      option: "--node-cert",
+      default: "node.crt",
+      description: "Path to the node certificate file relative to the certs-dir.",
+    },
+    {
+      option: "--node-key",
+      default: "node.key",
+      description: "Path to the node key file relative to the certs-dir.",
+    },
+    {
+      option: "--username",
+      default: "synnax",
+      description: "Username for the database root user.",
+    },
+    {
+      option: "--password",
+      default: "seldon",
+      description: "Password for the database root user.",
+    },
+    {
+      option: "--license-key",
+      default: '""',
+      description: "License key to use Synnax outside of demo mode.",
+    },
+    {
+      option: "--debug",
+      default: "false",
+      description:
+        "Enables debug logging output. We recommend against using this in production, as it generates a very large amount of output.",
+    },
+    {
+      option: "--slow-consumer-timeout",
+      default: "2.5s",
+      description:
+        "The duration after which a telemetry streamer will be closed by the server if it stops receiving messages. It's rarely necessary to change this value.",
+    },
+    {
+      option: "--no-driver",
+      default: "false",
+      description:
+        "Disables the driver for the Synnax database. This is useful when you want to run Synnax as a standalone server without any device integration.",
+    },
+    {
+      option: "--disable-integrations",
+      default: '""',
+      description:
+        "Comma separated list of device integrations to disable. This is useful when you don't want particular integrations.",
+    },
+    {
+      option: "--enable-integrations",
+      default: "ni,opc",
+      description:
+        "Comma separated list of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default.",
+    },
+  ]}
 />
 
 ### Environment Variable Equivalents
 
-The following environment variables can be used in place of the corresponding flags. 
+The following environment variables can be used in place of the corresponding flags.
 Command line flags will take precedence over environment variables.
 
 <Table
-    columns={[
-        {
-            key: "option",
-            name: "Flag",
-            type: "code",
-        },
-        {
-            key: "env",
-            name: "Environment Variable",
-            type: "code",
-        },
-    ]}
-    data={[
-        {
-            option: "--listen/-l",
-            env: "SYNNAX_LISTEN",
-        },
-        {
-            option: "--peers/-p",
-            env: "SYNNAX_PEERS",
-        },
-        {
-            option: "--data/-d",
-            env: "SYNNAX_DATA",
-        },
-        {
-            option: "--verbose/-v",
-            env: "SYNNAX_VERBOSE",
-        },
-        {
-            option: "--insecure/-i",
-            env: "SYNNAX_INSECURE",
-        },
-        {
-            option: "--mem/-m",
-            env: "SYNNAX_MEM",
-        },
-        {
-            option: "--config/c",
-            env: "SYNNAX_CONFIG",
-        },
-        {
-            option: "--certs-dir",
-            env: "SYNNAX_CERTS_DIR",
-        },
-        {
-            option: "--ca-cert",
-            env: "SYNNAX_CA_CERT",
-        },
-        {
-            option: "--node-cert",
-            env: "SYNNAX_NODE_CERT",
-        },
-        {
-            option: "--node-key",
-            env: "SYNNAX_NODE_KEY",
-        },
-        {
-            option: "--username",
-            env: "SYNNAX_USERNAME",
-        },
-        {
-            option: "--password",
-            env: "SYNNAX_PASSWORD",
-        },
-        {
-            option: "--license-key",
-            env: "SYNNAX_LICENSE_KEY",
-        },
-        {
-            option: "--debug",
-            env: "SYNNAX_DEBUG",
-        },
-        {
-            option: "--slow-consumer-timeout",
-            env: "SYNNAX_SLOW_CONSUMER_TIMEOUT",
-        }
-    ]}
+  columns={[
+    {
+      key: "option",
+      name: "Flag",
+      type: "code",
+    },
+    {
+      key: "env",
+      name: "Environment Variable",
+      type: "code",
+    },
+  ]}
+  data={[
+    {
+      option: "--listen/-l",
+      env: "SYNNAX_LISTEN",
+    },
+    {
+      option: "--peers/-p",
+      env: "SYNNAX_PEERS",
+    },
+    {
+      option: "--data/-d",
+      env: "SYNNAX_DATA",
+    },
+    {
+      option: "--verbose/-v",
+      env: "SYNNAX_VERBOSE",
+    },
+    {
+      option: "--insecure/-i",
+      env: "SYNNAX_INSECURE",
+    },
+    {
+      option: "--mem/-m",
+      env: "SYNNAX_MEM",
+    },
+    {
+      option: "--config/c",
+      env: "SYNNAX_CONFIG",
+    },
+    {
+      option: "--certs-dir",
+      env: "SYNNAX_CERTS_DIR",
+    },
+    {
+      option: "--ca-cert",
+      env: "SYNNAX_CA_CERT",
+    },
+    {
+      option: "--node-cert",
+      env: "SYNNAX_NODE_CERT",
+    },
+    {
+      option: "--node-key",
+      env: "SYNNAX_NODE_KEY",
+    },
+    {
+      option: "--username",
+      env: "SYNNAX_USERNAME",
+    },
+    {
+      option: "--password",
+      env: "SYNNAX_PASSWORD",
+    },
+    {
+      option: "--license-key",
+      env: "SYNNAX_LICENSE_KEY",
+    },
+    {
+      option: "--debug",
+      env: "SYNNAX_DEBUG",
+    },
+    {
+      option: "--slow-consumer-timeout",
+      env: "SYNNAX_SLOW_CONSUMER_TIMEOUT",
+    },
+  ]}
 />
 
 ### Configuration Files
@@ -365,5 +370,5 @@ You'll see output similar to the following:
 
 This command has no flags.
 
-{/*Should we add information about the `cert`, `completion`, and `help`
-commands?*/}
+{/_Should we add information about the `cert`, `completion`, and `help`
+commands?_/}

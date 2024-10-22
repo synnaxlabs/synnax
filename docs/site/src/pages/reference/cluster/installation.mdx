@@ -7,10 +7,11 @@ nextURL: "/reference/cluster/production"
 prev: "Quick Start"
 prevURL: "/reference/cluster/quick-start"
 ---
+
 import { Note } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
-import { PlatformTabs } from "@/components/platform/PlatformTabs"
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+import { PlatformTabs } from "@/components/platform/PlatformTabs";
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
@@ -18,7 +19,7 @@ import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
 This page will walk you through how to install the Synnax binary on Windows,
 MacOS, and Linux. To get started, select your operating system below:
 
-{/*Mention Docker up there^?*/}
+{/* Mention Docker up there^? */}
 
 <PlatformTabs
     priority={["linux", "macos", "windows"]}
@@ -35,7 +36,7 @@ Installing Synnax via Docker is as easy as running `docker pull` with the latest
 docker pull synnaxlabs/synnax:latest
 ```
 
-{/*Add more to this section? Like a verify Synnax version output?*/}
+{/* Add more to this section? Like a verify Synnax version output? */}
 
 </Fragment>
 
@@ -46,7 +47,7 @@ docker pull synnaxlabs/synnax:latest
 To install Synnax on a Linux distribution, run the following command to download the latest
 binary:
 
-<SynnaxDownloadURL os="linux"  />
+<SynnaxDownloadURL os="linux" />
 
 We recommend you move the binary into a directory that is in your `PATH`. Most of our users
 use `/usr/local/bin`:
@@ -86,6 +87,7 @@ mv /usr/local/bin/synnax /usr/local/bin/synnax-server
 ```
 
 Then, you can run the binary using `synnax-server` instead of `synnax`.
+
 </Note.Note>
 
 Next, give execution permissions to the binary:
@@ -116,7 +118,7 @@ You should see the following output:
 To install Synnax on MacOS, run the following command to download the latest
 binary:
 
-<SynnaxDownloadURL os="macos"  />
+<SynnaxDownloadURL os="macos" />
 
 We recommend you move the binary into a directory that is in your `PATH`. Most
 of our users use `/usr/local/bin`:
@@ -150,6 +152,7 @@ mv /usr/local/bin/synnax /usr/local/bin/synnax-server
 ```
 
 Then, you can run the binary using `synnax-server` instead of `synnax`.
+
 </Note.Note>
 
 Next, give execution permissions to the binary:
@@ -182,9 +185,10 @@ To install Synnax on Windows, download the latest binary from the following link
 <SynnaxDownloadURL os="windows" />
 
 <Note.Note variant="info">
-We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable,
-which will allow you to execute synnax commands from any shell. See [Microsoft's Environment Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
-documentation for more.
+  We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which
+  will allow you to execute synnax commands from any shell. See [Microsoft's Environment
+  Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
+  documentation for more.
 </Note.Note>
 
 If any previous versions of Synnax are installed and available on your `PATH`,
@@ -201,6 +205,7 @@ Move-Item $env:appdata/synnax/synnax.exe $env:appdata/synnax/synnax-server.exe
 ```
 
 Then, you can run the binary using `synnax-server` instead of `synnax`.
+
 </Note.Note>
 
 To verify that the installation was successful, run:

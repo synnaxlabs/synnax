@@ -7,9 +7,10 @@ nextURL: "/reference/python-client/read-data"
 prev: "Channels"
 prevURL: "/reference/python-client/channels"
 ---
-import { Divider, Note } from "@synnaxlabs/pluto"
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Ranges identify specific periods of time with a name. We can use the Python client to
 read from, write to, and attach metadata to these ranges.
@@ -27,7 +28,7 @@ from datetime import datetime
 time_format = "%Y-%m-%d %H:%M:%S"
 
 my_range = client.ranges.create(
-    # This name does not need to be unique, but it's a good idea to 
+    # This name does not need to be unique, but it's a good idea to
     # pick something that will be easy to identify later.
     name="My Range",
     time_range=sy.TimeRange(
@@ -37,7 +38,7 @@ my_range = client.ranges.create(
 )
 ```
 
-Synnax will automatically generate a unique identifier for the range. 
+Synnax will automatically generate a unique identifier for the range.
 
 ### Only Create a Range if it Doesn't Exist
 
@@ -168,11 +169,12 @@ We can now access the channel using its alias:
 ```python
 burst_test.tank_pressure
 ```
-Subsequent calls to `set_alias` will overwrite the previous alias. 
+
+Subsequent calls to `set_alias` will overwrite the previous alias.
 
 <Note.Note variant="warning">
-Aliases are only valid within the context of a particular range. If you try to access an
-aliased channel outside of the range, Synnax will not be able to find it.
+  Aliases are only valid within the context of a particular range. If you try to access
+  an aliased channel outside of the range, Synnax will not be able to find it.
 </Note.Note>
 
 <Divider.Divider direction="x" />
@@ -203,8 +205,8 @@ burst_test.meta_data.set({
 ```
 
 <Note.Note variant="info">
-All metadata values are stored as strings. It's up to you to correctly cast the values
-to the appropriate type.
+  All metadata values are stored as strings. It's up to you to correctly cast the values
+  to the appropriate type.
 </Note.Note>
 
 ### Getting Metadata
@@ -220,7 +222,7 @@ part_number = burst_test.meta_data.get("part_number")
 # Another way to retrieve a single key
 part_number = burst_test.meta_data["part_number"]
 ```
- 
+
 ### Deleting Metadata
 
 We can delete metadata using the `delete` method:
@@ -250,7 +252,7 @@ client.ranges.delete(my_range.key)
 ```
 
 <Note.Note variant="info">
-Deleting a range by name will delete _all_ ranges with that name. Be careful!
+  Deleting a range by name will delete _all_ ranges with that name. Be careful!
 </Note.Note>
 
 We can delete multiple ranges by passing a list of names or keys to the `delete` method:

@@ -14,8 +14,8 @@ import { Divider, Note } from "@synnaxlabs/pluto";
 import Table from "@/components/Table.astro";
 import Diagram from "@/components/Diagram.astro";
 import Rule from "@/components/Rule.astro";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 This page documents the high-level process of writing data to a cluster, including
 transactions, streaming/persistence modes, and dynamic control handoff. This page is a
@@ -32,10 +32,10 @@ batches are called [frames](/reference/concepts/frames-and-series). The primary 
 for writing these frames is, unsurprisingly, a **writer**. Writers are analogous to pipes
 that continuously feed a cluster with frames of data for one or more channels.
 
-When ingesting historical data, it's common to quickly write many large frames of 
-previously recorded values. These frames can contain tens of thousands to millions of 
-samples. In real-time acquisition scenarios, frames are typically much smaller, 
-containing one to a few dozen samples per channels. These small frames  are repeatedly
+When ingesting historical data, it's common to quickly write many large frames of
+previously recorded values. These frames can contain tens of thousands to millions of
+samples. In real-time acquisition scenarios, frames are typically much smaller,
+containing one to a few dozen samples per channels. These small frames are repeatedly
 written over long periods of time.
 
 ### How writers are used in Synnax
@@ -46,7 +46,7 @@ sensor values from a device. Another writer can send control commands to a devic
 actuators connected to it.
 
 <Diagram>
-  <Image 
+  <Image
     client:only="react"
     id="concepts/writes/writer"
     extension="svg"
@@ -57,9 +57,7 @@ actuators connected to it.
 Internally, [schematics](/reference/console/schematics) within the Synnax [console](/reference/console/get-started)
 use writers to send commands to actuators when a user clicks on a valve or other control element.
 
-
 <Divider.Divider direction="x" />
-
 
 ## Transactions
 
@@ -230,7 +228,7 @@ mode for a writer.
 ### Rule 1
 
 <Rule title="Rule 1">
-Index channels must be written to before or when writing to a data channel.
+  Index channels must be written to before or when writing to a data channel.
 </Rule>
 
 #### Example 1 - Writing to an Index and Data Channel at the Same Time
@@ -255,12 +253,13 @@ temperature = {
 
 When we write to both the `time` and `temperature` channels, we must provide timestamps
 for the time channel in the same frame as the temperature channel. This frame is
+
 <b style="color: var(--pluto-secondary-z);">valid</b>.
 
 ```json
 {
   "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
-  "temperature": [19.17, 19.18, 19.19],
+  "temperature": [19.17, 19.18, 19.19]
 }
 ```
 
@@ -270,7 +269,7 @@ If we try to write to the `temperature` channel without providing timestamps for
 ```json
 {
   // The time channel is missing.
-  "temperature": [19.17, 19.18, 19.19],
+  "temperature": [19.17, 19.18, 19.19]
 }
 ```
 
@@ -281,26 +280,26 @@ a writer on the `time` channel. We write the following frame:
 
 ```json
 {
-  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
+  "time": [1677433720770863800, 1677433720970863400, 1677433721270868900]
 }
 ```
 
 This frame is <b style="color: var(--pluto-secondary-z);">valid</b> because we're only
 writing to the `time` channel. Now, we open a writer on the `temperature` channel, marking
-its `start` timestamp as `1677433720770863800`. This frame would be <b style="color: var(--pluto-secondary-z);">valid</b> 
+its `start` timestamp as `1677433720770863800`. This frame would be <b style="color: var(--pluto-secondary-z);">valid</b>
 because we've already written timestamps to the `time` channel.
 
 ```json
 {
   // Timestamps already exist for each of the following readings.
-  "temperature": [19.17, 19.18, 19.19],
+  "temperature": [19.17, 19.18, 19.19]
 }
 ```
 
 <Note.Note variant="info">
-This example is useful for understanding scenarios where you're interested in 
-calculating values from one or more data channels, and writing the results to a new
-data channel indexed by the same timestamps.
+  This example is useful for understanding scenarios where you're interested in
+  calculating values from one or more data channels, and writing the results to a new
+  data channel indexed by the same timestamps.
 </Note.Note>
 
 #### Example 3 - Writing to a Data Channel Before an Index Channel
@@ -312,14 +311,14 @@ because no timestamps exist to associate with the temperature samples.
 ```json
 {
   // Synnax has no way of relating these samples to a timestamp!
-  "temperature": [19.17, 19.18, 19.19],
+  "temperature": [19.17, 19.18, 19.19]
 }
 ```
 
 ### Rule 2
 
 <Rule title="Rule 2">
-Data channels for an index must have the same number of samples.
+  Data channels for an index must have the same number of samples.
 </Rule>
 
 #### Example 1
@@ -350,19 +349,21 @@ pressure = {
 }
 ```
 
-When we open a writer on all three channels, we must write frames that contain the 
-same number of samples for each channel. For example, this frame is 
+When we open a writer on all three channels, we must write frames that contain the
+same number of samples for each channel. For example, this frame is
+
 <b style="color: var(--pluto-secondary-z);">valid</b>.
 
 ```json
 {
   "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
   "temperature": [19.17, 19.18, 19.19],
-  "pressure": [16.22, 17.22],
+  "pressure": [16.22, 17.22]
 }
 ```
 
 Omitting a sample from the `pressure` channel would violate Rule 2. This frame is
+
 <b style="color: var(--pluto-error-z);">invalid</b>.
 
 ```json
@@ -370,30 +371,29 @@ Omitting a sample from the `pressure` channel would violate Rule 2. This frame i
   "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
   "temperature": [19.17, 19.18, 19.19],
   // This series is missing a sample.
-  "pressure": [16.22, 17.22],
+  "pressure": [16.22, 17.22]
 }
 ```
 
 Entirely omitting a channel from the frame would also violate Rule 2. This frame is
+
 <b style="color: var(--pluto-error-z);">invalid</b>.
 
 ```json
 {
   "time": [1677433720770863800, 1677433720970863400, 1677433721270868900],
-  "temperature": [19.17, 19.18, 19.19],
+  "temperature": [19.17, 19.18, 19.19]
   // The pressure channel is missing.
 }
-``` 
+```
 
 ### Rule 3
 
-<Rule title="Rule 3">
-Rules 1 and 2 do not apply to virtual channels.
-</Rule>
+<Rule title="Rule 3">Rules 1 and 2 do not apply to virtual channels.</Rule>
 
 As [virtual channels](/reference/concepts/channels#virtual-channels)
 do not store data, they have far more flexibility in how they can be
-written to. They do not require timestamps, and as a result do not need to be 
+written to. They do not require timestamps, and as a result do not need to be
 associated with an index. Write to them whenever and however you like!
 
 <Divider.Divider direction="x" />
@@ -404,20 +404,18 @@ While these rules are subtle, they have a few important implications.
 
 ### Implication 1
 
-<Rule title="Implication 1">  
-All channels that share the same index must be sampled at the same rate.
+<Rule title="Implication 1">
+  All channels that share the same index must be sampled at the same rate.
 </Rule>
 
-If you have a temperature and pressure sensor that are recorded by different 
-devices. The first device records temperature at 10Hz, while the second records pressure 
-at 25Hz. Pressure and temperature samples will not always share the same timestamp, and 
+If you have a temperature and pressure sensor that are recorded by different
+devices. The first device records temperature at 10Hz, while the second records pressure
+at 25Hz. Pressure and temperature samples will not always share the same timestamp, and
 by consequence cannot share the same index.
 
 ### Implication 2
 
-<Rule>
-Command channels almost always require separate indexes.
-</Rule>
+<Rule>Command channels almost always require separate indexes.</Rule>
 
 Channels that are used to send commands to actuators are typically used quite differently
 to channels that record from sensors. It's common for a single device to sample from many
