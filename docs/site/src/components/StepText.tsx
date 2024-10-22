@@ -11,10 +11,16 @@ import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto/text";
 
 export interface StepTextProps extends Text.TextProps {
+  name?: string;
   step: string | number;
 }
 
-export const StepText = ({ step, children, ...props }: StepTextProps) => (
+export const StepText = ({
+  step,
+  name = "Step",
+  children,
+  ...props
+}: StepTextProps) => (
   <Text.Text {...props}>
     <span
       style={{
@@ -23,7 +29,7 @@ export const StepText = ({ step, children, ...props }: StepTextProps) => (
         alignItems: "center",
       }}
     >
-      Step {step} <Icon.Arrow.Right style={{ margin: "0 1rem" }} />
+      {name} {step} <Icon.Arrow.Right style={{ margin: "0 1rem" }} />
     </span>
     {children}
   </Text.Text>

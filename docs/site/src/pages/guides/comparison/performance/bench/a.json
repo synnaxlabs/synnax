@@ -1,0 +1,112 @@
+{
+  'read': '2024-10-21T16:58:51.804759961Z',
+  'preread': '2024-10-21T16:58:50.799101752Z',
+  'pids_stats': {
+    'current': 27,
+    'limit': 18446744073709551615
+  },
+  'blkio_stats': {
+    'io_service_bytes_recursive': [
+      {
+        'major': 254,
+        'minor': 0,
+        'op': 'read',
+        'value': 1085440
+      },
+      {
+        'major': 254,
+        'minor': 0,
+        'op': 'write',
+        'value': 761856
+      }
+    ],
+    'io_serviced_recursive': None,
+    'io_queue_recursive': None,
+    'io_service_time_recursive': None,
+    'io_wait_time_recursive': None,
+    'io_merged_recursive': None,
+    'io_time_recursive': None,
+    'sectors_recursive': None
+  },
+  'num_procs': 0,
+  'storage_stats': {},
+  'cpu_stats': {
+    'cpu_usage': {
+      'total_usage': 3456834000,
+      'usage_in_kernelmode': 372371000,
+      'usage_in_usermode': 3084462000
+    },
+    'system_cpu_usage': 6878260000000,
+    'online_cpus': 6,
+    'throttling_data': {
+      'periods': 0,
+      'throttled_periods': 0,
+      'throttled_time': 0
+    }
+  },
+  'precpu_stats': {
+    'cpu_usage': {
+      'total_usage': 2839728000,
+      'usage_in_kernelmode': 327458000,
+      'usage_in_usermode': 2512269000
+    },
+    'system_cpu_usage': 6872240000000,
+    'online_cpus': 6,
+    'throttling_data': {
+      'periods': 0,
+      'throttled_periods': 0,
+      'throttled_time': 0
+    }
+  },
+  'memory_stats': {
+    'usage': 263192576,
+    'stats': {
+      'active_anon': 4096,
+      'active_file': 32768,
+      'anon': 200462336,
+      'anon_thp': 62914560,
+      'file': 58949632,
+      'file_dirty': 57819136,
+      'file_mapped': 16199680,
+      'file_writeback': 0,
+      'inactive_anon': 200413184,
+      'inactive_file': 58916864,
+      'kernel_stack': 442368,
+      'pgactivate': 1,
+      'pgdeactivate': 0,
+      'pgfault': 52970,
+      'pglazyfree': 0,
+      'pglazyfreed': 0,
+      'pgmajfault': 11,
+      'pgrefill': 0,
+      'pgscan': 0,
+      'pgsteal': 0,
+      'shmem': 0,
+      'slab': 2241216,
+      'slab_reclaimable': 1933592,
+      'slab_unreclaimable': 307624,
+      'sock': 0,
+      'thp_collapse_alloc': 3,
+      'thp_fault_alloc': 30,
+      'unevictable': 0,
+      'workingset_activate': 0,
+      'workingset_nodereclaim': 0,
+      'workingset_refault': 0
+    },
+    'limit': 8232775680
+  },
+  'name': '/synnax_bench',
+  'id': '98e1a5c777b58b2d6c7b2e2476497ae7b91555c1b0d7206d9bf51bd2b5edc476',
+  'networks': {
+    'eth0': {
+      'rx_bytes': 64579,
+      'rx_packets': 642,
+      'rx_errors': 0,
+      'rx_dropped': 0,
+      'tx_bytes': 36997,
+      'tx_packets': 631,
+      'tx_errors': 0,
+      'tx_dropped': 0
+    }
+  }
+}

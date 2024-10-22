@@ -53,7 +53,5 @@ export const Tabs = ({ tabs, queryParamKey, ...props }: TabsProps): ReactElement
     tabs,
   });
 
-  return (
-    <Core.Tabs {...staticProps}>{(tab) => <div>{props[tab.tabKey]}</div>}</Core.Tabs>
-  );
+  return <Core.Tabs {...staticProps}>{(tab) => props[tab.tabKey]}</Core.Tabs>;
 };

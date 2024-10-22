@@ -1,0 +1,29 @@
+{
+    "synnax_memory": [
+        658223104
+    ],
+    "influx_memory": [
+        368017408
+    ],
+    "timescale_memory": [
+        2380214272
+    ],
+    "synnax_cpu": [
+        201.85150259067356
+    ],
+    "influx_cpu": [
+        162.7919591141397
+    ],
+    "timescale_cpu": [
+        81.63136134453781
+    ],
+    "synnax_time": [
+        3.259258112
+    ],
+    "influx_time": [
+        55.905708032
+    ],
+    "timescale_time": [
+        20.930743808
+    ]
+}
