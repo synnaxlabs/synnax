@@ -66,7 +66,7 @@ namespace labjack{
         ReaderConfig() = default;
 
         explicit ReaderConfig(config::Parser &parser)
-                : device_type(parser.required<std::string>("device_type")),
+                : device_type(parser.optional<std::string>("device_type", "")),
                   device_key(parser.required<std::string>("device_key")),
                   sample_rate(synnax::Rate(parser.optional<int>("sample_rate", 1))),
                   stream_rate(synnax::Rate(parser.optional<int>("stream_rate", 1))),
