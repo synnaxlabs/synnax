@@ -9,7 +9,7 @@
 
 export { access } from "@/access";
 export { policy } from "@/access/policy";
-export * from "@/channel";
+export { channel } from "@/channel";
 export { Channel } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
 export * from "@/connection";

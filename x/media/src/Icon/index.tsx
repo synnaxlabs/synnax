@@ -13,6 +13,7 @@ import { type runtime } from "@synnaxlabs/x";
 import clsx from "clsx";
 import { type FC } from "react";
 import {
+  AiFillAmazonCircle,
   AiFillDelete,
   AiFillFolder,
   AiFillGithub,
@@ -135,7 +136,9 @@ import { VscSplitHorizontal, VscSplitVertical } from "react-icons/vsc";
 export interface IconProps extends React.SVGProps<SVGSVGElement> {}
 type IconFC = FC<IconProps>;
 
-export const NI: IconFC = (props) => (
+// TODO: Add LabJack logo
+
+const NI: IconFC = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 78 51"
@@ -288,6 +291,7 @@ export const Icon: IconType = {
     LinkedIn: wrapIcon(AiFillLinkedin, "logo-linkedin"),
     NI: wrapIcon(NI, "logo-ni"),
     OPC: wrapIcon(OPC, "logo-opc"),
+    LabJack: wrapIcon(AiFillAmazonCircle, "logo-labjack"),
   },
   Arrow: {
     Right: wrapIcon(TbArrowRight, "arrow-right"),
@@ -440,6 +444,7 @@ export interface IconType {
     LinkedIn: IconFC;
     NI: IconFC;
     OPC: IconFC;
+    LabJack: IconFC;
   };
   Keyboard: {
     Command: IconFC;

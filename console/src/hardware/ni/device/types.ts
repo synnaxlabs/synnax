@@ -9,14 +9,6 @@
 
 import { z } from "zod";
 
-// VENDOR
-
-const VENDORS = ["NI", "other"] as const;
-
-export const vendorZ = z.enum(VENDORS);
-
-export type Vendor = z.infer<typeof vendorZ>;
-
 // DEVICE DIGEST
 
 const propertiesDigestZ = z.object({

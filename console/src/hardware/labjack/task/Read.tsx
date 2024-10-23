@@ -27,22 +27,20 @@ import { ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { Properties } from "@/hardware/ni/device/types";
-import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
+import { Properties } from "@/hardware/labjack/device/types";
+import { SelectDevice } from "@/hardware/labjack/task/common";
 import {
-  Chan,
-  DIChan,
-  DIGITAL_READ_TYPE,
-  DigitalRead,
-  DigitalReadConfig,
-  digitalReadConfigZ,
-  DigitalReadPayload,
-  DigitalReadStateDetails,
-  DigitalReadType,
-  ZERO_DI_CHAN,
-  ZERO_DIGITAL_READ_PAYLOAD,
-} from "@/hardware/ni/task/migrations";
+  Read,
+  READ_TYPE,
+  ReadChan,
+  ReadPayload,
+  ReadStateDetails,
+  ReadTaskConfig,
+  readTaskConfigZ,
+  ReadType,
+  ZERO_READ_CHAN,
+  ZERO_READ_PAYLOAD,
+} from "@/hardware/labjack/task/types";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
@@ -57,26 +55,26 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
-type LayoutArgs = TaskLayoutArgs<DigitalReadPayload>;
+type LayoutArgs = TaskLayoutArgs<ReadPayload>;
 
-export const configureDigitalReadLayout = (
+export const configureReadLayout = (
   args: LayoutArgs = { create: false },
-): Layout.State<LayoutArgs> => ({
-  name: "Configure NI Digital Read Task",
-  type: DIGITAL_READ_TYPE,
+): Layout.State<TaskLayoutArgs<ReadPayload>> => ({
+  name: "Configure LabJack Read Task",
+  type: READ_TYPE,
   key: id.id(),
-  icon: "Logo.NI",
-  windowKey: DIGITAL_READ_TYPE,
+  icon: "Logo.LabJack",
+  windowKey: READ_TYPE,
   location: "mosaic",
   args,
 });
 
-export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
-  key: DIGITAL_READ_TYPE,
-  title: "NI Digital Read Task",
-  icon: <Icon.Logo.NI />,
+export const READ_SELECTABLE: Layout.Selectable = {
+  key: READ_TYPE,
+  title: "LabJack Read Task",
+  icon: <Icon.Logo.LabJack />,
   create: (layoutKey) => ({
-    ...configureDigitalReadLayout({ create: true }),
+    ...configureReadLayout({ create: true }),
     key: layoutKey,
   }),
 };
@@ -85,98 +83,110 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: WrappedTaskLayoutProps<DigitalRead, DigitalReadPayload>): ReactElement => {
+}: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
+  console.log("error here?");
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
     schema: z.object({
       name: z.string(),
-      config: digitalReadConfigZ,
+      config: readTaskConfigZ,
     }),
   });
+  console.log(methods.value());
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const taskState = useObserveState<DigitalReadStateDetails>(
+  const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
     task?.state,
   );
 
-  const createTask = useCreate<
-    DigitalReadConfig,
-    DigitalReadStateDetails,
-    DigitalReadType
-  >(layoutKey);
+  const createTask = useCreate<ReadTaskConfig, ReadStateDetails, ReadType>(layoutKey);
 
   const addStatus = Status.useAggregator();
 
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
-    onError: ({ message }) =>
+    onError: (e) => {
+      console.error(e);
       addStatus({
         variant: "error",
-        message,
-      }),
+        message: e.message,
+      });
+    },
     mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) return;
+      if (!(await methods.validateAsync()) || client == null) {
+        console.error("validation failed");
+        return;
+      }
       const { name, config } = methods.value();
 
-      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
-      dev.properties = enrich(dev.model, dev.properties);
-
-      let modified = false;
-      let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
-      if (!shouldCreateIndex) {
+      const dev = await client.hardware.devices.retrieve<Properties>(config.deviceKey);
+      let shouldCreateIndex = false;
+      if (dev.properties.readIndex)
         try {
-          await client.channels.retrieve(dev.properties.digitalInput.index);
+          await client.channels.retrieve(dev.properties.readIndex);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateIndex = true;
           else throw e;
         }
-      }
+      else shouldCreateIndex = true;
+
+      let modified = false;
 
       if (shouldCreateIndex) {
         modified = true;
-        const aiIndex = await client.channels.create({
-          name: `${dev.properties.identifier}_di_time`,
+        const index = await client.channels.create({
+          name: `${dev.properties.identifier}_time`,
           dataType: "timestamp",
           isIndex: true,
         });
-        dev.properties.digitalInput.index = aiIndex.key;
-        dev.properties.digitalInput.channels = {};
+        dev.properties.readIndex = index.key;
       }
 
-      const toCreate: DIChan[] = [];
+      const toCreate: ReadChan[] = [];
       for (const channel of config.channels) {
-        const key = `${channel.port}l${channel.line}`;
+        const location = channel.location;
+        let existingKey = 0;
+        const thingey = foo(location);
+        if (thingey == null) {
+          console.error("whoopsie again");
+          return;
+        }
+        const existing = dev.properties[thingey].channels[location];
+        if (typeof existing === "number") existingKey = existing;
+        else if (existing == null) existingKey = 0;
+        else existingKey = existing.state;
+
         // check if the channel is in properties
-        const exKey = dev.properties.digitalInput.channels[key];
-        if (primitiveIsZero(exKey)) toCreate.push(channel);
-        else {
+        if (primitiveIsZero(existingKey)) toCreate.push(channel);
+        else
           try {
-            await client.channels.retrieve(exKey.toString());
+            await client.channels.retrieve(existingKey.toString());
           } catch (e) {
             if (NotFoundError.matches(e)) toCreate.push(channel);
             else throw e;
           }
-        }
       }
 
       if (toCreate.length > 0) {
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
-            dataType: "uint8",
-            index: dev.properties.digitalInput.index,
+            name: `${dev.properties.identifier}_${c.location}`,
+            dataType: `${c.dataType}`,
+            index: dev.properties.readIndex,
           })),
         );
         channels.forEach((c, i) => {
-          const key = `${toCreate[i].port}l${toCreate[i].line}`;
-          dev.properties.digitalInput.channels[key] = c.key;
+          const location = toCreate[i].location;
+          const objectKey = foo(location);
+          if (objectKey == null) throw new Error("Invalid Location");
+          dev.properties[objectKey].channels[location] = c.key;
         });
       }
 
@@ -187,20 +197,22 @@ const Wrapped = ({
         });
 
       config.channels.forEach((c) => {
-        const key = `${c.port}l${c.line}`;
-        c.channel = dev.properties.digitalInput.channels[key];
+        const location = c.location;
+        const objectKey = foo(location);
+        if (objectKey == null) throw new Error("Invalid Location");
+        c.key = dev.properties[objectKey].channels[location].toString();
       });
       await createTask({
         key: task?.key,
         name,
-        type: DIGITAL_READ_TYPE,
+        type: READ_TYPE,
         config,
       });
     },
   });
 
   const start = useMutation({
-    mutationKey: [client?.key, "start"],
+    mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) return;
       await task?.executeCommand(
@@ -217,12 +229,6 @@ const Wrapped = ({
             <Form.Field<string> path="name">
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
-            <CopyButtons
-              importClass="DigitalReadTask"
-              taskKey={task?.key}
-              getName={() => methods.get<string>("name").value}
-              getConfig={() => methods.get("config").value}
-            />
           </Align.Space>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
@@ -282,12 +288,18 @@ interface ChannelFormProps {
 }
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  if (selectedChannelIndex == -1) return <></>;
-  const prefix = `config.channels.${selectedChannelIndex}`;
+  const prefix = `config.channels.${selectedChannelIndex}`; //datatype, location, range, channel type
   return (
     <Align.Space direction="x" grow>
-      <Form.NumericField path={`${prefix}.port`} label="Port" grow />
-      <Form.NumericField path={`${prefix}.line`} label="Line" grow />
+      <Form.TextField path={`${prefix}.location`} label="Location" grow />
+      <Form.TextField path={`${prefix}.dataType`} label="Data Type" grow />
+      <Form.NumericField path={`${prefix}.range`} optional label="Range" grow />
+      <Form.TextField
+        path={`${prefix}.channelTypes`}
+        label="Negative Channel"
+        optional
+        grow
+      />
     </Align.Space>
   );
 };
@@ -305,13 +317,10 @@ const ChannelList = ({
   onSelect,
   snapshot,
 }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<DIChan>({ path });
+  const { value, push, remove } = Form.useFieldArray<ReadChan>({ path });
   const handleAdd = (): void => {
-    const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
     push({
-      ...deep.copy(ZERO_DI_CHAN),
-      port: 0,
-      line: availableLine,
+      ...deep.copy(ZERO_READ_CHAN),
       key: id.id(),
     });
   };
@@ -338,11 +347,11 @@ const ChannelList = ({
         )}
         {...menuProps}
       >
-        <List.List<string, Chan>
+        <List.List<string, ReadChan>
           data={value}
           emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
         >
-          <List.Selector<string, Chan>
+          <List.Selector<string, ReadChan>
             value={selected}
             allowNone={false}
             allowMultiple
@@ -351,7 +360,7 @@ const ChannelList = ({
             }
             replaceOnSingle
           >
-            <List.Core<string, Chan> grow>
+            <List.Core<string, ReadChan> grow>
               {(props) => (
                 <ChannelListItem {...props} snapshot={snapshot} path={path} />
               )}
@@ -367,32 +376,31 @@ const ChannelListItem = ({
   path,
   snapshot = false,
   ...props
-}: List.ItemProps<string, Chan> & {
+}: List.ItemProps<string, ReadChan> & {
   path: string;
   snapshot?: boolean;
 }): ReactElement => {
   const { entry } = props;
-  const hasLine = "line" in entry;
   const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<DIChan>({
+  const childValues = Form.useChildFieldValues<ReadChan>({
     path: `${path}.${props.index}`,
     optional: true,
   });
   const channelName = Channel.useName(childValues?.channel ?? 0, "No Channel");
+  console.log(channelName);
 
   const channelValid =
     Form.useField<number>({
       path: `${path}.${props.index}.channel`,
       optional: true,
-    })?.status?.variant === "success";
+    })?.status.variant === "success";
 
-  const portValid =
+  const locationValid =
     Form.useField<number>({
-      path: `${path}.${props.index}.port`,
+      path: `${path}.${props.index}.location`,
       optional: true,
-    })?.status?.variant === "success";
+    })?.status.variant === "success";
   if (childValues == null) return <></>;
-
   return (
     <List.ItemFrame
       {...props}
@@ -403,18 +411,14 @@ const ChannelListItem = ({
       <Align.Space direction="x" size="small">
         <Text.Text
           level="p"
-          weight={500}
           shade={6}
-          style={{ width: "4rem" }}
-          color={portValid ? undefined : "var(--pluto-error-z)"}
+          color={locationValid ? undefined : "var(--pluto-error-z)"}
         >
-          {childValues.port}
-          {hasLine && `/${entry.line}`}
+          {entry.location}
         </Text.Text>
         <Align.Space direction="y">
           <Text.Text
             level="p"
-            weight={500}
             shade={9}
             color={(() => {
               if (channelName === "No Channel") return "var(--pluto-warning-m1)";
@@ -435,4 +439,13 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalRead = wrapTaskLayout(Wrapped, ZERO_DIGITAL_READ_PAYLOAD);
+export const ConfigureRead = wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);
+
+const foo = (
+  location: string,
+): "analogInput" | "digitalInputOutput" | "flexInputOutput" | undefined => {
+  if (location.startsWith("AIN")) return "analogInput";
+  if (location.startsWith("DIO")) return "digitalInputOutput";
+  if (location.startsWith("FIO")) return "flexInputOutput";
+  return undefined;
+};
