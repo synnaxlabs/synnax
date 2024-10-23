@@ -31,21 +31,18 @@ export const propertiesZ = z.object({
   identifier: identifierZ,
   readIndex: z.number(),
   writeStateIndex: z.number(),
-  analogInput: z.object({
+  AIN: z.object({
     portCount: z.number(),
     channels: z.record(z.string(), z.number()),
   }),
-  analogOutput: z.object({
+  DIN: z.object({ portCount: z.number(), channels: z.record(z.string(), z.number()) }),
+  AO: z.object({
+    portCount: z.number(),
+    channels: z.record(commandStatePairZ),
+  }),
+  DO: z.object({
     portCount: z.number(),
     channels: z.record(z.string(), commandStatePairZ),
-  }),
-  digitalInputOutput: z.object({
-    portCount: z.number(),
-    channels: z.record(z.string(), z.number().or(commandStatePairZ)),
-  }),
-  flexInputOutput: z.object({
-    portCount: z.number(),
-    channels: z.record(z.string(), z.number().or(commandStatePairZ)),
   }),
 });
 export type Properties = z.infer<typeof propertiesZ>;
@@ -54,19 +51,19 @@ export const ZERO_PROPERTIES: Properties = {
   readIndex: 0,
   writeStateIndex: 0,
   identifier: "",
-  analogInput: {
+  AIN: {
     portCount: 0,
     channels: {},
   },
-  analogOutput: {
+  AO: {
     portCount: 0,
     channels: {},
   },
-  digitalInputOutput: {
+  DIN: {
     portCount: 0,
     channels: {},
   },
-  flexInputOutput: {
+  DO: {
     portCount: 0,
     channels: {},
   },
@@ -111,9 +108,9 @@ export const getZeroProperties = (model: Models): Properties => {
     readIndex: 0,
     writeStateIndex: 0,
     identifier: "",
-    analogInput: createProperty(deviceInfo.analogInput),
-    analogOutput: createProperty(deviceInfo.analogOutput),
-    digitalInputOutput: createProperty(deviceInfo.digitalInputOutput),
-    flexInputOutput: createProperty(deviceInfo.flexInputOutput),
+    AIN: createProperty(deviceInfo.analogInput),
+    AO: createProperty(deviceInfo.analogOutput),
+    DIN: createProperty(deviceInfo.digitalInputOutput),
+    DO: createProperty(deviceInfo.flexInputOutput),
   };
 };

@@ -17,6 +17,7 @@ import {
   Input,
   List,
   Menu,
+  Select,
   Status,
   Synnax,
   Text,
@@ -84,7 +85,6 @@ const Wrapped = ({
   initialValues,
   layoutKey,
 }: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
-  console.log("error here?");
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -93,7 +93,6 @@ const Wrapped = ({
       config: writeTaskConfigZ,
     }),
   });
-  console.log(methods.value());
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
@@ -121,77 +120,112 @@ const Wrapped = ({
       });
     },
     mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) {
-        console.error("validation failed");
-        return;
-      }
+      if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
 
       const dev = await client.hardware.devices.retrieve<Properties>(config.deviceKey);
-      let shouldCreateIndex = false;
-      if (dev.properties.writeStateIndex)
+
+      let modified = false;
+      let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
+      if (!shouldCreateStateIndex) {
         try {
           await client.channels.retrieve(dev.properties.writeStateIndex);
         } catch (e) {
-          if (NotFoundError.matches(e)) shouldCreateIndex = true;
+          if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
           else throw e;
         }
-      else shouldCreateIndex = true;
+      }
 
-      let modified = false;
-
-      if (shouldCreateIndex) {
+      if (shouldCreateStateIndex) {
         modified = true;
-        const index = await client.channels.create({
-          name: `${dev.properties.identifier}_time`,
+        const stateIndex = await client.channels.create({
+          name: `${dev.properties.identifier}_o_state_time`,
           dataType: "timestamp",
           isIndex: true,
         });
-        dev.properties.writeStateIndex = index.key;
+        dev.properties.writeStateIndex = stateIndex.key;
+        dev.properties.DO.channels = {};
+        dev.properties.AO.channels = {};
       }
 
-      const toCreate: WriteChan[] = [];
+      const commandsToCreate: WriteChan[] = [];
+      const statesToCreate: WriteChan[] = [];
       for (const channel of config.channels) {
-        const location = channel.location;
-        let existingKey = 0;
-        const thingey = foo(location);
-        if (thingey == null) {
-          console.error("whoopsie again");
-          return;
-        }
-        const existing = dev.properties[thingey].channels[location];
-        if (typeof existing === "number") existingKey = existing;
-        else if (existing == null) existingKey = 0;
-        else existingKey = existing.state;
-
-        // check if the channel is in properties
-        if (primitiveIsZero(existingKey)) toCreate.push(channel);
-        else
+        const key = `${channel.port}`;
+        const exPair = dev.properties[channel.channelType].channels[key];
+        if (exPair == null) {
+          commandsToCreate.push(channel);
+          statesToCreate.push(channel);
+        } else {
           try {
-            await client.channels.retrieve(existingKey.toString());
+            await client.channels.retrieve([exPair.state]);
           } catch (e) {
-            if (NotFoundError.matches(e)) toCreate.push(channel);
+            if (NotFoundError.matches(e)) statesToCreate.push(channel);
             else throw e;
           }
+          try {
+            await client.channels.retrieve([exPair.command]);
+          } catch (e) {
+            if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+            else throw e;
+          }
+        }
       }
 
-      if (toCreate.length > 0) {
+      if (statesToCreate.length > 0) {
         modified = true;
-        const channels = await client.channels.create(
-          toCreate.map((c) => ({
-            name: `${dev.properties.identifier}_${c.location}`,
-            dataType: `${c.dataType}`,
+        const states = await client.channels.create(
+          statesToCreate.map((c) => ({
+            name: `${dev.properties.identifier}_${c.channelType}_${c.port}_state`,
             index: dev.properties.writeStateIndex,
+            dataType: "uint8",
           })),
         );
-        channels.forEach((c, i) => {
-          const location = toCreate[i].location;
-          const objectKey = foo(location);
-          if (objectKey == null) {
-            console.error("whoopsie");
-            return;
-          }
-          dev.properties[objectKey].channels[location] = c.key;
+        states.forEach((s, i) => {
+          const statesToCreateC = statesToCreate[i];
+          if (
+            !(
+              statesToCreateC.port in
+              dev.properties[statesToCreateC.channelType].channels
+            )
+          ) {
+            dev.properties[statesToCreateC.channelType].channels[statesToCreateC.port] =
+              {
+                state: s.key,
+                command: 0,
+              };
+          } else
+            dev.properties[statesToCreateC.channelType].channels[
+              statesToCreateC.port
+            ].state = s.key;
+        });
+      }
+
+      if (commandsToCreate.length > 0) {
+        const commandIndexes = await client.channels.create(
+          commandsToCreate.map((c) => ({
+            name: `${dev.properties.identifier}_${c.channelType}_${c.port}_cmd_time`,
+            dataType: "timestamp",
+            isIndex: true,
+          })),
+        );
+        const commands = await client.channels.create(
+          commandsToCreate.map((c, i) => ({
+            name: `${dev.properties.identifier}_${c.channelType}_${c.port}_cmd`,
+            index: commandIndexes[i].key,
+            dataType: "uint8",
+          })),
+        );
+        commands.forEach((s, i) => {
+          const cmdToCreate = commandsToCreate[i];
+          if (!(cmdToCreate.port in dev.properties[cmdToCreate.channelType].channels)) {
+            dev.properties[cmdToCreate.channelType].channels[cmdToCreate.port] = {
+              state: 0,
+              command: s.key,
+            };
+          } else
+            dev.properties[cmdToCreate.channelType].channels[cmdToCreate.port].command =
+              s.key;
         });
       }
 
@@ -201,15 +235,16 @@ const Wrapped = ({
           properties: dev.properties,
         });
 
-      config.channels.forEach((c) => {
-        const location = c.location;
-        const objectKey = foo(location);
-        if (objectKey == null) {
-          console.error("whoopsie2");
-          return;
-        }
-        c.key = dev.properties[objectKey].channels[location].toString();
+      config.channels = config.channels.map((c) => {
+        const pair = dev.properties[c.channelType].channels[c.port];
+        return {
+          ...c,
+          cmdKey: pair.command,
+          stateKey: pair.state,
+        };
       });
+      methods.set("config", config);
+
       await createTask({
         key: task?.key,
         name,
@@ -304,8 +339,10 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   const prefix = `config.channels.${selectedChannelIndex}`; //datatype, location, range, channel type
   return (
     <Align.Space direction="x" grow>
-      <Form.TextField path={`${prefix}.location`} label="Location" grow />
-      <Form.TextField path={`${prefix}.dataType`} label="Data Type" grow />
+      <Form.NumericField path={`${prefix}.port`} label="Port" grow />
+      <Form.Field path={`${prefix}.dataType`} label="Data Type" grow>
+        {(p) => <Select.DataType {...p} />}
+      </Form.Field>
       <Form.TextField
         path={`${prefix}.channelTypes`}
         label="Channel Type"
@@ -395,7 +432,7 @@ const ChannelListItem = ({
   const { entry } = props;
   const ctx = Form.useContext();
   const childValues = Form.useChildFieldValues<WriteChan>({
-    path: `${path}.${props}.entry`,
+    path: `${path}.${props.index}`,
     optional: true,
   });
   const cmdChannelName = Channel.useName(childValues?.cmdKey ?? 0, "No Channel");
@@ -415,9 +452,10 @@ const ChannelListItem = ({
 
   const locationValid =
     Form.useField<number>({
-      path: `${path}.${props.index}.location`,
+      path: `${path}.${props.index}.port`,
       optional: true,
     })?.status.variant === "success";
+
   if (childValues == null) return <></>;
   return (
     <List.ItemFrame
@@ -432,7 +470,7 @@ const ChannelListItem = ({
           shade={6}
           color={locationValid ? undefined : "var(--pluto-error-z)"}
         >
-          {entry.location}
+          {entry.port}
         </Text.Text>
         <Align.Space direction="y">
           <Text.Text
@@ -469,12 +507,3 @@ const ChannelListItem = ({
 };
 
 export const ConfigureWrite = wrapTaskLayout(Wrapped, ZERO_WRITE_PAYLOAD);
-
-const foo = (
-  location: string,
-): "analogInput" | "digitalInputOutput" | "flexInputOutput" | undefined => {
-  if (location.startsWith("AIN")) return "analogInput";
-  if (location.startsWith("DIO")) return "digitalInputOutput";
-  if (location.startsWith("FIO")) return "flexInputOutput";
-  return undefined;
-};

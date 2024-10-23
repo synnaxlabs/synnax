@@ -13,7 +13,7 @@ import { z } from "zod";
 // READS
 
 export const readChan = z.object({
-  location: z.string(),
+  port: z.number(),
   enabled: z.boolean(),
   dataType: z.string(),
   key: z.string(),
@@ -26,7 +26,7 @@ export type ReadChan = z.infer<typeof readChan>;
 export type ReadChanType = ReadChan["type"];
 
 export const ZERO_READ_CHAN: ReadChan = {
-  location: "",
+  port: 0,
   enabled: true,
   dataType: "float32",
   key: "",
@@ -36,25 +36,25 @@ export const ZERO_READ_CHAN: ReadChan = {
 };
 
 export const writeChan = z.object({
-  location: z.string(),
+  port: z.number(),
   enabled: z.boolean(),
   dataType: z.string(),
   cmdKey: z.number(),
-  key: z.string(),
-
   stateKey: z.number(),
-  type: z.literal("AO").or(z.literal("DO")),
+  key: z.string(),
+  channelType: z.literal("AO").or(z.literal("DO")),
 });
+
 export type WriteChan = z.infer<typeof writeChan>;
-export type WriteChanType = WriteChan["type"];
+export type WriteChanType = WriteChan["channelType"];
 export const ZERO_WRITE_CHAN: WriteChan = {
-  location: "",
+  port: 0,
   enabled: true,
   key: "",
   dataType: "float32",
   cmdKey: 0,
   stateKey: 0,
-  type: "DO",
+  channelType: "DO",
 };
 
 const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");

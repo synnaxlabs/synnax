@@ -17,6 +17,7 @@ import {
   Input,
   List,
   Menu,
+  Select,
   Status,
   Synnax,
   Text,
@@ -84,7 +85,6 @@ const Wrapped = ({
   initialValues,
   layoutKey,
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
-  console.log("error here?");
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -93,7 +93,6 @@ const Wrapped = ({
       config: readTaskConfigZ,
     }),
   });
-  console.log(methods.value());
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
@@ -112,17 +111,13 @@ const Wrapped = ({
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
     onError: (e) => {
-      console.error(e);
       addStatus({
         variant: "error",
         message: e.message,
       });
     },
     mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) {
-        console.error("validation failed");
-        return;
-      }
+      if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
 
       const dev = await client.hardware.devices.retrieve<Properties>(config.deviceKey);
@@ -130,6 +125,7 @@ const Wrapped = ({
       if (dev.properties.readIndex)
         try {
           await client.channels.retrieve(dev.properties.readIndex);
+          config.indexKeys = [dev.properties.readIndex];
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateIndex = true;
           else throw e;
@@ -146,29 +142,24 @@ const Wrapped = ({
           isIndex: true,
         });
         dev.properties.readIndex = index.key;
+        config.indexKeys = [index.key];
       }
 
       const toCreate: ReadChan[] = [];
-      for (const channel of config.channels) {
-        const location = channel.location;
+      for (const c of config.channels) {
         let existingKey = 0;
-        const thingey = foo(location);
-        if (thingey == null) {
-          console.error("whoopsie again");
-          return;
-        }
-        const existing = dev.properties[thingey].channels[location];
+        const existing = dev.properties[c.type].channels[c.port];
         if (typeof existing === "number") existingKey = existing;
         else if (existing == null) existingKey = 0;
         else existingKey = existing.state;
 
         // check if the channel is in properties
-        if (primitiveIsZero(existingKey)) toCreate.push(channel);
+        if (primitiveIsZero(existingKey)) toCreate.push(c);
         else
           try {
             await client.channels.retrieve(existingKey.toString());
           } catch (e) {
-            if (NotFoundError.matches(e)) toCreate.push(channel);
+            if (NotFoundError.matches(e)) toCreate.push(c);
             else throw e;
           }
       }
@@ -177,16 +168,14 @@ const Wrapped = ({
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: `${dev.properties.identifier}_${c.location}`,
+            name: `${dev.properties.identifier}_${c.port}`,
             dataType: `${c.dataType}`,
             index: dev.properties.readIndex,
           })),
         );
         channels.forEach((c, i) => {
-          const location = toCreate[i].location;
-          const objectKey = foo(location);
-          if (objectKey == null) throw new Error("Invalid Location");
-          dev.properties[objectKey].channels[location] = c.key;
+          const toCreateC = toCreate[i];
+          dev.properties[toCreateC.type].channels[toCreateC.port] = c.key;
         });
       }
 
@@ -197,17 +186,9 @@ const Wrapped = ({
         });
 
       config.channels.forEach((c) => {
-        const location = c.location;
-        const objectKey = foo(location);
-        if (objectKey == null) throw new Error("Invalid Location");
-        c.key = dev.properties[objectKey].channels[location].toString();
+        c.channel = dev.properties[c.type].channels[c.port];
       });
-      await createTask({
-        key: task?.key,
-        name,
-        type: READ_TYPE,
-        config,
-      });
+      await createTask({ key: task?.key, name, type: READ_TYPE, config });
     },
   });
 
@@ -290,16 +271,32 @@ interface ChannelFormProps {
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`; //datatype, location, range, channel type
   return (
-    <Align.Space direction="x" grow>
-      <Form.TextField path={`${prefix}.location`} label="Location" grow />
-      <Form.TextField path={`${prefix}.dataType`} label="Data Type" grow />
-      <Form.NumericField path={`${prefix}.range`} optional label="Range" grow />
-      <Form.TextField
-        path={`${prefix}.channelTypes`}
-        label="Negative Channel"
-        optional
-        grow
-      />
+    <Align.Space direction="y" empty>
+      <Align.Space direction="x">
+        <Form.Field path={`${prefix}.type`} label="Type">
+          {(p) => (
+            <Select.Button
+              data={[
+                {
+                  key: "AIN",
+                  value: "Analog In",
+                },
+                {
+                  key: "DIN",
+                  value: "Digital In",
+                },
+              ]}
+              entryRenderKey="value"
+              {...p}
+            />
+          )}
+        </Form.Field>
+        <Form.NumericField path={`${prefix}.port`} label="Port" grow />
+      </Align.Space>
+      <Form.Field path={`${prefix}.dataType`} label="Data Type" grow>
+        {(p) => <Select.DataType {...p} />}
+      </Form.Field>
+      <Form.NumericField path={`${prefix}.range`} optional label="Voltage Range" grow />
     </Align.Space>
   );
 };
@@ -387,7 +384,6 @@ const ChannelListItem = ({
     optional: true,
   });
   const channelName = Channel.useName(childValues?.channel ?? 0, "No Channel");
-  console.log(channelName);
 
   const channelValid =
     Form.useField<number>({
@@ -412,9 +408,9 @@ const ChannelListItem = ({
         <Text.Text
           level="p"
           shade={6}
-          color={locationValid ? undefined : "var(--pluto-error-z)"}
+          // color={locationValid ? undefined : "var(--pluto-error-z)"}
         >
-          {entry.location}
+          {entry.port}
         </Text.Text>
         <Align.Space direction="y">
           <Text.Text
@@ -440,12 +436,3 @@ const ChannelListItem = ({
 };
 
 export const ConfigureRead = wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);
-
-const foo = (
-  location: string,
-): "analogInput" | "digitalInputOutput" | "flexInputOutput" | undefined => {
-  if (location.startsWith("AIN")) return "analogInput";
-  if (location.startsWith("DIO")) return "digitalInputOutput";
-  if (location.startsWith("FIO")) return "flexInputOutput";
-  return undefined;
-};
