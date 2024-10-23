@@ -7,19 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Device } from "@/hardware/ni/device";
-import { Task } from "@/hardware/ni/task";
+import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/labjack/device/Configure";
 import { type Layout } from "@/layout";
 
-export * from "@/hardware/ni/device";
-export * from "@/hardware/ni/palette";
-export * from "@/hardware/ni/task";
+export * from "@/hardware/labjack/device/Configure";
+export * from "@/hardware/labjack/device/ontology";
+export * from "@/hardware/labjack/device/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  ...Task.LAYOUTS,
-  ...Device.LAYOUTS,
+  [CONFIGURE_LAYOUT_TYPE]: Configure,
 };
-
-export const SELECTABLES = Task.SELECTABLES;
-
-export const MAKE = "NI";

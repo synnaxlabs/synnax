@@ -135,7 +135,7 @@ import { VscSplitHorizontal, VscSplitVertical } from "react-icons/vsc";
 export interface IconProps extends React.SVGProps<SVGSVGElement> {}
 type IconFC = FC<IconProps>;
 
-export const NI: IconFC = (props) => (
+const NI: IconFC = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 78 51"

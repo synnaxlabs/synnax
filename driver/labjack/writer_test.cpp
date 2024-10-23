@@ -45,7 +45,7 @@ TEST(write_tests, labjack_t4){
 
 
     auto config = json{
-            {"device_type", "T4"},
+            {"type", "T4"},
             {"device_key", "440022190"},
             {"serial_number", "440022190"},
             {"connection_type", "USB"},

@@ -109,7 +109,7 @@ struct WriterConfig{
     WriterConfig() = default;
 
     explicit WriterConfig(config::Parser &parser)
-        :  device_type(parser.required<std::string>("device_type")),
+        :  device_type(parser.optional<std::string>("type", "")),
            device_key(parser.required<std::string>("device_key")),
            state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),
            serial_number(parser.optional<std::string>("serial_number", "")),

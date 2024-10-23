@@ -36,6 +36,16 @@ std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
 }
 
 void labjack::Source::init(){
+    if(this->reader_config.device_type == ""){
+        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+                this->reader_config.device_key
+        );
+        if(err != freighter::NIL){
+            LOG(ERROR) << "[labjack.reader] Error retrieving device: " << err.message();
+            return;
+        }
+        this->reader_config.device_type = dev.model;
+    }
     this->init_stream();
 }
 
