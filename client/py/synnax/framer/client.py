@@ -162,7 +162,8 @@ class Client:
         start: CrudeTimeStamp,
         frame: CrudeFrame,
         strict: bool = False,
-    ): ...
+    ):
+        ...
 
     @overload
     def write(
@@ -188,7 +189,8 @@ class Client:
         channel: ChannelKeys | ChannelNames | list[ChannelPayload],
         series: list[CrudeSeries],
         strict: bool = False,
-    ): ...
+    ):
+        ...
 
     def write(
         self,
@@ -222,14 +224,16 @@ class Client:
         self,
         tr: TimeRange,
         channels: ChannelKeys | ChannelNames,
-    ) -> Frame: ...
+    ) -> Frame:
+        ...
 
     @overload
     def read(
         self,
         tr: TimeRange,
         channels: ChannelKey | ChannelName,
-    ) -> MultiSeries: ...
+    ) -> MultiSeries:
+        ...
 
     def read(
         self,
@@ -256,7 +260,9 @@ class Client:
             )
         return series
 
-    def open_streamer(self, channels: ChannelParams, downsample_factor: int = 1) -> Streamer:
+    def open_streamer(
+        self, channels: ChannelParams, downsample_factor: int = 1
+    ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
         being receiving frames of data from the given channels.
 
@@ -273,7 +279,9 @@ class Client:
             downsample_factor=downsample_factor,
         )
 
-    async def open_async_streamer(self, channels: ChannelParams, downsample_factor: int = 1) -> AsyncStreamer:
+    async def open_async_streamer(
+        self, channels: ChannelParams, downsample_factor: int = 1
+    ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         s = AsyncStreamer(

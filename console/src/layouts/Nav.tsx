@@ -28,6 +28,7 @@ import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/constants";
 import { LinePlotServices } from "@/lineplot/services";
+import { LogServices } from "@/log/services";
 import { Palette } from "@/palette";
 import { Persist } from "@/persist";
 import { RangeServices } from "@/range/services";
@@ -59,6 +60,7 @@ const COMMANDS = [
   ...Channel.COMMANDS,
   ...LabelServices.COMMANDS,
   ...UserServices.COMMANDS,
+  ...LogServices.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => (

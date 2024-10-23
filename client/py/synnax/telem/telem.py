@@ -110,10 +110,7 @@ class TimeStamp(int):
         :param tz: The timezone to use for the datetime. If not provided, the local
         timezone is used.
         """
-        return (
-            datetime.fromtimestamp(self / TimeSpan.SECOND, UTC)
-            .astimezone(tz)
-        )
+        return datetime.fromtimestamp(self / TimeSpan.SECOND, UTC).astimezone(tz)
 
     def after(self, ts: CrudeTimeStamp) -> bool:
         """:returns: True if the TimeStamp is strictly after the given TimeStamp.
