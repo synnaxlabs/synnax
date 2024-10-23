@@ -43,9 +43,9 @@ namespace labjack{
                 : location(parser.required<std::string>("location")),
                   enabled(parser.optional<bool>("enabled", true)),
                   data_type(parser.required<std::string>("data_type")),
-                  channel_key(parser.required<uint32_t>("channel_key")),
+                  channel_key(parser.required<uint32_t>("key")),
                   range(parser.optional<double>("range", 10.0)),
-                  channel_type(parser.optional<std::string>("channel_types", "")) {
+                  channel_type(parser.optional<std::string>("type", "")) {
         }
     };
 
@@ -66,7 +66,7 @@ namespace labjack{
         ReaderConfig() = default;
 
         explicit ReaderConfig(config::Parser &parser)
-                : device_type(parser.required<std::string>("device_type")),
+                : device_type(parser.optional<std::string>("type", "")),
                   device_key(parser.required<std::string>("device_key")),
                   sample_rate(synnax::Rate(parser.optional<int>("sample_rate", 1))),
                   stream_rate(synnax::Rate(parser.optional<int>("stream_rate", 1))),
