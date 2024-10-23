@@ -72,14 +72,14 @@ void ScannerTask::scan() {
     }
     char err_name[LJM_MAX_NAME_SIZE];
     LJM_ErrorToString(err, err_name);
-    LOG(ERROR) << "LJM_ListAll error: " << err_name;
+//    LOG(ERROR) << "LJM_ListAll error: " << err_name;
     // TODO: deal with error checks which will cause exit
-    ErrorCheck(
-            err,
-            "LJM_ListAll with device type: %s, connection type: %s",
-            NumberToDeviceType(DeviceType),
-            NumberToConnectionType(ConnectionType)
-       );
+//    ErrorCheck(
+//            err,
+//            "LJM_ListAll with device type: %s, connection type: %s",
+//            NumberToDeviceType(DeviceType),
+//            NumberToConnectionType(ConnectionType)
+//       );
     for(int i= 0; i < NumFound; i++) {
         nlohmann::json device;
         device["device_type"] = NumberToDeviceType(aDeviceTypes[i]);
@@ -94,7 +94,7 @@ void ScannerTask::scan() {
         }
     }
 
-    LOG(INFO) << "devices json: "  << devices.dump(4); // TODO: remove once labjack dev is done
+//    LOG(INFO) << "devices json: "  << devices.dump(4); // TODO: remove once labjack dev is done
 }
 
 void ScannerTask::create_devices() {

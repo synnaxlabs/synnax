@@ -93,12 +93,12 @@ void labjack::Source::init_stream(){
     }
 
     auto err = LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL);
-    ErrorCheck(err, "[labjack.reader] LJM_NamesToAddresses error");
+//    ErrorCheck(err, "[labjack.reader] LJM_NamesToAddresses error");
 
     err = LJM_eStreamStop(handle);
 
     err = LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate);
-    ErrorCheck(err, "[labjack.reader] LJM_eStreamStart error");
+//    ErrorCheck(err, "[labjack.reader] LJM_eStreamStart error");
 };
 
 freighter::Error labjack::Source::start(const std::string &cmd_key){
@@ -128,7 +128,7 @@ freighter::Error labjack::Source::stop(const std::string &cmd_key) {
 
     if(this->sample_thread.joinable()) this->sample_thread.join();
     auto err = LJM_eStreamStop(handle);
-    ErrorCheck(err, "[labjack.reader] LJM_eStreamStop error");
+//    ErrorCheck(err, "[labjack.reader] LJM_eStreamStop error");
 
     CloseOrDie(this->handle);
     ctx->setState({
@@ -184,7 +184,7 @@ labjack::Source::~Source() {
     this->stop("");
 //    auto err = LJM_CleanInterval(this->handle);
 //    PrintErrorIfError(err, "LJM_CleanInterval");
-    CloseOrDie(this->handle);
+//    CloseOrDie(this->handle);
 }
 void labjack::Source::write_to_series(
         synnax::Series &series,
@@ -214,7 +214,7 @@ void labjack::Source::acquire_data(){
         data_packet.t0 = synnax::TimeStamp::now().value;
         auto err = LJM_eStreamRead(this->handle, data_packet.data.data(), &numSkippedScans, &deviceScanBacklog);
         data_packet.tf = synnax::TimeStamp::now().value;
-        ErrorCheck(err, "[labjack.reader] LJM_eStreamRead error");
+//        ErrorCheck(err, "[labjack.reader] LJM_eStreamRead error");
         data_queue.enqueue(data_packet);
     }
     auto err = LJM_eStreamStop(handle);

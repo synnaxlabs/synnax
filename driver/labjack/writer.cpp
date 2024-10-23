@@ -144,7 +144,7 @@ labjack::WriteSink::WriteSink(
 
 labjack::WriteSink::~WriteSink(){
     this->stop("");
-    CloseOrDie(this->handle);
+//    CloseOrDie(this->handle);
 }
 
 void labjack::WriteSink::init(){
@@ -179,6 +179,8 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame){
 }
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key){
+    if(!this->breaker.running()) return freighter::NIL;
+    this->breaker.stop();
     CloseOrDie(this->handle);
     ctx->setState({
                           .task = task.key,
@@ -193,6 +195,12 @@ freighter::Error labjack::WriteSink::stop(const std::string &cmd_key){
 }
 
 freighter::Error labjack::WriteSink::start(const std::string &cmd_key){
+    LOG(INFO) << "[labjack.writer] starting labjack device";
+    if(this->breaker.running()){
+        LOG(INFO) << "breaker already running";
+        return freighter::NIL;
+    }
+    this->breaker.start();
     this->init();
     ctx->setState({
                           .task = task.key,

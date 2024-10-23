@@ -84,9 +84,11 @@ struct WriterChannelConfig{
           data_type(parser.required<std::string>("data_type")),
           cmd_key(parser.required<uint32_t>("cmd_key")),
           state_key(parser.required<uint32_t>("state_key")),
-          channel_type(parser.optional<std::string>("type", "")),
+          channel_type(parser.optional<std::string>("channel_type", "")), // TODO: change this
           port(parser.optional<int>("port", 0)){
-        this->location = this->channel_type + std::to_string(this->port);
+        if(this->channel_type == "DO"){
+            this->location = "DIO" + std::to_string(this->port);
+        }
     }
 };
 
@@ -163,8 +165,6 @@ public:
     std::shared_ptr<labjack::StateSource> state_source;
 
     void get_index_keys();
-
-
 
 private:
     int handle;
