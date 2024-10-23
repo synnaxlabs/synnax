@@ -15,7 +15,6 @@
 //                                    Helper                                     //
 ///////////////////////////////////////////////////////////////////////////////////
 synnax::Series val_to_series(double val, synnax::DataType data_type){ // no discard
-
     if(data_type == synnax::FLOAT64)
         return synnax::Series(static_cast<double>(val), synnax::FLOAT64);
     if(data_type == synnax::FLOAT32)
@@ -193,7 +192,6 @@ freighter::Error labjack::WriteSink::stop(const std::string &cmd_key){
                   });
     return freighter::NIL;
 }
-
 freighter::Error labjack::WriteSink::start(const std::string &cmd_key){
     LOG(INFO) << "[labjack.writer] starting labjack device";
     if(this->breaker.running()){
