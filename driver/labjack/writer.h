@@ -75,17 +75,20 @@ struct WriterChannelConfig{
     uint32_t cmd_key;  // TODO: change channel type to synanx::channelKEY or whatever it is
     uint32_t state_key;
     std::string channel_type = "";
+    int port;
 
     WriterChannelConfig() = default;
 
     explicit WriterChannelConfig(config::Parser &parser)
-        : location(parser.required<std::string>("location")),
-          enabled(parser.optional<bool>("enabled", true)),
+        : enabled(parser.optional<bool>("enabled", true)),
           data_type(parser.required<std::string>("data_type")),
           cmd_key(parser.required<uint32_t>("cmd_key")),
           state_key(parser.required<uint32_t>("state_key")),
-          channel_type(parser.optional<std::string>("type", "")) {
-
+          channel_type(parser.optional<std::string>("channel_type", "")), // TODO: change this
+          port(parser.optional<int>("port", 0)){
+        if(this->channel_type == "DO"){
+            this->location = "DIO" + std::to_string(this->port);
+        }
     }
 };
 
@@ -162,8 +165,6 @@ public:
     std::shared_ptr<labjack::StateSource> state_source;
 
     void get_index_keys();
-
-
 
 private:
     int handle;
