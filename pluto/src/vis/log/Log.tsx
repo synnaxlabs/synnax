@@ -93,11 +93,7 @@ export const Log = Aether.wrap<LogProps>(
             className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
             variant="outlined"
             onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
-            tooltip={
-              scrolling
-                ? "Auto Scroll Paused. Click to Resume"
-                : "Auto Scroll Enabled. Click to Pause"
-            }
+            tooltip={scrolling ? "Resume Scrolling" : "Pause Scrolling"}
           >
             <Icon.Dynamic />
           </Button.Icon>
