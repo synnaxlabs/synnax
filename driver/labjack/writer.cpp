@@ -148,6 +148,16 @@ labjack::WriteSink::~WriteSink(){
 }
 
 void labjack::WriteSink::init(){
+    if(this->writer_config.device_type == ""){
+        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+                this->writer_config.device_key
+        );
+        if(err != freighter::NIL){
+            LOG(ERROR) << "[labjack.writer] Error retrieving device: " << err.message();
+            return;
+        }
+        this->writer_config.device_type = dev.model;
+    }
     int err;
     {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);

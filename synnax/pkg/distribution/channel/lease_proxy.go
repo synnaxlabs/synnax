@@ -11,8 +11,6 @@ package channel
 
 import (
 	"context"
-	"runtime"
-	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -287,9 +285,9 @@ func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []stri
 
 func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
 	// Block channel deletion on Windows due to a bug in Cesium
-	if strings.HasPrefix(runtime.GOOS, "windows") {
-		return errors.New("Channel deletion is not supported on Windows due to a known bug.")
-	}
+	// if strings.HasPrefix(runtime.GOOS, "windows") {
+	// 	return errors.New("Channel deletion is not supported on Windows due to a known bug.")
+	// }
 
 	if !allowInternal {
 		var internalChannels []Channel

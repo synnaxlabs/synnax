@@ -529,7 +529,8 @@ int digital_out()
 /////////////////////////////////////////////////////////////////////////////////////////// END OF STREAMING
 
 int main() {
-    return multi_ain();
+    return scan();
+//    return multi_ain();
 //    return basic_stream();
 //    return digital_out();
 }
