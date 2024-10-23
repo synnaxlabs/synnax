@@ -14,11 +14,13 @@ import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 
 const SELECTABLES: Layout.Selectable[] = [
   LinePlot.SELECTABLE,
   Schematic.SELECTABLE,
+  ...Log.SELECTABLES,
   ...NI.SELECTABLES,
   ...OPC.SELECTABLES,
 ];
