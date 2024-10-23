@@ -279,11 +279,11 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
               data={[
                 {
                   key: "AIN",
-                  value: "Analog In",
+                  value: "Analog",
                 },
                 {
                   key: "DIN",
-                  value: "Digital In",
+                  value: "Digital",
                 },
               ]}
               entryRenderKey="value"
@@ -297,6 +297,14 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
         {(p) => <Select.DataType {...p} />}
       </Form.Field>
       <Form.NumericField path={`${prefix}.range`} optional label="Voltage Range" grow />
+      <Align.Space direction="x" grow>
+        <Input.Item label="Slope" required grow>
+          <Input.Numeric value={1} onChange={console.log} />
+        </Input.Item>
+        <Input.Item label="Offset" required grow>
+          <Input.Numeric value={0} onChange={console.log} />
+        </Input.Item>
+      </Align.Space>
     </Align.Space>
   );
 };
