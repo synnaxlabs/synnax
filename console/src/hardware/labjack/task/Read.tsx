@@ -64,7 +64,7 @@ export const configureReadLayout = (
   name: "Configure LabJack Read Task",
   type: READ_TYPE,
   key: id.id(),
-  icon: "Task",
+  icon: "Logo.LabJack",
   windowKey: READ_TYPE,
   location: "mosaic",
   args,
@@ -73,7 +73,7 @@ export const configureReadLayout = (
 export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "LabJack Read Task",
-  icon: <Icon.Task />,
+  icon: <Icon.Logo.LabJack />,
   create: (layoutKey) => ({
     ...configureReadLayout({ create: true }),
     key: layoutKey,

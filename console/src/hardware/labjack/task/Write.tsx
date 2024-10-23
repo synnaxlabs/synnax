@@ -64,7 +64,7 @@ export const configureWriteLayout = (
   name: "Configure LabJack Write Task",
   type: WRITE_TYPE,
   key: id.id(),
-  icon: "Task",
+  icon: "Logo.LabJack",
   windowKey: WRITE_TYPE,
   location: "mosaic",
   args,
@@ -73,7 +73,7 @@ export const configureWriteLayout = (
 export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "LabJack Write Task",
-  icon: <Icon.Task />,
+  icon: <Icon.Logo.LabJack />,
   create: (layoutKey) => ({
     ...configureWriteLayout({ create: true }),
     key: layoutKey,

@@ -83,6 +83,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
       "px",
     ),
     "font-family": theme.typography.family,
+    "code-font-family": theme.typography.codeFamily,
     "h1-size": unitProperty(theme.typography.h1.size, "rem"),
     "h1-weight": theme.typography.h1.weight,
     "h1-line-height": unitProperty(theme.typography.h1.lineHeight, "rem"),
