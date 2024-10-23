@@ -63,7 +63,7 @@ export const configureWriteLayout = (
   name: "Configure LabJack Write Task",
   type: WRITE_TYPE,
   key: id.id(),
-  icon: "Logo.LabJack",
+  icon: "Task",
   windowKey: WRITE_TYPE,
   location: "mosaic",
   args,
@@ -72,7 +72,7 @@ export const configureWriteLayout = (
 export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "LabJack Write Task",
-  icon: <Icon.Logo.LabJack />,
+  icon: <Icon.Task />,
   create: (layoutKey) => ({
     ...configureWriteLayout({ create: true }),
     key: layoutKey,
@@ -306,10 +306,9 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
     <Align.Space direction="x" grow>
       <Form.TextField path={`${prefix}.location`} label="Location" grow />
       <Form.TextField path={`${prefix}.dataType`} label="Data Type" grow />
-      <Form.NumericField path={`${prefix}.range`} optional label="Range" grow />
       <Form.TextField
         path={`${prefix}.channelTypes`}
-        label="Negative Channel"
+        label="Channel Type"
         optional
         grow
       />

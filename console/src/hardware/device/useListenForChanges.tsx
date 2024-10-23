@@ -47,7 +47,6 @@ export const useListenForChanges = (): void => {
 };
 
 const MAKE_ICONS: Record<string, ReactElement> = {
-  LabJack: <Icon.Logo.LabJack />,
   NI: <Icon.Logo.NI />,
   opcua: <Icon.Logo.OPC />,
 };

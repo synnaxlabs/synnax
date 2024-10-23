@@ -217,7 +217,7 @@ export const createConfigureLayout =
       type: CONFIGURE_LAYOUT_TYPE,
       windowKey: key, //TODO: difference between key and windowKey?
       name,
-      icon: "Logo.LabJack",
+      icon: "Device",
       window: {
         navTop: true,
         size: { height: 350, width: 800 },

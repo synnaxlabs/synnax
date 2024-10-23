@@ -19,7 +19,7 @@ export const createReadTaskCommand: Command = {
   name: "Create a LabJack Read Task",
   icon: (
     <PIcon.Create>
-      <Icon.Logo.LabJack />
+      <Icon.Task />
     </PIcon.Create>
   ),
   onSelect: ({ placeLayout }) =>
@@ -31,7 +31,7 @@ export const createWriteTaskCommand: Command = {
   name: "Create an LabJack Write Task",
   icon: (
     <PIcon.Create>
-      <Icon.Logo.LabJack />
+      <Icon.Task />
     </PIcon.Create>
   ),
   onSelect: ({ placeLayout }) => placeLayout(configureWriteLayout({ create: true })),
