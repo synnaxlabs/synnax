@@ -84,7 +84,7 @@ struct WriterChannelConfig{
           data_type(parser.required<std::string>("data_type")),
           cmd_key(parser.required<uint32_t>("cmd_key")),
           state_key(parser.required<uint32_t>("state_key")),
-          channel_type(parser.optional<std::string>("channel_type", "")) {
+          channel_type(parser.optional<std::string>("type", "")) {
 
     }
 };
@@ -108,7 +108,7 @@ struct WriterConfig{
     WriterConfig() = default;
 
     explicit WriterConfig(config::Parser &parser)
-        :  device_type(parser.optional<std::string>("device_type", "")),
+        :  device_type(parser.optional<std::string>("type", "")),
            device_key(parser.required<std::string>("device_key")),
            state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),
            serial_number(parser.optional<std::string>("serial_number", "")),
