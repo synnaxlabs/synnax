@@ -52,7 +52,7 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
-const DEFAULT_RETENTION = TimeSpan.days(1).seconds;
+const DEFAULT_RETENTION = TimeSpan.days(1);
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const winKey = useSelectWindowKey() as string;

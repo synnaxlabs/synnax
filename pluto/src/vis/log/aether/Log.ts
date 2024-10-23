@@ -32,6 +32,7 @@ export const logState = z.object({
 });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
+const CANVAS: render.Canvas2DVariant = "lower2d";
 
 interface InternalState {
   theme: theming.Theme;
@@ -125,7 +126,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   async afterDelete(): Promise<void> {
     const { telem, render: renderCtx } = this.internal;
     await telem.cleanup?.();
-    renderCtx.erase(box.construct(this.state.region), xy.ZERO, "upper2d");
+    renderCtx.erase(box.construct(this.state.region), xy.ZERO, CANVAS);
   }
 
   private requestRender(): void {
@@ -134,7 +135,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       key: `${this.type}-${this.key}`,
       render: async () => await this.render(),
       priority: "high",
-      canvases: ["lower2d", "upper2d"],
+      canvases: [CANVAS],
     });
   }
 
@@ -161,7 +162,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const region = this.state.region;
     if (box.areaIsZero(region)) return undefined;
     if (!this.state.visible)
-      return async () => renderCtx.erase(region, xy.ZERO, "upper2d");
+      return async () => renderCtx.erase(region, xy.ZERO, CANVAS);
     let range: Iterable<any>;
     if (!this.state.scrolling)
       range = this.values.subIterator(
@@ -177,9 +178,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     }
 
     const reg = this.state.region;
-    const canvas = renderCtx.upper2d;
+    const canvas = renderCtx[CANVAS];
     const draw2d = new Draw2D(canvas, this.internal.theme);
-    const clearScissor = renderCtx.scissor(reg, xy.ZERO, ["upper2d"]);
+    const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderElements(draw2d, range);
     this.renderScrollbar(draw2d);
     clearScissor();

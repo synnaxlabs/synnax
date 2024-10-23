@@ -47,6 +47,11 @@ const MAX_SIZE = 1e6;
 const DEF_SIZE = 1e4;
 const MAX_DEF_WRITES = 100;
 
+// When we allocate series for variable rate data types, we're allocating the number
+// of bytes instead of samples. This multiplier is used as a rough estimation for the number
+// of bytes per sample.
+const VARIABLE_DT_MULTIPLIER = 40;
+
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
  * for channel data.
@@ -104,13 +109,13 @@ export class Dynamic {
 
   private allocate(capacity: number, alignment: bigint, start: TimeStamp): Series {
     this.counter++;
+    const isVariable = this.props.dataType.isVariable;
+    const isTimestamp = this.props.dataType.equals(DataType.TIMESTAMP);
     return Series.alloc({
-      capacity,
-      dataType: this.props.dataType.isVariable ? this.props.dataType : DataType.FLOAT32,
+      capacity: isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
+      dataType: isVariable ? this.props.dataType : DataType.FLOAT32,
       timeRange: start.range(TimeStamp.MAX),
-      sampleOffset: this.props.dataType.equals(DataType.TIMESTAMP)
-        ? BigInt(start.valueOf())
-        : 0,
+      sampleOffset: isTimestamp ? BigInt(start.valueOf()) : 0,
       glBufferUsage: "dynamic",
       alignment,
       key: `dynamic-${this.counter}`,
