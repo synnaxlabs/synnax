@@ -3,15 +3,17 @@ layout: "@/layouts/Reference.astro"
 title: "Logs"
 description: "View telemetry data in log format."
 prev: "Schematics"
-prevURL: "/reference/console/schematics"
+prevURL: "/reference/console/users"
+next: "Users"
+nextURL: "/reference/console/users"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Video } from "@/components/media";
+import { Video } from "@/components/Media";
 
-Logs are used to view telemetry in a log format. They are useful for viewing low speed 
-sensor values, viewing and communicating control sequences states, and debugging 
-operations. 
+Logs are used to view telemetry in a log format. They are useful for viewing low speed
+sensor values, viewing and communicating control sequences states, and debugging
+operations.
 
 <Divider.Divider direction="x" />
 
@@ -26,7 +28,7 @@ To create a log, add a new tab and select the log visualization:
 ## Choosing a Channel
 
 To start viewing data, the only option you need to select is the channel to
-view data from. You can do this by clicking on the channel dropdown in the 
+view data from. You can do this by clicking on the channel dropdown in the
 visualization toolbar.
 
 <Video client:only="react" id="console/logs/choose-channel" />
@@ -36,16 +38,14 @@ visualization toolbar.
 ## Pausing and Scrolling
 
 To view historical data previously logged, simply scroll up. This will automatically
-freeze the log window and allow you to scroll through the data. To resume live 
+freeze the log window and allow you to scroll through the data. To resume live
 logging, simply scroll back down to the bottom of the log window.
 
 <Video client:only="react" id="console/logs/scrollback" />
 
 ### Using the Pause/Play Button
 
-You can also pause and resume live logging by clicking the pause/play button the top 
+You can also pause and resume live logging by clicking the pause/play button the top
 right corner of the log window.
 
 <Video client:only="react" id="console/logs/pause-play" />
-
-<Divider.Divider direction="x" />
