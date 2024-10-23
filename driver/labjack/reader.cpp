@@ -86,6 +86,7 @@ void labjack::Source::init_stream(){
     ErrorCheck(err, "[labjack.reader] LJM_NamesToAddresses error");
 
     err = LJM_eStreamStop(handle);
+
     err = LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate);
     ErrorCheck(err, "[labjack.reader] LJM_eStreamStart error");
 };

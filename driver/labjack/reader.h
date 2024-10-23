@@ -36,16 +36,19 @@ namespace labjack{
         uint32_t channel_key;
         double range = 10.0;
         std::string channel_type = "";
+        int port;
 
         ReaderChannelConfig() = default;
 
         explicit ReaderChannelConfig(config::Parser &parser)
-                : location(parser.required<std::string>("location")),
-                  enabled(parser.optional<bool>("enabled", true)),
+                : enabled(parser.optional<bool>("enabled", true)),
                   data_type(parser.required<std::string>("data_type")),
-                  channel_key(parser.required<uint32_t>("channel_key")),
+                  channel_key(parser.required<uint32_t>("channel")),
                   range(parser.optional<double>("range", 10.0)),
-                  channel_type(parser.optional<std::string>("channel_types", "")) {
+                  channel_type(parser.optional<std::string>("type", "")),
+                  port(parser.optional<int>("port", 0)){
+            this->location = this->channel_type + std::to_string(this->port);
+            LOG(INFO) << parser.get_json().dump(4);
         }
     };
 
@@ -80,6 +83,7 @@ namespace labjack{
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 channels.emplace_back(ReaderChannelConfig(channel_parser));
                 this->channel_map[channels.back().location] = channels.back().channel_key;
+                LOG(INFO) << "channel: " << channels.back().location;
                 if(channels.back().enabled)
                     this->phys_channels.push_back(channels.back().location);
 
