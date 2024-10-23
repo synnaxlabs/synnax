@@ -173,8 +173,7 @@ private:
     breaker::Breaker breaker;
     synnax::Task task;
 
-}; // class DigitalWriteSink
-
+}; // class WriteSink
 
 } // namespace labjack
 // TODO: add a cycle function to catch errors before hand?
