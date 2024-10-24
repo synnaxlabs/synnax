@@ -38,6 +38,7 @@ import {
   FaBookOpen,
   FaDocker,
   FaLinux,
+  FaProjectDiagram,
   FaStream,
   FaWindows,
 } from "react-icons/fa";
@@ -49,9 +50,10 @@ import { IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
-  IoNotificationsOff,
   IoShapes,
+  IoNotifications,
   IoTime,
+  IoNotificationsOff
 } from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,

@@ -258,7 +258,7 @@ if __name__ == "__main__":
         tpc_upper_bound=50,
         tpc_lower_bound=45,
     )
-    res = execute_auto(initial_params, wait_for_confirm=True)
+    res = execute_auto(initial_params, wait_for_confirm=False)
     next_params = perform_analysis(initial_params, res)
     res = execute_auto(next_params)
     next_params.tpc_upper_bound = initial_params.tpc_upper_bound
