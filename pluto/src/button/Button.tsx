@@ -123,7 +123,7 @@ export const Button = Tooltip.wrap(
 
     const handleMouseDown: ButtonProps["onMouseDown"] = (e) => {
       onMouseDown?.(e);
-      if (disabled || variant === "preview") return;
+      if (disabled || variant === "preview" || parsedDelay.isZero) return;
       document.addEventListener(
         "mouseup",
         () => toRef.current != null && clearTimeout(toRef.current),
