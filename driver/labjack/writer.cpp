@@ -15,6 +15,7 @@
 //                                    Helper                                     //
 ///////////////////////////////////////////////////////////////////////////////////
 synnax::Series val_to_series(double val, synnax::DataType data_type){ // no discard
+
     if(data_type == synnax::FLOAT64)
         return synnax::Series(static_cast<double>(val), synnax::FLOAT64);
     if(data_type == synnax::FLOAT32)
@@ -143,7 +144,7 @@ labjack::WriteSink::WriteSink(
 
 labjack::WriteSink::~WriteSink(){
     this->stop("");
-//    CloseOrDie(this->handle);
+    CloseOrDie(this->handle);
 }
 
 void labjack::WriteSink::init(){
@@ -162,7 +163,7 @@ void labjack::WriteSink::init(){
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
          err = LJM_Open(LJM_dtANY, LJM_ctANY, this->writer_config.serial_number.c_str(), &this->handle);
     }
-    ErrorCheck(err, "[labjack.writer] LJM_Open error on serial num: %s ", this->writer_config.serial_number);
+    ErrorCheck(err, "[labjack.writer] LJM_Open error on serial num: %s ", this->writer_config.serial_number.c_str());
 }
 
 freighter::Error labjack::WriteSink::write(synnax::Frame frame){
@@ -178,8 +179,6 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame){
 }
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key){
-    if(!this->breaker.running()) return freighter::NIL;
-    this->breaker.stop();
     CloseOrDie(this->handle);
     ctx->setState({
                           .task = task.key,
@@ -192,13 +191,8 @@ freighter::Error labjack::WriteSink::stop(const std::string &cmd_key){
                   });
     return freighter::NIL;
 }
+
 freighter::Error labjack::WriteSink::start(const std::string &cmd_key){
-    LOG(INFO) << "[labjack.writer] starting labjack device";
-    if(this->breaker.running()){
-        LOG(INFO) << "breaker already running";
-        return freighter::NIL;
-    }
-    this->breaker.start();
     this->init();
     ctx->setState({
                           .task = task.key,

@@ -25,7 +25,7 @@ cc_library(
         "//driver/heartbeat",
         "//driver/opc",
         "//driver/ni",
-        "//driver/labjack",
+        # "//driver/labjack",
         "//driver/task",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
@@ -54,14 +54,14 @@ cc_test(
 cc_binary(
     name = "driver_main",
     srcs = select({
-        "//conditions:default":["main.cpp"],
+        "//conditions:default": ["main.cpp"],
     }),
     copts = select({
         ":use_ni": ["-DUSE_NI"],
-#         "@platforms//os:windows": [
-# #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
-#             "-std:c++20"
-#         ],
+        #         "@platforms//os:windows": [
+        # #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+        #             "-std:c++20"
+        #         ],
         "//conditions:default": ["-std=c++20"],
     }),
     linkopts = select({
@@ -69,9 +69,9 @@ cc_binary(
             "/DEFAULTLIB:ws2_32.lib",
             "/DEFAULTLIB:iphlpapi.lib",
             "/DEFAULTLIB:psapi.lib",
-            "/FORCE:MULTIPLE", # FIXME: handles the current duplicate symbo,ls because of labjack lib. temp workaround
-#            "/debug",
-#            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+            "/FORCE:MULTIPLE",  # FIXME: handles the current duplicate symbo,ls because of labjack lib. temp workaround
+            #            "/debug",
+            #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
         ],
         "//conditions:default": [],
     }),
@@ -79,10 +79,10 @@ cc_binary(
         "@platforms//os:windows": [
             "//driver",
             "//driver/breaker",
+            "//driver/labjack",
             "//driver/meminfo",
             "//driver/ni",
             "//driver/opc",
-            "//driver/labjack",
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",
             "@com_github_google_glog//:glog",
