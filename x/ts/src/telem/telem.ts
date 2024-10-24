@@ -470,6 +470,22 @@ export class TimeSpan implements Stringer {
     this.value = BigInt(value.valueOf());
   }
 
+  static fromSeconds(span: CrudeTimeSpan): TimeSpan {
+    if (span instanceof TimeSpan) return span;
+    if (span instanceof Rate) return span.period;
+    if (["number", "bigint"].includes(typeof span))
+      return TimeSpan.seconds(span as number);
+    return new TimeSpan(span);
+  }
+
+  static fromMilliseconds(span: CrudeTimeSpan): TimeSpan {
+    if (span instanceof TimeSpan) return span;
+    if (span instanceof Rate) return span.period;
+    if (["number", "bigint"].includes(typeof span))
+      return TimeSpan.milliseconds(span as number);
+    return new TimeSpan(span);
+  }
+
   encode(): string {
     return this.value.toString();
   }
