@@ -28,7 +28,8 @@ import { ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Properties } from "@/hardware/labjack/device/types";
+import { SelectInputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
+import { InputChannelType, Properties } from "@/hardware/labjack/device/types";
 import { SelectDevice } from "@/hardware/labjack/task/common";
 import {
   Read,
@@ -270,28 +271,16 @@ interface ChannelFormProps {
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`; //datatype, location, range, channel type
+  const channelType = Form.useFieldValue(`${prefix}.type`, true);
   return (
     <Align.Space direction="y" empty>
       <Align.Space direction="x">
-        <Form.Field path={`${prefix}.type`} label="Type">
-          {(p) => (
-            <Select.Button
-              data={[
-                {
-                  key: "AIN",
-                  value: "Analog",
-                },
-                {
-                  key: "DIN",
-                  value: "Digital",
-                },
-              ]}
-              entryRenderKey="value"
-              {...p}
-            />
-          )}
+        <Form.Field<InputChannelType> path={`${prefix}.type`} label="Type">
+          {(p) => <SelectInputChannelType {...p} />}
         </Form.Field>
-        <Form.NumericField path={`${prefix}.port`} label="Port" grow />
+        <Form.Field<string> path={`${prefix}.port`}>
+          {(p) => <SelectPort {...p} model="LJM_" channelType={channelType} />}
+        </Form.Field>
       </Align.Space>
       <Form.Field path={`${prefix}.dataType`} label="Data Type" grow>
         {(p) => <Select.DataType {...p} />}
@@ -399,11 +388,6 @@ const ChannelListItem = ({
       optional: true,
     })?.status.variant === "success";
 
-  const locationValid =
-    Form.useField<number>({
-      path: `${path}.${props.index}.location`,
-      optional: true,
-    })?.status.variant === "success";
   if (childValues == null) return <></>;
   return (
     <List.ItemFrame

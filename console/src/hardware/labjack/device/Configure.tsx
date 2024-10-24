@@ -29,8 +29,8 @@ import { CSS } from "@/css";
 import {
   configurablePropertiesZ,
   getZeroProperties,
-  MODELS,
-  type Models,
+  MODEL_KEYS,
+  type ModelKey,
   type Properties,
 } from "@/hardware/labjack/device/types";
 import { type Layout } from "@/layout";
@@ -103,9 +103,9 @@ const ConfigureInternal = ({
         return;
       }
       if (!methods.validate("identifier")) return;
-      const model = MODELS.find((m) => m === device.model);
+      const model = MODEL_KEYS.find((m) => m === device.model);
       if (model == null) throw new Error(`Unknown Model: ${device.model}`);
-      const zeroProperties = getZeroProperties(device.model as Models);
+      const zeroProperties = getZeroProperties(device.model as ModelKey);
       await client.hardware.devices.create({
         ...device,
         configured: true,

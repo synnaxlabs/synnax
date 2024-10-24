@@ -16,6 +16,7 @@ import {
   primitiveIsZero,
 } from "@synnaxlabs/x";
 import {
+  FC,
   type FocusEventHandler,
   type ReactElement,
   ReactNode,
@@ -36,6 +37,8 @@ import {
   type UseSelectOnChangeExtra,
   type UseSelectSingleProps,
 } from "@/list/useSelect";
+import { Override } from "@/override";
+import { Select } from "@/select";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
 import { Triggers } from "@/triggers";

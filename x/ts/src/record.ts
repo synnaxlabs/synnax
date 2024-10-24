@@ -17,6 +17,11 @@ export interface Keyed<K extends Key> {
   key: K;
 }
 
+export interface KeyedNamed<K extends Key> {
+  key: K;
+  name: string;
+}
+
 export const unknownRecordZ = z.record(
   z.union([z.number(), z.string(), z.symbol()]),
   z.unknown(),

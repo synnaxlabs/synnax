@@ -1,13 +1,13 @@
 import { Align, Form, Select } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { ModelDirectory, Models } from "../device/types";
+import { ModelDirectory, ModelKey } from "../device/types";
 
 interface ChannelFormProps {
   selectedChannelIndex: number;
 }
 
-const locationSelector = (model: Models, type: "AIN" | "DIO") => {
+const locationSelector = (model: ModelKey, type: "AIN" | "DIO") => {
   const pinoutInfo = ModelDirectory[model];
   const locations: string[] = [];
   const regType = pinoutInfo[type];
