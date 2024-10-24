@@ -808,7 +808,7 @@ class AnalogReadTaskConfig(BaseModel):
     device: str
     sample_rate: conint(ge=0, le=50000)
     stream_rate: conint(ge=0, le=50000)
-    channels: List[AIChan]
+    channels: list[AIChan]
     data_saving: bool
 
     @validator("stream_rate")
@@ -1010,13 +1010,16 @@ class AnalogReadTask(MetaTask):
     def set_internal(self, task: Task):
         self._internal = task
 
-    @contextmanager
     def start(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command_sync("start", timeout)
+        self._internal.execute_command_sync("start", timeout=timeout)
+
+    def stop(self, timeout: float | TimeSpan = 0):
+        self._internal.execute_command_sync("stop", timeout=timeout)
+
+    @contextmanager
+    def run(self, timeout: float | TimeSpan = 0):
+        self.start(timeout)
         try:
             yield
         finally:
-            self.stop()
-
-    def stop(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command_sync("stop", timeout)
+            self.stop(timeout)
