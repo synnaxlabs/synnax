@@ -25,11 +25,13 @@ cc_library(
         "//driver/heartbeat",
         "//driver/opc",
         "//driver/ni",
-        # "//driver/labjack",
         "//driver/task",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["//driver/labjack"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(
