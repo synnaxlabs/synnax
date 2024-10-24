@@ -1,0 +1,5 @@
+cc_library(
+    name = "labjackm_lib",
+    srcs = ["LabJackM.lib"],  # might need to change path
+    visibility = ["//visibility:public"],
+)

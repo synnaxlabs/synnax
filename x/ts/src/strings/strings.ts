@@ -33,3 +33,55 @@ export const naturalLanguageJoin = (
   if (length === 2) return `${strings[0]} and ${strings[1]}`;
   return `${strings.slice(0, -1).join(", ")}, and ${strings[length - 1]}`;
 };
+
+/**
+ * Generates a list of short identifiers from a given name.
+ *
+ * @param name - The name to generate identifiers from.
+ * @returns An array of unique short identifiers.
+ *
+ * @example
+ * ```typescript
+ * generateShortIdentifiers("John Doe"); // ["jd", "j_d", "johdoe", "joh_doe"]
+ * generateShortIdentifiers("Alice 123"); // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
+ * generateShortIdentifiers("Bob"); // ["bob"]
+ * ```
+ */
+export const generateShortIdentifiers = (name: string): string[] => {
+  const words = name.split(" ");
+  const identifiers = new Set<string>();
+
+  // Generate initials
+  const initials = words.map((word) => word.charAt(0).toLowerCase()).join("");
+  identifiers.add(initials);
+  identifiers.add(initials.replace(/(.)(.)/g, "$1_$2")); // Insert underscores
+
+  // Generate combinations with numbers
+  const regex = /\d+/g;
+  const hasNumbers = name.match(regex);
+
+  if (hasNumbers)
+    words.forEach((word, index) => {
+      if (regex.test(word)) {
+        const abbreviatedWords = words
+          .map((w, i) => (i !== index ? w.charAt(0).toLowerCase() : w))
+          .join("");
+        identifiers.add(abbreviatedWords);
+        identifiers.add(abbreviatedWords.replace(/(.)(.)/g, "$1_$2")); // Insert underscores
+      }
+    });
+
+  // Generate other potential combinations
+  const wordAbbreviations = words.map((word) =>
+    (word.length > 3 ? word.substring(0, 3) : word).toLowerCase(),
+  );
+  identifiers.add(wordAbbreviations.join(""));
+  identifiers.add(wordAbbreviations.join("_"));
+
+  // Limit length of identifiers
+  const filteredIdentifiers = Array.from(identifiers).filter(
+    (id) => id.length >= 2 && id.length <= 12,
+  );
+
+  return filteredIdentifiers;
+};

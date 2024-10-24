@@ -57,9 +57,11 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
+type LayoutArgs = TaskLayoutArgs<DigitalReadPayload>;
+
 export const configureDigitalReadLayout = (
-  args: TaskLayoutArgs<DigitalReadPayload> = { create: false },
-): Layout.State<TaskLayoutArgs<DigitalReadPayload>> => ({
+  args: LayoutArgs = { create: false },
+): Layout.State<LayoutArgs> => ({
   name: "Configure NI Digital Read Task",
   type: DIGITAL_READ_TYPE,
   key: id.id(),

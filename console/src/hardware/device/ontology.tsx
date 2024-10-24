@@ -15,6 +15,7 @@ import { ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
+import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
@@ -25,8 +26,8 @@ type DeviceLayoutCreator = (
   device: string,
   initial: Partial<Layout.State>,
 ) => Layout.Creator;
-
 const ZERO_LAYOUT_STATES: Record<string, DeviceLayoutCreator> = {
+  [LabJack.Device.CONFIGURE_LAYOUT_TYPE]: LabJack.Device.createConfigureLayout,
   [NI.Device.CONFIGURE_LAYOUT_TYPE]: NI.Device.createConfigureLayout,
   [OPC.Device.CONFIGURE_LAYOUT_TYPE]: OPC.Device.createConfigureLayout,
 };
@@ -35,6 +36,7 @@ const CONTEXT_MENUS: Record<
   string,
   (props: Ontology.TreeContextMenuProps) => ReactElement | null
 > = {
+  [LabJack.MAKE]: LabJack.Device.ContextMenuItems,
   [NI.MAKE]: NI.Device.ContextMenuItems,
   [OPC.MAKE]: OPC.Device.ContextMenuItems,
 };

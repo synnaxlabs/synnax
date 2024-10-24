@@ -393,13 +393,13 @@ public:
             output_partial_vector(os, s.values<int64_t>());
         else if (s.data_type == synnax::UINT64 || s.data_type == synnax::TIMESTAMP)
             output_partial_vector(os, s.values<uint64_t>());
-        else if (s.data_type == synnax::UINT8)
+        else if (s.data_type == synnax::SY_UINT8)
             output_partial_vector_byte(os, s.values<uint8_t>());
         else if (s.data_type == synnax::INT32)
             output_partial_vector(os, s.values<int32_t>());
         else if (s.data_type == synnax::INT16)
             output_partial_vector(os, s.values<int16_t>());
-        else if (s.data_type == synnax::UINT16)
+        else if (s.data_type == synnax::SY_UINT16)
             output_partial_vector(os, s.values<uint16_t>());
         else if (s.data_type == synnax::UINT32)
             output_partial_vector(os, s.values<uint32_t>());

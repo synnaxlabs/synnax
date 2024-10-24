@@ -25,11 +25,11 @@
 
 /// @brief maps opc data types to their corresponding Synnax types.
 std::map<UA_UInt16, synnax::DataType> data_type_map = {
-    {UA_NS0ID_BOOLEAN, synnax::UINT8},
+    {UA_NS0ID_BOOLEAN, synnax::SY_UINT8},
     {UA_NS0ID_SBYTE, synnax::INT8},
-    {UA_NS0ID_BYTE, synnax::UINT8},
+    {UA_NS0ID_BYTE, synnax::SY_UINT8},
     {UA_NS0ID_INT16, synnax::INT16},
-    {UA_NS0ID_UINT16, synnax::UINT16},
+    {UA_NS0ID_UINT16, synnax::SY_UINT16},
     {UA_NS0ID_INT32, synnax::INT32},
     {UA_NS0ID_UINT32, synnax::UINT32},
     {UA_NS0ID_INT64, synnax::INT64},

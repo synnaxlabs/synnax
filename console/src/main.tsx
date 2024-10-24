@@ -23,6 +23,7 @@ import { Cluster } from "@/cluster";
 import { Confirm } from "@/confirm";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
+import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Label } from "@/label";
@@ -48,6 +49,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Workspace.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...LinePlot.LAYOUTS,
+  ...LabJack.LAYOUTS,
   ...OPC.LAYOUTS,
   ...Range.LAYOUTS,
   ...Cluster.LAYOUTS,

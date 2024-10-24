@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { deep } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useRef, useState } from "react";
 
@@ -47,46 +48,6 @@ interface ConfigureInternalProps extends Pick<Layout.RendererProps, "onClose"> {
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-const generateShortIdentifiers = (name: string): string[] => {
-  const words = name.split(" ");
-  const identifiers = new Set<string>();
-
-  // Generate initials
-  const initials = words.map((word) => word.charAt(0).toLowerCase()).join("");
-  identifiers.add(initials);
-  identifiers.add(initials.replace(/(.)(.)/g, "$1_$2")); // Insert underscores
-
-  // Generate combinations with numbers
-  const regex = /\d+/g;
-  const hasNumbers = name.match(regex);
-
-  if (hasNumbers) {
-    words.forEach((word, index) => {
-      if (regex.test(word)) {
-        const abbreviatedWords = words
-          .map((w, i) => (i !== index ? w.charAt(0).toLowerCase() : w))
-          .join("");
-        identifiers.add(abbreviatedWords);
-        identifiers.add(abbreviatedWords.replace(/(.)(.)/g, "$1_$2")); // Insert underscores
-      }
-    });
-  }
-
-  // Generate other potential combinations
-  const wordAbbreviations = words.map((word) =>
-    word.length > 3 ? word.substring(0, 3).toLowerCase() : word.toLowerCase(),
-  );
-  identifiers.add(wordAbbreviations.join(""));
-  identifiers.add(wordAbbreviations.join("_"));
-
-  // Limit length of identifiers
-  const filteredIdentifiers = Array.from(identifiers).filter(
-    (id) => id.length >= 2 && id.length <= 12,
-  );
-
-  return filteredIdentifiers;
-};
-
 const ConfigureInternal = ({
   device,
   onClose,
@@ -115,7 +76,7 @@ const ConfigureInternal = ({
         if (methods.validate("name")) {
           setStep("identifier");
           setRecommendedIds(
-            generateShortIdentifiers(methods.get<string>("name").value),
+            strings.generateShortIdentifiers(methods.get<string>("name").value),
           );
           setTimeout(() => identifierRef.current?.focus(), 100);
         }
