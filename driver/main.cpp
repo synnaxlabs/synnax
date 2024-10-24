@@ -21,7 +21,9 @@
 #include "driver/meminfo/meminfo.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
+#ifdef _WIN32
 #include "driver/labjack/labjack.h"
+#endif
 
 using json = nlohmann::json;
 
@@ -110,12 +112,17 @@ int main(int argc, char *argv[]) {
         LOG(INFO) << "[driver] NI integration is not enabled or the required DLLs are not available";
 #endif
 
+#ifdef _WIN32
     auto labjack_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), labjack::INTEGRATION_NAME);
     if(labjack_enabled != cfg.integrations.end()){
         std::unique_ptr<labjack::Factory> labjack_factory = std::make_unique<labjack::Factory>();
         factories.push_back(std::move(labjack_factory));
     } else
         LOG(INFO) << "[driver] LabJack integration is not enabled";
+#else
+    LOG(INFO) << "[driver] LabJack integration is not available on this platform";
+#endif
+
 
 
     auto factory = std::make_unique<task::MultiFactory>(std::move(factories));
