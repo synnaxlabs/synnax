@@ -17,6 +17,7 @@ import {
   type ReactElement,
   ReactNode,
   useCallback,
+  useRef,
 } from "react";
 
 import { type Align } from "@/align";
@@ -102,8 +103,11 @@ export const Button = Tooltip.wrap(
     status,
     style,
     endContent,
+    onMouseDown,
     ...props
   }: ButtonProps): ReactElement => {
+    const parsedDelay = TimeSpan.fromMilliseconds(delay);
+
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input
@@ -112,8 +116,22 @@ export const Button = Tooltip.wrap(
 
     const handleClick: ButtonProps["onClick"] = (e) => {
       if (disabled || variant === "preview") return;
-      const span = delay instanceof TimeSpan ? delay : TimeSpan.milliseconds(delay);
-      if (span.isZero) return onClick?.(e);
+      if (parsedDelay.isZero) return onClick?.(e);
+    };
+
+    const toRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleMouseDown: ButtonProps["onMouseDown"] = (e) => {
+      onMouseDown?.(e);
+      if (disabled || variant === "preview") return;
+      document.addEventListener(
+        "mouseup",
+        () => toRef.current != null && clearTimeout(toRef.current),
+      );
+      toRef.current = setTimeout(() => {
+        onClick?.(e);
+        toRef.current = null;
+      }, parsedDelay.milliseconds);
     };
 
     Triggers.use({
@@ -143,6 +161,10 @@ export const Button = Tooltip.wrap(
       ).rgbCSS;
     }
 
+    if (!parsedDelay.isZero)
+      // @ts-expect-error - css variable
+      pStyle[CSS.var("btn-delay")] = `${parsedDelay.seconds.toString()}s`;
+
     if (size == null && level != null) size = Text.LevelComponentSizes[level];
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
     else if (size == null) size = "medium";
@@ -164,6 +186,7 @@ export const Button = Tooltip.wrap(
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}
         onClick={handleClick}
+        onMouseDown={handleMouseDown}
         noWrap
         style={pStyle}
         startIcon={startIcon}
