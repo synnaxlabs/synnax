@@ -18,6 +18,7 @@
 
 /// module
 #include "driver/breaker/breaker.h"
+#include "driver/pipeline/middleware.h"
 
 namespace pipeline {
 /// @brief an object that reads data from an acquisition computer or another source,
@@ -143,6 +144,7 @@ private:
     WriterConfig writer_config;
     breaker::Breaker breaker;
     std::shared_ptr<Source> source;
+    pipeline::MiddlewareChain middleware_chain;
 
     void runInternal();
 
