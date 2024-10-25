@@ -16,11 +16,11 @@ package codec
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	xbits "github.com/synnaxlabs/x/bits"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
 	"io"
 	"slices"
 )
@@ -37,6 +37,7 @@ func NewCodec(dataTypes []telem.DataType, channels channel.Keys) Codec {
 	for i, key := range channels {
 		keyDataTypes[key] = dataTypes[i]
 	}
+	slices.Sort(channels)
 	return Codec{keys: channels, keyDataTypes: keyDataTypes}
 }
 
@@ -51,78 +52,159 @@ func NewCodecFromChannels(channels []channel.Channel) Codec {
 	return Codec{keys: keys, keyDataTypes: keyDataTypes}
 }
 
+type flags struct {
+	// equalsLens is true when all series in the frame have the same number of samples.
+	// This lets us consolidate the length of all series into one number.
+	equalLens bool
+	// equalTimeRanges is true when all series in the frame have the same time range.
+	// This lets use consolidate all time ranges into one, 16 byte section.
+	equalTimeRanges bool
+	// timeRangesZero is true when the start and end timestamps are all zero.
+	// This lets us omit time ranges entirely.
+	timeRangesZero bool
+	// allChannelsPresent is true if all channels for the codec are also present in the
+	// frame. This lets us omit the channel mapping from the frame.
+	allChannelsPresent bool
+	// equalAlignments is true if the alignments for all series are equal.
+	equalAlignments bool
+	// zeroAlignments is true if all alignments are zero
+	zeroAlignments bool
+}
+
+const (
+	zeroAlignmentsFlagPos     xbits.Pos = 5
+	equalAlignmentsFlagPos    xbits.Pos = 4
+	equalLengthsFlagPos       xbits.Pos = 3
+	equalTimeRangesFlagPos    xbits.Pos = 2
+	timeRangesZeroFlagPos     xbits.Pos = 1
+	allChannelsPresentFlagPos xbits.Pos = 0
+)
+
+func (f flags) encode() byte {
+	b := byte(0)
+	b = equalLengthsFlagPos.Set(b, f.equalLens)
+	b = equalTimeRangesFlagPos.Set(b, f.equalTimeRanges)
+	b = timeRangesZeroFlagPos.Set(b, f.timeRangesZero)
+	b = allChannelsPresentFlagPos.Set(b, f.allChannelsPresent)
+	b = equalAlignmentsFlagPos.Set(b, f.equalAlignments)
+	b = zeroAlignmentsFlagPos.Set(b, f.zeroAlignments)
+	return b
+}
+
+func decodeFlags(b byte) flags {
+	f := newFlags()
+	f.equalLens = equalLengthsFlagPos.Get(b)
+	f.equalTimeRanges = equalTimeRangesFlagPos.Get(b)
+	f.timeRangesZero = timeRangesZeroFlagPos.Get(b)
+	f.allChannelsPresent = allChannelsPresentFlagPos.Get(b)
+	f.equalAlignments = equalAlignmentsFlagPos.Get(b)
+	f.zeroAlignments = zeroAlignmentsFlagPos.Get(b)
+	return f
+}
+
+func newFlags() flags {
+	return flags{
+		equalLens:          true,
+		equalTimeRanges:    true,
+		timeRangesZero:     true,
+		allChannelsPresent: true,
+		equalAlignments:    true,
+		zeroAlignments:     true,
+	}
+}
+
+func writeNaive(buf io.Writer, data any) {
+	_ = binary.Write(buf, byteOrder, data)
+}
+
+func read(r io.Reader, data any) error {
+	return binary.Read(r, byteOrder, data)
+}
+
 func (m Codec) Encode(src framer.Frame, startOffset int) (dst []byte, err error) {
 	var (
-		curDataSize                                      = -1
-		startTime, endTime               telem.TimeStamp = 0, 0
-		byteArraySize                                    = startOffset + 1
-		sizeFlag, alignFlag, channelFlag                 = true, true, true
+		curDataSize  = -1
+		refTr        = telem.TimeRangeZero
+		refAlignment = telem.AlignmentPair(0)
+		// include an extra byte for the flags
+		byteArraySize = startOffset + 1
+		fgs           = newFlags()
 	)
 	if len(src.Keys) != len(m.keys) {
-		channelFlag = false
+		fgs.allChannelsPresent = false
 		byteArraySize += len(src.Keys) * 4
 	}
 	src.Sort()
 	for _, s := range src.Series {
 		if curDataSize == -1 {
 			curDataSize = int(s.Len())
-			startTime = s.TimeRange.Start
-			endTime = s.TimeRange.End
+			refTr = s.TimeRange
+			refAlignment = s.Alignment
 		}
 		if int(s.Len()) != curDataSize {
-			sizeFlag = false
+			fgs.equalLens = false
 		}
-		if s.TimeRange.Start != startTime || s.TimeRange.End != endTime {
-			alignFlag = false
+		if s.TimeRange != refTr {
+			fgs.equalTimeRanges = false
+		}
+		if s.Alignment != refAlignment {
+			fgs.equalAlignments = false
 		}
 		byteArraySize += len(s.Data)
+
 	}
-	if !sizeFlag {
+	fgs.timeRangesZero = fgs.equalTimeRanges && refTr.Start.IsZero() && refTr.End.IsZero()
+	fgs.zeroAlignments = fgs.equalAlignments && refAlignment == 0
+	if !fgs.equalLens {
 		byteArraySize += len(src.Keys) * 4
 	} else {
 		byteArraySize += 4
 	}
-	if !alignFlag {
-		byteArraySize += len(src.Keys) * 16
-	} else {
-		byteArraySize += 16
+	if !fgs.timeRangesZero {
+		if !fgs.equalTimeRanges {
+			byteArraySize += len(src.Keys) * 16
+		} else {
+			byteArraySize += 16
+		}
 	}
-	encoded := make([]byte, byteArraySize)
-	byteArraySize = startOffset
-	encoded[byteArraySize] = (types.BoolToUint8(sizeFlag) << 2) | (types.BoolToUint8(alignFlag) << 1) | types.BoolToUint8(channelFlag)
-	byteArraySize += 1
-	if sizeFlag {
-		byteOrder.PutUint32(encoded[byteArraySize:], uint32(curDataSize))
-		byteArraySize += 4
+	if !fgs.zeroAlignments {
+		if !fgs.equalAlignments {
+			byteArraySize += len(src.Keys) * 8
+		} else {
+			byteArraySize += 8
+		}
 	}
-	if alignFlag {
-		byteOrder.PutUint64(encoded[byteArraySize:], uint64(src.Series[0].TimeRange.Start))
-		byteArraySize += 8
-		byteOrder.PutUint64(encoded[byteArraySize:], uint64(src.Series[0].TimeRange.End))
-		byteArraySize += 8
+	buf := bytes.NewBuffer(make([]byte, startOffset, byteArraySize))
+	buf.WriteByte(fgs.encode())
+	// It's impossible for writing to the buffer to fail, so we just ignore all of the
+	// errors.
+	if fgs.equalLens {
+		_ = binary.Write(buf, byteOrder, uint32(curDataSize))
+	}
+	if fgs.equalTimeRanges && !fgs.timeRangesZero {
+		writeTimeRange(buf, refTr)
+	}
+	if fgs.equalAlignments && !fgs.zeroAlignments {
+		writeNaive(buf, refAlignment)
 	}
 	for i, s := range src.Series {
 		seriesDataLength := uint32(len(s.Data))
 		dataSize := uint32(s.DataType.Density())
-		if !channelFlag {
-			key := src.Keys[i]
-			byteOrder.PutUint32(encoded[byteArraySize:], uint32(key))
-			byteArraySize += 4
+		if !fgs.allChannelsPresent {
+			writeNaive(buf, src.Keys[i])
 		}
-		if !sizeFlag {
-			byteOrder.PutUint32(encoded[byteArraySize:], seriesDataLength/dataSize)
-			byteArraySize += 4
+		if !fgs.equalLens {
+			writeNaive(buf, seriesDataLength/dataSize)
 		}
-		copy(encoded[byteArraySize:], s.Data)
-		byteArraySize += int(seriesDataLength)
-		if !alignFlag {
-			byteOrder.PutUint64(encoded[byteArraySize:], uint64(s.TimeRange.Start))
-			byteArraySize += 8
-			byteOrder.PutUint64(encoded[byteArraySize:], uint64(s.TimeRange.End))
-			byteArraySize += 8
+		_, _ = buf.Write(s.Data)
+		if !fgs.equalTimeRanges {
+			writeTimeRange(buf, s.TimeRange)
+		}
+		if !fgs.equalAlignments {
+			writeNaive(buf, s.Alignment)
 		}
 	}
-	return encoded, nil
+	return buf.Bytes(), nil
 }
 
 func (m Codec) Decode(src []byte) (dst framer.Frame, err error) {
@@ -130,110 +212,98 @@ func (m Codec) Decode(src []byte) (dst framer.Frame, err error) {
 	return m.DecodeStream(b)
 }
 
-func (m Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
+func readTimeRange(reader io.Reader) (tr telem.TimeRange, err error) {
+	if err = binary.Read(reader, byteOrder, &tr.Start); err != nil {
+		return
+	}
+	err = binary.Read(reader, byteOrder, &tr.End)
+	return
+}
+
+func writeTimeRange(w io.Writer, tr telem.TimeRange) {
+	writeNaive(w, tr.Start)
+	writeNaive(w, tr.End)
+}
+
+func (m Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	var (
-		sizeFlag, alignFlag, channelFlag bool
-		sizeRepresentation               uint32
-		timeRangeStart, timeRangeEnd     uint64
-		frame                            framer.Frame
+		dataLen      uint32
+		refTr        telem.TimeRange
+		refAlignment telem.AlignmentPair
+		flagB        byte
 	)
-
-	// Read the flag byte
-	var flagByte byte
-	if err := binary.Read(reader, byteOrder, &flagByte); err != nil {
-		return frame, err
+	if err = read(reader, &flagB); err != nil {
+		return
 	}
+	fgs := decodeFlags(flagB)
 
-	sizeFlag = ((flagByte >> 2) & 1) == 1
-	alignFlag = ((flagByte >> 1) & 1) == 1
-	channelFlag = (flagByte & 1) == 1
-
-	// Read size representation if sizeFlag is true
-	if sizeFlag {
-		if err := binary.Read(reader, byteOrder, &sizeRepresentation); err != nil {
-			return frame, err
+	if fgs.equalLens {
+		if err = read(reader, &dataLen); err != nil {
+			return
+		}
+	}
+	if fgs.equalTimeRanges && !fgs.timeRangesZero {
+		if refTr, err = readTimeRange(reader); err != nil {
+			return
 		}
 	}
 
-	// Read time range if alignFlag is true
-	if alignFlag {
-		if err := binary.Read(reader, byteOrder, &timeRangeStart); err != nil {
-			return frame, err
-		}
-		if err := binary.Read(reader, byteOrder, &timeRangeEnd); err != nil {
-			return frame, err
+	if fgs.equalAlignments && !fgs.zeroAlignments {
+		if err = read(reader, &refAlignment); err != nil {
+			return
 		}
 	}
 
-	// Prepare to read series data
-	keys := m.keys
-	if !channelFlag {
-		keys = nil
-	}
+	decodeSeries := func(key channel.Key) (err error) {
+		s := telem.Series{TimeRange: refTr, Alignment: refAlignment}
 
-	for {
-		var key channel.Key
-		if !channelFlag {
-			var keyVal uint32
-			if err := binary.Read(reader, byteOrder, &keyVal); err != nil {
-				if err == io.EOF {
-					break
-				}
-				return frame, err
+		localDataLen := dataLen
+		if !fgs.equalLens {
+			if err = read(reader, &localDataLen); err != nil {
+				return
 			}
-			key = channel.Key(keyVal)
-		} else {
-			if len(keys) == 0 {
-				break
-			}
-			key = keys[0]
-			keys = keys[1:]
 		}
-		frame.Keys = append(frame.Keys, key)
-
-		// Determine data size
-		var currSize uint32
-		if !sizeFlag {
-			if err := binary.Read(reader, byteOrder, &currSize); err != nil {
-				return frame, err
-			}
-		} else {
-			currSize = sizeRepresentation
-		}
-
-		// Read series data
 		dataType, exists := m.keyDataTypes[key]
 		if !exists {
-			return frame, fmt.Errorf("unknown channel key: %v", key)
+			return errors.Newf("unknown channel key: %v", key)
 		}
-
-		dataLength := int(currSize) * int(dataType.Density())
-		data := make([]byte, dataLength)
-		if _, err := io.ReadFull(reader, data); err != nil {
-			return frame, err
+		s.DataType = dataType
+		s.Data = make([]byte, dataType.Density().Size(int64(localDataLen)))
+		if _, err = io.ReadFull(reader, s.Data); err != nil {
+			return err
 		}
-
-		// Read time range if alignFlag is false
-		startTime, endTime := timeRangeStart, timeRangeEnd
-		if !alignFlag {
-			if err := binary.Read(reader, byteOrder, &startTime); err != nil {
-				return frame, err
-			}
-			if err := binary.Read(reader, byteOrder, &endTime); err != nil {
-				return frame, err
+		if !fgs.equalTimeRanges {
+			if s.TimeRange, err = readTimeRange(reader); err != nil {
+				return
 			}
 		}
-
-		// Append series to frame
-		frame.Series = append(frame.Series, telem.Series{
-			DataType: dataType,
-			Data:     data,
-			TimeRange: telem.TimeRange{
-				Start: telem.TimeStamp(startTime),
-				End:   telem.TimeStamp(endTime),
-			},
-		})
+		if !fgs.equalAlignments {
+			if err = read(reader, &s.Alignment); err != nil {
+				return
+			}
+		}
+		frame.Keys = append(frame.Keys, key)
+		frame.Series = append(frame.Series, s)
+		return
 	}
 
-	return frame, nil
+	if fgs.allChannelsPresent {
+		for _, k := range m.keys {
+			if err = decodeSeries(k); err != nil {
+				return
+			}
+		}
+		return
+	}
+
+	var k channel.Key
+	for {
+		if err = read(reader, &k); err != nil {
+			err = errors.Ignore(err, io.EOF)
+			return
+		}
+		if err = decodeSeries(k); err != nil {
+			return
+		}
+	}
 }
