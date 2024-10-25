@@ -13,6 +13,7 @@ import { ZodSchema } from "zod";
 
 import { channel } from "@/channel";
 import { FramePayload } from "@/framer/frame";
+import { StreamerResponse } from "@/framer/streamer";
 import { WriterCommand, WriteRequest } from "@/framer/writer";
 
 // For detailed information about the specifications,
@@ -102,27 +103,16 @@ export class Codec {
     zeroAlignmentsFlag =
       equalAlignmentsFlag && (currAlignment === undefined || currAlignment === 0n);
 
-    if (sizeFlag) {
-      byteArraySize += 4;
-    } else {
-      byteArraySize += src.keys.length * 4;
-    }
+    if (sizeFlag) byteArraySize += 4;
+    else byteArraySize += src.keys.length * 4;
 
-    if (!timeRangesZeroFlag) {
-      if (equalTimeRangesFlag) {
-        byteArraySize += 16;
-      } else {
-        byteArraySize += src.keys.length * 16;
-      }
-    }
+    if (!timeRangesZeroFlag)
+      if (equalTimeRangesFlag) byteArraySize += 16;
+      else byteArraySize += src.keys.length * 16;
 
-    if (!zeroAlignmentsFlag) {
-      if (equalAlignmentsFlag) {
-        byteArraySize += 8;
-      } else {
-        byteArraySize += src.keys.length * 8;
-      }
-    }
+    if (!zeroAlignmentsFlag)
+      if (equalAlignmentsFlag) byteArraySize += 8;
+      else byteArraySize += src.keys.length * 8;
 
     const buffer = new Uint8Array(byteArraySize);
     const view = new DataView(buffer.buffer);
@@ -319,6 +309,32 @@ export class WSWriterCodec implements binary.Codec {
     const v: WebsocketMessage<WriteRequest> = { type: "data" };
     const frame = this.base.decode(data, 1);
     v.payload = { command: WriterCommand.Write, frame };
+    return v as P;
+  }
+}
+
+export class WSStreamerCodec implements binary.Codec {
+  contentType = "application/sy-framer";
+  base: Codec;
+  lowPerfCodec: binary.Codec;
+
+  constructor(base: Codec) {
+    this.base = base;
+    this.lowPerfCodec = binary.JSON_CODEC;
+  }
+
+  encode(payload: unknown): ArrayBuffer {
+    return this.lowPerfCodec.encode(payload);
+  }
+
+  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+    const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
+    const codec = dv.getUint8(0);
+    if (codec === LOW_PER_SPECIAL_CHAR)
+      return this.lowPerfCodec.decode(data.slice(1), schema);
+    const v: WebsocketMessage<StreamerResponse> = { type: "data" };
+    const frame = this.base.decode(data, 1);
+    v.payload = { frame };
     return v as P;
   }
 }

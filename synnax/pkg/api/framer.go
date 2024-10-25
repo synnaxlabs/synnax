@@ -394,7 +394,7 @@ func (s *FrameService) openWriter(
 	})
 }
 
-type WSWriterCodec struct {
+type WSFramerCodec struct {
 	BaseCodec      *framercodec.Codec
 	LowerPerfCodec xbinary.Codec
 	reader         channel.Readable
@@ -402,12 +402,12 @@ type WSWriterCodec struct {
 }
 
 func NewWSWriterCodec(reader channel.Readable) httputil.Codec {
-	return &WSWriterCodec{reader: reader, LowerPerfCodec: httputil.JSONCodec}
+	return &WSFramerCodec{reader: reader, LowerPerfCodec: httputil.JSONCodec}
 }
 
-var _ xbinary.Codec = (*WSWriterCodec)(nil)
+var _ xbinary.Codec = (*WSFramerCodec)(nil)
 
-func (w *WSWriterCodec) Decode(
+func (w *WSFramerCodec) Decode(
 	ctx context.Context,
 	data []byte,
 	value interface{},
@@ -422,14 +422,14 @@ var (
 	wsHeaderSize             = 1
 )
 
-func (w *WSWriterCodec) maybeCacheKeys(req FrameWriterRequest) {
+func (w *WSFramerCodec) maybeCacheKeys(req FrameWriterRequest) {
 	if req.Command != writer.Open {
 		return
 	}
 	w.keysCache = req.Config.Keys
 }
 
-func (w *WSWriterCodec) maybeBoostrapCodec(ctx context.Context) error {
+func (w *WSFramerCodec) maybeBoostrapCodec(ctx context.Context) error {
 	if w.BaseCodec != nil {
 		return nil
 	}
@@ -442,7 +442,7 @@ func (w *WSWriterCodec) maybeBoostrapCodec(ctx context.Context) error {
 	return nil
 }
 
-func (w *WSWriterCodec) DecodeStream(
+func (w *WSFramerCodec) DecodeStream(
 	ctx context.Context,
 	r io.Reader,
 	value interface{},
@@ -452,23 +452,31 @@ func (w *WSWriterCodec) DecodeStream(
 		return w.decodeWriteRequest(ctx, r, v)
 	case *fhttp.WSMessage[FrameWriterResponse]:
 		return w.lowPerfDecode(ctx, r, v)
+	case *fhttp.WSMessage[FrameStreamerRequest]:
+		return w.decodeStreamRequest(ctx, r, v)
+	case *fhttp.WSMessage[FrameStreamerResponse]:
+		return w.decodeStreamResponse(ctx, r, v)
 	default:
 		panic("incompatible type")
 	}
 }
 
-func (w *WSWriterCodec) Encode(ctx context.Context, value interface{}) ([]byte, error) {
+func (w *WSFramerCodec) Encode(ctx context.Context, value interface{}) ([]byte, error) {
 	switch v := value.(type) {
 	case fhttp.WSMessage[FrameWriterRequest]:
 		return w.encodeWriteRequest(ctx, v)
 	case fhttp.WSMessage[FrameWriterResponse]:
 		return w.lowPerfEncode(ctx, v)
+	case fhttp.WSMessage[FrameStreamerRequest]:
+		return w.lowPerfEncode(ctx, v)
+	case fhttp.WSMessage[FrameStreamerResponse]:
+		return w.encodeStreamResponse(ctx, v)
 	default:
 		panic("incompatible type")
 	}
 }
 
-func (w *WSWriterCodec) lowPerfEncode(ctx context.Context, value interface{}) ([]byte, error) {
+func (w *WSFramerCodec) lowPerfEncode(ctx context.Context, value interface{}) ([]byte, error) {
 	b, err := w.LowerPerfCodec.Encode(ctx, value)
 	if err != nil {
 		return nil, err
@@ -476,11 +484,11 @@ func (w *WSWriterCodec) lowPerfEncode(ctx context.Context, value interface{}) ([
 	return append([]byte{lowPerfSpecialChar}, b...), nil
 }
 
-func (w *WSWriterCodec) lowPerfDecode(ctx context.Context, r io.Reader, value interface{}) error {
+func (w *WSFramerCodec) lowPerfDecode(ctx context.Context, r io.Reader, value interface{}) error {
 	return w.LowerPerfCodec.DecodeStream(ctx, r, value)
 }
 
-func (w *WSWriterCodec) decodeWriteRequest(
+func (w *WSFramerCodec) decodeWriteRequest(
 	ctx context.Context,
 	r io.Reader,
 	v *fhttp.WSMessage[FrameWriterRequest],
@@ -509,22 +517,76 @@ func (w *WSWriterCodec) decodeWriteRequest(
 	return nil
 }
 
-func (w *WSWriterCodec) encodeWriteRequest(
+func (w *WSFramerCodec) encodeWriteRequest(
 	ctx context.Context,
 	v fhttp.WSMessage[FrameWriterRequest],
 ) (b []byte, err error) {
 	if v.Type == fhttp.WSMsgTypeClose || v.Payload.Command != writer.Write {
 		return w.lowPerfEncode(ctx, v)
 	}
-	b, err = w.BaseCodec.Encode(v.Payload.Frame, wsHeaderSize)
-	if err != nil {
+	if b, err = w.BaseCodec.Encode(v.Payload.Frame, wsHeaderSize); err != nil {
 		return
 	}
 	b[0] = highPerfSpecialChar
 	return
 }
 
-func (w *WSWriterCodec) ContentType() string {
+func (w *WSFramerCodec) decodeStreamResponse(
+	ctx context.Context,
+	r io.Reader,
+	v *fhttp.WSMessage[FrameStreamerResponse],
+) error {
+	sc := new(uint8)
+	if err := binary.Read(r, binary.LittleEndian, sc); err != nil {
+		return err
+	}
+	if *sc == lowPerfSpecialChar {
+		if err := w.lowPerfDecode(ctx, r, v); err != nil {
+			return err
+		}
+	}
+	if err := w.maybeBoostrapCodec(ctx); err != nil {
+		return err
+	}
+	v.Type = fhttp.WSMsgTypeData
+	fr, err := w.BaseCodec.DecodeStream(r)
+	if err != nil {
+		return err
+	}
+	v.Payload.Frame = fr
+	return nil
+}
+
+func (w *WSFramerCodec) encodeStreamResponse(
+	ctx context.Context,
+	v fhttp.WSMessage[FrameStreamerResponse],
+) (b []byte, err error) {
+	if v.Type == fhttp.WSMsgTypeClose {
+		return w.lowPerfEncode(ctx, v)
+	}
+	if err = w.maybeBoostrapCodec(ctx); err != nil {
+		return
+	}
+	if b, err = w.BaseCodec.Encode(v.Payload.Frame, 1); err != nil {
+		return
+	}
+	b[0] = highPerfSpecialChar
+	return
+}
+
+func (w *WSFramerCodec) decodeStreamRequest(
+	ctx context.Context,
+	r io.Reader,
+	v *fhttp.WSMessage[FrameStreamerRequest],
+) error {
+	if err := w.lowPerfDecode(ctx, r, v); err != nil {
+		return err
+	}
+	w.keysCache = v.Payload.Keys
+	return nil
+}
+
+func (w *WSFramerCodec) ContentType() string {
 	return framerContentType
 }
 

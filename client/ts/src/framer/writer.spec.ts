@@ -297,7 +297,7 @@ describe("Writer", () => {
   });
 
   describe.only("performance", async () => {
-    const NUM_CHANNELS = 500;
+    const NUM_CHANNELS = 200;
     const ITERATIONS = 500;
 
     const idx = await client.channels.create(
@@ -331,15 +331,22 @@ describe("Writer", () => {
             channels: channelKeys,
             enableAutoCommit: true,
             useExperimentalCodec: reg,
+            mode: WriterMode.Stream,
+          });
+          const streamer = await client.openStreamer({
+            channels: channelKeys,
+            useExperimentalCodec: reg,
           });
           const start = performance.now();
           try {
             for (let i = 0; i < ITERATIONS; i++) {
               values[idx.key] = wStart.add(TimeSpan.seconds(i)).valueOf();
               await writer.write(values);
+              const d = await streamer.read();
             }
           } finally {
             await writer.close();
+            streamer.close();
           }
           console.log(
             `Experimental Codec: ${reg}`,

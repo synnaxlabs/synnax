@@ -18,11 +18,13 @@ export class ReadAdapter {
   private adapter: Map<channel.Key, channel.Name> | null;
   retriever: channel.Retriever;
   keys: channel.Key[];
+  codec: Codec;
 
   private constructor(retriever: channel.Retriever) {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
+    this.codec = new Codec([], []);
   }
 
   static async open(
@@ -36,12 +38,16 @@ export class ReadAdapter {
 
   async update(channels: channel.Params): Promise<void> {
     const { variant, normalized } = channel.analyzeParams(channels);
+    const fetched = await this.retriever.retrieve(normalized);
+    this.codec = new Codec(
+      fetched.map((c) => c.key),
+      fetched.map((c) => c.dataType),
+    );
     if (variant === "keys") {
       this.adapter = null;
       this.keys = normalized as channel.Key[];
       return;
     }
-    const fetched = await this.retriever.retrieve(normalized);
     const a = new Map<channel.Key, channel.Name>();
     this.adapter = a;
     normalized.forEach((name) => {
