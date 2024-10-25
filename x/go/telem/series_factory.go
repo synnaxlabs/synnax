@@ -14,6 +14,7 @@ import (
 	xbinary "github.com/synnaxlabs/x/binary"
 	"math"
 
+	"fmt"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/types"
 )
@@ -220,6 +221,66 @@ func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
 		return func(b []byte) T { return T(b[0]) }
 	case TimeStampT:
 		return func(b []byte) T { return T(ByteOrder.Uint64(b)) }
+	}
+	panic("unsupported data type")
+}
+
+func ToStringF(dt DataType) func(b []byte) string {
+	switch dt {
+	case Float64T:
+		return func(b []byte) string {
+			f64 := math.Float64frombits(ByteOrder.Uint64(b))
+			return fmt.Sprint(f64)
+		}
+	case Float32T:
+		return func(b []byte) string {
+			f32 := math.Float32frombits(ByteOrder.Uint32(b))
+			return fmt.Sprint(f32)
+		}
+	case Int64T:
+		return func(b []byte) string {
+			i64 := int64(ByteOrder.Uint64(b))
+			return fmt.Sprint(i64)
+		}
+	case Int32T:
+		return func(b []byte) string {
+			i32 := int32(ByteOrder.Uint32(b))
+			return fmt.Sprint(i32)
+		}
+	case Int16T:
+		return func(b []byte) string {
+			i16 := int16(ByteOrder.Uint16(b))
+			return fmt.Sprint(i16)
+		}
+	case Int8T:
+		return func(b []byte) string {
+			i8 := int8(b[0])
+			return fmt.Sprint(i8)
+		}
+	case Uint64T:
+		return func(b []byte) string {
+			u64 := ByteOrder.Uint64(b)
+			return fmt.Sprint(u64)
+		}
+	case Uint32T:
+		return func(b []byte) string {
+			u32 := ByteOrder.Uint32(b)
+			return fmt.Sprint(u32)
+		}
+	case Uint16T:
+		return func(b []byte) string {
+			u16 := ByteOrder.Uint16(b)
+			return fmt.Sprint(u16)
+		}
+	case Uint8T:
+		return func(b []byte) string {
+			return fmt.Sprint(b[0])
+		}
+	case TimeStampT:
+		return func(b []byte) string {
+			u64 := ByteOrder.Uint64(b)
+			return fmt.Sprint(TimeStamp(u64).String())
+		}
 	}
 	panic("unsupported data type")
 }

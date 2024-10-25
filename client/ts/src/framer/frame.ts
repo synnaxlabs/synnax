@@ -424,6 +424,17 @@ export class Frame {
   get length(): number {
     return this.series.reduce((acc, v) => acc + v.length, 0);
   }
+
+  toString(): string {
+    let str = `Frame{\n`;
+    this.uniqueColumns.forEach((c) => {
+      str += `  ${c}: ${this.get(c)
+        .series.map((c) => c.toString())
+        .join(",")}\n`;
+    });
+    str += "}";
+    return str;
+  }
 }
 
 export const frameZ = z.object({

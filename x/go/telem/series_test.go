@@ -26,6 +26,16 @@ var _ = Describe("Series", func() {
 			Expect(s.Len()).To(Equal(int64(3)))
 		})
 	})
+
+	DescribeTable("String", func(s telem.Series, expected string) {
+		Expect(s.String()).To(Equal(expected))
+	},
+		Entry("int64", telem.NewSeriesV[int64](1, 2, 3), "int64 3 [1,2,3]"),
+		Entry("int32", telem.NewSeriesV[int32](1, 2, 3), "int32 3 [1,2,3]"),
+		Entry("uint64", telem.NewSeriesV[uint64](1, 2, 3), "uint64 3 [1,2,3]"),
+		Entry("float32", telem.NewSeriesV[float32](1.1, 2, 3), "float32 3 [1.1,2,3]"),
+	)
+
 	Describe("Factory", func() {
 		It("Should marshal and unmarshal a float64 series correctly", func() {
 			d := []float64{1.0, 2.0, 3.0}
