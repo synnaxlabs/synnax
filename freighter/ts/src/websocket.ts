@@ -10,7 +10,7 @@
 import { type binary, buildQueryString, runtime, type URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { decodeError, EOF, errorZ, StreamClosed } from "@/errors";
+import { decodeError, EOF, ErrorPayload, errorZ, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
@@ -21,16 +21,20 @@ const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
   return (t) => new (require("ws").WebSocket)(t, { rejectUnauthorized: false });
 };
 
-const messageSchema = z.object({
+const wsMessageZ = z.object({
   type: z.enum(["data", "close", "open"]),
   payload: z.instanceof(Uint8Array).optional(),
   error: z.optional(errorZ),
 });
 
-type Message = z.infer<typeof messageSchema>;
+export type WebsocketMessage<P = unknown> = {
+  type: "data" | "close" | "open";
+  error?: ErrorPayload;
+  payload?: P;
+};
 
 type ReceiveCallbacksQueue = Array<{
-  resolve: (msg: Message) => void;
+  resolve: (msg: WebsocketMessage<unknown>) => void;
   reject: (reason: unknown) => void;
 }>;
 
@@ -44,7 +48,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   private readonly ws: WebSocket;
   private serverClosed: Error | null;
   private sendClosed: boolean;
-  private readonly receiveDataQueue: Message[] = [];
+  private readonly receiveDataQueue: WebsocketMessage[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
   constructor(ws: WebSocket, encoder: binary.Codec, reqSchema: RQ, resSchema: RS) {
@@ -94,7 +98,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   /** Implements the Stream protocol */
   closeSend(): void {
     if (this.sendClosed || this.serverClosed != null) return undefined;
-    const msg: Message = { type: "close" };
+    const msg: WebsocketMessage = { type: "close" };
     try {
       this.ws.send(this.encoder.encode(msg));
     } finally {
@@ -103,7 +107,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
     return undefined;
   }
 
-  private async receiveMsg(): Promise<Message> {
+  private async receiveMsg(): Promise<WebsocketMessage> {
     const msg = this.receiveDataQueue.shift();
     if (msg != null) return msg;
     return await new Promise((resolve, reject) =>
@@ -111,7 +115,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
     );
   }
 
-  private addMessage(msg: Message): void {
+  private addMessage(msg: WebsocketMessage): void {
     const callback = this.receiveCallbacksQueue.shift();
     if (callback != null) callback.resolve(msg);
     else this.receiveDataQueue.push(msg);
@@ -123,7 +127,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   }
 
   private onMessage(ev: MessageEvent<Uint8Array>): void {
-    this.addMessage(this.encoder.decode(ev.data, messageSchema));
+    this.addMessage(this.encoder.decode(ev.data, wsMessageZ));
   }
 
   private onClose(ev: CloseEvent): void {
@@ -149,6 +153,7 @@ const isNormalClosure = (ev: CloseEvent): boolean => NORMAL_CLOSURES.includes(ev
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
   baseUrl: URL;
   encoder: binary.Codec;
+  secure: boolean;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
@@ -159,8 +164,15 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
    */
   constructor(baseEndpoint: URL, encoder: binary.Codec, secure = false) {
     super();
+    this.secure = secure;
     this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
     this.encoder = encoder;
+  }
+
+  withCodec(codec: binary.Codec): WebSocketClient {
+    const c = new WebSocketClient(this.baseUrl, codec, this.secure);
+    c.use(...this.middleware);
+    return c;
   }
 
   /** Implements the StreamClient interface. */

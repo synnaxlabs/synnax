@@ -119,9 +119,13 @@ func (r *Router) register(
 	})
 }
 
-func StreamServer[RQ, RS freighter.Payload](r *Router, internal bool, path string) freighter.StreamServer[RQ, RS] {
+func StreamServer[RQ, RS freighter.Payload](
+	r *Router,
+	path string,
+	opts ...ServerOption,
+) freighter.StreamServer[RQ, RS] {
 	s := &streamServer[RQ, RS]{
-		internal:        internal,
+		serverOptions:   newServerOptions(opts),
 		Reporter:        streamReporter,
 		path:            path,
 		Instrumentation: r.Instrumentation,
@@ -133,11 +137,11 @@ func StreamServer[RQ, RS freighter.Payload](r *Router, internal bool, path strin
 	return s
 }
 
-func UnaryServer[RQ, RS freighter.Payload](r *Router, internal bool, path string) freighter.UnaryServer[RQ, RS] {
+func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...ServerOption) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
-		internal: internal,
-		Reporter: unaryReporter,
-		path:     path,
+		serverOptions: newServerOptions(opts),
+		Reporter:      unaryReporter,
+		path:          path,
 		requestParser: func(c *fiber.Ctx, codec httputil.Codec) (req RQ, _ error) {
 			return req, c.BodyParser(&req)
 		},
