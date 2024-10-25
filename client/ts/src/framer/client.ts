@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type StreamClient, type UnaryClient } from "@synnaxlabs/freighter";
+import { type StreamClient, WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
   type CrudeTimeRange,
@@ -29,11 +29,11 @@ export const ontologyID = (key: channel.Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
 
 export class Client {
-  private readonly streamClient: StreamClient;
+  private readonly streamClient: WebSocketClient;
   private readonly retriever: channel.Retriever;
   private readonly deleter: Deleter;
 
-  constructor(stream: StreamClient, unary: UnaryClient, retriever: channel.Retriever) {
+  constructor(stream: WebSocketClient, unary: UnaryClient, retriever: channel.Retriever) {
     this.streamClient = stream;
     this.retriever = retriever;
     this.deleter = new Deleter(unary);

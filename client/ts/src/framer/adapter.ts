@@ -11,8 +11,8 @@ import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
-import { Codec } from "@/framer/encoder";
 import { type Crude, Frame } from "@/framer/frame";
+import { Codec } from "@/framer/codec";
 
 export class ReadAdapter {
   private adapter: Map<channel.Key, channel.Name> | null;

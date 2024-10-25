@@ -49,7 +49,7 @@ func (a *synchronizer) sync(ctx context.Context, res Response) (Response, bool, 
 
 	// If we receive a negative ack from a data write on any node, close the validator
 	// to prevent more writes from being processed.
-	if res.Command == Data && !res.Ack {
+	if res.Command == Write && !res.Ack {
 		return res, true, signal.SendUnderContext(ctx, a.bulkheadSignal, true)
 	}
 

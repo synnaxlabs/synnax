@@ -821,6 +821,24 @@ export class Series<T extends TelemValue = TelemValue> {
       alignment,
     });
   }
+
+  toString(): string {
+    let data = `${this.dataType.toString()} ${this.length} [`;
+    if (this.length <= 10) data += Array.from(this).map((v) => v.toString());
+    else {
+      for (let i = 0; i < 5; i++) {
+        data += `${this.at(i)?.toString()}`;
+        if (i < 4) data += ",";
+      }
+      data += "...";
+      for (let i = -5; i < 0; i++) {
+        data += this.at(i)?.toString();
+        if (i < -1) data += ",";
+      }
+    }
+    data += "]";
+    return data;
+  }
 }
 
 class SubIterator<T> implements Iterator<T>, Iterable<T> {

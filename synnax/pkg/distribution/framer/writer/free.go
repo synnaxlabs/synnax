@@ -30,7 +30,7 @@ type freeWriter struct {
 }
 
 func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, ok bool, err error) {
-	if req.Command == Data && w.mode.Stream() {
+	if req.Command == Write && w.mode.Stream() {
 		err = signal.SendUnderContext(ctx, w.freeWrites.Inlet(), relay.Response{Frame: req.Frame})
 		return
 	}

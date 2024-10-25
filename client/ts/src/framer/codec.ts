@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { WebsocketMessage } from "@synnaxlabs/freighter";
 import { binary, DataType, SeriesPayload, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { ZodSchema } from "zod";
 
 import { channel } from "@/channel";
 import { FramePayload } from "@/framer/frame";
+import { WriterCommand, WriteRequest } from "@/framer/writer";
 
 // For detailed information about the specifications,
 // please refer to the official RFC 0016 document.
@@ -20,25 +22,23 @@ import { FramePayload } from "@/framer/frame";
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
 
-export class Codec implements binary.Codec {
+export class Codec {
   contentType: string = "application/framer";
   private readonly keys: channel.Keys;
-  private readonly dataTypes: DataType[];
   private readonly keyDataTypes: Map<channel.Key, DataType>;
 
   constructor(keys: channel.Keys, dataTypes: DataType[]) {
     this.keys = keys;
-    this.dataTypes = dataTypes;
     this.keyDataTypes = new Map();
     keys.forEach((k, i) => this.keyDataTypes.set(k, dataTypes[i]));
   }
 
-  encode(payload: unknown): Uint8Array {
+  encode(payload: unknown, startOffset: number = 0): Uint8Array {
     const src = payload as FramePayload;
     let currDataSize = -1;
     let startTime: TimeStamp | undefined = undefined;
     let endTime: TimeStamp | undefined = undefined;
-    let byteArraySize = 1;
+    let byteArraySize = startOffset + 1;
     let sizeFlag = true;
     let alignFlag = true;
     let channelFlag = true;
@@ -64,7 +64,7 @@ export class Codec implements binary.Codec {
     byteArraySize += (alignFlag ? 1 : src.keys.length) * 16;
     const buffer = new Uint8Array(byteArraySize);
     const view = new DataView(buffer.buffer);
-    byteArraySize = 0;
+    byteArraySize = startOffset;
     buffer[byteArraySize] =
       (Number(sizeFlag) << 2) | (Number(alignFlag) << 1) | Number(channelFlag);
     byteArraySize++;
@@ -116,10 +116,10 @@ export class Codec implements binary.Codec {
    * @param data - The data to decode.
    * @param schema - The schema to decode the data with.
    */
-  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+  decode(data: Uint8Array | ArrayBuffer, offset: number = 0): FramePayload {
     const src = data instanceof Uint8Array ? data : new Uint8Array(data);
     const returnFrame: FramePayload = { keys: [], series: [] };
-    let index = 0;
+    let index = offset;
     let sizeRepresentation = 0;
     let currSize = 0;
     let startTime = 0n;
@@ -145,7 +145,7 @@ export class Codec implements binary.Codec {
     if (channelFlag) returnFrame.keys = this.keys;
     this.keys.forEach((k) => {
       if (!channelFlag) {
-        if (index >= src.length) return;
+        if (index >= view.byteLength) return;
         const ok = view.getUint32(index, true);
         if (ok !== k) return;
         returnFrame.keys.push(k);
@@ -178,6 +178,47 @@ export class Codec implements binary.Codec {
       }
       returnFrame.series.push(currSeries);
     });
-    return returnFrame as P;
+    return returnFrame;
+  }
+}
+
+export const LOW_PER_SPECIAL_CHAR = 254;
+const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PER_SPECIAL_CHAR]);
+export const HIGH_PERF_SPECIAL_CHAR = 255;
+const HIGH_PERF_SPECIAL_CHAR_BUF = new Uint8Array([HIGH_PERF_SPECIAL_CHAR]);
+
+export class WSWriterCodec implements binary.Codec {
+  contentType: string = "application/sy-framer";
+  base: Codec;
+  lowPerfCodec: binary.Codec;
+
+  constructor(base: Codec) {
+    this.base = base;
+    this.lowPerfCodec = binary.JSON_CODEC;
+  }
+
+  encode(payload: unknown): ArrayBuffer {
+    const pld = payload as WebsocketMessage<WriteRequest>;
+    if (pld.type == "close" || pld.payload?.command != WriterCommand.Write) {
+      const data = this.lowPerfCodec.encode(pld);
+      const b = new Uint8Array({ length: data.byteLength + 1 });
+      b.set(LOW_PERF_SPECIAL_CHAR_BUF, 0);
+      b.set(new Uint8Array(data), 1);
+      return b.buffer;
+    }
+    const data = this.base.encode(pld.payload?.frame, 1);
+    data.set(HIGH_PERF_SPECIAL_CHAR_BUF, 0);
+    return data.buffer;
+  }
+
+  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+    const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
+    const codec = dv.getUint8(0);
+    if (codec === LOW_PER_SPECIAL_CHAR)
+      return this.lowPerfCodec.decode(data.slice(1), schema);
+    const v: WebsocketMessage<WriteRequest> = { type: "data" };
+    const frame = this.base.decode(data, 1);
+    v.payload = { command: WriterCommand.Write, frame };
+    return v as P;
   }
 }

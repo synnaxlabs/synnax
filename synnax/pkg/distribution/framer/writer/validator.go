@@ -67,7 +67,7 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 					continue
 				}
 
-				block := v.closed && (req.Command == Data || req.Command == Commit)
+				block := v.closed && (req.Command == Write || req.Command == Commit)
 				if block {
 					if err := signal.SendUnderContext(
 						ctx,
@@ -97,10 +97,10 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (v *validator) validate(req Request) error {
-	if req.Command < Data || req.Command > SetAuthority {
+	if req.Command < Write || req.Command > SetAuthority {
 		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
 	}
-	if req.Command == Data {
+	if req.Command == Write {
 		for _, k := range req.Frame.Keys {
 			if !lo.Contains(v.keys, k) {
 				return errors.Wrapf(validate.Error, "invalid key: %s", k)

@@ -37,7 +37,7 @@ func (w *Writer) Write(frame core.Frame) bool {
 	case <-w.responses.Outlet():
 		w.hasAccumulatedErr = true
 		return false
-	case w.requests.Inlet() <- Request{Command: Data, Frame: frame}:
+	case w.requests.Inlet() <- Request{Command: Write, Frame: frame}:
 		return true
 	}
 }

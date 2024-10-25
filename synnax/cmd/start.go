@@ -333,7 +333,7 @@ func start(cmd *cobra.Command) {
 			Instrumentation:     ins,
 			StreamWriteDeadline: viper.GetDuration(slowConsumerTimeoutFlag),
 		})
-		_api.BindTo(httpapi.New(r))
+		_api.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(dist.Channel)))
 
 		// Configure the GRPC API Transport.
 		grpcAPI, grpcAPITrans := grpcapi.New()

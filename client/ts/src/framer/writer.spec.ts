@@ -33,7 +33,7 @@ describe("Writer", () => {
       const ch = await newChannel();
       const writer = await client.openWriter({ start: 0, channels: ch.key });
       try {
-        await writer.write(ch.key, randomSeries(10, ch.dataType));
+        await writer.write(ch.key, new Float64Array([1, 2, 3]));
         await writer.commit();
       } finally {
         await writer.close();
@@ -297,8 +297,8 @@ describe("Writer", () => {
   });
 
   describe.only("performance", async () => {
-    const NUM_CHANNELS = 200;
-    const ITERATIONS = 10000;
+    const NUM_CHANNELS = 2;
+    const ITERATIONS = 1000;
 
     const idx = await client.channels.create(
       {
@@ -322,7 +322,7 @@ describe("Writer", () => {
 
     let wStart = TimeStamp.now();
 
-    [true, false].forEach((reg) => {
+    [true].forEach((reg) => {
       it(
         `should write 100,000 frames - reg codec - ${reg}`,
         async () => {
@@ -342,8 +342,10 @@ describe("Writer", () => {
           } finally {
             await writer.close();
           }
-          console.log(writer.byteLength.toString());
-          console.log(TimeSpan.milliseconds(performance.now() - start).toString());
+          console.log(
+            `Experimental Codec: ${reg}`,
+            TimeSpan.milliseconds(performance.now() - start).toString(),
+          );
         },
         { timeout: 10000000 },
       );

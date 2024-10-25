@@ -22,8 +22,8 @@ type Command uint8
 
 const (
 	Open Command = iota
-	// Data represents a call to Writer.Write.
-	Data
+	// Write represents a call to Writer.Write.
+	Write
 	// Commit represents a call to Writer.Commit.
 	Commit
 	// Error represents a call to Writer.Error.
@@ -40,7 +40,7 @@ type Request struct {
 	// Config sets the configuration to use when opening the writer. Only used internally
 	// when open command is sent.
 	Config Config `json:"config" msgpack:"config"`
-	// Frame is the telemetry frame. This field is only acknowledged during Data commands.
+	// Frame is the telemetry frame. This field is only acknowledged during Write commands.
 	Frame core.Frame `json:"frame" msgpack:"keys"`
 }
 

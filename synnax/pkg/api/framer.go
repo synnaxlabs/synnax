@@ -13,10 +13,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fhttp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/httputil"
 	"go/types"
 	"io"
 
@@ -304,7 +304,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	w, codec, err := s.openWriter(ctx, getSubject(_ctx), stream)
+	w, err := s.openWriter(ctx, getSubject(_ctx), stream)
 	if err != nil {
 		return err
 	}
@@ -312,15 +312,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	receiver := &freightfluence.TransformReceiver[framer.WriterRequest, FrameWriterRequest]{
 		Receiver: stream,
 		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriterRequest, bool, error) {
-			r := framer.WriterRequest{Command: req.Command}
-			if req.Buffer != nil {
-				r.Frame, err = codec.Decode(req.Buffer)
-				if err != nil {
-					panic(err)
-				}
-			} else {
-				r.Frame = req.Frame
-			}
+			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
 			if r.Command == writer.SetAuthority {
 				// We decode like this because msgpack has a tough time decoding slices of uint8.
 				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
@@ -358,7 +350,7 @@ func (s *FrameService) openWriter(
 	ctx context.Context,
 	subject ontology.ID,
 	srv FrameWriterStream,
-) (w framer.StreamWriter, codec codec.Codec, err error) {
+) (w framer.StreamWriter, err error) {
 	req, err := srv.Receive()
 	if err != nil {
 		return
@@ -395,24 +387,27 @@ func (s *FrameService) openWriter(
 	if err = s.Channel.NewRetrieve().WhereKeys(req.Config.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
 		return
 	}
-	codec = codec.NewCodec(lo.Map(channels, func(c channel.Channel, _ int) telem.DataType {
-		return c.DataType
-	}), req.Config.Keys)
 	// Let the client know the writer is ready to receive segments.
-	return w, codec, srv.Send(FrameWriterResponse{
+	return w, srv.Send(FrameWriterResponse{
 		Command: writer.Open,
 		Ack:     true,
 	})
 }
 
-type WebSocketCodec struct {
-	base         codec.Bse
-	lowPerfCodec xbinary.Codec
+type WSWriterCodec struct {
+	BaseCodec      *framercodec.Codec
+	LowerPerfCodec xbinary.Codec
+	reader         channel.Readable
+	keysCache      channel.Keys
 }
 
-var _ xbinary.Codec = (*WebSocketCodec)(nil)
+func NewWSWriterCodec(reader channel.Readable) httputil.Codec {
+	return &WSWriterCodec{reader: reader, LowerPerfCodec: httputil.JSONCodec}
+}
 
-func (w *WebSocketCodec) Decode(
+var _ xbinary.Codec = (*WSWriterCodec)(nil)
+
+func (w *WSWriterCodec) Decode(
 	ctx context.Context,
 	data []byte,
 	value interface{},
@@ -422,108 +417,124 @@ func (w *WebSocketCodec) Decode(
 }
 
 var (
-	highPerfSpecialChar = []byte{0x00, 0x00, 0x01}
-	lowPerfSpecialChar  = []byte{0x00, 0x00, 0x00}
+	highPerfSpecialChar byte = 255
+	lowPerfSpecialChar  byte = 254
+	wsHeaderSize             = 1
 )
 
-func (w *WebSocketCodec) DecodeStream(
+func (w *WSWriterCodec) maybeCacheKeys(req FrameWriterRequest) {
+	if req.Command != writer.Open {
+		return
+	}
+	w.keysCache = req.Config.Keys
+}
+
+func (w *WSWriterCodec) maybeBoostrapCodec(ctx context.Context) error {
+	if w.BaseCodec != nil {
+		return nil
+	}
+	channels := make([]channel.Channel, 0, len(w.keysCache))
+	if err := w.reader.NewRetrieve().WhereKeys(w.keysCache...).Entries(&channels).Exec(ctx, nil); err != nil {
+		return err
+	}
+	cdc := framercodec.NewCodecFromChannels(channels)
+	w.BaseCodec = &cdc
+	return nil
+}
+
+func (w *WSWriterCodec) DecodeStream(
 	ctx context.Context,
 	r io.Reader,
 	value interface{},
 ) error {
-	v := value.(*fhttp.WSMessage[FrameWriterRequest])
+	switch v := value.(type) {
+	case *fhttp.WSMessage[FrameWriterRequest]:
+		return w.decodeWriteRequest(ctx, r, v)
+	case *fhttp.WSMessage[FrameWriterResponse]:
+		return w.lowPerfDecode(ctx, r, v)
+	default:
+		panic("incompatible type")
+	}
+}
 
-	// 3 bytes for special character
-	sc := make([]byte, 3)
-	if _, err := io.ReadFull(r, sc); err != nil {
+func (w *WSWriterCodec) Encode(ctx context.Context, value interface{}) ([]byte, error) {
+	switch v := value.(type) {
+	case fhttp.WSMessage[FrameWriterRequest]:
+		return w.encodeWriteRequest(ctx, v)
+	case fhttp.WSMessage[FrameWriterResponse]:
+		return w.lowPerfEncode(ctx, v)
+	default:
+		panic("incompatible type")
+	}
+}
+
+func (w *WSWriterCodec) lowPerfEncode(ctx context.Context, value interface{}) ([]byte, error) {
+	b, err := w.LowerPerfCodec.Encode(ctx, value)
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte{lowPerfSpecialChar}, b...), nil
+}
+
+func (w *WSWriterCodec) lowPerfDecode(ctx context.Context, r io.Reader, value interface{}) error {
+	return w.LowerPerfCodec.DecodeStream(ctx, r, value)
+}
+
+func (w *WSWriterCodec) decodeWriteRequest(
+	ctx context.Context,
+	r io.Reader,
+	v *fhttp.WSMessage[FrameWriterRequest],
+) error {
+	sc := new(uint8)
+	if err := binary.Read(r, binary.LittleEndian, sc); err != nil {
 		return err
 	}
-
-	// If the special character matches the special character for the low performance codec
-	if bytes.Equal(sc, lowPerfSpecialChar) {
-		return w.lowPerfCodec.DecodeStream(ctx, r, value)
+	if *sc == lowPerfSpecialChar {
+		if err := w.lowPerfDecode(ctx, r, v); err != nil {
+			return err
+		}
+		w.maybeCacheKeys(v.Payload)
+		return nil
 	}
-
-	// Read 1 byte for the message type
-	t := new(uint8)
-	if err := binary.Read(r, binary.LittleEndian, t); err != nil {
+	if err := w.maybeBoostrapCodec(ctx); err != nil {
 		return err
 	}
-	if *t == 1 {
-		v.Type = fhttp.WSMsgTypeData
-	} else {
-		v.Type = fhttp.WSMsgTypeClose
-	}
-
-	// Read 4 bytes for the error length
-	errLen := new(uint32)
-	if err := binary.Read(r, binary.LittleEndian, errLen); err != nil {
-		return err
-	}
-	errData := make([]byte, *errLen)
-	if _, err := io.ReadFull(r, errData); err != nil {
-		return err
-	}
-	pld := &v.Err
-	pld.Unmarshal(string(errData))
-	v.Err = *pld
-
-	// Read the rest
-	fr, err := w.base.DecodeStream(r)
+	v.Type = fhttp.WSMsgTypeData
+	fr, err := w.BaseCodec.DecodeStream(r)
 	if err != nil {
 		return err
 	}
-	v.Payload.Command = writer.Data
+	v.Payload.Command = writer.Write
 	v.Payload.Frame = fr
 	return nil
 }
 
-func (w *WebSocketCodec) Encode(ctx context.Context, value interface{}) ([]byte, error) {
-	v := value.(*fhttp.WSMessage[FrameWriterRequest])
-	if v.Payload.Command != writer.Data {
-		b, err := w.lowPerfCodec.Encode(ctx, value)
-		if err != nil {
-			return nil, err
-		}
-		lowPerfSpecialChar := []byte{0x00, 0x00, 0x00}
-		return append(lowPerfSpecialChar, b...), nil
+func (w *WSWriterCodec) encodeWriteRequest(
+	ctx context.Context,
+	v fhttp.WSMessage[FrameWriterRequest],
+) (b []byte, err error) {
+	if v.Type == fhttp.WSMsgTypeClose || v.Payload.Command != writer.Write {
+		return w.lowPerfEncode(ctx, v)
 	}
-
-	// 3 bytes for special character
-	// 1 byte for the message type
-	// 4 bytes for the uint32 length
-	wsHeaderSize := 3 + 1 + 4 + len(v.Err.Type) + 1 + len(v.Err.Data)
-	// Header size for the framer message
-	data, err := w.base.Encode(v.Payload.Frame, wsHeaderSize)
+	b, err = w.BaseCodec.Encode(v.Payload.Frame, wsHeaderSize)
 	if err != nil {
-		return nil, err
+		return
 	}
+	b[0] = highPerfSpecialChar
+	return
+}
 
-	buf := bytes.NewBuffer(data)
+func (w *WSWriterCodec) ContentType() string {
+	return framerContentType
+}
 
-	if _, err = buf.Write(highPerfSpecialChar); err != nil {
-		return nil, nil
-	}
+const framerContentType = "application/sy-framer"
 
-	// Write the message type
-	if v.Type == fhttp.WSMsgTypeData {
-		if err = binary.Write(buf, binary.LittleEndian, uint8(1)); err != nil {
-			return nil, err
+func NewHTTPCodecResolver(channel channel.Readable) httputil.CodecResolver {
+	return func(ct string) (httputil.Codec, error) {
+		if ct == framerContentType {
+			return NewWSWriterCodec(channel), nil
 		}
-	} else {
-		if err = binary.Write(buf, binary.LittleEndian, uint8(2)); err != nil {
-			return nil, err
-		}
+		return httputil.ResolveCodec(ct)
 	}
-
-	// Write error information
-	errString := v.Err.Error()
-	if err = binary.Write(buf, binary.LittleEndian, uint32(len(errString))); err != nil {
-		return nil, err
-	}
-	if _, err = buf.Write([]byte(errString)); err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }

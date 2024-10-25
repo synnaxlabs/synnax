@@ -9,7 +9,7 @@ func _() {
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[Open-0]
-	_ = x[Data-1]
+	_ = x[Write-1]
 	_ = x[Commit-2]
 	_ = x[Error-3]
 }

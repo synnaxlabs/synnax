@@ -141,7 +141,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 				frame.Keys = append(frame.Keys, cfg.DeleteChannel.Key())
 				frame.Series = append(frame.Series, deletes)
 			}
-			return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
+			return framer.WriterRequest{Command: writer.Write, Frame: frame}, true, nil
 		},
 	}
 	p := plumber.New()

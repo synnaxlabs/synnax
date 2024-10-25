@@ -24,22 +24,32 @@ import (
 	"io"
 )
 
-type Bse struct {
+type Codec struct {
 	keys         channel.Keys
 	keyDataTypes map[channel.Key]telem.DataType
 }
 
 var byteOrder = binary.LittleEndian
 
-func NewCodec(dataTypes []telem.DataType, channels channel.Keys) Bse {
+func NewCodec(dataTypes []telem.DataType, channels channel.Keys) Codec {
 	keyDataTypes := make(map[channel.Key]telem.DataType, len(channels))
 	for i, key := range channels {
 		keyDataTypes[key] = dataTypes[i]
 	}
-	return Bse{keys: channels, keyDataTypes: keyDataTypes}
+	return Codec{keys: channels, keyDataTypes: keyDataTypes}
 }
 
-func (m Bse) Encode(src framer.Frame, startOffset int) (dst []byte, err error) {
+func NewCodecFromChannels(channels []channel.Channel) Codec {
+	keyDataTypes := make(map[channel.Key]telem.DataType, len(channels))
+	keys := make([]channel.Key, len(channels))
+	for i, ch := range channels {
+		keyDataTypes[ch.Key()] = ch.DataType
+		keys[i] = ch.Key()
+	}
+	return Codec{keys: keys, keyDataTypes: keyDataTypes}
+}
+
+func (m Codec) Encode(src framer.Frame, startOffset int) (dst []byte, err error) {
 	var (
 		curDataSize                                      = -1
 		startTime, endTime               telem.TimeStamp = 0, 0
@@ -113,12 +123,12 @@ func (m Bse) Encode(src framer.Frame, startOffset int) (dst []byte, err error) {
 	return encoded, nil
 }
 
-func (m Bse) Decode(src []byte) (dst framer.Frame, err error) {
+func (m Codec) Decode(src []byte) (dst framer.Frame, err error) {
 	b := bytes.NewReader(src)
 	return m.DecodeStream(b)
 }
 
-func (m Bse) DecodeStream(reader io.Reader) (framer.Frame, error) {
+func (m Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	var (
 		sizeFlag, alignFlag, channelFlag bool
 		sizeRepresentation               uint32
