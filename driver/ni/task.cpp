@@ -306,7 +306,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 void ni::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") this->start(cmd.key);
     else if (cmd.type == "stop") this->stop(cmd.key);
-    else LOG(ERROR) << "unknown command type: " << cmd.type;
+//    else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 
