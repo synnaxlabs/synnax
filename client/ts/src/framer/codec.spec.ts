@@ -1,7 +1,8 @@
 import { WebsocketMessage } from "@synnaxlabs/freighter";
-import { DataType, Series } from "@synnaxlabs/x";
+import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { channel } from "@/channel";
 import { framer } from "@/framer";
 import {
   Codec,
@@ -14,103 +15,173 @@ import { WriterCommand, WriteRequest } from "@/framer/writer";
 
 describe("encoder", () => {
   describe("base codec", () => {
-    it("should e + d an identical frame to the codec", () => {
-      const codec = new Codec(
-        [1, 2, 3],
-        [DataType.FLOAT32, DataType.FLOAT32, DataType.FLOAT32],
-      );
-      const fr = new framer.Frame(
-        [1, 2, 3],
-        [
-          new Series(new Float32Array([1, 2, 3])),
-          new Series(new Float32Array([4, 5, 6])),
-          new Series(new Float32Array([7, 8, 9])),
-        ],
-      );
-      const encoded = codec.encode(fr.toPayload());
-      const decoded = new framer.Frame(codec.decode(encoded));
-      expect(decoded.series[0].data).toEqual(new Float32Array([1, 2, 3]));
-      expect(decoded.series[1].data).toEqual(new Float32Array([4, 5, 6]));
-      expect(decoded.series[2].data).toEqual(new Float32Array([7, 8, 9]));
-    });
-    it("should e + d a frame with different lengths for its series", () => {
-      const codec = new Codec(
-        [1, 2, 3],
-        [DataType.FLOAT32, DataType.FLOAT32, DataType.FLOAT32],
-      );
-      const fr = new framer.Frame(
-        [1, 2, 3],
-        [
-          new Series(new Float32Array([1, 2, 3])),
-          new Series(new Float32Array([4, 5, 6])),
-          new Series(new Float32Array([7, 8])),
-        ],
-      );
-      const encoded = codec.encode(fr.toPayload());
-      const decoded = new framer.Frame(codec.decode(encoded));
-      expect(decoded.series[0].data).toEqual(new Float32Array([1, 2, 3]));
-      expect(decoded.series[1].data).toEqual(new Float32Array([4, 5, 6]));
-      expect(decoded.series[2].data).toEqual(new Float32Array([7, 8]));
-    });
-    it("should e + d a frame with different keys", () => {
-      const codec = new Codec(
-        [1, 2, 3],
-        [DataType.FLOAT32, DataType.FLOAT32, DataType.FLOAT32],
-      );
-      const fr = new framer.Frame(
-        [1, 2],
-        [
-          new Series(new Float32Array([1, 2, 3])),
-          new Series(new Float32Array([4, 5, 6])),
-        ],
-      );
-      const encoded = codec.encode(fr.toPayload());
-      const decoded = new framer.Frame(codec.decode(encoded));
-      expect(decoded.series[0].data).toEqual(new Float32Array([1, 2, 3]));
-      expect(decoded.series[1].data).toEqual(new Float32Array([4, 5, 6]));
-    });
-    it("should e + d a frame with skipped keys", () => {
-      const codec = new Codec([1, 3], [DataType.FLOAT32, DataType.FLOAT32]);
-      const fr = new framer.Frame(
-        [1, 3],
-        [
-          new Series(new Float32Array([1, 2, 3])),
-          new Series(new Float32Array([4, 5, 6])),
-        ],
-      );
-      const encoded = codec.encode(fr.toPayload());
-      const decoded = new framer.Frame(codec.decode(encoded));
-      expect(decoded.series[0].data).toEqual(new Float32Array([1, 2, 3]));
-      expect(decoded.series[1].data).toEqual(new Float32Array([4, 5, 6]));
-      expect(decoded.keys).toEqual([1, 3]);
-    });
-    // test.only("performance", () => {
-    //   const fr = new framer.Frame(
-    //     [1, 2, 3],
-    //     [
-    //       new Series(new Float32Array([1, 2, 3])),
-    //       new Series(new Float32Array([4, 5, 6])),
-    //       new Series(new Float32Array([7, 8, 9])),
-    //     ],
-    //   );
-    //   const pld = fr.toPayload();
-    //   const CODECS: binary.Codec[] = [
-    //     binary.JSON_CODEC,
-    //     new Codec([1, 2, 3], [DataType.FLOAT32, DataType.FLOAT32, DataType.FLOAT32]),
-    //   ];
-    //   const ITERS = 100_000;
-    //   CODECS.forEach((codec) => {
-    //     const start = performance.now();
-    //     for (let i = 0; i < ITERS; i++) {
-    //       codec.encode(pld);
-    //     }
-    //     const end = performance.now();
-    //     console.log(codec.constructor.name, end - start);
-    //   });
+    interface Spec {
+      name: string;
+      channels: channel.Keys;
+      dataTypes: DataType[];
+      frame: framer.Frame;
+    }
 
-    // });
+    const SPECS: Spec[] = [
+      {
+        name: "All Channels Present, In Order",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.INT64, DataType.FLOAT32, DataType.FLOAT64],
+        frame: new framer.Frame(
+          [1, 2, 3],
+          [
+            new Series(new BigInt64Array([1n, 2n, 3n])),
+            new Series(new Float32Array([4, 5, 6])),
+            new Series(new Float64Array([7, 8, 9])),
+          ],
+        ),
+      },
+      {
+        name: "All Channels Present, Out of Order",
+        channels: [3, 1, 2],
+        dataTypes: [DataType.FLOAT64, DataType.INT64, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [2, 3, 1],
+          [
+            new Series(new Float32Array([4, 5, 6])),
+            new Series(new Float64Array([7, 8, 9])),
+            new Series(new BigInt64Array([1n, 2n, 3n])),
+          ],
+        ),
+      },
+      {
+        name: "Some Channels Present, In Order",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],
+        frame: new framer.Frame(
+          [1, 3],
+          [
+            new Series(new Uint8Array([1, 2, 3])),
+            new Series(new Float64Array([7, 8, 9])),
+          ],
+        ),
+      },
+      {
+        name: "Some Channels Present, Out of Order",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],
+        frame: new framer.Frame(
+          [3, 1],
+          [
+            new Series(new Float64Array([7, 8, 9])),
+            new Series(new Uint8Array([1, 2, 3])),
+          ],
+        ),
+      },
+      {
+        name: "All Same Time Range",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              timeRange: new TimeStamp(0).spanRange(5),
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Float32Array([1, 2, 3, 4]),
+              timeRange: new TimeStamp(0).spanRange(5),
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Different Time Ranges",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              timeRange: new TimeStamp(0).spanRange(5),
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Float32Array([1, 2, 3, 4]),
+              timeRange: new TimeStamp(0).spanRange(5),
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Partial Present, Different Lengths",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],
+        frame: new framer.Frame(
+          [1, 3],
+          [new Series(new Uint8Array([1])), new Series(new Float64Array([1, 2, 3, 4]))],
+        ),
+      },
+      {
+        name: "Same Alignments",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              alignment: 5n,
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Uint8Array([1, 2, 3, 4]),
+              alignment: 5n,
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Different Alignments",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              alignment: 5n,
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Uint8Array([1, 2, 3, 4]),
+              alignment: 10n,
+            }),
+          ],
+        ),
+      },
+    ];
+
+    SPECS.forEach((spec) => {
+      it(`should encode & decode ${spec.name}`, () => {
+        const codec = new Codec(spec.channels, spec.dataTypes);
+        const encoded = codec.encode(spec.frame.toPayload());
+        const decoded = codec.decode(encoded);
+        decoded.keys.forEach((k, i) => {
+          const dcs = decoded.series[i];
+          const ser = spec.frame.get(k);
+          expect(ser.series.length).toBeGreaterThan(0);
+          const os = ser.series[0];
+          if (dcs.timeRange != null && !dcs.timeRange.isZero)
+            expect(dcs.timeRange.toString()).toEqual(os._timeRange?.toString());
+          expect(new Series(dcs).toString()).toEqual(os.toString());
+        });
+      });
+    });
   });
-  describe.only("writer codec", () => {
+  describe("writer codec", () => {
     it("should correctly e + d a WS write request", () => {
       const baseCodec = new Codec([1], [DataType.INT32]);
       const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);

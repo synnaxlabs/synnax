@@ -209,7 +209,7 @@ export class Frame {
   toPayload(): Payload {
     return {
       series: this.series.map((a) => seriesToPayload(a)),
-      keys: this.keys,
+      keys: [...this.keys],
     };
   }
 
