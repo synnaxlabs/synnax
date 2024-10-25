@@ -92,11 +92,11 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.LinePlotSetData = fhttp.UnaryServer[api.LinePlotSetDataRequest, types.Nil](router, "/api/v1/workspace/lineplot/set-data")
 
 	// LOG
-	t.LogCreate = fhttp.UnaryServer[api.LogCreateRequest, api.LogCreateResponse](router, false, "/api/v1/workspace/log/create")
-	t.LogRetrieve = fhttp.UnaryServer[api.LogRetrieveRequest, api.LogRetrieveResponse](router, false, "/api/v1/workspace/log/retrieve")
-	t.LogDelete = fhttp.UnaryServer[api.LogDeleteRequest, types.Nil](router, false, "/api/v1/workspace/log/delete")
-	t.LogRename = fhttp.UnaryServer[api.LogRenameRequest, types.Nil](router, false, "/api/v1/workspace/log/rename")
-	t.LogSetData = fhttp.UnaryServer[api.LogSetDataRequest, types.Nil](router, false, "/api/v1/workspace/log/set-data")
+	t.LogCreate = fhttp.UnaryServer[api.LogCreateRequest, api.LogCreateResponse](router, "/api/v1/workspace/log/create")
+	t.LogRetrieve = fhttp.UnaryServer[api.LogRetrieveRequest, api.LogRetrieveResponse](router, "/api/v1/workspace/log/retrieve")
+	t.LogDelete = fhttp.UnaryServer[api.LogDeleteRequest, types.Nil](router, "/api/v1/workspace/log/delete")
+	t.LogRename = fhttp.UnaryServer[api.LogRenameRequest, types.Nil](router, "/api/v1/workspace/log/rename")
+	t.LogSetData = fhttp.UnaryServer[api.LogSetDataRequest, types.Nil](router, "/api/v1/workspace/log/set-data")
 
 	// TABLE
 	t.TableCreate = fhttp.UnaryServer[api.TableCreateRequest, api.TableCreateResponse](router, false, "/api/v1/workspace/table/create")

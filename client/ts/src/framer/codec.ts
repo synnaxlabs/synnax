@@ -22,6 +22,32 @@ import { WriterCommand, WriteRequest } from "@/framer/writer";
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
 
+type FramePayload = {
+  keys: number[];
+  series: {
+    data: ArrayBuffer;
+    dataType: DataType;
+    alignment?: bigint | undefined;
+    timeRange?: TimeRange | undefined;
+    glBufferUsage?: "static" | "dynamic" | undefined;
+  }[];
+};
+
+const sortFramePayloadByKey = (framePayload: FramePayload): void => {
+  // Sort both `keys` and `series` together by `keys`
+  const { keys, series } = framePayload;
+  keys.forEach((key, index) => {
+    series[index].key = key; // Temporarily store the key in series for sorting
+  });
+  series.sort((a, b) => a.key - b.key); // Sort the series by the stored keys
+  keys.sort((a, b) => a - b); // Sort the keys array
+
+  // Clean up the temporary key property
+  series.forEach((ser) => {
+    delete ser.key;
+  });
+};
+
 export class Codec {
   contentType: string = "application/framer";
   private readonly keys: channel.Keys;
@@ -35,6 +61,7 @@ export class Codec {
 
   encode(payload: unknown, startOffset: number = 0): Uint8Array {
     const src = payload as FramePayload;
+    sortFramePayloadByKey(src);
     let currDataSize = -1;
     let startTime: TimeStamp | undefined = undefined;
     let endTime: TimeStamp | undefined = undefined;

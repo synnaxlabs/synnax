@@ -297,8 +297,8 @@ describe("Writer", () => {
   });
 
   describe.only("performance", async () => {
-    const NUM_CHANNELS = 2;
-    const ITERATIONS = 1000;
+    const NUM_CHANNELS = 500;
+    const ITERATIONS = 500;
 
     const idx = await client.channels.create(
       {
@@ -320,13 +320,12 @@ describe("Writer", () => {
     const values = Object.fromEntries(channelKeys.map((k) => [k, 1]));
     channelKeys.push(idx.key);
 
-    let wStart = TimeStamp.now();
-
-    [true].forEach((reg) => {
+    [false, true].forEach((reg) => {
+      let wStart = TimeStamp.now();
       it(
         `should write 100,000 frames - reg codec - ${reg}`,
         async () => {
-          if (!reg) wStart = wStart.sub(TimeSpan.hours(10));
+          if (!reg) wStart = wStart.sub(TimeSpan.days(100));
           const writer = await client.openWriter({
             start: wStart,
             channels: channelKeys,
@@ -336,7 +335,7 @@ describe("Writer", () => {
           const start = performance.now();
           try {
             for (let i = 0; i < ITERATIONS; i++) {
-              values[idx.key] = wStart.add(TimeSpan.nanoseconds(i)).valueOf();
+              values[idx.key] = wStart.add(TimeSpan.seconds(i)).valueOf();
               await writer.write(values);
             }
           } finally {

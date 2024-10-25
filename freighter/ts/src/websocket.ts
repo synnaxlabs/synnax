@@ -74,7 +74,8 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   send(req: z.input<RQ>): Error | null {
     if (this.serverClosed != null) return new EOF();
     if (this.sendClosed) throw new StreamClosed();
-    this.ws.send(this.encoder.encode({ type: "data", payload: req }));
+    const encoded = this.encoder.encode({ type: "data", payload: req });
+    this.ws.send(encoded);
     return null;
   }
 

@@ -72,16 +72,16 @@ func (s Series) Split() [][]byte {
 	return o
 }
 
-func (s Series) At(i int) []byte {
-	return s.Data[i*int(s.DataType.Density()) : (i+1)*int(s.DataType.Density())]
+func (s Series) At(i int64) []byte {
+	return s.Data[i*int64(s.DataType.Density()) : (i+1)*int64(s.DataType.Density())]
 }
 
 func (s Series) String() string {
 	b := strings.Builder{}
 	b.WriteString(string(s.DataType))
 	b.WriteString(" ")
-	sLen := int(s.Len())
-	b.WriteString(strconv.Itoa(sLen))
+	sLen := s.Len()
+	b.WriteString(strconv.Itoa(int(sLen)))
 	b.WriteString(" [")
 	stringF := ToStringF(s.DataType)
 	for i := range sLen {

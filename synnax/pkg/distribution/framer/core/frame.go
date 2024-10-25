@@ -145,6 +145,20 @@ func (f *Frame) Sort() {
 	sort.Sort(&frameSorter{f: f})
 }
 
+func (f *Frame) String() string {
+	var b strings.Builder
+	b.WriteString("Frame{\n")
+	for i, k := range f.Keys {
+		b.WriteString("  ")
+		b.WriteString(k.String())
+		b.WriteString(":")
+		b.WriteString(f.Series[i].String())
+		b.WriteString("\n")
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
 // frameSorter is a helper type that implements sort.Interface for sorting Frame.
 type frameSorter struct {
 	f *Frame

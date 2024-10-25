@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"io"
+	"slices"
 )
 
 type Codec struct {
@@ -46,6 +47,7 @@ func NewCodecFromChannels(channels []channel.Channel) Codec {
 		keyDataTypes[ch.Key()] = ch.DataType
 		keys[i] = ch.Key()
 	}
+	slices.Sort(keys)
 	return Codec{keys: keys, keyDataTypes: keyDataTypes}
 }
 
