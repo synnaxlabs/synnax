@@ -60,16 +60,22 @@ namespace pipeline {
     public:
         explicit TareMiddleware(std::vector<synnax::ChannelKey> keys) {
             for (auto &key: keys) {
-                tare_values[key] = 0.0;
+                tare_values[key] = 2.0;
             }
         }
         // setting unladen value to subtract
-        void set_tare_value(synnax::ChannelKey key, double value) {
-            tare_values[key] = value;
+        void set_tare_value(synnax::ChannelKey key) {
+            auto it = this->last_raw_value.find(key);
+            if(it != last_raw_value.end()){
+                tare_values[key] = it->second;
+            } // TODO: handle error here
         }
 
         void clear(){
             for(auto &pair: tare_values){
+                pair.second = 0.0;
+            }
+            for(auto &pair: last_raw_value){
                 pair.second = 0.0;
             }
         }
@@ -78,13 +84,19 @@ namespace pipeline {
             for(size_t i = 0; i < frame.channels->size(); i++){
                 auto channel_key = frame.channels->at(i);
 
+                // update last raw value first
+                auto &series = frame.series->at(i);
+                if(series.size > 0 && series.data_type == synnax::FLOAT64){
+                    last_raw_value[channel_key] = series.at<double>(0);
+                } else if(series.size > 0 && series.data_type == synnax::FLOAT32){
+                    last_raw_value[channel_key] = static_cast<double>(series.at<float>(0));
+                }
+
                 auto it = tare_values.find(channel_key);
                 double tare = 0.0;
                 if(it != tare_values.end())
                    tare = it->second;
                 else continue;
-
-                auto &series = frame.series->at(i);
 
                 if(series.data_type == synnax::FLOAT64){
                     series.transform_inplace<double>(
@@ -95,11 +107,12 @@ namespace pipeline {
                         [tare](float val) {return val - static_cast<float>(tare); }
                     );
                 }
-            } // for
+            }
             return true;
         } // handle
 
     private:
-        std::map<synnax::ChannelKey, double> tare_values;
+        std::map<synnax::ChannelKey, double> tare_values; // TODO: gonna need some mutex action for these 2
+        std::map<synnax::ChannelKey, double> last_raw_value;
     }; // class TareMiddleware
 } // namespace pipeline

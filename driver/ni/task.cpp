@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include "driver/ni/ni.h"
+#include "driver/pipeline/middleware.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -97,6 +98,10 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr<task::Context> &ctx,
     daq_read_pipe(
         pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
     source(ni_source) {
+    // create tare middle
+    std::vector<synnax::ChannelKey> channel_keys = ni_source->get_channel_keys();
+    auto tare = std::make_shared<pipeline::TareMiddleware>(channel_keys);
+    daq_read_pipe.add_middleware(tare);
 }
 
 

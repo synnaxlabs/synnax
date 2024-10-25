@@ -136,6 +136,10 @@ public:
     /// If the pipeline has already stopped, stop will return immediately.
     void stop();
 
+    void add_middleware(std::shared_ptr<pipeline::Middleware> middleware){
+        middleware_chain.add(middleware);
+    }
+
     ~Acquisition();
 
 private:
