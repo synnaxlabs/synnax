@@ -25,7 +25,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
         return {ReaderTask::configure(ctx, task), true};
     if (task.type == "opc_write")
         return {WriterTask::configure(ctx, task), true};
-    LOG(ERROR) << "[opc] Unknown task type: " << task.type;
+//    LOG(ERROR) << "[opc] Unknown task type: " << task.type;
     return {nullptr, false};
 }
 

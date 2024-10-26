@@ -63,7 +63,7 @@ namespace pipeline {
     public:
         explicit TareMiddleware(std::vector<synnax::ChannelKey> keys) {
             for (auto &key: keys) {
-                tare_values[key] = 2.0;
+                tare_values[key] = 0.0;
             }
         }
         // setting unladen value to subtract
@@ -140,19 +140,17 @@ namespace pipeline {
             if(series.data_type == synnax::FLOAT64){
                 series.transform_inplace<double>(
                     [this](double val) {
-                        return val * slope + offset;
+                        return (val * slope + offset);
                     }
                 );
             } else if(series.data_type == synnax::FLOAT32){
                 series.transform_inplace<float>(
                     [this](float val) {
-                        return val * slope + offset;
+                        return (val * slope + offset);
                     }
                 );
             }
         }
-
-
     };
     ///////////////////////////////////////////////////////////////////////////////////
     //                                   Map Scale                                   //
@@ -200,17 +198,16 @@ namespace pipeline {
         explicit ScaleMiddleware(
             config::Parser &parser
         ) {
-
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 auto key = channel_parser.required<synnax::ChannelKey>("channel");
 //                auto scale_config = channel_parser.optional<json>("custom_scale"); // TODO: see if this works
                 if(channel_parser.get_json().contains("custom_scale")){
-                    auto type = channel_parser.required<std::string>("type");
                     auto scale_config = channel_parser.child("custom_scale");
+                    auto type = scale_config.required<std::string>("type");
                     if (type == "linear") {
-                        scales[key] = LinearScale(channel_parser);
+                        scales[key] = LinearScale(scale_config);
                     } else if (type == "map") {
-                        scales[key] = MapScale(channel_parser);
+                        scales[key] = MapScale(scale_config);
                     }
                 }
             });
@@ -226,6 +223,7 @@ namespace pipeline {
                     }, it->second);
                 }
             }
+            return true;
         }
 
     private:

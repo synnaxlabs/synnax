@@ -124,7 +124,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
-    LOG(INFO) << "Task config: " << parser.get_json().dump(4);
+//    LOG(INFO) << "Task config: " << parser.get_json().dump(4);
 
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);

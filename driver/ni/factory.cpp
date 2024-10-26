@@ -33,7 +33,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (task.type == "ni_digital_write")
         return {ni::WriterTask::configure(ctx, task), true};
 
-    LOG(ERROR) << "[ni] Unknown task type: " << task.type << std::endl;
+//    LOG(ERROR) << "[ni] Unknown task type: " << task.type << std::endl;
     return {nullptr, false};
 }
 
