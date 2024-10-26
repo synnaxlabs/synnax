@@ -67,11 +67,24 @@ namespace pipeline {
             }
         }
         // setting unladen value to subtract
-        void set_tare_value(synnax::ChannelKey key) {
+        void tare(synnax::ChannelKey key) {
             auto it = this->last_raw_value.find(key);
             if(it != last_raw_value.end()){
                 tare_values[key] = it->second;
-            } // TODO: handle error here
+            }
+        }
+
+        void tare(std::vector<synnax::ChannelKey> keys) {
+            for (auto &key: keys) {
+                tare(key);
+            }
+        }
+
+        void tare(json &channels) {
+            for (auto &channel: channels) {
+                auto key = channel["channel"].get<synnax::ChannelKey>();
+                tare(key);
+            }
         }
 
         void clear(){

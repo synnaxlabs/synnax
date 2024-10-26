@@ -101,7 +101,7 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr<task::Context> &ctx,
 
     // middleware chain
     std::vector<synnax::ChannelKey> channel_keys = ni_source->get_channel_keys();
-    auto tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
+    this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
     daq_read_pipe.add_middleware(tare_mw);
 
     auto parser = config::Parser(task.config);
@@ -186,7 +186,9 @@ void ni::ReaderTask::exec(task::Command &cmd) {
     } else if (cmd.type == "stop") {
         LOG(INFO) << "[ni.task] stopped reader task " << this->task.name;
         this->stop(cmd.key);
-    } else {
+    } else if (cmd.type == "tare"){
+        this->tare_mw->tare(cmd.args);
+    }else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
 }
