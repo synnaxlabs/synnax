@@ -14,8 +14,10 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <variant>
 
 #include "client/cpp/synnax.h"
+#include "driver/config/config.h"
 
 namespace pipeline {
     ///////////////////////////////////////////////////////////////////////////////////
@@ -56,6 +58,7 @@ namespace pipeline {
     ///////////////////////////////////////////////////////////////////////////////////
     //                                  TareMiddleware                               //
     ///////////////////////////////////////////////////////////////////////////////////
+    //TODO: this needs to be the first middleware in the chain (somehow check/force that)?
     class TareMiddleware : public Middleware {
     public:
         explicit TareMiddleware(std::vector<synnax::ChannelKey> keys) {
@@ -115,4 +118,117 @@ namespace pipeline {
         std::map<synnax::ChannelKey, double> tare_values; // TODO: gonna need some mutex action for these 2
         std::map<synnax::ChannelKey, double> last_raw_value;
     }; // class TareMiddleware
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                  Linear Scale                                 //
+    ///////////////////////////////////////////////////////////////////////////////////
+    struct LinearScale {
+        double slope;
+        double offset;
+
+        LinearScale() = default;
+
+        explicit LinearScale(
+                config::Parser &parser
+        ) : slope(parser.required<double>("slope")),
+            offset(parser.required<double>("y_intercept")) {
+            if (!parser.ok())
+                LOG(ERROR) << "[driver] failed to parse custom linear configuration";
+        }
+
+        void transform_inplace(Series &series) {
+            if(series.data_type == synnax::FLOAT64){
+                series.transform_inplace<double>(
+                    [this](double val) {
+                        return val * slope + offset;
+                    }
+                );
+            } else if(series.data_type == synnax::FLOAT32){
+                series.transform_inplace<float>(
+                    [this](float val) {
+                        return val * slope + offset;
+                    }
+                );
+            }
+        }
+
+
+    };
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                   Map Scale                                   //
+    ///////////////////////////////////////////////////////////////////////////////////
+    struct MapScale {
+        double prescaled_min;
+        double prescaled_max;
+        double scaled_min;
+        double scaled_max;
+
+        MapScale() = default;
+
+        explicit MapScale(
+                config::Parser &parser
+        ) : prescaled_min(parser.required<double>("pre_scaled_min")),
+            prescaled_max(parser.required<double>("pre_scaled_max")),
+            scaled_min(parser.required<double>("scaled_min")),
+            scaled_max(parser.required<double>("scaled_max")) {
+            if (!parser.ok())
+                LOG(ERROR) << "[driver] failed to parse custom linear configuration";
+        }
+
+        void transform_inplace(Series &series) {
+            if(series.data_type == synnax::FLOAT64){
+                series.transform_inplace<double>(
+                    [this](double val) {
+                        return (val - prescaled_min) / (prescaled_max - prescaled_min) * (scaled_max - scaled_min) + scaled_min;
+                    }
+                );
+            } else if(series.data_type == synnax::FLOAT32){
+                series.transform_inplace<float>(
+                    [this](float val) {
+                        return (val - static_cast<float>(prescaled_min)) / (static_cast<float>(prescaled_max) - static_cast<float>(prescaled_min)) * (static_cast<float>(scaled_max) - static_cast<float>(scaled_min)) + static_cast<float>(scaled_min);
+                    }
+                );
+            }
+        }
+    };
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                  ScaleMiddleware                              //
+    ///////////////////////////////////////////////////////////////////////////////////
+    class ScaleMiddleware : public Middleware {
+    public:
+        explicit ScaleMiddleware(
+            config::Parser &parser
+        ) {
+
+            parser.iter("channels", [this](config::Parser &channel_parser) {
+                auto key = channel_parser.required<synnax::ChannelKey>("channel");
+//                auto scale_config = channel_parser.optional<json>("custom_scale"); // TODO: see if this works
+                if(channel_parser.get_json().contains("custom_scale")){
+                    auto type = channel_parser.required<std::string>("type");
+                    auto scale_config = channel_parser.child("custom_scale");
+                    if (type == "linear") {
+                        scales[key] = LinearScale(channel_parser);
+                    } else if (type == "map") {
+                        scales[key] = MapScale(channel_parser);
+                    }
+                }
+            });
+        }
+
+        bool handle(Frame &frame) override {
+            for(size_t i = 0; i < frame.channels->size(); i++) {
+                auto channel_key = frame.channels->at(i);
+                auto it = scales.find(channel_key);
+                if(it != scales.end()) {
+                    std::visit([&](auto& scale) {
+                        scale.transform_inplace(frame.series->at(i));
+                    }, it->second);
+                }
+            }
+        }
+
+    private:
+        std::map<synnax::ChannelKey, std::variant<LinearScale, MapScale>> scales;
+    }; // class ScalingMiddleWare
 } // namespace pipeline

@@ -98,10 +98,15 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr<task::Context> &ctx,
     daq_read_pipe(
         pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
     source(ni_source) {
-    // create tare middle
+
+    // middleware chain
     std::vector<synnax::ChannelKey> channel_keys = ni_source->get_channel_keys();
-    auto tare = std::make_shared<pipeline::TareMiddleware>(channel_keys);
-    daq_read_pipe.add_middleware(tare);
+    auto tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
+    daq_read_pipe.add_middleware(tare_mw);
+
+    auto parser = config::Parser(task.config);
+    auto scale_mw = std::make_shared<pipeline::ScaleMiddleware>(parser);
+    daq_read_pipe.add_middleware(scale_mw);
 }
 
 
@@ -119,6 +124,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
+    LOG(INFO) << "Task config: " << parser.get_json().dump(4);
 
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
