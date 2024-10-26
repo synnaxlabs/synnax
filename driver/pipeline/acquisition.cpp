@@ -156,8 +156,7 @@ void Acquisition::runInternal() {
         if(!this->middleware_chain.empty()){
             this->middleware_chain.exec(frame);
         }
-
-        // LOG(INFO) << "Read frame from source";
+//         LOG(INFO) << "Read frame from source: " << frame;
         if (source_err) {
             LOG(ERROR) << "[acquisition] failed to read source: " << source_err.
                     message();

@@ -82,7 +82,7 @@ namespace pipeline {
 
         void tare(json &channels) {
             for (auto &channel: channels) {
-                auto key = channel["channel"].get<synnax::ChannelKey>();
+                auto key = channel.get<int32_t>();
                 tare(key);
             }
         }

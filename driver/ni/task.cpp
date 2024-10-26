@@ -187,6 +187,7 @@ void ni::ReaderTask::exec(task::Command &cmd) {
         LOG(INFO) << "[ni.task] stopped reader task " << this->task.name;
         this->stop(cmd.key);
     } else if (cmd.type == "tare"){
+        LOG(INFO) << "[ni.task] taring " << this->task.name;
         this->tare_mw->tare(cmd.args);
     }else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
