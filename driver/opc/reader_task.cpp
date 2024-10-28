@@ -223,8 +223,8 @@ void ReaderTask::stop() { this->stop(""); }
 
 void ReaderTask::stop(const std::string &cmd_key) {
     ctx->setState({
-        .key = cmd_key,
         .task = task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = json{
             {"running", false},
@@ -238,8 +238,8 @@ void ReaderTask::start(const std::string &cmd_key) {
     freighter::Error conn_err = refresh_connection(this->ua_client, device_props.connection.endpoint);
     if (conn_err) {
         ctx->setState({
-            .key = cmd_key,
             .task = task.key,
+            .key = cmd_key,
             .variant = "error",
             .details = json{
                 {"message", conn_err.message()}
@@ -250,8 +250,8 @@ void ReaderTask::start(const std::string &cmd_key) {
     }
     pipe.start();
     ctx->setState({
-        .key = cmd_key,
         .task = task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = json{
             {"running", true},
