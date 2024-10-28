@@ -897,15 +897,15 @@ class DigitalWriteTask(MetaTask):
         self._internal = task
 
     @contextmanager
-    def start(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command("start", timeout)
+    def start(self, timeout: float | TimeSpan = 5):
+        self._internal.execute_command("start", timeout=timeout)
         try:
             yield
         finally:
             self.stop()
 
-    def stop(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command("stop", timeout)
+    def stop(self, timeout: float | TimeSpan = 5):
+        self._internal.execute_command("stop", timeout=timeout)
 
 
 class DigitalReadTask(MetaTask):
@@ -954,14 +954,14 @@ class DigitalReadTask(MetaTask):
         self._internal = task
 
     @contextmanager
-    def start(self, timeout: float | TimeSpan = 0):
+    def start(self, timeout: float | TimeSpan = 5):
         self._internal.execute_command_sync("start", timeout)
         try:
             yield
         finally:
             self.stop()
 
-    def stop(self, timeout: float | TimeSpan = 0):
+    def stop(self, timeout: float | TimeSpan = 5):
         self._internal.execute_command_sync("stop", timeout)
 
 
@@ -1010,14 +1010,14 @@ class AnalogReadTask(MetaTask):
     def set_internal(self, task: Task):
         self._internal = task
 
-    def start(self, timeout: float | TimeSpan = 0):
+    def start(self, timeout: float | TimeSpan = 5):
         self._internal.execute_command_sync("start", timeout=timeout)
 
-    def stop(self, timeout: float | TimeSpan = 0):
+    def stop(self, timeout: float | TimeSpan = 5):
         self._internal.execute_command_sync("stop", timeout=timeout)
 
     @contextmanager
-    def run(self, timeout: float | TimeSpan = 0):
+    def run(self, timeout: float | TimeSpan = 5):
         self.start(timeout)
         try:
             yield

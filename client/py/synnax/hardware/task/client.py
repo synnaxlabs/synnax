@@ -135,7 +135,6 @@ class Task:
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args)
             while True:
-                print(TimeSpan.from_seconds(timeout).seconds)
                 frame = s.read(TimeSpan.from_seconds(timeout).seconds)
                 if frame is None:
                     raise TimeoutError(
@@ -146,7 +145,7 @@ class Task:
                     continue
                 try:
                     state = TaskState.parse_obj(frame[_TASK_STATE_CHANNEL][0])
-                    print(state)
+                    print(state, key)
                     if state.key == key:
                         return state
                 except ValidationError as e:

@@ -16,20 +16,20 @@ from synnax.telem import TimeSpan, CrudeRate
 from synnax.hardware.task import MetaTask, TaskPayload, Task
 
 
-class Channel:
-    key: str
+class Channel(BaseModel):
     channel: int
-    nodeId: str
+    node_id: str
     enabled: bool = True
     use_as_index: bool = False
 
 
 class ReadConfig(BaseModel):
-    sample_rate: conint(g=0, le=50000)
-    stream_rate: conint(g=0, le=50000)
+    device: str
+    sample_rate: conint(ge=0, le=50000)
+    stream_rate: conint(ge=0, le=50000)
     channels: list[Channel]
     array_mode: bool
-    array_size: conint(g=0)
+    array_size: conint(ge=0)
     data_saving: bool
 
 
@@ -71,17 +71,25 @@ class ReadTask(MetaTask):
         pld.config = json.dumps(self.config.dict())
         return pld
 
+    @property
+    def key(self) -> int:
+        return self._internal.key
+
+    @property
+    def name(self):
+        return self._internal.name
+
     def set_internal(self, task: Task):
         self._internal = task
 
-    def start(self, timeout: float | TimeSpan = 0):
+    def start(self, timeout: float | TimeSpan = 5):
         self._internal.execute_command_sync("start", timeout=timeout)
 
-    def stop(self, timeout: float | TimeSpan = 0):
+    def stop(self, timeout: float | TimeSpan = 5):
         self._internal.execute_command_sync("stop", timeout=timeout)
 
     @contextmanager
-    def read(self, timeout: float | TimeSpan = 0):
+    def run(self, timeout: float | TimeSpan = 5):
         self.start(timeout)
         try:
             yield

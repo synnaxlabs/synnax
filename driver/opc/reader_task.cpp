@@ -213,14 +213,17 @@ std::unique_ptr<task::Task> ReaderTask::configure(
 }
 
 void ReaderTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") this->start();
-    else if (cmd.type == "stop") return stop();
+    if (cmd.type == "start") this->start(cmd.key);
+    else if (cmd.type == "stop") return this->stop(cmd.key);
     else
         LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
-void ReaderTask::stop() {
+void ReaderTask::stop() { this->stop(""); }
+
+void ReaderTask::stop(const std::string &cmd_key) {
     ctx->setState({
+        .key = cmd_key,
         .task = task.key,
         .variant = "success",
         .details = json{
@@ -231,10 +234,11 @@ void ReaderTask::stop() {
     pipe.stop();
 }
 
-void ReaderTask::start() {
+void ReaderTask::start(const std::string &cmd_key) {
     freighter::Error conn_err = refresh_connection(this->ua_client, device_props.connection.endpoint);
     if (conn_err) {
         ctx->setState({
+            .key = cmd_key,
             .task = task.key,
             .variant = "error",
             .details = json{
@@ -246,6 +250,7 @@ void ReaderTask::start() {
     }
     pipe.start();
     ctx->setState({
+        .key = cmd_key,
         .task = task.key,
         .variant = "success",
         .details = json{
