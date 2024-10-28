@@ -103,7 +103,7 @@ jobs:
 
       - name: Install MbedTLS On Mac
         if: matrix.platform == 'macos-latest' && needs.setup.outputs.changed == 'true'
-        run: brew install mbedtls@3.6.1
+        run: brew install mbedtls
 
       - name: Install MbedTLS On Ubuntu
         if: matrix.platform == 'ubuntu-latest' && needs.setup.outputs.changed == 'true'
