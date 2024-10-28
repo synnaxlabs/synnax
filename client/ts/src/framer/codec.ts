@@ -324,6 +324,7 @@ export class WSStreamerCodec implements binary.Codec {
   }
 
   encode(payload: unknown): ArrayBuffer {
+    console.log("ECD");
     return this.lowPerfCodec.encode(payload);
   }
 

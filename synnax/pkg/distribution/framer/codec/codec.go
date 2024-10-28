@@ -179,7 +179,7 @@ func (m Codec) Encode(src framer.Frame, startOffset int) (dst []byte, err error)
 	// It's impossible for writing to the buffer to fail, so we just ignore all of the
 	// errors.
 	if fgs.equalLens {
-		_ = binary.Write(buf, byteOrder, uint32(curDataSize))
+		writeNaive(buf, uint32(curDataSize))
 	}
 	if fgs.equalTimeRanges && !fgs.timeRangesZero {
 		writeTimeRange(buf, refTr)
