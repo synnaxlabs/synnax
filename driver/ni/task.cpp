@@ -99,6 +99,8 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr<task::Context> &ctx,
         pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
     source(ni_source) {
 
+    this->ok_state = ni_source->ok();
+
     // middleware chain
     std::vector<synnax::ChannelKey> channel_keys = ni_source->get_channel_keys();
     this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
@@ -181,14 +183,16 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 
 void ni::ReaderTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
-        LOG(INFO) << "[ni.task] started reader task " << this->task.name;
+        LOG(INFO) << "[ni.reader] started task " << this->task.name;
         this->start(cmd.key);
     } else if (cmd.type == "stop") {
-        LOG(INFO) << "[ni.task] stopped reader task " << this->task.name;
+        LOG(INFO) << "[ni.reader] stopped task " << this->task.name;
         this->stop(cmd.key);
     } else if (cmd.type == "tare"){
-        LOG(INFO) << "[ni.task] taring " << this->task.name;
-        this->tare_mw->tare(cmd.args);
+        if(this->ok()){
+            LOG(INFO) << "[ni.reader] taring " << this->task.name;
+            this->tare_mw->tare(cmd.args);
+        }
     }else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
