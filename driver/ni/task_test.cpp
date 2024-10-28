@@ -18,6 +18,8 @@
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
+
+
 TEST(NiTaskTests, test_NI_analog_reader_task) {
     LOG(INFO)
             << "Test NI task with NI Analog Read:" <<
@@ -594,6 +596,10 @@ TEST(read_test, taring){
     auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
+
+    auto [data2, dErr2] = client->channels.create("ai2", synnax::FLOAT32, time.key, false);
+    ASSERT_FALSE(dErr2) << dErr2.message();
+
     auto config = json{
             {"channels", json::array({
                                              {
@@ -608,6 +614,22 @@ TEST(read_test, taring){
                                                      {"min_val", 0},
                                                      {"name", ""},
                                                      {"port", 0},
+                                                     {"terminal_config", "Cfg_Default"},
+                                                     {"type", "ai_voltage"},
+                                                     {"units", "Volts"}
+                                             },
+                                             {
+                                                     {"channel", data2.key},
+                                                     {"custom_scale", {
+                                                             {"type", "none"},
+                                                     }},
+                                                     {"device", "BC3604BA-9321-11EF-8029-E4BDC821581A"},
+                                                     {"enabled", true},
+                                                     {"key", "SJIYozx7qg1"},
+                                                     {"max_val", 1},
+                                                     {"min_val", 0},
+                                                     {"name", ""},
+                                                     {"port", 1},
                                                      {"terminal_config", "Cfg_Default"},
                                                      {"type", "ai_voltage"},
                                                      {"units", "Volts"}
@@ -630,7 +652,8 @@ TEST(read_test, taring){
     auto reader_task = ni::ReaderTask::configure(mockCtx, task);
     auto start_cmd = task::Command{task.key, "start", {}};
     auto stop_cmd = task::Command{task.key, "stop", {}};
-    auto tare_cmd = task::Command{task.key, "tare", j};
+//    auto tare_cmd = task::Command{task.key, "tare", j};
+    auto tare_cmd = task::Command{task.key, "tare", {}};
 
     reader_task->exec(start_cmd);
 

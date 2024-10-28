@@ -81,6 +81,14 @@ namespace pipeline {
         }
 
         void tare(json &channels) {
+            //check if json contains no keys, tare everything
+            if(channels.empty()){
+                for(auto &pair: tare_values){
+                   tare(pair.first);
+                }
+                return;
+            }
+
             for (auto &channel: channels) {
                 auto key = channel.get<int32_t>();
                 tare(key);
