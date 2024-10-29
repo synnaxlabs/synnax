@@ -49,8 +49,6 @@ void labjack::Source::init(){
     this->init_stream();
 }
 
-
-
 void labjack::Source::init_stream(){
     double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
     int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
@@ -70,6 +68,7 @@ void labjack::Source::init_stream(){
     for (auto &channel : this->reader_config.channels) {
         if (channel.channel_type == "AIN") {
 
+            // Set resolution index to device's default setting (value = 0)
             std::string name = channel.location + "_RESOLUTION_INDEX";
             check_err(WriteName(this->handle, name.c_str(), 0));
 
@@ -81,6 +80,17 @@ void labjack::Source::init_stream(){
                 auto name = channel.location + "_NEGATIVE_CH";
                 check_err(WriteName(this->handle, name.c_str(), 10.0));
             }
+        } else if (channel.channel_type == "TC"){
+            // Set resolution index to device's default setting (value = 0)
+            std::string name = channel.location + "_RESOLUTION_INDEX";
+            check_err(WriteName(this->handle, name.c_str(), 0));
+
+            if(this->reader_config.device_type == "T4"){
+                LOG(ERROR) << "[labjack.driver] thermocouple channels not currently supported for T4 devices";
+                continue;
+            }
+
+            this->configure_tc_ain_ef(channel.tc_config);
 
         }
     }
@@ -107,7 +117,7 @@ freighter::Error labjack::Source::start(const std::string &cmd_key){
         return freighter::NIL;
     }
     this->breaker.start();
-    this->init(); // TODO: do some error handling here before you actually start the sample thread
+    this->init();
     this->sample_thread = std::thread(&labjack::Source::acquire_data, this);
     ctx->setState({
           .task = task.key,
@@ -229,6 +239,67 @@ void labjack::Source::acquire_data(){
     check_err(LJM_eStreamStop(handle));
 }
 
+void labjack::Source::configure_tc_ain_ef(TCConfig tc_config){
+    // writing 5 frames of data to modbus registers: tc type, cjc address, slope, offset and units
+    enum{ NUM_FRAMES = 5};
+    int aAddresses[NUM_FRAMES];
+    int aTypes[NUM_FRAMES];
+    double aValues[NUM_FRAMES];
+    int err_addr = INITIAL_ERR_ADDRESS;
+
+    // For setting up the AIN#_EF_INDEX (thermocouple type)
+    aAddresses[0] = 9000+2*tc_config.pos_chan;
+    aTypes[0] = LJM_UINT32;
+    aValues[0] = TC_INDEX_LUT[tc_config.type - 6001];
+
+    // For setting up the AIN#_EF_CONFIG_A (temperature units)
+    aAddresses[1] = 9300+2*tc_config.pos_chan;
+    aTypes[1] = LJM_UINT32;
+
+    if(tc_config.units == "K") aValues[1] = 0;
+    else if(tc_config.units == "C") aValues[1] = 1;
+    else if(tc_config.units == "F") aValues[1] = 2;
+
+
+    // For setting up the AIN#_EF_CONFIG_B (CJC address)
+    aAddresses[2] = 9600+2*tc_config.pos_chan;
+    aTypes[2] = LJM_UINT32;
+    aValues[2] = tc_config.cjc_addr;
+
+    // For setting up the AIN#_EF_CONFIG_D (CJC slope)
+    aAddresses[3] = 10200+2*tc_config.pos_chan;
+    aTypes[3] = LJM_FLOAT32;
+    aValues[3] = tc_config.cjc_slope;
+
+    // For setting up the AIN#_EF_CONFIG_E (CJC offset)
+    aAddresses[4] = 10500+2*tc_config.pos_chan;
+    aTypes[4] = LJM_FLOAT32;
+    aValues[4] = tc_config.cjc_offset;
+
+    this->check_err(
+            LJM_eWriteAddresses(
+                handle,
+                NUM_FRAMES,
+                aAddresses,
+                aTypes,
+                aValues,
+                &err_addr
+            )
+        );
+
+    if(this->reader_config.device_type == "T7") {
+        // For setting up the AIN#_NEGATIVE_CH (negative channel)
+        this->check_err(
+                LJM_eWriteAddress(
+                    handle,
+                    41000+tc_config.pos_chan,
+                    LJM_UINT32,
+                    tc_config.neg_chan
+                )
+            );
+    }
+}
+
 int labjack::Source::check_err(int err){
     if(err == 0) return 0;
 
@@ -248,3 +319,4 @@ int labjack::Source::check_err(int err){
 
     return -1;
 }
+
