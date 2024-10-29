@@ -28,7 +28,56 @@
 
 
 namespace labjack{
-    const std::string LOG_READER_PREFIX = "[labjack_reader]";
+
+    typedef enum { DEGK ='K', DEGC = 'C', DEGF = 'F' } TCUnits;
+
+    ///@brief look up table mapping LJM TC Type to TC AIN_EF index
+    // Thermocouple type:		 B  E  J  K  N  R  S  T  C
+    const int TC_INDEX_LUT[9] = {28,20,21,22,27,23,25,24,30};
+
+    struct {
+        ///@brief The thermocouple type
+        // Supported TC types are:
+        //     LJM_ttB (val=6001)
+        //     LJM_ttE (val=6002)
+        //     LJM_ttJ (val=6003)
+        //     LJM_ttK (val=6004)
+        //     LJM_ttN (val=6005)
+        //     LJM_ttR (val=6006)
+        //     LJM_ttS (val=6007)
+        //     LJM_ttT (val=6008)
+        //     LJM_ttC (val=6009)
+        // Note that the values above do not align with the AIN_EF index values
+        // or order. We use a lookup table provided by labjack to convert our
+        // thermocouple constant to the correct index when using the AIN_EF
+        // Lookup table: TC_INDNEX_LUT[ x - 60001] = AIN_EF_INDEX
+        long type;
+
+        ///@brief locations of the single ended or differential signal
+        // For T7s only:
+        // For differential signals, pos_chan should be an even num AIN and
+        // neg_chan will be pos_chan + 1.
+        // For single ended signals, neg_chan should be set to 199
+        int pos_chan;
+        int neg_chan;
+
+        ///@brief  Modbus Address to read the CJC sensor
+        int cjc_addr;
+
+        ///@brief slope of CJC Voltage to temperature conversion (Kelvin/Volts).
+        // if using device temp (cjc_addr is TEMPERATURE_DEVICE_K), set to 1
+        // If using a LM34 on some AIN, set to 55.56
+        float cjc_slope;
+
+        ///@brief OFffset for CJC temp (Kelvin)
+        // If cjc_addr = TEMPERATURE_DEVICE_K. set to 0
+        // If using InAmp or expansion board, might need to adjust it a few degrees
+        // If using LM34 connected to an AIN, set to 255.37
+        float cjc_offset;
+
+        const TCUnits units;
+    }tc_config;
+
     struct ReaderChannelConfig {
         std::string location;
         bool enabled = true;
@@ -142,6 +191,8 @@ public:
     void stop();
 
     int check_err(int err);
+
+    void configure_tc_ain_ef(TCData tc_data);
 
 private:
     int handle;
