@@ -63,6 +63,8 @@ public:
 
     json get_devices();
 
+    int check_err(int err);
+
 private:
     json devices;
     std::set<int> device_keys;

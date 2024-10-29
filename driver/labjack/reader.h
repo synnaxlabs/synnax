@@ -141,6 +141,8 @@ public:
 
     void stop();
 
+    int check_err(int err);
+
 private:
 
     int handle;

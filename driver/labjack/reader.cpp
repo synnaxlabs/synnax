@@ -60,22 +60,25 @@ void labjack::Source::init_stream(){
 
     {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
-        LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle); // TODO: error check
+        if(check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle))){
+            LOG(ERROR) << "[labjack.reader] LJM_Open error";
+            return;
+        }
     }
     // iterate through the channels, for the ones that analog device, need to set the resolution index
     for (auto &channel : this->reader_config.channels) {
         if (channel.channel_type == "AIN") {
 
             std::string name = channel.location + "_RESOLUTION_INDEX";
-            int err = WriteName(this->handle, name.c_str(), 0);
+            check_err(WriteName(this->handle, name.c_str(), 0));
 
             if(this->reader_config.device_type == "T7" || this->reader_config.device_type == "T8") {
                 auto name = channel.location + "_RANGE";
-                err = WriteName(this->handle, name.c_str(), 0);
+                check_err(WriteName(this->handle, name.c_str(), 0));
             }
             if(this->reader_config.device_type == "T7") {
                 auto name = channel.location + "_NEGATIVE_CH";
-                err = WriteName(this->handle, name.c_str(), 10.0);
+                check_err(WriteName(this->handle, name.c_str(), 10.0));
             }
 
         }
@@ -92,13 +95,9 @@ void labjack::Source::init_stream(){
         phys_channel_names.push_back(channel.c_str());
     }
 
-    auto err = LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL);
-//    ErrorCheck(err, "[labjack.reader] LJM_NamesToAddresses error");
-
-    err = LJM_eStreamStop(handle);
-
-    err = LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate);
-//    ErrorCheck(err, "[labjack.reader] LJM_eStreamStart error");
+    check_err(LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL));
+    check_err(LJM_eStreamStop(handle));
+    check_err(LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate));
 };
 
 freighter::Error labjack::Source::start(const std::string &cmd_key){
@@ -127,10 +126,9 @@ freighter::Error labjack::Source::stop(const std::string &cmd_key) {
     this->breaker.stop();
 
     if(this->sample_thread.joinable()) this->sample_thread.join();
-    auto err = LJM_eStreamStop(handle);
-//    ErrorCheck(err, "[labjack.reader] LJM_eStreamStop error");
+    check_err(LJM_eStreamStop(handle));
 
-    CloseOrDie(this->handle);
+    check_err(LJM_Close(this->handle));
     ctx->setState({
           .task = task.key,
           .key = cmd_key,
@@ -182,9 +180,8 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
 
 labjack::Source::~Source() {
     this->stop("");
-//    auto err = LJM_CleanInterval(this->handle);
-//    PrintErrorIfError(err, "LJM_CleanInterval");
-//    CloseOrDie(this->handle);
+//    check_err(LJM_CleanInterval(handle));
+    check_err(LJM_Close(this->handle));
 }
 void labjack::Source::write_to_series(
         synnax::Series &series,
@@ -211,11 +208,42 @@ void labjack::Source::acquire_data(){
     while(this->breaker.running()){
         DataPacket data_packet;
         data_packet.data.resize(this->buffer_size);
+
         data_packet.t0 = synnax::TimeStamp::now().value;
-        auto err = LJM_eStreamRead(this->handle, data_packet.data.data(), &numSkippedScans, &deviceScanBacklog);
+        if(check_err(
+                LJM_eStreamRead(
+                    this->handle,
+                    data_packet.data.data(),
+                    &numSkippedScans,
+                    &deviceScanBacklog
+                ))){
+            LOG(ERROR) << "[labjack.reader] LJM_eStreamRead error";
+            return;
+
+        }
         data_packet.tf = synnax::TimeStamp::now().value;
-//        ErrorCheck(err, "[labjack.reader] LJM_eStreamRead error");
         data_queue.enqueue(data_packet);
     }
-    auto err = LJM_eStreamStop(handle);
+    check_err(LJM_eStreamStop(handle));
+}
+
+int labjack::Source::check_err(int err){
+    if(err == 0) return 0;
+
+    char err_msg[LJM_MAX_NAME_SIZE];
+    LJM_ErrorToString(err, err_msg);
+
+    this->ctx->setState({
+        .task = this->task.key,
+        .variant = "error",
+        .details = {
+            {"running", false},
+            {"message", err_msg}
+        }
+    });
+
+    LOG(ERROR) << "[labjack.reader] " << err_msg;
+
+    return -1;
+    // TODO: call stopped with error?
 }

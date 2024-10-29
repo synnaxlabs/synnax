@@ -57,10 +57,9 @@ void ScannerTask::scan() {
     int aIPAddresses[LJM_LIST_ALL_SIZE];
     int NumFound = 0;
 
-    int err;
     {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
-        err = LJM_ListAll(
+        check_err(LJM_ListAll(
                 DeviceType,
                 ConnectionType,
                 &NumFound,
@@ -68,18 +67,9 @@ void ScannerTask::scan() {
                 aConnectionTypes,
                 aSerialNumbers,
                 aIPAddresses
-        );
+        ));
     }
-    char err_name[LJM_MAX_NAME_SIZE];
-    LJM_ErrorToString(err, err_name);
-//    LOG(ERROR) << "LJM_ListAll error: " << err_name;
-    // TODO: deal with error checks which will cause exit
-//    ErrorCheck(
-//            err,
-//            "LJM_ListAll with device type: %s, connection type: %s",
-//            NumberToDeviceType(DeviceType),
-//            NumberToConnectionType(ConnectionType)
-//       );
+
     for(int i= 0; i < NumFound; i++) {
         nlohmann::json device;
         device["device_type"] = NumberToDeviceType(aDeviceTypes[i]);
@@ -150,4 +140,25 @@ ScannerTask::~ScannerTask() {
 
 json ScannerTask::get_devices() {
     return devices;
+}
+
+int ScannerTask::check_err(int err){
+    if(err == 0) return 0;
+
+    char err_msg[LJM_MAX_NAME_SIZE];
+    LJM_ErrorToString(err, err_msg);
+
+    this->ctx->setState({
+                                .task = this->task.key,
+                                .variant = "error",
+                                .details = {
+                                        {"running", false},
+                                        {"message", err_msg}
+                                }
+                        });
+
+    LOG(ERROR) << "[labjack.scanner] " << err_msg;
+
+    return -1;
+    // TODO: call stopped with error?
 }
