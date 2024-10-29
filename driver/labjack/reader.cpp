@@ -245,5 +245,4 @@ int labjack::Source::check_err(int err){
     LOG(ERROR) << "[labjack.reader] " << err_msg;
 
     return -1;
-    // TODO: call stopped with error?
 }

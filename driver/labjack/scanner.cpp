@@ -37,6 +37,7 @@ std::unique_ptr<task::Task> ScannerTask::configure(
     return std::make_unique<ScannerTask>(ctx, task);
 }
 
+
 void ScannerTask::exec(task::Command &cmd) {
     if (cmd.type == SCAN_CMD_TYPE) {
         this->scan();
@@ -160,5 +161,4 @@ int ScannerTask::check_err(int err){
     LOG(ERROR) << "[labjack.scanner] " << err_msg;
 
     return -1;
-    // TODO: call stopped with error?
 }

@@ -255,5 +255,4 @@ int labjack::WriteSink::check_err(int err){
     LOG(ERROR) << "[labjack.writer] " << err_msg;
 
     return -1;
-    // TODO: call stopped with error?
 }

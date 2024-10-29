@@ -144,7 +144,6 @@ public:
     int check_err(int err);
 
 private:
-
     int handle;
     ReaderConfig reader_config;
     std::shared_ptr<task::Context> ctx;
