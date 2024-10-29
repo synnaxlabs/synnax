@@ -50,7 +50,6 @@ void labjack::Source::init(){
 }
 
 void labjack::Source::init_stream(){
-
     double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
     int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
     double scanRate = INIT_SCAN_RATE;
@@ -101,7 +100,6 @@ void labjack::Source::init_stream(){
 };
 
 freighter::Error labjack::Source::start(const std::string &cmd_key){
-    LOG(INFO) << "starting labjack device";
     if(this->breaker.running()) {
         LOG(INFO) << "breaker already running";
         return freighter::NIL;
@@ -118,6 +116,7 @@ freighter::Error labjack::Source::start(const std::string &cmd_key){
                   {"message", "Task started successfully"}
           }
     });
+    LOG(INFO) << "[labjack.reader] labjack device started successfully";
     return freighter::NIL;
 };
 
@@ -138,6 +137,7 @@ freighter::Error labjack::Source::stop(const std::string &cmd_key) {
                   {"message", "Task stopped successfully"}
           }
     });
+    LOG(INFO) << "[labjack.reader] labjack device stopped successfully";
     return freighter::NIL;
 }
 
