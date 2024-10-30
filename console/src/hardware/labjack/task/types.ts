@@ -10,51 +10,49 @@
 import { device, task } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { inputChannelTypeZ, outputChannelTypeZ } from "@/hardware/labjack/device/types";
+
 // READS
 
 export const readChan = z.object({
-  port: z.number(),
+  port: z.string(),
   enabled: z.boolean(),
-  dataType: z.string(),
   key: z.string(),
   range: z.number().optional(),
   channel: z.number(),
-  type: z.literal("AIN").or(z.literal("DIN")),
+  type: inputChannelTypeZ,
 });
 
 export type ReadChan = z.infer<typeof readChan>;
 export type ReadChanType = ReadChan["type"];
 
 export const ZERO_READ_CHAN: ReadChan = {
-  port: 0,
+  port: "",
   enabled: true,
-  dataType: "float32",
   key: "",
   channel: 0,
-  type: "AIN",
+  type: "AI",
   range: 0,
 };
 
 export const writeChan = z.object({
-  port: z.number(),
+  type: outputChannelTypeZ,
+  port: z.string(),
   enabled: z.boolean(),
-  dataType: z.string(),
   cmdKey: z.number(),
   stateKey: z.number(),
   key: z.string(),
-  channelType: z.literal("AO").or(z.literal("DO")),
 });
 
 export type WriteChan = z.infer<typeof writeChan>;
-export type WriteChanType = WriteChan["channelType"];
+export type WriteChanType = WriteChan["type"];
 export const ZERO_WRITE_CHAN: WriteChan = {
-  port: 0,
+  port: "",
   enabled: true,
   key: "",
-  dataType: "float32",
   cmdKey: 0,
   stateKey: 0,
-  channelType: "DO",
+  type: "DO",
 };
 
 const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");
@@ -66,7 +64,6 @@ export const readTaskConfigZ = z
     deviceKey: deviceKeyZ,
     channels: z.array(readChan),
     dataSaving: z.boolean(),
-    indexKeys: z.array(z.number()),
   })
   .refine(
     (cfg) =>
@@ -116,7 +113,6 @@ export const ZERO_READ_CONFIG: ReadTaskConfig = {
   sampleRate: 10,
   streamRate: 5,
   channels: [],
-  indexKeys: [],
   dataSaving: true,
 };
 export type Read = task.Task<ReadTaskConfig, ReadStateDetails, ReadType>;

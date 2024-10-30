@@ -17,7 +17,20 @@ export interface SelectPortProps extends Select.SingleProps<string, Port> {
 
 export const SelectPort = ({ model, channelType, ...props }: SelectPortProps) => {
   const data = DEVICES[model].ports[channelType];
-  return <Select.Single<string, Port> data={data} {...props} />;
+  return (
+    <Select.Single<string, Port>
+      data={data}
+      columns={[
+        {
+          key: "key",
+          name: "Port",
+        },
+      ]}
+      allowNone={false}
+      entryRenderKey="key"
+      {...props}
+    />
+  );
 };
 
 const INPUT_CHANNEL_TYPES: KeyedNamed<InputChannelType>[] = [
@@ -32,11 +45,11 @@ const OUTPUT_CHANNEL_TYPES: KeyedNamed<OutputChannelType>[] = [
 
 export const SelectInputChannelType = Override.createComponent<
   Select.SingleProps<InputChannelType, KeyedNamed<InputChannelType>>
->(Select.Single, {
+>(Select.Button, {
   data: INPUT_CHANNEL_TYPES,
   entryRenderKey: "name",
 });
 
 export const SelectOutputChannelType = Override.createComponent<
   Select.SingleProps<OutputChannelType, KeyedNamed<OutputChannelType>>
->(Select.Single, { data: OUTPUT_CHANNEL_TYPES, entryRenderKey: "name" });
+>(Select.Button, { data: OUTPUT_CHANNEL_TYPES, entryRenderKey: "name" });

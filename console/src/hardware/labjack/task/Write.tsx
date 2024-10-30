@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -28,7 +28,13 @@ import { ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Properties } from "@/hardware/labjack/device/types";
+import { SelectOutputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
+import {
+  ChannelType,
+  ModelKey,
+  OutputChannelType,
+  Properties,
+} from "@/hardware/labjack/device/types";
 import { SelectDevice } from "@/hardware/labjack/task/common";
 import {
   Write,
@@ -42,6 +48,7 @@ import {
   ZERO_WRITE_CHAN,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
+import { useDevice } from "@/hardware/ni/task/common";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
@@ -152,7 +159,7 @@ const Wrapped = ({
       const statesToCreate: WriteChan[] = [];
       for (const channel of config.channels) {
         const key = `${channel.port}`;
-        const exPair = dev.properties[channel.channelType].channels[key];
+        const exPair = dev.properties[channel.type].channels[key];
         if (exPair == null) {
           commandsToCreate.push(channel);
           statesToCreate.push(channel);
@@ -176,7 +183,7 @@ const Wrapped = ({
         modified = true;
         const states = await client.channels.create(
           statesToCreate.map((c) => ({
-            name: `${dev.properties.identifier}_${c.channelType}_${c.port}_state`,
+            name: `${dev.properties.identifier}_${c.type}_${c.port}_state`,
             index: dev.properties.writeStateIndex,
             dataType: "uint8",
           })),
@@ -184,48 +191,42 @@ const Wrapped = ({
         states.forEach((s, i) => {
           const statesToCreateC = statesToCreate[i];
           if (
-            !(
-              statesToCreateC.port in
-              dev.properties[statesToCreateC.channelType].channels
-            )
+            !(statesToCreateC.port in dev.properties[statesToCreateC.type].channels)
           ) {
-            dev.properties[statesToCreateC.channelType].channels[statesToCreateC.port] =
-              {
-                state: s.key,
-                command: 0,
-              };
+            dev.properties[statesToCreateC.type].channels[statesToCreateC.port] = {
+              state: s.key,
+              command: 0,
+            };
           } else
-            dev.properties[statesToCreateC.channelType].channels[
-              statesToCreateC.port
-            ].state = s.key;
+            dev.properties[statesToCreateC.type].channels[statesToCreateC.port].state =
+              s.key;
         });
       }
 
       if (commandsToCreate.length > 0) {
         const commandIndexes = await client.channels.create(
           commandsToCreate.map((c) => ({
-            name: `${dev.properties.identifier}_${c.channelType}_${c.port}_cmd_time`,
+            name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd_time`,
             dataType: "timestamp",
             isIndex: true,
           })),
         );
         const commands = await client.channels.create(
           commandsToCreate.map((c, i) => ({
-            name: `${dev.properties.identifier}_${c.channelType}_${c.port}_cmd`,
+            name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd`,
             index: commandIndexes[i].key,
             dataType: "uint8",
           })),
         );
         commands.forEach((s, i) => {
           const cmdToCreate = commandsToCreate[i];
-          if (!(cmdToCreate.port in dev.properties[cmdToCreate.channelType].channels)) {
-            dev.properties[cmdToCreate.channelType].channels[cmdToCreate.port] = {
+          if (!(cmdToCreate.port in dev.properties[cmdToCreate.type].channels)) {
+            dev.properties[cmdToCreate.type].channels[cmdToCreate.port] = {
               state: 0,
               command: s.key,
             };
           } else
-            dev.properties[cmdToCreate.channelType].channels[cmdToCreate.port].command =
-              s.key;
+            dev.properties[cmdToCreate.type].channels[cmdToCreate.port].command = s.key;
         });
       }
 
@@ -236,7 +237,7 @@ const Wrapped = ({
         });
 
       config.channels = config.channels.map((c) => {
-        const pair = dev.properties[c.channelType].channels[c.port];
+        const pair = dev.properties[c.type].channels[c.port];
         return {
           ...c,
           cmdKey: pair.command,
@@ -264,6 +265,8 @@ const Wrapped = ({
     },
   });
 
+  const dev = useDevice(methods);
+
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
@@ -276,13 +279,12 @@ const Wrapped = ({
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
-              <Form.Field<number>
+              <Form.NumericField
                 label="State Update Rate"
                 path="config.stateRate"
+                inputProps={{ endContent: "Hz" }}
                 grow
-              >
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
+              />
               <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
             </Align.Space>
           </Align.Space>
@@ -333,22 +335,29 @@ const Wrapped = ({
 
 interface ChannelFormProps {
   selectedChannelIndex: number;
+  device?: device.Device;
 }
 
-const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  const prefix = `config.channels.${selectedChannelIndex}`; //datatype, location, range, channel type
+const ChannelForm = ({
+  selectedChannelIndex,
+  device,
+}: ChannelFormProps): ReactElement => {
+  const prefix = `config.channels.${selectedChannelIndex}`;
+  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ?? "DO";
   return (
     <Align.Space direction="x" grow>
-      <Form.NumericField path={`${prefix}.port`} label="Port" grow />
-      <Form.Field path={`${prefix}.dataType`} label="Data Type" grow>
-        {(p) => <Select.DataType {...p} />}
+      <Form.Field<OutputChannelType> path={`${prefix}.type`} label="Type">
+        {(p) => <SelectOutputChannelType grow {...p} />}
       </Form.Field>
-      <Form.TextField
-        path={`${prefix}.channelTypes`}
-        label="Channel Type"
-        optional
-        grow
-      />
+      <Form.Field<string> path={`${prefix}.port`} label="Port">
+        {(p) => (
+          <SelectPort
+            {...p}
+            model={(device?.model ?? "LJM_dtT4") as ModelKey}
+            channelType={channelType}
+          />
+        )}
+      </Form.Field>
     </Align.Space>
   );
 };

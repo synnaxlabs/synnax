@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -17,7 +17,6 @@ import {
   Input,
   List,
   Menu,
-  Select,
   Status,
   Synnax,
   Text,
@@ -29,7 +28,12 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { SelectInputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
-import { InputChannelType, Properties } from "@/hardware/labjack/device/types";
+import {
+  ChannelType,
+  InputChannelType,
+  ModelKey,
+  Properties,
+} from "@/hardware/labjack/device/types";
 import { SelectDevice } from "@/hardware/labjack/task/common";
 import {
   Read,
@@ -43,6 +47,7 @@ import {
   ZERO_READ_CHAN,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/labjack/task/types";
+import { useDevice } from "@/hardware/ni/task/common";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
@@ -111,12 +116,11 @@ const Wrapped = ({
 
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
-    onError: (e) => {
+    onError: (e) =>
       addStatus({
         variant: "error",
         message: e.message,
-      });
-    },
+      }),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
@@ -203,6 +207,8 @@ const Wrapped = ({
     },
   });
 
+  const dev = useDevice(methods);
+
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
@@ -215,8 +221,16 @@ const Wrapped = ({
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
-              <Form.NumericField label="Sample Rate" path="config.sampleRate" />
-              <Form.NumericField label="Stream Rate" path="config.streamRate" />
+              <Form.NumericField
+                label="Sample Rate"
+                path="config.sampleRate"
+                inputProps={{ endContent: "Hz" }}
+              />
+              <Form.NumericField
+                label="Stream Rate"
+                path="config.streamRate"
+                inputProps={{ endContent: "Hz" }}
+              />
               <Form.SwitchField label="Data Saving" path="config.dataSaving" />
             </Align.Space>
           </Align.Space>
@@ -246,7 +260,10 @@ const Wrapped = ({
               </Header.Header>
               <Align.Space className={CSS.B("details")}>
                 {selectedChannelIndex != null && (
-                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+                  <ChannelForm
+                    selectedChannelIndex={selectedChannelIndex}
+                    device={dev}
+                  />
                 )}
               </Align.Space>
             </Align.Space>
@@ -267,24 +284,32 @@ const Wrapped = ({
 
 interface ChannelFormProps {
   selectedChannelIndex: number;
+  device?: device.Device;
 }
 
-const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  const prefix = `config.channels.${selectedChannelIndex}`; //datatype, location, range, channel type
-  const channelType = Form.useFieldValue(`${prefix}.type`, true);
+const ChannelForm = ({
+  selectedChannelIndex,
+  device,
+}: ChannelFormProps): ReactElement => {
+  const prefix = `config.channels.${selectedChannelIndex}`;
+  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ?? "AI";
+
   return (
     <Align.Space direction="y" empty>
-      <Align.Space direction="x">
+      <Align.Space direction="x" grow>
         <Form.Field<InputChannelType> path={`${prefix}.type`} label="Type">
-          {(p) => <SelectInputChannelType {...p} />}
+          {(p) => <SelectInputChannelType grow {...p} />}
         </Form.Field>
-        <Form.Field<string> path={`${prefix}.port`}>
-          {(p) => <SelectPort {...p} model="LJM_" channelType={channelType} />}
+        <Form.Field<string> path={`${prefix}.port`} grow>
+          {(p) => (
+            <SelectPort
+              {...p}
+              model={(device?.model ?? "LJM_dtT4") as ModelKey}
+              channelType={channelType}
+            />
+          )}
         </Form.Field>
       </Align.Space>
-      <Form.Field path={`${prefix}.dataType`} label="Data Type" grow>
-        {(p) => <Select.DataType {...p} />}
-      </Form.Field>
       <Form.NumericField path={`${prefix}.range`} optional label="Voltage Range" grow />
       <Align.Space direction="x" grow>
         <Input.Item label="Slope" required grow>
