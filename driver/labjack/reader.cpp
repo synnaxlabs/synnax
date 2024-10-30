@@ -210,7 +210,6 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
         f.add(index_key, std::move(t));
     }
 
-    LOG(INFO) << "[labjack.reader] read frame" << f;
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
@@ -219,6 +218,7 @@ labjack::Source::~Source() {
 //    check_err(LJM_CleanInterval(handle));
     check_err(LJM_Close(this->handle));
 }
+
 void labjack::Source::write_to_series(
         synnax::Series &series,
         double &data,

@@ -76,20 +76,18 @@ struct WriterChannelConfig{
     uint32_t cmd_key;  // TODO: change channel type to synanx::channelKEY or whatever it is
     uint32_t state_key;
     std::string channel_type = "";
-    int port;
 
     WriterChannelConfig() = default;
 
     explicit WriterChannelConfig(config::Parser &parser)
         : enabled(parser.optional<bool>("enabled", true)),
-          data_type(parser.required<std::string>("data_type")),
+          data_type(parser.optional<std::string>("data_type", "uint8")),
           cmd_key(parser.required<uint32_t>("cmd_key")),
           state_key(parser.required<uint32_t>("state_key")),
           channel_type(parser.optional<std::string>("channel_type", "")), // TODO: change this
-          port(parser.optional<int>("port", 0)){
-        if(this->channel_type == "DO"){
-            this->location = "DIO" + std::to_string(this->port);
-        }
+          location(parser.optional<std::string>("port", "")){
+        if(!parser.ok())
+            LOG(ERROR) << "Failed to parse writer channel config: " << parser.error_json().dump(4);
     }
 };
 
@@ -113,12 +111,14 @@ struct WriterConfig{
 
     explicit WriterConfig(config::Parser &parser)
         :  device_type(parser.optional<std::string>("type", "")),
-           device_key(parser.required<std::string>("device_key")),
+           device_key(parser.required<std::string>("device")),
            state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),
-           serial_number(parser.optional<std::string>("serial_number", "")),
+           serial_number(parser.required<std::string>("device")),
            connection_type(parser.optional<std::string>("connection_type", "")),
            data_saving(parser.optional<bool>("data_saving", false)
        ){
+        if(!parser.ok())
+            LOG(ERROR) << "Failed to parse writer config: " << parser.error_json().dump(4);
         // Parse the channels
         parser.iter("channels", [this](config::Parser &channel_parser){
             channels.emplace_back(WriterChannelConfig(channel_parser));

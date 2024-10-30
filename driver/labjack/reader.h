@@ -171,7 +171,7 @@ namespace labjack{
                   sample_rate(synnax::Rate(parser.optional<int>("sample_rate", 1))),
                   stream_rate(synnax::Rate(parser.optional<int>("stream_rate", 1))),
                   index_keys(parser.optional<std::set<uint32_t>>("index_keys", {})),
-                  serial_number(parser.optional<std::string>("device", "")),
+                  serial_number(parser.required<std::string>("device")),
                   connection_type(parser.optional<std::string>("connection_type", "")),
                   data_saving(parser.optional<bool>("data_saving", false)
           ) {
