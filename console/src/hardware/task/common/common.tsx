@@ -46,6 +46,7 @@ import { Layout } from "@/layout";
 import { overviewLayout } from "@/range/external";
 
 export interface ControlsProps {
+  layoutKey: string;
   onStartStop: () => void;
   startingOrStopping: boolean;
   onConfigure: () => void;
@@ -201,6 +202,7 @@ export const useObserveState = <T extends ParserErrorsDetails>(
 export const Controls = ({
   state,
   onStartStop,
+  layoutKey,
   startingOrStopping,
   onConfigure,
   configuring,
@@ -219,6 +221,7 @@ export const Controls = ({
         This task is a snapshot and cannot be modified or started.
       </Status.Text.Centered>
     );
+  const isActive = Layout.useSelectActiveMosaicTabKey() === layoutKey;
   return (
     <Align.Space
       direction="x"
@@ -259,7 +262,7 @@ export const Controls = ({
           loading={configuring}
           disabled={configuring || snapshot}
           onClick={onConfigure}
-          triggers={[CONFIGURE_TRIGGER]}
+          triggers={isActive ? [CONFIGURE_TRIGGER] : undefined}
           tooltip={
             <Align.Space direction="x" align="center" size="small">
               <Triggers.Text shade={7} level="small" trigger={CONFIGURE_TRIGGER} />

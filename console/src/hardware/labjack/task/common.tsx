@@ -24,7 +24,7 @@ export const SelectDevice = () => {
   };
   return (
     <Form.Field<string>
-      path="config.deviceKey"
+      path="config.device"
       label="Device"
       grow
       onChange={handleDeviceChange}

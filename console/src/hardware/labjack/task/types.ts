@@ -59,9 +59,9 @@ const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");
 
 export const readTaskConfigZ = z
   .object({
+    device: deviceKeyZ,
     sampleRate: z.number().int().min(0).max(50000),
     streamRate: z.number().int().min(0).max(50000),
-    deviceKey: deviceKeyZ,
     channels: z.array(readChan),
     dataSaving: z.boolean(),
   })
@@ -77,7 +77,7 @@ export const readTaskConfigZ = z
 export type ReadTaskConfig = z.infer<typeof readTaskConfigZ>;
 
 export const writeTaskConfigZ = z.object({
-  deviceKey: deviceKeyZ,
+  device: deviceKeyZ,
   channels: z.array(writeChan),
   dataSaving: z.boolean(),
   stateRate: z.number().int(),
@@ -109,7 +109,7 @@ export const READ_TYPE = "labjack_read";
 export type ReadType = typeof READ_TYPE;
 
 export const ZERO_READ_CONFIG: ReadTaskConfig = {
-  deviceKey: "",
+  device: "",
   sampleRate: 10,
   streamRate: 5,
   channels: [],
@@ -128,7 +128,7 @@ export const WRITE_TYPE = "labjack_write";
 export type WriteType = typeof WRITE_TYPE;
 
 export const ZERO_WRITE_CONFIG: WriteTaskConfig = {
-  deviceKey: "",
+  device: "",
   channels: [],
   dataSaving: true,
   stateRate: 10,

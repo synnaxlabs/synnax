@@ -265,6 +265,7 @@ const Wrapped = ({
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
           snapshot={task?.snapshot}
           startingOrStopping={start.isPending}

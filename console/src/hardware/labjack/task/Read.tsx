@@ -125,12 +125,11 @@ const Wrapped = ({
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
 
-      const dev = await client.hardware.devices.retrieve<Properties>(config.deviceKey);
+      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
       let shouldCreateIndex = false;
       if (dev.properties.readIndex)
         try {
           await client.channels.retrieve(dev.properties.readIndex);
-          config.indexKeys = [dev.properties.readIndex];
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateIndex = true;
           else throw e;
@@ -147,34 +146,30 @@ const Wrapped = ({
           isIndex: true,
         });
         dev.properties.readIndex = index.key;
-        config.indexKeys = [index.key];
       }
 
       const toCreate: ReadChan[] = [];
       for (const c of config.channels) {
-        let existingKey = 0;
         const existing = dev.properties[c.type].channels[c.port];
-        if (typeof existing === "number") existingKey = existing;
-        else if (existing == null) existingKey = 0;
-        else existingKey = existing.state;
-
         // check if the channel is in properties
-        if (primitiveIsZero(existingKey)) toCreate.push(c);
+        if (primitiveIsZero(existing)) toCreate.push(c);
         else
           try {
-            await client.channels.retrieve(existingKey.toString());
+            await client.channels.retrieve(existing.toString());
           } catch (e) {
             if (NotFoundError.matches(e)) toCreate.push(c);
             else throw e;
           }
       }
 
+      console.log("HERE");
+
       if (toCreate.length > 0) {
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
             name: `${dev.properties.identifier}_${c.port}`,
-            dataType: `${c.dataType}`,
+            dataType: c.type === "DI" ? "uint8" : "float32",
             index: dev.properties.readIndex,
           })),
         );
@@ -270,6 +265,7 @@ const Wrapped = ({
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
           snapshot={task?.snapshot}
           startingOrStopping={start.isPending}
@@ -380,8 +376,8 @@ const ChannelList = ({
             replaceOnSingle
           >
             <List.Core<string, ReadChan> grow>
-              {(props) => (
-                <ChannelListItem {...props} snapshot={snapshot} path={path} />
+              {({ key, ...props }) => (
+                <ChannelListItem key={key} {...props} snapshot={snapshot} path={path} />
               )}
             </List.Core>
           </List.Selector>

@@ -32,19 +32,10 @@ export const propertiesZ = z.object({
   identifier: identifierZ,
   readIndex: z.number(),
   writeStateIndex: z.number(),
-  AIN: z.object({
-    portCount: z.number(),
-    channels: z.record(z.string(), z.number()),
-  }),
-  DIN: z.object({ portCount: z.number(), channels: z.record(z.string(), z.number()) }),
-  AO: z.object({
-    portCount: z.number(),
-    channels: z.record(commandStatePairZ),
-  }),
-  DO: z.object({
-    portCount: z.number(),
-    channels: z.record(z.string(), commandStatePairZ),
-  }),
+  AI: z.object({ channels: z.record(z.string(), z.number()) }),
+  DI: z.object({ channels: z.record(z.string(), z.number()) }),
+  AO: z.object({ channels: z.record(commandStatePairZ) }),
+  DO: z.object({ channels: z.record(z.string(), commandStatePairZ) }),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 
@@ -52,67 +43,29 @@ export const ZERO_PROPERTIES: Properties = {
   readIndex: 0,
   writeStateIndex: 0,
   identifier: "",
-  AIN: {
-    portCount: 0,
+  AI: {
     channels: {},
   },
   AO: {
-    portCount: 0,
     channels: {},
   },
-  DIN: {
-    portCount: 0,
+  DI: {
     channels: {},
   },
   DO: {
-    portCount: 0,
     channels: {},
   },
 };
 
-type DeviceInfo = {
-  analogInput: number;
-  analogOutput: number;
-  digitalInputOutput: number;
-  flexInputOutput: number;
-};
-
-export const ModelDirectory: Record<ModelKey, DeviceInfo> = {
-  LJM_dtT4: {
-    analogInput: 4,
-    analogOutput: 2,
-    digitalInputOutput: 8,
-    flexInputOutput: 8,
-  },
-  LJM_dtT7: {
-    analogInput: 14,
-    analogOutput: 2,
-    digitalInputOutput: 23,
-    flexInputOutput: 0,
-  },
-  LJM_dtT8: {
-    analogInput: 8,
-    analogOutput: 2,
-    digitalInputOutput: 20,
-    flexInputOutput: 0,
-  },
-};
-
-const createProperty = (portCount: number) => ({
-  portCount,
-  channels: {},
-});
-
-export const getZeroProperties = (model: ModelKey): Properties => {
-  const deviceInfo = ModelDirectory[model];
+export const getZeroProperties = (): Properties => {
   return {
     readIndex: 0,
     writeStateIndex: 0,
     identifier: "",
-    AIN: createProperty(deviceInfo.analogInput),
-    AO: createProperty(deviceInfo.analogOutput),
-    DIN: createProperty(deviceInfo.digitalInputOutput),
-    DO: createProperty(deviceInfo.flexInputOutput),
+    AI: { channels: {} },
+    AO: { channels: {} },
+    DI: { channels: {} },
+    DO: { channels: {} },
   };
 };
 
@@ -206,7 +159,7 @@ export type Ports = z.infer<typeof portsZ>;
 
 export const T4_AI_PORTS: AIPort[] = [
   ...aiFactory({ lower: 0, upper: 4 }, AIN_HIGH_VOLTAGE),
-  ...aiFactory({ lower: 4, upper: 11 }, AIN_LOW_VOLTAGE),
+  ...aiFactory({ lower: 5, upper: 11 }, AIN_LOW_VOLTAGE),
 ];
 export const T4_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 export const T4_DI_PORTS: DIPort[] = diFactory({ lower: 4, upper: 15 });

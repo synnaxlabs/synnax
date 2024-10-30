@@ -17,7 +17,6 @@ import {
   Input,
   List,
   Menu,
-  Select,
   Status,
   Synnax,
   Text,
@@ -130,7 +129,7 @@ const Wrapped = ({
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
 
-      const dev = await client.hardware.devices.retrieve<Properties>(config.deviceKey);
+      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
 
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
@@ -314,7 +313,10 @@ const Wrapped = ({
               </Header.Header>
               <Align.Space className={CSS.B("details")}>
                 {selectedChannelIndex != null && (
-                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+                  <ChannelForm
+                    selectedChannelIndex={selectedChannelIndex}
+                    device={dev}
+                  />
                 )}
               </Align.Space>
             </Align.Space>
@@ -322,6 +324,7 @@ const Wrapped = ({
         </Form.Form>
         <Controls
           state={taskState}
+          layoutKey={layoutKey}
           snapshot={task?.snapshot}
           startingOrStopping={start.isPending}
           configuring={configure.isPending}
