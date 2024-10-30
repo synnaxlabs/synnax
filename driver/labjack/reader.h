@@ -28,15 +28,100 @@
 
 
 namespace labjack{
-    const std::string LOG_READER_PREFIX = "[labjack_reader]";
+
+    const int SINGLE_ENDED = 199; // default negative channel for single ended signals
+
+    ///@brief look up table mapping LJM TC Type to TC AIN_EF index
+    // Thermocouple type:		 B  E  J  K  N  R  S  T  C
+    const int TC_INDEX_LUT[9] = {28,20,21,22,27,23,25,24,30};
+
+    struct TCConfig {
+        ///@brief The thermocouple type
+        // Supported TC types are:
+        //     LJM_ttB (val=6001)
+        //     LJM_ttE (val=6002)
+        //     LJM_ttJ (val=6003)
+        //     LJM_ttK (val=6004)
+        //     LJM_ttN (val=6005)
+        //     LJM_ttR (val=6006)
+        //     LJM_ttS (val=6007)
+        //     LJM_ttT (val=6008)
+        //     LJM_ttC (val=6009)
+        // Note that the values above do not align with the AIN_EF index values
+        // or order. We use a lookup table provided by labjack to convert our
+        // thermocouple constant to the correct index when using the AIN_EF
+        // Lookup table: TC_INDNEX_LUT[ x - 60001] = AIN_EF_INDEX
+        long type;
+
+        ///@brief locations of the single ended or differential signal
+        // For T7s only:
+        // For differential signals, pos_chan should be an even num AIN and
+        // neg_chan will be pos_chan + 1.
+        // For single ended signals, neg_chan should be set to 199
+        int pos_chan;
+        int neg_chan;
+
+        ///@brief  Modbus Address to read the CJC sensor
+        int cjc_addr;
+
+        ///@brief slope of CJC Voltage to temperature conversion (Kelvin/Volts).
+        // if using device temp (cjc_addr is TEMPERATURE_DEVICE_K), set to 1
+        // If using a LM34 on some AIN, set to 55.56
+        float cjc_slope;
+
+        ///@brief OFffset for CJC temp (Kelvin)
+        // If cjc_addr = TEMPERATURE_DEVICE_K. set to 0
+        // If using InAmp or expansion board, might need to adjust it a few degrees
+        // If using LM34 connected to an AIN, set to 255.37
+        float cjc_offset;
+
+        ///@brief units for the thermocouple reading
+        std::string units;
+
+        explicit TCConfig(
+                long type = 0,
+                int pos_chan = 0,
+                int neg_chan = 0,
+                int cjc_addr = 0,
+                float cjc_slope = 0.0f,
+                float cjc_offset = 0.0f,
+                std::string units = "K"
+        ) : type(type),
+            pos_chan(pos_chan),
+            neg_chan(neg_chan),
+            cjc_addr(cjc_addr),
+            cjc_slope(cjc_slope),
+            cjc_offset(cjc_offset),
+            units(units) {
+        }
+
+        explicit TCConfig(config::Parser &parser)
+            : type(parser.required<long>("type")),
+              pos_chan(parser.required<int>("pos_chan")),
+              neg_chan(parser.optional<int>("neg_chan", SINGLE_ENDED)),
+              cjc_addr(parser.required<int>("cjc_addr")),
+              cjc_slope(parser.required<float>("cjc_slope")),
+              cjc_offset(parser.required<float>("cjc_offset")),
+              units(parser.required<std::string>("units")) {
+        }
+    }; // TCConfig
+
     struct ReaderChannelConfig {
+        ///@brief The location of the channel on device (e.g. AIN0, FIO4, etc.)
         std::string location;
+        ///@brief Whether to read from this channel
         bool enabled = true;
         synnax::DataType data_type;
+        ///@brief Synnax channel key
         uint32_t channel_key;
+        ///@brief voltage range
         double range = 10.0;
+        ///@brief channel type (e.g. AIN, DIN, TC)
         std::string channel_type = "";
+        ///@brief port number (e.g. 1 if AIN1)
         int port;
+        ///@brief Thermocouple configuration if applicable
+        TCConfig tc_config;
 
         ReaderChannelConfig() = default;
 
@@ -47,13 +132,24 @@ namespace labjack{
                   range(parser.optional<double>("range", 10.0)),
                   channel_type(parser.optional<std::string>("type", "")),
                   port(parser.optional<int>("port", 0)){
-            this->location = this->channel_type + std::to_string(this->port);
-            LOG(INFO) << parser.get_json().dump(4);
+
+            if(this->channel_type == "TC") {
+                // No port necessary for tc
+                this->tc_config = TCConfig(parser);
+                // temparature : AIN#_EF_READ_A register
+                // voltage     : AIN#_EF_READ_B register
+                // CJC temp    : AIN#_EF_READ_C register
+                this->location = "AIN" + std::to_string(this->tc_config.pos_chan) + "_EF_READ_A";
+            } else {
+                this->location = this->channel_type + std::to_string(this->port);
+            }
         }
     };
 
     struct ReaderConfig {
+        ///@brief The type of device (e.g. T4, T7, T8, etc.)
         std::string device_type;
+        ///@brief Key of device on synnax server
         std::string device_key;
         std::vector<ReaderChannelConfig> channels;
         synnax::Rate sample_rate = synnax::Rate(1);
@@ -61,9 +157,12 @@ namespace labjack{
         synnax::ChannelKey task_key;
         std::set<uint32_t> index_keys;
         std::string serial_number; // used to open devices
+        ///@brief The type of connection (i.e. USB, Ethernet, or WIFI)
         std::string connection_type; // used to open devices
-        std::map<std::string, uint32_t> channel_map; // move this into class instead of reader config
+        ///@brief map of locations on device to synnax channel keys
+        std::map<std::string, uint32_t> channel_map;
         std::vector<std::string> phys_channels;
+        ///@brief whether to persist data to disk
         bool data_saving;
 
         ReaderConfig() = default;
@@ -116,7 +215,6 @@ public:
 
     ~Source();
 
-
     std::vector<synnax::ChannelKey> get_channel_keys();
 
     void stopped_with_err(const freighter::Error &err);
@@ -141,8 +239,11 @@ public:
 
     void stop();
 
-private:
+    int check_err(int err);
 
+    void configure_tc_ain_ef(TCConfig tc_config);
+
+private:
     int handle;
     ReaderConfig reader_config;
     std::shared_ptr<task::Context> ctx;

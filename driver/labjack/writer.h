@@ -36,6 +36,7 @@ struct out_state{
     synnax::DataType data_type = synnax::FLOAT64;
     synnax::ChannelKey state_key = 0;
 };
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -165,6 +166,8 @@ public:
     std::shared_ptr<labjack::StateSource> state_source;
 
     void get_index_keys();
+
+    int check_err(int err);
 
 private:
     int handle;

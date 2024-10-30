@@ -144,7 +144,7 @@ labjack::WriteSink::WriteSink(
 
 labjack::WriteSink::~WriteSink(){
     this->stop("");
-    CloseOrDie(this->handle);
+    check_err(LJM_Close(this->handle));
 }
 
 void labjack::WriteSink::init(){
@@ -158,12 +158,10 @@ void labjack::WriteSink::init(){
         }
         this->writer_config.device_type = dev.model;
     }
-    int err;
     {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
-         err = LJM_Open(LJM_dtANY, LJM_ctANY, this->writer_config.serial_number.c_str(), &this->handle);
+        check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->writer_config.serial_number.c_str(), &this->handle));
     }
-    ErrorCheck(err, "[labjack.writer] LJM_Open error on serial num: %s ", this->writer_config.serial_number.c_str());
 }
 
 freighter::Error labjack::WriteSink::write(synnax::Frame frame){
@@ -171,7 +169,7 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame){
     for(auto key: *(frame.channels)){
         double value = series_to_val(frame.series->at(frame_index));
         std::string loc = this->writer_config.initial_state_map[key].location;
-        auto err = LJM_eWriteName(this->handle, loc.c_str(), value);
+        check_err(LJM_eWriteName(this->handle, loc.c_str(), value));
         frame_index++;
     }
     this->state_source->update_state(std::move(frame));
@@ -179,7 +177,7 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame){
 }
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key){
-    CloseOrDie(this->handle);
+    check_err(LJM_Close(this->handle));
     ctx->setState({
                           .task = task.key,
                           .key = cmd_key,
@@ -237,4 +235,24 @@ void labjack::WriteSink::get_index_keys(){
         return;
     }
     this->writer_config.state_index_key = state_channel_info.index;
+}
+
+int labjack::WriteSink::check_err(int err){
+    if(err == 0) return 0;
+
+    char err_msg[LJM_MAX_NAME_SIZE];
+    LJM_ErrorToString(err, err_msg);
+
+    this->ctx->setState({
+                                .task = this->task.key,
+                                .variant = "error",
+                                .details = {
+                                        {"running", false},
+                                        {"message", err_msg}
+                                }
+                        });
+
+    LOG(ERROR) << "[labjack.writer] " << err_msg;
+
+    return -1;
 }

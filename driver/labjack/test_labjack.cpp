@@ -524,12 +524,37 @@ int digital_out()
     return LJME_NOERROR;
 }
 
+void PrintErrorToString(int err)
+{
+    char errName[LJM_MAX_NAME_SIZE];
+    LJM_ErrorToString(err, errName);
+    printf("LJM_ErrorToString(%d) returned %s\n", err, errName);
+}
+
+int PrintErrors(){
+    printf("Manual values:\n");
+    PrintErrorToString(0);
+    PrintErrorToString(LJME_CONSTANTS_FILE_NOT_FOUND);
+    PrintErrorToString(LJME_INVALID_CONSTANTS_FILE);
+    PrintErrorToString(LJME_TRANSACTION_ID_ERR);
+    PrintErrorToString(LJME_WARNINGS_BEGIN);
+    PrintErrorToString(LJME_U3_NOT_SUPPORTED_BY_LJM);
+    PrintErrorToString(199); // non-existent error
+    PrintErrorToString(2330); // LabJack device error
+
+    WaitForUserIfWindows();
+
+    return LJME_NOERROR;
+}
+
+
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////// END OF STREAMING
 
 int main() {
-    return scan();
+    return PrintErrors();
+//    return scan();
 //    return multi_ain();
 //    return basic_stream();
 //    return digital_out();
