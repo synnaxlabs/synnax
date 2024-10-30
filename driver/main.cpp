@@ -114,11 +114,12 @@ int main(int argc, char *argv[]) {
 
 #ifdef _WIN32
     auto labjack_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), labjack::INTEGRATION_NAME);
-    if(labjack_enabled != cfg.integrations.end()){
+    if(labjack_enabled != cfg.integrations.end() && labjack::dlls_available()) {
         std::unique_ptr<labjack::Factory> labjack_factory = std::make_unique<labjack::Factory>();
         factories.push_back(std::move(labjack_factory));
-    } else
-        LOG(INFO) << "[driver] LabJack integration is not enabled";
+    } else{
+        LOG(INFO) << "[driver] LabJack integration is not enabled or the required DLLs are not available";
+    }
 #else
     LOG(INFO) << "[driver] LabJack integration is not available on this platform";
 #endif

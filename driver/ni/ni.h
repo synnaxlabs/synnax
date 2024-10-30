@@ -625,13 +625,13 @@ static inline bool dlls_available() {
         "nixsru.dll"
     };
 
-    bool d = true;
+    bool all_present = true;
     for (const auto &dll: dlls)
         if (!does_dll_exist(dll.c_str()))
-            d = false;
-    if (d)
-        LOG(INFO) << "[ni] All required DLLs found.";
-    return d;
+            all_present = false;
+    if (!all_present)
+        LOG(ERROR) << "[ni] Required NI DLLs not found.";
+    return all_present;
 } // dlls_available
 
 const std::string INTEGRATION_NAME = "ni";
