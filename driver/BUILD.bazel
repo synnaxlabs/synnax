@@ -74,6 +74,8 @@ cc_binary(
             "/FORCE:MULTIPLE",  # FIXME: handles the current duplicate symbo,ls because of labjack lib. temp workaround
             #            "/debug",
             #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+            "/DELAYLOAD:LabJackM.dll",  # Add this new line
+            "/DELAYLOAD:LabJackWUSB.dll",  # Add this new line
         ],
         "//conditions:default": [],
     }),
