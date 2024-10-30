@@ -45,7 +45,6 @@ void ScannerTask::exec(task::Command &cmd) {
     } else if (cmd.type == STOP_CMD_TYPE){
         return this->stop();
     }
-    LOG(ERROR) << "[labjack] Scanner received unknown command type: " << cmd.type;
 }
 
 void ScannerTask::scan() {
@@ -110,7 +109,6 @@ void ScannerTask::create_devices() {
             device.dump()
         );
 
-        LOG(INFO) << "[labjack.scanner] creating device with key: " << device["key"];
         if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) {
             LOG(ERROR) << "[labjack.scanner] failed to create device with key: " << device["key"];
             device["failed_to_create"] = true;
@@ -158,6 +156,8 @@ int ScannerTask::check_err(int err){
                                 }
                         });
 
+    if(std::string(err_msg) == "LJME_AUTO_IPS_FILE_NOT_FOUND")
+        return -1;
     LOG(ERROR) << "[labjack.scanner] " << err_msg;
 
     return -1;

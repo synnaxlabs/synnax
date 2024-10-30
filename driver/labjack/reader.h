@@ -113,13 +113,11 @@ namespace labjack{
         bool enabled = true;
         synnax::DataType data_type;
         ///@brief Synnax channel key
-        uint32_t channel_key;
+        uint32_t key;
         ///@brief voltage range
         double range = 10.0;
         ///@brief channel type (e.g. AIN, DIN, TC)
         std::string channel_type = "";
-        ///@brief port number (e.g. 1 if AIN1)
-        int port;
         ///@brief Thermocouple configuration if applicable
         TCConfig tc_config;
 
@@ -127,11 +125,13 @@ namespace labjack{
 
         explicit ReaderChannelConfig(config::Parser &parser)
                 : enabled(parser.optional<bool>("enabled", true)),
-                  data_type(parser.required<std::string>("data_type")),
-                  channel_key(parser.required<uint32_t>("channel")),
+                  data_type(parser.optional<std::string>("data_type", "float32")),
+                  key(parser.required<uint32_t>("channel")),
                   range(parser.optional<double>("range", 10.0)),
                   channel_type(parser.optional<std::string>("type", "")),
-                  port(parser.optional<int>("port", 0)){
+                  location(parser.optional<std::string>("port", "")){
+            if(!parser.ok())
+                LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
             if(this->channel_type == "TC") {
                 // No port necessary for tc
@@ -140,8 +140,6 @@ namespace labjack{
                 // voltage     : AIN#_EF_READ_B register
                 // CJC temp    : AIN#_EF_READ_C register
                 this->location = "AIN" + std::to_string(this->tc_config.pos_chan) + "_EF_READ_A";
-            } else {
-                this->location = this->channel_type + std::to_string(this->port);
             }
         }
     };
@@ -169,19 +167,21 @@ namespace labjack{
 
         explicit ReaderConfig(config::Parser &parser)
                 : device_type(parser.optional<std::string>("type", "")),
-                  device_key(parser.required<std::string>("device_key")),
+                  device_key(parser.required<std::string>("device")),
                   sample_rate(synnax::Rate(parser.optional<int>("sample_rate", 1))),
                   stream_rate(synnax::Rate(parser.optional<int>("stream_rate", 1))),
                   index_keys(parser.optional<std::set<uint32_t>>("index_keys", {})),
-                  serial_number(parser.optional<std::string>("serial_number", "")),
+                  serial_number(parser.optional<std::string>("device", "")),
                   connection_type(parser.optional<std::string>("connection_type", "")),
                   data_saving(parser.optional<bool>("data_saving", false)
           ) {
-
+            if(!parser.ok())
+                LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
+            LOG(INFO) << "Parser config: " << parser.get_json().dump(4);
             // Parse the channels
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 channels.emplace_back(ReaderChannelConfig(channel_parser));
-                this->channel_map[channels.back().location] = channels.back().channel_key;
+                this->channel_map[channels.back().location] = channels.back().key;
                 LOG(INFO) << "channel: " << channels.back().location;
                 if(channels.back().enabled)
                     this->phys_channels.push_back(channels.back().location);
@@ -231,6 +231,7 @@ public:
 
     void acquire_data();
 
+
     void write_to_series(
             synnax::Series &series,
             double &data,
@@ -242,6 +243,8 @@ public:
     int check_err(int err);
 
     void configure_tc_ain_ef(TCConfig tc_config);
+
+    bool ok();
 
 private:
     int handle;
@@ -262,5 +265,6 @@ private:
     std::vector<int> port_addresses;
     int buffer_size = 0;
     int num_samples_per_chan = 0;
+    bool ok_state = true;
 };
 }

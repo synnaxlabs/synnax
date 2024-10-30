@@ -28,28 +28,48 @@ void labjack::Source::stopped_with_err(const freighter::Error &err) {
 
 std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
-    for (auto &channel : this->reader_config.channels)
-        keys.push_back(channel.channel_key);
+    for (auto &channel : this->reader_config.channels) {
+        keys.push_back(channel.key);
+        // get index key
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key);
+        if(err != freighter::NIL) {
+            LOG(ERROR) << "[labjack.reader] Error retrieving channel: " << err.message();
+            continue;
+        }
+        LOG(INFO) << "[labjack.reader] index key: " << channel_info.index;
+        this->reader_config.index_keys.insert(channel_info.index);
+    }
     for (auto &index_key : this->reader_config.index_keys)
         keys.push_back(index_key);
     return keys;
 }
 
 void labjack::Source::init(){
-    if(this->reader_config.device_type == ""){
-        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
-                this->reader_config.device_key
-        );
-        if(err != freighter::NIL){
-            LOG(ERROR) << "[labjack.reader] Error retrieving device: " << err.message();
-            return;
-        }
-        this->reader_config.device_type = dev.model;
+    if(this->reader_config.device_type != "") return; // for testing
+    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+            this->reader_config.device_key
+    );
+    if(err != freighter::NIL){
+        LOG(ERROR) << "[labjack.reader] Error retrieving device: " << err.message();
+        return;
     }
+
+    if(dev.model == "LJM_dtT4"){
+        this->reader_config.device_type = "T4";
+    } else if(dev.model == "LJM_dtT7"){
+        this->reader_config.device_type = "T7";
+    } else if(dev.model == "LJM_dtT8"){
+        this->reader_config.device_type = "T8";
+    } else {
+        LOG(ERROR) << "[labjack.reader] Unsupported device type: " << dev.model;
+        return;
+    }
+    LOG(INFO) << "[labjack.reader] device type: " << this->reader_config.device_type;
     this->init_stream();
 }
 
 void labjack::Source::init_stream(){
+    LOG(INFO) << "[labjack.reader] initializing stream";
     double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
     int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
     double scanRate = INIT_SCAN_RATE;
@@ -64,10 +84,10 @@ void labjack::Source::init_stream(){
             return;
         }
     }
+    LOG(INFO) << "[labjack.reader] device opened successfully";
     // iterate through the channels, for the ones that analog device, need to set the resolution index
     for (auto &channel : this->reader_config.channels) {
-        if (channel.channel_type == "AIN") {
-
+        if (channel.channel_type == "AI") {
             // Set resolution index to device's default setting (value = 0)
             std::string name = channel.location + "_RESOLUTION_INDEX";
             check_err(WriteName(this->handle, name.c_str(), 0));
@@ -105,9 +125,8 @@ void labjack::Source::init_stream(){
     for (const auto& channel : this->reader_config.phys_channels) {
         phys_channel_names.push_back(channel.c_str());
     }
-
     check_err(LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL));
-    check_err(LJM_eStreamStop(handle));
+    LJM_eStreamStop(handle); // in case it was running
     check_err(LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate));
 };
 
@@ -118,6 +137,10 @@ freighter::Error labjack::Source::start(const std::string &cmd_key){
     }
     this->breaker.start();
     this->init();
+    if(!this->ok()) {
+        LOG(ERROR) << "Device not initialized properly. Requires reconfigure.";
+        return freighter::Error("Device not initialized properly. Requires reconfigure.");
+    }
     this->sample_thread = std::thread(&labjack::Source::acquire_data, this);
     ctx->setState({
           .task = task.key,
@@ -187,6 +210,7 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
         f.add(index_key, std::move(t));
     }
 
+    LOG(INFO) << "[labjack.reader] read frame" << f;
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
@@ -217,7 +241,7 @@ void labjack::Source::acquire_data(){
     int numSkippedScans = 0;
     int totalSkippedScans = 0;
     int deviceScanBacklog = 0;
-    while(this->breaker.running()){
+    while(this->breaker.running() && this->ok()){
         DataPacket data_packet;
         data_packet.data.resize(this->buffer_size);
 
@@ -237,6 +261,7 @@ void labjack::Source::acquire_data(){
         data_queue.enqueue(data_packet);
     }
     check_err(LJM_eStreamStop(handle));
+    LOG(INFO) << "[labjack.reader] acquisition thread stopped successfully";
 }
 
 void labjack::Source::configure_tc_ain_ef(TCConfig tc_config){
@@ -317,6 +342,11 @@ int labjack::Source::check_err(int err){
 
     LOG(ERROR) << "[labjack.reader] " << err_msg;
 
+    this->ok_state = false;
     return -1;
 }
 
+
+bool labjack::Source::ok(){
+    return this->ok_state;
+}

@@ -23,6 +23,7 @@ cc_library(
         "reader.h",
         "util.h",
         "writer.h",
+        "dll_check_windows.h",
         "task.h",
     ],
     srcs = [

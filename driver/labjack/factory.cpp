@@ -24,7 +24,6 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
         return {labjack::ReaderTask::configure(ctx, task), true};
     if(task.type == "labjack_write")
         return {labjack::WriterTask::configure(ctx, task), true};
-    LOG(ERROR) << "[labjack] Unknown task type: " << task.type;
     return {nullptr, false};
 }
 

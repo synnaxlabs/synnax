@@ -553,9 +553,9 @@ int PrintErrors(){
 /////////////////////////////////////////////////////////////////////////////////////////// END OF STREAMING
 
 int main() {
-    return PrintErrors();
+//    return PrintErrors();
 //    return scan();
-//    return multi_ain();
+    return multi_ain();
 //    return basic_stream();
 //    return digital_out();
 }
