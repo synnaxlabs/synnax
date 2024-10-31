@@ -30,6 +30,10 @@ labjack::ReaderTask::ReaderTask(
                     breaker_config)
             ),
         source(labjack_source){
+    // middleware chain
+    std::vector<synnax::ChannelKey> channel_keys = labjack_source->get_channel_keys();
+    this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
+    read_pipe.add_middleware(tare_mw);
 }
 
 void labjack::ReaderTask::exec(task::Command &cmd) {
@@ -37,6 +41,10 @@ void labjack::ReaderTask::exec(task::Command &cmd) {
         this->start(cmd.key);
     else if (cmd.type == "stop")
         this->stop(cmd.key);
+    else if (cmd.type == "tare") {
+        this->tare_mw->tare(cmd.args);
+        LOG(INFO) << "[labjack.task] tare command received for task " << this->task.name;
+    }
 }
 
 void labjack::ReaderTask::stop(const std::string &cmd_key) {

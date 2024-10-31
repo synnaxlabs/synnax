@@ -26,6 +26,7 @@
 #include "driver/errors/errors.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/pipeline/middleware.h"
 #include "driver/queue/ts_queue.h"
 #include "driver/breaker/breaker.h"
 
@@ -185,7 +186,7 @@ namespace labjack{
             if(!parser.ok())
                 LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
-//            LOG(INFO) << "Parser config: " << parser.get_json().dump(4); // TODO: remove
+            LOG(INFO) << "Parser config: " << parser.get_json().dump(4); // TODO: remove
 
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 channels.emplace_back(ReaderChannelConfig(channel_parser));
@@ -310,5 +311,6 @@ private:
     synnax::Task task;
     pipeline::Acquisition read_pipe;
     std::shared_ptr <labjack::ReaderSource> source;
+    std::shared_ptr<pipeline::TareMiddleware> tare_mw;
 }; // class ReaderTask
 }

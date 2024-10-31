@@ -99,16 +99,16 @@ namespace pipeline {
         }
 
         bool handle(Frame &frame) override {
-            for(size_t i = 0; i < frame.channels->size(); i++){
+            for (size_t i = 0; i < frame.channels->size(); i++) {
                 auto channel_key = frame.channels->at(i);
 
                 // update last raw value first
                 auto &series = frame.series->at(i);
                 {
                     std::lock_guard <std::mutex> lock(mutex);
-                    if(series.size > 0 && series.data_type == synnax::FLOAT64){
+                    if (series.size > 0 && series.data_type == synnax::FLOAT64)
                         last_raw_value[channel_key] = series.at<double>(0);
-                    else if(series.size > 0 && series.data_type == synnax::FLOAT32)
+                    else if (series.size > 0 && series.data_type == synnax::FLOAT32)
                         last_raw_value[channel_key] = static_cast<double>(series.at<float>(0));
                 }
 
@@ -121,18 +121,18 @@ namespace pipeline {
                     else continue;
                 }
 
-                if(series.data_type == synnax::FLOAT64){
+                if (series.data_type == synnax::FLOAT64) {
                     series.transform_inplace<double>(
-                        [tare](double val) {return val - static_cast<double>(tare); }
+                            [tare](double val) { return val - static_cast<double>(tare); }
                     );
-                } else if (series.data_type == synnax::FLOAT32){
+                } else if (series.data_type == synnax::FLOAT32) {
                     series.transform_inplace<float>(
-                        [tare](float val) {return val - static_cast<float>(tare); }
+                            [tare](float val) { return val - static_cast<float>(tare); }
                     );
                 }
             }
             return true;
-        } // handle
+        }
 
     private:
         std::map<synnax::ChannelKey, double> tare_values; // TODO: gonna need some mutex action for these 2
