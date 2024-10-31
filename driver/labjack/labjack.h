@@ -46,7 +46,6 @@ static inline bool dlls_available() {
         LOG(ERROR) << "[labjack] Required Labjack DLLs not found.";
     }
 
-
     return all_present;
 } // dlls_available
 } // namespace labjack
