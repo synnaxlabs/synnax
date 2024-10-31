@@ -71,7 +71,7 @@
         }
     }
 
-    &.pluto--medium input {
+    &.pluto--medium *:is(input, .pluto-input__end-content) {
         font-size: var(--pluto-p-size);
         font-weight: var(--pluto-p-weight);
         line-height: var(--pluto-p-line-height);
@@ -135,9 +135,11 @@
     padding-right: 1.5rem;
     pointer-events: none;
     z-index: 0;
+    font-size: inherit;
+    line-height: inherit;
     * {
         color: var(--pluto-gray-l6);
-        transform: scale(0.9);
+        /* transform: scale(0.9); */
     }
 }
 

@@ -17,7 +17,7 @@ export interface Keyed<K extends Key> {
   key: K;
 }
 
-export interface KeyedNamed<K extends Key> {
+export interface KeyedNamed<K extends Key = string> {
   key: K;
   name: string;
 }
