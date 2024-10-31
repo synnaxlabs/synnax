@@ -14,7 +14,7 @@
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Helpers                                    //
 ///////////////////////////////////////////////////////////////////////////////////
-synnax::Series val_to_series(double val, synnax::DataType data_type){ // no discard
+synnax::Series val_to_series(double val, synnax::DataType data_type){
     if(data_type == synnax::FLOAT64)
         return synnax::Series(static_cast<double>(val), synnax::FLOAT64);
     if(data_type == synnax::FLOAT32)
@@ -59,7 +59,7 @@ double series_to_val(const synnax::Series &series){
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::StateSource::StateSource(
-    const synnax::Rate state_rate, // TODO: make this synnax::Rate?
+    const synnax::Rate state_rate,
     const synnax::ChannelKey &state_index_key,
     const std::map<synnax::ChannelKey, out_state> state_map
 ) : state_rate(state_rate),

@@ -48,14 +48,14 @@ public:
     explicit StateSource() = default;
 
     explicit StateSource(
-        const synnax::Rate state_rate, // TODO: make this synnax::Rate?
+        const synnax::Rate state_rate,
         const synnax::ChannelKey &state_index_key,
         const std::map<synnax::ChannelKey, labjack::out_state> state_map
     );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
 
-    synnax::Frame get_state(); // TODO: maybe i don't need this
+    synnax::Frame get_state();
 
     void update_state(synnax::Frame frame);
 
@@ -222,4 +222,3 @@ private:
 };
 
 } // namespace labjack
-// TODO: add a cycle function to catch errors before hand?

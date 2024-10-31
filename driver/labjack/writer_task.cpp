@@ -108,7 +108,6 @@ std::unique_ptr <task::Task> labjack::WriterTask::configure(
 void labjack::WriterTask::exec(task::Command &cmd){
     if(cmd.type == "start") this->start(cmd.key);
     else if(cmd.type == "stop") this->stop(cmd.key);
-    else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 void labjack::WriterTask::start(const std::string &key){

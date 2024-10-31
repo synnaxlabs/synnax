@@ -33,13 +33,10 @@ labjack::ReaderTask::ReaderTask(
 }
 
 void labjack::ReaderTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") {
+    if (cmd.type == "start")
         this->start(cmd.key);
-    } else if (cmd.type == "stop") {
+    else if (cmd.type == "stop")
         this->stop(cmd.key);
-    } else {
-        LOG(ERROR) << "unknown command type: " << cmd.type;
-    }
 }
 
 void labjack::ReaderTask::stop(const std::string &cmd_key) {
