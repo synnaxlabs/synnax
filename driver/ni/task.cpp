@@ -106,9 +106,9 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr<task::Context> &ctx,
     this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
     daq_read_pipe.add_middleware(tare_mw);
 
-    auto parser = config::Parser(task.config);
-    auto scale_mw = std::make_shared<pipeline::ScaleMiddleware>(parser);
-    daq_read_pipe.add_middleware(scale_mw);
+//    auto parser = config::Parser(task.config);
+//    auto scale_mw = std::make_shared<pipeline::ScaleMiddleware>(parser);
+//    daq_read_pipe.add_middleware(scale_mw);
 }
 
 
@@ -193,8 +193,6 @@ void ni::ReaderTask::exec(task::Command &cmd) {
             LOG(INFO) << "[ni.reader] taring " << this->task.name;
             this->tare_mw->tare(cmd.args);
         }
-    }else {
-        LOG(ERROR) << "unknown command type: " << cmd.type;
     }
 }
 
@@ -324,7 +322,6 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 void ni::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") this->start(cmd.key);
     else if (cmd.type == "stop") this->stop(cmd.key);
-//    else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 
