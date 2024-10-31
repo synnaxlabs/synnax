@@ -11,9 +11,9 @@
 #include "driver/labjack/util.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                   Source                                      //
+//                                   ReaderSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
-void labjack::Source::stopped_with_err(const freighter::Error &err) {
+void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
     LOG(ERROR) << "stopped with error: " << err.message();
     json j = json(err.message());
     this->ctx->setState({
@@ -26,7 +26,7 @@ void labjack::Source::stopped_with_err(const freighter::Error &err) {
                         });
 }
 
-std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
+std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel : this->reader_config.channels) {
         keys.push_back(channel.key);
@@ -44,7 +44,7 @@ std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
     return keys;
 }
 
-void labjack::Source::init(){
+void labjack::ReaderSource::init(){
     if(this->reader_config.device_type != "") return this->init_stream();
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
             this->reader_config.device_key
@@ -68,7 +68,7 @@ void labjack::Source::init(){
     this->init_stream();
 }
 
-void labjack::Source::init_stream(){
+void labjack::ReaderSource::init_stream(){
     LOG(INFO) << "[labjack.reader] initializing stream";
     double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
     int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
@@ -130,7 +130,7 @@ void labjack::Source::init_stream(){
     check_err(LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate));
 };
 
-freighter::Error labjack::Source::start(const std::string &cmd_key){
+freighter::Error labjack::ReaderSource::start(const std::string &cmd_key){
     if(this->breaker.running()) {
         LOG(INFO) << "[labjack.reader] breaker already running";
         return freighter::NIL;
@@ -141,7 +141,7 @@ freighter::Error labjack::Source::start(const std::string &cmd_key){
         LOG(ERROR) << "Device not initialized properly. Requires reconfigure.";
         return freighter::Error("Device not initialized properly. Requires reconfigure.");
     }
-    this->sample_thread = std::thread(&labjack::Source::acquire_data, this);
+    this->sample_thread = std::thread(&labjack::ReaderSource::acquire_data, this);
     ctx->setState({
           .task = task.key,
           .key = cmd_key,
@@ -155,7 +155,7 @@ freighter::Error labjack::Source::start(const std::string &cmd_key){
     return freighter::NIL;
 };
 
-freighter::Error labjack::Source::stop(const std::string &cmd_key) {
+freighter::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
     if(!this->breaker.running()) return freighter::NIL;
     this->breaker.stop();
 
@@ -177,7 +177,7 @@ freighter::Error labjack::Source::stop(const std::string &cmd_key) {
 }
 
 
-std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &breaker) {
+std::pair<Frame, freighter::Error> labjack::ReaderSource::read(breaker::Breaker &breaker) {
     // sleep for a millisecond
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
 
@@ -213,13 +213,13 @@ std::pair<Frame, freighter::Error> labjack::Source::read(breaker::Breaker &break
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
-labjack::Source::~Source() {
+labjack::ReaderSource::~ReaderSource() {
     this->stop("");
 //    check_err(LJM_CleanInterval(handle));
     check_err(LJM_Close(this->handle));
 }
 
-void labjack::Source::write_to_series(
+void labjack::ReaderSource::write_to_series(
         synnax::Series &series,
         double &data,
        synnax::DataType data_type) {
@@ -237,7 +237,7 @@ void labjack::Source::write_to_series(
     }
 }
 
-void labjack::Source::acquire_data(){
+void labjack::ReaderSource::acquire_data(){
     int numSkippedScans = 0;
     int totalSkippedScans = 0;
     int deviceScanBacklog = 0;
@@ -263,7 +263,7 @@ void labjack::Source::acquire_data(){
     LOG(INFO) << "[labjack.reader] acquire_data loop stopped successfully";
 }
 
-void labjack::Source::configure_tc_ain_ef(TCConfig tc_config){
+void labjack::ReaderSource::configure_tc_ain_ef(TCConfig tc_config){
     // writing 5 frames of data to modbus registers: tc type, cjc address, slope, offset and units
     enum{ NUM_FRAMES = 5};
     int aAddresses[NUM_FRAMES];
@@ -324,7 +324,7 @@ void labjack::Source::configure_tc_ain_ef(TCConfig tc_config){
     }
 }
 
-int labjack::Source::check_err(int err){
+int labjack::ReaderSource::check_err(int err){
     if(err == 0) return 0;
 
     char err_msg[LJM_MAX_NAME_SIZE];
@@ -346,6 +346,6 @@ int labjack::Source::check_err(int err){
 }
 
 
-bool labjack::Source::ok(){
+bool labjack::ReaderSource::ok(){
     return this->ok_state;
 }

@@ -24,14 +24,14 @@ cc_library(
         "util.h",
         "writer.h",
         "dll_check_windows.h",
-        "task.h",
     ],
     srcs = [
         "scanner.cpp",
         "factory.cpp",
-        "reader.cpp",
-        "writer.cpp",
-        "task.cpp",
+        "reader_source.cpp",
+        "writer_sink.cpp",
+        "writer_task.cpp",
+        "reader_task.cpp"
     ],
     deps = [
         ":labjack_headers",

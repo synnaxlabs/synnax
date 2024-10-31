@@ -14,6 +14,8 @@
 #include <map>
 #include <thread>
 #include <stdio.h>
+#include <set>
+#include <utility>
 
 #include "LJM_Utilities.h"
 
@@ -28,6 +30,7 @@
 #include "driver/pipeline/control.h"
 #include "driver/breaker/breaker.h"
 #include "driver/loop/loop.h"
+#include "driver/config/config.h"
 
 namespace labjack{
 struct out_state{
@@ -177,6 +180,46 @@ private:
     synnax::Task task;
 
 }; // class WriteSink
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                    WriterTask                                 //
+///////////////////////////////////////////////////////////////////////////////////
+class WriterTask final : public task::Task{
+public:
+    explicit WriterTask(
+            const std::shared_ptr <task::Context> &ctx,
+            synnax::Task task,
+            std::shared_ptr<pipeline::Sink> sink,
+            std::shared_ptr<labjack::WriteSink> labjack_sink,
+            std::shared_ptr<pipeline::Source> state_source,
+            synnax::WriterConfig writer_config,
+            synnax::StreamerConfig streamer_config,
+            const breaker::Config breaker_config
+    );
+
+    void exec(task::Command &cmd) override;
+
+    void stop() override;
+
+    void stop(const std::string &cmd_key);
+
+    void start(const std::string &cmd_key);
+
+    std::string name() override { return task.name; }
+
+    static std::unique_ptr <task::Task> configure(
+            const std::shared_ptr <task::Context> &ctx,
+            const synnax::Task &task
+    );
+
+private:
+    std::atomic<bool> running = false;
+    std::shared_ptr <task::Context> ctx;
+    synnax::Task task;
+    pipeline::Control cmd_pipe;
+    pipeline::Acquisition state_pipe;
+    std::shared_ptr <labjack::WriteSink> sink;
+};
 
 } // namespace labjack
 // TODO: add a cycle function to catch errors before hand?

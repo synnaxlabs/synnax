@@ -12,6 +12,8 @@
 #include <vector>
 #include <map>
 #include <thread>
+#include <utility>
+#include <set>
 #include <stdio.h>
 
 #include "LJM_Utilities.h"
@@ -20,6 +22,7 @@
 
 #include "client/cpp/synnax.h"
 
+#include "driver/config/config.h"
 #include "driver/errors/errors.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
@@ -27,7 +30,9 @@
 #include "driver/breaker/breaker.h"
 
 namespace labjack{
-
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                            Thermocouple Config                                //
+    ///////////////////////////////////////////////////////////////////////////////////
     const int SINGLE_ENDED = 199; // default negative channel for single ended signals
 
     ///@brief look up table mapping LJM TC Type to TC AIN_EF index
@@ -143,6 +148,9 @@ namespace labjack{
         }
     };
 
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                   ReaderConfig                                //
+    ///////////////////////////////////////////////////////////////////////////////////
     struct ReaderConfig {
         ///@brief The type of device (e.g. T4, T7, T8, etc.)
         std::string device_type;
@@ -169,15 +177,16 @@ namespace labjack{
                   device_key(parser.required<std::string>("device")),
                   sample_rate(synnax::Rate(parser.optional<int>("sample_rate", 1))),
                   stream_rate(synnax::Rate(parser.optional<int>("stream_rate", 1))),
-                  index_keys(parser.optional<std::set<uint32_t>>("index_keys", {})),
                   serial_number(parser.required<std::string>("device")),
                   connection_type(parser.optional<std::string>("connection_type", "")),
                   data_saving(parser.optional<bool>("data_saving", false)
           ) {
+
             if(!parser.ok())
                 LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
+
             LOG(INFO) << "Parser config: " << parser.get_json().dump(4);
-            // Parse the channels
+
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 channels.emplace_back(ReaderChannelConfig(channel_parser));
                 this->channel_map[channels.back().location] = channels.back().key;
@@ -190,11 +199,11 @@ namespace labjack{
     };
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                   Source                                      //
+//                                   ReaderSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
-class Source : public pipeline::Source{
+class ReaderSource : public pipeline::Source{
 public:
-    explicit Source (
+    explicit ReaderSource (
             const std::shared_ptr<task::Context> &ctx,
             const synnax::Task task,
             const ReaderConfig &reader_config
@@ -212,7 +221,7 @@ public:
 
     }
 
-    ~Source();
+    ~ReaderSource();
 
     std::vector<synnax::ChannelKey> get_channel_keys();
 
@@ -266,4 +275,40 @@ private:
     int num_samples_per_chan = 0;
     bool ok_state = true;
 };
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                    ReaderTask                                 //
+///////////////////////////////////////////////////////////////////////////////////
+class ReaderTask final : public task::Task {
+public:
+    explicit ReaderTask(
+            const std::shared_ptr <task::Context> &ctx,
+            synnax::Task task,
+            std::shared_ptr <labjack::ReaderSource> labjack_source,
+            std::shared_ptr <pipeline::Source> source,
+            synnax::WriterConfig writer_config,
+            const breaker::Config breaker_config);
+
+    void exec(task::Command &cmd) override;
+
+    void stop() override;
+
+    void stop(const std::string &cmd_key);
+
+    void start(const std::string &cmd_key);
+
+    std::string name() override { return task.name; }
+
+    static std::unique_ptr <task::Task> configure(
+            const std::shared_ptr <task::Context> &ctx,
+            const synnax::Task &task
+    );
+
+private:
+    std::atomic<bool> running = false;
+    std::shared_ptr <task::Context> ctx;
+    synnax::Task task;
+    pipeline::Acquisition read_pipe;
+    std::shared_ptr <labjack::ReaderSource> source;
+}; // class ReaderTask
 }
