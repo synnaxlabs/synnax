@@ -45,7 +45,7 @@ std::vector<synnax::ChannelKey> labjack::Source::get_channel_keys() {
 }
 
 void labjack::Source::init(){
-    if(this->reader_config.device_type != "") return; // for testing
+    if(this->reader_config.device_type != "") return this->init_stream();
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
             this->reader_config.device_key
     );
@@ -132,7 +132,7 @@ void labjack::Source::init_stream(){
 
 freighter::Error labjack::Source::start(const std::string &cmd_key){
     if(this->breaker.running()) {
-        LOG(INFO) << "breaker already running";
+        LOG(INFO) << "[labjack.reader] breaker already running";
         return freighter::NIL;
     }
     this->breaker.start();
@@ -161,8 +161,8 @@ freighter::Error labjack::Source::stop(const std::string &cmd_key) {
 
     if(this->sample_thread.joinable()) this->sample_thread.join();
     check_err(LJM_eStreamStop(handle));
-
     check_err(LJM_Close(this->handle));
+
     ctx->setState({
           .task = task.key,
           .key = cmd_key,
@@ -254,14 +254,13 @@ void labjack::Source::acquire_data(){
                     &deviceScanBacklog
                 ))){
             LOG(ERROR) << "[labjack.reader] LJM_eStreamRead error";
-            return;
-
+            break;
         }
         data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
     }
     check_err(LJM_eStreamStop(handle));
-    LOG(INFO) << "[labjack.reader] acquisition thread stopped successfully";
+    LOG(INFO) << "[labjack.reader] acquire_data loop stopped successfully";
 }
 
 void labjack::Source::configure_tc_ain_ef(TCConfig tc_config){

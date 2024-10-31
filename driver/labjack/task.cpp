@@ -35,10 +35,8 @@ labjack::ReaderTask::ReaderTask(
 
 void labjack::ReaderTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
-        LOG(INFO) << "[labjack.task] started reader task " << this->task.name;
         this->start(cmd.key);
     } else if (cmd.type == "stop") {
-        LOG(INFO) << "[labjack.task] stopped reader task " << this->task.name;
         this->stop(cmd.key);
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
@@ -49,7 +47,8 @@ void labjack::ReaderTask::stop(const std::string &cmd_key) {
     if(!this->running.exchange(false)) return;
     this->read_pipe.stop();
     this->source->stop(cmd_key);
-//    LOG(INFO) << "[labjack.task] successfully stopped task " << this->task.name;
+    if(this->source->ok())
+        LOG(INFO) << "[labjack.task] successfully stopped task " << this->task.name;
 }
 
 void labjack::ReaderTask::stop() { this->stop("");}
@@ -59,7 +58,8 @@ void labjack::ReaderTask::start(const std::string &cmd_key){
     if(this->running.exchange(true)) return;
     this->source->start(cmd_key);
     this->read_pipe.start();
-//    LOG(INFO) << "[labjack.task] successfully started task " << this->task.name;
+    if(this->source->ok())
+        LOG(INFO) << "[labjack.task] successfully started task " << this->task.name;
 }
 
 std::unique_ptr<task::Task> labjack::ReaderTask::configure(

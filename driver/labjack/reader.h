@@ -26,7 +26,6 @@
 #include "driver/queue/ts_queue.h"
 #include "driver/breaker/breaker.h"
 
-
 namespace labjack{
 
     const int SINGLE_ENDED = 199; // default negative channel for single ended signals
