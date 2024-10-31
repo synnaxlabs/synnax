@@ -524,8 +524,7 @@ private:
     pipeline::Acquisition daq_read_pipe; // source is a daqreader
     bool ok_state = true;
     std::shared_ptr<ni::Source> source;
-    std::shared_ptr<pipeline::TareMiddleware>
-    tare_mw;
+    std::shared_ptr<pipeline::TareMiddleware> tare_mw;
 }; // class ReaderTask
 
 ///////////////////////////////////////////////////////////////////////////////////
