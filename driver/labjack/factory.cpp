@@ -18,7 +18,6 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
 ) {
-
     if (task.type == "labjack_scan")
         return {labjack::ScannerTask::configure(ctx,task), true};
     if (task.type == "labjack_read")
