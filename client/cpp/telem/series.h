@@ -427,6 +427,16 @@ public:
         return cap * data_type.density();
     }
 
+    template<typename NumericType>
+    void transform_inplace(const std::function<NumericType(NumericType)>& func){
+        static_assert(std::is_arithmetic_v<NumericType>, "NumericType must be a numeric type");
+        if (size == 0) return;
+        auto vals = values<NumericType>();
+        std::transform(vals.begin(), vals.end(), vals.begin(), func);
+        set_array(vals.data(), 0, vals.size());
+    }
+
+
     /// @brief Holds what type of data is being used.
     DataType data_type;
     /// @brief Holds the underlying data.
@@ -447,13 +457,13 @@ private:
     ) const {
         auto adjusted = index;
         if (index < 0) adjusted = static_cast<int>(size) + index;
-        if (adjusted + write_size >= size || adjusted < 0)
+        if (adjusted + write_size > size || adjusted < 0)
             throw std::runtime_error(
-                "index" + std::to_string(index) +
-                " out of bounds for series of size" +
+                "index " + std::to_string(index) +
+                " out of bounds for series of size " +
                 std::to_string(size)
             );
         return adjusted;
     }
-};
-}
+}; // class Series
+} // namespace synnax

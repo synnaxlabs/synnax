@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include "driver/ni/ni.h"
+#include "driver/pipeline/middleware.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -98,6 +99,17 @@ ni::ReaderTask::ReaderTask(
     daq_read_pipe(
         pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
     source(ni_source) {
+
+    this->ok_state = ni_source->ok();
+
+    // middleware chain
+    std::vector<synnax::ChannelKey> channel_keys = ni_source->get_channel_keys();
+    this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
+    daq_read_pipe.add_middleware(tare_mw);
+
+//    auto parser = config::Parser(task.config);
+//    auto scale_mw = std::make_shared<pipeline::ScaleMiddleware>(parser);
+//    daq_read_pipe.add_middleware(scale_mw);
 }
 
 
@@ -115,6 +127,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
+//    LOG(INFO) << "Task config: " << parser.get_json().dump(4);
 
     TaskHandle task_handle;
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
@@ -173,14 +186,17 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 
 void ni::ReaderTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
-        LOG(INFO) << "[ni.task] started reader task " << this->task.name;
         this->start(cmd.key);
+        LOG(INFO) << "[ni.reader] started task " << this->task.name;
     } else if (cmd.type == "stop") {
-        LOG(INFO) << "[ni.task] stopped reader task " << this->task.name;
         this->stop(cmd.key);
-    } else
-        LOG(ERROR) << "unknown command type: " << cmd.type;
-
+        LOG(INFO) << "[ni.reader] stopped task " << this->task.name;
+    } else if (cmd.type == "tare"){
+        if(this->ok()){
+            this->tare_mw->tare(cmd.args);
+            LOG(INFO) << "[ni.reader] tared channels for " << this->task.name;
+        }
+    }
 }
 
 void ni::ReaderTask::stop() { this->stop(""); }
@@ -317,7 +333,6 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 void ni::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") this->start(cmd.key);
     else if (cmd.type == "stop") this->stop(cmd.key);
-    else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 

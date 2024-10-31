@@ -19,6 +19,7 @@
 
 using json = nlohmann::json;
 
+
 TEST(NiTaskTests, test_NI_analog_reader_task) {
     LOG(INFO)
             << "Test NI task with NI Analog Read:" <<
@@ -585,111 +586,81 @@ TEST(NiTaskTests, test_NI_scanner_task) {
             exec(scan_cmd);
 }
 
+TEST(read_test, taring){
 
-/* Configs
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
+    ASSERT_FALSE(tErr) << tErr.message();
+
+    auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
+    ASSERT_FALSE(dErr) << dErr.message();
 
 
-/////////////////////////////////////////////////////////////////////////////////////// ANALOG READER
+    auto [data2, dErr2] = client->channels.create("ai2", synnax::FLOAT32, time.key, false);
+    ASSERT_FALSE(dErr2) << dErr2.message();
 
-I20240511 20:22:43.922561 21804 reader_test.cpp:165] test_read_one_analog_channel:
-{
-    "acq_rate": 100,
-    "channels": [
-        {
-            "ack_key": 0,
-            "channel_key": 1,
-            "channel_type": "index",
-            "cmd_key": 0,
-            "line": 0,
-            "name": "idx",
-            "port": 0
-        },
-        {
-            "channel_key": 65531,
-            "channel_type": "analogVoltageInput",
-            "max_val": 10.0,
-            "min_val": -10.0,
-            "name": "a1",
-            "port": 0,
-            "terminal_config": "Default"
-        }
-    ],
-    "device_name": "Dev1",
-    "reader_type": "analogReader",
-    "stream_rate": 20
+    auto config = json{
+            {"channels", json::array({
+                                             {
+                                                     {"channel", data.key},
+                                                     {"custom_scale", {
+                                                             {"type", "none"},
+                                                     }},
+                                                     {"device", "BC3604BA-9321-11EF-8029-E4BDC821581A"},
+                                                     {"enabled", true},
+                                                     {"key", "SJIYozx7qg1"},
+                                                     {"max_val", 1},
+                                                     {"min_val", 0},
+                                                     {"name", ""},
+                                                     {"port", 0},
+                                                     {"terminal_config", "Cfg_Default"},
+                                                     {"type", "ai_voltage"},
+                                                     {"units", "Volts"}
+                                             },
+                                             {
+                                                     {"channel", data2.key},
+                                                     {"custom_scale", {
+                                                             {"type", "none"},
+                                                     }},
+                                                     {"device", "BC3604BA-9321-11EF-8029-E4BDC821581A"},
+                                                     {"enabled", true},
+                                                     {"key", "SJIYozx7qg1"},
+                                                     {"max_val", 1},
+                                                     {"min_val", 0},
+                                                     {"name", ""},
+                                                     {"port", 1},
+                                                     {"terminal_config", "Cfg_Default"},
+                                                     {"type", "ai_voltage"},
+                                                     {"units", "Volts"}
+                                             }
+                                     })},
+            {"version", "1.0.0"},
+            {"sample_rate", 300},
+            {"stream_rate", 30},
+            {"data_saving", true},
+    };
+
+    // json array of channels
+    std::vector<uint32_t> channels_to_tare = {data.key};
+    json j = channels_to_tare;
+
+    auto task = synnax::Task("my_task", "ni_analog_read", to_string(config));
+    auto mockCtx = std::make_shared<task::MockContext>(client);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    auto reader_task = ni::ReaderTask::configure(mockCtx, task);
+    auto start_cmd = task::Command{task.key, "start", {}};
+    auto stop_cmd = task::Command{task.key, "stop", {}};
+//    auto tare_cmd = task::Command{task.key, "tare", j};
+    auto tare_cmd = task::Command{task.key, "tare", {}};
+
+    reader_task->exec(start_cmd);
+
+    for(int i = 0; i < 20; i++){
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        reader_task->exec(tare_cmd);
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(30000));
+    reader_task->exec(stop_cmd);
 }
-
-
-/////////////////////////////////////////////////////////////////////////////////////// DIGITAL READER
-
-Digital Reader Task Config: {
-    "acq_rate": 2000,
-    "channels": [
-        {
-            "ack_key": 0,
-            "channel_key": 1048605,
-            "channel_type": "index",
-            "cmd_key": 0,
-            "line": 0,
-            "name": "time",
-            "port": 0
-        },
-        {
-            "channel_key": 1048606,
-            "channel_type": "digitalInput",
-            "line": 0,
-            "name": "acq_data",
-            "port": 0
-        }
-    ],
-    "device_name": "PXI1Slot2_2",
-    "reader_type": "digitalReader",
-    "stream_rate": 20
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////////// DIGITAL WRITER
-Digital Writer Task Config: {
-    "channels": [
-        {
-            "ack_key": 0,
-            "channel_key": 1048608,
-            "channel_type": "index",
-            "cmd_key": 0,
-            "line": 0,
-            "name": "do1_idx",
-            "port": 0
-        },
-        {
-            "channel_key": 1048610,
-            "channel_type": "digitalOutput",
-            "state_key": 1048609,
-            "line": 0,
-            "name": "do_cmd",
-            "port": 0
-        },
-        {
-            "channel_key": 1048607,
-            "channel_type": "driveStateIndex",
-            "line": 0,
-            "name": "do_state_idx",
-            "port": 0
-        }
-    ],
-    "device_name": "Dev1",
-    "stream_rate": 1
-}
-
-
-////////////////////////////////////////////////////////////////////////////////////// SCANNER
-
-{
-    "properties": [
-        "SerialNumber",
-        "DeviceName"
-    ]
-}
-
-
-*/

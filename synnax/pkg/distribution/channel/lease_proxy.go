@@ -11,7 +11,10 @@ package channel
 
 import (
 	"context"
+<<<<<<< HEAD
 
+=======
+>>>>>>> sy-1398-taring-ni-and-lj
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
