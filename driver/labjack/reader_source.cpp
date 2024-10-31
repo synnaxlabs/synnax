@@ -161,7 +161,6 @@ freighter::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
 
     if(this->sample_thread.joinable()) this->sample_thread.join();
     check_err(LJM_eStreamStop(handle));
-    check_err(LJM_Close(this->handle));
 
     ctx->setState({
           .task = task.key,
@@ -215,8 +214,6 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read(breaker::Breaker 
 
 labjack::ReaderSource::~ReaderSource() {
     this->stop("");
-//    check_err(LJM_CleanInterval(handle));
-    check_err(LJM_Close(this->handle));
 }
 
 void labjack::ReaderSource::write_to_series(
@@ -344,7 +341,6 @@ int labjack::ReaderSource::check_err(int err){
     this->ok_state = false;
     return -1;
 }
-
 
 bool labjack::ReaderSource::ok(){
     return this->ok_state;

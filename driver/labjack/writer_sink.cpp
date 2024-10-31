@@ -142,7 +142,6 @@ labjack::WriteSink::WriteSink(
 
 labjack::WriteSink::~WriteSink(){
     this->stop("");
-    check_err(LJM_Close(this->handle));
 }
 
 void labjack::WriteSink::init(){
@@ -175,7 +174,6 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame){
 }
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key){
-    check_err(LJM_Close(this->handle));
     ctx->setState({
                           .task = task.key,
                           .key = cmd_key,
