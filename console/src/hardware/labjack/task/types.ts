@@ -11,8 +11,57 @@ import { device, task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { inputChannelTypeZ, outputChannelTypeZ } from "@/hardware/labjack/device/types";
+import { thermocoupleTypeZ } from "@/hardware/task/common/thermocouple";
 
-// READS
+export const linearScaleZ = z.object({
+  type: z.literal("linear"),
+  slope: z.number(),
+  offset: z.number(),
+});
+
+export type LinearScale = z.infer<typeof linearScaleZ>;
+
+export const ZERO_LINEAR_SCALE: LinearScale = {
+  type: "linear",
+  slope: 1,
+  offset: 0,
+};
+
+export const thermocoupleScaleZ = z.object({
+  type: z.literal("thermocouple"),
+  thermocoupleType: thermocoupleTypeZ,
+});
+
+export type ThermocoupleScale = z.infer<typeof thermocoupleScaleZ>;
+
+export const ZERO_THERMOCOUPLE_SCALE: ThermocoupleScale = {
+  type: "thermocouple",
+  thermocoupleType: "K",
+};
+
+export const noScaleZ = z.object({
+  type: z.literal("none"),
+});
+
+export type NoScale = z.infer<typeof noScaleZ>;
+
+export const ZERO_NO_SCALE: NoScale = { type: "none" };
+
+export const scaleZ = z.union([noScaleZ, linearScaleZ, thermocoupleScaleZ]);
+export type Scale = z.infer<typeof scaleZ>;
+export type ScaleType = Scale["type"];
+
+export const ZERO_SCALES: Record<ScaleType, Scale> = {
+  none: ZERO_NO_SCALE,
+  linear: ZERO_LINEAR_SCALE,
+  thermocouple: ZERO_THERMOCOUPLE_SCALE,
+};
+
+export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
+  none: noScaleZ,
+  linear: linearScaleZ,
+  thermocouple: thermocoupleScaleZ,
+};
 
 export const readChan = z.object({
   port: z.string(),
@@ -21,18 +70,20 @@ export const readChan = z.object({
   range: z.number().optional(),
   channel: z.number(),
   type: inputChannelTypeZ,
+  scale: scaleZ,
 });
 
 export type ReadChan = z.infer<typeof readChan>;
 export type ReadChanType = ReadChan["type"];
 
 export const ZERO_READ_CHAN: ReadChan = {
-  port: "",
+  port: "AIN0",
   enabled: true,
   key: "",
   channel: 0,
   type: "AI",
   range: 0,
+  scale: { type: "none" },
 };
 
 export const writeChan = z.object({

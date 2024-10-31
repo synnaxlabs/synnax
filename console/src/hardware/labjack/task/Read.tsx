@@ -21,15 +21,16 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { deep, id, KeyedNamed, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { ReactElement, useCallback, useState } from "react";
+import { FC, ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { SelectInputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
 import {
   ChannelType,
+  DEVICES,
   InputChannelType,
   ModelKey,
   Properties,
@@ -44,8 +45,12 @@ import {
   ReadTaskConfig,
   readTaskConfigZ,
   ReadType,
+  Scale,
+  SCALE_SCHEMAS,
+  ScaleType,
   ZERO_READ_CHAN,
   ZERO_READ_PAYLOAD,
+  ZERO_SCALES,
 } from "@/hardware/labjack/task/types";
 import { useDevice } from "@/hardware/ni/task/common";
 import {
@@ -60,6 +65,7 @@ import {
   WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
+import { ThermocoupleTypeField } from "@/hardware/task/common/thermocouple";
 import { Layout } from "@/layout";
 
 type LayoutArgs = TaskLayoutArgs<ReadPayload>;
@@ -161,8 +167,6 @@ const Wrapped = ({
             else throw e;
           }
       }
-
-      console.log("HERE");
 
       if (toCreate.length > 0) {
         modified = true;
@@ -289,32 +293,34 @@ const ChannelForm = ({
 }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
   const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ?? "AI";
+  const model = (device?.model ?? "LJM_dtT4") as ModelKey;
 
   return (
     <Align.Space direction="y" empty>
       <Align.Space direction="x" grow>
-        <Form.Field<InputChannelType> path={`${prefix}.type`} label="Type">
+        <Form.Field<InputChannelType>
+          path={`${prefix}.type`}
+          label="Type"
+          hideIfNull
+          onChange={(v, ctx) => {
+            const data = DEVICES[model].ports[v];
+            ctx.set(`${prefix}.port`, data[0].key);
+          }}
+        >
           {(p) => <SelectInputChannelType grow {...p} />}
         </Form.Field>
-        <Form.Field<string> path={`${prefix}.port`} grow>
-          {(p) => (
-            <SelectPort
-              {...p}
-              model={(device?.model ?? "LJM_dtT4") as ModelKey}
-              channelType={channelType}
-            />
-          )}
+        <Form.Field<string> path={`${prefix}.port`} grow hideIfNull>
+          {(p) => <SelectPort {...p} model={model} channelType={channelType} />}
         </Form.Field>
       </Align.Space>
-      <Form.NumericField path={`${prefix}.range`} optional label="Voltage Range" grow />
-      <Align.Space direction="x" grow>
-        <Input.Item label="Slope" required grow>
-          <Input.Numeric value={1} onChange={console.log} />
-        </Input.Item>
-        <Input.Item label="Offset" required grow>
-          <Input.Numeric value={0} onChange={console.log} />
-        </Input.Item>
-      </Align.Space>
+      <Form.NumericField
+        path={`${prefix}.range`}
+        optional
+        label="Max Voltage"
+        inputProps={{ endContent: "V" }}
+        grow
+      />
+      <CustomScaleForm prefix={prefix} />
     </Align.Space>
   );
 };
@@ -449,3 +455,75 @@ const ChannelListItem = ({
 };
 
 export const ConfigureRead = wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);
+
+export const SelectScaleTypeField = Form.buildDropdownButtonSelectField<
+  ScaleType,
+  KeyedNamed<ScaleType>
+>({
+  fieldKey: "type",
+  fieldProps: {
+    label: "Scale",
+    onChange: (value, { get, set, path }) => {
+      const prevType = get<ScaleType>(path).value;
+      if (prevType === value) return;
+      const next = deep.copy(ZERO_SCALES[value]);
+      const parentPath = path.slice(0, path.lastIndexOf("."));
+      const prevParent = get<Scale>(parentPath).value;
+      set(parentPath, {
+        ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
+        type: next.type,
+      });
+    },
+  },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: [{ key: "name", name: "Name" }],
+    data: [
+      {
+        key: "none",
+        name: "None",
+      },
+      {
+        key: "linear",
+        name: "Linear",
+      },
+      {
+        key: "thermocouple",
+        name: "Thermocouple",
+      },
+    ],
+  },
+});
+
+export interface FormProps {
+  prefix: string;
+  fieldKey?: string;
+  label?: string;
+}
+
+const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
+  linear: ({ prefix }) => {
+    return (
+      <Align.Space direction="x" grow>
+        <Form.NumericField path={`${prefix}.slope`} label="Slope" grow />
+        <Form.NumericField path={`${prefix}.offset`} label="Offset" grow />
+      </Align.Space>
+    );
+  },
+  none: () => <></>,
+  thermocouple: ({ prefix }) => <ThermocoupleTypeField path={prefix} />,
+};
+
+export const CustomScaleForm = ({ prefix }: FormProps): ReactElement | null => {
+  const path = `${prefix}.scale`;
+  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true);
+  const scaleType = Form.useFieldValue<ScaleType>(`${path}.type`, true);
+  if (channelType !== "AI" || scaleType == null) return null;
+  const FormComponent = SCALE_FORMS[scaleType];
+  return (
+    <>
+      <SelectScaleTypeField path={path} />
+      <FormComponent prefix={path} />
+    </>
+  );
+};

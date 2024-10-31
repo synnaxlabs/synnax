@@ -151,7 +151,6 @@ export const useDevice = <P extends UnknownRecord>(
   const [device, setDevice] = useState<device.Device<P> | undefined>(undefined);
   useAsyncEffect(async () => {
     if (client == null) return;
-    console.log(ctx.value());
     const dev = ctx.value().config.device;
     if (dev === "") return;
     const d = await client.hardware.devices.retrieve<P>(dev);
