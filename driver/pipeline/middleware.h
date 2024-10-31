@@ -15,6 +15,7 @@
 #include <map>
 #include <string>
 #include <variant>
+#include <thread>
 
 #include "client/cpp/synnax.h"
 #include "driver/config/config.h"
@@ -66,42 +67,35 @@ namespace pipeline {
                 tare_values[key] = 0.0;
             }
         }
-        // setting unladen value to subtract
-        void tare(synnax::ChannelKey key) {
-            auto it = this->last_raw_value.find(key);
-            if(it != last_raw_value.end()){
-                tare_values[key] = it->second;
-            }
-        }
-
-        void tare(std::vector<synnax::ChannelKey> keys) {
-            for (auto &key: keys) {
-                tare(key);
-            }
-        }
 
         void tare(json &channels) {
-            //check if json contains no keys, tare everything
+            // if json contains no keys, tare everything
             if(channels.empty()){
+                std::lock_guard <std::mutex> lock(mutex);
                 for(auto &pair: tare_values){
-                   tare(pair.first);
+                   auto it = this->last_raw_value.find(pair.first);
+                   if(it != last_raw_value.end())
+                       tare_values[pair.first] = it->second;
                 }
                 return;
             }
 
             for (auto &channel: channels) {
                 auto key = channel.get<int32_t>();
-                tare(key);
+                std::lock_guard <std::mutex> lock(mutex);
+                auto it = this->last_raw_value.find(key);
+                if(it != last_raw_value.end()){
+                    tare_values[key] = it->second;
+                }
             }
         }
 
         void clear(){
-            for(auto &pair: tare_values){
+            std::lock_guard <std::mutex> lock(mutex);
+            for(auto &pair: tare_values)
                 pair.second = 0.0;
-            }
-            for(auto &pair: last_raw_value){
+            for(auto &pair: last_raw_value)
                 pair.second = 0.0;
-            }
         }
 
         bool handle(Frame &frame) override {
@@ -110,17 +104,22 @@ namespace pipeline {
 
                 // update last raw value first
                 auto &series = frame.series->at(i);
-                if(series.size > 0 && series.data_type == synnax::FLOAT64){
-                    last_raw_value[channel_key] = series.at<double>(0);
-                } else if(series.size > 0 && series.data_type == synnax::FLOAT32){
-                    last_raw_value[channel_key] = static_cast<double>(series.at<float>(0));
+                {
+                    std::lock_guard <std::mutex> lock(mutex);
+                    if(series.size > 0 && series.data_type == synnax::FLOAT64){
+                        last_raw_value[channel_key] = series.at<double>(0);
+                    else if(series.size > 0 && series.data_type == synnax::FLOAT32)
+                        last_raw_value[channel_key] = static_cast<double>(series.at<float>(0));
                 }
 
-                auto it = tare_values.find(channel_key);
                 double tare = 0.0;
-                if(it != tare_values.end())
-                   tare = it->second;
-                else continue;
+                {
+                    std::lock_guard <std::mutex> lock(mutex);
+                    auto it = tare_values.find(channel_key);
+                    if (it != tare_values.end())
+                        tare = it->second;
+                    else continue;
+                }
 
                 if(series.data_type == synnax::FLOAT64){
                     series.transform_inplace<double>(
@@ -138,6 +137,7 @@ namespace pipeline {
     private:
         std::map<synnax::ChannelKey, double> tare_values; // TODO: gonna need some mutex action for these 2
         std::map<synnax::ChannelKey, double> last_raw_value;
+        std::mutex mutex;
     }; // class TareMiddleware
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -173,6 +173,7 @@ namespace pipeline {
             }
         }
     };
+
     ///////////////////////////////////////////////////////////////////////////////////
     //                                   Map Scale                                   //
     ///////////////////////////////////////////////////////////////////////////////////

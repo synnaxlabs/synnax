@@ -185,7 +185,7 @@ namespace labjack{
             if(!parser.ok())
                 LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
-            LOG(INFO) << "Parser config: " << parser.get_json().dump(4);
+//            LOG(INFO) << "Parser config: " << parser.get_json().dump(4); // TODO: remove
 
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 channels.emplace_back(ReaderChannelConfig(channel_parser));
