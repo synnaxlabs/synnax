@@ -26,17 +26,18 @@ void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
                         });
 }
 
+// TODO: seperate some of the stuff happening here intoa separate function
 std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel : this->reader_config.channels) {
         keys.push_back(channel.key);
         // get index key
-        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key);
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key); // todo: get data type
+        channel.data_type = channel_info.data_type;
         if(err != freighter::NIL) {
             LOG(ERROR) << "[labjack.reader] Error retrieving channel: " << err.message();
             continue;
         }
-        LOG(INFO) << "[labjack.reader] index key: " << channel_info.index;
         this->reader_config.index_keys.insert(channel_info.index);
     }
     for (auto &index_key : this->reader_config.index_keys)
