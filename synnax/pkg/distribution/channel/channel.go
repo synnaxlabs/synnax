@@ -199,8 +199,12 @@ type Channel struct {
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Internal determines if a channel is a channel created by Synnax or
 	// created by the user.
-	Internal   bool   `json:"internal" msgpack:"internal"`
-	Requires   []Key  `json:"requires" msgpack:"requires"`
+	Internal bool `json:"internal" msgpack:"internal"`
+	// Requires is only used for calculated channels, and specifies the channels that
+	// are required for the calculation.
+	Requires []Key `json:"requires" msgpack:"requires"`
+	// Expression is only used for calculated channels, and specifies the python expression
+	// to evaluate the calculated value.
 	Expression string `json:"expression" msgpack:"expression"`
 }
 
@@ -208,6 +212,8 @@ func (c Channel) IsCalculated() bool {
 	return c.Virtual && c.Expression != ""
 }
 
+// String implements stringer, returning a nicely formatted string representation of the
+// Channel.
 func (c Channel) String() string {
 	if c.Name != "" {
 		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key())
@@ -246,6 +252,8 @@ func (c Channel) Lease() core.NodeKey { return c.Leaseholder }
 // a non-leased virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == core.Free }
 
+// Storage returns the storage layer representation of the channel for creation
+// in the storage ts.DB.
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
 		Key:         c.Key().StorageKey(),

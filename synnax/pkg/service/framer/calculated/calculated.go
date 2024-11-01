@@ -22,16 +22,25 @@ import (
 	"sync"
 )
 
+// Config is the configuration for opening the calculated channel service.
 type Config struct {
 	alamos.Instrumentation
-	Framer    *framer.Service
+	// Framer is the underlying frame service to stream required channel values and write
+	// calculated samples.
+	// [REQUIRED]
+	Framer *framer.Service
+	// Computron is the computation service used to perform the Python based calculations.
+	// [REQUIRED]
 	Computron *computron.Interpreter
-	Channel   channel.Readable
+	// Channel is used to retrieve information about the channels being calculated.
+	// [REQUIRED]
+	Channel channel.Readable
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening calculated channel service.
+	DefaultConfig = Config{}
 )
 
 // Validate implements config.Config
@@ -173,7 +182,7 @@ type streamCalculator struct {
 	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]
 }
 
-func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
+func (s *streamCalculator) transform(_ context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
 	i.Frame = s.internal.calculate(i.Frame)
 	return framer.WriterRequest{Command: writer.Data, Frame: i.Frame}, true, nil
 }
