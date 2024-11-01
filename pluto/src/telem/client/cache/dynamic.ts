@@ -47,6 +47,11 @@ const MAX_SIZE = 1e6;
 const DEF_SIZE = 1e4;
 const MAX_DEF_WRITES = 100;
 
+// When we allocate series for variable rate data types, we're allocating the number
+// of bytes instead of samples. This multiplier is used as a rough estimation for the number
+// of bytes per sample.
+const VARIABLE_DT_MULTIPLIER = 40;
+
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
  * for channel data.
@@ -56,7 +61,7 @@ export class Dynamic {
 
   private counter = 0;
   /** Current buffer */
-  private buffer: Series | null;
+  private curr: Series | null;
   private avgRate: number = 0;
   private timeOfLastWrite: TimeStamp;
   private totalWrites: number = 0;
@@ -70,14 +75,14 @@ export class Dynamic {
    */
   constructor(props: DynamicProps) {
     this.props = props;
-    this.buffer = null;
+    this.curr = null;
     if (props.testingNow != null) this.now = props.testingNow;
     this.timeOfLastWrite = this.now();
   }
 
   /** @returns the number of samples currently held in the cache. */
   get length(): number {
-    return this.buffer?.length ?? 0;
+    return this.curr?.length ?? 0;
   }
 
   /**
@@ -85,7 +90,7 @@ export class Dynamic {
    * should this be modified by the caller.
    */
   get leadingBuffer(): Series | null {
-    return this.buffer;
+    return this.curr;
   }
 
   /**
@@ -104,13 +109,13 @@ export class Dynamic {
 
   private allocate(capacity: number, alignment: bigint, start: TimeStamp): Series {
     this.counter++;
+    const isVariable = this.props.dataType.isVariable;
+    const isTimestamp = this.props.dataType.equals(DataType.TIMESTAMP);
     return Series.alloc({
-      capacity,
-      dataType: DataType.FLOAT32,
+      capacity: isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
+      dataType: isVariable ? this.props.dataType : DataType.FLOAT32,
       timeRange: start.range(TimeStamp.MAX),
-      sampleOffset: this.props.dataType.equals(DataType.TIMESTAMP)
-        ? BigInt(start.valueOf())
-        : 0,
+      sampleOffset: isTimestamp ? BigInt(start.valueOf()) : 0,
       glBufferUsage: "dynamic",
       alignment,
       key: `dynamic-${this.counter}`,
@@ -121,12 +126,12 @@ export class Dynamic {
     const cap = this.nextBufferSize();
     const res: DynamicWriteResponse = { flushed: [], allocated: [] };
     // This only happens on the first write to the cache
-    if (this.buffer == null) {
-      this.buffer = this.allocate(cap, series.alignment, this.now());
-      res.allocated.push(this.buffer);
+    if (this.curr == null) {
+      this.curr = this.allocate(cap, series.alignment, this.now());
+      res.allocated.push(this.curr);
     } else if (
       Math.abs(
-        Number(this.buffer.alignment + BigInt(this.buffer.length) - series.alignment),
+        Number(this.curr.alignment + BigInt(this.curr.length) - series.alignment),
       ) > 1
     ) {
       console.log(series.alignment);
@@ -134,13 +139,13 @@ export class Dynamic {
       // the alignment of the current buffer. In this case, we flush the current buffer
       // and allocate a new one.
       const now = this.now();
-      this.buffer.timeRange.end = now;
-      res.flushed.push(this.buffer);
-      this.buffer = this.allocate(cap, series.alignment, now);
-      res.allocated.push(this.buffer);
+      this.curr.timeRange.end = now;
+      res.flushed.push(this.curr);
+      this.curr = this.allocate(cap, series.alignment, now);
+      res.allocated.push(this.curr);
     }
-    const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
-    const amountWritten = this.buffer.write(converted);
+    const converted = convertSeriesFloat32(series, this.curr.sampleOffset);
+    const amountWritten = this.curr.write(converted);
     // This means that the current buffer is large enough to fit the entire incoming
     // series. We're done in this caseconv.
     if (amountWritten === series.length) {
@@ -149,10 +154,10 @@ export class Dynamic {
     }
     // Push the current buffer to the flushed list.
     const now = this.now();
-    this.buffer.timeRange.end = now;
-    res.flushed.push(this.buffer);
-    this.buffer = this.allocate(cap, series.alignment + BigInt(amountWritten), now);
-    res.allocated.push(this.buffer);
+    this.curr.timeRange.end = now;
+    res.flushed.push(this.curr);
+    this.curr = this.allocate(cap, series.alignment + BigInt(amountWritten), now);
+    res.allocated.push(this.curr);
     const nextRes = this._write(series.slice(amountWritten));
     res.flushed.push(...nextRes.flushed);
     res.allocated.push(...nextRes.allocated);
@@ -184,6 +189,6 @@ export class Dynamic {
    * is called, the cache should not be used again.
    */
   close(): void {
-    this.buffer = null;
+    this.curr = null;
   }
 }

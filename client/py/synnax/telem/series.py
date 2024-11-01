@@ -231,6 +231,7 @@ class Series(Payload):
         else:
             return False
 
+
 Series = overload_comparison_operators(Series, "__array__")
 
 SampleValue = np.number | uuid.UUID | dict | str
@@ -315,5 +316,6 @@ class MultiSeries:
     @property
     def size(self) -> Size:
         return Size(sum(s.size for s in self.series))
+
 
 MultiSeries = overload_comparison_operators(MultiSeries, "__array__")

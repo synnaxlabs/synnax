@@ -14,11 +14,17 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Schematic is the data for a visualization used to view and operate a schematic of a
+// hardware system.
 type Schematic struct {
-	Key      uuid.UUID `json:"key" msgpack:"key"`
-	Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
-	Name     string    `json:"name" msgpack:"name"`
-	Data     string    `json:"data" msgpack:"data"`
+	// Key is a unique identifier for the schematic.
+	Key uuid.UUID `json:"key" msgpack:"key"`
+	// Snapshot is true if the schematic can no longer be modified.
+	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
+	// Name is a human-readable name for the schematic.
+	Name string `json:"name" msgpack:"name"`
+	// Data is JSON-encoded data for the schematic.
+	Data string `json:"data" msgpack:"data"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Schematic{}

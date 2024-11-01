@@ -29,6 +29,7 @@ import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
 import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
@@ -57,6 +58,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Label.LAYOUTS,
   ...User.LAYOUTS,
   ...Permissions.LAYOUTS,
+  ...Log.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

@@ -691,6 +691,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.1.0
         version: 5.1.0
+      '@fontsource/geist-mono':
+        specifier: ^5.1.0
+        version: 5.1.0
       '@synnaxlabs/alamos':
         specifier: workspace:*
         version: link:../alamos/ts

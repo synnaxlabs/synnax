@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import {
+  log as clientLog,
+  ontology,
+  schematic as clientSchematic,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
@@ -21,6 +25,8 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
+import { Log } from "@/log";
+import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Schematic } from "@/schematic";
@@ -104,12 +110,12 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
         data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
       });
       const otg = await client.ontology.retrieve(
-        new ontology.ID({ key: schematic.key, type: "schematic" }),
+        new ontology.ID({ key: schematic.key, type: clientSchematic.ONTOLOGY_TYPE }),
       );
       maybeChangeWorkspace(workspace);
       placeLayout(
         Schematic.create({
-          ...(schematic.data as unknown as Schematic.State),
+          ...schematic.data,
           key: schematic.key,
           name: schematic.name,
           snapshot: schematic.snapshot,
@@ -179,6 +185,51 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
   }).mutate;
 };
 
+const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const maybeChangeWorkspace = useMaybeChangeWorkspace();
+  return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+    mutationFn: async ({
+      selection,
+      placeLayout,
+      services,
+      state: { setResources, resources, nodes, setNodes },
+      client,
+    }) => {
+      const workspace = selection.resources[0].id.key;
+      const log = await client.workspaces.log.create(workspace, {
+        name: "New Log",
+        data: deep.copy(Log.ZERO_STATE),
+      });
+      const otg = await client.ontology.retrieve(
+        new ontology.ID({ key: log.key, type: clientLog.ONTOLOGY_TYPE }),
+      );
+      maybeChangeWorkspace(workspace);
+      placeLayout(
+        Log.create({
+          ...log.data,
+          key: log.key,
+          name: log.name,
+        }),
+      );
+      setResources([...resources, otg]);
+      const nextNodes = Tree.setNode({
+        tree: nodes,
+        destination: selection.resources[0].key,
+        additions: Ontology.toTreeNodes(services, [otg]),
+      });
+      setNodes([...nextNodes]);
+    },
+    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+      if (prevNodes != null) setNodes(prevNodes);
+      addStatus({
+        variant: "error",
+        message: "Failed to create log.",
+        description: e.message,
+      });
+    },
+  }).mutate;
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection,
@@ -187,6 +238,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const handleDelete = useDelete();
   const group = Group.useCreateFromSelection();
   const createPlot = useCreateLinePlot();
+  const createLog = useCreateLog();
   const importPlot = LinePlot.useImport(selection.resources[0].id.key);
   const createSchematic = useCreateSchematic();
   const importSchematic = Schematic.useImport(selection.resources[0].id.key);
@@ -195,6 +247,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
     group: () => group(props),
+    createLog: () => createLog(props),
     createPlot: () => createPlot(props),
     importPlot: () => importPlot(),
     createSchematic: () => createSchematic(props),
@@ -225,6 +278,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           </PMenu.Item>
           <PMenu.Item itemKey="importPlot" startIcon={<LinePlotServices.ImportIcon />}>
             Import Line Plot
+          </PMenu.Item>
+          <PMenu.Item itemKey="createLog" startIcon={<LogServices.CreateIcon />}>
+            Create New Log
           </PMenu.Item>
           {canCreateSchematic && (
             <>
