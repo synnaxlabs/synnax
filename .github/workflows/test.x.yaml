@@ -72,7 +72,15 @@ jobs:
 
       - name: Check Formatting
         if: matrix.lint
-        run: gofmt -l -s -e .
+        run: |
+          files=$(gofmt -l -s -e .)
+          if [[ -n "$files" ]]; then
+            echo "The following files need to be formatted:"
+            echo "$files"
+            exit 1
+          else
+            echo "All Go files are properly formatted."
+          fi
         working-directory: x/go
 
   ts:
