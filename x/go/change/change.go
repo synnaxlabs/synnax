@@ -46,7 +46,7 @@ func Map[K comparable, V comparable](
 			changes = append(changes, Change[K, V]{Key: k, Value: v, Variant: Delete})
 		}
 	}
-	for k, _ := range next {
+	for k := range next {
 		if _, ok := prev[k]; !ok {
 			changes = append(changes, Change[K, V]{Key: k, Value: next[k], Variant: Set})
 		}
