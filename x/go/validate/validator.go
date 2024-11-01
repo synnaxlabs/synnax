@@ -20,6 +20,7 @@ import (
 	"strings"
 )
 
+
 type Validator struct {
 	scope string
 	errors.Catcher

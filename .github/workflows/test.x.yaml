@@ -66,6 +66,10 @@ jobs:
         run: go test -v -shuffle=on ./...
         working-directory: x/go
 
+      - name: Check Formatting
+        run: test -z $( gofmt -l -s .)
+        working-directory: x/go
+
   ts:
     name: TypeScript (${{ matrix.os }})
     needs: changes
