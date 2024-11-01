@@ -592,7 +592,7 @@ const button: Spec<ButtonProps> = {
     color: t.colors.primary.z.rgba255,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
-    delay: 0,
+    onClickDelay: 0,
     scale: null,
   }),
   zIndex: Z_INDEX_UPPER,

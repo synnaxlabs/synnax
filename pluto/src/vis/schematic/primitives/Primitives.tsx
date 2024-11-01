@@ -1122,7 +1122,7 @@ export const Switch = ({
 
 export interface ButtonProps
   extends Omit<DivProps, "onClick">,
-    Pick<CoreButton.ButtonProps, "color" | "size" | "level" | "delay"> {
+    Pick<CoreButton.ButtonProps, "color" | "size" | "level" | "onClickDelay"> {
   label?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   color?: Color.Crude;
@@ -1135,7 +1135,7 @@ export const Button = ({
   color,
   size,
   level,
-  delay,
+  onClickDelay: delay,
 }: ButtonProps): ReactElement => (
   <Div orientation={orientation}>
     <CoreButton.Button
@@ -1143,7 +1143,7 @@ export const Button = ({
       color={color}
       size={size}
       level={level}
-      delay={delay}
+      onClickDelay={delay}
     >
       {label}
     </CoreButton.Button>

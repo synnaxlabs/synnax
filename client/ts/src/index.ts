@@ -49,7 +49,6 @@ export {
   DataType,
   Density,
   MultiSeries,
-  type NumericTelemValue,
   Rate,
   Series,
   type TelemValue,
@@ -60,5 +59,7 @@ export {
   type TypedArray,
   type TZInfo,
 } from "@synnaxlabs/x/telem";
-import { control } from "@synnaxlabs/x";
+import { control, math } from "@synnaxlabs/x";
 export const Authority = control.Authority;
+/** @deprecated here for backwards compatibility. Use @synnaxlabs/x's math.Numeric instead. */
+export type NumericTelemValue = math.Numeric;

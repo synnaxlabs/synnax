@@ -660,8 +660,8 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
       <Form.NumericField
-        label="Delay"
-        path="delay"
+        label="Activation Delay"
+        path="onClickDelay"
         inputProps={{ endContent: "ms" }}
         hideIfNull
       />

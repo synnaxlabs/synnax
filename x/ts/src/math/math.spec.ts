@@ -117,4 +117,33 @@ describe("math", () => {
       expect(math.abs(-1n)).toBe(1n);
     });
   });
+  describe("mult", () => {
+    it("should multiply two numbers", () => {
+      expect(math.mult(1, 2)).toBe(2);
+    });
+    it("should multiply two bigints", () => {
+      expect(math.mult(1n, 2n)).toBe(2n);
+    });
+    it("should multiply a number and a bigint", () => {
+      expect(math.mult(1, 2n)).toBe(2);
+    });
+    it("should multiply a bigint and a number", () => {
+      expect(math.mult(1n, 2)).toBe(2n);
+    });
+  });
+
+  describe("div", () => {
+    it("should divide two numbers", () => {
+      expect(math.div(2, 1)).toBe(2);
+    });
+    it("should divide two bigints", () => {
+      expect(math.div(2n, 1n)).toBe(2n);
+    });
+    it("should divide a number and a bigint", () => {
+      expect(math.div(2, 1n)).toBe(2);
+    });
+    it("should divide a bigint and a number", () => {
+      expect(math.div(2n, 1)).toBe(2n);
+    });
+  });
 });

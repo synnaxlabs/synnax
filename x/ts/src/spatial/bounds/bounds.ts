@@ -297,7 +297,7 @@ export const linspace = <T extends numeric.Value = number>(bounds: Crude<T>): T[
  * @throws {Error} If invalid bounds are provided, such as bounds arrays not being of
  * length 2.
  *
- * @see {@link construct} for constructing valid bounds.
+ * @link {@link construct} for constructing valid bounds.
  */
 export const findInsertPosition = <T extends numeric.Value>(
   bounds: Array<Crude<T>>,
@@ -477,7 +477,7 @@ export const buildInsertionPlan = <T extends numeric.Value>(
  * @throws {Error} If invalid bounds are provided, such as bounds arrays not being of
  * length 2.
  *
- * @see {@link construct} for constructing valid bounds.
+ * @link {@link construct} for constructing valid bounds.
  *
  */
 export const traverse = <T extends numeric.Value = number>(

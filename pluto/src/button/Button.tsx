@@ -65,7 +65,7 @@ export type ButtonProps = Omit<
     endIcon?: ReactElement | ReactElement[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
-    delay?: number | TimeSpan;
+    onClickDelay?: number | TimeSpan;
     endContent?: ReactNode;
   };
 
@@ -82,6 +82,12 @@ export type ButtonProps = Omit<
  * to match the color and size of the button.
  * @param props.endIcon - The same as {@link startIcon}, but renders after the button
  * text.
+ * @param props.iconSpacing - The spacing between the optional start and end icons
+ * and the button text. Can be "small", "medium", "large", or a number representing
+ * the spacing in rem.
+ * @param props.onClickDelay - An optional delay to wait before calling the `onClick`
+ * handler. This will cause the button to render a progress bar that fills up over the
+ * specified time before calling the handler.
  */
 export const Button = Tooltip.wrap(
   ({
@@ -97,7 +103,7 @@ export const Button = Tooltip.wrap(
     level,
     triggers,
     startIcon = [] as ReactElement[],
-    delay = 0,
+    onClickDelay = 0,
     onClick,
     color,
     status,
@@ -106,7 +112,7 @@ export const Button = Tooltip.wrap(
     onMouseDown,
     ...props
   }: ButtonProps): ReactElement => {
-    const parsedDelay = TimeSpan.fromMilliseconds(delay);
+    const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
 
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
