@@ -102,5 +102,5 @@ jobs:
         run: pnpm test:x
 
       - name: Lint
-        if: matrix.lint == true
+        if: matrix.lint
         run: pnpm lint:x
