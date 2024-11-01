@@ -46,7 +46,7 @@ jobs:
   go:
     name: Go (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.go == true
+    if: needs.changes.outputs.go == 'true'
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -70,7 +70,7 @@ jobs:
   ts:
     name: TypeScript (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.ts == true
+    if: needs.changes.outputs.ts == 'true'
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
