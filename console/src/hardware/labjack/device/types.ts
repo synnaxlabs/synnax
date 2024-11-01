@@ -23,10 +23,7 @@ export const configurablePropertiesZ = z.object({
 });
 export type ConfigurableProperties = z.infer<typeof configurablePropertiesZ>;
 
-const commandStatePairZ = z.object({
-  command: z.number(),
-  state: z.number(),
-});
+const commandStatePairZ = z.object({ command: z.number(), state: z.number() });
 
 export const propertiesZ = z.object({
   identifier: identifierZ,
@@ -43,18 +40,10 @@ export const ZERO_PROPERTIES: Properties = {
   readIndex: 0,
   writeStateIndex: 0,
   identifier: "",
-  AI: {
-    channels: {},
-  },
-  AO: {
-    channels: {},
-  },
-  DI: {
-    channels: {},
-  },
-  DO: {
-    channels: {},
-  },
+  AI: { channels: {} },
+  AO: { channels: {} },
+  DI: { channels: {} },
+  DO: { channels: {} },
 };
 
 export const getZeroProperties = (): Properties => {
@@ -96,22 +85,13 @@ export const aiPortZ = z.object({
 });
 export type AIPort = z.infer<typeof aiPortZ>;
 
-export const diPortZ = z.object({
-  key: z.string(),
-  type: diChannelTypeZ,
-});
+export const diPortZ = z.object({ key: z.string(), type: diChannelTypeZ });
 export type DIPort = z.infer<typeof diPortZ>;
 
-export const doPortZ = z.object({
-  key: z.string(),
-  type: doChannelTypeZ,
-});
+export const doPortZ = z.object({ key: z.string(), type: doChannelTypeZ });
 export type DOPort = z.infer<typeof doPortZ>;
 
-export const aoPortZ = z.object({
-  key: z.string(),
-  type: aoChannelTypeZ,
-});
+export const aoPortZ = z.object({ key: z.string(), type: aoChannelTypeZ });
 export type AOPort = z.infer<typeof aoPortZ>;
 
 export const portZ = z.union([aoPortZ, aiPortZ, doPortZ, diPortZ]);
@@ -203,11 +183,7 @@ export const T8_PORTS: Ports = {
   DO: T8_DO_PORTS,
 };
 
-export const modelInfoZ = z.object({
-  key: modelKeyZ,
-  name: z.string(),
-  ports: portsZ,
-});
+export const modelInfoZ = z.object({ key: modelKeyZ, name: z.string(), ports: portsZ });
 
 export interface ModelInfo extends z.infer<typeof modelInfoZ> {}
 
@@ -223,8 +199,4 @@ export const devicesZ = z.object({
 
 export type Devices = z.output<typeof devicesZ>;
 
-export const DEVICES: Devices = {
-  LJM_dtT4: T4,
-  LJM_dtT7: T7,
-  LJM_dtT8: T8,
-};
+export const DEVICES: Devices = { LJM_dtT4: T4, LJM_dtT7: T7, LJM_dtT8: T8 };

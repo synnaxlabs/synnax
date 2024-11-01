@@ -308,7 +308,7 @@ export interface EnableDisableButtonProps {
 
 export const EnableDisableButton = ({
   value,
-  onChange: onClick,
+  onChange,
   disabled,
   snapshot = false,
 }: EnableDisableButtonProps) => (
@@ -318,9 +318,9 @@ export const EnableDisableButton = ({
     className={CSS.B("enable-disable-button")}
     disabled={disabled}
     value={value}
-    size="small"
+    size="medium"
     onClick={(e) => e.stopPropagation()}
-    onChange={onClick}
+    onChange={onChange}
     tooltip={
       <Text.Text level="small" style={{ maxWidth: 300 }}>
         Data acquisition for this channel is {value ? "enabled" : "disabled"}. Click to
@@ -333,6 +333,20 @@ export const EnableDisableButton = ({
     </Status.Text>
   </Button.Toggle>
 );
+
+export interface TareButtonProps {
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+export const TareButton = ({ onClick, disabled }: TareButtonProps) => {
+  const variant = disabled ? "outlined" : undefined;
+  return (
+    <Button.Button variant={variant} disabled={disabled} onClick={onClick} size="small">
+      Tare
+    </Button.Button>
+  );
+};
 
 export const useCreate = <
   C extends UnknownRecord,

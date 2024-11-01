@@ -18,7 +18,7 @@ import { Ontology } from "@/ontology";
 
 interface InitialArgs {
   create: true;
-  initialValues: { config: { deviceKey: string } };
+  initialValues: { config: { device: string } };
 }
 
 export const ContextMenuItems = ({
@@ -29,7 +29,7 @@ export const ContextMenuItems = ({
   const isSingle = resources.length === 1;
   const args: InitialArgs = {
     create: true,
-    initialValues: { config: { deviceKey: first.id.key } },
+    initialValues: { config: { device: first.id.key } },
   };
   const maybeConfigure = () => {
     if (first.data?.configured === false)

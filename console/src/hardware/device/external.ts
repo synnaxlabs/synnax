@@ -10,6 +10,7 @@
 import { notificationAdapter } from "@/hardware/device/useListenForChanges";
 
 export * from "@/hardware/device/ontology";
+export * from "@/hardware/device/useDevice";
 export * from "@/hardware/device/useListenForChanges";
 
 export const NOTIFICATION_ADAPTERS = [notificationAdapter];

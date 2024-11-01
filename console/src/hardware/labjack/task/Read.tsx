@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, NotFoundError } from "@synnaxlabs/client";
+import { device, NotFoundError, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -27,6 +27,7 @@ import { FC, ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { useDevice } from "@/hardware/device/useDevice";
 import { SelectInputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
 import {
   ChannelType,
@@ -52,13 +53,13 @@ import {
   ZERO_READ_PAYLOAD,
   ZERO_SCALES,
 } from "@/hardware/labjack/task/types";
-import { useDevice } from "@/hardware/ni/task/common";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  TareButton,
   TaskLayoutArgs,
   useCreate,
   useObserveState,
@@ -206,6 +207,15 @@ const Wrapped = ({
     },
   });
 
+  const handleTare = useMutation({
+    mutationKey: [client?.key],
+    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    mutationFn: async (keys: number[]) => {
+      if (client == null) return;
+      await task?.executeCommand("tare", { keys });
+    },
+  }).mutate;
+
   const dev = useDevice(methods);
 
   return (
@@ -252,6 +262,8 @@ const Wrapped = ({
                 },
                 [setSelectedChannels, setSelectedChannelIndex],
               )}
+              onTare={handleTare}
+              state={taskState}
             />
             <Align.Space className={CSS.B("channel-form")} direction="y" grow>
               <Header.Header level="h4">
@@ -294,7 +306,6 @@ const ChannelForm = ({
   const prefix = `config.channels.${selectedChannelIndex}`;
   const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ?? "AI";
   const model = (device?.model ?? "LJM_dtT4") as ModelKey;
-
   return (
     <Align.Space direction="y" empty>
       <Align.Space direction="x" grow>
@@ -330,6 +341,8 @@ interface ChannelListProps {
   onSelect: (keys: string[], index: number) => void;
   selected: string[];
   snapshot?: boolean;
+  onTare: (keys: number[]) => void;
+  state?: task.State<{ running?: boolean; message?: string }>;
 }
 
 const ChannelList = ({
@@ -337,6 +350,8 @@ const ChannelList = ({
   selected,
   onSelect,
   snapshot,
+  state,
+  onTare,
 }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChan>({ path });
   const handleAdd = (): void => {
@@ -383,7 +398,14 @@ const ChannelList = ({
           >
             <List.Core<string, ReadChan> grow>
               {({ key, ...props }) => (
-                <ChannelListItem key={key} {...props} snapshot={snapshot} path={path} />
+                <ChannelListItem
+                  key={key}
+                  {...props}
+                  snapshot={snapshot}
+                  path={path}
+                  state={state}
+                  onTare={(key) => onTare([key])}
+                />
               )}
             </List.Core>
           </List.Selector>
@@ -396,10 +418,14 @@ const ChannelList = ({
 const ChannelListItem = ({
   path,
   snapshot = false,
+  onTare,
+  state,
   ...props
 }: List.ItemProps<string, ReadChan> & {
   path: string;
   snapshot?: boolean;
+  onTare?: (channelKey: number) => void;
+  state?: task.State<{ running?: boolean; message?: string }>;
 }): ReactElement => {
   const { entry } = props;
   const ctx = Form.useContext();
@@ -416,6 +442,17 @@ const ChannelListItem = ({
     })?.status.variant === "success";
 
   if (childValues == null) return <></>;
+  const color =
+    channelName === "No Channel"
+      ? "var(--pluto-warning-m1)"
+      : channelValid
+        ? undefined
+        : "var(--pluto-error-z)";
+  const showTareButton =
+    childValues.channel != null && onTare != null && childValues.type === "AI";
+  const tareIsDisabled =
+    !childValues.enabled || snapshot || state?.details?.running !== true;
+
   return (
     <List.ItemFrame
       {...props}
@@ -424,32 +461,28 @@ const ChannelListItem = ({
       align="center"
     >
       <Align.Space direction="x" size="small">
-        <Text.Text
-          level="p"
-          shade={6}
-          // color={locationValid ? undefined : "var(--pluto-error-z)"}
-        >
+        <Text.Text level="p" shade={6}>
           {entry.port}
         </Text.Text>
         <Align.Space direction="y">
-          <Text.Text
-            level="p"
-            shade={9}
-            color={(() => {
-              if (channelName === "No Channel") return "var(--pluto-warning-m1)";
-              else if (channelValid) return undefined;
-              return "var(--pluto-error-z)";
-            })()}
-          >
+          <Text.Text level="p" shade={9} color={color}>
             {channelName}
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <EnableDisableButton
-        value={childValues.enabled}
-        onChange={(v) => ctx?.set(`${path}.${props.index}.enabled`, v)}
-        snapshot={snapshot}
-      />
+      <Align.Space direction="y" align="center">
+        <EnableDisableButton
+          value={childValues.enabled}
+          onChange={(v) => ctx?.set(`${path}.${props.index}.enabled`, v)}
+          snapshot={snapshot}
+        />
+        {showTareButton && (
+          <TareButton
+            disabled={tareIsDisabled}
+            onClick={() => onTare(childValues.channel as number)}
+          />
+        )}
+      </Align.Space>
     </List.ItemFrame>
   );
 };
@@ -502,14 +535,12 @@ export interface FormProps {
 }
 
 const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
-  linear: ({ prefix }) => {
-    return (
-      <Align.Space direction="x" grow>
-        <Form.NumericField path={`${prefix}.slope`} label="Slope" grow />
-        <Form.NumericField path={`${prefix}.offset`} label="Offset" grow />
-      </Align.Space>
-    );
-  },
+  linear: ({ prefix }) => (
+    <Align.Space direction="x" grow>
+      <Form.NumericField path={`${prefix}.slope`} label="Slope" grow />
+      <Form.NumericField path={`${prefix}.offset`} label="Offset" grow />
+    </Align.Space>
+  ),
   none: () => <></>,
   thermocouple: ({ prefix }) => <ThermocoupleTypeField path={prefix} />,
 };
