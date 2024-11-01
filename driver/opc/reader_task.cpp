@@ -215,8 +215,6 @@ std::unique_ptr<task::Task> ReaderTask::configure(
 void ReaderTask::exec(task::Command &cmd) {
     if (cmd.type == "start") this->start();
     else if (cmd.type == "stop") return stop();
-    else
-        LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 void ReaderTask::stop() {

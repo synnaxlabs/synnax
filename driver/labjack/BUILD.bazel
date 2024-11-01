@@ -24,14 +24,14 @@ cc_library(
         "util.h",
         "writer.h",
         "dll_check_windows.h",
-        "task.h",
     ],
     srcs = [
         "scanner.cpp",
         "factory.cpp",
-        "reader.cpp",
-        "writer.cpp",
-        "task.cpp",
+        "reader_source.cpp",
+        "writer_sink.cpp",
+        "writer_task.cpp",
+        "reader_task.cpp"
     ],
     deps = [
         ":labjack_headers",
@@ -73,7 +73,7 @@ cc_test(
         "//driver/testutil",
     ],
     linkopts = select({
-        # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
+        # TODO: This is a temporary fix to supress multiple definitions warning when building, should find better workaround
         "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
         "//conditions:default": [],
     }),
@@ -88,7 +88,7 @@ cc_test(
         "//driver/testutil",
     ],
     linkopts = select({
-            # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
+            # TODO: This is a temporary fix to supress multiple definitions warning when building, should find better workaround
             "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
             "//conditions:default": [],
     })
@@ -103,17 +103,10 @@ cc_test(
         "//driver/testutil",
     ],
     linkopts = select({
-            # TODO: This is a temporary fix to supress multiple definitions error when building, should find better workaroud
+            # TODO: This is a temporary fix to supress multiple definitions warning when building, should find better workaround
             "@bazel_tools//src/conditions:windows": ["/FORCE:MULTIPLE"],
             "//conditions:default": [],
     })
-)
-
-
-cc_binary(
-    name = "eReadNames",
-    srcs = ["eReadNames.c"],
-    deps = [":labjack_headers"],
 )
 
 cc_binary(
@@ -128,12 +121,3 @@ cc_binary(
             "//conditions:default": [],
         }),
 )
-
-
-
-
-#filegroup(
-#    name = "labjackm_dll",
-#    srcs = ["LabJackM.dll"],  # Adjust this path if necessary
-#    visibility = ["//visibility:public"],
-#)

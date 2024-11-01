@@ -12,10 +12,9 @@
 #include <thread>
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    Helper                                     //
+//                                    Helpers                                    //
 ///////////////////////////////////////////////////////////////////////////////////
-synnax::Series val_to_series(double val, synnax::DataType data_type){ // no discard
-
+synnax::Series val_to_series(double val, synnax::DataType data_type){
     if(data_type == synnax::FLOAT64)
         return synnax::Series(static_cast<double>(val), synnax::FLOAT64);
     if(data_type == synnax::FLOAT32)
@@ -60,21 +59,20 @@ double series_to_val(const synnax::Series &series){
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::StateSource::StateSource(
-    const synnax::Rate state_rate, // TODO: make this synnax::Rate?
+    const synnax::Rate state_rate,
     const synnax::ChannelKey &state_index_key,
     const std::map<synnax::ChannelKey, out_state> state_map
 ) : state_rate(state_rate),
     state_index_key(state_index_key),
     state_map(state_map){
-    this->timer = loop::Timer(this->state_rate); // check if ic an move this to member initializer list
+    this->timer = loop::Timer(this->state_rate);
 }
 
 
 std::pair<synnax::Frame, freighter::Error> labjack::StateSource::read(
     breaker::Breaker &breaker){
     std::unique_lock<std::mutex> lock(this->state_mutex);
-    // sleep for state period
-    this->timer.wait(breaker);
+    this->timer.wait(breaker); // sleep for state period
     waiting_reader.wait_for(lock, this->state_rate.period().chrono());
     return std::make_pair(this->get_state(), freighter::NIL);
 }
@@ -100,7 +98,7 @@ synnax::Frame labjack::StateSource::get_state(){
     return state_frame;
 }
 
-void labjack::StateSource::update_state(synnax::Frame frame){ // maybe just pass the key and value?
+void labjack::StateSource::update_state(synnax::Frame frame){
     std::unique_lock<std::mutex> lock(this->state_mutex);
     auto frame_index = 0;
     for (auto key: *(frame.channels)){
@@ -144,7 +142,6 @@ labjack::WriteSink::WriteSink(
 
 labjack::WriteSink::~WriteSink(){
     this->stop("");
-    check_err(LJM_Close(this->handle));
 }
 
 void labjack::WriteSink::init(){
@@ -177,7 +174,6 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame){
 }
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key){
-    check_err(LJM_Close(this->handle));
     ctx->setState({
                           .task = task.key,
                           .key = cmd_key,

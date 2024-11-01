@@ -18,6 +18,7 @@
 
 /// module
 #include "driver/breaker/breaker.h"
+#include "driver/pipeline/middleware.h"
 
 namespace pipeline {
 /// @brief an object that reads data from an acquisition computer or another source,
@@ -135,6 +136,10 @@ public:
     /// If the pipeline has already stopped, stop will return immediately.
     void stop();
 
+    void add_middleware(std::shared_ptr<pipeline::Middleware> middleware){
+        middleware_chain.add(middleware);
+    }
+
     ~Acquisition();
 
 private:
@@ -143,6 +148,7 @@ private:
     WriterConfig writer_config;
     breaker::Breaker breaker;
     std::shared_ptr<Source> source;
+    pipeline::MiddlewareChain middleware_chain;
 
     void runInternal();
 

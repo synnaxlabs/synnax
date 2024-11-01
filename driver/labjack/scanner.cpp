@@ -16,12 +16,11 @@
 #include "driver/config/config.h"
 #include "driver/labjack/util.h"
 
-using namespace labjack;
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                ScannerTask                                    //
 ///////////////////////////////////////////////////////////////////////////////////
-ScannerTask::ScannerTask (
+labjack::ScannerTask::ScannerTask (
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
 ) : ctx(std::move(ctx)), task(std::move(task)) {
@@ -30,7 +29,7 @@ ScannerTask::ScannerTask (
     this->thread = std::make_unique<std::thread>(&ScannerTask::run, this);
 }
 
-std::unique_ptr<task::Task> ScannerTask::configure(
+std::unique_ptr<task::Task> labjack::ScannerTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
@@ -38,7 +37,7 @@ std::unique_ptr<task::Task> ScannerTask::configure(
 }
 
 
-void ScannerTask::exec(task::Command &cmd) {
+void labjack::ScannerTask::exec(task::Command &cmd) {
     if (cmd.type == SCAN_CMD_TYPE) {
         this->scan();
         return this->create_devices();
@@ -47,7 +46,7 @@ void ScannerTask::exec(task::Command &cmd) {
     }
 }
 
-void ScannerTask::scan() {
+void labjack::ScannerTask::scan() {
     int DeviceType = LJM_dtANY;
     int ConnectionType = LJM_ctANY;
 
@@ -77,7 +76,6 @@ void ScannerTask::scan() {
         device["serial_number"] = aSerialNumbers[i];
         device["key"] = device["serial_number"];
         device["failed_to_create"] = false;
-        // check if device is already in set, else pushback
         if(device_keys.find(device["key"].get<int>()) == device_keys.end()) {
             devices["devices"].push_back(device);
             device_keys.insert(device["key"].get<int>());
@@ -87,7 +85,7 @@ void ScannerTask::scan() {
 //    LOG(INFO) << "devices json: "  << devices.dump(4); // TODO: remove once labjack dev is done
 }
 
-void ScannerTask::create_devices() {
+void labjack::ScannerTask::create_devices() {
     for(auto &device : devices["devices"]) {
         if(device["failed_to_create"] == true) continue;
         std::string key = std::to_string(device["key"].get<int>());
@@ -118,13 +116,13 @@ void ScannerTask::create_devices() {
     }
 }
 
-void ScannerTask::stop(){
+void labjack::ScannerTask::stop(){
     this->breaker.stop();
     if (this->thread != nullptr && this->thread->joinable() && std::this_thread::get_id() != this->thread->get_id())
         this->thread->join();
 }
 
-void ScannerTask::run(){
+void labjack::ScannerTask::run(){
     auto scan_cmd = task::Command{task.key, SCAN_CMD_TYPE, {}};
     while (this->breaker.running()) {
         this->breaker.waitFor(this->scan_rate.period().chrono());
@@ -132,16 +130,16 @@ void ScannerTask::run(){
     }
 }
 
-ScannerTask::~ScannerTask() {
+labjack::ScannerTask::~ScannerTask() {
     if (this->thread != nullptr && this->thread->joinable() && std::this_thread::get_id() != this->thread->get_id())
         this->thread->join();
 }
 
-json ScannerTask::get_devices() {
+json labjack::ScannerTask::get_devices() {
     return devices;
 }
 
-int ScannerTask::check_err(int err){
+int labjack::ScannerTask::check_err(int err){
     if(err == 0) return 0;
 
     char err_msg[LJM_MAX_NAME_SIZE];

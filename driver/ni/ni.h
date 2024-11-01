@@ -34,6 +34,8 @@
 #include "driver/queue/ts_queue.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
+#include "driver/pipeline/middleware.h"
+
 #include "driver/task/task.h"
 #include "driver/breaker/breaker.h"
 #include "driver/config/config.h"
@@ -522,6 +524,7 @@ private:
     pipeline::Acquisition daq_read_pipe; // source is a daqreader
     bool ok_state = true;
     std::shared_ptr<ni::Source> source;
+    std::shared_ptr<pipeline::TareMiddleware> tare_mw;
 }; // class ReaderTask
 
 ///////////////////////////////////////////////////////////////////////////////////
