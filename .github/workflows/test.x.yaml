@@ -13,44 +13,43 @@ on:
   workflow_dispatch:
 
 jobs:
-  # changes:
-  #   name: Changes
-  #   runs-on: ubuntu-latest
-  #   outputs:
-  #     go: ${{ steps.filter.outputs.go }}
-  #     ts: ${{ steps.filter.outputs.ts }}
-  #   steps:
-  #     - name: Checkout Repository
-  #       uses: actions/checkout@v4
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      ts: ${{ steps.filter.outputs.ts }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-  #     - name: Diff Changes
-  #       uses: dorny/paths-filter@v3
-  #       id: filter
-  #       with:
-  #         base: ${{ github.ref}}
-  #         filters: |
-  #           shared: &shared
-  #             - .github/workflows/test.x.yaml
-  #           go:
-  #             - *shared
-  #             - alamos/go/**
-  #             - x/go/**
-  #           ts:
-  #             - *shared
-  #             - configs/eslint/**
-  #             - configs/stylelint/**
-  #             - configs/ts/**
-  #             - configs/vite/**
-  #             - x/ts/**
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref}}
+          filters: |
+            shared: &shared
+              - .github/workflows/test.x.yaml
+            go:
+              - *shared
+              - alamos/go/**
+              - x/go/**
+            ts:
+              - *shared
+              - configs/eslint/**
+              - configs/stylelint/**
+              - configs/ts/**
+              - configs/vite/**
+              - x/ts/**
 
   go:
     name: Go (${{ matrix.os }})
-    # needs: changes
-    # if: needs.changes.outputs.go == 'true'
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     strategy:
       matrix:
-        # os: [macos-latest, ubuntu-latest, windows-latest]
-        os: [ubuntu-latest] # TODO: Remove this line
+        os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
           - lint: true
@@ -67,48 +66,49 @@ jobs:
             alamos/go/go.sum
             x/go/go.sum
 
-      # - name: Test
-      #   run: go test -v -shuffle=on ./...
-      #   working-directory: x/go
+      - name: Test
+        run: go test -v -shuffle=on ./...
+        working-directory: x/go
 
       - name: Check Formatting
         if: matrix.lint
-        run: scripts/gofmt-ci.sh x/go
+        run: ./gofmt-check.sh x/go
+        working-directory: scripts
 
-  # ts:
-  #   name: TypeScript (${{ matrix.os }})
-  #   needs: changes
-  #   if: needs.changes.outputs.ts == 'true'
-  #   strategy:
-  #     matrix:
-  #       os: [macos-latest, ubuntu-latest, windows-latest]
-  #       include:
-  #         - os: ubuntu-latest
-  #           lint: true
-  #   runs-on: ${{ matrix.os }}
-  #   steps:
-  #     - name: Checkout Repository
-  #       uses: actions/checkout@v4
+  ts:
+    name: TypeScript (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-  #     - name: Set up pnpm
-  #       uses: pnpm/action-setup@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
 
-  #     - name: Set up Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version-file: package.json
-  #         cache: pnpm
-  #         cache-dependency-path: pnpm-lock.yaml
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-  #     - name: Install Dependencies
-  #       run: pnpm install
+      - name: Install Dependencies
+        run: pnpm install
 
-  #     - name: Build
-  #       run: pnpm build:x
+      - name: Build
+        run: pnpm build:x
 
-  #     - name: Test
-  #       run: pnpm test:x
+      - name: Test
+        run: pnpm test:x
 
-  #     - name: Lint
-  #       if: matrix.lint
-  #       run: pnpm lint:x
+      - name: Lint
+        if: matrix.lint
+        run: pnpm lint:x
