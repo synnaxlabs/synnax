@@ -50,6 +50,9 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+          - lint: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -68,7 +71,8 @@ jobs:
         working-directory: x/go
 
       - name: Check Formatting
-        run: test -z $( gofmt -l -s .)
+        if: matrix.lint
+        run: gofmt -l -s -e .
         working-directory: x/go
 
   ts:
