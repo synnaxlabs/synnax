@@ -32,7 +32,7 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
     for (auto &channel : this->reader_config.channels) {
         keys.push_back(channel.key);
         // get index key
-        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key); // todo: get data type
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key);
         channel.data_type = channel_info.data_type;
         if(err != freighter::NIL) {
             LOG(ERROR) << "[labjack.reader] Error retrieving channel: " << err.message();
@@ -65,7 +65,6 @@ void labjack::ReaderSource::init(){
         LOG(ERROR) << "[labjack.reader] Unsupported device type: " << dev.model;
         return;
     }
-    LOG(INFO) << "[labjack.reader] device type: " << this->reader_config.device_type;
     this->init_stream();
 }
 
@@ -99,16 +98,21 @@ void labjack::ReaderSource::init_stream(){
             }
             if(this->reader_config.device_type == "T7") {
                 auto name = channel.location + "_NEGATIVE_CH";
-                check_err(WriteName(this->handle, name.c_str(), 199));
+                check_err(WriteName(this->handle, name.c_str(), channel.neg_chan));
             }
         } else if (channel.channel_type == "TC"){
+            if(this->reader_config.device_type == "T4"){
+                LOG(ERROR) << "[labjack.driver] thermocouple channels not currently supported for T4 devices";
+                continue;
+            }
+
             // Set resolution index to device's default setting (value = 0)
             std::string name = channel.location + "_RESOLUTION_INDEX";
             check_err(WriteName(this->handle, name.c_str(), 0));
 
-            if(this->reader_config.device_type == "T4"){
-                LOG(ERROR) << "[labjack.driver] thermocouple channels not currently supported for T4 devices";
-                continue;
+            if(this->reader_config.device_type == "T7") {
+                auto name = channel.location + "_NEGATIVE_CH";
+                check_err(WriteName(this->handle, name.c_str(), channel.neg_chan));
             }
 
             this->configure_tc_ain_ef(channel.tc_config);
