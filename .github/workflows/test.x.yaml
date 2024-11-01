@@ -73,8 +73,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.lint
-        run: ../../scripts/gofmt-ci.sh
-        working-directory: x/go
+        run: scripts/gofmt-ci.sh x/go
 
   # ts:
   #   name: TypeScript (${{ matrix.os }})
