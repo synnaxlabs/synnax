@@ -52,7 +52,7 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-          - lint: true
+            lint: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -72,8 +72,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.lint
-        run: ./gofmt-check.sh x/go
-        working-directory: scripts
+        run: scripts/gofmt-check.sh x/go
 
   ts:
     name: TypeScript (${{ matrix.os }})
