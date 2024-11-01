@@ -227,8 +227,16 @@ const Wrapped = ({
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
-              <Form.NumericField label="Sample Rate" path="config.sampleRate" />
-              <Form.NumericField label="Stream Rate" path="config.streamRate" />
+              <Form.NumericField
+                label="Sample Rate"
+                path="config.sampleRate"
+                inputProps={{ endContent: "Hz" }}
+              />
+              <Form.NumericField
+                label="Stream Rate"
+                path="config.streamRate"
+                inputProps={{ endContent: "Hz" }}
+              />
               <Form.SwitchField label="Data Saving" path="config.dataSaving" />
             </Align.Space>
           </Align.Space>
