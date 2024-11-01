@@ -30,10 +30,15 @@ labjack::ReaderTask::ReaderTask(
                     breaker_config)
             ),
         source(labjack_source){
+
     // middleware chain
     std::vector<synnax::ChannelKey> channel_keys = labjack_source->get_channel_keys();
     this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
     read_pipe.add_middleware(tare_mw);
+
+    auto parser = config::Parser(task.config);
+    auto scale_mw = std::make_shared<pipeline::ScaleMiddleware>(parser);
+    read_pipe.add_middleware(scale_mw);
 }
 
 void labjack::ReaderTask::exec(task::Command &cmd) {

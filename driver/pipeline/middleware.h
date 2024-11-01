@@ -152,7 +152,7 @@ namespace pipeline {
         explicit LinearScale(
                 config::Parser &parser
         ) : slope(parser.required<double>("slope")),
-            offset(parser.required<double>("y_intercept")) {
+            offset(parser.required<double>("offset")) {
             if (!parser.ok())
                 LOG(ERROR) << "[driver] failed to parse custom linear configuration";
         }
@@ -223,8 +223,8 @@ namespace pipeline {
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 auto key = channel_parser.required<synnax::ChannelKey>("channel");
 //                auto scale_config = channel_parser.optional<json>("custom_scale"); // TODO: see if this works
-                if(channel_parser.get_json().contains("custom_scale")){
-                    auto scale_config = channel_parser.child("custom_scale");
+                if(channel_parser.get_json().contains("scale")){
+                    auto scale_config = channel_parser.child("scale");
                     auto type = scale_config.required<std::string>("type");
                     if (type == "linear") {
                         scales[key] = LinearScale(scale_config);

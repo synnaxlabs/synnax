@@ -26,7 +26,7 @@ void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
                         });
 }
 
-// TODO: seperate some of the stuff happening here intoa separate function
+// TODO: seperate some of the stuff happening here into a separate function
 std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel : this->reader_config.channels) {

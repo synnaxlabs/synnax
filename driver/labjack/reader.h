@@ -125,7 +125,6 @@ namespace labjack{
         std::string channel_type = "";
         ///@brief Thermocouple configuration if applicable
         TCConfig tc_config;
-
         ReaderChannelConfig() = default;
 
         explicit ReaderChannelConfig(config::Parser &parser)

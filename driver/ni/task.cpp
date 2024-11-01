@@ -107,9 +107,6 @@ ni::ReaderTask::ReaderTask(
     this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
     daq_read_pipe.add_middleware(tare_mw);
 
-//    auto parser = config::Parser(task.config);
-//    auto scale_mw = std::make_shared<pipeline::ScaleMiddleware>(parser);
-//    daq_read_pipe.add_middleware(scale_mw);
 }
 
 

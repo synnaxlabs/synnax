@@ -285,6 +285,7 @@ TEST(read_tests, labjack_t4_read_and_write){
     // create commands
     auto start_cmd = task::Command{task.key, "start", {}};
     auto stop_cmd = task::Command{task.key, "stop", {}};
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////// WRITE TASK
     auto [state_idx, tErr1] = client->channels.create("do_state_idx", synnax::TIMESTAMP, 0, true);
@@ -325,7 +326,6 @@ TEST(read_tests, labjack_t4_read_and_write){
 
     auto writer_start_cmd = task::Command{sy_task.key, "start", {}};
     auto writer_stop_cmd = task::Command{sy_task.key, "stop", {}};
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     reader_task->exec(start_cmd);
     writer_task->exec(writer_start_cmd);
