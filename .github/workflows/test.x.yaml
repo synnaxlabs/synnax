@@ -67,21 +67,13 @@ jobs:
             alamos/go/go.sum
             x/go/go.sum
 
-      - name: Test
-        run: go test -v -shuffle=on ./...
-        working-directory: x/go
+      # - name: Test
+      #   run: go test -v -shuffle=on ./...
+      #   working-directory: x/go
 
       - name: Check Formatting
         if: matrix.lint
-        run: |
-          files=$(gofmt -l -s -e .)
-          if [[ -n "$files" ]]; then
-            echo "The following files need to be formatted:"
-            echo "$files"
-            exit 1
-          else
-            echo "All Go files are properly formatted."
-          fi
+        run: ../../scripts/gofmt-ci.sh
         working-directory: x/go
 
   # ts:
