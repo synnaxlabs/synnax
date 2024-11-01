@@ -20,11 +20,11 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Grant execute permissions for check_version.sh
-      run: chmod +x check_version.sh
-      working-directory: scripts
+    # - name: Grant execute permissions for check_version.sh
+    #   run: chmod +x check_version.sh
+    #   working-directory: scripts
 
-    - name: Run version check script
+    - name: Check Versions
       run: ./check_version.sh
       working-directory: scripts
 
