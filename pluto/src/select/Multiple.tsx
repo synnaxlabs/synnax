@@ -66,6 +66,50 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
   actions?: Input.ExtensionProps["children"];
 }
 
+export interface MultipleTagProps<K extends Key, E extends Keyed<K>>
+  extends Tag.TagProps {
+  key: K;
+  entryKey: K;
+  entryRenderKey: keyof E | ((e: E) => string | number);
+  entry?: E;
+  color?: Color.Crude;
+  loading: boolean;
+  onClose?: () => void;
+  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+}
+
+export const MultipleTag = <K extends Key, E extends Keyed<K>>({
+  entryKey,
+  entryRenderKey,
+  entry,
+  loading,
+  ...props
+}: MultipleTagProps<K, E>): ReactElement => {
+  let v: RenderableValue = entryKey;
+  if (entry != null)
+    v =
+      typeof entryRenderKey === "function"
+        ? entryRenderKey(entry)
+        : (entry[entryRenderKey] as RenderableValue);
+  return (
+    <Tag.Tag
+      size="small"
+      variant="outlined"
+      className={CSS(
+        entry == null && !loading && CSS.BEM("select-multiple", "tag", "invalid"),
+      )}
+      draggable
+      {...props}
+      key={entryKey.toString()}
+    >
+      {convertRenderV(v)}
+    </Tag.Tag>
+  );
+};
+
+const defaultRenderTag = componentRenderProp(MultipleTag<Key, Keyed<Key>>);
+
 /**
  * Allows a user to browse, search for, and select multiple values from a list of
  * options. It's important to note that Select maintains no internal selection state.
@@ -94,7 +138,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   entryRenderKey = "key",
   emptyContent,
   searcher,
-  renderTag = componentRenderProp(MultipleTag<K, E>),
+  renderTag = defaultRenderTag as unknown as RenderProp<MultipleTagProps<K, E>>,
   placeholder,
   onTagDragStart,
   allowMultiple,
@@ -345,46 +389,5 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
       {children}
       <ClearButton onClick={clear} />
     </Input.Text>
-  );
-};
-
-export interface MultipleTagProps<K extends Key, E extends Keyed<K>> {
-  key: K;
-  entryKey: K;
-  entryRenderKey: keyof E | ((e: E) => string | number);
-  entry?: E;
-  color?: Color.Crude;
-  loading: boolean;
-  onClose?: () => void;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
-}
-
-export const MultipleTag = <K extends Key, E extends Keyed<K>>({
-  entryKey,
-  entryRenderKey,
-  entry,
-  loading,
-  ...props
-}: MultipleTagProps<K, E>): ReactElement => {
-  let v: RenderableValue = entryKey;
-  if (entry != null)
-    v =
-      typeof entryRenderKey === "function"
-        ? entryRenderKey(entry)
-        : (entry[entryRenderKey] as RenderableValue);
-  return (
-    <Tag.Tag
-      size="small"
-      variant="outlined"
-      className={CSS(
-        entry == null && !loading && CSS.BEM("select-multiple", "tag", "invalid"),
-      )}
-      draggable
-      {...props}
-      key={entryKey.toString()}
-    >
-      {convertRenderV(v)}
-    </Tag.Tag>
   );
 };

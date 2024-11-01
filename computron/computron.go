@@ -1,44 +1,47 @@
 package computron
 
 /*
-#cgo CFLAGS: -I/Users/emilianobonilla/Desktop/synnaxlabs/synnax/computron/python_install/include/python3.9 -I/Users/emilianobonilla/Desktop/synnaxlabs/synnax/computron/python_install/lib/python3.9/site-packages/numpy/core/include
-#cgo LDFLAGS: -L/Users/emilianobonilla/Desktop/synnaxlabs/synnax/computron/python_install/lib/combined -lpython3.9-combined -ldl
+#cgo CFLAGS: -I${SRCDIR}/python_install/include/python3.9 -I${SRCDIR}/python_install/lib/python3.9/site-packages/numpy/core/include
+#cgo LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.9-combined -ldl
 #define PY_SSIZE_T_CLEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include <stdlib.h>
+#include <string.h>
 
-// Initialize NumPy
-static int init_numpy() {
-    import_array1(-1);
-    return 0;  // Return 0 on success, -1 on failure
-}
+static int init_numpy() { import_array1(-1); return 0;  }
 
-// Create a NumPy array from data without owning the data
-PyObject* create_arr(char* data, int length, int type_) {
-    npy_intp dims[1] = {length};
-    PyObject *numpy_array = PyArray_SimpleNewFromData(1, dims, type_, data);
-    if (numpy_array == NULL) {
-        PyErr_Print();
-        return NULL;
-    }
-    // Do not set NPY_ARRAY_OWNDATA since Go owns the data
-    return numpy_array;
-}
-
-// Check if an object is a NumPy array
 static int is_array(PyObject* obj) { return PyArray_Check(obj); }
 
-// Set multiple items in a Python dictionary
+static void py_incref(PyObject* obj) { Py_INCREF(obj); }
+
+static void py_decref(PyObject* obj) { Py_DECREF(obj); }
+
 void set_dict_items(PyObject* dict, char** keys, PyObject** values, int count) {
-    for (int i = 0; i < count; i++) PyDict_SetItemString(dict, keys[i], values[i]);
+    for (int i = 0; i < count; i++) {
+        py_incref(values[i]); // Increment reference count for value
+        PyDict_SetItemString(dict, keys[i], values[i]);
+    }
 }
 
-// Wrapper for Py_CompileString
-static PyObject* my_PyCompileString(const char *str, const char *filename, int start) {
+static PyObject* wrapped_PyCompileString(const char *str, const char *filename, int start) {
     return Py_CompileString(str, filename, start);
 }
+
+static PyObject* wrapped_PyArray_SimpleNew(int nd, npy_intp* dims, int typenum) {
+    return PyArray_SimpleNew(nd, dims, typenum);
+}
+
+static int wrapped_PyArray_TYPE(PyArrayObject* arr) { return PyArray_TYPE(arr); }
+
+static int wrapped_PyArray_NDIM(PyArrayObject* arr) { return PyArray_NDIM(arr); }
+
+static npy_intp* wrapped_PyArray_DIMS(PyArrayObject* arr) { return PyArray_DIMS(arr);}
+
+static int wrapped_PyArray_ITEMSIZE(PyArrayObject* arr) { return PyArray_ITEMSIZE(arr); }
+
+static void* wrapped_PyArray_DATA(PyArrayObject* arr) { return PyArray_DATA(arr); }
 */
 import "C"
 import (
@@ -101,6 +104,15 @@ type Interpreter struct {
 	globals *C.PyObject
 }
 
+func lockThreadAndGIL() func() {
+	runtime.LockOSThread()
+	gilState := C.PyGILState_Ensure()
+	return func() {
+		C.PyGILState_Release(gilState)
+		runtime.UnlockOSThread()
+	}
+}
+
 func New(cfgs ...Config) (*Interpreter, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -111,12 +123,15 @@ func New(cfgs ...Config) (*Interpreter, error) {
 		zap.String("version", targetPythonVersion),
 	)
 	s := &Interpreter{cfg: cfg}
-	if err := s.initPython(); err != nil {
+	if err = s.initPython(); err != nil {
 		return nil, err
 	}
 	err = s.initGlobals()
-	s.cfg.L.Info("embedded Python service started successfully")
-	return s, err
+	if err != nil {
+		return nil, err
+	}
+	cfg.L.Info("embedded Python service started successfully")
+	return s, nil
 }
 
 func (s *Interpreter) initPython() error {
@@ -138,7 +153,7 @@ func (s *Interpreter) initPython() error {
 		s.cfg.L.Debug("Python already installed. skipping installation")
 	} else {
 		s.cfg.L.Debug("extracting embedded Python installation. this may take a few seconds")
-		if err := xembed.Extract(
+		if err = xembed.Extract(
 			embeddedPython,
 			s.cfg.PythonInstallDir,
 			dirPerm,
@@ -159,7 +174,6 @@ func (s *Interpreter) initPython() error {
 
 	C.Py_SetPythonHome(wPythonHome)
 	C.Py_Initialize()
-	// Initialize threading support
 	C.PyEval_InitThreads()
 
 	if res := C.init_numpy(); res != 0 {
@@ -178,8 +192,8 @@ func (s *Interpreter) initGlobals() error {
 	defer runtime.UnlockOSThread()
 
 	// Acquire the GIL
-	gstate := C.PyGILState_Ensure()
-	defer C.PyGILState_Release(gstate)
+	gilState := C.PyGILState_Ensure()
+	defer C.PyGILState_Release(gilState)
 
 	s.globals = C.PyDict_New()
 	if s.globals == nil {
@@ -196,7 +210,8 @@ func (s *Interpreter) initGlobals() error {
 	npKey := C.CString("np")
 	defer C.free(unsafe.Pointer(npKey))
 	C.PyDict_SetItemString(s.globals, npKey, numpyModule)
-	C.Py_DecRef(numpyModule)
+	// Decrease ref count since PyDict_SetItemString increases it
+	C.py_decref(numpyModule)
 	return nil
 }
 
@@ -207,7 +222,10 @@ type Calculation struct {
 
 func (s *Interpreter) NewCalculation(code string) (*Calculation, error) {
 	compiled, err := compile(code)
-	return &Calculation{compiled: compiled, globals: s.globals}, err
+	if err != nil {
+		return nil, err
+	}
+	return &Calculation{compiled: compiled, globals: s.globals}, nil
 }
 
 var compiledCodeCache xsync.Map[string, *C.PyObject]
@@ -218,8 +236,8 @@ func compile(code string) (*C.PyObject, error) {
 	defer runtime.UnlockOSThread()
 
 	// Acquire the GIL
-	gstate := C.PyGILState_Ensure()
-	defer C.PyGILState_Release(gstate)
+	gilState := C.PyGILState_Ensure()
+	defer C.PyGILState_Release(gilState)
 
 	if compiledCode, exists := compiledCodeCache.Load(code); exists {
 		return compiledCode, nil
@@ -228,13 +246,13 @@ func compile(code string) (*C.PyObject, error) {
 	defer C.free(unsafe.Pointer(cCode))
 	filename := C.CString("<string>")
 	defer C.free(unsafe.Pointer(filename))
-	compiledCode := C.my_PyCompileString(cCode, filename, C.Py_file_input)
+	compiledCode := C.wrapped_PyCompileString(cCode, filename, C.Py_file_input)
 	if compiledCode == nil {
 		C.PyErr_Print()
 		return nil, errors.Newf("failed to compile code")
 	}
 	// Increase the reference count to keep it in the cache
-	C.Py_IncRef(compiledCode)
+	C.py_incref(compiledCode)
 	compiledCodeCache.Store(code, compiledCode)
 	return compiledCode, nil
 }
@@ -243,19 +261,14 @@ func compile(code string) (*C.PyObject, error) {
 func (c *Calculation) Run(ctx map[string]interface{}) (telem.Series, error) {
 	var s telem.Series
 
-	// Lock the OS thread
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	// Acquire the GIL
-	gstate := C.PyGILState_Ensure()
-	defer C.PyGILState_Release(gstate)
+	unlock := lockThreadAndGIL()
+	defer unlock()
 
 	localsC := C.PyDict_New()
 	if localsC == nil {
 		return s, errors.Newf("failed to create Python locals dictionary")
 	}
-	defer C.Py_DecRef(localsC)
+	defer C.py_decref(localsC)
 
 	// Set ctx variables in locals
 	if len(ctx) > 0 {
@@ -291,7 +304,7 @@ func (c *Calculation) Run(ctx map[string]interface{}) (telem.Series, error) {
 		C.PyErr_Print()
 		return s, errors.New("failed to execute code")
 	}
-	C.Py_DecRef(ret) // Decrease ref count for the result of execution
+	C.py_decref(ret) // Decrease ref count for the result of execution
 
 	// Retrieve 'result' from locals
 	cr := C.CString("result")
@@ -305,9 +318,9 @@ func (c *Calculation) Run(ctx map[string]interface{}) (telem.Series, error) {
 		}
 	}
 	// Increase reference count since we are going to use r
-	C.Py_IncRef(r)
+	C.py_incref(r)
 	series, err := ToSeries(r)
-	C.Py_DecRef(r) // Decrease ref count after use
+	C.py_decref(r) // Decrease ref count after use
 	return series, err
 }
 
@@ -341,13 +354,8 @@ var (
 
 // NewSeries creates a NumPy array from a telem.Series
 func NewSeries(s telem.Series) (*C.PyObject, error) {
-	// Lock the OS thread
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	// Acquire the GIL
-	gstate := C.PyGILState_Ensure()
-	defer C.PyGILState_Release(gstate)
+	unlock := lockThreadAndGIL()
+	defer unlock()
 
 	v, ok := toNP[s.DataType]
 	if !ok {
@@ -356,14 +364,18 @@ func NewSeries(s telem.Series) (*C.PyObject, error) {
 	if len(s.Data) == 0 {
 		return nil, fmt.Errorf("empty data")
 	}
-	length := s.Len()
-	dataPtr := unsafe.Pointer(&s.Data[0])
-	arr := C.create_arr((*C.char)(dataPtr), C.int(length), C.int(v))
+	length := C.npy_intp(s.Len())
+
+	// Create a new NumPy array
+	arr := C.wrapped_PyArray_SimpleNew(1, &length, C.int(v))
 	if arr == nil {
 		return nil, fmt.Errorf("failed to create numpy array")
 	}
-	// Ensure s.Data is not garbage collected prematurely
-	runtime.KeepAlive(s.Data)
+
+	// Copy data from Go to NumPy array
+	dataPtr := C.wrapped_PyArray_DATA((*C.PyArrayObject)(unsafe.Pointer(arr)))
+	C.memcpy(dataPtr, unsafe.Pointer(&s.Data[0]), C.size_t(len(s.Data)))
+
 	return arr, nil
 }
 
@@ -374,42 +386,38 @@ func ToSeries(pyArray *C.PyObject) (telem.Series, error) {
 		return s, errors.New("pyArray is nil")
 	}
 
-	// Lock the OS thread
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	// Acquire the GIL
-	gState := C.PyGILState_Ensure()
-	defer C.PyGILState_Release(gState)
+	unlock := lockThreadAndGIL()
+	defer unlock()
 
 	if C.is_array(pyArray) == 0 {
-		return s, errors.Newf("cannot convert non-NumPy object to Series")
+		return s, errors.New("cannot convert non-NumPy object to Series")
 	}
 	arr := (*C.PyArrayObject)(unsafe.Pointer(pyArray))
-	npType := C.PyArray_TYPE(arr)
+	npType := C.wrapped_PyArray_TYPE(arr)
 	dt, found := toDT[int(npType)]
 	if !found {
 		return s, errors.Newf("unsupported numpy data type: %d", int(npType))
 	}
-	data := C.PyArray_DATA(arr)
+	data := C.wrapped_PyArray_DATA(arr)
 	if data == nil {
 		return s, errors.Newf("failed to get data pointer from numpy array")
 	}
-	dims := C.PyArray_DIMS(arr)
-	nDim := int(C.PyArray_NDIM(arr))
+	nDim := int(C.wrapped_PyArray_NDIM(arr))
 	if nDim <= 0 {
 		return s, errors.Newf("invalid number of dimensions: %d", nDim)
 	}
 	length := 1
-	dimsSlice := (*[1 << 30]C.npy_intp)(unsafe.Pointer(dims))[:nDim:nDim]
+	dims := (*[1 << 30]C.npy_intp)(unsafe.Pointer(C.wrapped_PyArray_DIMS(arr)))[:nDim:nDim]
 	for i := 0; i < nDim; i++ {
-		length *= int(dimsSlice[i])
+		length *= int(dims[i])
 	}
-	var (
-		itemSize  = int(C.PyArray_ITEMSIZE(arr))
-		totalSize = length * itemSize
-		dataBytes = unsafe.Slice((*byte)(data), totalSize)
-	)
-	runtime.KeepAlive(pyArray)
-	return telem.Series{DataType: dt, Data: dataBytes}, nil
+	itemSize := int(C.wrapped_PyArray_ITEMSIZE(arr))
+	totalSize := length * itemSize
+
+	dataBytes := make([]byte, totalSize)
+	C.memcpy(unsafe.Pointer(&dataBytes[0]), data, C.size_t(totalSize))
+
+	s.DataType = dt
+	s.Data = dataBytes
+	return s, nil
 }
