@@ -3,12 +3,13 @@ name: "Test: X"
 on:
   pull_request:
     branches:
-      - rc
       - main
+      - rc
   push:
     branches:
-      - rc
       - main
+      - rc
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
 
 jobs:
@@ -26,6 +27,7 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref}}
           filters: |
             shared: &shared
               - .github/workflows/test.x.yaml
@@ -44,10 +46,10 @@ jobs:
   go:
     name: Go (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.go == true
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -68,10 +70,10 @@ jobs:
   ts:
     name: TypeScript (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.ts == 'true'
+    if: needs.changes.outputs.ts == true
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
             lint: true
