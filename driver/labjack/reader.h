@@ -17,6 +17,7 @@
 #include <stdio.h>
 
 #include "LJM_Utilities.h"
+#include "LabJackMModbusMap.h"
 
 #include "nlohmann/json.hpp"
 
@@ -101,13 +102,46 @@ namespace labjack{
         }
 
         explicit TCConfig(config::Parser &parser)
-            : type(parser.required<long>("type")),
-              pos_chan(parser.required<int>("pos_chan")),
+            : pos_chan(parser.required<int>("pos_chan")),
               neg_chan(parser.optional<int>("neg_chan", SINGLE_ENDED)),
-              cjc_addr(parser.required<int>("cjc_addr")),
               cjc_slope(parser.required<float>("cjc_slope")),
               cjc_offset(parser.required<float>("cjc_offset")),
               units(parser.required<std::string>("units")) {
+
+            auto tc_type = parser.required<std::string>("type");
+
+            if(tc_type == "B")
+                this->type = LJM_ttB;
+            else if(tc_type == "E")
+                this->type = LJM_ttE;
+            else if(tc_type == "J")
+                this->type = LJM_ttJ;
+            else if(tc_type == "K")
+                this->type = LJM_ttK;
+            else if(tc_type == "N")
+                this->type = LJM_ttN;
+            else if(tc_type == "R")
+                this->type = LJM_ttR;
+            else if(tc_type == "S")
+                this->type = LJM_ttS;
+            else if(tc_type == "T")
+                this->type = LJM_ttT;
+            else if(tc_type == "C")
+                this->type = LJM_ttC;
+            else
+                LOG(ERROR) << "Invalid thermocouple type: " << tc_type;
+
+            auto cjc_source = parser.required<std::string>("cjc_source");
+
+            if (cjc_source == "TEMPERATURE_DEVICE_K")
+                cjc_addr = LJM_TEMPERATURE_DEVICE_K_ADDRESS;
+            else if (cjc_source == "TEMPERATURE_AIR_K")
+                cjc_addr = LJM_TEMPERATURE_AIR_K_ADDRESS;
+            else if (cjc_source.find("AIN") != std::string::npos) {
+                // address for modbus register for analog port is port number x 2
+                int port_num = std::stoi(cjc_source.substr(3));
+                cjc_addr = port_num * 2;
+            }
         }
     }; // TCConfig
 
@@ -121,6 +155,7 @@ namespace labjack{
         uint32_t key;
         ///@brief voltage range
         double range = 10.0;
+        double neg_chan = 199;
         ///@brief channel type (e.g. AIN, DIN, TC)
         std::string channel_type = "";
         ///@brief Thermocouple configuration if applicable
@@ -128,12 +163,13 @@ namespace labjack{
         ReaderChannelConfig() = default;
 
         explicit ReaderChannelConfig(config::Parser &parser)
-                : enabled(parser.optional<bool>("enabled", true)),
-                  data_type(parser.optional<std::string>("data_type", "float32")),
-                  key(parser.required<uint32_t>("channel")),
-                  range(parser.optional<double>("range", 10.0)),
-                  channel_type(parser.optional<std::string>("type", "")),
-                  location(parser.optional<std::string>("port", "")){
+                :   enabled(parser.optional<bool>("enabled", true)),
+                    data_type(parser.optional<std::string>("data_type", "float32")),
+                    key(parser.required<uint32_t>("channel")),
+                    range(parser.optional<double>("range", 10.0)),
+                    neg_chan(parser.optional<double>("neg_chan", 199)),
+                    channel_type(parser.optional<std::string>("type", "")),
+                    location(parser.optional<std::string>("port", "")){
             if(!parser.ok())
                 LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
