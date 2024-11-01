@@ -99,7 +99,7 @@ void labjack::ReaderSource::init_stream(){
             }
             if(this->reader_config.device_type == "T7") {
                 auto name = channel.location + "_NEGATIVE_CH";
-                check_err(WriteName(this->handle, name.c_str(), 10.0));
+                check_err(WriteName(this->handle, name.c_str(), 199));
             }
         } else if (channel.channel_type == "TC"){
             // Set resolution index to device's default setting (value = 0)
@@ -112,7 +112,6 @@ void labjack::ReaderSource::init_stream(){
             }
 
             this->configure_tc_ain_ef(channel.tc_config);
-
         }
     }
     // TODO: figure out if i need to set this

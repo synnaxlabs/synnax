@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <stdio.h>
+#include <string>
 #include "LabJackM.h"
 #include "LJM_Utilities.h"
 #include "LJM_StreamUtilities.h"
@@ -544,10 +545,173 @@ int PrintErrors(){
     return LJME_NOERROR;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////// Thermocouple
+
+// Thermocouple data structure
+struct TCData {
+    long tcType;
+    int posChannel;
+    int negChannel;
+    int CJCAddress;
+    float CJCSlope;
+    float CJCOffset;
+    char tempUnits;
+
+    // Constructor with default values
+    TCData() :
+            tcType(LJM_ttK),
+            posChannel(0),
+            negChannel(199),
+            CJCAddress(60052),
+            CJCSlope(1.0f),
+            CJCOffset(0.0f),
+            tempUnits('C') {}
+
+    // Add a constructor that takes all parameters
+    TCData(long tc, int pos, int neg, int cjc, float slope, float offset, char units) :
+            tcType(tc),
+            posChannel(pos),
+            negChannel(neg),
+            CJCAddress(cjc),
+            CJCSlope(slope),
+            CJCOffset(offset),
+            tempUnits(units) {}
+};
+
+
+void SetupAIN_EF(int handle, const TCData& tcData) {
+    int err;
+    // For converting LJM TC type  to TC AIN_EF index
+    // Thermocouple type:		 B  E  J  K  N  R  S  T  C
+    int TC_INDEX_LUT[9] = {28,20,21,22,27,23,25,24,30};
+
+#define NUM_FRAMES2 5
+
+    int aAddresses[NUM_FRAMES2];
+    int aTypes[NUM_FRAMES2];
+    double aValues[NUM_FRAMES2];
+    int errorAddress = INITIAL_ERR_ADDRESS;
+
+    // For setting up the AIN#_EF_INDEX (thermocouple type)
+    aAddresses[0] = 9000 + 2 * tcData.posChannel;
+    aTypes[0] = LJM_UINT32;
+    aValues[0] = TC_INDEX_LUT[tcData.tcType - 6001];
+
+    // For setting up the AIN#_EF_CONFIG_A (temperature units)
+    aAddresses[1] = 9300 + 2 * tcData.posChannel;
+    aTypes[1] = LJM_UINT32;
+
+    switch(tcData.tempUnits) {
+        case 'K':
+            aValues[1] = 0;
+            break;
+        case 'C':
+            aValues[1] = 1;
+            break;
+        case 'F':
+            aValues[1] = 2;
+            break;
+        default:
+            aValues[1] = 1;  // Default to Celsius
+    }
+
+    // For setting up the AIN#_EF_CONFIG_B (CJC address)
+    aAddresses[2] = 9600 + 2 * tcData.posChannel;
+    aTypes[2] = LJM_UINT32;
+    aValues[2] = tcData.CJCAddress;
+
+    // For setting up the AIN#_EF_CONFIG_D (CJC slope)
+    aAddresses[3] = 10200 + 2 * tcData.posChannel;
+    aTypes[3] = LJM_FLOAT32;
+    aValues[3] = tcData.CJCSlope;
+
+    // For setting up the AIN#_EF_CONFIG_E (CJC offset)
+    aAddresses[4] = 10500 + 2 * tcData.posChannel;
+    aTypes[4] = LJM_FLOAT32;
+    aValues[4] = tcData.CJCOffset;
+
+    err = LJM_eWriteAddresses(handle, NUM_FRAMES2, aAddresses, aTypes,
+                              aValues, &errorAddress);
+    ErrorCheckWithAddress(err, errorAddress, "SetupAIN_EF");
+}
+
+
+void GetReadingsAIN_EF(int handle, const TCData& tcData) {
+    int err;
+    double TCTemp, TCVolts, CJTemp;
+
+    err = LJM_eReadAddress(handle, 7300 + 2 * tcData.posChannel, LJM_FLOAT32, &TCVolts);
+    ErrorCheck(err, "GetReadingsAIN_EF: Reading TC Volts");
+
+    err = LJM_eReadAddress(handle, 7600 + 2 * tcData.posChannel, LJM_FLOAT32, &CJTemp);
+    ErrorCheck(err, "GetReadingsAIN_EF: Reading CJC temperature");
+
+    err = LJM_eReadAddress(handle, 7000 + 2 * tcData.posChannel, LJM_FLOAT32, &TCTemp);
+    ErrorCheck(err, "GetReadingsAIN_EF: Reading TC Temperature");
+
+    printf("TCTemp: %lf %c,\t TCVolts: %lf,\tCJTemp: %lf %c\n",
+           TCTemp, tcData.tempUnits,
+           TCVolts, CJTemp, tcData.tempUnits);
+}
+
+int tc() {
+    int err, handle, deviceType, connectionType, serialNumber;
+    int ipAddress, portOrPipe, packetMaxBytes;
+
+    // Initialize using the parametrized constructor
+    TCData tcData(
+            LJM_ttK,    // Type K thermocouple
+            0,          // Connected to AIN0
+            199,        // GND for negChannel (should be ignored for T4/T8)
+            60052,      // Use TEMPERATURE_DEVICE_K for CJC
+            1.0f,       // CJC Slope associated to TEMPERATURE_DEVICE_K
+            0.0f,       // CJC Offset associated to TEMPERATURE_DEVICE_K
+            'C'        // Temperature units
+    );
+
+    handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
+    err = LJM_GetHandleInfo(handle, &deviceType, &connectionType, &serialNumber, &ipAddress,
+                            &portOrPipe, &packetMaxBytes);
+    ErrorCheck(err, "LJM_GetHandleInfo");
+    PrintDeviceInfo(deviceType, connectionType, serialNumber, ipAddress, portOrPipe, packetMaxBytes);
+
+    // Set the resolution index to the default setting (value=0)
+    err = LJM_eWriteAddress(handle, 41500 + tcData.posChannel, LJM_UINT16, 0);
+    ErrorCheck(err, "Setting AIN resolution index");
+
+    // Only set up the negative channel config if using a T7
+    if (deviceType == LJM_dtT7) {
+        err = LJM_eWriteAddress(handle, 41000 + tcData.posChannel,
+                                LJM_UINT16, tcData.negChannel);
+        ErrorCheck(err, "Setting T7 negChannel");
+    }
+
+    // Set up the AIN_EF if using a T7/T8
+    if (deviceType != LJM_dtT4) {
+        SetupAIN_EF(handle, tcData);
+    }
+
+    printf("\nPress ctrl + c to stop\n");
+    while (true) {
+        GetReadingsAIN_EF(handle, tcData);
+        MillisecondSleep(1000);
+    }
+
+    CloseOrDie(handle);
+    WaitForUserIfWindows();
+    return LJME_NOERROR;
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 int main() {
 //    return PrintErrors();
 //    return scan();
-    return multi_ain();
+//    return multi_ain();
 //    return basic_stream();
 //    return digital_out();
+      return tc();
 }
