@@ -242,12 +242,16 @@ const Wrapped = ({
           <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Align.Space direction="x">
-              <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
-              <Form.Field<number> label="Stream Rate" path="config.streamRate">
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
+              <Form.NumericField
+                label="Sample Rate"
+                path="config.sampleRate"
+                inputProps={{ endContent: "Hz" }}
+              />
+              <Form.NumericField
+                label="Stream Rate"
+                path="config.streamRate"
+                inputProps={{ endContent: "Hz" }}
+              />
               <Form.SwitchField path="config.dataSaving" label="Data Saving" />
             </Align.Space>
           </Align.Space>
