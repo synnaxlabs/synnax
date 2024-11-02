@@ -27,7 +27,6 @@ void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
                         });
 }
 
-// TODO: seperate some of the stuff happening here into a separate function
 std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel : this->reader_config.channels) {
@@ -131,7 +130,7 @@ void labjack::ReaderSource::init_tcs(){
 
     int msDelay = 1000;
     auto err = LJM_StartInterval(
-            this->handle, // TODO: need to keep unique to device will need to change once i want to define multiple intervals to read data at on a songel device
+            this->handle,
             msDelay * 1000
     );
 
@@ -180,11 +179,7 @@ void labjack::ReaderSource::init_stream(){
             }
         }
     }
-    // TODO: figure out if i need to set this
-    //    auto err = LJM_StartInterval(
-    //            this->handle,
-    //            this->reader_config.sample_rate.period().microseconds()
-    //    );
+
     this->port_addresses.resize(this->reader_config.phys_channels.size());
 
     std::vector<const char*> phys_channel_names;
@@ -217,7 +212,6 @@ freighter::Error labjack::ReaderSource::start(const std::string &cmd_key){
                   {"message", "Task started successfully"}
           }
     });
-    LOG(INFO) << "[labjack.reader] labjack device started successfully";
     return freighter::NIL;
 };
 
@@ -227,7 +221,6 @@ freighter::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
 
     if(this->sample_thread.joinable()) this->sample_thread.join();
     check_err(LJM_eStreamStop(handle), "stop.LJM_eStreamStop");
-
     ctx->setState({
           .task = task.key,
           .key = cmd_key,
@@ -237,7 +230,6 @@ freighter::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
                   {"message", "Task stopped successfully"}
           }
     });
-    LOG(INFO) << "[labjack.reader] labjack device stopped successfully";
     return freighter::NIL;
 }
 
@@ -262,26 +254,20 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(brea
               "read.LJM_eReadNames"
     );
 
-    // print out the values
-//    for(int i = 0; i < tc_locations.size(); i++){
-//        LOG(INFO) << "[labjack.reader] " << tc_locations[i] << ": " << values[i];
-//    }
-//
-
     auto f = synnax::Frame(locations.size() + this->reader_config.index_keys.size());
     int index = 0;
     for(const auto &loc : locations){
-        for(const auto &channel : this->reader_config.tc_channels){ // TODO don't need this inner for loop
+        for(const auto &channel : this->reader_config.tc_channels){
             if(channel.location == loc){
-                auto key = this->reader_config.channel_map[channel.location];  // if we have this map, we don't need the inner for loop
+                auto key = this->reader_config.channel_map[channel.location];
                 auto s = synnax::Series(channel.data_type,1);
                 write_to_series(s, values[index], channel.data_type);
                 f.add(key, std::move(s));
             }
         }
-        for(const auto &channel : this->reader_config.channels){ // TODO don't need this inner for loop
+        for(const auto &channel : this->reader_config.channels){
             if(channel.location == loc){
-                auto key = this->reader_config.channel_map[channel.location];  // if we have this map, we don't need the inner for loop
+                auto key = this->reader_config.channel_map[channel.location];
                 auto s = synnax::Series(channel.data_type,1);
                 write_to_series(s, values[index], channel.data_type);
                 f.add(key, std::move(s));
