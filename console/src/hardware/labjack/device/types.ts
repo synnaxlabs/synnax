@@ -28,6 +28,7 @@ const commandStatePairZ = z.object({ command: z.number(), state: z.number() });
 export const propertiesZ = z.object({
   identifier: identifierZ,
   readIndex: z.number(),
+  thermocoupleIndex: z.number(),
   writeStateIndex: z.number(),
   AI: z.object({ channels: z.record(z.string(), z.number()) }),
   DI: z.object({ channels: z.record(z.string(), z.number()) }),
@@ -38,24 +39,13 @@ export type Properties = z.infer<typeof propertiesZ>;
 
 export const ZERO_PROPERTIES: Properties = {
   readIndex: 0,
+  thermocoupleIndex: 0,
   writeStateIndex: 0,
   identifier: "",
   AI: { channels: {} },
   AO: { channels: {} },
   DI: { channels: {} },
   DO: { channels: {} },
-};
-
-export const getZeroProperties = (): Properties => {
-  return {
-    readIndex: 0,
-    writeStateIndex: 0,
-    identifier: "",
-    AI: { channels: {} },
-    AO: { channels: {} },
-    DI: { channels: {} },
-    DO: { channels: {} },
-  };
 };
 
 export const DI_CHANNEL_TYPE = "DI";

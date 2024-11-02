@@ -40,6 +40,7 @@ export const ContextMenuItems = ({
     placer(configureReadLayout(args));
   };
   const handleCreateWriteTask = () => {
+    maybeConfigure();
     placer(configureWriteLayout(args));
   };
   if (!isSingle) return null;

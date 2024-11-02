@@ -47,8 +47,9 @@ export const useListenForChanges = (): void => {
 };
 
 const MAKE_ICONS: Record<string, ReactElement> = {
+  labjack: <Icon.Logo.LabJack />,
   NI: <Icon.Logo.NI />,
-  opcua: <Icon.Logo.OPC />,
+  opc: <Icon.Logo.OPC />,
 };
 
 export const notificationAdapter: NotificationAdapter = (status) => {
@@ -73,13 +74,12 @@ interface ConfigureButtonProps {
 }
 
 const ConfigureButton = ({ deviceKey }: ConfigureButtonProps): ReactElement => {
-  const place = Layout.usePlacer();
-
+  const placer = Layout.usePlacer();
   return (
     <Button.Button
       variant="outlined"
       size="small"
-      onClick={() => place(createConfigureLayout(deviceKey, {}))}
+      onClick={() => placer(createConfigureLayout(deviceKey, {}))}
     >
       Configure
     </Button.Button>

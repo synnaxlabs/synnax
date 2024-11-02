@@ -41,7 +41,7 @@ const CONTEXT_MENUS: Record<
   [OPC.MAKE]: OPC.Device.ContextMenuItems,
 };
 
-export const handleSelect: Ontology.HandleSelect = () => {};
+const handleSelect: Ontology.HandleSelect = () => {};
 
 const handleConfigure = ({
   selection,
