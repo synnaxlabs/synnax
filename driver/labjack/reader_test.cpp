@@ -334,7 +334,8 @@ using json = nlohmann::json;
 //    reader_task->exec(stop_cmd);
 //}
 
-TEST(read_tests, labjack_t7){
+// TODO: test with a differential signal
+TEST(read_tests, labjack_t7_tc){
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
@@ -356,10 +357,33 @@ TEST(read_tests, labjack_t7){
                                                      {"enabled", true},
                                                      {"channel", data.key},
                                                      {"range", 10.0},
-                                                     {"type", "AI"}
+                                                     {"type", "TC"},
+                                                     {"thermocouple_type", "K"},
+                                                     {"cjc_slope", 1.0},
+                                                     {"cjc_offset", 0.0},
+                                                     {"units", "K"},
+                                                     {"pos_channel", 0},
                                              }
                                      })},
     };
+
+//    auto config = json{
+//            {"sample_rate", 10000},
+//            {"stream_rate", 30},
+//            {"type", "T7"},
+//            {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
+//            {"connection_type", "USB"},
+//            {"data_saving", true},
+//            {"channels", json::array({
+//                                             {
+//                                                     {"port", "AIN0"},
+//                                                     {"enabled", true},
+//                                                     {"channel", data.key},
+//                                                     {"range", 10.0},
+//                                                     {"type", "AI"}
+//                                             }
+//                                     })},
+//    };
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);

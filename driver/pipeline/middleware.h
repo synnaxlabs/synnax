@@ -68,8 +68,11 @@ namespace pipeline {
             }
         }
 
-        void tare(json &channels) {
+        //TODO: error handling for invalid keys/ keys that weren't configured upon construction
+        void tare(json &arg) {
             // if json contains no keys, tare everything
+            json channels = arg["keys"];
+            LOG(INFO) << "Taring channels: " << channels.dump(2);
             if(channels.empty()){
                 std::lock_guard <std::mutex> lock(mutex);
                 for(auto &pair: tare_values){
@@ -79,7 +82,7 @@ namespace pipeline {
                 }
                 return;
             }
-
+            // TODO: make sure they are all ints
             for (auto &channel: channels) {
                 auto key = channel.get<int32_t>();
                 std::lock_guard <std::mutex> lock(mutex);

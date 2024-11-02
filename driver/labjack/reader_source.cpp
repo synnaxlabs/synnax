@@ -106,15 +106,9 @@ void labjack::ReaderSource::init_stream(){
                 continue;
             }
 
+            size_t pos = channel.location.find('_');
+            std::string ain = channel.location.substr(0, pos);
             // Set resolution index to device's default setting (value = 0)
-            std::string name = channel.location + "_RESOLUTION_INDEX";
-            check_err(WriteName(this->handle, name.c_str(), 0));
-
-            if(this->reader_config.device_type == "T7") {
-                auto name = channel.location + "_NEGATIVE_CH";
-                check_err(WriteName(this->handle, name.c_str(), channel.neg_chan));
-            }
-
             this->configure_tc_ain_ef(channel.tc_config);
         }
     }
@@ -265,6 +259,18 @@ void labjack::ReaderSource::acquire_data(){
 }
 
 void labjack::ReaderSource::configure_tc_ain_ef(TCConfig tc_config){
+    if(this->reader_config.device_type == "T7") {
+        // For setting up the AIN#_NEGATIVE_CH (negative channel)
+        LOG(INFO) << "Setting negative channel for " << tc_config.pos_chan << " to " << tc_config.neg_chan;
+        this->check_err(
+                LJM_eWriteAddress(
+                        handle,
+                        41000+tc_config.pos_chan,
+                        LJM_UINT32,
+                        tc_config.neg_chan
+                )
+        );
+    }
     // writing 5 frames of data to modbus registers: tc type, cjc address, slope, offset and units
     enum{ NUM_FRAMES = 5};
     int aAddresses[NUM_FRAMES];
@@ -312,17 +318,7 @@ void labjack::ReaderSource::configure_tc_ain_ef(TCConfig tc_config){
             )
         );
 
-    if(this->reader_config.device_type == "T7") {
-        // For setting up the AIN#_NEGATIVE_CH (negative channel)
-        this->check_err(
-                LJM_eWriteAddress(
-                    handle,
-                    41000+tc_config.pos_chan,
-                    LJM_UINT32,
-                    tc_config.neg_chan
-                )
-            );
-    }
+
 }
 
 int labjack::ReaderSource::check_err(int err){
