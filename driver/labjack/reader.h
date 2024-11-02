@@ -108,7 +108,7 @@ namespace labjack{
               cjc_offset(parser.required<float>("cjc_offset")),
               units(parser.required<std::string>("units")) {
 
-            auto tc_type = parser.required<std::string>("type");
+            auto tc_type = parser.required<std::string>("thermocouple_type");
 
             if(tc_type == "B")
                 this->type = LJM_ttB;
@@ -155,7 +155,8 @@ namespace labjack{
         uint32_t key;
         ///@brief voltage range
         double range = 10.0;
-        double neg_chan = 199;
+        int neg_chan = 199;
+        int pos_chan;
         ///@brief channel type (e.g. AIN, DIN, TC)
         std::string channel_type = "";
         ///@brief Thermocouple configuration if applicable
@@ -167,14 +168,14 @@ namespace labjack{
                     data_type(parser.optional<std::string>("data_type", "float32")),
                     key(parser.required<uint32_t>("channel")),
                     range(parser.optional<double>("range", 10.0)),
-                    neg_chan(parser.optional<double>("neg_chan", 199)),
+                    neg_chan(parser.optional<double>("neg_chan", SINGLE_ENDED)),
+                    pos_chan(parser.optional<int>("pos_chan",0)),
                     channel_type(parser.optional<std::string>("type", "")),
                     location(parser.optional<std::string>("port", "")){
             if(!parser.ok())
                 LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
             if(this->channel_type == "TC") {
-                // No port necessary for tc
                 this->tc_config = TCConfig(parser);
                 // temparature : AIN#_EF_READ_A register
                 // voltage     : AIN#_EF_READ_B register
@@ -183,6 +184,7 @@ namespace labjack{
             }
         }
     };
+
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                   ReaderConfig                                //
