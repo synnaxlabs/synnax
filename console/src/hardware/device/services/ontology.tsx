@@ -16,6 +16,7 @@ import { ReactElement } from "react";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { LabJack } from "@/hardware/labjack";
+import { type Make, makeZ } from "@/hardware/makes";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
@@ -26,14 +27,15 @@ type DeviceLayoutCreator = (
   device: string,
   initial: Partial<Layout.State>,
 ) => Layout.Creator;
-const ZERO_LAYOUT_STATES: Record<string, DeviceLayoutCreator> = {
-  [LabJack.Device.CONFIGURE_LAYOUT_TYPE]: LabJack.Device.createConfigureLayout,
-  [NI.Device.CONFIGURE_LAYOUT_TYPE]: NI.Device.createConfigureLayout,
-  [OPC.Device.CONFIGURE_LAYOUT_TYPE]: OPC.Device.createConfigureLayout,
+
+const ZERO_LAYOUT_STATES: Record<Make, DeviceLayoutCreator> = {
+  [LabJack.MAKE]: LabJack.Device.createConfigureLayout,
+  [NI.MAKE]: NI.Device.createConfigureLayout,
+  [OPC.MAKE]: OPC.Device.createConfigureLayout,
 };
 
 const CONTEXT_MENUS: Record<
-  string,
+  Make,
   (props: Ontology.TreeContextMenuProps) => ReactElement | null
 > = {
   [LabJack.MAKE]: LabJack.Device.ContextMenuItems,
@@ -44,18 +46,24 @@ const CONTEXT_MENUS: Record<
 const handleSelect: Ontology.HandleSelect = () => {};
 
 const handleConfigure = ({
-  selection,
-  client,
+  selection: { resources },
   placeLayout,
+  addStatus,
 }: Ontology.TreeContextMenuProps): void => {
-  if (selection.nodes.length === 0) return;
-  const first = selection.resources[0];
-  void (async () => {
-    const d = await client.hardware.devices.retrieve(first.id.key);
-    const baseLayout = ZERO_LAYOUT_STATES[`configure_${d.make}`];
-    if (baseLayout == null) return;
-    return placeLayout(baseLayout(d.key, {}));
-  })();
+  const resource = resources[0];
+  try {
+    const make = makeZ.parse(resource.data?.make);
+    const baseLayout = ZERO_LAYOUT_STATES[make];
+    const key = resource.id.key;
+    placeLayout(baseLayout(key, {}));
+  } catch (e) {
+    if (!(e instanceof Error)) throw e;
+    addStatus({
+      variant: "error",
+      message: `Failed to configure ${resource.name}`,
+      description: e.message,
+    });
+  }
 };
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -105,7 +113,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const make = resources[0].data?.make;
   let customMenuItems: ReactElement | null = null;
   if (make != null) {
-    const C = CONTEXT_MENUS[make as string];
+    const C = CONTEXT_MENUS[make as Make];
     if (C != null) customMenuItems = <C {...props} />;
   }
   return (

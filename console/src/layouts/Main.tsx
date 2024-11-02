@@ -18,6 +18,7 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
+import { DeviceServices } from "@/hardware/device/services";
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
@@ -33,7 +34,7 @@ import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
 const NOTIFICATION_ADAPTERS = [
-  ...Device.NOTIFICATION_ADAPTERS,
+  ...DeviceServices.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
   ...Cluster.NOTIFICATION_ADAPTERS,
 ];

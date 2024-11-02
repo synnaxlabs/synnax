@@ -6,10 +6,10 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 # /////////////////////////////////////////////////////////////////////////////////////
 
 http_archive(
-   name = "com_github_gflags_gflags",
-   sha256 = "34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf",
-   strip_prefix = "gflags-2.2.2",
-   urls = ["https://github.com/gflags/gflags/archive/v2.2.2.tar.gz"],
+    name = "com_github_gflags_gflags",
+    sha256 = "34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf",
+    strip_prefix = "gflags-2.2.2",
+    urls = ["https://github.com/gflags/gflags/archive/v2.2.2.tar.gz"],
 )
 
 # git_repository(
@@ -24,12 +24,11 @@ http_archive(
 #     tag = "v0.6.0"
 # )
 
-
 http_archive(
-   name = "com_github_google_glog",
-   sha256 = "122fb6b712808ef43fbf80f75c52a21c9760683dae470154f02bddfc61135022",
-   strip_prefix = "glog-0.6.0",
-   urls = ["https://github.com/google/glog/archive/v0.6.0.zip"],
+    name = "com_github_google_glog",
+    sha256 = "122fb6b712808ef43fbf80f75c52a21c9760683dae470154f02bddfc61135022",
+    strip_prefix = "glog-0.6.0",
+    urls = ["https://github.com/google/glog/archive/v0.6.0.zip"],
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////
@@ -67,7 +66,6 @@ http_archive(
 
 # |||||||| END OF MACOS SECTION ||||||||
 
-
 http_archive(
     name = "rules_proto_grpc",
     sha256 = "9ba7299c5eb6ec45b6b9a0ceb9916d0ab96789ac8218269322f0124c0c0d24e2",
@@ -99,16 +97,14 @@ load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 
 grpc_extra_deps()
 
-
-
 # /////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////// NLOHMANN JSON ///////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////
 
 git_repository(
     name = "nlohmann_json",
+    commit = "9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03",
     remote = "https://github.com/nlohmann/json",
-    commit = "9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03"
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////
@@ -139,14 +135,14 @@ new_local_repository(
 
 git_repository(
     name = "nidaqmx",
+    commit = "e85c66553cd9d0e1b07380a409729adfc71d3d98",
     remote = "https://github.com/synnaxlabs/vendor-libraries",
-    commit = "e85c66553cd9d0e1b07380a409729adfc71d3d98"
 )
 
 git_repository(
     name = "nisyscfg",
+    commit = "e85c66553cd9d0e1b07380a409729adfc71d3d98",
     remote = "https://github.com/synnaxlabs/vendor-libraries",
-    commit = "e85c66553cd9d0e1b07380a409729adfc71d3d98"
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////
@@ -155,8 +151,8 @@ git_repository(
 
 new_local_repository(
     name = "open62541",
+    build_file = "@//driver/vendor/open62541:BUILD.bazel",
     path = "./driver/vendor/open62541/open62541/out",
-    build_file="@//driver/vendor/open62541:BUILD.bazel"
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////
@@ -165,20 +161,20 @@ new_local_repository(
 
 new_local_repository(
     name = "mbedtls_win",
+    build_file = "@//driver/vendor/mbedtls:BUILD.bazel",
     path = "./driver/vendor/mbedtls/mbedtls-install",
-    build_file="@//driver/vendor/mbedtls:BUILD.bazel"
 )
 
 new_local_repository(
     name = "mbedtls_macos",
+    build_file = "@//driver/vendor/mbedtls:BUILD.bazel",
     path = "/opt/homebrew/Cellar/mbedtls/3.6.2",
-    build_file="@//driver/vendor/mbedtls:BUILD.bazel"
 )
 
 new_local_repository(
     name = "mbedtls_linux",
+    build_file = "@//driver/vendor/mbedtls:BUILD.bazel",
     path = "/usr/lib/x86_64-linux-gnu/",
-    build_file="@//driver/vendor/mbedtls:BUILD.bazel"
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////

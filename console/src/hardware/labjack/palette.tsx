@@ -14,7 +14,7 @@ import { configureReadLayout } from "@/hardware/labjack/task/Read";
 import { configureWriteLayout } from "@/hardware/labjack/task/Write";
 import { Command } from "@/palette/Palette";
 
-export const createReadTaskCommand: Command = {
+const createReadTaskCommand: Command = {
   key: "labjack-create-read-task",
   name: "Create a LabJack Read Task",
   icon: (
@@ -26,7 +26,7 @@ export const createReadTaskCommand: Command = {
     placeLayout(() => configureReadLayout({ create: true })),
 };
 
-export const createWriteTaskCommand: Command = {
+const createWriteTaskCommand: Command = {
   key: "labjack-create-write-task",
   name: "Create a LabJack Write Task",
   icon: (

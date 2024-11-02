@@ -38,7 +38,6 @@ import {
   FaBookOpen,
   FaDocker,
   FaLinux,
-  FaProjectDiagram,
   FaStream,
   FaWindows,
 } from "react-icons/fa";
@@ -50,7 +49,6 @@ import { IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
-  IoNotifications,
   IoNotificationsOff,
   IoShapes,
   IoTime,
@@ -114,15 +112,10 @@ import {
   PiCaretRight,
   PiCaretUpBold,
   PiDownloadSimple,
-  PiListFill,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
 } from "react-icons/pi";
-import {
-  RiFileListLine,
-  RiSettings3Fill as RiSettingsFill,
-  RiShapesFill,
-} from "react-icons/ri";
+import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,
@@ -211,7 +204,7 @@ const OPC: IconFC = ({ className, style, ...props }) => (
   </svg>
 );
 
-export const LabJack: IconFC = (props) => (
+const LabJack: IconFC = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="96"
@@ -235,7 +228,7 @@ interface WrapIconOpts {
   className?: string;
 }
 
-export const wrapIcon = (
+const wrapIcon = (
   Icon: IconFC,
   name: string,
   { className }: WrapIconOpts = {},

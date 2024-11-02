@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/device/Configure";
-export * from "@/hardware/device/useDevice";
-export * from "@/hardware/device/useListenForChanges";
+export * as DeviceServices from "@/hardware/device/services/external";
