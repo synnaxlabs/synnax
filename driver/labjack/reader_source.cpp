@@ -9,6 +9,7 @@
 
 #include "driver/labjack/reader.h"
 #include "driver/labjack/util.h"
+#include "driver/labjack/errors.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   ReaderSource                                //
@@ -461,22 +462,28 @@ void labjack::ReaderSource::configure_tc_ain_ef(TCConfig tc_config){
 
 }
 
-int labjack::ReaderSource::check_err(int err, std::string caller){
+int labjack::ReaderSource::check_err(int err, std::string caller) {
     if(err == 0) return 0;
 
     char err_msg[LJM_MAX_NAME_SIZE];
     LJM_ErrorToString(err, err_msg);
 
-    this->ctx->setState({
-        .task = this->task.key,
-        .variant = "error",
-        .details = {
-            {"running", false},
-            {"message", err_msg}
-        }
-    });
+    // Get additional description if available
+    std::string description = "";
+    if (auto it = ERROR_DESCRIPTIONS.find(err_msg); it != ERROR_DESCRIPTIONS.end()) {
+        description = ": " + it->second;
+    }
 
-    LOG(ERROR) << "[labjack.reader] " << caller << " " << err_msg;
+    this->ctx->setState({
+                                .task = this->task.key,
+                                .variant = "error",
+                                .details = {
+                                        {"running", false},
+                                        {"message", std::string(err_msg) + description}
+                                }
+                        });
+
+    LOG(ERROR) << "[labjack.reader] " << caller << " " << err_msg << ": " << description;
 
     this->ok_state = false;
     return -1;

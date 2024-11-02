@@ -9,6 +9,7 @@
 
 #include "driver/labjack/writer.h"
 #include "driver/labjack/util.h"
+#include "driver/labjack/errors.h"
 #include <thread>
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -239,16 +240,22 @@ int labjack::WriteSink::check_err(int err){
     char err_msg[LJM_MAX_NAME_SIZE];
     LJM_ErrorToString(err, err_msg);
 
+    // Get additional description if available
+    std::string description = "";
+    if (auto it = ERROR_DESCRIPTIONS.find(err_msg); it != ERROR_DESCRIPTIONS.end()) {
+        description = ": " + it->second;
+    }
+
     this->ctx->setState({
                                 .task = this->task.key,
                                 .variant = "error",
                                 .details = {
                                         {"running", false},
-                                        {"message", err_msg}
+                                        {"message", std::string(err_msg) + description}
                                 }
                         });
 
-    LOG(ERROR) << "[labjack.writer] " << err_msg;
+    LOG(ERROR) << "[labjack.writer] " << err_msg << ": " << description;
 
     return -1;
 }
