@@ -12,6 +12,7 @@ import { type Layout } from "@/layout";
 
 export * from "@/hardware/labjack/device/Configure";
 export * from "@/hardware/labjack/device/ontology";
+export * from "@/hardware/labjack/device/Select";
 export * from "@/hardware/labjack/device/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

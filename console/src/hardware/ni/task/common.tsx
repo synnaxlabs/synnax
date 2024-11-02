@@ -7,19 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Button,
-  Device,
-  Form,
-  Synnax,
-  Text,
-  useAsyncEffect,
-} from "@synnaxlabs/pluto";
-import { binary, UnknownRecord } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { Align, Button, Device, Form, Synnax, Text } from "@synnaxlabs/pluto";
+import { binary } from "@synnaxlabs/x";
 
 import { Device as NIDevice } from "@/hardware/ni/device";
 import { Properties } from "@/hardware/ni/device/types";
@@ -142,33 +132,4 @@ export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
       )}
     </Align.Space>
   );
-};
-
-export const useDevice = <P extends UnknownRecord>(
-  ctx: Form.ContextValue<any>,
-): device.Device<P> | undefined => {
-  const client = Synnax.use();
-  const [device, setDevice] = useState<device.Device<P> | undefined>(undefined);
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const dev = ctx.value().config.device;
-    if (dev === "") return;
-    const d = await client.hardware.devices.retrieve<P>(dev);
-    setDevice(d);
-  }, [client?.key]);
-  Form.useFieldListener<string>({
-    ctx: ctx,
-    path: "config.device",
-    onChange: useCallback(
-      (fs) => {
-        if (!fs.touched || fs.status.variant !== "success" || client == null) return;
-        client.hardware.devices
-          .retrieve<P>(fs.value)
-          .then((d) => setDevice(d))
-          .catch(console.error);
-      },
-      [client?.key, setDevice],
-    ),
-  });
-  return device;
 };

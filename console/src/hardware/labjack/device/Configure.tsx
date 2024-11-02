@@ -28,10 +28,9 @@ import { type ReactElement, useRef, useState } from "react";
 import { CSS } from "@/css";
 import {
   configurablePropertiesZ,
-  getZeroProperties,
   MODEL_KEYS,
-  type ModelKey,
   type Properties,
+  ZERO_PROPERTIES,
 } from "@/hardware/labjack/device/types";
 import { type Layout } from "@/layout";
 
@@ -87,7 +86,7 @@ const ConfigureInternal = ({
     onError: (e) =>
       addStatus({
         variant: "error",
-        message: `Failed to configure ${device.name}`, // TODO: change to device name
+        message: `Failed to configure ${device.name}`,
         description: e.message,
       }),
     mutationFn: async () => {
@@ -105,13 +104,12 @@ const ConfigureInternal = ({
       if (!methods.validate("identifier")) return;
       const model = MODEL_KEYS.find((m) => m === device.model);
       if (model == null) throw new Error(`Unknown Model: ${device.model}`);
-      const zeroProperties = getZeroProperties(device.model as ModelKey);
       await client.hardware.devices.create({
         ...device,
         configured: true,
         name: methods.get<string>("name").value,
         properties: {
-          ...deep.copy(zeroProperties),
+          ...deep.copy(ZERO_PROPERTIES),
           ...device.properties,
           enriched: true,
           identifier: methods.get<string>("identifier").value,

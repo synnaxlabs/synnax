@@ -29,7 +29,7 @@ const ZERO_LAYOUT_STATES: Record<
   ({ create }: { create: boolean }) => Layout.State
 > = {
   [LabJack.Task.READ_TYPE]: LabJack.Task.configureReadLayout,
-  // TODO: Add write layout
+  [LabJack.Task.WRITE_TYPE]: LabJack.Task.configureWriteLayout,
   [OPC.Task.READ_TYPE]: OPC.Task.configureReadLayout,
   [OPC.Task.WRITE_TYPE]: OPC.Task.configureWriteLayout,
   [NI.Task.ANALOG_READ_TYPE]: NI.Task.configureAnalogReadLayout,

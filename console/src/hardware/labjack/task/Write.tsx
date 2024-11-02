@@ -27,6 +27,7 @@ import { ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { useDevice } from "@/hardware/device/useDevice";
 import { SelectOutputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
 import {
   ChannelType,
@@ -47,7 +48,6 @@ import {
   ZERO_WRITE_CHAN,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import { useDevice } from "@/hardware/ni/task/common";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
