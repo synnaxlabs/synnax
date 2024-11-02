@@ -19,9 +19,12 @@ import {
   Synnax,
   Text,
   Triggers,
+  useSyncedRef,
 } from "@synnaxlabs/pluto";
+import { unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import * as monaco from "monaco-editor";
+import { type ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { Code } from "@/code";
@@ -142,7 +145,7 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
 
           <Form.Field<string> path="expression" grow>
             {({ value, onChange }) => (
-              <Code.Editor
+              <Editor
                 value={value}
                 lang="python"
                 onChange={onChange}
@@ -183,4 +186,56 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
       </Layout.BottomNavBar>
     </Align.Space>
   );
+};
+
+const Editor = (props: Code.EditorProps): ReactElement => {
+  const client = Synnax.use();
+  const requires = Form.useField<channel.Key[]>({ path: "requires" });
+  const valueRef = useSyncedRef(requires.value);
+
+  useEffect(() => {
+    const disposables: monaco.IDisposable[] = [];
+    disposables.push(
+      monaco.editor.registerCommand("onSuggestionAccepted", (_, channelKey) =>
+        requires.onChange(unique([...valueRef.current, channelKey])),
+      ),
+    );
+
+    disposables.push(
+      monaco.languages.registerCompletionItemProvider("python", {
+        triggerCharacters: ["."],
+        provideCompletionItems: async (
+          model: monaco.editor.ITextModel,
+          position: monaco.Position,
+        ): Promise<monaco.languages.CompletionList> => {
+          if (client == null) return { suggestions: [] };
+          const word = model.getWordUntilPosition(position);
+          const range: monaco.IRange = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+          const channels = await client?.channels.search(word.word, {
+            internal: false,
+          });
+          return {
+            suggestions: channels.map((channel) => ({
+              label: channel.name,
+              kind: monaco.languages.CompletionItemKind.Variable,
+              insertText: channel.name,
+              range,
+              command: {
+                id: "onSuggestionAccepted",
+                title: "Suggestion Accepted",
+                arguments: [channel.key],
+              },
+            })),
+          };
+        },
+      }),
+    );
+    return () => disposables.forEach((d) => d.dispose());
+  }, []);
+  return <Code.Editor {...props} />;
 };

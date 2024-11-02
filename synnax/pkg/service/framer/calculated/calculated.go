@@ -66,6 +66,7 @@ type entry struct {
 	inlet confluence.Inlet[framer.StreamerRequest]
 }
 
+// Service manages collections of go-routines used to perform calculations on channels.
 type Service struct {
 	cfg      Config
 	sCtx     signal.Context
@@ -74,6 +75,9 @@ type Service struct {
 	entries  map[channel.Key]*entry
 }
 
+// Open opens a new calculated channel service using the provided configuration. See
+// Config for more information on the configuration options. If the service is opened
+// successfully, it must be closed using the Close method after it is no longer needed.
 func Open(cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -87,7 +91,7 @@ func Open(cfgs ...Config) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) closerFunc(key channel.Key) io.Closer {
+func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
 	return xio.CloserFunc(func() (err error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -99,12 +103,15 @@ func (s *Service) closerFunc(key channel.Key) io.Closer {
 		if e.count != 0 {
 			return
 		}
+		s.cfg.L.Debug("closing calculated channel", zap.Stringer("key", key))
 		e.inlet.Close()
 		delete(s.entries, key)
 		return
 	})
 }
 
+// Close stops the calculated channel service, halting all calculation go-routines and
+// releasing any resources used by the service.
 func (s *Service) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -114,38 +121,44 @@ func (s *Service) Close() error {
 	return s.shutdown.Close()
 }
 
+const defaultPipelineBufferSize = 50
+
 func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var ch channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 	if !ch.IsCalculated() {
-		return nil, errors.Newf("Channel %v is not calculated", ch)
+		return nil, errors.Newf("channel %v is not calculated", ch)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// Check if the channel is already being calculated.
 	if _, exists := s.entries[key]; exists {
 		s.entries[key].count++
-		return s.closerFunc(key), nil
+		return s.releaseEntryCloser(key), nil
 	}
 	var requires []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().WhereKeys(ch.Requires...).Entries(&requires).Exec(ctx, nil); err != nil {
+	if err := s.cfg.Channel.NewRetrieve().
+		WhereKeys(ch.Requires...).
+		Entries(&requires).
+		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	wrt, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+	writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:  channel.Keys{ch.Key()},
 		Start: telem.Now(),
 	})
 	if err != nil {
 		return nil, err
 	}
-	str, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: ch.Requires})
+	streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: ch.Requires})
 	if err != nil {
 		return nil, err
 	}
 	p := plumber.New()
-	plumber.SetSegment(p, "streamer", str)
-	plumber.SetSegment(p, "writer", wrt)
+	plumber.SetSegment(p, "streamer", streamer_)
+	plumber.SetSegment(p, "writer", writer_)
 	calculation, err := s.cfg.Computron.NewCalculation(ch.Expression)
 	if err != nil {
 		return nil, err
@@ -156,25 +169,35 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 		requires: lo.SliceToMap(requires, func(item channel.Channel) (channel.Key, channel.Channel) {
 			return item.Key(), item
 		}),
-		globals: make(map[string]interface{}, len(requires)),
+		locals: make(map[string]interface{}, len(requires)),
 	}
 	sc := &streamCalculator{internal: c}
 	sc.Transform = sc.transform
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](p, "calculator", sc)
+
+	// Wire up an observer that logs any errors that occurred with writing the calculated
+	// samples. Since we're writing to a free virtual channel, these errors should never
+	// occur.
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
-		s.cfg.L.Error("Calculated", zap.Error(i.Error))
+		s.cfg.L.DPanic(
+			"write of calculated channel value failed",
+			zap.Error(i.Error),
+			zap.Stringer("channel", ch),
+		)
 	})
 	plumber.SetSink[framer.WriterResponse](p, "obs", o)
+
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](p, "calculator", sc)
-	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "calculator", 10)
-	plumber.MustConnect[framer.WriterRequest](p, "calculator", "writer", 10)
-	plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", 10)
+	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "calculator", defaultPipelineBufferSize)
+	plumber.MustConnect[framer.WriterRequest](p, "calculator", "writer", defaultPipelineBufferSize)
+	plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)
 	streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
-	str.InFrom(streamerRequests)
+	streamer_.InFrom(streamerRequests)
 	s.entries[ch.Key()] = &entry{count: 1, inlet: streamerRequests}
 	p.Flow(s.sCtx, confluence.CloseOutputInletsOnExit())
-	return s.closerFunc(key), nil
+	s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))
+	return s.releaseEntryCloser(key), nil
 }
 
 type streamCalculator struct {
@@ -191,7 +214,7 @@ type calculator struct {
 	ch          channel.Channel
 	calculation *computron.Calculation
 	requires    map[channel.Key]channel.Channel
-	globals     map[string]interface{}
+	locals      map[string]interface{}
 }
 
 func (c calculator) calculate(fr framer.Frame) (of framer.Frame) {
@@ -210,9 +233,9 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame) {
 		if !found {
 			continue
 		}
-		c.globals[ch.Name] = obj
+		c.locals[ch.Name] = obj
 	}
-	os, err := c.calculation.Run(c.globals)
+	os, err := c.calculation.Run(c.locals)
 	if err != nil {
 		return
 	}

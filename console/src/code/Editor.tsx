@@ -1,8 +1,9 @@
 import "@/code/Editor.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Input, Theming } from "@synnaxlabs/pluto";
+import { Align, Input, Theming } from "@synnaxlabs/pluto";
 import * as monaco from "monaco-editor";
+import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -42,6 +43,8 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
 
   useEffect(() => {
     if (editorRef.current === null) return;
+    (self as any).MonacoEnvironment = { getWorker: () => new EditorWorker() };
+
     monaco.editor.defineTheme("vs-dark-custom", {
       base: "vs-dark",
       inherit: true,
@@ -58,6 +61,12 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
         "editor.lineHighlightBackground": theme.colors.gray.l2.hex,
         "editorCursor.foreground": theme.colors.primary.z.hex,
         "editorWhitespace.foreground": theme.colors.gray.l2.hex,
+        "editorSuggestWidget.background": theme.colors.gray.l2.hex,
+        "editorSuggestWidget.foreground": theme.colors.gray.l9.hex,
+        "editorSuggestWidget.selectedBackground": theme.colors.gray.l3.hex,
+        "editorSuggestWidget.selectedForeground": theme.colors.gray.l9.hex,
+        "editorSuggestWidget.highlightForeground": theme.colors.primary.z.hex,
+        "editorSuggestWidget.border": theme.colors.gray.l4.hex,
       },
     });
     monacoRef.current = monaco.editor.create(editorRef.current, {
@@ -67,11 +76,13 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
       automaticLayout: true,
       minimap: { enabled: false },
     });
-    monacoRef.current.onDidChangeModelContent(() => {
+    const dispose = monacoRef.current.onDidChangeModelContent(() => {
       if (monacoRef.current === null) return;
       onChange(monacoRef.current.getValue());
     });
+
     return () => {
+      dispose.dispose();
       if (monacoRef.current) monacoRef.current.dispose();
     };
   }, [theme.key]);
@@ -88,4 +99,4 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
   );
 };
 
-export const EditorLayout: Layout.Renderer = ({ layout }) => {};
+export const EditorLayout = () => {};

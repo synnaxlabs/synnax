@@ -172,6 +172,10 @@ export class Channel {
     });
   }
 
+  get isCalculated(): boolean {
+    return isCalculated(this.payload);
+  }
+
   /***
    * @returns the ontology ID of the channel
    */
@@ -432,3 +436,6 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return new group.Group(res.group.name, res.group.key);
   }
 }
+
+export const isCalculated = ({ virtual, expression }: Payload): boolean =>
+  virtual && expression !== "";

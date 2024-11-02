@@ -72,11 +72,7 @@ export const Dialog = ({
       align="center"
     >
       <Align.Space
-        className={CSS(
-          CSS.BE("modal", "dialog"),
-
-          centered && CSS.M("centered"),
-        )}
+        className={CSS(CSS.BE("modal", "dialog"), centered && CSS.M("centered"))}
         role="dialog"
         empty
         ref={dialogRef}

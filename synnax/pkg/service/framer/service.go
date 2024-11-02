@@ -20,8 +20,11 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -73,28 +76,21 @@ func (s *Service) NewDeleter() framer.Deleter {
 }
 
 func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (framer.Streamer, error) {
-	var channels []channel.Channel
-	if err := s.Config.Channel.NewRetrieve().WhereKeys(cfg.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	for _, ch := range channels {
-		if ch.IsCalculated() {
-			if _, err := s.Calculated.Request(ctx, ch.Key()); err != nil {
-				return nil, err
-			}
-		}
-	}
-	p := plumber.New()
 	ut := &updaterTransform{
-		c:        s.Calculated,
-		channels: s.Config.Channel,
+		Instrumentation: s.Instrumentation,
+		c:               s.Calculated,
+		readable:        s.Channel,
 	}
 	ut.Transform = ut.transform
-	strm, err := s.Framer.NewStreamer(ctx, cfg)
+	if err := ut.update(ctx, cfg.Keys); err != nil {
+		return nil, err
+	}
+	p := plumber.New()
+	streamer, err := s.Framer.NewStreamer(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	plumber.SetSegment(p, "streamer", strm)
+	plumber.SetSegment(p, "streamer", streamer)
 	plumber.SetSegment[framer.StreamerRequest, framer.StreamerRequest](p, "updater", ut)
 	plumber.MustConnect[framer.StreamerRequest](p, "updater", "streamer", 10)
 	seg := &plumber.Segment[framer.StreamerRequest, framer.StreamerResponse]{
@@ -105,25 +101,53 @@ func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (f
 	return seg, nil
 }
 
+func (s *Service) Close() error {
+	return s.Calculated.Close()
+}
+
 type updaterTransform struct {
+	alamos.Instrumentation
 	c        *calculated.Service
-	channels channel.Readable
+	readable channel.Readable
+	closer   xio.MultiCloser
 	confluence.LinearTransform[framer.StreamerRequest, framer.StreamerRequest]
 }
 
-func (t *updaterTransform) transform(ctx context.Context, req framer.StreamerRequest) (framer.StreamerRequest, bool, error) {
+var _ confluence.Segment[framer.StreamerRequest, framer.StreamerRequest] = &updaterTransform{}
+
+func (t *updaterTransform) update(ctx context.Context, keys []channel.Key) error {
+	if err := t.closer.Close(); err != nil {
+		return err
+	}
 	var channels []channel.Channel
-	if err := t.channels.NewRetrieve().WhereKeys(req.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
-		return req, true, err
+	if err := t.readable.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, nil); err != nil {
+		return err
 	}
 	for _, ch := range channels {
 		if ch.IsCalculated() {
-			if _, err := t.c.Request(ctx, ch.Key()); err != nil {
-				return req, true, nil
+			closer, err := t.c.Request(ctx, ch.Key())
+			if err != nil {
+				return err
 			}
+			t.closer = append(t.closer, closer)
 		}
 	}
+	return nil
+}
+
+func (t *updaterTransform) transform(ctx context.Context, req framer.StreamerRequest) (framer.StreamerRequest, bool, error) {
+	if err := t.update(ctx, req.Keys); err != nil {
+		t.L.Error("failed to update calculated channels", zap.Error(err))
+	}
 	return req, true, nil
+}
+
+func (t *updaterTransform) Flow(ctx signal.Context, opts ...confluence.Option) {
+	t.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
+		if err := t.closer.Close(); err != nil {
+			t.L.Error("failed to close calculated channels", zap.Error(err))
+		}
+	}))...)
 }
 
 func OpenService(cfgs ...Config) (*Service, error) {
