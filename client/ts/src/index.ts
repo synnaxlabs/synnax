@@ -59,7 +59,5 @@ export {
   type TypedArray,
   type TZInfo,
 } from "@synnaxlabs/x/telem";
-import { control, math } from "@synnaxlabs/x";
+import { control } from "@synnaxlabs/x";
 export const Authority = control.Authority;
-/** @deprecated here for backwards compatibility. Use @synnaxlabs/x's math.Numeric instead. */
-export type NumericTelemValue = math.Numeric;
