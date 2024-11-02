@@ -12,6 +12,7 @@
 #include "LabJackM.h"
 #include "LJM_Utilities.h"
 #include "LJM_StreamUtilities.h"
+#include <iostream>
 
 int readNames()
 {
@@ -680,6 +681,7 @@ int tc() {
     ErrorCheck(err, "Setting AIN resolution index");
 
     // Only set up the negative channel config if using a T7
+    std::cout << "neg chan address: " << 41000 + tcData.posChannel << "\n";
     if (deviceType == LJM_dtT7) {
         err = LJM_eWriteAddress(handle, 41000 + tcData.posChannel,
                                 LJM_UINT16, tcData.negChannel);

@@ -335,38 +335,15 @@ using json = nlohmann::json;
 //}
 
 // TODO: test with a differential signal
-TEST(read_tests, labjack_t7_tc){
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-
-    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
-    ASSERT_FALSE(tErr) << tErr.message();
-
-    auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
-    ASSERT_FALSE(dErr) << dErr.message();
-
-    auto config = json{
-            {"sample_rate", 10000},
-            {"stream_rate", 30},
-            {"type", "T7"},
-            {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
-            {"connection_type", "USB"},
-            {"data_saving", true},
-            {"channels", json::array({
-                                             {
-                                                     {"port", "AIN0"},
-                                                     {"enabled", true},
-                                                     {"channel", data.key},
-                                                     {"range", 10.0},
-                                                     {"type", "TC"},
-                                                     {"thermocouple_type", "K"},
-                                                     {"cjc_slope", 1.0},
-                                                     {"cjc_offset", 0.0},
-                                                     {"units", "K"},
-                                                     {"pos_channel", 0},
-                                             }
-                                     })},
-    };
-
+//TEST(read_tests, labjack_t7_tc){
+//    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+//
+//    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
+//    ASSERT_FALSE(tErr) << tErr.message();
+//
+//    auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
+//    ASSERT_FALSE(dErr) << dErr.message();
+//
 //    auto config = json{
 //            {"sample_rate", 10000},
 //            {"stream_rate", 30},
@@ -380,10 +357,90 @@ TEST(read_tests, labjack_t7_tc){
 //                                                     {"enabled", true},
 //                                                     {"channel", data.key},
 //                                                     {"range", 10.0},
-//                                                     {"type", "AI"}
+//                                                     {"type", "TC"},
+//                                                     {"thermocouple_type", "K"},
+//                                                     {"cjc_slope", 1.0},
+//                                                     {"cjc_offset", 0.0},
+//                                                     {"cjc_source", "TEMPERATURE_DEVICE_K"},// TODO make sure you get output if one of these is missed
+//                                                     {"units", "C"},
+//                                                     {"pos_channel", 0},
 //                                             }
 //                                     })},
 //    };
+//
+////    auto config = json{
+////            {"sample_rate", 10000},
+////            {"stream_rate", 30},
+////            {"type", "T7"},
+////            {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
+////            {"connection_type", "USB"},
+////            {"data_saving", true},
+////            {"channels", json::array({
+////                                             {
+////                                                     {"port", "AIN0"},
+////                                                     {"enabled", true},
+////                                                     {"channel", data.key},
+////                                                     {"range", 10.0},
+////                                                     {"type", "AI"}
+////                                             }
+////                                     })},
+////    };
+//
+//    auto task = synnax::Task("my_task", "labjack_read", to_string(config));
+//    auto mockCtx = std::make_shared<task::MockContext>(client);
+//
+//    auto reader_task = labjack::ReaderTask::configure(mockCtx, task);
+//
+//    auto start_cmd = task::Command{task.key, "start", {}};
+//    auto stop_cmd = task::Command{task.key, "stop", {}};
+//
+//    reader_task->exec(start_cmd);
+//    std::this_thread::sleep_for(std::chrono::seconds(30000));
+//    reader_task->exec(stop_cmd);
+//}
+
+TEST(read_tests, labjack_t7_tc_and_ain){
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
+    ASSERT_FALSE(tErr) << tErr.message();
+
+    auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
+    ASSERT_FALSE(dErr) << dErr.message();
+
+    auto [data2, dErr2] = client->channels.create("tc", synnax::FLOAT32, time.key, false);
+    ASSERT_FALSE(dErr2) << dErr2.message();
+
+    auto config = json{
+            {"sample_rate", 10000},
+            {"stream_rate", 30},
+            {"type", "T7"},
+            {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
+            {"connection_type", "USB"},
+            {"data_saving", true},
+            {"channels", json::array({
+                                             {
+                                                     {"port", "AIN0"},
+                                                     {"enabled", true},
+                                                     {"channel", data2.key},
+                                                     {"range", 10.0},
+                                                     {"type", "TC"},
+                                                     {"thermocouple_type", "K"},
+                                                     {"cjc_slope", 1.0},
+                                                     {"cjc_offset", 0.0},
+                                                     {"cjc_source", "TEMPERATURE_DEVICE_K"},// TODO make sure you get output if one of these is missed
+                                                     {"units", "C"},
+                                                     {"pos_chan", 0}
+                                             },
+                                             {
+                                                     {"port", "AIN1"},
+                                                     {"enabled", true},
+                                                     {"channel", data.key},
+                                                     {"range", 10},
+                                                     {"type", "AI"}
+                                             }
+                                     })},
+    };
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);

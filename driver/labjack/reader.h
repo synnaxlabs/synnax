@@ -205,6 +205,8 @@ namespace labjack{
         ///@brief map of locations on device to synnax channel keys
         std::map<std::string, uint32_t> channel_map;
         std::vector<std::string> phys_channels;
+        std::vector<ReaderChannelConfig> tc_channels;
+        std::set<uint32_t> tc_index_keys;
         ///@brief whether to persist data to disk
         bool data_saving;
 
@@ -226,13 +228,21 @@ namespace labjack{
             LOG(INFO) << "Parser config: " << parser.get_json().dump(4); // TODO: remove
 
             parser.iter("channels", [this](config::Parser &channel_parser) {
-                channels.emplace_back(ReaderChannelConfig(channel_parser));
-                this->channel_map[channels.back().location] = channels.back().key;
-                LOG(INFO) << "channel: " << channels.back().location;
-                if(channels.back().enabled)
-                    this->phys_channels.push_back(channels.back().location);
 
+                auto channel = labjack::ReaderChannelConfig(channel_parser);
+
+                if( channel.enabled && channel.channel_type != "TC") {
+
+                    channels.emplace_back(channel);
+                    this->phys_channels.push_back(channel.location);
+
+                } else if( channel.enabled && channel.channel_type == "TC"){
+                    tc_channels.emplace_back(channel);
+                }
+
+                this->channel_map[channel.location] = channel.key;
             });
+            LOG(INFO) << "Size of tc_channels: " << tc_channels.size();
         }
     };
 
@@ -267,6 +277,10 @@ public:
 
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker);
 
+    std::pair<Frame, freighter::Error> read_stream(breaker::Breaker &breaker);
+
+    std::pair<Frame, freighter::Error> read_cmd_response(breaker::Breaker &breaker);
+
     void init();
 
     freighter::Error stop(const std::string &cmd_key);
@@ -274,6 +288,8 @@ public:
     freighter::Error start(const std::string &cmd_key);
 
     void init_stream();
+
+    void init_tcs();
 
     void acquire_data();
 
@@ -286,7 +302,7 @@ public:
 
     void stop();
 
-    int check_err(int err);
+    int check_err(int err, std::string caller);
 
     void configure_tc_ain_ef(TCConfig tc_config);
 
@@ -312,6 +328,7 @@ private:
     int buffer_size = 0;
     int num_samples_per_chan = 0;
     bool ok_state = true;
+    std::mutex mutex;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
