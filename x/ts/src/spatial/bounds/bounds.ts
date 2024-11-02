@@ -477,7 +477,7 @@ export const buildInsertionPlan = <T extends numeric.Value>(
  * @throws {Error} If invalid bounds are provided, such as bounds arrays not being of
  * length 2.
  *
- * @link {@link construct} for constructing valid bounds.
+ * See {@link construct} for constructing valid bounds.
  *
  */
 export const traverse = <T extends numeric.Value = number>(
