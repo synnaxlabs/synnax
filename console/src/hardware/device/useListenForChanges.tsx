@@ -8,22 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type change } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-
-import { createConfigureLayout } from "@/hardware/ni/device/Configure";
-import { Layout } from "@/layout";
-import {
-  type NotificationAdapter,
-  SugaredNotification,
-} from "@/notifications/Notifications";
 
 export const useListenForChanges = (): void => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
-
   useAsyncEffect(async () => {
     if (client == null) return;
     const tracker = await client.hardware.devices.openDeviceTracker();
@@ -40,48 +30,6 @@ export const useListenForChanges = (): void => {
         });
       });
     });
-    return () => {
-      void tracker.close();
-    };
+    return () => void tracker.close();
   }, [client, addStatus]);
-};
-
-const MAKE_ICONS: Record<string, ReactElement> = {
-  labjack: <Icon.Logo.LabJack />,
-  NI: <Icon.Logo.NI />,
-  opc: <Icon.Logo.OPC />,
-};
-
-export const notificationAdapter: NotificationAdapter = (status) => {
-  if (!status.key.startsWith("new-device-")) return null;
-  // grab the device key from the status key
-  const deviceKey = status.key.slice("new-device-".length);
-  const sugared: SugaredNotification = {
-    ...status,
-    actions: [<ConfigureButton deviceKey={deviceKey} key="configure" />],
-  };
-  const icon = MAKE_ICONS[status?.data?.make as string] ?? <Icon.Device />;
-  sugared.content = (
-    <Text.WithIcon level="p" startIcon={icon}>
-      {status.message}
-    </Text.WithIcon>
-  );
-  return sugared;
-};
-
-interface ConfigureButtonProps {
-  deviceKey: string;
-}
-
-const ConfigureButton = ({ deviceKey }: ConfigureButtonProps): ReactElement => {
-  const placer = Layout.usePlacer();
-  return (
-    <Button.Button
-      variant="outlined"
-      size="small"
-      onClick={() => placer(createConfigureLayout(deviceKey, {}))}
-    >
-      Configure
-    </Button.Button>
-  );
 };
