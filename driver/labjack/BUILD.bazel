@@ -24,6 +24,7 @@ cc_library(
         "util.h",
         "writer.h",
         "dll_check_windows.h",
+        "errors.h"
     ],
     srcs = [
         "scanner.cpp",

@@ -9,6 +9,7 @@
 
 #include "driver/labjack/reader.h"
 #include "driver/labjack/util.h"
+#include "driver/labjack/errors.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   ReaderSource                                //
@@ -33,20 +34,37 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
         keys.push_back(channel.key);
         // get index key
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key);
-        channel.data_type = channel_info.data_type;
         if(err != freighter::NIL) {
             LOG(ERROR) << "[labjack.reader] Error retrieving channel: " << err.message();
             continue;
         }
+        channel.data_type = channel_info.data_type;
         this->reader_config.index_keys.insert(channel_info.index);
     }
+
+    for (auto &channel : this->reader_config.tc_channels) {
+        keys.push_back(channel.key);
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key);
+        if(err != freighter::NIL) {
+            LOG(ERROR) << "[labjack.reader] Error retrieving channel: " << err.message();
+            continue;
+        }
+        channel.data_type = channel_info.data_type;
+        this->reader_config.index_keys.insert(channel_info.index);
+    }
+
     for (auto &index_key : this->reader_config.index_keys)
         keys.push_back(index_key);
     return keys;
 }
 
+
 void labjack::ReaderSource::init(){
-    if(this->reader_config.device_type != "") return this->init_stream();
+    if(this->reader_config.device_type != ""){
+        this->init_stream();
+        this->init_tcs();
+        return;
+    }
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
             this->reader_config.device_key
     );
@@ -66,10 +84,70 @@ void labjack::ReaderSource::init(){
         return;
     }
     this->init_stream();
+    this->init_tcs();
+}
+
+void labjack::ReaderSource::init_tcs(){
+    if(this->reader_config.tc_channels.empty()){
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(labjack::device_mutex);
+        if(check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle), "init_tcs.LJM_OPEN")){
+            LOG(ERROR) << "[labjack.reader] LJM_Open error";
+            return;
+        }
+    }
+
+    for(auto &channel : this->reader_config.channels){
+        if(channel.channel_type ==  "AI"){
+            this->check_err(
+                    LJM_eWriteName(
+                            this->handle,
+                            (channel.location + "_RESOLUTION_INDEX").c_str(),
+                            0
+                    ), "init_tcs.LJM_eWriteName.RESOLUTION_INDEX"
+            );
+            if(this->reader_config.device_type == "T7" || this->reader_config.device_type == "T8") {
+                this->check_err(
+                        LJM_eWriteName(
+                                this->handle,
+                                (channel.location + "_RANGE").c_str(),
+                                0
+                        ), "init_tcs.LJM_eWriteName.RANGE"
+                );
+            }
+            if(this->reader_config.device_type == "T7") {
+                this->check_err(
+                        LJM_eWriteName(
+                                this->handle,
+                                (channel.location + "_NEGATIVE_CH").c_str(),
+                                channel.neg_chan
+                        ), "init_tcs.LJM_eWriteName.NEGATIVE_CH"
+                );
+            }
+        }
+    }
+
+    int msDelay = 1000;
+    auto err = LJM_StartInterval(
+            this->handle, // TODO: need to keep unique to device will need to change once i want to define multiple intervals to read data at on a songel device
+            msDelay * 1000
+    );
+
+    for(auto &channel : this->reader_config.tc_channels){
+        if(this->reader_config.device_type == "T4"){
+            LOG(ERROR) << "[labjack.driver] thermocouple channels not currently supported for T4 devices";
+            continue;
+        }
+        this->configure_tc_ain_ef(channel.tc_config);
+    }
 }
 
 void labjack::ReaderSource::init_stream(){
-    LOG(INFO) << "[labjack.reader] initializing stream";
+    if(!this->reader_config.tc_channels.empty()){
+        return;
+    }
     double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
     int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
     double scanRate = INIT_SCAN_RATE;
@@ -79,7 +157,7 @@ void labjack::ReaderSource::init_stream(){
 
     {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
-        if(check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle))){
+        if(check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle), "init_stream.LJM_OPEN")){
             LOG(ERROR) << "[labjack.reader] LJM_Open error";
             return;
         }
@@ -90,26 +168,16 @@ void labjack::ReaderSource::init_stream(){
         if (channel.channel_type == "AI") {
             // Set resolution index to device's default setting (value = 0)
             std::string name = channel.location + "_RESOLUTION_INDEX";
-            check_err(WriteName(this->handle, name.c_str(), 0));
+            check_err(WriteName(this->handle, name.c_str(), 0), "init_stream.WriteName.RESOLUTION_INDEX");
 
             if(this->reader_config.device_type == "T7" || this->reader_config.device_type == "T8") {
                 auto name = channel.location + "_RANGE";
-                check_err(WriteName(this->handle, name.c_str(), 0));
+                check_err(WriteName(this->handle, name.c_str(), 0), "init_stream.WriteName.RANGE");
             }
             if(this->reader_config.device_type == "T7") {
                 auto name = channel.location + "_NEGATIVE_CH";
-                check_err(WriteName(this->handle, name.c_str(), channel.neg_chan));
+                check_err(WriteName(this->handle, name.c_str(), channel.neg_chan), "init_stream.WriteName.NEGATIVE_CH");
             }
-        } else if (channel.channel_type == "TC"){
-            if(this->reader_config.device_type == "T4"){
-                LOG(ERROR) << "[labjack.driver] thermocouple channels not currently supported for T4 devices";
-                continue;
-            }
-
-            size_t pos = channel.location.find('_');
-            std::string ain = channel.location.substr(0, pos);
-            // Set resolution index to device's default setting (value = 0)
-            this->configure_tc_ain_ef(channel.tc_config);
         }
     }
     // TODO: figure out if i need to set this
@@ -123,9 +191,9 @@ void labjack::ReaderSource::init_stream(){
     for (const auto& channel : this->reader_config.phys_channels) {
         phys_channel_names.push_back(channel.c_str());
     }
-    check_err(LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL));
+    check_err(LJM_NamesToAddresses(this->reader_config.phys_channels.size(), phys_channel_names.data(), this->port_addresses.data(), NULL), "init_stream.LJM_NamesToAddresses");
     LJM_eStreamStop(handle); // in case it was running
-    check_err(LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate));
+    check_err(LJM_eStreamStart(handle, SCANS_PER_READ, this->reader_config.phys_channels.size(), this->port_addresses.data(), &scanRate), "init_stream.LJM_eStreamStart");
 };
 
 freighter::Error labjack::ReaderSource::start(const std::string &cmd_key){
@@ -158,7 +226,7 @@ freighter::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
     this->breaker.stop();
 
     if(this->sample_thread.joinable()) this->sample_thread.join();
-    check_err(LJM_eStreamStop(handle));
+    check_err(LJM_eStreamStop(handle), "stop.LJM_eStreamStop");
 
     ctx->setState({
           .task = task.key,
@@ -173,11 +241,65 @@ freighter::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
     return freighter::NIL;
 }
 
+std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(breaker::Breaker &breaker){
+    /// Thermocouples
+    // TODO: change when we provide diff index channels for tcs
+    int err_addr;
+    std::vector<const char*> locations;
+    std::vector<double> values;
+    for(const auto& channel: this->reader_config.tc_channels)
+        if(channel.enabled) locations.push_back(channel.location.c_str());
+    for(const auto& channel: this->reader_config.channels)
+        if(channel.enabled) locations.push_back(channel.location.c_str());
 
-std::pair<Frame, freighter::Error> labjack::ReaderSource::read(breaker::Breaker &breaker) {
-    // sleep for a millisecond
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    values.resize(locations.size());
+    check_err(LJM_eReadNames(
+                      this->handle,
+                      locations.size(),
+                      locations.data(),
+                      values.data(),
+                      &err_addr),
+              "read.LJM_eReadNames"
+    );
 
+    // print out the values
+//    for(int i = 0; i < tc_locations.size(); i++){
+//        LOG(INFO) << "[labjack.reader] " << tc_locations[i] << ": " << values[i];
+//    }
+//
+
+    auto f = synnax::Frame(locations.size() + this->reader_config.index_keys.size());
+    int index = 0;
+    for(const auto &loc : locations){
+        for(const auto &channel : this->reader_config.tc_channels){ // TODO don't need this inner for loop
+            if(channel.location == loc){
+                auto key = this->reader_config.channel_map[channel.location];  // if we have this map, we don't need the inner for loop
+                auto s = synnax::Series(channel.data_type,1);
+                write_to_series(s, values[index], channel.data_type);
+                f.add(key, std::move(s));
+            }
+        }
+        for(const auto &channel : this->reader_config.channels){ // TODO don't need this inner for loop
+            if(channel.location == loc){
+                auto key = this->reader_config.channel_map[channel.location];  // if we have this map, we don't need the inner for loop
+                auto s = synnax::Series(channel.data_type,1);
+                write_to_series(s, values[index], channel.data_type);
+                f.add(key, std::move(s));
+            }
+        }
+        index++;
+    }
+
+    for(auto index_key : this->reader_config.index_keys){
+        auto t = synnax::Series(synnax::TIMESTAMP, 1);
+        t.write(synnax::TimeStamp::now().value);
+        f.add(index_key, std::move(t));
+    }
+
+    return std::make_pair(std::move(f), freighter::NIL);
+}
+
+std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::Breaker &breaker) {
     int SCANS_PER_READ = this->num_samples_per_chan;
     auto [d, err] = data_queue.dequeue();
 
@@ -210,6 +332,15 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read(breaker::Breaker 
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
+std::pair<Frame, freighter::Error> labjack::ReaderSource::read(breaker::Breaker &breaker) {
+    if(this->reader_config.tc_channels.empty()) {
+        return this->read_stream(breaker);
+    } else {
+        return this->read_cmd_response(breaker);
+    }
+}
+
+
 labjack::ReaderSource::~ReaderSource() {
     this->stop("");
 }
@@ -233,13 +364,15 @@ void labjack::ReaderSource::write_to_series(
 }
 
 void labjack::ReaderSource::acquire_data(){
+    if (!this->reader_config.tc_channels.empty()) {
+        return;
+    }
     int numSkippedScans = 0;
     int totalSkippedScans = 0;
     int deviceScanBacklog = 0;
     while(this->breaker.running() && this->ok()){
         DataPacket data_packet;
         data_packet.data.resize(this->buffer_size);
-
         data_packet.t0 = synnax::TimeStamp::now().value;
         if(check_err(
                 LJM_eStreamRead(
@@ -247,28 +380,36 @@ void labjack::ReaderSource::acquire_data(){
                     data_packet.data.data(),
                     &numSkippedScans,
                     &deviceScanBacklog
-                ))){
+                ), "acquire_data.LJM_eStreamRead")){
             LOG(ERROR) << "[labjack.reader] LJM_eStreamRead error";
             break;
         }
         data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
     }
-    check_err(LJM_eStreamStop(handle));
+    check_err(LJM_eStreamStop(handle), "acquire_data.LJM_eStreamStop");
     LOG(INFO) << "[labjack.reader] acquire_data loop stopped successfully";
 }
 
 void labjack::ReaderSource::configure_tc_ain_ef(TCConfig tc_config){
+    // set resolution index
+    this->check_err(
+            LJM_eWriteAddress(
+                    handle,
+                    41500+tc_config.pos_chan,
+                    LJM_UINT16,
+                    0
+            ), "configure_tc_ain_ef.LJM_eWriteAddress.resolutionIndex"
+        );
     if(this->reader_config.device_type == "T7") {
         // For setting up the AIN#_NEGATIVE_CH (negative channel)
-        LOG(INFO) << "Setting negative channel for " << tc_config.pos_chan << " to " << tc_config.neg_chan;
         this->check_err(
                 LJM_eWriteAddress(
                         handle,
                         41000+tc_config.pos_chan,
-                        LJM_UINT32,
+                        LJM_UINT16,
                         tc_config.neg_chan
-                )
+                ), "configure_tc_ain_ef.LJM_eWriteAddress.negChan"
         );
     }
     // writing 5 frames of data to modbus registers: tc type, cjc address, slope, offset and units
@@ -315,28 +456,34 @@ void labjack::ReaderSource::configure_tc_ain_ef(TCConfig tc_config){
                 aTypes,
                 aValues,
                 &err_addr
-            )
+            ), "configure_tc_ain_ef.LJM_eWriteAddresses"
         );
 
 
 }
 
-int labjack::ReaderSource::check_err(int err){
+int labjack::ReaderSource::check_err(int err, std::string caller) {
     if(err == 0) return 0;
 
     char err_msg[LJM_MAX_NAME_SIZE];
     LJM_ErrorToString(err, err_msg);
 
-    this->ctx->setState({
-        .task = this->task.key,
-        .variant = "error",
-        .details = {
-            {"running", false},
-            {"message", err_msg}
-        }
-    });
+    // Get additional description if available
+    std::string description = "";
+    if (auto it = ERROR_DESCRIPTIONS.find(err_msg); it != ERROR_DESCRIPTIONS.end()) {
+        description = ": " + it->second;
+    }
 
-    LOG(ERROR) << "[labjack.reader] " << err_msg;
+    this->ctx->setState({
+                                .task = this->task.key,
+                                .variant = "error",
+                                .details = {
+                                        {"running", false},
+                                        {"message", std::string(err_msg) + description}
+                                }
+                        });
+
+    LOG(ERROR) << "[labjack.reader] " << caller << " " << err_msg << ": " << description;
 
     this->ok_state = false;
     return -1;
