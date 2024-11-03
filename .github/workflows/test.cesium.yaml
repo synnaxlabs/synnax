@@ -10,6 +10,7 @@ on:
       - rc
       - main
       - leo-fix-windows-delete
+  workflow_dispatch:
 
 jobs:
   changes:
@@ -25,18 +26,16 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.ref }}
           filters: |
             changed:
               - .github/workflows/test.cesium.yaml
               - alamos/go/**
               - cesium/**
               - x/go/**
-
   test:
     name: Test (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.changed == true
+    if: needs.changes.outputs.changed == 'true'
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -53,7 +52,6 @@ jobs:
             alamos/go/go.sum
             cesium/go.sum
             x/go/go.sum
-
       - name: Test
         run: go test -v -shuffle=on ./...
         working-directory: cesium
