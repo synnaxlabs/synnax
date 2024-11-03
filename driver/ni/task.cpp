@@ -277,8 +277,8 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     LOG(INFO) << "[ni.writer] configuring task " << task.name;
     auto daq_writer = std::make_shared<ni::DigitalWriteSink>(task_handle, ctx, task);
 
-    std::vector<synnax::ChannelKey> cmd_keys = daq_writer->get_cmd_channel_keys(); // TODO: rename & move down
-    std::vector<synnax::ChannelKey> state_keys = daq_writer->get_state_channel_keys(); // TODO: rename & move down
+    std::vector<synnax::ChannelKey> cmd_keys = daq_writer->get_cmd_channel_keys();
+    std::vector<synnax::ChannelKey> state_keys = daq_writer->get_state_channel_keys();
 
     auto state_writer_config = synnax::WriterConfig{
         .channels = state_keys,

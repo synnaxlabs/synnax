@@ -336,7 +336,7 @@ struct WriterConfig {
     float state_rate = 0;
     std::string device_name;
     std::string device_key;
-    std::string task_name;                  // TODO: why do i need this
+    std::string task_name;
     synnax::ChannelKey task_key;
 
     std::vector<synnax::ChannelKey> state_channel_keys;
@@ -375,7 +375,7 @@ public:
 
     std::vector<synnax::ChannelKey> get_state_channel_keys();
 
-    void get_index_keys();          // TODO: probably rename this function if its void return
+    void get_index_keys();
 
     bool ok();
 
@@ -433,7 +433,7 @@ public:
 
     void create_devices();
 
-    void set_scan_thread(std::shared_ptr<std::thread> scan_thread); // TODO: rename
+    void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
 
     void log_err(std::string err_msg);
 
@@ -536,7 +536,7 @@ public:
                         synnax::Task task,
                         std::shared_ptr<pipeline::Sink> sink,
                         std::shared_ptr<ni::DigitalWriteSink> ni_sink,
-                        std::shared_ptr<pipeline::Source> writer_state_source, // TODO: change to just state_source
+                        std::shared_ptr<pipeline::Source> writer_state_source,
                         synnax::WriterConfig writer_config,
                         synnax::StreamerConfig streamer_config,
                         const breaker::Config breaker_config);
@@ -563,8 +563,8 @@ private:
     std::atomic<bool> running = false;
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
-    pipeline::Control cmd_write_pipe;           // TODO: change to cmd_pipe
-    pipeline::Acquisition state_write_pipe;     // TODO: change to state_pipe
+    pipeline::Control cmd_write_pipe;
+    pipeline::Acquisition state_write_pipe;
     bool ok_state = true;
     std::shared_ptr<ni::DigitalWriteSink> sink;
 }; // class WriterTask
