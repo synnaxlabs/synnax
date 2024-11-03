@@ -201,7 +201,7 @@ freighter::Error labjack::WriteSink::start(const std::string &cmd_key){
     return freighter::NIL;
 }
 
-std::vector<synnax::ChannelKey> labjack::WriteSink::get_cmd_channel_keys(){ // TODO: rename to get_cmd_keys
+std::vector<synnax::ChannelKey> labjack::WriteSink::get_cmd_channel_keys(){
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->writer_config.channels){
         if(channel.enabled) keys.push_back(channel.cmd_key);
@@ -210,7 +210,7 @@ std::vector<synnax::ChannelKey> labjack::WriteSink::get_cmd_channel_keys(){ // T
     return keys;
 }
 
-std::vector<synnax::ChannelKey> labjack::WriteSink::get_state_channel_keys(){ // TODO: rename to get_state_keys
+std::vector<synnax::ChannelKey> labjack::WriteSink::get_state_channel_keys(){
     std::vector<synnax::ChannelKey> keys;
     for(auto &channel: this->writer_config.channels){
         if(channel.enabled) keys.push_back(channel.state_key);

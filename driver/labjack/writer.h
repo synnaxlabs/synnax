@@ -64,7 +64,7 @@ private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
     synnax::Rate state_rate = synnax::Rate(1);
-    std::map<synnax::ChannelKey, labjack::out_state> state_map; // alll values are
+    std::map<synnax::ChannelKey, labjack::out_state> state_map;
     synnax::ChannelKey state_index_key;
     loop::Timer timer;
 };  // class StateSource
@@ -76,7 +76,7 @@ struct WriterChannelConfig{
     std::string location;
     bool enabled = true;
     synnax::DataType data_type;
-    uint32_t cmd_key;  // TODO: change channel type to synanx::channelKEY or whatever it is
+    uint32_t cmd_key;
     uint32_t state_key;
     std::string channel_type = "";
 
@@ -87,7 +87,7 @@ struct WriterChannelConfig{
           data_type(parser.optional<std::string>("data_type", "uint8")),
           cmd_key(parser.required<uint32_t>("cmd_key")),
           state_key(parser.required<uint32_t>("state_key")),
-          channel_type(parser.optional<std::string>("channel_type", "")), // TODO: change this
+          channel_type(parser.optional<std::string>("channel_type", "")),
           location(parser.optional<std::string>("port", "")){
         if(!parser.ok())
             LOG(ERROR) << "Failed to parse writer channel config: " << parser.error_json().dump(4);

@@ -81,8 +81,6 @@ void labjack::ScannerTask::scan() {
             device_keys.insert(device["key"].get<int>());
         }
     }
-
-//    LOG(INFO) << "devices json: "  << devices.dump(4); // TODO: remove once labjack dev is done
 }
 
 void labjack::ScannerTask::create_devices() {

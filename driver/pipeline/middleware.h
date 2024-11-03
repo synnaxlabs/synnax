@@ -89,6 +89,8 @@ namespace pipeline {
                 auto it = this->last_raw_value.find(key);
                 if(it != last_raw_value.end()){
                     tare_values[key] = it->second;
+                } else {
+                    LOG(ERROR) << "[driver] Channel " << key << "is not a configured channel to tare.";
                 }
             }
         }

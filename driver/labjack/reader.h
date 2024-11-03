@@ -225,8 +225,6 @@ namespace labjack{
             if(!parser.ok())
                 LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
-            LOG(INFO) << "Parser config: " << parser.get_json().dump(4); // TODO: remove
-
             parser.iter("channels", [this](config::Parser &channel_parser) {
 
                 auto channel = labjack::ReaderChannelConfig(channel_parser);
@@ -242,7 +240,6 @@ namespace labjack{
 
                 this->channel_map[channel.location] = channel.key;
             });
-            LOG(INFO) << "Size of tc_channels: " << tc_channels.size();
         }
     };
 
@@ -258,7 +255,7 @@ public:
         ) : ctx(ctx),
             task(task),
             reader_config(reader_config) {
-        // TODO: default construct breaker?
+
         auto breaker_config = breaker::Config{
                 .name = task.name,
                 .base_interval = 1 * SECOND,
@@ -277,38 +274,38 @@ public:
 
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker);
 
-    std::pair<Frame, freighter::Error> read_stream(breaker::Breaker &breaker);
-
-    std::pair<Frame, freighter::Error> read_cmd_response(breaker::Breaker &breaker);
-
-    void init();
-
     freighter::Error stop(const std::string &cmd_key);
 
     freighter::Error start(const std::string &cmd_key);
+
+    void stop();
+
+    bool ok();
+
+private:
+
+    void init();
 
     void init_stream();
 
     void init_tcs();
 
-    void acquire_data();
+    void configure_tc_ain_ef(TCConfig tc_config);
 
+    int check_err(int err, std::string caller);
 
     void write_to_series(
             synnax::Series &series,
             double &data,
             synnax::DataType data_type
-        );
+    );
 
-    void stop();
+    void acquire_data();
 
-    int check_err(int err, std::string caller);
+    std::pair<Frame, freighter::Error> read_stream(breaker::Breaker &breaker);
 
-    void configure_tc_ain_ef(TCConfig tc_config);
+    std::pair<Frame, freighter::Error> read_cmd_response(breaker::Breaker &breaker);
 
-    bool ok();
-
-private:
     int handle;
     ReaderConfig reader_config;
     std::shared_ptr<task::Context> ctx;
