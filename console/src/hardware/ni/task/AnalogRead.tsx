@@ -511,19 +511,19 @@ const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <Align.Space direction="y" align="center">
-        <EnableDisableButton
-          value={childValues.enabled}
-          onChange={(v) => ctx.set(`${path}.enabled`, v)}
-          snapshot={snapshot}
-        />
+      <Align.Pack direction="x" align="center" size="small">
         {showTareButton && (
           <TareButton
             disabled={tareIsDisabled}
             onClick={() => onTare(childValues.channel as number)}
           />
         )}
-      </Align.Space>
+        <EnableDisableButton
+          value={childValues.enabled}
+          onChange={(v) => ctx.set(`${path}.enabled`, v)}
+          snapshot={snapshot}
+        />
+      </Align.Pack>
     </List.ItemFrame>
   );
 };

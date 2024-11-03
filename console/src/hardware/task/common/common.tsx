@@ -312,26 +312,27 @@ export const EnableDisableButton = ({
   disabled,
   snapshot = false,
 }: EnableDisableButtonProps) => (
-  <Button.Toggle
+  <Button.ToggleIcon
     checkedVariant={snapshot ? "preview" : "outlined"}
     uncheckedVariant={snapshot ? "preview" : "outlined"}
     className={CSS.B("enable-disable-button")}
     disabled={disabled}
     value={value}
-    size="medium"
+    size="small"
     onClick={(e) => e.stopPropagation()}
-    onChange={onChange}
+    onChange={(v) => {
+      console.log(v);
+      onChange(v);
+    }}
     tooltip={
       <Text.Text level="small" style={{ maxWidth: 300 }}>
-        Data acquisition for this channel is {value ? "enabled" : "disabled"}. Click to
+        Data acquisition for this channel is {value ? "enabled" : "info"}. Click to
         {value ? " disable" : " enable"} it.
       </Text.Text>
     }
   >
-    <Status.Text variant={value ? "success" : "disabled"} level="small" align="center">
-      {value ? "Enabled" : "Disabled"}
-    </Status.Text>
-  </Button.Toggle>
+    <Status.Circle variant={value ? "success" : "disabled"} />
+  </Button.ToggleIcon>
 );
 
 export interface TareButtonProps {
@@ -342,7 +343,12 @@ export interface TareButtonProps {
 export const TareButton = ({ onClick, disabled }: TareButtonProps) => {
   const variant = disabled ? "outlined" : undefined;
   return (
-    <Button.Button variant={variant} disabled={disabled} onClick={onClick} size="small">
+    <Button.Button
+      variant={variant}
+      disabled={disabled}
+      onClick={onClick}
+      tooltip="Click to tare"
+    >
       Tare
     </Button.Button>
   );
