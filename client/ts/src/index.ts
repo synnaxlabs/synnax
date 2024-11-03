@@ -49,7 +49,6 @@ export {
   DataType,
   Density,
   MultiSeries,
-  type NumericTelemValue,
   Rate,
   Series,
   type TelemValue,

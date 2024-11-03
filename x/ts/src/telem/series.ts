@@ -13,6 +13,7 @@ import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
 import { compare } from "@/compare";
 import { id } from "@/id";
+import { math } from "@/math";
 import { bounds } from "@/spatial";
 import {
   type GLBufferController,
@@ -25,7 +26,6 @@ import {
   type CrudeTimeStamp,
   DataType,
   isTelemValue,
-  type NumericTelemValue,
   type Rate,
   Size,
   type TelemValue,
@@ -48,7 +48,7 @@ export interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
 export interface SeriesDigest {
   key: string;
   dataType: string;
-  sampleOffset: NumericTelemValue;
+  sampleOffset: math.Numeric;
   alignment: bounds.Bounds<bigint>;
   timeRange?: string;
   length: number;
@@ -58,7 +58,7 @@ export interface SeriesDigest {
 interface BaseSeriesProps {
   dataType?: CrudeDataType;
   timeRange?: TimeRange;
-  sampleOffset?: NumericTelemValue;
+  sampleOffset?: math.Numeric;
   glBufferUsage?: GLBufferUsage;
   alignment?: bigint;
   key?: string;
@@ -137,7 +137,7 @@ export class Series<T extends TelemValue = TelemValue> {
    * downwards. Typically used to convert arrays to lower precision while preserving
    * the relative range of actual values.
    */
-  sampleOffset: NumericTelemValue;
+  sampleOffset: math.Numeric;
   /**
    * Stores information about the buffer state of this array into a WebGL buffer.
    */
@@ -147,9 +147,9 @@ export class Series<T extends TelemValue = TelemValue> {
   readonly _timeRange?: TimeRange;
   readonly alignment: bigint = 0n;
   /** A cached minimum value. */
-  private _cachedMin?: NumericTelemValue;
+  private _cachedMin?: math.Numeric;
   /** A cached maximum value. */
-  private _cachedMax?: NumericTelemValue;
+  private _cachedMax?: math.Numeric;
   /** The write position of the buffer. */
   private writePos: number = FULL_BUFFER;
   /** Tracks the number of entities currently using this array. */
@@ -472,7 +472,7 @@ export class Series<T extends TelemValue = TelemValue> {
    * WARNING: This method is expensive and copies the entire underlying array. There
    * also may be untimely precision issues when converting between data types.
    */
-  convert(target: DataType, sampleOffset: NumericTelemValue = 0): Series {
+  convert(target: DataType, sampleOffset: math.Numeric = 0): Series {
     if (this.dataType.equals(target)) return this;
     const data = new target.Array(this.length);
     for (let i = 0; i < this.length; i++) {
@@ -488,7 +488,7 @@ export class Series<T extends TelemValue = TelemValue> {
     });
   }
 
-  private calcRawMax(): NumericTelemValue {
+  private calcRawMax(): math.Numeric {
     if (this.length === 0) return -Infinity;
     if (this.dataType.equals(DataType.TIMESTAMP)) {
       this._cachedMax = this.data[this.data.length - 1];
@@ -503,7 +503,7 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   /** @returns the maximum value in the array */
-  get max(): NumericTelemValue {
+  get max(): math.Numeric {
     if (this.dataType.isVariable)
       throw new Error("cannot calculate maximum on a variable length data type");
     if (this.writePos === 0) return -Infinity;
@@ -511,7 +511,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return addSamples(this._cachedMax, this.sampleOffset);
   }
 
-  private calcRawMin(): NumericTelemValue {
+  private calcRawMin(): math.Numeric {
     if (this.length === 0) return Infinity;
     if (this.dataType.equals(DataType.TIMESTAMP)) {
       this._cachedMin = this.data[0];
@@ -526,7 +526,7 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   /** @returns the minimum value in the array */
-  get min(): NumericTelemValue {
+  get min(): math.Numeric {
     if (this.dataType.isVariable)
       throw new Error("cannot calculate minimum on a variable length data type");
     if (this.writePos === 0) return Infinity;
@@ -556,7 +556,7 @@ export class Series<T extends TelemValue = TelemValue> {
     _ = this.min;
   }
 
-  get range(): NumericTelemValue {
+  get range(): math.Numeric {
     return addSamples(this.max, -this.min);
   }
 
@@ -625,13 +625,13 @@ export class Series<T extends TelemValue = TelemValue> {
    * The underlying array must be sorted. If it is not, the behavior of this method is undefined.
    * @param value the value to search for.
    */
-  binarySearch(value: NumericTelemValue): number {
+  binarySearch(value: math.Numeric): number {
     let left = 0;
     let right = this.length - 1;
     const cf = compare.newF(value);
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
-      const cmp = cf(this.at(mid, true) as NumericTelemValue, value);
+      const cmp = cf(this.at(mid, true) as math.Numeric, value);
       if (cmp === 0) return mid;
       if (cmp < 0) left = mid + 1;
       else right = mid - 1;
@@ -891,7 +891,7 @@ class JSONSeriesIterator implements Iterator<unknown> {
   [Symbol.toStringTag] = "JSONSeriesIterator";
 }
 
-class FixedSeriesIterator implements Iterator<NumericTelemValue> {
+class FixedSeriesIterator implements Iterator<math.Numeric> {
   series: Series;
   index: number;
   constructor(series: Series) {
@@ -899,25 +899,22 @@ class FixedSeriesIterator implements Iterator<NumericTelemValue> {
     this.index = 0;
   }
 
-  next(): IteratorResult<NumericTelemValue> {
+  next(): IteratorResult<math.Numeric> {
     if (this.index >= this.series.length) return { done: true, value: undefined };
     return {
       done: false,
-      value: this.series.at(this.index++, true) as NumericTelemValue,
+      value: this.series.at(this.index++, true) as math.Numeric,
     };
   }
 
-  [Symbol.iterator](): Iterator<NumericTelemValue> {
+  [Symbol.iterator](): Iterator<math.Numeric> {
     return this;
   }
 
   [Symbol.toStringTag] = "SeriesIterator";
 }
 
-export const addSamples = (
-  a: NumericTelemValue,
-  b: NumericTelemValue,
-): NumericTelemValue => {
+export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   if (typeof a === "number" && typeof b === "number") return a + b;
   if (b === 0) return a;
