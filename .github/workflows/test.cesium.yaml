@@ -38,7 +38,7 @@ jobs:
     if: needs.changes.outputs.changed == 'true'
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
