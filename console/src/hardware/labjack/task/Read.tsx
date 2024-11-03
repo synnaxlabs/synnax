@@ -372,6 +372,10 @@ const ChannelList = ({
             value={value}
             remove={remove}
             onSelect={onSelect}
+            allowTare={
+              value.some((v) => v.type === "AI") && state?.details?.running === true
+            }
+            onTare={onTare}
             onDuplicate={(indices) => {
               const newChannels = indices.map((i) => ({
                 ...value[i],

@@ -36,6 +36,7 @@ import {
   FaApple,
   FaBezierCurve,
   FaBookOpen,
+  FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
   FaStream,
@@ -400,6 +401,7 @@ export const Icon: IconType = {
   Commit: wrapIcon(MdCommit, "commit"),
   Snooze: wrapIcon(IoNotificationsOff, "snooze"),
   Log: wrapIcon(FaStream, "log"),
+  Tare: wrapIcon(FaCreativeCommonsZero, "tare"),
 };
 
 export interface IconType {
@@ -547,4 +549,5 @@ export interface IconType {
   AutoFitWidth: IconFC;
   Commit: IconFC;
   Log: IconFC;
+  Tare: IconFC;
 }

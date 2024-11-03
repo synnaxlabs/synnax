@@ -86,6 +86,8 @@ interface ChannelListContextMenuProps<T> {
   path: string;
   onDuplicate?: (indices: number[]) => void;
   snapshot?: boolean;
+  allowTare?: boolean;
+  onTare?: (indices: number[]) => void;
 }
 
 export const ChannelListContextMenu = <
@@ -99,6 +101,8 @@ export const ChannelListContextMenu = <
   onDuplicate,
   path,
   snapshot,
+  allowTare,
+  onTare,
 }: ChannelListContextMenuProps<T>) => {
   const methods = Form.useContext();
   const indices = keys.map((k) => value.findIndex((v) => v.key === k));
@@ -117,6 +121,7 @@ export const ChannelListContextMenu = <
       if (!indices.includes(i)) return;
       methods.set(`${path}.${i}.enabled`, true);
     });
+  const handleTare = () => onTare?.(indices);
   const allowDisable = indices.some((i) => value[i].enabled);
   const allowEnable = indices.some((i) => !value[i].enabled);
   return (
@@ -126,6 +131,7 @@ export const ChannelListContextMenu = <
         duplicate: handleDuplicate,
         disable: handleDisable,
         enable: handleEnable,
+        tare: handleTare,
       }}
       level="small"
     >
@@ -151,6 +157,14 @@ export const ChannelListContextMenu = <
             </Menu.Item>
           )}
           {(allowEnable || allowDisable) && <Menu.Divider />}
+          {allowTare && (
+            <>
+              <Menu.Item itemKey="tare" startIcon={<Icon.Tare />}>
+                Tare
+              </Menu.Item>
+              <Menu.Divider />
+            </>
+          )}
         </>
       )}
       <CMenu.HardReloadItem />
@@ -343,14 +357,14 @@ export interface TareButtonProps {
 export const TareButton = ({ onClick, disabled }: TareButtonProps) => {
   const variant = disabled ? "outlined" : undefined;
   return (
-    <Button.Button
+    <Button.Icon
       variant={variant}
       disabled={disabled}
       onClick={onClick}
       tooltip="Click to tare"
     >
-      Tare
-    </Button.Button>
+      <Icon.Tare />
+    </Button.Icon>
   );
 };
 

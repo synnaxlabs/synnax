@@ -229,11 +229,7 @@ const Wrapped = ({
       <Align.Space grow>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string>
-              path="name"
-              showLabel={false}
-              padHelpText={!task?.snapshot}
-            >
+            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
               {(p) => (
                 <Input.Text
                   variant={task?.snapshot ? "preview" : "natural"}
@@ -420,6 +416,8 @@ const ChannelList = ({
             remove={remove}
             onSelect={onSelect}
             snapshot={snapshot}
+            onTare={onTare}
+            allowTare={state?.details?.running === true}
             onDuplicate={(indices) => {
               const pf = availablePortFinder(value);
               push(
