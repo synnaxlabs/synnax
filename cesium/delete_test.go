@@ -282,6 +282,17 @@ var _ = Describe("Delete", func() {
 					var key cesium.ChannelKey
 					BeforeEach(func() { key = GenerateChannelKey() })
 
+					FIt("Should delete an index unary channel WITHOUT OPENING WRITERS ON IT", func() {
+						By("Creating a channel")
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT},
+						)).To(Succeed())
+
+						By("Deleting the channel")
+						Expect(db.DeleteChannel(key)).To(Succeed())
+					})
+
 					FIt("Should delete an index unary channel", func() {
 						By("Creating a channel")
 						Expect(db.CreateChannel(
