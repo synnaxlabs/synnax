@@ -31,8 +31,8 @@ export const legendSwatches = (
   data: SimpleEntry[],
   onEntryChange: SimpleProps["onEntryChange"],
   onVisibleChange?: (visible: boolean) => void,
-): ReactElement[] =>
-  data
+): ReactElement[] => {
+  return data
     .sort((a, b) => a.label.localeCompare(b.label))
     .map(({ key, color, label }) => (
       <Align.Space
@@ -46,6 +46,7 @@ export const legendSwatches = (
           value={color}
           onChange={(c) => onEntryChange?.({ key, color: c, label })}
           onVisibleChange={onVisibleChange}
+          allowChange={onEntryChange != null}
           draggable={false}
           size="small"
         />
@@ -57,6 +58,7 @@ export const legendSwatches = (
         />
       </Align.Space>
     ));
+};
 
 export const Simple = ({
   data = [],
