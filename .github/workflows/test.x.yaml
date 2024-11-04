@@ -28,7 +28,7 @@ jobs:
         with:
           filters: |
             shared: &shared
-              - .github.workflows.text.x.yaml
+              - .github/workflows/text.x.yaml
             go:
               - *shared
               - alamos/go/**
