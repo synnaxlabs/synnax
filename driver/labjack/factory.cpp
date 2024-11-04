@@ -36,7 +36,7 @@ labjack::Factory::configure_initial_tasks(
 
     auto [existing, err] = rack.tasks.retrieveByType("labjack_scan");
     if (err.matches(synnax::NOT_FOUND)) {
-        LOG(INFO) << "[labjack] Creating scanner task";
+        VLOG(1) << "[labjack] Creating scanner task";
         auto sy_task = synnax::Task(
                 rack.key,
                 "labjack scanner",

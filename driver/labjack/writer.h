@@ -122,7 +122,6 @@ struct WriterConfig{
        ){
         if(!parser.ok())
             LOG(ERROR) << "Failed to parse writer config: " << parser.error_json().dump(4);
-        // Parse the channels
         parser.iter("channels", [this](config::Parser &channel_parser){
             channels.emplace_back(WriterChannelConfig(channel_parser));
 

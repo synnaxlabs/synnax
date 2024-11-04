@@ -13,7 +13,6 @@
 #include "client/cpp/synnax.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
 
-/*
 
 ///// @brief create basic int series.
 TEST(TestSeries, testConstruction) {
@@ -215,7 +214,6 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     oss_uint8 << s_uint8;
     ASSERT_EQ(oss_uint8.str(), "Series(type: uint8, size: 3, cap: 3, data: [1 2 3 ])");
 }
-*/
 
 ///// @brief test_transform_
 TEST(TestSeries, test_transform_inplace) {

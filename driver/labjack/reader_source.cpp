@@ -9,7 +9,6 @@
 
 #include "driver/labjack/reader.h"
 #include "driver/labjack/util.h"
-#include "driver/labjack/errors.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   ReaderSource                                //
@@ -129,9 +128,10 @@ void labjack::ReaderSource::init_tcs(){
     }
 
     int msDelay = 1000;
-    auto err = LJM_StartInterval(
+    this->check_err(LJM_StartInterval(
             this->handle,
             msDelay * 1000
+        ), "init_tcs.LJM_StartInterval"
     );
 
     for(auto &channel : this->reader_config.tc_channels){
@@ -319,11 +319,9 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::B
 }
 
 std::pair<Frame, freighter::Error> labjack::ReaderSource::read(breaker::Breaker &breaker) {
-    if(this->reader_config.tc_channels.empty()) {
+    if(this->reader_config.tc_channels.empty())
         return this->read_stream(breaker);
-    } else {
-        return this->read_cmd_response(breaker);
-    }
+    return this->read_cmd_response(breaker);
 }
 
 
@@ -449,30 +447,14 @@ void labjack::ReaderSource::configure_tc_ain_ef(TCConfig tc_config){
 }
 
 int labjack::ReaderSource::check_err(int err, std::string caller) {
-    if(err == 0) return 0;
-
-    char err_msg[LJM_MAX_NAME_SIZE];
-    LJM_ErrorToString(err, err_msg);
-
-    // Get additional description if available
-    std::string description = "";
-    if (auto it = ERROR_DESCRIPTIONS.find(err_msg); it != ERROR_DESCRIPTIONS.end()) {
-        description = ": " + it->second;
-    }
-
-    this->ctx->setState({
-                                .task = this->task.key,
-                                .variant = "error",
-                                .details = {
-                                        {"running", false},
-                                        {"message", std::string(err_msg) + description}
-                                }
-                        });
-
-    LOG(ERROR) << "[labjack.reader] " << caller << " " << err_msg << ": " << description;
-
-    this->ok_state = false;
-    return -1;
+    return labjack::check_err_internal(
+           err,
+           caller,
+           "reader",
+           this->ctx,
+           this->ok_state,
+           this->reader_config.task_key
+   );
 }
 
 bool labjack::ReaderSource::ok(){

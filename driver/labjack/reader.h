@@ -266,19 +266,17 @@ public:
 
     }
 
-    ~ReaderSource();
+    ~ReaderSource() override;
 
     std::vector<synnax::ChannelKey> get_channel_keys();
 
-    void stopped_with_err(const freighter::Error &err);
+    void stopped_with_err(const freighter::Error &err) override;
 
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker);
 
     freighter::Error stop(const std::string &cmd_key);
 
     freighter::Error start(const std::string &cmd_key);
-
-    void stop();
 
     bool ok();
 

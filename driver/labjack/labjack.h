@@ -36,15 +36,12 @@ static inline bool dlls_available() {
     };
 
     bool all_present = true;
-    for(const auto &dll : dlls){
-        if(!labjack::does_dll_exist(dll.c_str())){
+    for(const auto &dll : dlls)
+        if(!labjack::does_dll_exist(dll.c_str()))
             all_present = false;
-        }
-    }
 
-    if(!all_present){
+    if(!all_present)
         LOG(ERROR) << "[labjack] Required Labjack DLLs not found.";
-    }
 
     return all_present;
 } // dlls_available
