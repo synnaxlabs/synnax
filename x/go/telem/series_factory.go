@@ -11,10 +11,16 @@ package telem
 
 import (
 	"encoding/binary"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/types"
+	"math"
 )
 
-func NewSeries[T types.Numeric](data []T) (series Series) {
+type Value interface {
+	types.Numeric
+}
+
+func NewSeries[T Value](data []T) (series Series) {
 	if len(data) == 0 {
 		panic("cannot infer data type from empty array")
 	}
@@ -23,7 +29,7 @@ func NewSeries[T types.Numeric](data []T) (series Series) {
 	return series
 }
 
-func NewSeriesV[T types.Numeric](data ...T) (series Series) {
+func NewSeriesV[T Value](data ...T) (series Series) {
 	return NewSeries[T](data)
 }
 
@@ -36,7 +42,47 @@ func NewSecondsTSV(data ...TimeStamp) (series Series) {
 	return series
 }
 
-func MarshalSlice[T types.Numeric](data []T, dt DataType) []byte {
+func NewStrings(data []string) (series Series) {
+	series.DataType = StringT
+	series.Data = MarshalStrings(data, series.DataType)
+	return series
+}
+
+func NewStringsV(data ...string) (series Series) {
+	return NewStrings(data)
+}
+
+const newLine = '\n'
+
+func MarshalStrings(data []string, dt DataType) []byte {
+	if !dt.IsVariable() {
+		panic("data type must be variable length")
+	}
+	total := lo.SumBy(data, func(s string) int64 { return int64(len(s)) + 1 })
+	b := make([]byte, total)
+	offset := 0
+	for _, s := range data {
+		copy(b[offset:], s)
+		b[offset+len(s)] = newLine
+		offset += len(s) + 1
+	}
+	return b
+}
+
+func UnmarshalStrings(b []byte) (data []string) {
+	offset := 0
+	for offset < len(b) {
+		end := offset
+		for b[end] != newLine {
+			end++
+		}
+		data = append(data, string(b[offset:end]))
+		offset = end + 1
+	}
+	return data
+}
+
+func MarshalSlice[T Value](data []T, dt DataType) []byte {
 	b := make([]byte, dt.Density().Size(int64(len(data))))
 	m := MarshalF[T](dt)
 	for i, v := range data {
@@ -46,7 +92,7 @@ func MarshalSlice[T types.Numeric](data []T, dt DataType) []byte {
 	return b
 }
 
-func UnmarshalSlice[T types.Numeric](b []byte, dt DataType) (data []T) {
+func UnmarshalSlice[T Value](b []byte, dt DataType) (data []T) {
 	data = make([]T, len(b)/int(dt.Density()))
 	um := UnmarshalF[T](dt)
 	for i := range data {
@@ -56,16 +102,22 @@ func UnmarshalSlice[T types.Numeric](b []byte, dt DataType) (data []T) {
 	return data
 }
 
-func Unmarshal[T types.Numeric](series Series) []T {
+func Unmarshal[T Value](series Series) []T {
 	return UnmarshalSlice[T](series.Data, series.DataType)
 }
 
 func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	switch dt {
 	case Float64T:
-		panic("marshal tool does not implement support for float64 (yet)!")
+		return func(b []byte, v T) {
+			bits := math.Float64bits(float64(v))
+			ByteOrder.PutUint64(b, bits)
+		}
 	case Float32T:
-		panic("marshal tool does not implement support for float32 (yet)!")
+		return func(b []byte, v T) {
+			bits := math.Float32bits(float32(v))
+			ByteOrder.PutUint32(b, bits)
+		}
 	case Int64T:
 		return func(b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
 	case Int32T:
@@ -91,9 +143,15 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) T {
 	switch dt {
 	case Float64T:
-		panic("unmarshal tool does not implement support for float64 (yet)!")
+		return func(b []byte) T {
+			bits := ByteOrder.Uint64(b)
+			return T(math.Float64frombits(bits))
+		}
 	case Float32T:
-		panic("unmarshal tool does not implement support for float32 (yet)!")
+		return func(b []byte) T {
+			bits := ByteOrder.Uint32(b)
+			return T(math.Float32frombits(bits))
+		}
 	case Int64T:
 		return func(b []byte) T { return T(ByteOrder.Uint64(b)) }
 	case Int32T:

@@ -144,6 +144,7 @@ export const Mosaic = memo((): ReactElement => {
   const client = Synnax.use();
   const placer = usePlacer();
   const dispatch = useDispatch();
+  const addStatus = Status.useAggregator();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
@@ -175,6 +176,7 @@ export const Mosaic = memo((): ReactElement => {
             nodeKey: mosaicKey,
             location,
             placeLayout: placer,
+            addStatus,
           });
         } else
           placer(
@@ -185,7 +187,7 @@ export const Mosaic = memo((): ReactElement => {
           );
       });
     },
-    [placer, store, client],
+    [placer, store, client, addStatus],
   );
 
   LinePlot.useTriggerHold({
@@ -225,7 +227,6 @@ export const Mosaic = memo((): ReactElement => {
 
   const workspaceKey = Workspace.useSelectActiveKey();
   const confirm = Confirm.useModal();
-  const addStatus = Status.useAggregator();
 
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {

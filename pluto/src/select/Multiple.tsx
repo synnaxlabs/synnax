@@ -318,6 +318,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
       autoCapitalize="off"
       autoCorrect="off"
       onClick={handleClick}
+      variant="button"
       {...props}
     >
       <Align.Space

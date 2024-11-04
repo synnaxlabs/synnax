@@ -69,6 +69,7 @@ export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
 export { LinePlot } from "@/vis/lineplot";
 export { Range } from "@/vis/lineplot/range";
+export { Log } from "@/vis/log";
 export { Measure } from "@/vis/measure";
 export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
@@ -81,7 +82,6 @@ export type {
   CrudeSize,
   CrudeTimeSpan,
   CrudeTimeStamp,
-  NumericTelemValue,
   TelemValue,
   TimeStampStringFormat,
   TypedArray,

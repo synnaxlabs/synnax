@@ -10,10 +10,10 @@
 import { Button, Synnax } from "@synnaxlabs/pluto";
 
 import {
-  NotificationAdapter,
+  type NotificationAdapter,
   SugaredNotification,
 } from "@/notifications/Notifications";
-import { OpenUpdateDialogAction } from "@/version/Updater";
+import { Version } from "@/version";
 
 export const versionOutdatedAdapter: NotificationAdapter = (status) => {
   if (status.data == null) return null;
@@ -32,6 +32,6 @@ export const versionOutdatedAdapter: NotificationAdapter = (status) => {
         Update Cluster
       </Button.Link>,
     ];
-  else nextStatus.actions = [<OpenUpdateDialogAction key="update" />];
+  else nextStatus.actions = [<Version.OpenUpdateDialogAction key="update" />];
   return nextStatus;
 };

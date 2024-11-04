@@ -15,6 +15,7 @@ import { Device as NIDevice } from "@/hardware/ni/device";
 import { Properties } from "@/hardware/ni/device/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 
 export const SelectDevice = () => {
   const client = Synnax.use();
@@ -87,6 +88,7 @@ export const useCopyUtils = ({
 export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
   const { getName, taskKey } = props;
   const { copyPython, copyJSON } = useCopyUtils(props);
+  const handleCopyToClipBoard = Link.useCopyToClipboard();
   return (
     <Align.Space direction="x" size="small">
       {taskKey != null && (
@@ -113,6 +115,21 @@ export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
       >
         <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
       </Button.Icon>
+      {taskKey != null && (
+        <Button.Icon
+          tooltip={() => <Text.Text level="small">Copy link to {getName()}</Text.Text>}
+          tooltipLocation="left"
+          variant="text"
+          onClick={() =>
+            handleCopyToClipBoard({
+              name: getName(),
+              ontologyID: { type: "task", key: taskKey },
+            })
+          }
+        >
+          <Icon.Link style={{ color: "var(--pluto-gray-l7)" }} />
+        </Button.Icon>
+      )}
     </Align.Space>
   );
 };

@@ -18,11 +18,13 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
+import { LogServices } from "@/log/services";
 import { Notifications } from "@/notifications";
 import { Permissions } from "@/permissions";
 import { RangeServices } from "@/range/services";
@@ -41,7 +43,9 @@ const LINK_HANDLERS: Link.Handler[] = [
   LinePlotServices.linkHandler,
   RangeServices.linkHandler,
   SchematicServices.linkHandler,
+  Task.linkHandler,
   Workspace.linkHandler,
+  LogServices.linkHandler,
 ];
 
 const SideEffect = (): null => {

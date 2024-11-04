@@ -115,6 +115,9 @@
         "mode": "auto"
       }
     ],
+    "[rust]": {
+      "editor.defaultFormatter": "rust-lang.rust-analyzer"
+    },
     "editor.codeActionsOnSave": {
       "source.fixAll.eslint": "always"
     },
