@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MockRuntime } from "@/mock/runtime";
-import { ZERO_SLICE_STATE, setWindowStage, StoreState } from "@/state";
+import { setWindowStage, StoreState, ZERO_SLICE_STATE } from "@/state";
 
 import { configureMiddleware, GetDefaultMiddleware, middleware } from "./middleware";
 

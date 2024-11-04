@@ -44,7 +44,6 @@ export class Diagram extends aether.Composite<
 > {
   static readonly TYPE = "Diagram";
   static readonly stateZ = diagramStateZ;
-  readonly eraser: render.Eraser = new render.Eraser();
   schema = Diagram.stateZ;
 
   async afterUpdate(): Promise<void> {

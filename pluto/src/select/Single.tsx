@@ -93,7 +93,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   allowNone = true,
   searcher,
   className,
-  variant,
+  variant = "button",
   hideColumnHeader = false,
   disabled,
   omit,

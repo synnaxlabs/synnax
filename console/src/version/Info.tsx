@@ -16,7 +16,7 @@ import { check, DownloadEvent } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 
 import { Layout } from "@/layout";
-import { useSelect } from "@/version/selectors";
+import { useSelectVersion } from "@/version/selectors";
 
 export const infoLayout: Layout.State = {
   type: "versionInfo",
@@ -32,7 +32,7 @@ export const infoLayout: Layout.State = {
 };
 
 export const Info: Layout.Renderer = () => {
-  const version = useSelect();
+  const version = useSelectVersion();
   const updateQuery = useQuery({
     queryKey: ["version.update"],
     queryFn: async () => {

@@ -37,6 +37,7 @@ interface InternalState {
   theme: theming.Theme;
   render: render.Context;
   telem: telem.StringSource;
+  stopListening?: () => void;
   requestRender: render.RequestF | null;
   textColor: color.Color;
 }
@@ -56,7 +57,8 @@ export class Value
     if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
-    this.internal.telem.onChange(() => this.requestRender());
+    i.stopListening?.();
+    i.stopListening = this.internal.telem.onChange(() => this.requestRender());
     this.internal.requestRender = render.Controller.useOptionalRequest(this.ctx);
     this.requestRender();
   }

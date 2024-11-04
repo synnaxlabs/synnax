@@ -9,6 +9,7 @@
 
 import "@/lineplot/toolbar/Toolbar.css";
 
+import { linePlot } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
@@ -54,9 +55,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
-  const linePlot = useSelect(layoutKey);
+  const state = useSelect(layoutKey);
   const handleExport = useExport(name);
-  const handleLink = Link.useCopyToClipboard();
 
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
@@ -83,7 +83,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [dispatch],
   );
 
-  if (linePlot == null) return null;
+  if (state == null) return null;
 
   return (
     <Align.Space empty className={CSS.B("line-plot-toolbar")}>
@@ -104,24 +104,14 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 sharp
                 size="medium"
                 style={{ height: "100%" }}
-                onClick={() => handleExport(linePlot.key)}
+                onClick={() => handleExport(state.key)}
               >
                 <Icon.Export />
               </Button.Icon>
-              <Button.Icon
-                tooltip={`Copy link to ${name}`}
-                sharp
-                size="medium"
-                style={{ height: "100%" }}
-                onClick={() =>
-                  handleLink({
-                    name,
-                    ontologyID: { key: linePlot.key, type: "lineplot" },
-                  })
-                }
-              >
-                <Icon.Link />
-              </Button.Icon>
+              <Link.ToolbarCopyButton
+                name={name}
+                ontologyID={{ key: state.key, type: linePlot.ONTOLOGY_TYPE }}
+              />
             </Align.Space>
             <Tabs.Selector style={{ borderBottom: "none" }} />
           </Align.Space>

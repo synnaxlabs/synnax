@@ -17,8 +17,9 @@ import { NavControls as SchematicNavControls } from "@/schematic/NavControls";
 import { type LayoutType } from "@/vis/types";
 
 const REGISTRY: Record<LayoutType, FC> = {
-  lineplot: LineNavControls,
   schematic: SchematicNavControls,
+  lineplot: LineNavControls,
+  log: () => null,
 };
 
 export const NavControls = (): ReactElement | null => {

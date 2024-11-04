@@ -134,7 +134,7 @@ export class Writer {
       SET_DATA_ENDPOINT,
       { key: schematic, data: JSON.stringify(data) },
       setDataReqZ,
-      renameResZ,
+      setDataResZ,
     );
   }
 }
