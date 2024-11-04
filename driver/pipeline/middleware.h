@@ -74,7 +74,7 @@ public:
     void tare(json &arg) {
         // if json contains no keys, tare everything
         json channels = arg["keys"];
-        LOG(INFO) << "Taring channels: " << channels.dump(2);
+        VLOG(1) << "Taring channels: " << channels.dump(2);
         if (channels.empty()) {
             std::lock_guard<std::mutex> lock(mutex);
             for (auto &pair: tare_values) {
@@ -110,7 +110,8 @@ public:
             auto channel_key = frame.channels->at(i);
 
             // update last raw value first
-            auto &series = frame.series->at(i); {
+            auto &series = frame.series->at(i);
+            {
                 std::lock_guard<std::mutex> lock(mutex);
                 if (series.size > 0 && series.data_type == synnax::FLOAT64)
                     last_raw_value[channel_key] = series.at<double>(0);
@@ -118,7 +119,8 @@ public:
                     last_raw_value[channel_key] = static_cast<double>(series.at<float>(0));
             }
 
-            double tare = 0.0; {
+            double tare = 0.0;
+            {
                 std::lock_guard<std::mutex> lock(mutex);
                 auto it = tare_values.find(channel_key);
                 if (it != tare_values.end())

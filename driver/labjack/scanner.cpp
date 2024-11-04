@@ -54,7 +54,8 @@ void labjack::ScannerTask::scan() {
     int aConnectionTypes[LJM_LIST_ALL_SIZE];
     int aSerialNumbers[LJM_LIST_ALL_SIZE];
     int aIPAddresses[LJM_LIST_ALL_SIZE];
-    int NumFound = 0; {
+    int NumFound = 0;
+    {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
         check_err(LJM_ListAll(
             DeviceType,

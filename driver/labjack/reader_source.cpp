@@ -89,7 +89,8 @@ void labjack::ReaderSource::init() {
 void labjack::ReaderSource::init_tcs() {
     if (this->reader_config.tc_channels.empty()) {
         return;
-    } {
+    }
+    {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
         if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle),
                       "init_tcs.LJM_OPEN")) {
@@ -152,7 +153,8 @@ void labjack::ReaderSource::init_stream() {
     double scanRate = INIT_SCAN_RATE;
 
     this->num_samples_per_chan = SCANS_PER_READ;
-    this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ; {
+    this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ;
+    {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
         if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle),
                       "init_stream.LJM_OPEN")) {
