@@ -85,10 +85,7 @@ void labjack::ReaderSource::init(){
     this->init_tcs();
 }
 
-void ReconnectCallback(int handle)
-{
-    LOG(INFO) << "[labjack.reader] Reconnected handle: " << handle;
-}
+
 
 void labjack::ReaderSource::init_tcs(){
     if(this->reader_config.tc_channels.empty()){
@@ -101,8 +98,6 @@ void labjack::ReaderSource::init_tcs(){
             return;
         }
     }
-
-//    check_err(LJM_RegisterDeviceReconnectCallback(this->handle, &ReconnectCallback), "init_tcs.LJM_RegisterDeviceReconnectCallback"); #FIXME doesn't actually do anything
 
     for(auto &channel : this->reader_config.channels){
         if(channel.channel_type ==  "AI"){

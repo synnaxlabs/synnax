@@ -10,6 +10,7 @@
 #include "driver/labjack/writer.h"
 #include "driver/labjack/util.h"
 #include <thread>
+#include <algorithm>
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Helpers                                    //
@@ -60,11 +61,11 @@ double series_to_val(const synnax::Series &series){
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::StateSource::StateSource(
     const synnax::Rate state_rate,
-    const synnax::ChannelKey &state_index_key,
+    std::vector<synnax::ChannelKey> state_index_keys,
     const std::map<synnax::ChannelKey, out_state> state_map
 ) : state_rate(state_rate),
-    state_index_key(state_index_key),
-    state_map(state_map){
+    state_map(state_map),
+    state_index_keys(state_index_keys){
     this->timer = loop::Timer(this->state_rate);
 }
 
@@ -78,15 +79,18 @@ std::pair<synnax::Frame, freighter::Error> labjack::StateSource::read(
 }
 
 synnax::Frame labjack::StateSource::get_state(){
-    // frame size = # monitored states + 1 index channel for all those states
-    auto state_frame = synnax::Frame(this->state_map.size() + 1);
-    state_frame.add(
-        this->state_index_key,
-        synnax::Series(
-            synnax::TimeStamp::now().value,
-            synnax::TIMESTAMP
-        )
-    );
+    // frame size = # monitored states + # index channels for the states
+    auto state_frame = synnax::Frame(this->state_map.size() + this->state_index_keys.size());
+
+    for(auto key: this->state_index_keys){
+        state_frame.add(
+            key,
+            synnax::Series(
+                synnax::TimeStamp::now().value,
+                synnax::TIMESTAMP
+            )
+        );
+    }
     for(auto &[key, value]: this->state_map) {
         auto s = val_to_series(value.state, value.data_type);
         state_frame.add(
@@ -102,7 +106,12 @@ void labjack::StateSource::update_state(synnax::Frame frame){
     std::unique_lock<std::mutex> lock(this->state_mutex);
     auto frame_index = 0;
     for (auto key: *(frame.channels)){
-        if (key == this->state_index_key) continue;
+        if (std::find(
+                state_index_keys.begin(),
+                state_index_keys.end(),
+                key
+            ) != state_index_keys.end()) continue;
+
         double value = series_to_val(frame.series->at(frame_index));
         this->state_map[key].state = value;
         frame_index++;
@@ -131,11 +140,11 @@ labjack::WriteSink::WriteSink(
 
     this->breaker = breaker::Breaker(breaker_config);
 
-    this->get_index_keys(); // retrieve state index from first state channel
+    auto state_index_keys = this->get_index_keys(); // retrieve state index from first state channel
 
     this->state_source = std::make_shared<labjack::StateSource>(
         this->writer_config.state_rate,
-        this->writer_config.state_index_key,
+        state_index_keys,
         this->writer_config.initial_state_map
     );
 }
@@ -227,23 +236,30 @@ std::vector<synnax::ChannelKey> labjack::WriteSink::get_state_channel_keys(){
     for(auto &channel: this->writer_config.channels){
         if(channel.enabled) keys.push_back(channel.state_key);
     }
-    keys.push_back(this->writer_config.state_index_key);
+    for(auto &channel: this->writer_config.state_index_keys){
+        keys.push_back(channel);
+    }
     return keys;
 }
 
-void labjack::WriteSink::get_index_keys(){
-    if(this->writer_config.channels.empty()){
+std::vector<synnax::ChannelKey> labjack::WriteSink::get_index_keys() {
+    if (this->writer_config.channels.empty()) {
         LOG(ERROR) << "[labjack.writer] No channels configured";
-        return;
+        return {};
     }
 
-    auto state_channel = this->writer_config.channels[0].state_key;
-    auto [state_channel_info, err] = this->ctx->client->channels.retrieve(state_channel);
-    if(err){
-        LOG(ERROR) << "[labjack.writer] Failed to retrieve state channel: " << state_channel;
-        return;
+    std::set<synnax::ChannelKey> unique_keys;
+    for (auto &channel : this->writer_config.channels) {
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.state_key);
+        if (err) {
+            LOG(ERROR) << "[labjack.writer] Failed to retrieve channel: " << channel.state_key;
+            return {};
+        }
+        unique_keys.insert(channel_info.index);
     }
-    this->writer_config.state_index_key = state_channel_info.index;
+
+    this->writer_config.state_index_keys = {unique_keys.begin(), unique_keys.end()};
+    return this->writer_config.state_index_keys;
 }
 
 int labjack::WriteSink::check_err(int err, std::string caller){

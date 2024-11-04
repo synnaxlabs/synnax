@@ -49,7 +49,7 @@ public:
 
     explicit StateSource(
         const synnax::Rate state_rate,
-        const synnax::ChannelKey &state_index_key,
+        std::vector<synnax::ChannelKey> state_index_keys,
         const std::map<synnax::ChannelKey, labjack::out_state> state_map
     );
 
@@ -65,7 +65,7 @@ private:
     std::condition_variable waiting_reader;
     synnax::Rate state_rate = synnax::Rate(1);
     std::map<synnax::ChannelKey, labjack::out_state> state_map;
-    synnax::ChannelKey state_index_key;
+    std::vector<synnax::ChannelKey> state_index_keys;
     loop::Timer timer;
 };  // class StateSource
 
@@ -108,7 +108,7 @@ struct WriterConfig{
     std::string task_name;
     synnax::ChannelKey task_key;
     std::map<synnax::ChannelKey, labjack::out_state> initial_state_map;
-    synnax::ChannelKey state_index_key;
+    std::vector<synnax::ChannelKey> state_index_keys;
 
     WriterConfig() = default;
 
@@ -174,7 +174,7 @@ public:
 
     std::shared_ptr<labjack::StateSource> state_source;
 
-    void get_index_keys();
+    std::vector<synnax::ChannelKey> get_index_keys();
 
     int check_err(int err, std::string caller);
 
