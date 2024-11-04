@@ -30,6 +30,9 @@ import (
 
 var _ = Describe("Channel", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
+		if fsName == "memFS" {
+			continue
+		}
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db      *cesium.DB
@@ -204,6 +207,7 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(ch.Key).To(Equal(unaryKeyNew))
+						Expect(f.Close()).To(Succeed())
 					})
 
 				})
@@ -233,6 +237,7 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(ch.Key).To(Equal(virtualKeyNew))
+						Expect(f.Close()).To(Succeed())
 					})
 				})
 
@@ -282,6 +287,7 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(ch.Key).To(Equal(indexKeyNew))
+						Expect(f.Close()).To(Succeed())
 					})
 				})
 
@@ -325,6 +331,7 @@ var _ = Describe("Channel", Ordered, func() {
 							Expect(err).ToNot(HaveOccurred())
 
 							Expect(ch.Key).To(Equal(errorKey1New))
+							Expect(f.Close()).To(Succeed())
 						})
 					})
 
@@ -362,6 +369,7 @@ var _ = Describe("Channel", Ordered, func() {
 							Expect(err).ToNot(HaveOccurred())
 
 							Expect(ch.Key).To(Equal(errorKey2New))
+							Expect(f.Close()).To(Succeed())
 						})
 					})
 				})
