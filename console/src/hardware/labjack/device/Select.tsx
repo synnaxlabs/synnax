@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Select } from "@synnaxlabs/pluto";
-import { KeyedNamed } from "@synnaxlabs/x";
+import { Form, Select } from "@synnaxlabs/pluto";
+import { deep, KeyedNamed } from "@synnaxlabs/x";
 
 import {
   ChannelType,
@@ -19,13 +19,22 @@ import {
   Port,
 } from "@/hardware/labjack/device/types";
 
+import {
+  inputChan,
+  ReadChan,
+  ReadChanType,
+  thermocoupleChanZ,
+  ZERO_READ_CHAN,
+  ZERO_THERMOCOUPLE_CHAN,
+} from "../task/types";
+
 export interface SelectPortProps extends Select.SingleProps<string, Port> {
   model: ModelKey;
   channelType: ChannelType;
 }
 
 export const SelectPort = ({ model, channelType, ...props }: SelectPortProps) => {
-  const data = DEVICES[model].ports[channelType];
+  const data = DEVICES[model].ports[channelType === "TC" ? "AI" : channelType];
   return (
     <Select.Single<string, Port>
       data={data}
@@ -45,6 +54,7 @@ export const SelectPort = ({ model, channelType, ...props }: SelectPortProps) =>
 const INPUT_CHANNEL_TYPES: KeyedNamed<InputChannelType>[] = [
   { key: "AI", name: "Analog In" },
   { key: "DI", name: "Digital In" },
+  { key: "TC", name: "Thermocouple" },
 ];
 
 const OUTPUT_CHANNEL_TYPES: KeyedNamed<OutputChannelType>[] = [
@@ -79,3 +89,35 @@ export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => 
     {...props}
   />
 );
+
+export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
+  InputChannelType,
+  KeyedNamed<InputChannelType>
+>({
+  fieldKey: "type",
+  fieldProps: {
+    label: "Channel Type",
+    onChange: (value, { get, set, path }) => {
+      console.log("did this get overwritten");
+      const prevType = get<InputChannelType>(path).value;
+      if (prevType === value) return;
+      const next = deep.copy(value === "TC" ? ZERO_THERMOCOUPLE_CHAN : ZERO_READ_CHAN);
+      const parentPath = path.slice(0, path.lastIndexOf("."));
+      const prevParent = get<ReadChan>(parentPath).value;
+      const schema = value === "TC" ? thermocoupleChanZ : inputChan;
+      set(parentPath, {
+        ...deep.overrideValidItems(next, prevParent, schema),
+        type: next.type,
+      });
+    },
+  },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: [{ key: "name", name: "Name" }],
+    data: [
+      { key: "AI", name: "Analog Input" },
+      { key: "DI", name: "Digital Input" },
+      { key: "TC", name: "Thermocouple" },
+    ],
+  },
+});
