@@ -579,58 +579,45 @@ export const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>(
 });
 
 export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
-  linear: ({ prefix }) => {
-    return (
-      <>
-        <Align.Space direction="x" grow>
-          <UnitsField
-            fieldKey="preScaledUnits"
-            label="Pre-Scaled Units"
-            path={prefix}
-          />
-          <UnitsField fieldKey="scaledUnits" label="Scaled Units" path={prefix} />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
-          <Form.NumericField
-            fieldKey="yIntercept"
-            label="Y-Intercept"
-            path={prefix}
-            grow
-          />
-        </Align.Space>
-      </>
-    );
-  },
-  map: ({ prefix }) => {
-    return (
-      <>
-        <UnitsField fieldKey="preScaledUnits" path={prefix} />
-        <Align.Space direction="x" grow>
-          <Form.NumericField
-            fieldKey="preScaledMin"
-            label="Pre-Scaled Min"
-            path={prefix}
-            grow
-          />
-          <Form.NumericField
-            fieldKey="preScaledMax"
-            label="Pre-Scaled Max"
-            path={prefix}
-          />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField
-            fieldKey="scaledMin"
-            label="Scaled Min"
-            path={prefix}
-            grow
-          />
-          <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
-        </Align.Space>
-      </>
-    );
-  },
+  linear: ({ prefix }) => (
+    <>
+      <Align.Space direction="x" grow>
+        <UnitsField fieldKey="preScaledUnits" label="Pre-Scaled Units" path={prefix} />
+        <UnitsField fieldKey="scaledUnits" label="Scaled Units" path={prefix} />
+      </Align.Space>
+      <Align.Space direction="x" grow>
+        <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
+        <Form.NumericField
+          fieldKey="yIntercept"
+          label="Y-Intercept"
+          path={prefix}
+          grow
+        />
+      </Align.Space>
+    </>
+  ),
+  map: ({ prefix }) => (
+    <>
+      <UnitsField fieldKey="preScaledUnits" path={prefix} />
+      <Align.Space direction="x" grow>
+        <Form.NumericField
+          fieldKey="preScaledMin"
+          label="Pre-Scaled Min"
+          path={prefix}
+          grow
+        />
+        <Form.NumericField
+          fieldKey="preScaledMax"
+          label="Pre-Scaled Max"
+          path={prefix}
+        />
+      </Align.Space>
+      <Align.Space direction="x" grow>
+        <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
+        <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
+      </Align.Space>
+    </>
+  ),
   table: ({ prefix }) => {
     const [rawCol, setRawCol] = state.usePersisted<string>("Raw", `${prefix}.rawCol`);
     const [scaledCol, setScaledCol] = state.usePersisted<string>(
@@ -861,7 +848,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-
   ai_bridge: ({ prefix }) => (
     <>
       <DevicePortCombo prefix={prefix} />
@@ -893,144 +879,135 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-
-  ai_current: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <TerminalConfigField path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <MinMaxValueFields path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" grow>
-          <ShuntResistorLocField path={prefix} grow />
-          <Form.NumericField
-            path={`${prefix}.extShuntResistorVal`}
-            label="Shunt Resistance"
-            grow
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
-
-  ai_force_bridge_table: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <MinMaxValueFields path={prefix} />
-        <ForceUnitsField path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" size="small">
-          <BridgeConfigField path={prefix} grow />
-          <Form.NumericField
-            path={`${prefix}.nominalBridgeResistance`}
-            label="Nominal Bridge Resistance"
-            grow
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" size="small">
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="voltageExcitSource"
-            label="Voltage Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.voltageExcitVal`}
-            label="Voltage Excitation Value"
-            grow
-          />
-        </Align.Space>
-        <Align.Space direction="x">
-          <ForceUnitsField
-            path={prefix}
-            fieldKey="physicalUnits"
-            label="Physical Units"
-            grow
-          />
-          {/* physicalVals */}
-          <ElectricalUnitsField path={prefix} grow />
-        </Align.Space>
-        {/* electricalVals */}
-        <Divider.Divider direction="x" padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
-
-  ai_force_bridge_two_point_lin: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <ForceUnitsField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" grow>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="voltageExcitSource"
-            label="Voltage Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.voltageExcitVal`}
-            label="Voltage Excitation Value"
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" grow>
-          <BridgeConfigField path={prefix} grow />
-          <Form.NumericField
-            path={`${prefix}.nominalBridgeResistance`}
-            label="Nominal Bridge Resistance"
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" grow>
-          <ForceUnitsField
-            path={prefix}
-            fieldKey="physicalUnits"
-            label="Physical Units"
-            grow
-          />
-          <ElectricalUnitsField grow path={prefix} />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField
-            path={`${prefix}.firstPhysicalVal`}
-            label="Physical Value One"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.secondPhysicalVal`}
-            label="Physical Value Two"
-            grow
-          />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField
-            path={`${prefix}.firstElectricalVal`}
-            label="Electrical Value One"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.secondElectricalVal`}
-            label="Electrical Value Two"
-            grow
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+  ai_current: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <TerminalConfigField path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" grow>
+        <ShuntResistorLocField path={prefix} grow />
+        <Form.NumericField
+          path={`${prefix}.extShuntResistorVal`}
+          label="Shunt Resistance"
+          grow
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_force_bridge_table: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <MinMaxValueFields path={prefix} />
+      <ForceUnitsField path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" size="small">
+        <BridgeConfigField path={prefix} grow />
+        <Form.NumericField
+          path={`${prefix}.nominalBridgeResistance`}
+          label="Nominal Bridge Resistance"
+          grow
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" size="small">
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+          grow
+        />
+      </Align.Space>
+      <Align.Space direction="x">
+        <ForceUnitsField
+          path={prefix}
+          fieldKey="physicalUnits"
+          label="Physical Units"
+          grow
+        />
+        {/* physicalVals */}
+        <ElectricalUnitsField path={prefix} grow />
+      </Align.Space>
+      {/* electricalVals */}
+      <Divider.Divider direction="x" padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_force_bridge_two_point_lin: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <ForceUnitsField path={prefix} />
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" grow>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" grow>
+        <BridgeConfigField path={prefix} grow />
+        <Form.NumericField
+          path={`${prefix}.nominalBridgeResistance`}
+          label="Nominal Bridge Resistance"
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" grow>
+        <ForceUnitsField
+          path={prefix}
+          fieldKey="physicalUnits"
+          label="Physical Units"
+          grow
+        />
+        <ElectricalUnitsField grow path={prefix} />
+      </Align.Space>
+      <Align.Space direction="x" grow>
+        <Form.NumericField
+          path={`${prefix}.firstPhysicalVal`}
+          label="Physical Value One"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.secondPhysicalVal`}
+          label="Physical Value Two"
+          grow
+        />
+      </Align.Space>
+      <Align.Space direction="x" grow>
+        <Form.NumericField
+          path={`${prefix}.firstElectricalVal`}
+          label="Electrical Value One"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.secondElectricalVal`}
+          label="Electrical Value Two"
+          grow
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
   ai_force_iepe: ({ prefix }) => {
     const SensitivityUnits = Form.buildDropdownButtonSelectField({
       fieldKey: "sensitivityUnits",
@@ -1139,139 +1116,133 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       </>
     );
   },
-  ai_pressure_bridge_table: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <PressureUnitsField path={prefix} />
-        <BridgeConfigField path={prefix} />
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage Excitation Source"
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage Excitation Value"
-        />
+  ai_pressure_bridge_table: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <MinMaxValueFields path={prefix} />
+      <PressureUnitsField path={prefix} />
+      <BridgeConfigField path={prefix} />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage Excitation Source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage Excitation Value"
+      />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal Bridge Resistance"
+      />
+      <PressureUnitsField
+        path={prefix}
+        fieldKey="physicalUnits"
+        label="Physical Units"
+      />
+      {/* physicalVals */}
+      <ElectricalUnitsField path={prefix} />
+      {/* electricalVals */}
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_pressure_bridge_two_point_lin: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <MinMaxValueFields path={prefix} />
+      <PressureUnitsField path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x">
+        <BridgeConfigField path={prefix} grow />
         <Form.NumericField
           path={`${prefix}.nominalBridgeResistance`}
           label="Nominal Bridge Resistance"
         />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x">
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+          grow
+          style={{ maxWidth: 200 }}
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" grow>
         <PressureUnitsField
           path={prefix}
           fieldKey="physicalUnits"
           label="Physical Units"
+          grow
+          style={{ width: "50%" }}
         />
-        {/* physicalVals */}
-        <ElectricalUnitsField path={prefix} />
-        {/* electricalVals */}
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
-  ai_pressure_bridge_two_point_lin: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <MinMaxValueFields path={prefix} />
-        <PressureUnitsField path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x">
-          <BridgeConfigField path={prefix} grow />
-          <Form.NumericField
-            path={`${prefix}.nominalBridgeResistance`}
-            label="Nominal Bridge Resistance"
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x">
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="voltageExcitSource"
-            label="Voltage Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.voltageExcitVal`}
-            label="Voltage Excitation Value"
-            grow
-            style={{ maxWidth: 200 }}
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" grow>
-          <PressureUnitsField
-            path={prefix}
-            fieldKey="physicalUnits"
-            label="Physical Units"
-            grow
-            style={{ width: "50%" }}
-          />
-          <ElectricalUnitsField path={prefix} grow style={{ width: "50%" }} />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField
-            path={`${prefix}.firstPhysicalVal`}
-            label="Physical Value One"
-            grow
-            style={{ width: "50%" }}
-          />
-          <Form.NumericField
-            path={`${prefix}.secondPhysicalVal`}
-            label="Physical Value Two"
-            style={{ width: "50%" }}
-            grow
-          />
-        </Align.Space>
-        <Align.Space direction="x" grow>
-          <Form.NumericField
-            path={`${prefix}.firstElectricalVal`}
-            label="Electrical Value One"
-            style={{ width: "50%" }}
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.secondElectricalVal`}
-            label="Electrical Value Two"
-            style={{ width: "50%" }}
-            grow
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
-  ai_resistance: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <TerminalConfigField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <UnitsField path={prefix} />
-        <ResistanceConfigField path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x">
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="currentExcitSource"
-            label="Current Excitation Source"
-          />
-          <Form.NumericField
-            path={`${prefix}.currentExcitVal`}
-            label="Current Excitation Value"
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+        <ElectricalUnitsField path={prefix} grow style={{ width: "50%" }} />
+      </Align.Space>
+      <Align.Space direction="x" grow>
+        <Form.NumericField
+          path={`${prefix}.firstPhysicalVal`}
+          label="Physical Value One"
+          grow
+          style={{ width: "50%" }}
+        />
+        <Form.NumericField
+          path={`${prefix}.secondPhysicalVal`}
+          label="Physical Value Two"
+          style={{ width: "50%" }}
+          grow
+        />
+      </Align.Space>
+      <Align.Space direction="x" grow>
+        <Form.NumericField
+          path={`${prefix}.firstElectricalVal`}
+          label="Electrical Value One"
+          style={{ width: "50%" }}
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.secondElectricalVal`}
+          label="Electrical Value Two"
+          style={{ width: "50%" }}
+          grow
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_resistance: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <TerminalConfigField path={prefix} />
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <UnitsField path={prefix} />
+      <ResistanceConfigField path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x">
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="currentExcitSource"
+          label="Current Excitation Source"
+        />
+        <Form.NumericField
+          path={`${prefix}.currentExcitVal`}
+          label="Current Excitation Value"
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
   ai_rtd: ({ prefix }) => {
     const RTDTypeField = Form.buildDropdownButtonSelectField({
       fieldKey: "rtdType",
@@ -1400,14 +1371,12 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       </>
     );
   },
-  ai_temp_builtin: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <TemperatureUnitsField path={prefix} />
-      </>
-    );
-  },
+  ai_temp_builtin: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <TemperatureUnitsField path={prefix} />
+    </>
+  ),
   ai_thermocouple: ({ prefix }) => {
     const CJCSourceField = Form.buildDropdownButtonSelectField({
       fieldKey: "cjcSource",
@@ -1444,118 +1413,112 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       </>
     );
   },
-
-  ai_torque_bridge_table: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <MinMaxValueFields path={prefix} />
-        <TorqueUnitsField path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" grow>
-          <BridgeConfigField path={prefix} grow />
-          <Form.NumericField
-            path={`${prefix}.nominalBridgeResistance`}
-            label="Nominal Bridge Resistance"
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" grow>
-          <ExcitSourceField
-            path={prefix}
-            fieldKey="voltageExcitSource"
-            label="Voltage Excitation Source"
-            grow
-          />
-          <Form.NumericField
-            path={`${prefix}.voltageExcitVal`}
-            label="Voltage Excitation Value"
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-
-        <Align.Space direction="x" grow>
-          <TorqueUnitsField
-            path={prefix}
-            fieldKey="physicalUnits"
-            label="Physical Units"
-            grow
-          />
-          {/* physicalVals */}
-          <ElectricalUnitsField path={prefix} grow />
-        </Align.Space>
-        {/* electricalVals */}
-        <Divider.Divider direction="x" padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
-  ai_torque_bridge_two_point_lin: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <MinMaxValueFields path={prefix} />
-        <TorqueUnitsField path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <BridgeConfigField path={prefix} />
+  ai_torque_bridge_table: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <MinMaxValueFields path={prefix} />
+      <TorqueUnitsField path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" grow>
+        <BridgeConfigField path={prefix} grow />
         <Form.NumericField
           path={`${prefix}.nominalBridgeResistance`}
           label="Nominal Bridge Resistance"
         />
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x">
-          <ExcitSourceField
-            path={prefix}
-            grow
-            fieldKey="voltageExcitSource"
-            label="Voltage Excitation Source"
-          />
-          <Form.NumericField
-            path={`${prefix}.voltageExcitVal`}
-            label="Voltage Excitation Value"
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <Align.Space direction="x" size="small">
-          <TorqueUnitsField
-            path={prefix}
-            fieldKey="physicalUnits"
-            label="Physical Units"
-            grow
-          />
-          <ElectricalUnitsField path={prefix} grow />
-        </Align.Space>
-        <Align.Space direction="x">
-          <Form.NumericField
-            grow
-            path={`${prefix}.firstPhysicalVal`}
-            label="Physical Value One"
-          />
-          <Form.NumericField
-            grow
-            path={`${prefix}.secondPhysicalVal`}
-            label="Physical Value Two"
-          />
-        </Align.Space>
-        <Align.Space direction="x">
-          <Form.NumericField
-            grow
-            path={`${prefix}.firstElectricalVal`}
-            label="Electrical Value One"
-          />
-          <Form.NumericField
-            grow
-            path={`${prefix}.secondElectricalVal`}
-            label="Electrical Value Two"
-          />
-        </Align.Space>
-        <Divider.Divider direction="x" padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" grow>
+        <ExcitSourceField
+          path={prefix}
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+          grow
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" grow>
+        <TorqueUnitsField
+          path={prefix}
+          fieldKey="physicalUnits"
+          label="Physical Units"
+          grow
+        />
+        {/* physicalVals */}
+        <ElectricalUnitsField path={prefix} grow />
+      </Align.Space>
+      {/* electricalVals */}
+      <Divider.Divider direction="x" padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  ai_torque_bridge_two_point_lin: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <MinMaxValueFields path={prefix} />
+      <TorqueUnitsField path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <BridgeConfigField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal Bridge Resistance"
+      />
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x">
+        <ExcitSourceField
+          path={prefix}
+          grow
+          fieldKey="voltageExcitSource"
+          label="Voltage Excitation Source"
+        />
+        <Form.NumericField
+          path={`${prefix}.voltageExcitVal`}
+          label="Voltage Excitation Value"
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <Align.Space direction="x" size="small">
+        <TorqueUnitsField
+          path={prefix}
+          fieldKey="physicalUnits"
+          label="Physical Units"
+          grow
+        />
+        <ElectricalUnitsField path={prefix} grow />
+      </Align.Space>
+      <Align.Space direction="x">
+        <Form.NumericField
+          grow
+          path={`${prefix}.firstPhysicalVal`}
+          label="Physical Value One"
+        />
+        <Form.NumericField
+          grow
+          path={`${prefix}.secondPhysicalVal`}
+          label="Physical Value Two"
+        />
+      </Align.Space>
+      <Align.Space direction="x">
+        <Form.NumericField
+          grow
+          path={`${prefix}.firstElectricalVal`}
+          label="Electrical Value One"
+        />
+        <Form.NumericField
+          grow
+          path={`${prefix}.secondElectricalVal`}
+          label="Electrical Value Two"
+        />
+      </Align.Space>
+      <Divider.Divider direction="x" padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
   ai_velocity_iepe: ({ prefix }) => {
     const VelocityUnits = Form.buildDropdownButtonSelectField<
       VelocityUnits,
@@ -1629,16 +1592,14 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       </>
     );
   },
-  ai_voltage: ({ prefix }) => {
-    return (
-      <>
-        <DevicePortCombo prefix={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <TerminalConfigField path={prefix} />
-        <MinMaxValueFields path={prefix} />
-        <Divider.Divider direction="x" padded="bottom" />
-        <CustomScaleForm prefix={prefix} />
-      </>
-    );
-  },
+  ai_voltage: ({ prefix }) => (
+    <>
+      <DevicePortCombo prefix={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <TerminalConfigField path={prefix} />
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider direction="x" padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
 };

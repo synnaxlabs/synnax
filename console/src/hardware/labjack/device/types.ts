@@ -44,6 +44,9 @@ export const ZERO_PROPERTIES: Properties = {
 export const DI_CHANNEL_TYPE = "DI";
 export const diChannelTypeZ = z.literal(DI_CHANNEL_TYPE);
 export type DIChannelType = z.infer<typeof diChannelTypeZ>;
+export const TC_CHANNEL_TYPE = "TC";
+export const tcChannelTypeZ = z.literal(TC_CHANNEL_TYPE);
+export type TCChannelType = z.infer<typeof tcChannelTypeZ>;
 export const AO_CHANNEL_TYPE = "AO";
 export const aoChannelTypeZ = z.literal(AO_CHANNEL_TYPE);
 export type AOChannelType = z.infer<typeof aoChannelTypeZ>;
@@ -54,7 +57,11 @@ export const DO_CHANNEL_TYPE = "DO";
 export const doChannelTypeZ = z.literal(DO_CHANNEL_TYPE);
 export type DOChannelType = z.infer<typeof doChannelTypeZ>;
 
-export const inputChannelTypeZ = z.union([diChannelTypeZ, aiChannelTypeZ]);
+export const inputChannelTypeZ = z.union([
+  diChannelTypeZ,
+  aiChannelTypeZ,
+  tcChannelTypeZ,
+]);
 export type InputChannelType = z.infer<typeof inputChannelTypeZ>;
 export const outputChannelTypeZ = z.union([aoChannelTypeZ, doChannelTypeZ]);
 export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;

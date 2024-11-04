@@ -10,7 +10,7 @@
 import { device, task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { inputChannelTypeZ, outputChannelTypeZ } from "@/hardware/labjack/device/types";
+import { outputChannelTypeZ } from "@/hardware/labjack/device/types";
 import { thermocoupleTypeZ } from "@/hardware/task/common/thermocouple";
 
 export const linearScaleZ = z.object({
@@ -47,32 +47,67 @@ export type NoScale = z.infer<typeof noScaleZ>;
 
 export const ZERO_NO_SCALE: NoScale = { type: "none" };
 
-export const scaleZ = z.union([noScaleZ, linearScaleZ, thermocoupleScaleZ]);
+export const scaleZ = z.union([noScaleZ, linearScaleZ]);
 export type Scale = z.infer<typeof scaleZ>;
 export type ScaleType = Scale["type"];
 
 export const ZERO_SCALES: Record<ScaleType, Scale> = {
   none: ZERO_NO_SCALE,
   linear: ZERO_LINEAR_SCALE,
-  thermocouple: ZERO_THERMOCOUPLE_SCALE,
 };
 
 export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
   none: noScaleZ,
   linear: linearScaleZ,
-  thermocouple: thermocoupleScaleZ,
 };
 
-export const readChan = z.object({
+export const inputChan = z.object({
   port: z.string(),
   enabled: z.boolean(),
   key: z.string(),
   range: z.number().optional(),
   channel: z.number(),
-  type: inputChannelTypeZ,
+  type: z.literal("AI").or(z.literal("DI")),
   scale: scaleZ,
 });
+export type InputChan = z.infer<typeof inputChan>;
 
+export const thermocoupleChanZ = z.object({
+  key: z.string(),
+  port: z.string(),
+  enabled: z.boolean(),
+  channel: z.number(),
+  range: z.number(),
+  type: z.literal("TC"),
+  thermocouple_type: thermocoupleTypeZ.or(z.literal("C")),
+  pos_chan: z.number(),
+  neg_chan: z.number(),
+  cjc_addr: z.number(),
+  cjc_slope: z.number(),
+  cjc_offset: z.number(),
+  units: z.string(),
+  scale: scaleZ,
+});
+export type ThermocoupleChan = z.infer<typeof thermocoupleChanZ>;
+export type ThermocoupleChanType = ThermocoupleChan["type"];
+export const ZERO_THERMOCOUPLE_CHAN: ThermocoupleChan = {
+  port: "",
+  enabled: true,
+  key: "",
+  channel: 0,
+  range: 0,
+  type: "TC",
+  thermocouple_type: "C",
+  pos_chan: 0,
+  neg_chan: 0,
+  cjc_addr: 0,
+  cjc_slope: 0,
+  cjc_offset: 0,
+  units: "",
+  scale: ZERO_NO_SCALE,
+};
+
+export const readChan = z.union([inputChan, thermocoupleChanZ]);
 export type ReadChan = z.infer<typeof readChan>;
 export type ReadChanType = ReadChan["type"];
 

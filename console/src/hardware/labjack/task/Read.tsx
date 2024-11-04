@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Channel,
+  Divider,
   Form,
   Header,
   Input,
@@ -28,7 +29,10 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useDevice } from "@/hardware/device/useDevice";
-import { SelectInputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
+import {
+  SelectInputChannelTypeField,
+  SelectPort,
+} from "@/hardware/labjack/device/Select";
 import {
   ChannelType,
   DEVICES,
@@ -38,6 +42,7 @@ import {
 } from "@/hardware/labjack/device/types";
 import { SelectDevice } from "@/hardware/labjack/task/common";
 import {
+  inputChan,
   Read,
   READ_TYPE,
   ReadChan,
@@ -49,9 +54,11 @@ import {
   Scale,
   SCALE_SCHEMAS,
   ScaleType,
+  thermocoupleChanZ,
   ZERO_READ_CHAN,
   ZERO_READ_PAYLOAD,
   ZERO_SCALES,
+  ZERO_THERMOCOUPLE_CHAN,
 } from "@/hardware/labjack/task/types";
 import {
   ChannelListContextMenu,
@@ -66,7 +73,6 @@ import {
   WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { ThermocoupleTypeField } from "@/hardware/task/common/thermocouple";
 import { Layout } from "@/layout";
 
 type LayoutArgs = TaskLayoutArgs<ReadPayload>;
@@ -106,21 +112,16 @@ const Wrapped = ({
       config: readTaskConfigZ,
     }),
   });
-
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
-
   const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
     task?.state,
   );
-
   const createTask = useCreate<ReadTaskConfig, ReadStateDetails, ReadType>(layoutKey);
-
   const addStatus = Status.useAggregator();
-
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
     onError: (e) =>
@@ -131,7 +132,6 @@ const Wrapped = ({
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
-
       const dev = await client.hardware.devices.retrieve<Properties>(config.device);
       let shouldCreateIndex = false;
       if (dev.properties.readIndex)
@@ -142,9 +142,7 @@ const Wrapped = ({
           else throw e;
         }
       else shouldCreateIndex = true;
-
       let modified = false;
-
       if (shouldCreateIndex) {
         modified = true;
         const index = await client.channels.create({
@@ -154,10 +152,10 @@ const Wrapped = ({
         });
         dev.properties.readIndex = index.key;
       }
-
       const toCreate: ReadChan[] = [];
       for (const c of config.channels) {
-        const existing = dev.properties[c.type].channels[c.port];
+        const type = c.type === "TC" ? "AI" : c.type;
+        const existing = dev.properties[type].channels[c.port];
         // check if the channel is in properties
         if (primitiveIsZero(existing)) toCreate.push(c);
         else
@@ -168,7 +166,6 @@ const Wrapped = ({
             else throw e;
           }
       }
-
       if (toCreate.length > 0) {
         modified = true;
         const channels = await client.channels.create(
@@ -180,23 +177,22 @@ const Wrapped = ({
         );
         channels.forEach((c, i) => {
           const toCreateC = toCreate[i];
-          dev.properties[toCreateC.type].channels[toCreateC.port] = c.key;
+          const type = toCreateC.type === "TC" ? "AI" : toCreateC.type;
+          dev.properties[type].channels[toCreateC.port] = c.key;
         });
       }
-
       if (modified)
         await client.hardware.devices.create({
           ...dev,
           properties: dev.properties,
         });
-
       config.channels.forEach((c) => {
-        c.channel = dev.properties[c.type].channels[c.port];
+        const type = c.type === "TC" ? "AI" : c.type;
+        c.channel = dev.properties[type].channels[c.port];
       });
       await createTask({ key: task?.key, name, type: READ_TYPE, config });
     },
   });
-
   const start = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
@@ -206,7 +202,6 @@ const Wrapped = ({
       );
     },
   });
-
   const handleTare = useMutation({
     mutationKey: [client?.key],
     onError: (e) => addStatus({ variant: "error", message: e.message }),
@@ -215,9 +210,7 @@ const Wrapped = ({
       await task?.executeCommand("tare", { keys });
     },
   }).mutate;
-
   const dev = useDevice(methods);
-
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
@@ -304,22 +297,33 @@ const ChannelForm = ({
   device,
 }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ?? "AI";
+  const channelType = (Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ??
+    "AI") as "AI" | "DI" | "TC";
   const model = (device?.model ?? "LJM_dtT4") as ModelKey;
   return (
-    <Align.Space direction="y" empty>
+    <Align.Space direction="y" size="small">
       <Align.Space direction="x" grow>
-        <Form.Field<InputChannelType>
-          path={`${prefix}.type`}
-          label="Type"
-          hideIfNull
-          onChange={(v, ctx) => {
-            const data = DEVICES[model].ports[v];
-            ctx.set(`${prefix}.port`, data[0].key);
+        <SelectInputChannelTypeField
+          path={prefix}
+          onChange={(value, { get, path, set }) => {
+            const prevType = get<InputChannelType>(path).value;
+            if (prevType === value) return;
+            const next = deep.copy(
+              value === "TC" ? ZERO_THERMOCOUPLE_CHAN : ZERO_READ_CHAN,
+            );
+            const parentPath = path.slice(0, path.lastIndexOf("."));
+            const prevParent = get<ReadChan>(parentPath).value;
+            const schema = value === "TC" ? thermocoupleChanZ : inputChan;
+            const port = DEVICES[model].ports[value === "TC" ? "AI" : value][0].key;
+            set(parentPath, {
+              ...deep.overrideValidItems(next, prevParent, schema),
+              type: next.type,
+              port,
+            });
           }}
-        >
-          {(p) => <SelectInputChannelType grow {...p} />}
-        </Form.Field>
+          inputProps={{ allowNone: false }}
+          grow
+        />
         <Form.Field<string> path={`${prefix}.port`} grow hideIfNull>
           {(p) => <SelectPort {...p} model={model} channelType={channelType} />}
         </Form.Field>
@@ -331,6 +335,8 @@ const ChannelForm = ({
         inputProps={{ endContent: "V" }}
         grow
       />
+      <Divider.Divider direction="x" />
+      <ThermocoupleForm prefix={prefix} />
       <CustomScaleForm prefix={prefix} />
     </Align.Space>
   );
@@ -516,18 +522,8 @@ export const SelectScaleTypeField = Form.buildDropdownButtonSelectField<
     entryRenderKey: "name",
     columns: [{ key: "name", name: "Name" }],
     data: [
-      {
-        key: "none",
-        name: "None",
-      },
-      {
-        key: "linear",
-        name: "Linear",
-      },
-      {
-        key: "thermocouple",
-        name: "Thermocouple",
-      },
+      { key: "none", name: "None" },
+      { key: "linear", name: "Linear" },
     ],
   },
 });
@@ -546,7 +542,6 @@ const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
     </Align.Space>
   ),
   none: () => <></>,
-  thermocouple: ({ prefix }) => <ThermocoupleTypeField path={prefix} />,
 };
 
 export const CustomScaleForm = ({ prefix }: FormProps): ReactElement | null => {
@@ -560,5 +555,29 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement | null => {
       <SelectScaleTypeField path={path} />
       <FormComponent prefix={path} />
     </>
+  );
+};
+
+const ThermocoupleForm = ({ prefix }: FormProps): ReactElement | null => {
+  const path = `${prefix}`;
+  const channelType = Form.useFieldValue<ChannelType>(`${path}.type`, true);
+  if (channelType !== "TC") return null;
+  return (
+    <Align.Space direction="y" grow>
+      <Form.NumericField
+        path={`${path}.thermocouple_type`}
+        label="Thermocouple Type"
+        grow
+      />
+      <Align.Space direction="x" grow>
+        <Form.NumericField path={`${path}.pos_chan`} label="Positive Channel" grow />
+        <Form.NumericField path={`${path}.neg_chan`} label="Negative Channel" grow />
+      </Align.Space>
+      <Align.Space direction="x" grow>
+        <Form.NumericField path={`${path}.cjc_addr`} label="CJC Address" grow />
+        <Form.NumericField path={`${path}.cjc_slope`} label="CJC Slope" grow />
+        <Form.NumericField path={`${path}.cjc_offset`} label="CJC Offset" grow />{" "}
+      </Align.Space>
+    </Align.Space>
   );
 };

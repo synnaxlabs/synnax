@@ -355,7 +355,6 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   if (type == null) return <></>;
   const TypeForm = ANALOG_INPUT_FORMS[type];
   if (selectedChannelIndex == -1) return <></>;
-
   return (
     <>
       <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
