@@ -36,7 +36,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.changed == true
+    if: needs.changes.outputs.changed == 'true'
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
