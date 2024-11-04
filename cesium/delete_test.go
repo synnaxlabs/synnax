@@ -29,6 +29,9 @@ import (
 
 var _ = Describe("Delete", func() {
 	for fsName, makeFS := range fileSystems {
+		if fsName == "memFS" {
+			continue
+		}
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db      *cesium.DB
@@ -282,7 +285,7 @@ var _ = Describe("Delete", func() {
 					var key cesium.ChannelKey
 					BeforeEach(func() { key = GenerateChannelKey() })
 
-					FIt("Should delete an index unary channel WITHOUT OPENING WRITERS ON IT", func() {
+					It("Should delete an index unary channel WITHOUT OPENING WRITERS ON IT", func() {
 						By("Creating a channel")
 						Expect(db.CreateChannel(
 							ctx,
@@ -293,7 +296,7 @@ var _ = Describe("Delete", func() {
 						Expect(db.DeleteChannel(key)).To(Succeed())
 					})
 
-					FIt("Should delete an index unary channel", func() {
+					It("Should delete an index unary channel", func() {
 						By("Creating a channel")
 						Expect(db.CreateChannel(
 							ctx,

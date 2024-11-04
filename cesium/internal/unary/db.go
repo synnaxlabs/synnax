@@ -152,10 +152,16 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 // operations being executed on the database. Close is idempotent, and will return nil
 // if the database is already closed.
 func (db *DB) Close() error {
-	if !db.closed.CompareAndSwap(false, true) {
+	if db.closed.Load() {
 		return nil
 	}
-	return db.wrapError(db.domain.Close())
+	err := db.domain.Close()
+	if err != nil {
+		return db.wrapError(err)
+	}
+
+	db.closed.Store(true)
+	return nil
 }
 
 // RenameChannelInMeta renames the channel to the given name, and persists the change to the

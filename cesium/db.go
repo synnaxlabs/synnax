@@ -103,7 +103,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 // database, a deadlock is caused since the signal context is closed while the writers
 // attempt to send to relay.
 func (db *DB) Close() error {
-	if !db.closed.CompareAndSwap(false, true) {
+	if db.closed.Load() {
 		return nil
 	}
 
@@ -121,5 +121,10 @@ func (db *DB) Close() error {
 	for _, u := range db.unaryDBs {
 		c.Exec(u.Close)
 	}
-	return c.Error()
+	if c.Error() != nil {
+		return c.Error()
+	}
+
+	db.closed.Store(true)
+	return nil
 }

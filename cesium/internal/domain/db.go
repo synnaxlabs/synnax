@@ -192,7 +192,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
-	if !db.closed.CompareAndSwap(false, true) {
+	if db.closed.Load() {
 		return nil
 	}
 	count := db.entityCount.Load()
@@ -204,5 +204,10 @@ func (db *DB) Close() error {
 	w := errors.NewCatcher(errors.WithAggregation())
 	w.Exec(db.fc.close)
 	w.Exec(db.idx.close)
-	return w.Error()
+	if w.Error() != nil {
+		return w.Error()
+	}
+
+	db.closed.Store(true)
+	return nil
 }

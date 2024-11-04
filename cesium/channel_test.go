@@ -414,6 +414,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
 					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
+					Expect(db.Close()).To(Succeed())
 				})
 
 				It("Should not error when db is opened on existing directory", func() {
@@ -459,6 +460,8 @@ var _ = Describe("Channel", Ordered, func() {
 
 					Expect(f.Series[1].TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
 					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
+
+					Expect(db.Close()).To(Succeed())
 				})
 			})
 
