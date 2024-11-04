@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { box, scale, xy } from "@synnaxlabs/x";
-import { useRef } from "react";
-import { useReactFlow } from "reactflow";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
-import { translateViewportBackward, type Viewport } from "@/vis/diagram/aether/types";
 import { render } from "@/vis/render";
 
 export const diagramStateZ = z.object({
@@ -39,11 +36,6 @@ interface InternalState {
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
-
-export const useInitialViewport = (): Viewport => {
-  const flow = useReactFlow();
-  return useRef<Viewport>(translateViewportBackward(flow.getViewport())).current;
-};
 
 export class Diagram extends aether.Composite<
   typeof diagramStateZ,

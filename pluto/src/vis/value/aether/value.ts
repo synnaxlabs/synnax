@@ -105,14 +105,8 @@ export class Value
     const labelPosition = xy.couple(
       xy.translate(
         box.topLeft(b),
-        {
-          x: 0,
-          y: box.height(b) / 2,
-        },
-        {
-          y: height / 2,
-          x: 12,
-        },
+        { x: 0, y: box.height(b) / 2 },
+        { y: height / 2, x: 12 },
       ),
     );
 

@@ -172,6 +172,7 @@ export interface DiagramProps
 
 interface ContextValue {
   editable: boolean;
+  visible: boolean;
   onEditableChange: (v: boolean) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
   fitViewOnResize: boolean;
@@ -180,6 +181,7 @@ interface ContextValue {
 
 const Context = createContext<ContextValue>({
   editable: true,
+  visible: true,
   onEditableChange: () => {},
   registerNodeRenderer: () => {},
   fitViewOnResize: false,
@@ -245,7 +247,13 @@ const Core = Aether.wrap<DiagramProps>(
     );
 
     const { fitView } = useReactFlow();
-    const debouncedFitView = useDebouncedCallback(fitView, 50, [fitView]);
+    const debouncedFitView = useDebouncedCallback(
+      (args) => {
+        fitView(args);
+      },
+      50,
+      [fitView],
+    );
     const resizeRef = Canvas.useRegion(
       useCallback(
         (b) => {
@@ -410,13 +418,14 @@ const Core = Aether.wrap<DiagramProps>(
 
     const ctxValue = useMemo(
       () => ({
+        visible,
         editable,
         onEditableChange,
         registerNodeRenderer,
         fitViewOnResize,
         setFitViewOnResize,
       }),
-      [editable, onEditableChange, registerNodeRenderer, fitViewOnResize],
+      [editable, visible, onEditableChange, registerNodeRenderer, fitViewOnResize],
     );
 
     return (
