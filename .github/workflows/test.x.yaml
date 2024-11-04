@@ -1,4 +1,5 @@
-name: "Test - X"
+name: "Test: X"
+
 on:
   pull_request:
     branches:
@@ -9,90 +10,81 @@ on:
       - rc
       - main
   workflow_dispatch:
+
 jobs:
-  test-go:
+  changes:
+    name: Changes
     runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            changed:
-              - 'x/go/**'
-              - '.github/workflows/test.x.yaml'
+            shared: &shared
+              - .github.workflows.text.x.yaml
+            go:
+              - *shared
+              - alamos/go/**
+              - x/go/**
+            ts:
+              - *shared
+              - x/ts/**
+
+  go:
+    name: Go (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
-        if: steps.filter.outputs.changed == 'true'
         with:
-          go-version-file: "go.work"
+          go-version-file: go.work
           cache-dependency-path: |
-            "alamos/go/go.sum"
-            "aspen/go.sum"
-            "cesium/go.sum"
-            "freighter/go/go.sum"
-            "synnax/go.sum"
-            "x/go/go.sum"
+            alamos/go/go.sum
+            x/go/go.sum
 
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: go test -v --covermode=atomic --coverprofile=coverage.txt ./...
-        working-directory: ./x/go
+        run: go test -v -shuffle=on ./...
+        working-directory: x/go
 
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./x/go
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: gox
-
-  test-typescript:
+  ts:
+    name: TypeScript
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - 'x/typescript/**'
-              - '.github/workflows/test.x.yaml'
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
-        if: steps.filter.outputs.changed == 'true'
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+        uses: pnpm/action-setup@v4
 
-      - name: Setup Node
-        if: steps.filter.outputs.changed == 'true'
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: package.json
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm i
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build:x
 
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm cov:x
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./x/ts
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: xts
+        run: pnpm test:x
