@@ -34,6 +34,9 @@ export default defineConfig({
   },
   envPrefix: ["VITE_", "TAURI_"],
   plugins: [react(), tsconfigPaths()],
+  define: {
+    isDev: false,
+  },
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome105" : "safari16",
     minify: !isDev,

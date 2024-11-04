@@ -104,6 +104,7 @@ const MainUnderContext = (): ReactElement => {
   const cluster = Cluster.useSelect();
   const activeRange = Range.useSelect();
   useBlockDefaultDropBehavior();
+  console.log(window.isDev);
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider

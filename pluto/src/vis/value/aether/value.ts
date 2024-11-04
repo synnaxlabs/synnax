@@ -16,7 +16,6 @@ import { telem } from "@/telem/aether";
 import { text } from "@/text/core";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
-import { fontString } from "@/theming/core/fontString";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { render } from "@/vis/render";
 
@@ -82,13 +81,10 @@ export class Value
     if (box.areaIsZero(b)) return;
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
     const value = await telem.value();
-    canvas.font = this.state.font;
+    const fontString = theming.fontString(this.internal.theme, this.state.font);
+    canvas.font = theming.fontString(this.internal.theme, this.state.font);
     const height = theme.typography[this.state.font].size * theme.sizes.base;
-    const width = dimensions(
-      value,
-      fontString(this.internal.theme, this.state.font),
-      canvas,
-    ).width;
+    const width = dimensions(value, fontString, canvas).width;
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
 
@@ -98,16 +94,11 @@ export class Value
       this.state.width == null ||
       this.state.width < requiredWidth ||
       (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
-    ) {
+    )
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
-    }
 
     const labelPosition = xy.couple(
-      xy.translate(
-        box.topLeft(b),
-        { x: 0, y: box.height(b) / 2 },
-        { y: height / 2, x: 12 },
-      ),
+      xy.translate(box.topLeft(b), { x: 12, y: (box.height(b) + height) / 2 }),
     );
 
     canvas.fillStyle = this.internal.textColor.hex;

@@ -90,7 +90,7 @@ export class Diagram extends aether.Composite<
     const { renderCtx } = this.internal;
     void renderCtx.loop.set({
       key: `${Diagram.TYPE}-${this.key}`,
-      render: async () => await this.render(),
+      render: this.render.bind(this),
       priority,
       canvases: CANVASES,
     });
