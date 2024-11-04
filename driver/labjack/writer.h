@@ -87,7 +87,7 @@ struct WriterChannelConfig{
           data_type(parser.optional<std::string>("data_type", "uint8")),
           cmd_key(parser.required<uint32_t>("cmd_key")),
           state_key(parser.required<uint32_t>("state_key")),
-          channel_type(parser.optional<std::string>("channel_type", "")),
+          channel_type(parser.optional<std::string>("type", "")),
           location(parser.optional<std::string>("port", "")){
         if(!parser.ok())
             LOG(ERROR) << "Failed to parse writer channel config: " << parser.error_json().dump(4);
@@ -120,20 +120,27 @@ struct WriterConfig{
            connection_type(parser.optional<std::string>("connection_type", "")),
            data_saving(parser.optional<bool>("data_saving", false)
        ){
+        LOG(INFO) << "WriterConfig: " << parser.get_json().dump(4);
+
         if(!parser.ok())
             LOG(ERROR) << "Failed to parse writer config: " << parser.error_json().dump(4);
+
         parser.iter("channels", [this](config::Parser &channel_parser){
-            channels.emplace_back(WriterChannelConfig(channel_parser));
+
+            auto channel = WriterChannelConfig(channel_parser);
+            channels.emplace_back(channel);
+
 
             double initial_val = 0.0;
-            if(channels.back().data_type == synnax::SY_UINT8){
+            /// digital outputs start active high
+            if(channel.channel_type == "DO"){
                 initial_val = 1.0;
             }
-            initial_state_map[channels.back().cmd_key] = labjack::out_state{
-                .location = channels.back().location,
+            initial_state_map[channel.cmd_key] = labjack::out_state{
+                .location = channel.location,
                 .state = initial_val,
-                .data_type = channels.back().data_type,
-                .state_key = channels.back().state_key
+                .data_type = channel.data_type,
+                .state_key = channel.state_key
             };
         });
     }

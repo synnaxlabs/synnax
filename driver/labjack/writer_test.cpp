@@ -22,9 +22,9 @@ using json = nlohmann::json;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                   Basic Tests                                                //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-TEST(write_tests, labjack_t4){
+TEST(write_tests, labjack_t7){
 
-    LOG(INFO)  << "Test labjack writes t4";
+    LOG(INFO)  << "Test labjack writes t7";
 
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
@@ -43,21 +43,18 @@ TEST(write_tests, labjack_t4){
 
 
     auto config = json{
-            {"type", "T4"},
-            {"device_key", "440022190"},
-            {"serial_number", "440022190"},
-            {"connection_type", "USB"},
-            {"channels", json::array({
+            {"channels", {
                                  {
-                                         {"location", "FIO4"},
-                                         {"enabled", true},
-                                         {"data_type", "uint8"},
                                          {"cmd_key", cmd.key},
+                                         {"enabled", true},
+                                         {"key", "NR1ONkvd1yG"},
+                                         {"port", "DIO4"},
                                          {"state_key", state.key},
-                                         {"channel_types", "DIO"}
-                                     }
-                             })},
+                                         {"type", "DO"}
+                                 }
+                         }},
             {"data_saving", true},
+            {"device", "470037383"},
             {"state_rate", 10}
     };
 
