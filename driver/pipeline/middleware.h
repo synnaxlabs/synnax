@@ -68,7 +68,6 @@ namespace pipeline {
             }
         }
 
-        //TODO: error handling for invalid keys/ keys that weren't configured upon construction
         void tare(json &arg) {
             // if json contains no keys, tare everything
             json channels = arg["keys"];
@@ -82,7 +81,7 @@ namespace pipeline {
                 }
                 return;
             }
-            // TODO: make sure they are all ints
+
             for (auto &channel: channels) {
                 auto key = channel.get<int32_t>();
                 std::lock_guard <std::mutex> lock(mutex);
@@ -140,7 +139,7 @@ namespace pipeline {
         }
 
     private:
-        std::map<synnax::ChannelKey, double> tare_values; // TODO: gonna need some mutex action for these 2
+        std::map<synnax::ChannelKey, double> tare_values;
         std::map<synnax::ChannelKey, double> last_raw_value;
         std::mutex mutex;
     }; // class TareMiddleware
@@ -227,7 +226,6 @@ namespace pipeline {
         ) {
             parser.iter("channels", [this](config::Parser &channel_parser) {
                 auto key = channel_parser.required<synnax::ChannelKey>("channel");
-//                auto scale_config = channel_parser.optional<json>("custom_scale"); // TODO: see if this works
                 if(channel_parser.get_json().contains("scale")){
                     auto scale_config = channel_parser.child("scale");
                     auto type = scale_config.required<std::string>("type");
