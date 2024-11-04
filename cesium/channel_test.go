@@ -30,9 +30,6 @@ import (
 
 var _ = Describe("Channel", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		if fsName == "memFS" {
-			continue
-		}
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db      *cesium.DB
