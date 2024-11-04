@@ -45,7 +45,7 @@ namespace labjack {
                                 }
                         });
 
-        LOG(ERROR) << "[labjack." << prefix << "] " << err_msg << description << " (" << caller << ")";
+        LOG(ERROR) << "[labjack." << prefix << "] " << err_msg << "(" << err << ")" << description << " (" << caller << ")";
 
         ok_state = false;
         return -1;

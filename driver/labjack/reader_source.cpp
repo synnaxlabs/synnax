@@ -85,6 +85,11 @@ void labjack::ReaderSource::init(){
     this->init_tcs();
 }
 
+void ReconnectCallback(int handle)
+{
+    LOG(INFO) << "[labjack.reader] Reconnected handle: " << handle;
+}
+
 void labjack::ReaderSource::init_tcs(){
     if(this->reader_config.tc_channels.empty()){
         return;
@@ -96,6 +101,8 @@ void labjack::ReaderSource::init_tcs(){
             return;
         }
     }
+
+//    check_err(LJM_RegisterDeviceReconnectCallback(this->handle, &ReconnectCallback), "init_tcs.LJM_RegisterDeviceReconnectCallback"); #FIXME doesn't actually do anything
 
     for(auto &channel : this->reader_config.channels){
         if(channel.channel_type ==  "AI"){
@@ -287,7 +294,19 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(brea
 
 std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::Breaker &breaker) {
     int SCANS_PER_READ = this->num_samples_per_chan;
-    auto [d, err] = data_queue.dequeue();
+    auto [d, ok] = data_queue.dequeue();
+    if(!ok) {
+        this->stop("");
+        ctx->setState({
+                          .task = this->task.key,
+                          .variant = "error",
+                          .details = {
+                                  {"running", false},
+                                  {"message", "Failed to read data off device. Either disconnected or acquisition was disrupted."}
+                          }
+                  });
+        return std::make_pair(Frame(0), freighter::Error("Failed to read data off device. Either disconnected or acquisition was disrupted."));
+    }
 
     uint64_t incr = ((d.tf - d.t0) / SCANS_PER_READ);
 
