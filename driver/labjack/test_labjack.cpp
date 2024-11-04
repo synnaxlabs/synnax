@@ -14,17 +14,20 @@
 #include "LJM_StreamUtilities.h"
 #include <iostream>
 
-int readNames()
-{
+int readNames() {
     int err, frameI, arrayI, valueI, handle;
     int errorAddress = INITIAL_ERR_ADDRESS;
 
 #define NUM_FRAMES 6
 
-    const char * aNames[NUM_FRAMES] = {"DAC0", "TEST_UINT16", "TEST_UINT16", "SERIAL_NUMBER",
-                                       "PRODUCT_ID", "FIRMWARE_VERSION"};
-    int aWrites[NUM_FRAMES] = {LJM_WRITE, LJM_WRITE, LJM_READ, LJM_READ,
-                               LJM_READ, LJM_READ};
+    const char *aNames[NUM_FRAMES] = {
+        "DAC0", "TEST_UINT16", "TEST_UINT16", "SERIAL_NUMBER",
+        "PRODUCT_ID", "FIRMWARE_VERSION"
+    };
+    int aWrites[NUM_FRAMES] = {
+        LJM_WRITE, LJM_WRITE, LJM_READ, LJM_READ,
+        LJM_READ, LJM_READ
+    };
     int aNumValues[NUM_FRAMES] = {1, 1, 1, 1, 1, 1};
     double aValues[6] = {2.5, 12345, 0.0, 0.0, 0.0};
 
@@ -40,17 +43,16 @@ int readNames()
 
     printf("\nLJM_eNames results:\n");
     valueI = 0;
-    for (frameI=0; frameI<NUM_FRAMES; frameI++) {
+    for (frameI = 0; frameI < NUM_FRAMES; frameI++) {
         printf("\t");
         if (aWrites[frameI] == LJM_WRITE) {
             printf("Wrote");
-        }
-        else {
+        } else {
             printf("Read ");
         }
         printf(" - %s: [", aNames[frameI]);
 
-        for (arrayI=0; arrayI<aNumValues[frameI]; arrayI++) {
+        for (arrayI = 0; arrayI < aNumValues[frameI]; arrayI++) {
             printf(" %f", aValues[valueI++]);
         }
         printf(" ]\n");
@@ -64,7 +66,7 @@ int readNames()
     return LJME_NOERROR;
 }
 
-int scan(){
+int scan() {
     int err;
     int i;
     int DeviceType = LJM_dtANY;
@@ -86,7 +88,7 @@ int scan(){
                NumberToDeviceType(DeviceType), NumberToConnectionType(ConnectionType));
 
     printf("Found %d device connections\n", NumFound);
-    for (i=0; i<NumFound; i++) {
+    for (i = 0; i < NumFound; i++) {
         err = LJM_NumberToIP(aIPAddresses[i], IPv4String);
         ErrorCheck(err, "LJM_NumberToIP");
         printf("[%3d]\naDeviceTypes: %s \naConnectionTypes: %s\n",
@@ -101,13 +103,13 @@ int scan(){
 }
 
 
-int read_ain(){
+int read_ain() {
     int err;
     int handle;
 
     // Set up for reading AIN value
     double value = 0;
-    const char * NAME = "AIN0";
+    const char *NAME = "AIN0";
 
     // Open first found LabJack
     handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
@@ -131,13 +133,13 @@ int read_ain(){
 }
 
 
-int read_di(){
+int read_di() {
     int err;
     int handle;
 
     // Set up for reading DIO state
     double value = 0;
-    const char * name; // Changed from char * to const char * else get compile error
+    const char *name; // Changed from char * to const char * else get compile error
 
     // Open first found LabJack
     handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
@@ -150,8 +152,7 @@ int read_di(){
         // AIN0-AIN3. Note: Reading a single digital I/O will change the line
         // from analog to digital input.
         name = "FIO4";
-    }
-    else {
+    } else {
         // Reading from FIO0 on the LabJack T7 and T8
         name = "FIO0";
     }
@@ -169,13 +170,13 @@ int read_di(){
     return LJME_NOERROR;
 }
 
-int write_di(){
+int write_di() {
     int err;
     int handle;
 
     // Set up for setting DIO state
     double value = 0; // Output state = low (0 = low, 1 = high)
-    const char * name;
+    const char *name;
 
     // Open first found LabJack
     handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
@@ -193,8 +194,7 @@ int write_di(){
         // For example:
         // 	double temp;
         // 	LJM_eReadName(handle, name, &temp);
-    }
-    else {
+    } else {
         // Setting FIO0 on the LabJack T7 and T8
         name = "FIO0";
     }
@@ -212,7 +212,7 @@ int write_di(){
     return LJME_NOERROR;
 }
 
-int multi_ain(){
+int multi_ain() {
     int err, errorAddress;
     int handle;
     int i;
@@ -224,7 +224,7 @@ int multi_ain(){
     // Set up for reading AIN values
     enum { NUM_FRAMES_AIN = 3 };
     double aValuesAIN[NUM_FRAMES_AIN] = {0};
-    const char * aNamesAIN[NUM_FRAMES_AIN] = {"AIN0", "AIN1", "FIO4"};
+    const char *aNamesAIN[NUM_FRAMES_AIN] = {"AIN0", "AIN1", "FIO4"};
 
     int msDelay = 1000; // sets sample rate?
 
@@ -290,8 +290,7 @@ int multi_ain(){
     return LJME_NOERROR;
 }
 
-void HardcodedConfigureStream(int handle)
-{
+void HardcodedConfigureStream(int handle) {
     const int STREAM_TRIGGER_INDEX = 0;
     const int STREAM_CLOCK_SOURCE = 0;
     const int STREAM_RESOLUTION_INDEX = 0;
@@ -331,17 +330,15 @@ void HardcodedConfigureStream(int handle)
     printf("    Setting AIN_ALL_NEGATIVE_CH to ");
     if (AIN_ALL_NEGATIVE_CH == LJM_GND) {
         printf("LJM_GND");
-    }
-    else {
+    } else {
         printf("%d", AIN_ALL_NEGATIVE_CH);
     }
     printf("\n");
     WriteNameOrDie(handle, "AIN_ALL_NEGATIVE_CH", AIN_ALL_NEGATIVE_CH);
 }
 
-void Stream(int handle, int numChannels, const char ** channelNames,
-            double scanRate, int scansPerRead, int numReads)
-{
+void Stream(int handle, int numChannels, const char **channelNames,
+            double scanRate, int scansPerRead, int numReads) {
     int err, iteration, channel;
     int numSkippedScans = 0;
     int totalSkippedScans = 0;
@@ -351,10 +348,10 @@ void Stream(int handle, int numChannels, const char ** channelNames,
     unsigned int receiveBufferBytesBacklog = 0;
     int connectionType;
 
-    int * aScanList = (int*)malloc(sizeof(int) * numChannels);
+    int *aScanList = (int *) malloc(sizeof(int) * numChannels);
 
     unsigned int aDataSize = numChannels * scansPerRead;
-    double * aData = (double*)malloc(sizeof(double) * aDataSize);
+    double *aData = (double *) malloc(sizeof(double) * aDataSize);
 
 
     err = LJM_GetHandleInfo(handle, NULL, &connectionType, NULL, NULL, NULL,
@@ -367,7 +364,7 @@ void Stream(int handle, int numChannels, const char ** channelNames,
     err = LJM_NamesToAddresses(numChannels, channelNames, aScanList, NULL);
     ErrorCheck(err, "Getting positive channel addresses");
 
-//    HardcodedConfigureStream(handle);
+    //    HardcodedConfigureStream(handle);
 
     printf("\n");
     printf("Starting stream...\n");
@@ -393,7 +390,7 @@ void Stream(int handle, int numChannels, const char ** channelNames,
                                                       &receiveBufferBytesSize, &receiveBufferBytesBacklog);
             ErrorCheck(err, "LJM_GetStreamTCPReceiveBufferStatus");
             printf(", receive backlog: %f%%",
-                   ((double)receiveBufferBytesBacklog) / receiveBufferBytesSize * 100);
+                   ((double) receiveBufferBytesBacklog) / receiveBufferBytesSize * 100);
         }
         printf("\n");
         printf("  1st scan out of %d:\n", scansPerRead);
@@ -401,13 +398,13 @@ void Stream(int handle, int numChannels, const char ** channelNames,
             printf("    %s = %0.5f\n", channelNames[channel], aData[channel]);
         }
 
-//        for (channel = 0; channel < numChannels; channel++) {
-//            for(int sample = 0; sample < 1000; sample++) {
-//                printf("    %s = %0.5f\n", channelNames[channel], aData[channel * sample]);
-//                printf("%0.5f\n", aData[channel * sample]);
-//
-//            }
-//        }
+        //        for (channel = 0; channel < numChannels; channel++) {
+        //            for(int sample = 0; sample < 1000; sample++) {
+        //                printf("    %s = %0.5f\n", channelNames[channel], aData[channel * sample]);
+        //                printf("%0.5f\n", aData[channel * sample]);
+        //
+        //            }
+        //        }
 
 
         numSkippedScans = CountAndOutputNumSkippedSamples(numChannels, scansPerRead, aData);
@@ -432,7 +429,7 @@ void Stream(int handle, int numChannels, const char ** channelNames,
     free(aScanList);
 }
 
-int basic_stream(){
+int basic_stream() {
     int handle;
 
     // How fast to stream in Hz
@@ -440,7 +437,7 @@ int basic_stream(){
 
     // How many scans to get per call to LJM_eStreamRead. INIT_SCAN_RATE/2 is
     // recommended
-    int SCANS_PER_READ = (int)INIT_SCAN_RATE / 1000;
+    int SCANS_PER_READ = (int) INIT_SCAN_RATE / 1000;
 
     // How many times to call LJM_eStreamRead before calling LJM_eStreamStop
     const int NUM_READS = 1000;
@@ -448,7 +445,7 @@ int basic_stream(){
     // Channels/Addresses to stream. NUM_CHANNELS can be less than or equal to
     // the size of CHANNEL_NAMES
     enum { NUM_CHANNELS = 3 };
-    const char * CHANNEL_NAMES[] = {"AIN0", "AIN1", "FIO4"};
+    const char *CHANNEL_NAMES[] = {"AIN0", "AIN1", "FIO4"};
 
     // Open first found LabJack
     handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
@@ -467,14 +464,13 @@ int basic_stream(){
     return LJME_NOERROR;
 }
 
-int digital_out()
-{
+int digital_out() {
     int err;
     int handle;
 
     // Set up for setting DIO state
     double value = 0; // Output state = low (0 = low, 1 = high)
-    const char * name;
+    const char *name;
 
     // Open first found LabJack
     handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
@@ -492,15 +488,14 @@ int digital_out()
         // For example:
         // 	double temp;
         // 	LJM_eReadName(handle, name, &temp);
-    }
-    else {
+    } else {
         // Setting FIO0 on the LabJack T7 and T8
         name = "FIO0";
     }
 
     // Set DIO state on the LabJack
 
-    for(int i = 0 ; i < 100000; i++){
+    for (int i = 0; i < 100000; i++) {
         value = 1;
         err = LJM_eWriteName(handle, name, value);
         ErrorCheck(err, "LJM_eWriteName");
@@ -523,14 +518,13 @@ int digital_out()
     return LJME_NOERROR;
 }
 
-void PrintErrorToString(int err)
-{
+void PrintErrorToString(int err) {
     char errName[LJM_MAX_NAME_SIZE];
     LJM_ErrorToString(err, errName);
     printf("LJM_ErrorToString(%d) returned %s\n", err, errName);
 }
 
-int PrintErrors(){
+int PrintErrors() {
     printf("Manual values:\n");
     PrintErrorToString(0);
     PrintErrorToString(LJME_CONSTANTS_FILE_NOT_FOUND);
@@ -559,32 +553,32 @@ struct TCData {
     char tempUnits;
 
     // Constructor with default values
-    TCData() :
-            tcType(LJM_ttK),
-            posChannel(0),
-            negChannel(199),
-            CJCAddress(60052),
-            CJCSlope(1.0f),
-            CJCOffset(0.0f),
-            tempUnits('C') {}
+    TCData() : tcType(LJM_ttK),
+               posChannel(0),
+               negChannel(199),
+               CJCAddress(60052),
+               CJCSlope(1.0f),
+               CJCOffset(0.0f),
+               tempUnits('C') {
+    }
 
     // Add a constructor that takes all parameters
-    TCData(long tc, int pos, int neg, int cjc, float slope, float offset, char units) :
-            tcType(tc),
-            posChannel(pos),
-            negChannel(neg),
-            CJCAddress(cjc),
-            CJCSlope(slope),
-            CJCOffset(offset),
-            tempUnits(units) {}
+    TCData(long tc, int pos, int neg, int cjc, float slope, float offset, char units) : tcType(tc),
+        posChannel(pos),
+        negChannel(neg),
+        CJCAddress(cjc),
+        CJCSlope(slope),
+        CJCOffset(offset),
+        tempUnits(units) {
+    }
 };
 
 
-void SetupAIN_EF(int handle, const TCData& tcData) {
+void SetupAIN_EF(int handle, const TCData &tcData) {
     int err;
     // For converting LJM TC type  to TC AIN_EF index
     // Thermocouple type:		 B  E  J  K  N  R  S  T  C
-    int TC_INDEX_LUT[9] = {28,20,21,22,27,23,25,24,30};
+    int TC_INDEX_LUT[9] = {28, 20, 21, 22, 27, 23, 25, 24, 30};
 
 #define NUM_FRAMES2 5
 
@@ -602,7 +596,7 @@ void SetupAIN_EF(int handle, const TCData& tcData) {
     aAddresses[1] = 9300 + 2 * tcData.posChannel;
     aTypes[1] = LJM_UINT32;
 
-    switch(tcData.tempUnits) {
+    switch (tcData.tempUnits) {
         case 'K':
             aValues[1] = 0;
             break;
@@ -613,7 +607,7 @@ void SetupAIN_EF(int handle, const TCData& tcData) {
             aValues[1] = 2;
             break;
         default:
-            aValues[1] = 1;  // Default to Celsius
+            aValues[1] = 1; // Default to Celsius
     }
 
     // For setting up the AIN#_EF_CONFIG_B (CJC address)
@@ -637,7 +631,7 @@ void SetupAIN_EF(int handle, const TCData& tcData) {
 }
 
 
-void GetReadingsAIN_EF(int handle, const TCData& tcData) {
+void GetReadingsAIN_EF(int handle, const TCData &tcData) {
     int err;
     double TCTemp, TCVolts, CJTemp;
 
@@ -661,13 +655,13 @@ int tc() {
 
     // Initialize using the parametrized constructor
     TCData tcData(
-            LJM_ttK,    // Type K thermocouple
-            0,          // Connected to AIN0
-            199,        // GND for negChannel (should be ignored for T4/T8)
-            60052,      // Use TEMPERATURE_DEVICE_K for CJC
-            1.0f,       // CJC Slope associated to TEMPERATURE_DEVICE_K
-            0.0f,       // CJC Offset associated to TEMPERATURE_DEVICE_K
-            'C'        // Temperature units
+        LJM_ttK, // Type K thermocouple
+        0, // Connected to AIN0
+        199, // GND for negChannel (should be ignored for T4/T8)
+        60052, // Use TEMPERATURE_DEVICE_K for CJC
+        1.0f, // CJC Slope associated to TEMPERATURE_DEVICE_K
+        0.0f, // CJC Offset associated to TEMPERATURE_DEVICE_K
+        'C' // Temperature units
     );
 
     handle = OpenOrDie(LJM_dtANY, LJM_ctANY, "LJM_idANY");
@@ -703,19 +697,18 @@ int tc() {
     WaitForUserIfWindows();
     return LJME_NOERROR;
 }
-void ReconnectCallback(int handle)
-{
+
+void ReconnectCallback(int handle) {
     printf("Reconnected handle: %d\n", handle);
 }
 
-int reconnect_test()
-{
+int reconnect_test() {
     int err, handle;
     int iteration = 0;
     int DeviceType, ConnectionType, SerialNumber, IPAddress, Port, MaxBytesPerMB;
     double value = 0;
 
-    const char * NAME = {"SERIAL_NUMBER"};
+    const char *NAME = {"SERIAL_NUMBER"};
 
     GetAndPrintConfigValue(LJM_LIBRARY_VERSION);
 
@@ -759,14 +752,15 @@ int reconnect_test()
 
     return LJME_NOERROR;
 }
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main() {
-//    return PrintErrors();
-//    return scan();
-//    return multi_ain();
-//    return basic_stream();
-//    return digital_out();
-//      return tc();
+    //    return PrintErrors();
+    //    return scan();
+    //    return multi_ain();
+    //    return basic_stream();
+    //    return digital_out();
+    //      return tc();
     return reconnect_test();
 }

@@ -24,7 +24,7 @@ using json = nlohmann::json;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                   Basic Tests                                                //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-TEST(read_tests, labjack_t4){
+TEST(read_tests, labjack_t4) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
@@ -40,15 +40,17 @@ TEST(read_tests, labjack_t4){
         {"device", "440022190"},
         {"connection_type", "USB"},
         {"data_saving", true},
-        {"channels", json::array({
-             {
-                     {"port", "AIN0"},
-                     {"enabled", true},
-                     {"channel", data.key},
-                     {"range", 10.0},
-                     {"type", "AI"}
-             }
-        })},
+        {
+            "channels", json::array({
+                {
+                    {"port", "AIN0"},
+                    {"enabled", true},
+                    {"channel", data.key},
+                    {"range", 10.0},
+                    {"type", "AI"}
+                }
+            })
+        },
     };
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
@@ -62,10 +64,9 @@ TEST(read_tests, labjack_t4){
     reader_task->exec(start_cmd);
     std::this_thread::sleep_for(std::chrono::seconds(30000));
     reader_task->exec(stop_cmd);
-
 }
 
-TEST(read_tests, labjack_t4_multi_ain){
+TEST(read_tests, labjack_t4_multi_ain) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
@@ -79,28 +80,30 @@ TEST(read_tests, labjack_t4_multi_ain){
 
 
     auto config = json{
-            {"sample_rate", 5000},
-            {"stream_rate", 30},
-            {"type", "T4"},
-            {"device", "440022190"},
-            {"connection_type", "USB"},
-            {"data_saving", true},
-            {"channels", json::array({
-                 {
-                         {"port", "AIN0"},
-                         {"enabled", true},
-                         {"channel", data1.key},
-                         {"range", 10.0},
-                         {"type", "AI"}
-                 },
-                 {
-                         {"port", "AIN1"},
-                         {"enabled", true},
-                         {"channel", data2.key},
-                         {"range", 10.0},
-                         {"type", "AI"}
-                 }
-         })},
+        {"sample_rate", 5000},
+        {"stream_rate", 30},
+        {"type", "T4"},
+        {"device", "440022190"},
+        {"connection_type", "USB"},
+        {"data_saving", true},
+        {
+            "channels", json::array({
+                {
+                    {"port", "AIN0"},
+                    {"enabled", true},
+                    {"channel", data1.key},
+                    {"range", 10.0},
+                    {"type", "AI"}
+                },
+                {
+                    {"port", "AIN1"},
+                    {"enabled", true},
+                    {"channel", data2.key},
+                    {"range", 10.0},
+                    {"type", "AI"}
+                }
+            })
+        },
     };
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
@@ -113,17 +116,16 @@ TEST(read_tests, labjack_t4_multi_ain){
     auto tare_cmd = task::Command{task.key, "tare", {}};
 
     reader_task->exec(start_cmd);
-    for(int i = 0; i < 100; i++){
+    for (int i = 0; i < 100; i++) {
         std::this_thread::sleep_for(std::chrono::seconds(5));
         reader_task->exec(tare_cmd);
     }
     std::this_thread::sleep_for(std::chrono::seconds(30000));
     //    std::this_thread::sleep_for(std::chrono::seconds(2));
     reader_task->exec(stop_cmd);
-
 }
 
-TEST(read_tests, labjack_t4_ai_fio){
+TEST(read_tests, labjack_t4_ai_fio) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
@@ -139,36 +141,38 @@ TEST(read_tests, labjack_t4_ai_fio){
     ASSERT_FALSE(dErr3) << dErr3.message();
 
     auto config = json{
-            {"sample_rate", 5000},
-            {"stream_rate", 30},
-            {"type", "T4"},
-            {"device", "440022190"},
-            {"connection_type", "USB"},
-            {"data_saving", true},
-            {"channels", json::array({
-                                             {
-                                                     {"port", "AIN0"},
-                                                     {"enabled", true},
-                                                     {"channel", data1.key},
-                                                     {"range", 10.0},
-                                                     {"type", "AI"}
-                                             },
-                                             {
-                                                     {"location", "AIN1"},
-                                                     {"enabled", true},
-                                                     {"channel", data2.key},
-                                                     {"range", 10.0},
-                                                     {"type", "AI"}
-                                             },
-                                             {
-                                                     {"location", "FIO4"},
-                                                     {"enabled", true},
-                                                     {"data_type", "uint8"},
-                                                     {"key", data3.key},
-                                                     {"type", "DIN"}
-                                             }
-                                     })},
-            {"index_keys", json::array({time.key})},
+        {"sample_rate", 5000},
+        {"stream_rate", 30},
+        {"type", "T4"},
+        {"device", "440022190"},
+        {"connection_type", "USB"},
+        {"data_saving", true},
+        {
+            "channels", json::array({
+                {
+                    {"port", "AIN0"},
+                    {"enabled", true},
+                    {"channel", data1.key},
+                    {"range", 10.0},
+                    {"type", "AI"}
+                },
+                {
+                    {"location", "AIN1"},
+                    {"enabled", true},
+                    {"channel", data2.key},
+                    {"range", 10.0},
+                    {"type", "AI"}
+                },
+                {
+                    {"location", "FIO4"},
+                    {"enabled", true},
+                    {"data_type", "uint8"},
+                    {"key", data3.key},
+                    {"type", "DIN"}
+                }
+            })
+        },
+        {"index_keys", json::array({time.key})},
     };
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
@@ -181,11 +185,10 @@ TEST(read_tests, labjack_t4_ai_fio){
     reader_task->exec(start_cmd);
     std::this_thread::sleep_for(std::chrono::seconds(30000));
     reader_task->exec(stop_cmd);
-
 }
 
 // TODO: tests there are no race conditions between reading a device and scanning for it
-TEST(read_tests, labjack_scan_and_read){
+TEST(read_tests, labjack_scan_and_read) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     /////////////////////////////////////////////////////////////////////////// scanner task
@@ -207,21 +210,23 @@ TEST(read_tests, labjack_scan_and_read){
     ASSERT_FALSE(dErr) << dErr.message();
 
     auto config = json{
-            {"sample_rate", 10000},
-            {"stream_rate", 30},
-            {"type", "T4"},
-            {"device", "440022190"},
-            {"connection_type", "USB"},
-            {"data_saving", true},
-            {"channels", json::array({
-                                             {
-                                                     {"port", "AIN0"},
-                                                     {"enabled", true},
-                                                     {"channel", data.key},
-                                                     {"range", 10.0},
-                                                     {"type", "AI"}
-                                             }
-                                     })},
+        {"sample_rate", 10000},
+        {"stream_rate", 30},
+        {"type", "T4"},
+        {"device", "440022190"},
+        {"connection_type", "USB"},
+        {"data_saving", true},
+        {
+            "channels", json::array({
+                {
+                    {"port", "AIN0"},
+                    {"enabled", true},
+                    {"channel", data.key},
+                    {"range", 10.0},
+                    {"type", "AI"}
+                }
+            })
+        },
     };
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
@@ -231,13 +236,13 @@ TEST(read_tests, labjack_scan_and_read){
     // create commands
     auto start_cmd = task::Command{task.key, "start", {}};
     auto stop_cmd = task::Command{task.key, "stop", {}};
-    for(int i = 0; i < 100; i++){
+    for (int i = 0; i < 100; i++) {
         reader_task->exec(start_cmd);
         reader_task->exec(stop_cmd);
     }
 }
 
-TEST(read_tests, labjack_t4_read_and_write){
+TEST(read_tests, labjack_t4_read_and_write) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
@@ -246,36 +251,40 @@ TEST(read_tests, labjack_t4_read_and_write){
     auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-//    auto [data, dErr3] = client->channels.create("di", synnax::SY_UINT8, time.key, false);
-//    ASSERT_FALSE(dErr3) << dErr3.message();
+    //    auto [data, dErr3] = client->channels.create("di", synnax::SY_UINT8, time.key, false);
+    //    ASSERT_FALSE(dErr3) << dErr3.message();
 
     auto config = json{
-            {"sample_rate", 1000},
-            {"stream_rate", 30},
-            {"type", "T4"},
-            {"device", "440022190"},
-            {"connection_type", "USB"},
-            {"data_saving", true},
-            {"channels", json::array({
-                                             {
-                                                     {"port","AIN0"},
-                                                     {"enabled", true},
-                                                     {"key", data.key},
-                                                     {"range", 10.0},
-                                                     {"type", "AI"}
-                                             }
-                                             {
-                                                 {"location", "FIO4"},
-                                                 {"enabled", true},
-                                                 {"data_type", "uint8"},
-                                                 {"key", data.key},
-                                                 {"type", "DIN"}
-                                             }
-                                     })},
-            {"index_keys", json::array({time.key})},
-            {"channel_map", {
-                                    {"AIN0", data.key}
-                            }}
+        {"sample_rate", 1000},
+        {"stream_rate", 30},
+        {"type", "T4"},
+        {"device", "440022190"},
+        {"connection_type", "USB"},
+        {"data_saving", true},
+        {
+            "channels", json::array({
+                {
+                    {"port", "AIN0"},
+                    {"enabled", true},
+                    {"key", data.key},
+                    {"range", 10.0},
+                    {"type", "AI"}
+                }
+                {
+                    {"location", "FIO4"},
+                    {"enabled", true},
+                    {"data_type", "uint8"},
+                    {"key", data.key},
+                    {"type", "DIN"}
+                }
+            })
+        },
+        {"index_keys", json::array({time.key})},
+        {
+            "channel_map", {
+                {"AIN0", data.key}
+            }
+        }
     };
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
@@ -291,7 +300,7 @@ TEST(read_tests, labjack_t4_read_and_write){
     auto [state_idx, tErr1] = client->channels.create("do_state_idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr1) << tErr1.message();
 
-    auto [cmd_idx, tErr2] = client->channels.create("do_cmd_idx", synnax::TIMESTAMP,0, true);
+    auto [cmd_idx, tErr2] = client->channels.create("do_cmd_idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr2) << tErr2.message();
 
     auto [state, aErr] = client->channels.create("do_state", synnax::SY_UINT8, state_idx.key, false);
@@ -305,16 +314,18 @@ TEST(read_tests, labjack_t4_read_and_write){
         {"device_key", "440022190"},
         {"serial_number", "440022190"},
         {"connection_type", "USB"},
-        {"channels", json::array({
-                                         {
-                                                 {"port", "FIO4"},
-                                                 {"enabled", true},
-                                                 {"data_type", "uint8"},
-                                                 {"cmd_key", cmd.key},
-                                                 {"state_key", state.key},
-                                                 {"type", "DO"}
-                                         }
-                                 })},
+        {
+            "channels", json::array({
+                {
+                    {"port", "FIO4"},
+                    {"enabled", true},
+                    {"data_type", "uint8"},
+                    {"cmd_key", cmd.key},
+                    {"state_key", state.key},
+                    {"type", "DO"}
+                }
+            })
+        },
         {"data_saving", true},
         {"state_rate", 10}
     };
@@ -334,8 +345,11 @@ TEST(read_tests, labjack_t4_read_and_write){
     reader_task->exec(stop_cmd);
 }
 
- TODO: test with a differential signal
-TEST(read_tests, labjack_t7_tc){
+TODO: test
+ with a differential
+
+signal
+TEST(read_tests, labjack_t7_tc) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
@@ -345,46 +359,48 @@ TEST(read_tests, labjack_t7_tc){
     ASSERT_FALSE(dErr) << dErr.message();
 
     auto config = json{
-            {"sample_rate", 10000},
-            {"stream_rate", 30},
-            {"type", "T7"},
-            {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
-            {"connection_type", "USB"},
-            {"data_saving", true},
-            {"channels", json::array({
-                                             {
-                                                     {"port", "AIN0"},
-                                                     {"enabled", true},
-                                                     {"channel", data.key},
-                                                     {"range", 10.0},
-                                                     {"type", "TC"},
-                                                     {"thermocouple_type", "K"},
-                                                     {"cjc_slope", 1.0},
-                                                     {"cjc_offset", 0.0},
-                                                     {"cjc_source", "TEMPERATURE_DEVICE_K"},// TODO make sure you get output if one of these is missed
-                                                     {"units", "C"},
-                                                     {"pos_channel", 0},
-                                             }
-                                     })},
+        {"sample_rate", 10000},
+        {"stream_rate", 30},
+        {"type", "T7"},
+        {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
+        {"connection_type", "USB"},
+        {"data_saving", true},
+        {
+            "channels", json::array({
+                {
+                    {"port", "AIN0"},
+                    {"enabled", true},
+                    {"channel", data.key},
+                    {"range", 10.0},
+                    {"type", "TC"},
+                    {"thermocouple_type", "K"},
+                    {"cjc_slope", 1.0},
+                    {"cjc_offset", 0.0},
+                    {"cjc_source", "TEMPERATURE_DEVICE_K"}, // TODO make sure you get output if one of these is missed
+                    {"units", "C"},
+                    {"pos_channel", 0},
+                }
+            })
+        },
     };
 
-//    auto config = json{
-//            {"sample_rate", 10000},
-//            {"stream_rate", 30},
-//            {"type", "T7"},
-//            {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
-//            {"connection_type", "USB"},
-//            {"data_saving", true},
-//            {"channels", json::array({
-//                                             {
-//                                                     {"port", "AIN0"},
-//                                                     {"enabled", true},
-//                                                     {"channel", data.key},
-//                                                     {"range", 10.0},
-//                                                     {"type", "AI"}
-//                                             }
-//                                     })},
-//    };
+    //    auto config = json{
+    //            {"sample_rate", 10000},
+    //            {"stream_rate", 30},
+    //            {"type", "T7"},
+    //            {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
+    //            {"connection_type", "USB"},
+    //            {"data_saving", true},
+    //            {"channels", json::array({
+    //                                             {
+    //                                                     {"port", "AIN0"},
+    //                                                     {"enabled", true},
+    //                                                     {"channel", data.key},
+    //                                                     {"range", 10.0},
+    //                                                     {"type", "AI"}
+    //                                             }
+    //                                     })},
+    //    };
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));
     auto mockCtx = std::make_shared<task::MockContext>(client);
@@ -399,7 +415,7 @@ TEST(read_tests, labjack_t7_tc){
     reader_task->exec(stop_cmd);
 }
 
-TEST(read_tests, labjack_t7_tc_and_ain){
+TEST(read_tests, labjack_t7_tc_and_ain) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
@@ -412,34 +428,36 @@ TEST(read_tests, labjack_t7_tc_and_ain){
     ASSERT_FALSE(dErr2) << dErr2.message();
 
     auto config = json{
-            {"sample_rate", 300},
-            {"stream_rate", 1},
-            {"type", "T7"},
-            {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
-            {"connection_type", "USB"},
-            {"data_saving", true},
-            {"channels", json::array({
-                                             {
-                                                     {"port", "AIN0"},
-                                                     {"enabled", true},
-                                                     {"channel", data2.key},
-                                                     {"range", 10.0},
-                                                     {"type", "TC"},
-                                                     {"thermocouple_type", "K"},
-                                                     {"cjc_slope", 1.0},
-                                                     {"cjc_offset", 0.0},
-                                                     {"cjc_source", "TEMPERATURE_DEVICE_K"},// TODO make sure you get output if one of these is missed
-                                                     {"units", "C"},
-                                                     {"pos_chan", 0}
-                                             },
-                                             {
-                                                     {"port", "AIN1"},
-                                                     {"enabled", true},
-                                                     {"channel", data.key},
-                                                     {"range", 10},
-                                                     {"type", "AI"}
-                                             }
-                                     })},
+        {"sample_rate", 300},
+        {"stream_rate", 1},
+        {"type", "T7"},
+        {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
+        {"connection_type", "USB"},
+        {"data_saving", true},
+        {
+            "channels", json::array({
+                {
+                    {"port", "AIN0"},
+                    {"enabled", true},
+                    {"channel", data2.key},
+                    {"range", 10.0},
+                    {"type", "TC"},
+                    {"thermocouple_type", "K"},
+                    {"cjc_slope", 1.0},
+                    {"cjc_offset", 0.0},
+                    {"cjc_source", "TEMPERATURE_DEVICE_K"}, // TODO make sure you get output if one of these is missed
+                    {"units", "C"},
+                    {"pos_chan", 0}
+                },
+                {
+                    {"port", "AIN1"},
+                    {"enabled", true},
+                    {"channel", data.key},
+                    {"range", 10},
+                    {"type", "AI"}
+                }
+            })
+        },
     };
 
     auto task = synnax::Task("my_task", "labjack_read", to_string(config));

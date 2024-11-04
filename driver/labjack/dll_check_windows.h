@@ -14,13 +14,13 @@
 #include "nlohmann/json.hpp"
 
 namespace labjack {
-    inline bool does_dll_exist(const char *dll_path) {
-        HMODULE hModule = LoadLibrary(dll_path);
-        if (hModule == NULL) {
-            LOG(ERROR) << "[labjack] " << dll_path << " not found";
-            return false;
-        }
-        FreeLibrary(hModule);
-        return true;
+inline bool does_dll_exist(const char *dll_path) {
+    HMODULE hModule = LoadLibrary(dll_path);
+    if (hModule == NULL) {
+        LOG(ERROR) << "[labjack] " << dll_path << " not found";
+        return false;
     }
+    FreeLibrary(hModule);
+    return true;
+}
 }

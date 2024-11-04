@@ -14,25 +14,25 @@
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::ReaderTask::ReaderTask(
-        const std::shared_ptr<task::Context> &ctx,
-        synnax::Task task,
-        std::shared_ptr<labjack::ReaderSource> labjack_source,
-        std::shared_ptr<pipeline::Source> source,
-        synnax::WriterConfig writer_config,
-        const breaker::Config breaker_config
-    ) : ctx(ctx),
-        task(task),
-        read_pipe(
-            pipeline::Acquisition(
-                    ctx->client,
-                    writer_config,
-                    source,
-                    breaker_config)
-            ),
-        source(labjack_source){
-
+    const std::shared_ptr<task::Context> &ctx,
+    synnax::Task task,
+    std::shared_ptr<labjack::ReaderSource> labjack_source,
+    std::shared_ptr<pipeline::Source> source,
+    synnax::WriterConfig writer_config,
+    const breaker::Config breaker_config
+) : ctx(ctx),
+    task(task),
+    read_pipe(
+        pipeline::Acquisition(
+            ctx->client,
+            writer_config,
+            source,
+            breaker_config)
+    ),
+    source(labjack_source) {
     std::vector<synnax::ChannelKey> channel_keys = labjack_source->get_channel_keys();
-    this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys); // TODO: function to only return analog input channel keys
+    this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
+    // TODO: function to only return analog input channel keys
     read_pipe.add_middleware(tare_mw);
 
     auto parser = config::Parser(task.config);
@@ -52,32 +52,32 @@ void labjack::ReaderTask::exec(task::Command &cmd) {
 }
 
 void labjack::ReaderTask::stop(const std::string &cmd_key) {
-    if(!this->running.exchange(false)) return;
+    if (!this->running.exchange(false)) return;
     this->read_pipe.stop();
     this->source->stop(cmd_key);
-    if(this->source->ok())
+    if (this->source->ok())
         LOG(INFO) << "[labjack.task] successfully stopped task " << this->task.name;
 }
 
-void labjack::ReaderTask::stop() { this->stop("");}
+void labjack::ReaderTask::stop() { this->stop(""); }
 
 
-void labjack::ReaderTask::start(const std::string &cmd_key){
-    if(this->running.exchange(true)) return;
+void labjack::ReaderTask::start(const std::string &cmd_key) {
+    if (this->running.exchange(true)) return;
     this->source->start(cmd_key);
     this->read_pipe.start();
-    if(this->source->ok())
+    if (this->source->ok())
         LOG(INFO) << "[labjack.task] successfully started task " << this->task.name;
 }
 
 std::unique_ptr<task::Task> labjack::ReaderTask::configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task){
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task) {
     LOG(INFO) << "[labjack.task] configuring task " << task.name;
 
     auto breaker_config = breaker::Config{
         .name = task.name,
-        .base_interval = 1 *SECOND,
+        .base_interval = 1 * SECOND,
         .max_retries = 20,
         .scale = 1.2,
     };
@@ -97,8 +97,8 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
         .channels = channel_keys,
         .start = synnax::TimeStamp::now(),
         .mode = reader_config.data_saving
-                ? synnax::WriterMode::PersistStream
-                : synnax::WriterMode::StreamOnly,
+                    ? synnax::WriterMode::PersistStream
+                    : synnax::WriterMode::StreamOnly,
         .enable_auto_commit = true
     };
 
@@ -117,12 +117,11 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
         .task = task.key,
         .variant = "success",
         .details = {
-                {"running", false},
-                {"message", "Successfully configured task"}
+            {"running", false},
+            {"message", "Successfully configured task"}
         }
     });
 
     LOG(INFO) << "[labjack.task] successfully configured task " << task.name;
     return p;
 }
-

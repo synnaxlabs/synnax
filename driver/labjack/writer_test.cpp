@@ -22,16 +22,15 @@ using json = nlohmann::json;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                   Basic Tests                                                //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-TEST(write_tests, labjack_t7){
-
-    LOG(INFO)  << "Test labjack writes t7";
+TEST(write_tests, labjack_t7) {
+    LOG(INFO) << "Test labjack writes t7";
 
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [state_idx, tErr1] = client->channels.create("do_state_idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr1) << tErr1.message();
 
-    auto [cmd_idx, tErr2] = client->channels.create("do_cmd_idx", synnax::TIMESTAMP,0, true);
+    auto [cmd_idx, tErr2] = client->channels.create("do_cmd_idx", synnax::TIMESTAMP, 0, true);
     ASSERT_FALSE(tErr2) << tErr2.message();
 
     // TODO: test schematic using a float channel
@@ -43,19 +42,21 @@ TEST(write_tests, labjack_t7){
 
 
     auto config = json{
-            {"channels", {
-                                 {
-                                         {"cmd_key", cmd.key},
-                                         {"enabled", true},
-                                         {"key", "NR1ONkvd1yG"},
-                                         {"port", "DIO4"},
-                                         {"state_key", state.key},
-                                         {"type", "DO"}
-                                 }
-                         }},
-            {"data_saving", true},
-            {"device", "470037383"},
-            {"state_rate", 10}
+        {
+            "channels", {
+                {
+                    {"cmd_key", cmd.key},
+                    {"enabled", true},
+                    {"key", "NR1ONkvd1yG"},
+                    {"port", "DIO4"},
+                    {"state_key", state.key},
+                    {"type", "DO"}
+                }
+            }
+        },
+        {"data_saving", true},
+        {"device", "470037383"},
+        {"state_rate", 10}
     };
 
     auto task = synnax::Task("my_task", "labjack_write", to_string(config));

@@ -27,8 +27,7 @@
 
 // Currently supports: T7, T4, T5, Digit products.
 
-namespace labjack{
-
+namespace labjack {
 const std::string SCAN_CMD_TYPE = "scan";
 const std::string STOP_CMD_TYPE = "stop";
 
@@ -38,15 +37,17 @@ const std::string STOP_CMD_TYPE = "stop";
 class ScannerTask final : public task::Task {
 public:
     explicit ScannerTask() = default;
+
     ~ScannerTask();
-    explicit ScannerTask (
-            const std::shared_ptr<task::Context> &ctx,
-            const synnax::Task &task
+
+    explicit ScannerTask(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
     );
 
     static std::unique_ptr<task::Task> configure(
-            const std::shared_ptr<task::Context> &ctx,
-            const synnax::Task &task
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
     );
 
     std::string name() override { return task.name; }

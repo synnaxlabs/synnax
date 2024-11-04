@@ -15,22 +15,22 @@
 #include "driver/labjack/writer.h"
 
 std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
 ) {
     if (task.type == "labjack_scan")
-        return {labjack::ScannerTask::configure(ctx,task), true};
+        return {labjack::ScannerTask::configure(ctx, task), true};
     if (task.type == "labjack_read")
         return {labjack::ReaderTask::configure(ctx, task), true};
-    if(task.type == "labjack_write")
+    if (task.type == "labjack_write")
         return {labjack::WriterTask::configure(ctx, task), true};
     return {nullptr, false};
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
 labjack::Factory::configure_initial_tasks(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Rack &rack
 ) {
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
 
@@ -38,11 +38,11 @@ labjack::Factory::configure_initial_tasks(
     if (err.matches(synnax::NOT_FOUND)) {
         VLOG(1) << "[labjack] Creating scanner task";
         auto sy_task = synnax::Task(
-                rack.key,
-                "labjack scanner",
-                "labjack_scan",
-                "",
-                true
+            rack.key,
+            "labjack scanner",
+            "labjack_scan",
+            "",
+            true
         );
         const auto c_err = rack.tasks.create(sy_task);
         if (c_err) {

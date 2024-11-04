@@ -32,8 +32,8 @@
 #include "driver/loop/loop.h"
 #include "driver/config/config.h"
 
-namespace labjack{
-struct out_state{
+namespace labjack {
+struct out_state {
     std::string location = "";
     double state = 0.0;
     synnax::DataType data_type = synnax::FLOAT64;
@@ -59,7 +59,6 @@ public:
 
     void update_state(synnax::Frame frame);
 
-
 private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
@@ -67,12 +66,12 @@ private:
     std::map<synnax::ChannelKey, labjack::out_state> state_map;
     std::vector<synnax::ChannelKey> state_index_keys;
     loop::Timer timer;
-};  // class StateSource
+}; // class StateSource
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   WriterChannelConfig                         //
 ///////////////////////////////////////////////////////////////////////////////////
-struct WriterChannelConfig{
+struct WriterChannelConfig {
     std::string location;
     bool enabled = true;
     synnax::DataType data_type;
@@ -88,8 +87,8 @@ struct WriterChannelConfig{
           cmd_key(parser.required<uint32_t>("cmd_key")),
           state_key(parser.required<uint32_t>("state_key")),
           channel_type(parser.optional<std::string>("type", "")),
-          location(parser.optional<std::string>("port", "")){
-        if(!parser.ok())
+          location(parser.optional<std::string>("port", "")) {
+        if (!parser.ok())
             LOG(ERROR) << "Failed to parse writer channel config: " << parser.error_json().dump(4);
     }
 };
@@ -97,7 +96,7 @@ struct WriterChannelConfig{
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   WriterConfig                                //
 ///////////////////////////////////////////////////////////////////////////////////
-struct WriterConfig{
+struct WriterConfig {
     std::string device_type;
     std::string device_key;
     std::vector<WriterChannelConfig> channels;
@@ -113,27 +112,26 @@ struct WriterConfig{
     WriterConfig() = default;
 
     explicit WriterConfig(config::Parser &parser)
-        :  device_type(parser.optional<std::string>("type", "")),
-           device_key(parser.required<std::string>("device")),
-           state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),
-           serial_number(parser.required<std::string>("device")),
-           connection_type(parser.optional<std::string>("connection_type", "")),
-           data_saving(parser.optional<bool>("data_saving", false)
-       ){
+        : device_type(parser.optional<std::string>("type", "")),
+          device_key(parser.required<std::string>("device")),
+          state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),
+          serial_number(parser.required<std::string>("device")),
+          connection_type(parser.optional<std::string>("connection_type", "")),
+          data_saving(parser.optional<bool>("data_saving", false)
+          ) {
         LOG(INFO) << "WriterConfig: " << parser.get_json().dump(4);
 
-        if(!parser.ok())
+        if (!parser.ok())
             LOG(ERROR) << "Failed to parse writer config: " << parser.error_json().dump(4);
 
-        parser.iter("channels", [this](config::Parser &channel_parser){
-
+        parser.iter("channels", [this](config::Parser &channel_parser) {
             auto channel = WriterChannelConfig(channel_parser);
             channels.emplace_back(channel);
 
 
             double initial_val = 0.0;
             /// digital outputs start active high
-            if(channel.channel_type == "DO"){
+            if (channel.channel_type == "DO") {
                 initial_val = 1.0;
             }
             initial_state_map[channel.cmd_key] = labjack::out_state{
@@ -149,14 +147,13 @@ struct WriterConfig{
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   WriteSink                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-class WriteSink final : public pipeline::Sink{
+class WriteSink final : public pipeline::Sink {
 public:
-
     explicit WriteSink(
-            const std::shared_ptr<task::Context> &ctx,
-            const synnax::Task &task,
-            const labjack::WriterConfig &writer_config
-        );
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task,
+        const labjack::WriterConfig &writer_config
+    );
 
     ~WriteSink();
 
@@ -187,23 +184,22 @@ private:
     breaker::Breaker breaker;
     synnax::Task task;
     bool ok_state = true;
-
 }; // class WriteSink
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriterTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-class WriterTask final : public task::Task{
+class WriterTask final : public task::Task {
 public:
     explicit WriterTask(
-            const std::shared_ptr <task::Context> &ctx,
-            synnax::Task task,
-            std::shared_ptr<pipeline::Sink> sink,
-            std::shared_ptr<labjack::WriteSink> labjack_sink,
-            std::shared_ptr<pipeline::Source> state_source,
-            synnax::WriterConfig writer_config,
-            synnax::StreamerConfig streamer_config,
-            const breaker::Config breaker_config
+        const std::shared_ptr<task::Context> &ctx,
+        synnax::Task task,
+        std::shared_ptr<pipeline::Sink> sink,
+        std::shared_ptr<labjack::WriteSink> labjack_sink,
+        std::shared_ptr<pipeline::Source> state_source,
+        synnax::WriterConfig writer_config,
+        synnax::StreamerConfig streamer_config,
+        const breaker::Config breaker_config
     );
 
     void exec(task::Command &cmd) override;
@@ -216,18 +212,17 @@ public:
 
     std::string name() override { return task.name; }
 
-    static std::unique_ptr <task::Task> configure(
-            const std::shared_ptr <task::Context> &ctx,
-            const synnax::Task &task
+    static std::unique_ptr<task::Task> configure(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
     );
 
 private:
     std::atomic<bool> running = false;
-    std::shared_ptr <task::Context> ctx;
+    std::shared_ptr<task::Context> ctx;
     synnax::Task task;
     pipeline::Control cmd_pipe;
     pipeline::Acquisition state_pipe;
-    std::shared_ptr <labjack::WriteSink> sink;
+    std::shared_ptr<labjack::WriteSink> sink;
 };
-
 } // namespace labjack
