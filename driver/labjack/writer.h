@@ -169,7 +169,9 @@ public:
 
     void get_index_keys();
 
-    int check_err(int err);
+    int check_err(int err, std::string caller);
+
+    bool ok();
 
 private:
     int handle;
@@ -177,6 +179,7 @@ private:
     WriterConfig writer_config;
     breaker::Breaker breaker;
     synnax::Task task;
+    bool ok_state = true;
 
 }; // class WriteSink
 

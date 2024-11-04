@@ -157,7 +157,14 @@ void labjack::WriteSink::init(){
     }
     {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
-        check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->writer_config.serial_number.c_str(), &this->handle));
+        check_err(
+                LJM_Open(
+                        LJM_dtANY,
+                        LJM_ctANY,
+                        this->writer_config.serial_number.c_str(),
+                        &this->handle
+                    ), "init.LJM_OPEN"
+                );
     }
 }
 
@@ -166,7 +173,13 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame){
     for(auto key: *(frame.channels)){
         double value = series_to_val(frame.series->at(frame_index));
         std::string loc = this->writer_config.initial_state_map[key].location;
-        check_err(LJM_eWriteName(this->handle, loc.c_str(), value));
+        check_err(
+                LJM_eWriteName(
+                        this->handle,
+                        loc.c_str(),
+                        value
+                    ), "write.LJM_EWRITENAME"
+                );
         frame_index++;
     }
     this->state_source->update_state(std::move(frame));
@@ -233,14 +246,17 @@ void labjack::WriteSink::get_index_keys(){
     this->writer_config.state_index_key = state_channel_info.index;
 }
 
-int labjack::WriteSink::check_err(int err){
-    bool ok_state = true;
+int labjack::WriteSink::check_err(int err, std::string caller){
     return labjack::check_err_internal(
             err,
-            "",
+            caller,
             "writer",
             this->ctx,
-            ok_state,
+            this->ok_state,
             this->writer_config.task_key
     );
+}
+
+bool labjack::WriteSink::ok(){
+    return this->ok_state;
 }
