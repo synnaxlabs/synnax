@@ -12,11 +12,13 @@ package codec_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"testing"
 )
 
 var _ = Describe("Encoder", func() {
@@ -175,3 +177,29 @@ var _ = Describe("Encoder", func() {
 		),
 	)
 })
+
+func BenchmarkCodec(b *testing.B) {
+	dataTypes := []telem.DataType{"int32"}
+	keys := channel.Keys{1}
+	fr := api.Frame{
+		Keys:   keys,
+		Series: []telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+	}
+	cd := codec.NewCodec(dataTypes, keys)
+	for range b.N {
+		cd.Encode(fr, 0)
+	}
+}
+
+//
+//func BenchmarkCodecJSON(b *testing.B) {
+//	keys := channel.Keys{1}
+//	fr := api.Frame{
+//		Keys:   keys,
+//		Series: []telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+//	}
+//	cd := &binary.JSONCodec{}
+//	for range b.N {
+//		cd.Encode(ctx, fr)
+//	}
+//}

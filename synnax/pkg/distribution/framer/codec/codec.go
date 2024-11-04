@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	xbinary "github.com/synnaxlabs/x/binary"
 	xbits "github.com/synnaxlabs/x/bits"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -174,34 +175,34 @@ func (m Codec) Encode(src framer.Frame, startOffset int) (dst []byte, err error)
 			byteArraySize += 8
 		}
 	}
-	buf := bytes.NewBuffer(make([]byte, startOffset, byteArraySize))
-	buf.WriteByte(fgs.encode())
+	buf := xbinary.NewWriter(byteArraySize, startOffset)
+	buf.Uint8(fgs.encode())
 	// It's impossible for writing to the buffer to fail, so we just ignore all of the
 	// errors.
 	if fgs.equalLens {
-		writeNaive(buf, uint32(curDataSize))
+		buf.Uint32(uint32(curDataSize))
 	}
 	if fgs.equalTimeRanges && !fgs.timeRangesZero {
 		writeTimeRange(buf, refTr)
 	}
 	if fgs.equalAlignments && !fgs.zeroAlignments {
-		writeNaive(buf, refAlignment)
+		buf.Uint64(uint64(refAlignment))
 	}
 	for i, s := range src.Series {
 		seriesDataLength := uint32(len(s.Data))
 		dataSize := uint32(s.DataType.Density())
 		if !fgs.allChannelsPresent {
-			writeNaive(buf, src.Keys[i])
+			buf.Uint32(uint32(src.Keys[i]))
 		}
 		if !fgs.equalLens {
-			writeNaive(buf, seriesDataLength/dataSize)
+			buf.Uint32(seriesDataLength / dataSize)
 		}
-		_, _ = buf.Write(s.Data)
+		buf.Write(s.Data)
 		if !fgs.equalTimeRanges {
 			writeTimeRange(buf, s.TimeRange)
 		}
 		if !fgs.equalAlignments {
-			writeNaive(buf, s.Alignment)
+			buf.Uint64(uint64(s.Alignment))
 		}
 	}
 	return buf.Bytes(), nil
@@ -220,9 +221,9 @@ func readTimeRange(reader io.Reader) (tr telem.TimeRange, err error) {
 	return
 }
 
-func writeTimeRange(w io.Writer, tr telem.TimeRange) {
-	writeNaive(w, tr.Start)
-	writeNaive(w, tr.End)
+func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
+	w.Uint64(uint64(tr.Start))
+	w.Uint64(uint64(tr.End))
 }
 
 func (m Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {

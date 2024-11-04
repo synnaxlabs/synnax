@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strings"
 	"sort"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -142,6 +143,9 @@ func (f Frame) String() string {
 }
 
 func (f *Frame) Sort() {
+	if slices.IsSorted(f.Keys) {
+		return
+	}
 	sort.Sort(&frameSorter{f: f})
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"testing"
 )
 
 var _ = Describe("FramerCodec", func() {
@@ -66,3 +67,37 @@ var _ = Describe("FramerCodec", func() {
 		})
 	})
 })
+
+func BenchmarkFrameCodec(b *testing.B) {
+	dataTypes := []telem.DataType{"int32"}
+	keys := channel.Keys{1}
+	cd := codec.NewCodec(dataTypes, keys)
+	v := api.WSFramerCodec{BaseCodec: &cd, LowerPerfCodec: &binary.JSONCodec{}}
+	res := api.FrameStreamerResponse{
+		Frame: api.Frame{
+			Keys:   keys,
+			Series: []telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+		},
+	}
+	msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
+	for range b.N {
+		v.Encode(ctx, msg)
+	}
+
+}
+
+func BenchmarkFrameCodecJSON(b *testing.B) {
+	keys := channel.Keys{1}
+	res := api.FrameStreamerResponse{
+		Frame: api.Frame{
+			Keys:   keys,
+			Series: []telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+		},
+	}
+	msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
+	codec := &binary.JSONCodec{}
+	for range b.N {
+		codec.Encode(ctx, msg)
+	}
+
+}
