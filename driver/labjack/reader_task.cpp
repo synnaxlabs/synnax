@@ -30,9 +30,8 @@ labjack::ReaderTask::ReaderTask(
             breaker_config)
     ),
     source(labjack_source) {
-    std::vector<synnax::ChannelKey> channel_keys = labjack_source->get_channel_keys();
+    std::vector<synnax::ChannelKey> channel_keys = labjack_source->get_ai_channel_keys();
     this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
-    // TODO: function to only return analog input channel keys
     read_pipe.add_middleware(tare_mw);
 
     auto parser = config::Parser(task.config);

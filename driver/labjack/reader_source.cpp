@@ -476,3 +476,13 @@ int labjack::ReaderSource::check_err(int err, std::string caller) {
 bool labjack::ReaderSource::ok() {
     return this->ok_state;
 }
+
+std::vector<synnax::ChannelKey> labjack::ReaderSource::get_ai_channel_keys(){
+    std::vector<synnax::ChannelKey> keys;
+    for(auto &channel: this->reader_config.channels){
+       if(channel.channel_type == "AI"){
+           keys.push_back(channel.key);
+       }
+    }
+    return keys;
+}
