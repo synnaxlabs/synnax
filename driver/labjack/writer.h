@@ -129,11 +129,9 @@ struct WriterConfig {
             channels.emplace_back(channel);
 
 
-            double initial_val = 0.0;
             /// digital outputs start active high
-            if (channel.channel_type == "DO") {
-                initial_val = 1.0;
-            }
+            double initial_val = 0.0;
+
             initial_state_map[channel.cmd_key] = labjack::out_state{
                 .location = channel.location,
                 .state = initial_val,

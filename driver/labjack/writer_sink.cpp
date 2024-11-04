@@ -174,6 +174,18 @@ void labjack::WriteSink::init() {
             ), "init.LJM_OPEN"
         );
     }
+    // Set all DO channels to low because LabJack devices factory default is for DIO to be high
+    for (auto &channel: this->writer_config.channels) {
+        if (channel.enabled && channel.channel_type == "DO") {
+            check_err(
+                LJM_eWriteName(
+                    this->handle,
+                    channel.location.c_str(),
+                    0
+                ), "init.LJM_EWRITENAME"
+            );
+        }
+    }
 }
 
 freighter::Error labjack::WriteSink::write(synnax::Frame frame) {
@@ -193,6 +205,7 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame) {
     this->state_source->update_state(std::move(frame));
     return freighter::NIL;
 }
+
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key) {
     ctx->setState({
