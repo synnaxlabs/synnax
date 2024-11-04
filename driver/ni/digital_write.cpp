@@ -48,7 +48,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     if (!config_parser.ok()) {
         this->log_error(
             "failed to parse configuration for " + this->writer_config.task_name);
-        this->ctx->setState({
+        this->ctx->set_state({
             .task = this->task.key,
             .variant = "error",
             .details = config_parser.error_json()
@@ -185,7 +185,7 @@ freighter::Error ni::DigitalWriteSink::start(const std::string &cmd_key) {
     this->breaker.start();
     freighter::Error err = this->start_ni();
     if (err) return err;
-    ctx->setState({
+    ctx->set_state({
         .task = this->task.key,
         .key = cmd_key,
         .variant = "success",
@@ -203,7 +203,7 @@ freighter::Error ni::DigitalWriteSink::stop(const std::string &cmd_key) {
     this->breaker.stop();
     freighter::Error err = this->stop_ni();
     if (err) return err;
-    ctx->setState({
+    ctx->set_state({
         .task = this->task.key,
         .key = cmd_key,
         .variant = "success",
@@ -304,7 +304,7 @@ int ni::DigitalWriteSink::check_ni_error(int32 error) {
         std::string s(errBuff);
         jsonify_error(s);
 
-        this->ctx->setState({
+        this->ctx->set_state({
             .task = this->task.key,
             .variant = "error",
             .details = err_info
@@ -331,7 +331,7 @@ void ni::DigitalWriteSink::stopped_with_err(const freighter::Error &err) {
     this->stop("");
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
-    this->ctx->setState({
+    this->ctx->set_state({
         .task = this->task.key,
         .variant = "error",
         .details = {

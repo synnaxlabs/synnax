@@ -142,7 +142,7 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
 
     // If channel type not recognized update task state
     std::string msg = "unknown channel type " + channel_type;
-    this->ctx->setState({
+    this->ctx->set_state({
         .task = task.key,
         .variant = "error",
         .details = {
@@ -295,7 +295,7 @@ int ni::AnalogReadSource::validate_channels() {
             channel.channel_key);
         if (channel_info.data_type != synnax::FLOAT32 && channel_info.data_type != synnax::FLOAT64) {
             this->log_error("Channel " + channel.name + " is not of type float32 or float64");
-            this->ctx->setState({
+            this->ctx->set_state({
                 .task = task.key,
                 .variant = "error",
                 .details = {

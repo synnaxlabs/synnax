@@ -175,7 +175,7 @@ int ni::DigitalReadSource::validate_channels() {
             channel.channel_key);
         if (channel_info.data_type != synnax::SY_UINT8) {
             this->log_error("Channel " + channel.name + " is not of type SY_UINT8");
-            this->ctx->setState({
+            this->ctx->set_state({
                 .task = task.key,
                 .variant = "error",
                 .details = {

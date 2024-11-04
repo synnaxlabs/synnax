@@ -16,7 +16,7 @@
 void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
     LOG(ERROR) << "stopped with error: " << err.message();
     json j = json(err.message());
-    this->ctx->setState({
+    this->ctx->set_state({
         .task = this->reader_config.task_key,
         .variant = "error",
         .details = {
@@ -204,7 +204,7 @@ freighter::Error labjack::ReaderSource::start(const std::string &cmd_key) {
         return freighter::Error("Device not initialized properly. Requires reconfigure.");
     }
     this->sample_thread = std::thread(&labjack::ReaderSource::acquire_data, this);
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .key = cmd_key,
         .variant = "success",
@@ -222,7 +222,7 @@ freighter::Error labjack::ReaderSource::stop(const std::string &cmd_key) {
 
     if (this->sample_thread.joinable()) this->sample_thread.join();
     check_err(LJM_eStreamStop(handle), "stop.LJM_eStreamStop");
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .key = cmd_key,
         .variant = "success",
@@ -293,7 +293,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::B
     auto [d, ok] = data_queue.dequeue();
     if (!ok) {
         this->stop("");
-        ctx->setState({
+        ctx->set_state({
             .task = this->task.key,
             .variant = "error",
             .details = {

@@ -111,8 +111,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
         breaker_config
     );
 
-    // TODO: change setState to snake case
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = {

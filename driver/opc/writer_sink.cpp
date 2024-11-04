@@ -101,7 +101,7 @@ void opc::WriterSink::stopped_with_err(const freighter::Error &err) {
         {"message", err.message()},
         {"running", false}
     };
-    ctx->setState(curr_state);
+    ctx->set_state(curr_state);
 };
 
 

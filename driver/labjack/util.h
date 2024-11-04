@@ -34,7 +34,7 @@ inline int check_err_internal(
         description = ": " + it->second;
     }
 
-    ctx->setState({
+    ctx->set_state({
         .task = task_key,
         .variant = "error",
         .details = {

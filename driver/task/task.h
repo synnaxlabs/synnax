@@ -115,7 +115,7 @@ public:
     }
 
     /// @brief updates the state of the task in the Synnax cluster.
-    virtual void setState(const State &state) = 0;
+    virtual void set_state(const State &state) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -127,7 +127,7 @@ public:
     }
 
 
-    void setState(const State &state) override {
+    void set_state(const State &state) override {
         state_mutex.lock();
         states.push_back(state);
         state_mutex.unlock();
@@ -142,7 +142,7 @@ public:
     explicit SynnaxContext(std::shared_ptr<Synnax> client) : Context(client) {
     }
 
-    void setState(const State &state) override {
+    void set_state(const State &state) override {
         std::unique_lock lock(state_mutex);
         if (state_updater == nullptr) {
             auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);

@@ -88,7 +88,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     auto cfg = ReaderConfig(config_parser);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = config_parser.error_json(),
@@ -100,7 +100,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{
@@ -121,7 +121,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     // Fetch additional index channels we also need as part of the configuration.
     auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
     if (err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{{"message", err.message()}}
@@ -132,7 +132,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
 
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
     if (conn_err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{{"message", conn_err.message()}}
@@ -163,7 +163,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     }
 
     if (!config_parser.ok()) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = config_parser.error_json(),
@@ -192,7 +192,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         .enable_auto_commit = true
     };
 
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = json{
@@ -218,7 +218,7 @@ void ReaderTask::exec(task::Command &cmd) {
 }
 
 void ReaderTask::stop() {
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = json{
@@ -232,7 +232,7 @@ void ReaderTask::stop() {
 void ReaderTask::start() {
     freighter::Error conn_err = refresh_connection(this->ua_client, device_props.connection.endpoint);
     if (conn_err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{
@@ -243,7 +243,7 @@ void ReaderTask::start() {
         return;
     }
     pipe.start();
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = json{

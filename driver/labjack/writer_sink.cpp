@@ -208,7 +208,7 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame) {
 
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key) {
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .key = cmd_key,
         .variant = "success",
@@ -222,7 +222,7 @@ freighter::Error labjack::WriteSink::stop(const std::string &cmd_key) {
 
 freighter::Error labjack::WriteSink::start(const std::string &cmd_key) {
     this->init();
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .key = cmd_key,
         .variant = "success",

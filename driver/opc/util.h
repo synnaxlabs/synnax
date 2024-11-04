@@ -399,7 +399,7 @@ communicate_response_error(
             {"running", false}
         };
     }
-    ctx->setState(curr_state);
+    ctx->set_state(curr_state);
     return err;
 }
 }

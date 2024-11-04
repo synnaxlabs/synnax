@@ -91,7 +91,7 @@ std::unique_ptr<task::Task> labjack::WriterTask::configure(
         breaker_config
     );
 
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = {

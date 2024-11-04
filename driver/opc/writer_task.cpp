@@ -38,7 +38,7 @@ void opc::WriterTask::start() {
         device_props.connection.endpoint
     );
     if (conn_err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{
@@ -50,7 +50,7 @@ void opc::WriterTask::start() {
         return;
     }
     this->cmd_pipe.start();
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = json{
@@ -61,7 +61,7 @@ void opc::WriterTask::start() {
 }
 
 void opc::WriterTask::stop() {
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = json{
@@ -81,7 +81,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     auto cfg = WriterConfig(config_parser);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.writer] failed to parse configuration for " << task.name;
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = config_parser.error_json(),
@@ -93,7 +93,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     if (dev_err) {
         LOG(ERROR) << "[opc.writer] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{
@@ -117,7 +117,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
     auto [ua_client, conn_err] = opc::connect(properties.connection,
                                               "[opc.writer.cmd] ");
     if (conn_err) {
-        ctx->setState({
+        ctx->set_state({
             .variant = "error",
             .details = json{{"message", conn_err.message()}}
         });
@@ -137,7 +137,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         .channels = cfg.cmd_keys(),
     };
 
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = json{

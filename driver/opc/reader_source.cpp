@@ -48,7 +48,7 @@ opc::ReaderSource::ReaderSource(
         {"message", "Task configured successfully"},
         {"running", true}
     };
-    this->ctx->setState(curr_state);
+    this->ctx->set_state(curr_state);
 }
 
 void opc::ReaderSource::initialize_read_request() {
@@ -75,7 +75,7 @@ void opc::ReaderSource::stopped_with_err(const freighter::Error &err) {
         {"message", err.message()},
         {"running", false}
     };
-    ctx->setState(curr_state);
+    ctx->set_state(curr_state);
 }
 
 freighter::Error opc::ReaderSource::communicate_value_error(
@@ -87,7 +87,7 @@ freighter::Error opc::ReaderSource::communicate_value_error(
             "Failed to read value from channel " + channel + ": " +
             status_name;
     LOG(ERROR) << "[opc.reader]" << message;
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "error",
         .details = json{
@@ -117,7 +117,7 @@ size_t opc::ReaderSource::cap_array_length(
                 },
                 {"running", true}
             };
-            ctx->setState(curr_state);
+            ctx->set_state(curr_state);
         }
         return cfg.array_size - i;
     }
@@ -482,7 +482,7 @@ std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &bre
                     },
                     {"running", true}
                 };
-                ctx->setState(curr_state);
+                ctx->set_state(curr_state);
             }
         }
     }
@@ -492,7 +492,7 @@ std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &bre
             {"message", "Operating normally"},
             {"running", true}
         };
-        ctx->setState(curr_state);
+        ctx->set_state(curr_state);
     }
     return std::make_pair(std::move(fr), freighter::NIL);
 }

@@ -29,7 +29,7 @@ ni::ScannerTask::ScannerTask(
     });
 
     if (!scanner.ok()) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = {"message", "failed to initialize scanner"}
@@ -167,7 +167,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
         return p;
     }
 
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = {
@@ -314,7 +314,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         return p;
     }
 
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = {
