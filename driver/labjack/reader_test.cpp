@@ -412,8 +412,8 @@ TEST(read_tests, labjack_t7_tc_and_ain){
     ASSERT_FALSE(dErr2) << dErr2.message();
 
     auto config = json{
-            {"sample_rate", 10000},
-            {"stream_rate", 30},
+            {"sample_rate", 300},
+            {"stream_rate", 1},
             {"type", "T7"},
             {"device", "470037383"}, // TODO: fix wh driver crashes if i give it diff serial num
             {"connection_type", "USB"},

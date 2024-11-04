@@ -133,11 +133,10 @@ void labjack::ReaderSource::init_tcs(){
             }
         }
     }
-
-    int msDelay = 1000;
+    // set interval to send read commands to the daq at the specified sample rate
     this->check_err(LJM_StartInterval(
             this->handle,
-            msDelay * 1000
+            this->reader_config.sample_rate.period().microseconds()
         ), "init_tcs.LJM_StartInterval"
     );
 
@@ -251,6 +250,8 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(brea
     for(const auto& channel: this->reader_config.channels)
         if(channel.enabled) locations.push_back(channel.location.c_str());
 
+    int SkippedIntervals;
+    check_err(LJM_WaitForNextInterval(this->handle, &SkippedIntervals), "read_cmd_response.LJM_WaitForNextInterval");
     values.resize(locations.size());
     check_err(LJM_eReadNames(
                       this->handle,
