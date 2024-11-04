@@ -86,6 +86,8 @@ interface ChannelListContextMenuProps<T> {
   path: string;
   onDuplicate?: (indices: number[]) => void;
   snapshot?: boolean;
+  allowTare?: boolean;
+  onTare?: (indices: number[]) => void;
 }
 
 export const ChannelListContextMenu = <
@@ -99,6 +101,8 @@ export const ChannelListContextMenu = <
   onDuplicate,
   path,
   snapshot,
+  allowTare,
+  onTare,
 }: ChannelListContextMenuProps<T>) => {
   const methods = Form.useContext();
   const indices = keys.map((k) => value.findIndex((v) => v.key === k));
@@ -117,6 +121,7 @@ export const ChannelListContextMenu = <
       if (!indices.includes(i)) return;
       methods.set(`${path}.${i}.enabled`, true);
     });
+  const handleTare = () => onTare?.(indices);
   const allowDisable = indices.some((i) => value[i].enabled);
   const allowEnable = indices.some((i) => !value[i].enabled);
   return (
@@ -126,6 +131,7 @@ export const ChannelListContextMenu = <
         duplicate: handleDuplicate,
         disable: handleDisable,
         enable: handleEnable,
+        tare: handleTare,
       }}
       level="small"
     >
@@ -151,6 +157,14 @@ export const ChannelListContextMenu = <
             </Menu.Item>
           )}
           {(allowEnable || allowDisable) && <Menu.Divider />}
+          {allowTare && (
+            <>
+              <Menu.Item itemKey="tare" startIcon={<Icon.Tare />}>
+                Tare
+              </Menu.Item>
+              <Menu.Divider />
+            </>
+          )}
         </>
       )}
       <CMenu.HardReloadItem />
@@ -312,26 +326,27 @@ export const EnableDisableButton = ({
   disabled,
   snapshot = false,
 }: EnableDisableButtonProps) => (
-  <Button.Toggle
+  <Button.ToggleIcon
     checkedVariant={snapshot ? "preview" : "outlined"}
     uncheckedVariant={snapshot ? "preview" : "outlined"}
     className={CSS.B("enable-disable-button")}
     disabled={disabled}
     value={value}
-    size="medium"
+    size="small"
     onClick={(e) => e.stopPropagation()}
-    onChange={onChange}
+    onChange={(v) => {
+      console.log(v);
+      onChange(v);
+    }}
     tooltip={
       <Text.Text level="small" style={{ maxWidth: 300 }}>
-        Data acquisition for this channel is {value ? "enabled" : "disabled"}. Click to
+        Data acquisition for this channel is {value ? "enabled" : "info"}. Click to
         {value ? " disable" : " enable"} it.
       </Text.Text>
     }
   >
-    <Status.Text variant={value ? "success" : "disabled"} level="small" align="center">
-      {value ? "Enabled" : "Disabled"}
-    </Status.Text>
-  </Button.Toggle>
+    <Status.Circle variant={value ? "success" : "disabled"} />
+  </Button.ToggleIcon>
 );
 
 export interface TareButtonProps {
@@ -342,9 +357,14 @@ export interface TareButtonProps {
 export const TareButton = ({ onClick, disabled }: TareButtonProps) => {
   const variant = disabled ? "outlined" : undefined;
   return (
-    <Button.Button variant={variant} disabled={disabled} onClick={onClick} size="small">
-      Tare
-    </Button.Button>
+    <Button.Icon
+      variant={variant}
+      disabled={disabled}
+      onClick={onClick}
+      tooltip="Click to tare"
+    >
+      <Icon.Tare />
+    </Button.Icon>
   );
 };
 

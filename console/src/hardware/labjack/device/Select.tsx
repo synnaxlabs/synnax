@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Override, Select } from "@synnaxlabs/pluto";
+import { Select } from "@synnaxlabs/pluto";
 import { KeyedNamed } from "@synnaxlabs/x";
 
 import {
@@ -52,13 +52,30 @@ const OUTPUT_CHANNEL_TYPES: KeyedNamed<OutputChannelType>[] = [
   { key: "DO", name: "Digital Out" },
 ];
 
-export const SelectInputChannelType = Override.createComponent<
-  Select.SingleProps<InputChannelType, KeyedNamed<InputChannelType>>
->(Select.Button, {
-  data: INPUT_CHANNEL_TYPES,
-  entryRenderKey: "name",
-});
+export interface SelectInputChannelTypeProps
+  extends Omit<
+    Select.ButtonProps<InputChannelType, KeyedNamed<InputChannelType>>,
+    "data"
+  > {}
 
-export const SelectOutputChannelType = Override.createComponent<
-  Select.SingleProps<OutputChannelType, KeyedNamed<OutputChannelType>>
->(Select.Button, { data: OUTPUT_CHANNEL_TYPES, entryRenderKey: "name" });
+export const SelectInputChannelType = (props: SelectInputChannelTypeProps) => (
+  <Select.Button<InputChannelType, KeyedNamed<InputChannelType>>
+    data={INPUT_CHANNEL_TYPES}
+    entryRenderKey="name"
+    {...props}
+  />
+);
+
+export interface SelectOutputChannelTypeProps
+  extends Omit<
+    Select.ButtonProps<OutputChannelType, KeyedNamed<OutputChannelType>>,
+    "data"
+  > {}
+
+export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
+  <Select.Button<OutputChannelType, KeyedNamed<OutputChannelType>>
+    data={OUTPUT_CHANNEL_TYPES}
+    entryRenderKey="name"
+    {...props}
+  />
+);

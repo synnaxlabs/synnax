@@ -31,7 +31,10 @@ import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
-const identifierZ = z.string().min(2, IDENTIFIER_MESSAGE).max(12, IDENTIFIER_MESSAGE);
+export const identifierZ = z
+  .string()
+  .min(2, IDENTIFIER_MESSAGE)
+  .max(12, IDENTIFIER_MESSAGE);
 const configurablePropertiesZ = z.object({
   name: z.string().min(1, "Name must be at least 1 character long"),
   identifier: identifierZ,

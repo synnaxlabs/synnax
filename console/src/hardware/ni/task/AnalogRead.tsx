@@ -229,11 +229,7 @@ const Wrapped = ({
       <Align.Space grow>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string>
-              path="name"
-              showLabel={false}
-              padHelpText={!task?.snapshot}
-            >
+            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
               {(p) => (
                 <Input.Text
                   variant={task?.snapshot ? "preview" : "natural"}
@@ -420,6 +416,8 @@ const ChannelList = ({
             remove={remove}
             onSelect={onSelect}
             snapshot={snapshot}
+            onTare={onTare}
+            allowTare={state?.details?.running === true}
             onDuplicate={(indices) => {
               const pf = availablePortFinder(value);
               push(
@@ -511,19 +509,19 @@ const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <Align.Space direction="y" align="center">
-        <EnableDisableButton
-          value={childValues.enabled}
-          onChange={(v) => ctx.set(`${path}.enabled`, v)}
-          snapshot={snapshot}
-        />
+      <Align.Pack direction="x" align="center" size="small">
         {showTareButton && (
           <TareButton
             disabled={tareIsDisabled}
             onClick={() => onTare(childValues.channel as number)}
           />
         )}
-      </Align.Space>
+        <EnableDisableButton
+          value={childValues.enabled}
+          onChange={(v) => ctx.set(`${path}.enabled`, v)}
+          snapshot={snapshot}
+        />
+      </Align.Pack>
     </List.ItemFrame>
   );
 };

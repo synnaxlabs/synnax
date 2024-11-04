@@ -10,18 +10,11 @@
 import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { identifierZ } from "@/hardware/device/Configure";
+
 export const MODEL_KEYS = ["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"] as const;
 export const modelKeyZ = z.enum(MODEL_KEYS);
 export type ModelKey = z.infer<typeof modelKeyZ>;
-
-const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
-const identifierZ = z.string().min(2, IDENTIFIER_MESSAGE).max(12, IDENTIFIER_MESSAGE);
-
-export const configurablePropertiesZ = z.object({
-  name: z.string().min(1, "Name must be at least 1 character long"),
-  identifier: identifierZ,
-});
-export type ConfigurableProperties = z.infer<typeof configurablePropertiesZ>;
 
 const commandStatePairZ = z.object({ command: z.number(), state: z.number() });
 
@@ -122,7 +115,6 @@ export const portsZ = z.object({
   AI: aiPortZ.array(),
   DI: diPortZ.array(),
 });
-
 export type Ports = z.infer<typeof portsZ>;
 
 // T4
@@ -174,7 +166,6 @@ export const T8_PORTS: Ports = {
 };
 
 export const modelInfoZ = z.object({ key: modelKeyZ, name: z.string(), ports: portsZ });
-
 export interface ModelInfo extends z.infer<typeof modelInfoZ> {}
 
 export const T4: ModelInfo = { key: "LJM_dtT4", name: "T4", ports: T4_PORTS };
