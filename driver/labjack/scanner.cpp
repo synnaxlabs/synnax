@@ -138,23 +138,16 @@ json labjack::ScannerTask::get_devices() {
 }
 
 int labjack::ScannerTask::check_err(int err){
-    if(err == 0) return 0;
+    return labjack::check_err_internal(
+            err,
+            "",
+            "scanner",
+            this->ctx,
+            this->ok_state,
+            this->task.key
+    );
+}
 
-    char err_msg[LJM_MAX_NAME_SIZE];
-    LJM_ErrorToString(err, err_msg);
-
-    this->ctx->setState({
-                                .task = this->task.key,
-                                .variant = "error",
-                                .details = {
-                                        {"running", false},
-                                        {"message", err_msg}
-                                }
-                        });
-
-    if(std::string(err_msg) == "LJME_AUTO_IPS_FILE_NOT_FOUND")
-        return -1;
-    LOG(ERROR) << "[labjack.scanner] " << err_msg;
-
-    return -1;
+bool labjack::ScannerTask::ok() {
+    return this->ok_state;
 }

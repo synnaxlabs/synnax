@@ -148,7 +148,7 @@ void labjack::ReaderSource::init_stream(){
         return;
     }
     double INIT_SCAN_RATE = this->reader_config.sample_rate.value;
-    int SCANS_PER_READ = (int)INIT_SCAN_RATE / this->reader_config.stream_rate.value;
+    int SCANS_PER_READ = static_cast<int>(INIT_SCAN_RATE / this->reader_config.stream_rate.value);
     double scanRate = INIT_SCAN_RATE;
 
     this->num_samples_per_chan = SCANS_PER_READ;

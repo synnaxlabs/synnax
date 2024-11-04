@@ -65,6 +65,8 @@ public:
 
     int check_err(int err);
 
+    bool ok();
+
 private:
     json devices;
     std::set<int> device_keys;
@@ -73,5 +75,6 @@ private:
     std::shared_ptr<std::thread> thread = nullptr;
     breaker::Breaker breaker;
     synnax::Rate scan_rate = synnax::Rate(5);
+    bool ok_state = true;
 };
 };
