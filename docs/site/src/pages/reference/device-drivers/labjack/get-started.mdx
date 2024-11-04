@@ -1,49 +1,47 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI | Get Started"
-heading: "National Instruments Device Driver"
-description: "Learn how to acquire data from and control National Instruments hardware using Synnax."
+title: "LabJack | Get Started"
+heading: "LabJack Device Driver"
+description: "Learn how to acquire data from and control LabJack hardware using Synnax."
 next: "Configure a Device"
-nextURL: "/reference/device-drivers/ni/configure-device"
+nextURL: "/reference/device-drivers/labjack/configure-device"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
 
-The [National Instruments (NI)](https://www.ni.com/en-us.html) device driver allows 
-Synnax to directly connect to your NI hardware, including CompactDAQ, CompactRIO, and 
-PXI systems. This page will walk you through some of the important pre-requisites 
+The [LabJack](https://support.labjack.com/docs/?l=en) LJM library allows 
+Synnax to directly connect to your LabJack T-Series devices. This page will walk you through some of the important pre-requisites 
 necessary to get started with the NI driver.
 
 <Divider.Divider direction="x" />
 
 ## Supported Devices
 
-**Synnax supports reading and writing data to all National Instruments devices that are supported by the [NI-DAQmx driver](https://www.ni.com/en-us/support/downloads/drivers/download.ni-daqmx.html).**
+**Synnax supports reading and writing data to all LabJack devices that are supported by the [LJM Library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit).**
 
-Aside from very old DAQ modules, Synnax is generally compatible with every NI device.
+As of present, the following devices are supported: T4, T7, T8 and Digit. If you are interested in other LabJack devices, please contact us for more details and how we can support your use!
 
 <Divider.Divider direction="x" />
 
 ## Installation
 
-The NI Driver comes pre-installed with every Synnax Deployment. 
+The LabJack Driver comes pre-installed with every Synnax Deployment. 
 
-### Installing DAQmx and System Configuration Libraries
+### Installing LJM
 
-National Instruments' DAQmx and System Configuration drivers must be installed for Synnax to communicate with your
-hardware. Instructions for installing DAQmx can be found on the 
-[National Instruments website.](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html#532710)
-Instructions for installing System Configuration can be found on the [following page.](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html)
+The Labjack LJM library must be installed for Synnax to communicate with your
+hardware. Instructions for installing LJM software can be found on the 
+[LabJack website.](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
 <Note.Note variant="warning">
-If you have a Synnax cluster already running before installing DAQmx, you'll need to 
-restart the cluster for Synnax to recognize the DAQmx installation.
+If you have a Synnax cluster already running before installing LJM, you'll need to 
+restart the cluster for Synnax to recognize the LJM installation.
 </Note.Note>
 
 <Divider.Divider direction="x" />
 
 ## OS Compatibility
 
-The NI driver is only compatible when running the Synnax Database on a Windows machine. 
+The LabJack driver is only compatible when running the Synnax Database on a Windows machine.
 The driver will not be able to find your devices when running on Linux, macOS, or 
 within a Docker container (even if that container is running on Windows).
 
@@ -52,5 +50,5 @@ within a Docker container (even if that container is running on Windows).
 ## Next Steps
 
 Now that you've installed DAQmx on your host machine, you're ready to start integrating
-your devices. Check out the [Configure a Device](/reference/device-drivers/ni/configure-device) 
+your devices. Check out the [Configure a Device](/reference/device-drivers/labjack/configure-device) 
 page to learn how to do so.
