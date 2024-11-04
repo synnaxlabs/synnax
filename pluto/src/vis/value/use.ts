@@ -16,7 +16,6 @@ import { text } from "@/text/core";
 import { Value } from "@/vis/value/aether/value";
 
 export const corePropsZ = Value.z
-  .omit({ font: true })
   .partial({ color: true })
   .extend({ level: text.levelZ.optional() });
 

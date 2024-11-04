@@ -108,11 +108,7 @@ export const ThreeWayValve = Aether.wrap<SymbolProps<ThreeWayValveProps>>(
     orientation = "left",
     ...rest
   }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({
-      aetherKey,
-      source,
-      sink,
-    });
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState {...control} orientation={swapXLocation(orientation)}>
@@ -679,6 +675,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     onChange,
     tooltip,
     inlineSize,
+    unitsLevel,
   }): ReactElement => {
     const font = Theming.useTypography(level);
     const [dims, setDims] = useState<ValueDimensionsState>({
@@ -752,6 +749,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
             }}
             inlineSize={inlineSize}
             units={units}
+            unitsLevel={unitsLevel}
           />
         </Labeled>
       </Tooltip.Dialog>
