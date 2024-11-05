@@ -72,6 +72,9 @@ export const inputChan = z.object({
 });
 export type InputChan = z.infer<typeof inputChan>;
 
+export const temperatureUnitsZ = z.enum(["C", "F", "K"]);
+export type TemperatureUnits = z.infer<typeof temperatureUnitsZ>;
+
 export const thermocoupleChanZ = z.object({
   key: z.string(),
   port: z.string(),
@@ -85,7 +88,7 @@ export const thermocoupleChanZ = z.object({
   cjcSource: z.string(),
   cjcSlope: z.number(),
   cjcOffset: z.number(),
-  units: z.string(),
+  units: temperatureUnitsZ,
   scale: scaleZ,
 });
 export type ThermocoupleChan = z.infer<typeof thermocoupleChanZ>;
@@ -97,13 +100,13 @@ export const ZERO_THERMOCOUPLE_CHAN: ThermocoupleChan = {
   channel: 0,
   range: 0,
   type: "TC",
-  thermocoupleType: "C",
+  thermocoupleType: "K",
   posChan: 0,
   negChan: 199,
+  units: "K",
   cjcSource: "TEMPERATURE_DEVICE_K",
-  cjcSlope: 0,
+  cjcSlope: 1,
   cjcOffset: 0,
-  units: "",
   scale: ZERO_NO_SCALE,
 };
 

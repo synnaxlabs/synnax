@@ -61,33 +61,16 @@ const NAMED_KEY_COLS: List.ColumnSpec<string, KeyedNamed>[] = [
 
 const TerminalConfigField = Form.buildDropdownButtonSelectField<string, KeyedNamed>({
   fieldKey: "terminalConfig",
-  fieldProps: {
-    label: "Terminal Configuration",
-  },
+  fieldProps: { label: "Terminal Configuration" },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "RSE",
-        name: "Referenced Single Ended",
-      },
-      {
-        key: "NRSE",
-        name: "Non-Referenced Single Ended",
-      },
-      {
-        key: "Diff",
-        name: "Differential",
-      },
-      {
-        key: "PseudoDiff",
-        name: "Pseudo-Differential",
-      },
-      {
-        key: "Cfg_Default",
-        name: "Default",
-      },
+      { key: "RSE", name: "Referenced Single Ended" },
+      { key: "NRSE", name: "Non-Referenced Single Ended" },
+      { key: "Diff", name: "Differential" },
+      { key: "PseudoDiff", name: "Pseudo-Differential" },
+      { key: "Cfg_Default", name: "Default" },
     ],
   },
 });
@@ -97,46 +80,27 @@ const AccelSensitivityUnitsField = Form.buildDropdownButtonSelectField<
   KeyedNamed<AccelSensitivityUnits>
 >({
   fieldKey: "sensitivityUnits",
-  fieldProps: {
-    label: "Sensitivity Units",
-  },
+  fieldProps: { label: "Sensitivity Units" },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "mVoltsPerG",
-        name: "mV/g",
-      },
-      {
-        key: "VoltsPerG",
-        name: "V/g",
-      },
+      { key: "mVoltsPerG", name: "mV/g" },
+      { key: "VoltsPerG", name: "V/g" },
     ],
   },
 });
 
 const ExcitSourceField = Form.buildDropdownButtonSelectField<string, KeyedNamed>({
   fieldKey: "excitSource",
-  fieldProps: {
-    label: "Excitation Source",
-  },
+  fieldProps: { label: "Excitation Source" },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "Internal",
-        name: "Internal",
-      },
-      {
-        key: "External",
-        name: "External",
-      },
-      {
-        key: "None",
-        name: "None",
-      },
+      { key: "Internal", name: "Internal" },
+      { key: "External", name: "External" },
+      { key: "None", name: "None" },
     ],
   },
 });
@@ -146,25 +110,14 @@ const BridgeConfigField = Form.buildDropdownButtonSelectField<
   KeyedNamed<string>
 >({
   fieldKey: "bridgeConfig",
-  fieldProps: {
-    label: "Bridge Configuration",
-  },
+  fieldProps: { label: "Bridge Configuration" },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "FullBridge",
-        name: "Full Bridge",
-      },
-      {
-        key: "HalfBridge",
-        name: "Half Bridge",
-      },
-      {
-        key: "QuarterBridge",
-        name: "Quarter Bridge",
-      },
+      { key: "FullBridge", name: "Full Bridge" },
+      { key: "HalfBridge", name: "Half Bridge" },
+      { key: "QuarterBridge", name: "Quarter Bridge" },
     ],
   },
 });
@@ -174,25 +127,14 @@ const ShuntResistorLocField = Form.buildDropdownButtonSelectField<
   KeyedNamed<ShuntResistorLoc>
 >({
   fieldKey: "shuntResistorLoc",
-  fieldProps: {
-    label: "Shunt Resistor Location",
-  },
+  fieldProps: { label: "Shunt Resistor Location" },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "Default",
-        name: "Default",
-      },
-      {
-        key: "Internal",
-        name: "Internal",
-      },
-      {
-        key: "External",
-        name: "External",
-      },
+      { key: "Default", name: "Default" },
+      { key: "Internal", name: "Internal" },
+      { key: "External", name: "External" },
     ],
   },
 });
@@ -202,66 +144,32 @@ const ResistanceConfigField = Form.buildDropdownButtonSelectField<
   KeyedNamed<string>
 >({
   fieldKey: "resistanceConfig",
-  fieldProps: {
-    label: "Resistance Configuration",
-  },
+  fieldProps: { label: "Resistance Configuration" },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "2Wire",
-        name: "2-Wire",
-      },
-      {
-        key: "3Wire",
-        name: "3-Wire",
-      },
-      {
-        key: "4Wire",
-        name: "4-Wire",
-      },
+      { key: "2Wire", name: "2-Wire" },
+      { key: "3Wire", name: "3-Wire" },
+      { key: "4Wire", name: "4-Wire" },
     ],
   },
 });
 
 const StrainConfig = Form.buildDropdownButtonSelectField({
   fieldKey: "strainConfig",
-  fieldProps: {
-    label: "Strain Configuration",
-  },
+  fieldProps: { label: "Strain Configuration" },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "FullBridgeI",
-        name: "Full Bridge I",
-      },
-      {
-        key: "FullBridgeII",
-        name: "Full Bridge II",
-      },
-      {
-        key: "FullBridgeIII",
-        name: "Full Bridge III",
-      },
-      {
-        key: "HalfBridgeI",
-        name: "Half Bridge I",
-      },
-      {
-        key: "HalfBridgeII",
-        name: "Half Bridge II",
-      },
-      {
-        key: "QuarterBridgeI",
-        name: "Quarter Bridge I",
-      },
-      {
-        key: "QuarterBridgeII",
-        name: "Quarter Bridge II",
-      },
+      { key: "FullBridgeI", name: "Full Bridge I" },
+      { key: "FullBridgeII", name: "Full Bridge II" },
+      { key: "FullBridgeIII", name: "Full Bridge III" },
+      { key: "HalfBridgeI", name: "Half Bridge I" },
+      { key: "HalfBridgeII", name: "Half Bridge II" },
+      { key: "QuarterBridgeI", name: "Quarter Bridge I" },
+      { key: "QuarterBridgeII", name: "Quarter Bridge II" },
     ],
   },
 });
@@ -296,18 +204,9 @@ const ForceUnitsField = Form.buildDropdownButtonSelectField<
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "Newtons",
-        name: "Newtons",
-      },
-      {
-        key: "Pounds",
-        name: "Pounds",
-      },
-      {
-        key: "KilogramForce",
-        name: "Kilograms",
-      },
+      { key: "Newtons", name: "Newtons" },
+      { key: "Pounds", name: "Pounds" },
+      { key: "KilogramForce", name: "Kilograms" },
     ],
   },
 });
@@ -322,14 +221,8 @@ const ElectricalUnitsField = Form.buildDropdownButtonSelectField<
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "VoltsPerVolt",
-        name: "V/V",
-      },
-      {
-        key: "mVoltsPerVolt",
-        name: "mV/V",
-      },
+      { key: "VoltsPerVolt", name: "V/V" },
+      { key: "mVoltsPerVolt", name: "mV/V" },
     ],
   },
 });
@@ -344,14 +237,8 @@ const PressureUnitsField = Form.buildDropdownButtonSelectField<
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "Pascals",
-        name: "Pascals",
-      },
-      {
-        key: "PoundsPerSquareInch",
-        name: "PSI",
-      },
+      { key: "Pascals", name: "Pascals" },
+      { key: "PoundsPerSquareInch", name: "PSI" },
     ],
   },
 });
@@ -361,29 +248,15 @@ const TemperatureUnitsField = Form.buildDropdownButtonSelectField<
   KeyedNamed<TemperatureUnits>
 >({
   fieldKey: "units",
-  fieldProps: {
-    label: "Temperature Units",
-  },
+  fieldProps: { label: "Temperature Units" },
   inputProps: {
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "DegC",
-        name: "Celsius",
-      },
-      {
-        key: "DegF",
-        name: "Fahrenheit",
-      },
-      {
-        key: "Kelvins",
-        name: "Kelvin",
-      },
-      {
-        key: "DegR",
-        name: "Rankine",
-      },
+      { key: "DegC", name: "Celsius" },
+      { key: "DegF", name: "Fahrenheit" },
+      { key: "Kelvins", name: "Kelvin" },
+      { key: "DegR", name: "Rankine" },
     ],
   },
 });
@@ -398,18 +271,9 @@ const TorqueUnitsField = Form.buildDropdownButtonSelectField<
     columns: NAMED_KEY_COLS,
     entryRenderKey: "name",
     data: [
-      {
-        key: "NewtonMeters",
-        name: "Newton Meters",
-      },
-      {
-        key: "InchOunces",
-        name: "Inch Ounces",
-      },
-      {
-        key: "FootPounds",
-        name: "Foot Pounds",
-      },
+      { key: "NewtonMeters", name: "Newton Meters" },
+      { key: "InchOunces", name: "Inch Ounces" },
+      { key: "FootPounds", name: "Foot Pounds" },
     ],
   },
 });
@@ -446,10 +310,7 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: (Object.entries(AI_CHANNEL_TYPE_NAMES) as [AIChanType, string][]).map(
-      ([key, name]) => ({
-        key,
-        name,
-      }),
+      ([key, name]) => ({ key, name }),
     ),
   },
 });
@@ -462,118 +323,34 @@ export const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>(
     columns: NAMED_KEY_COLS,
     allowNone: false,
     data: [
-      {
-        key: "Volts",
-        name: "Volts",
-      },
-      {
-        key: "Amps",
-        name: "Amps",
-      },
-      {
-        key: "DegF",
-        name: "DegF",
-      },
-      {
-        key: "DegC",
-        name: "Celsius",
-      },
-      {
-        key: "DegR",
-        name: "Rankine",
-      },
-      {
-        key: "Kelvins",
-        name: "Kelvins",
-      },
-      {
-        key: "Strain",
-        name: "Strain",
-      },
-      {
-        key: "Ohms",
-        name: "Ohms",
-      },
-      {
-        key: "Hz",
-        name: "Hz",
-      },
-      {
-        key: "Seconds",
-        name: "Seconds",
-      },
-      {
-        key: "Meters",
-        name: "Meters",
-      },
-      {
-        key: "Inches",
-        name: "Inches",
-      },
-      {
-        key: "Degrees",
-        name: "Degrees (°)",
-      },
-      {
-        key: "Radians",
-        name: "Radians",
-      },
-      {
-        key: "g",
-        name: "Gs",
-      },
-      {
-        key: "MetersPerSecondSquared",
-        name: "m/s^2",
-      },
-      {
-        key: "Newtons",
-        name: "N",
-      },
-      {
-        key: "Pounds",
-        name: "lbs",
-      },
-      {
-        key: "KilogramForce",
-        name: "kgf",
-      },
-      {
-        key: "PoundsPerSquareInch",
-        name: "lbs/in^2",
-      },
-      {
-        key: "Bar",
-        name: "Bar",
-      },
-      {
-        key: "Pascals",
-        name: "Pa",
-      },
-      {
-        key: "VoltsPerVolt",
-        name: "V/V",
-      },
-      {
-        key: "mVoltsPerVolt",
-        name: "mV/V",
-      },
-      {
-        key: "NewtonMeters",
-        name: "N/M",
-      },
-      {
-        key: "InchPounds",
-        name: "in-lbs",
-      },
-      {
-        key: "InchOunces",
-        name: "in-oz",
-      },
-      {
-        key: "FootPounds",
-        name: "ft-lbs",
-      },
+      { key: "Volts", name: "Volts" },
+      { key: "Amps", name: "Amps" },
+      { key: "DegF", name: "DegF" },
+      { key: "DegC", name: "Celsius" },
+      { key: "DegR", name: "Rankine" },
+      { key: "Kelvins", name: "Kelvins" },
+      { key: "Strain", name: "Strain" },
+      { key: "Ohms", name: "Ohms" },
+      { key: "Hz", name: "Hz" },
+      { key: "Seconds", name: "Seconds" },
+      { key: "Meters", name: "Meters" },
+      { key: "Inches", name: "Inches" },
+      { key: "Degrees", name: "Degrees (°)" },
+      { key: "Radians", name: "Radians" },
+      { key: "g", name: "Gs" },
+      { key: "MetersPerSecondSquared", name: "m/s^2" },
+      { key: "Newtons", name: "N" },
+      { key: "Pounds", name: "lbs" },
+      { key: "KilogramForce", name: "kgf" },
+      { key: "PoundsPerSquareInch", name: "lbs/in^2" },
+      { key: "Bar", name: "Bar" },
+      { key: "Pascals", name: "Pa" },
+      { key: "VoltsPerVolt", name: "V/V" },
+      { key: "mVoltsPerVolt", name: "mV/V" },
+      { key: "NewtonMeters", name: "N/M" },
+      { key: "InchPounds", name: "in-lbs" },
+      { key: "InchOunces", name: "in-oz" },
+      { key: "FootPounds", name: "ft-lbs" },
     ],
   },
 });
@@ -735,22 +512,10 @@ export const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
     data: [
-      {
-        key: "linear",
-        name: "Linear",
-      },
-      {
-        key: "map",
-        name: "Map",
-      },
-      {
-        key: "table",
-        name: "Table",
-      },
-      {
-        key: "none",
-        name: "None",
-      },
+      { key: "linear", name: "Linear" },
+      { key: "map", name: "Map" },
+      { key: "table", name: "Table" },
+      { key: "none", name: "None" },
     ],
   },
 });
@@ -1252,30 +1017,12 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         columns: NAMED_KEY_COLS,
         hideColumnHeader: true,
         data: [
-          {
-            key: "Pt3750",
-            name: "Pt3750",
-          },
-          {
-            key: "Pt3851",
-            name: "Pt3851",
-          },
-          {
-            key: "Pt3911",
-            name: "Pt3911",
-          },
-          {
-            key: "Pt3916",
-            name: "Pt3916",
-          },
-          {
-            key: "Pt3920",
-            name: "Pt3920",
-          },
-          {
-            key: "Pt3928",
-            name: "Pt3928",
-          },
+          { key: "Pt3750", name: "Pt3750" },
+          { key: "Pt3851", name: "Pt3851" },
+          { key: "Pt3911", name: "Pt3911" },
+          { key: "Pt3916", name: "Pt3916" },
+          { key: "Pt3920", name: "Pt3920" },
+          { key: "Pt3928", name: "Pt3928" },
         ],
       },
     });
@@ -1312,14 +1059,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     const StrainUnitsField = Form.buildDropdownButtonSelectField({
       fieldKey: "units",
       fieldProps: { label: "Strain Units" },
-      inputProps: {
-        data: [
-          {
-            key: "Strain",
-            name: "Strain",
-          },
-        ],
-      },
+      inputProps: { data: [{ key: "Strain", name: "Strain" }] },
     });
     return (
       <>
@@ -1530,14 +1270,8 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         columns: NAMED_KEY_COLS,
         entryRenderKey: "name",
         data: [
-          {
-            key: "MetersPerSecond",
-            name: "m/s",
-          },
-          {
-            key: "InchesPerSecond",
-            name: "in/s",
-          },
+          { key: "MetersPerSecond", name: "m/s" },
+          { key: "InchesPerSecond", name: "in/s" },
         ],
       },
     });
@@ -1551,14 +1285,8 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         columns: NAMED_KEY_COLS,
         entryRenderKey: "name",
         data: [
-          {
-            key: "MillivoltsPerMillimeterPerSecond",
-            name: "mV/mm/s",
-          },
-          {
-            key: "MilliVoltsPerInchPerSecond",
-            name: "mV/in/s",
-          },
+          { key: "MillivoltsPerMillimeterPerSecond", name: "mV/mm/s" },
+          { key: "MilliVoltsPerInchPerSecond", name: "mV/in/s" },
         ],
       },
     });

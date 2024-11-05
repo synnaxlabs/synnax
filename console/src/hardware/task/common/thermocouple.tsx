@@ -31,3 +31,25 @@ export const ThermocoupleTypeField = Form.buildDropdownButtonSelectField({
     ],
   },
 });
+
+export const labJackThermocoupleTypeZ = thermocoupleTypeZ.or(z.literal("C"));
+export const LabJackThermocoupleTypeField = Form.buildDropdownButtonSelectField({
+  fieldKey: "thermocoupleType",
+  fieldProps: { label: "Thermocouple Type" },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: [{ key: "name", name: "Name" }],
+    hideColumnHeader: true,
+    data: [
+      { key: "B", name: "B" },
+      { key: "E", name: "E" },
+      { key: "J", name: "J" },
+      { key: "K", name: "K" },
+      { key: "N", name: "N" },
+      { key: "R", name: "R" },
+      { key: "S", name: "S" },
+      { key: "T", name: "T" },
+      { key: "C", name: "C" },
+    ],
+  },
+});
