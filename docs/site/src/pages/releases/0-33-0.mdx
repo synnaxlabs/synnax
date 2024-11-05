@@ -1,0 +1,31 @@
+import Release from "@/components/releases/Release.astro";
+import { Image } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+
+<Release
+version="0.33.0"
+date="Nov 5, 2024"
+title="LabJack and Log Component"
+>
+
+### Summary
+
+Synnax version 0.33 brings two highly requested features: LabJack support and a new Log
+component within the Synnax Console.
+
+We've also made a number of performance improvements and bug fixes.
+
+### LabJack Support
+
+LabJack T-Series devices are now fully supported using our built-in [LabJack driver](/reference/device-drivers/labjack).
+You can use a write task to control digital and analog outputs on the device, and acquire
+data from inputs using a read task.
+
+We currently only support LabJack devices on Windows, but expect to add support for other
+platforms soon.
+
+### Breaking Changes
+
+This release does **not** introduce any breaking changes.
+
+</Release>
