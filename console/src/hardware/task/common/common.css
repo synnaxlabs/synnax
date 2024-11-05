@@ -27,7 +27,7 @@
         overflow-y: auto;
         width: 100%;
         flex-grow: 1;
-
+        
         .console-channel-form-container {
             background: var(--pluto-gray-l1);
             display: flex;
