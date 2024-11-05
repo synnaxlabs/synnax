@@ -5,8 +5,9 @@ heading: "LabJack Read Task"
 description: "Learn how to create a read task for LabJack hardware."   
 prev: "Configure a Device"
 prevURL: "/reference/device-drivers/labjack/configure-device"
+next: "Write Task"
+nextURL: "/reference/device-drivers/labjack/write-task"
 ---
-
 import { Icon } from "@synnaxlabs/media";
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
@@ -64,29 +65,32 @@ running that reads from a `pressure` channel, you cannot start another task that
 ## Open the Task Configuration Dialog
 ### From the Resources Toolbar
 
-To create a digital read task from the resources toolbar, open the Synnax Console and 
+To create a read task from the resources toolbar, open the Synnax Console and 
 click on the "Resources" tab in the left sidebar. Find the device you'd like to create
-the task for, right-click on it, and select "Create Digital read Task".
+the task for, right-click on it, and select "Create read Task".
 
+{/* TODO: video for resources toolbar */}
 <Video client:only="react" id="device-drivers/ni/digital-read-task/device-create-digital-read-task" />
 
 ### From the Command Palette
 
-To create a digital read task from the command palette, open the Synnax Console and 
+To create a  read task from the command palette, open the Synnax Console and 
 click on the Quick Search & Command Palette at the top. You can also open this palette with 
 `Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
 
-In command moe (enabled when the first character in the input is ">"), type
-"NI". You'll see an option called "Create a New Digital read Task". Select this
+In command mode (enabled when the first character in the input is ">"), type
+"LabJack". You'll see an option called "Create a LabJack read Task". Select this
 option to open the read task configuration dialog.
 
+{/* TODO: video for command palette  */}
 <Video client:only="react" id="device-drivers/ni/digital-read-task/palette-create-digital-read-task" />
 
 ### From The Layout Selector
 
-To create a digital read task from the layout selector, click on the "+" button in the 
-top right corner and select "NI Digital read Task".
+To create a read task from the layout selector, click on the "+" button in the 
+top right corner and select "LabJack read Task".
 
+{/* TODO: video for Layout selector */}
 <Video client:only="react" id="device-drivers/ni/digital-read-task/layout-create-digital-read-task" />
 
 <Divider.Divider direction="x" />

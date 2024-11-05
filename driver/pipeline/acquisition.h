@@ -136,7 +136,11 @@ public:
     /// If the pipeline has already stopped, stop will return immediately.
     void stop();
 
-    void add_middleware(std::shared_ptr<pipeline::Middleware> middleware){
+    /// @brief adds a middleware to the acquisition pipeline that will be called on each
+    /// frame read from source
+    void add_middleware(
+        std::shared_ptr<pipeline::Middleware> middleware
+    ){
         middleware_chain.add(middleware);
     }
 
