@@ -14,6 +14,10 @@
 #include "driver/opc/opc.h"
 #include "driver/ni/ni.h"
 
+#ifdef _WIN32
+#include "driver/labjack/labjack.h"
+#endif
+
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
 
@@ -45,8 +49,14 @@ std::pair<config::Config, freighter::Error> config::parse(
     auto rack = p.optional_child("rack");
     auto rack_key = rack.optional<synnax::RackKey>("key", 0);
     auto rack_name = rack.optional<std::string>("name", "sy_node_1_rack");
+
+#ifdef _WIN32
+    auto integrations = p.optional<std::vector<std::string> >(
+        "integrations", {opc::INTEGRATION_NAME, ni::INTEGRATION_NAME, labjack::INTEGRATION_NAME});
+#else
     auto integrations = p.optional<std::vector<std::string> >(
         "integrations", {opc::INTEGRATION_NAME, ni::INTEGRATION_NAME});
+#endif
     auto debug = p.optional<bool>("debug", false);
     if (!p.ok()) return {config::Config{}, p.error()};
     return {
@@ -61,7 +71,6 @@ std::pair<config::Config, freighter::Error> config::parse(
         freighter::NIL,
     };
 }
-
 
 json config::read(const std::string &path) {
     VLOG(1) << "[driver] reading configuration from " << path;

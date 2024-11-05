@@ -855,7 +855,7 @@ export const TextBoxForm = (): ReactElement => {
 
 export const OffPageReferenceForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow empty>
+    <Align.Space direction="y" grow >
       <LabelControls path="label" omit={["maxInlineSize", "align"]} />
       <ColorControl path="color" />
     </Align.Space>

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
+import { Device } from "@/hardware/ni/device";
+import { Task } from "@/hardware/ni/task";
+import { type Layout } from "@/layout";
 
 export * from "@/hardware/ni/device";
 export * from "@/hardware/ni/palette";
 export * from "@/hardware/ni/task";
-import { Device } from "@/hardware/ni/device";
-import { Task } from "@/hardware/ni/task";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Task.LAYOUTS,
@@ -23,3 +23,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 export const SELECTABLES = Task.SELECTABLES;
 
 export const MAKE = "NI";
+export type Make = typeof MAKE;

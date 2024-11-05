@@ -48,7 +48,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     if (!config_parser.ok()) {
         this->log_error(
             "failed to parse configuration for " + this->writer_config.task_name);
-        this->ctx->setState({
+        this->ctx->set_state({
             .task = this->task.key,
             .variant = "error",
             .details = config_parser.error_json()
@@ -70,7 +70,8 @@ ni::DigitalWriteSink::DigitalWriteSink(
     this->writer_state_source = std::make_shared<ni::StateSource>(
         this->writer_config.state_rate,
         this->writer_config.state_index_key,
-        this->writer_config.state_channel_keys);
+        this->writer_config.state_channel_keys
+    );
 }
 
 
@@ -184,7 +185,7 @@ freighter::Error ni::DigitalWriteSink::start(const std::string &cmd_key) {
     this->breaker.start();
     freighter::Error err = this->start_ni();
     if (err) return err;
-    ctx->setState({
+    ctx->set_state({
         .task = this->task.key,
         .key = cmd_key,
         .variant = "success",
@@ -202,7 +203,7 @@ freighter::Error ni::DigitalWriteSink::stop(const std::string &cmd_key) {
     this->breaker.stop();
     freighter::Error err = this->stop_ni();
     if (err) return err;
-    ctx->setState({
+    ctx->set_state({
         .task = this->task.key,
         .key = cmd_key,
         .variant = "success",
@@ -282,6 +283,7 @@ std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_cmd_channel_keys() {
     for (auto &channel: this->writer_config.channels)
         if (channel.channel_type != "index" && channel.enabled) 
             keys.push_back(channel.channel_key);
+    // Don't need index key as we're only using this for streaming cmds
     return keys;
 }
 
@@ -302,7 +304,7 @@ int ni::DigitalWriteSink::check_ni_error(int32 error) {
         std::string s(errBuff);
         jsonify_error(s);
 
-        this->ctx->setState({
+        this->ctx->set_state({
             .task = this->task.key,
             .variant = "error",
             .details = err_info
@@ -329,7 +331,7 @@ void ni::DigitalWriteSink::stopped_with_err(const freighter::Error &err) {
     this->stop("");
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
-    this->ctx->setState({
+    this->ctx->set_state({
         .task = this->task.key,
         .variant = "error",
         .details = {

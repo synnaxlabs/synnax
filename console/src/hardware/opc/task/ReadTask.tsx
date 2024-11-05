@@ -24,7 +24,6 @@ import {
   Status,
   Synnax,
   Text,
-  useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
@@ -34,6 +33,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { useDevice } from "@/hardware/device/useDevice";
 import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
@@ -100,34 +100,8 @@ const Wrapped = ({
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
-  const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
-    undefined,
-  );
-
   const methods = Form.use({ schema, values: initialValues });
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const dev = methods.value().config.device;
-    if (dev === "") return;
-    const d = await client.hardware.devices.retrieve<Device.Properties>(dev);
-    setDevice(d);
-  }, [client?.key]);
-
-  Form.useFieldListener<string, typeof schema>({
-    ctx: methods,
-    path: "config.device",
-    onChange: useCallback(
-      (fs) => {
-        if (!fs.touched || fs.status.variant !== "success" || client == null) return;
-        client.hardware.devices
-          .retrieve<Device.Properties>(fs.value)
-          .then((d) => setDevice(d))
-          .catch(console.error);
-      },
-      [client?.key, setDevice],
-    ),
-  });
+  const dev = useDevice<Device.Properties>(methods);
 
   const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
@@ -319,11 +293,12 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            <Browser device={device} />
-            <ChannelList path="config.channels" device={device} />
+            <Browser device={dev} />
+            <ChannelList path="config.channels" device={dev} />
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={start.isPending}
           configuring={configure.isPending}
