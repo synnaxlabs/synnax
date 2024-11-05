@@ -23,7 +23,8 @@ export interface Construct {
    * with a 'lower' and 'upper' property or an array of length 2. If the bounds are
    * invalid i.e., the lower bound is greater than the upper bound, the bounds are
    * swapped.
-   */ <T extends numeric.Value = number>(bounds: Crude<T>): Bounds<T>;
+   */
+  <T extends numeric.Value = number>(bounds: Crude<T>): Bounds<T>;
 
   /**
    * Constructs a bounds object from the given lower and upper bounds.
@@ -34,7 +35,8 @@ export interface Construct {
    * bound is set to 0.
    *
    * If the lower bound is greater than the upper bound, the bounds are swapped.
-   */ <T extends numeric.Value = number>(lower: T, upper?: T): Bounds<T>;
+   */
+  <T extends numeric.Value = number>(lower: T, upper?: T): Bounds<T>;
 
   <T extends numeric.Value = number>(lower: T | Crude, upper?: T): Bounds<T>;
 }
