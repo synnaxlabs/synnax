@@ -83,7 +83,6 @@ export type {
   CrudeSize,
   CrudeTimeSpan,
   CrudeTimeStamp,
-  NumericTelemValue,
   TelemValue,
   TimeStampStringFormat,
   TypedArray,
