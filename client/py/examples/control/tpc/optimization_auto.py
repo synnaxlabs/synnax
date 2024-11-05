@@ -76,7 +76,7 @@ def start_sim_cmd(aut: Controller):
     return sim_cmd.key in aut.state and aut[START_SIM_CMD] == 1
 
 def log(aut: Controller, msg: str):
-    aut.set(AUTO_LOGS, [f"TPC  {sy.TimeStamp.now().datetime().strftime("%H:%M:%S.%f")}  {msg}"])
+    aut.set(AUTO_LOGS, f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}")
 
 def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Range:
     def run_tpc(auto: Controller):
