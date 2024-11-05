@@ -119,8 +119,6 @@ struct WriterConfig {
           connection_type(parser.optional<std::string>("connection_type", "")),
           data_saving(parser.optional<bool>("data_saving", false)
           ) {
-        LOG(INFO) << "WriterConfig: " << parser.get_json().dump(4);
-
         if (!parser.ok())
             LOG(ERROR) << "Failed to parse writer config: " << parser.error_json().dump(4);
 
