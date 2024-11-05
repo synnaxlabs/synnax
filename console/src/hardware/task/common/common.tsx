@@ -334,10 +334,7 @@ export const EnableDisableButton = ({
     value={value}
     size="small"
     onClick={(e) => e.stopPropagation()}
-    onChange={(v) => {
-      console.log(v);
-      onChange(v);
-    }}
+    onChange={(v) => onChange(v)}
     tooltip={
       <Text.Text level="small" style={{ maxWidth: 300 }}>
         Data acquisition for this channel is {value ? "enabled" : "info"}. Click to
@@ -355,10 +352,9 @@ export interface TareButtonProps {
 }
 
 export const TareButton = ({ onClick, disabled }: TareButtonProps) => {
-  const variant = disabled ? "outlined" : undefined;
   return (
     <Button.Icon
-      variant={variant}
+      variant={"outlined"}
       disabled={disabled}
       onClick={onClick}
       tooltip="Click to tare"
