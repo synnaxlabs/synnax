@@ -53,10 +53,12 @@ tsk = opcua.ReadTask(
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
     channels=[
+        # Bind the Synnax channels to the OPC UA node IDs.
         opcua.Channel(
             channel=node_0.key,
             node_id="NS=2;I=8",
         ),
+        # Bind the Synnax channels to the OPC UA node IDs.
         opcua.Channel(
             channel=node_1.key,
             node_id="NS=2;I=10",
@@ -70,10 +72,11 @@ total_reads = 100
 
 frame = sy.Frame()
 
-with tsk.run():
+# Start the task and read 100 frames from the OPC UA server, which will contain a total
+# of 400 samples per channel (100 frames * 4 samples per frame).
+with tsk.run(timeout=10):
     with client.open_streamer(["node_0", "node_1"]) as streamer:
         for i in range(total_reads):
             frame.append(streamer.read())
 
 frame.to_df().to_csv("opcua_read_result.csv")
-
