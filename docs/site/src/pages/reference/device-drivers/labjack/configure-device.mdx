@@ -32,9 +32,7 @@ Before you can start using your LabJack hardware with Synnax, you will need the 
 
 <Divider.Divider direction="x" />
 
-<StepText level="h2" step={1}>
-  Select a Device to Configure
-</StepText>
+<StepText level="h2" step={1}>Select a Device to Configure</StepText>
 
 Synnax will automatically detect new LabJack devices, and display a notification in the
 Console when a new device is connected. To start configuring the device, find the device
@@ -44,14 +42,12 @@ in the resources toolbar, right click on the device and select "Configure".
 
 <Divider.Divider direction="x" />
 
-<StepText level="h2" step={2}>
-  Name Your Device
-</StepText>
+<StepText level="h2" step={2}>Name Your Device</StepText>
 
 The first step in the configuration dialog will prompt you to name your device. This name
 will be used to identify the device in Synnax.
 
-<Image client:only="react" id="device-drivers/labjack/configure-devices/name" />
+<Image client:only="react" id="device-drivers/labjack/configure-device/name" />
 
 <Divider.Divider direction="x" />
 
@@ -63,13 +59,11 @@ Next, you'll need to set a short device identifier. This identifier will prefix 
 names of all of the channels on your device. Synnax will automatically suggest a few
 identifiers, although you're welcome to create your own.
 
-<Image client:only="react" id="device-drivers/labjack/configure-devices/identifier" />
+<Image client:only="react" id="device-drivers/labjack/configure-device/identifier" />
 
 <Divider.Divider direction="x" />
 
-<StepText level="h2" step={3}>
-  Save the Configuration
-</StepText>
+<StepText level="h2" step={3}>Save the Configuration</StepText>
 
 Once you're happy with the name and identifier, the last step is to save the
 configuration by hitting the blue "Save" button in the bottom right corner.
