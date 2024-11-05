@@ -54,8 +54,7 @@ void labjack::ScannerTask::scan() {
     int aConnectionTypes[LJM_LIST_ALL_SIZE];
     int aSerialNumbers[LJM_LIST_ALL_SIZE];
     int aIPAddresses[LJM_LIST_ALL_SIZE];
-    int NumFound = 0;
-    {
+    int NumFound = 0; {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
         check_err(LJM_ListAll(
             DeviceType,
@@ -139,7 +138,7 @@ json labjack::ScannerTask::get_devices() {
 int labjack::ScannerTask::check_err(int err) {
     // First check if it is LJME_AUTO_IPS_FILE_NOT_FOUND as this is a known
     // bug on the LJM Library when no devices are connected
-    if(err == LJME_AUTO_IPS_FILE_NOT_FOUND) return 0;
+    if (err == LJME_AUTO_IPS_FILE_NOT_FOUND) return 0;
     return labjack::check_err_internal(
         err,
         "",
