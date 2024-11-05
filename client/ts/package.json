@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/client",
-  "version": "0.32.0",
+  "version": "0.33.0",
   "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
