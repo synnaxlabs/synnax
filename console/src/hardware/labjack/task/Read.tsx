@@ -107,10 +107,7 @@ const Wrapped = ({
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
-    schema: z.object({
-      name: z.string(),
-      config: readTaskConfigZ,
-    }),
+    schema: z.object({ name: z.string(), config: readTaskConfigZ }),
   });
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
@@ -124,11 +121,7 @@ const Wrapped = ({
   const addStatus = Status.useAggregator();
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: e.message,
-      }),
+    onError: (e) => addStatus({ variant: "error", message: e.message }),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
@@ -359,11 +352,7 @@ const ChannelList = ({
   onTare,
 }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChan>({ path });
-  const handleAdd = (): void =>
-    push({
-      ...deep.copy(ZERO_READ_CHAN),
-      key: id.id(),
-    });
+  const handleAdd = (): void => push({ ...deep.copy(ZERO_READ_CHAN), key: id.id() });
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
@@ -381,10 +370,7 @@ const ChannelList = ({
             }
             onTare={onTare}
             onDuplicate={(indices) => {
-              const newChannels = indices.map((i) => ({
-                ...value[i],
-                key: id.id(),
-              }));
+              const newChannels = indices.map((i) => ({ ...value[i], key: id.id() }));
               push(newChannels);
             }}
           />
@@ -442,13 +428,11 @@ const ChannelListItem = ({
     optional: true,
   });
   const channelName = Channel.useName(childValues?.channel ?? 0, "No Channel");
-
   const channelValid =
     Form.useField<number>({
       path: `${path}.${props.index}.channel`,
       optional: true,
     })?.status.variant === "success";
-
   if (childValues == null) return <></>;
   const color =
     channelName === "No Channel"
@@ -460,7 +444,6 @@ const ChannelListItem = ({
     childValues.channel != null && onTare != null && childValues.type === "AI";
   const tareIsDisabled =
     !childValues.enabled || snapshot || state?.details?.running !== true;
-
   return (
     <List.ItemFrame
       {...props}
