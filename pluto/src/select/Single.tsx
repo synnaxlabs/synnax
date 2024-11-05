@@ -16,6 +16,7 @@ import {
   primitiveIsZero,
 } from "@synnaxlabs/x";
 import {
+  FC,
   type FocusEventHandler,
   type ReactElement,
   ReactNode,
@@ -26,6 +27,7 @@ import {
 } from "react";
 
 import { Button } from "@/button";
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
@@ -288,6 +290,9 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
         if (visible) return;
         onFocus?.();
       })}
+      endContent={
+        <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
+      }
       style={{ flexGrow: 1 }}
       onClick={handleClick}
       placeholder={placeholder}

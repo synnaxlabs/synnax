@@ -7,21 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/** Numeric is a type that can be either a number or a bigint. */
-type Numeric = number | bigint;
+/** A primitive numeric value is either a number or a bigint. */
+export type PrimitiveNumeric = number | bigint;
+
+/** An extension of {@link PrimitiveNumeric} that includes the {@link BigInt} and {@link Number} classes. */
+export type Numeric = PrimitiveNumeric | Number | BigInt;
+
+const isBigInt = (n: Numeric): n is bigint | BigInt =>
+  typeof n === "bigint" || n instanceof BigInt;
 
 /**
  * @returns the product of a and b, coercing b to the type of a if necessary. */
 export const sub = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (typeof a === "bigint") return (a - BigInt(b)) as V;
-  return (a - Number(b)) as V;
+  if (isBigInt(a)) return (a.valueOf() - BigInt(b.valueOf().valueOf())) as V;
+  return (a.valueOf() - Number(b.valueOf())) as V;
 };
 
 /** @returns the sum of a and b, coercing b to the type of a if necessary. */
 export const add = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (typeof a === "bigint") return (a + BigInt(b)) as V;
+  if (isBigInt(a)) return (a.valueOf() + BigInt(b.valueOf().valueOf())) as V;
   // @ts-expect-error - a is a number but typescript doesn't recognize that.
-  return (a + Number(b)) as V;
+  return (a + Number(b.valueOf())) as V;
 };
 
 /** @returns true if a is close to b within epsilon. */
@@ -30,8 +36,8 @@ export const closeTo = (a: number, b: number, epsilon = 0.0001): boolean =>
 
 /** @returns true if a is equal to b, coercing b to the type of a if necessary. */
 export const equal = <V extends Numeric>(a: V, b: Numeric): boolean => {
-  if (typeof a === "bigint") return a === BigInt(b);
-  return a === Number(b);
+  if (isBigInt(a)) return a === BigInt(b.valueOf().valueOf());
+  return a === Number(b.valueOf());
 };
 
 /**
@@ -47,18 +53,32 @@ export const roundToNearestMagnitude = (num: number): number => {
 
 /** @returns the minimum of a and b, coercing b to the type of a if necessary. */
 export const min = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (typeof a === "bigint") return (a < BigInt(b) ? a : BigInt(b)) as V;
-  return (a < Number(b) ? a : Number(b)) as V;
+  if (isBigInt(a))
+    return (a.valueOf() < BigInt(b.valueOf()) ? a : BigInt(b.valueOf())) as V;
+  return (a.valueOf() < Number(b.valueOf()) ? a : Number(b.valueOf())) as V;
 };
 
 /** @returns the maximum of a and b, coercing b to the type of a if necessary. */
 export const max = <V extends Numeric>(a: V, b: Numeric): V => {
-  if (typeof a === "bigint") return (a > BigInt(b) ? a : BigInt(b)) as V;
-  return (a > Number(b) ? a : Number(b)) as V;
+  if (isBigInt(a))
+    return (a.valueOf() > BigInt(b.valueOf()) ? a : BigInt(b.valueOf())) as V;
+  return (a.valueOf() > Number(b.valueOf()) ? a : Number(b.valueOf())) as V;
 };
 
 /** @returns the absolute value of a. */
 export const abs = <V extends Numeric>(a: V): V => {
-  if (typeof a === "bigint") return (a < 0n ? -a : a) as V;
-  return (a < 0 ? -a : a) as V;
+  if (isBigInt(a) || a instanceof BigInt) return (a.valueOf() < 0n ? -a : a) as V;
+  return (a.valueOf() < 0 ? -a : a) as V;
+};
+
+/** @returns the multiplication of a and b, coercing b to the type of a if necessary. */
+export const mult = <V extends Numeric>(a: V, b: Numeric): V => {
+  if (isBigInt(a)) return (a.valueOf() * BigInt(b.valueOf())) as V;
+  return (a.valueOf() * Number(b.valueOf())) as V;
+};
+
+/** @returns the division of a and b, coercing b to the type of a if necessary. */
+export const div = <V extends Numeric>(a: V, b: Numeric): V => {
+  if (isBigInt(a)) return (a.valueOf() / BigInt(b.valueOf())) as V;
+  return (a.valueOf() / Number(b.valueOf())) as V;
 };
