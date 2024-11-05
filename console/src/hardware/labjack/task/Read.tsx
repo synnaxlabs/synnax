@@ -109,8 +109,12 @@ const Wrapped = ({
     values: initialValues,
     schema: z.object({ name: z.string(), config: readTaskConfigZ }),
   });
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(
+    initialValues.config.channels.length ? [initialValues.config.channels[0].key] : [],
+  );
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
+    initialValues.config.channels.length > 0 ? 0 : null,
+  );
   const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
@@ -281,7 +285,7 @@ const Wrapped = ({
 };
 
 interface ChannelFormProps {
-  selectedChannelIndex: number;
+  selectedChannelIndex?: number | null;
   device?: device.Device;
 }
 
@@ -293,6 +297,7 @@ const ChannelForm = ({
   const channelType = (Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ??
     "AI") as "AI" | "DI" | "TC";
   const model = (device?.model ?? "LJM_dtT4") as ModelKey;
+  if (selectedChannelIndex === -1) return <></>;
   return (
     <Align.Space direction="y" size="small">
       <Align.Space direction="x" grow>

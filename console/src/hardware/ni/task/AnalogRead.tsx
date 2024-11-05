@@ -448,9 +448,10 @@ const ChannelList = ({
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => (
+              {({ key: i, ...props }) => (
                 <ChannelListItem
                   {...props}
+                  key={i}
                   path={path}
                   snapshot={snapshot}
                   state={state}
