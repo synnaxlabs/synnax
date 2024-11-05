@@ -47,31 +47,32 @@ void labjack::ScannerTask::exec(task::Command &cmd) {
 }
 
 void labjack::ScannerTask::scan() {
-    int DeviceType = LJM_dtANY;
-    int ConnectionType = LJM_ctANY;
+    int device_type = LJM_dtANY;
+    int connection_type = LJM_ctANY;
 
-    int aDeviceTypes[LJM_LIST_ALL_SIZE];
-    int aConnectionTypes[LJM_LIST_ALL_SIZE];
-    int aSerialNumbers[LJM_LIST_ALL_SIZE];
-    int aIPAddresses[LJM_LIST_ALL_SIZE];
-    int NumFound = 0; {
+    int device_types[LJM_LIST_ALL_SIZE];
+    int connection_types[LJM_LIST_ALL_SIZE];
+    int serial_numbers[LJM_LIST_ALL_SIZE];
+    int ip_addresses[LJM_LIST_ALL_SIZE];
+    int num_found = 0;
+    {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
         check_err(LJM_ListAll(
-            DeviceType,
-            ConnectionType,
-            &NumFound,
-            aDeviceTypes,
-            aConnectionTypes,
-            aSerialNumbers,
-            aIPAddresses
+            device_type,
+            connection_type,
+            &num_found,
+            device_types,
+            connection_types,
+            serial_numbers,
+           ip_addresses
         ));
     }
 
-    for (int i = 0; i < NumFound; i++) {
+    for (int i = 0; i < num_found; i++) {
         nlohmann::json device;
-        device["device_type"] = NumberToDeviceType(aDeviceTypes[i]);
-        device["connection_type"] = NumberToConnectionType(aConnectionTypes[i]);
-        device["serial_number"] = aSerialNumbers[i];
+        device["device_type"] = NumberToDeviceType(device_types[i]);
+        device["connection_type"] = NumberToConnectionType(connection_types[i]);
+        device["serial_number"] = serial_numbers[i];
         device["key"] = device["serial_number"];
         device["failed_to_create"] = false;
         if (device_keys.find(device["key"].get<int>()) == device_keys.end()) {
@@ -135,7 +136,7 @@ json labjack::ScannerTask::get_devices() {
     return devices;
 }
 
-int labjack::ScannerTask::check_err(int err) {
+int labjack::ScannerTask::check_err(const int err) {
     // First check if it is LJME_AUTO_IPS_FILE_NOT_FOUND as this is a known
     // bug on the LJM Library when no devices are connected
     if (err == LJME_AUTO_IPS_FILE_NOT_FOUND) return 0;
@@ -149,6 +150,6 @@ int labjack::ScannerTask::check_err(int err) {
     );
 }
 
-bool labjack::ScannerTask::ok() {
+bool labjack::ScannerTask::ok() const {
     return this->ok_state;
 }
