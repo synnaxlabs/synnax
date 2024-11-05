@@ -41,7 +41,7 @@ class ReadConfig(BaseModel):
     stream_rate: conint(ge=0, le=50000)
     channels: list[Channel]
     array_mode: bool
-    array_size: conint(ge=0)
+    array_size: conint(ge=1)
     data_saving: bool
 
 
@@ -80,7 +80,7 @@ class ReadTask(MetaTask):
         stream_rate: CrudeRate = 1000,
         data_saving: bool = False,
         array_mode: bool = False,
-        array_size: int = 0,
+        array_size: int = 1,
         channels: list[Channel] = None,
     ):
         if internal is not None:
