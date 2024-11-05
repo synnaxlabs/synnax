@@ -9,46 +9,45 @@ nextURL: "/reference/device-drivers/labjack/configure-device"
 
 import { Divider, Note } from "@synnaxlabs/pluto";
 
-The [LabJack](https://support.labjack.com/docs/?l=en) LJM library allows 
-Synnax to directly connect to your LabJack T-Series devices. This page will walk you through some of the important pre-requisites 
-necessary to get started with the NI driver.
+The [LabJack](https://support.labjack.com/docs/?l=en) LJM library allows Synnax to
+directly connect to your LabJack T-series devices. This page will walk you through some
+of the important prerequisites necessary to get started with the NI driver.
 
 <Divider.Divider direction="x" />
 
 ## Supported Devices
 
-**Synnax supports reading and writing data to all LabJack devices that are supported by the [LJM Library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit).**
+Synnax supports reading and writing data to all LabJack devices that are supported by
+the [LJM
+Library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit).
 
-As of present, the following devices are supported: T4, T7, T8 and Digit. If you are interested in other LabJack devices, please contact us for more details and how we can support your use!
+<Note.Note variant="warning">
+  Currently, only T-series LabJack devices are supported by Synnax. If you are
+  interested in using Synnax with other devices, please [contact
+  us](https://www.synnaxlabs.com/contact).
+</Note.Note>
 
 <Divider.Divider direction="x" />
 
 ## Installation
 
-The LabJack Driver comes pre-installed with every Synnax Deployment. 
+The LabJack driver comes installed with every Synnax deployment.
 
 ### Installing LJM
 
-The Labjack LJM library must be installed for Synnax to communicate with your
-hardware. Instructions for installing LJM software can be found on the 
-[LabJack website.](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
+The Labjack LJM library must be installed for Synnax to communicate with your LabJack
+hardware. Instructions for installing LJM software can be found on the [LabJack
+website.](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
+
 <Note.Note variant="warning">
-If you have a Synnax cluster already running before installing LJM, you'll need to 
-restart the cluster for Synnax to recognize the LJM installation.
+  If you have a Synnax cluster already running before installing LJM, you'll need to
+  restart the cluster for Synnax to recognize the LJM installation.
 </Note.Note>
 
 <Divider.Divider direction="x" />
 
 ## OS Compatibility
 
-The LabJack driver is only compatible when running the Synnax Database on a Windows machine.
-The driver will not be able to find your devices when running on Linux, macOS, or 
-within a Docker container (even if that container is running on Windows).
-
-<Divider.Divider direction="x" />
-
-## Next Steps
-
-Now that you've installed DAQmx on your host machine, you're ready to start integrating
-your devices. Check out the [Configure a Device](/reference/device-drivers/labjack/configure-device) 
-page to learn how to do so.
+The LabJack driver is only compatible when running the Synnax Database on a Windows
+machine. The driver will not be able to find your devices when running on Linux, macOS,
+or within a Docker container (even if that container is running on Windows).
