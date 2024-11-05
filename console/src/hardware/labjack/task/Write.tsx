@@ -184,7 +184,7 @@ const Wrapped = ({
           statesToCreate.map((c) => ({
             name: `${dev.properties.identifier}_${c.type}_${c.port}_state`,
             index: dev.properties.writeStateIndex,
-            dataType: "uint8",
+            dataType: c.type === "AO" ? "float32" : "uint8",
           })),
         );
         states.forEach((s, i) => {
@@ -348,11 +348,11 @@ const ChannelForm = ({
   const prefix = `config.channels.${selectedChannelIndex}`;
   const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ?? "DO";
   return (
-    <Align.Space direction="x" grow>
-      <Form.Field<OutputChannelType> path={`${prefix}.type`} label="Type">
+    <Align.Space direction="y" grow>
+      <Form.Field<OutputChannelType> path={`${prefix}.type`} label="Type" hideIfNull>
         {(p) => <SelectOutputChannelType grow {...p} />}
       </Form.Field>
-      <Form.Field<string> path={`${prefix}.port`} label="Port">
+      <Form.Field<string> path={`${prefix}.port`} label="Port" grow hideIfNull>
         {(p) => (
           <SelectPort
             {...p}
@@ -447,20 +447,27 @@ const ChannelListItem = ({
     path: `${path}.${props.index}`,
     optional: true,
   });
-  const cmdChannelName = Channel.useName(childValues?.cmdKey ?? 0, "No Channel");
-  const stateChannelName = Channel.useName(childValues?.stateKey ?? 0, "No Channel");
+  const cmdChannelName = Channel.useName(
+    childValues?.cmdKey ?? 0,
+    "No Command Channel",
+  );
+  const stateChannelName = Channel.useName(
+    childValues?.stateKey ?? 0,
+    "No State Channel",
+  );
 
   const stateChannel =
     Form.useField<number>({
-      path: `${path}.${props.index}.stateChannel`,
+      path: `${path}.${props.index}.stateKey`,
       optional: true,
     })?.status.variant === "success";
 
-  const cmdChannel =
-    Form.useField<number>({
-      path: `${path}.${props.index}.cmdChannel`,
-      optional: true,
-    })?.status.variant === "success";
+  const cmdChannelState = Form.useField<number>({
+    path: `${path}.${props.index}.cmdKey`,
+    optional: true,
+  });
+  console.log(cmdChannelState);
+  const cmdChannel = cmdChannelState?.status.variant === "success";
 
   const locationValid =
     Form.useField<number>({
@@ -484,12 +491,13 @@ const ChannelListItem = ({
         >
           {entry.port}
         </Text.Text>
-        <Align.Space direction="y">
+        <Align.Space direction="y" size="small">
           <Text.Text
             level="p"
             shade={9}
             color={(() => {
-              if (cmdChannelName === "No Channel") return "var(--pluto-warning-m1)";
+              if (cmdChannelName === "No Command Channel")
+                return "var(--pluto-warning-m1)";
               else if (cmdChannel) return undefined;
               return "var(--pluto-error-z)";
             })()}
@@ -500,7 +508,8 @@ const ChannelListItem = ({
             level="p"
             shade={9}
             color={(() => {
-              if (stateChannelName === "No Channel") return "var(--pluto-warning-m1)";
+              if (stateChannelName === "No State Channel")
+                return "var(--pluto-warning-m1)";
               else if (stateChannel) return undefined;
               return "var(--pluto-error-z)";
             })()}
