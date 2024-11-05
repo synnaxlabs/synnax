@@ -24,9 +24,7 @@ const HOST = new URL({
   host: "docs.synnaxlabs.com",
   port: 443,
   protocol: "https",
-  pathPrefix: "reference/console/get-started",
 });
-
 export const LAYOUT_TYPE = "docs";
 
 export const createLayout = (overrides?: Layout.State): Layout.State => ({
@@ -75,7 +73,11 @@ export const Docs: Layout.Renderer = memo(() => {
       noHeader: true,
       theme: theme.key.includes("dark") ? "dark" : "light",
     };
-    setURL(HOST.child(path ?? "").child(buildQueryString(queryParams)));
+    setURL(
+      HOST.child(path || "reference/console/get-started").child(
+        buildQueryString(queryParams),
+      ),
+    );
     window.addEventListener("message", handleFrameMessage);
     return () => window.removeEventListener("message", handleFrameMessage);
   }, []);

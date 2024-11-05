@@ -11,7 +11,7 @@ import { DataType, math, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
-/** Response from a write to the @see Dynamic cache. */
+/** Response from a write to the @link Dynamic cache. */
 export interface DynamicWriteResponse {
   /** A list of series that were flushed from the cache during the write i.e. the new
    * writes were not able to fit in the current buffer, so a new one was allocated
@@ -21,7 +21,7 @@ export interface DynamicWriteResponse {
   allocated: Series[];
 }
 
-/** Props for the @see Dynamic cache. */
+/** Props for the @link Dynamic cache. */
 export interface DynamicProps {
   /**
    * Sets the maximum size of the buffer that the cache will maintain before flushing

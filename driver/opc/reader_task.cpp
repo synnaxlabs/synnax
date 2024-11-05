@@ -88,7 +88,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     auto cfg = ReaderConfig(config_parser);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = config_parser.error_json(),
@@ -100,7 +100,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{
@@ -121,7 +121,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     // Fetch additional index channels we also need as part of the configuration.
     auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
     if (err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{{"message", err.message()}}
@@ -132,7 +132,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
 
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
     if (conn_err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{{"message", conn_err.message()}}
@@ -163,7 +163,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     }
 
     if (!config_parser.ok()) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = config_parser.error_json(),
@@ -192,7 +192,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         .enable_auto_commit = true
     };
 
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = json{
@@ -215,14 +215,12 @@ std::unique_ptr<task::Task> ReaderTask::configure(
 void ReaderTask::exec(task::Command &cmd) {
     if (cmd.type == "start") this->start(cmd.key);
     else if (cmd.type == "stop") return this->stop(cmd.key);
-    else
-        LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 void ReaderTask::stop() { this->stop(""); }
 
 void ReaderTask::stop(const std::string &cmd_key) {
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .key = cmd_key,
         .variant = "success",
@@ -249,7 +247,7 @@ void ReaderTask::start(const std::string &cmd_key) {
         return;
     }
     pipe.start();
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .key = cmd_key,
         .variant = "success",

@@ -20,7 +20,7 @@ import { Unary } from "@/telem/client/cache/unary";
 
 export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 
-/** Props for instantiating an @see Cache */
+/** Props for instantiating an @link Cache */
 export interface CacheProps
   extends StaticProps,
     Partial<Pick<DynamicProps, "dynamicBufferSize">> {

@@ -626,18 +626,10 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const handleSinkChange = (v: channel.Key): void => {
     v = v ?? 0;
     const t = telem.sinkPipeline("boolean", {
-      connections: [
-        {
-          from: "setpoint",
-          to: "setter",
-        },
-      ],
+      connections: [{ from: "setpoint", to: "setter" }],
       segments: {
         setter: control.setChannelValue({ channel: v }),
-        setpoint: telem.setpoint({
-          truthy: 1,
-          falsy: 0,
-        }),
+        setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
       },
       inlet: "setpoint",
     });
@@ -655,14 +647,9 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
       control: {
         ...value.control,
         showChip: true,
-        chip: {
-          sink: controlChipSink,
-          source: authSource,
-        },
+        chip: { sink: controlChipSink, source: authSource },
         showIndicator: true,
-        indicator: {
-          statusSource: authSource,
-        },
+        indicator: { statusSource: authSource },
       },
     });
   };
@@ -672,6 +659,12 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
       <Input.Item label="Output Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
+      <Form.NumericField
+        label="Activation Delay"
+        path="onClickDelay"
+        inputProps={{ endContent: "ms" }}
+        hideIfNull
+      />
       <Form.SwitchField
         path="control.show"
         label="Show Control Chip"
@@ -862,7 +855,7 @@ export const TextBoxForm = (): ReactElement => {
 
 export const OffPageReferenceForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow empty>
+    <Align.Space direction="y" grow >
       <LabelControls path="label" omit={["maxInlineSize", "align"]} />
       <ColorControl path="color" />
     </Align.Space>
