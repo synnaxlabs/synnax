@@ -74,9 +74,12 @@ public:
     }
 
     void tare(json &arg) {
-        // if json contains no keys, tare everything
-        json channels = arg["keys"];
-        VLOG(1) << "Taring channels: " << channels.dump(2);
+        //create parser
+        config::Parser parser(arg);
+        auto channels = parser.required_vector<uint32_t>("keys");
+        if(!parser.ok())
+            LOG(ERROR) << "[driver] failed to parse tare configuration: " << parser.error().message();
+
         if (channels.empty()) {
             std::lock_guard<std::mutex> lock(mutex);
             for (auto &pair: tare_values) {
@@ -87,8 +90,7 @@ public:
             return;
         }
 
-        for (auto &channel: channels) {
-            auto key = channel.get<int32_t>();
+        for (auto &key: channels) {
             std::lock_guard<std::mutex> lock(mutex);
             auto it = this->last_raw_value.find(key);
             if (it != last_raw_value.end()) {

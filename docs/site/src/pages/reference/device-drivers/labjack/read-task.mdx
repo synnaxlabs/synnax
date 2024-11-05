@@ -2,17 +2,17 @@
 layout: "@/layouts/Reference.astro"
 title: "LabJack | Read Task"
 heading: "LabJack Read Task"
-description: "Learn how to create a read task for LabJack hardware."   
+description: "Learn how to create a read task for LabJack hardware."
 prev: "Configure a Device"
 prevURL: "/reference/device-drivers/labjack/configure-device"
 next: "Write Task"
 nextURL: "/reference/device-drivers/labjack/write-task"
 ---
+
 import { Icon } from "@synnaxlabs/media";
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
 import { Video, Image } from "@/components/Media";
-
 
 The Read Task is used for acquiring analog and digital data from LabJack devices. In this guide,
 we'll walk you through the steps to create a read Task in Synnax.
@@ -21,7 +21,7 @@ we'll walk you through the steps to create a read Task in Synnax.
 
 ## Prerequisites
 
-Before configuring the task, you'll need to have connected and configured an NI device 
+Before configuring the task, you'll need to have connected and configured an NI device
 and created the relevant channels in Synnax. Check out the [Configure Device](/reference/device-drivers/labjack/configure-device)
 guide for more information.
 
@@ -30,12 +30,12 @@ guide for more information.
 ## A Short Primer on Tasks
 
 Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
-can be used for both control and data acquisition purposes. In the context of the LabJack 
-Driver, a read task defines a background process that reads data from the 
+can be used for both control and data acquisition purposes. In the context of the LabJack
+Driver, a read task defines a background process that reads data from the
 analog/digital inputs on a particular DAQ card.
 
-A read task can be started, stopped, and re-configured at any time. We 
-permanently store the configuration of the task in Synnax, so it's easy to set up 
+A read task can be started, stopped, and re-configured at any time. We
+permanently store the configuration of the task in Synnax, so it's easy to set up
 multiple tasks for different purposes.
 
 <Divider.Divider direction="x" />
@@ -52,7 +52,7 @@ different channels at different rates, create a separate task to do so.
 #### Sampling Thermocouple channels
 
 In order to leverage the LJM's built-in thermocouple features, configuring a task with
-thermocouple channels will reduce the maximum reliable sample rate you can acquire data, 
+thermocouple channels will reduce the maximum reliable sample rate you can acquire data,
 compared to a task with only analog or digital input channels.
 
 ### One Running Task Per Channel
@@ -63,34 +63,41 @@ running that reads from a `pressure` channel, you cannot start another task that
 <Divider.Divider direction="x" />
 
 ## Open the Task Configuration Dialog
+
 ### From the Resources Toolbar
 
-To create a read task from the resources toolbar, open the Synnax Console and 
+To create a read task from the resources toolbar, open the Synnax Console and
 click on the "Resources" tab in the left sidebar. Find the device you'd like to create
 the task for, right-click on it, and select "Create read Task".
 
-{/* TODO: video for resources toolbar */}
-<Video client:only="react" id="device-drivers/ni/digital-read-task/device-create-digital-read-task" />
+<Video
+  client:only="react"
+  id="device-drivers/labjack/read-task/device-create-read-task"
+/>
 
 ### From the Command Palette
 
-To create a  read task from the command palette, open the Synnax Console and 
-click on the Quick Search & Command Palette at the top. You can also open this palette with 
+To create a read task from the command palette, open the Synnax Console and
+click on the Quick Search & Command Palette at the top. You can also open this palette with
 `Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type
 "LabJack". You'll see an option called "Create a LabJack read Task". Select this
 option to open the read task configuration dialog.
 
-{/* TODO: video for command palette  */}
-<Video client:only="react" id="device-drivers/ni/digital-read-task/palette-create-digital-read-task" />
+<Video
+  client:only="react"
+  id="device-drivers/labjack/read-task/palette-create-read-task"
+/>
 
 ### From The Layout Selector
 
-To create a read task from the layout selector, click on the "+" button in the 
+To create a read task from the layout selector, click on the "+" button in the
 top right corner and select "LabJack read Task".
 
-{/* TODO: video for Layout selector */}
-<Video client:only="react" id="device-drivers/ni/digital-read-task/layout-create-digital-read-task" />
+<Video
+  client:only="react"
+  id="device-drivers/labjack/read-task/layout-create-read-task"
+/>
 
 <Divider.Divider direction="x" />
