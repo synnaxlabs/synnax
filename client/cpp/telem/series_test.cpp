@@ -13,11 +13,12 @@
 #include "client/cpp/synnax.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
 
+
 ///// @brief create basic int series.
 TEST(TestSeries, testConstruction) {
     const std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     const synnax::Series s{vals};
-    ASSERT_EQ(s.data_type, synnax::UINT8);
+    ASSERT_EQ(s.data_type, synnax::SY_UINT8);
     const auto v = s.values<std::uint8_t>();
     ASSERT_EQ(v.size(), vals.size());
     for (size_t i = 0; i < vals.size(); i++)
@@ -205,11 +206,33 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     ASSERT_EQ(oss_float64.str(),
               "Series(type: float64, size: 3, cap: 3, data: [1.5 2.5 3.5 ])");
 
-    Series s_uint8{synnax::UINT8, 3};
+    Series s_uint8{synnax::SY_UINT8, 3};
     for (std::uint8_t i = 1; i <= 3; ++i) {
         s_uint8.write(i);
     }
     std::ostringstream oss_uint8;
     oss_uint8 << s_uint8;
     ASSERT_EQ(oss_uint8.str(), "Series(type: uint8, size: 3, cap: 3, data: [1 2 3 ])");
+}
+
+///// @brief test_transform_
+TEST(TestSeries, test_transform_inplace) {
+    std::vector<double> vals = {1.0, 2.0, 3.0, 4.0, 5.0};
+    synnax::Series s{vals};
+    ASSERT_EQ(s.data_type, synnax::FLOAT64);
+
+    s.transform_inplace<double>([](double x) { return x * 2; });
+    const auto v = s.values<double>();
+    ASSERT_EQ(v.size(), vals.size());
+    for (size_t i = 0; i < vals.size(); i++)
+        ASSERT_EQ(v[i], vals[i] * 2);
+
+    vals = std::vector<double>({2.0, 4.0, 6.0, 8.0, 10.0});
+
+    // now try a lienar transformation
+    s.transform_inplace<double>([](double x) { return (3*x + 1); });
+    const auto v2 = s.values<double>();
+    ASSERT_EQ(v2.size(), vals.size());
+    for (size_t i = 0; i < vals.size(); i++)
+        ASSERT_EQ(v2[i], 3*vals[i] + 1);
 }

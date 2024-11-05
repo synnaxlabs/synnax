@@ -314,11 +314,10 @@ const calcConnectedDialog = ({
     invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
   );
 
-  if (runtime.getOS() !== "MacOS") return { adjustedDialog, location };
   let parent: HTMLElement | null = target.parentElement;
   while (parent != null) {
     const style = window.getComputedStyle(parent);
-    if (style.getPropertyValue("container-type") !== "normal") {
+    if (style.getPropertyValue("container-type") === "inline-size") {
       container = box.construct(parent);
       if (location.y === "bottom")
         adjustedDialog = box.translate(
@@ -334,5 +333,6 @@ const calcConnectedDialog = ({
     }
     parent = parent.parentElement;
   }
+  console.log(parent);
   return { adjustedDialog, location };
 };

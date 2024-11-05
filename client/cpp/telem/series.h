@@ -393,13 +393,13 @@ public:
             output_partial_vector(os, s.values<int64_t>());
         else if (s.data_type == synnax::UINT64 || s.data_type == synnax::TIMESTAMP)
             output_partial_vector(os, s.values<uint64_t>());
-        else if (s.data_type == synnax::UINT8)
+        else if (s.data_type == synnax::SY_UINT8)
             output_partial_vector_byte(os, s.values<uint8_t>());
         else if (s.data_type == synnax::INT32)
             output_partial_vector(os, s.values<int32_t>());
         else if (s.data_type == synnax::INT16)
             output_partial_vector(os, s.values<int16_t>());
-        else if (s.data_type == synnax::UINT16)
+        else if (s.data_type == synnax::SY_UINT16)
             output_partial_vector(os, s.values<uint16_t>());
         else if (s.data_type == synnax::UINT32)
             output_partial_vector(os, s.values<uint32_t>());
@@ -427,6 +427,16 @@ public:
         return cap * data_type.density();
     }
 
+    template<typename NumericType>
+    void transform_inplace(const std::function<NumericType(NumericType)>& func){
+        static_assert(std::is_arithmetic_v<NumericType>, "NumericType must be a numeric type");
+        if (size == 0) return;
+        auto vals = values<NumericType>();
+        std::transform(vals.begin(), vals.end(), vals.begin(), func);
+        set_array(vals.data(), 0, vals.size());
+    }
+
+
     /// @brief Holds what type of data is being used.
     DataType data_type;
     /// @brief Holds the underlying data.
@@ -447,13 +457,13 @@ private:
     ) const {
         auto adjusted = index;
         if (index < 0) adjusted = static_cast<int>(size) + index;
-        if (adjusted + write_size >= size || adjusted < 0)
+        if (adjusted + write_size > size || adjusted < 0)
             throw std::runtime_error(
-                "index" + std::to_string(index) +
-                " out of bounds for series of size" +
+                "index " + std::to_string(index) +
+                " out of bounds for series of size " +
                 std::to_string(size)
             );
         return adjusted;
     }
-};
-}
+}; // class Series
+} // namespace synnax

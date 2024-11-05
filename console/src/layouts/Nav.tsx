@@ -24,6 +24,7 @@ import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
+import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { LabelServices } from "@/label/services";
@@ -55,6 +56,7 @@ const COMMANDS = [
   ...Workspace.COMMANDS,
   ...ClusterServices.COMMANDS,
   ...RangeServices.COMMANDS,
+  ...LabJack.COMMANDS,
   ...OPC.COMMANDS,
   ...Persist.COMMANDS,
   ...NI.COMMANDS,

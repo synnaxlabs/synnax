@@ -150,7 +150,7 @@ void Scanner::scan(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
-        return ctx->setState({
+        return ctx->set_state({
                                  .task = task.key,
                                  .key = cmd.key,
                                  .details = parser.error_json()
@@ -158,7 +158,7 @@ void Scanner::scan(const task::Command &cmd) const {
 
     auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
     if (err)
-        return ctx->setState({
+        return ctx->set_state({
                                  .task = task.key,
                                  .key = cmd.key,
                                  .variant = "error",
@@ -170,7 +170,7 @@ void Scanner::scan(const task::Command &cmd) const {
         std::make_shared<std::vector<DeviceNodeProperties> >(),
     };
     iterateChildren(scan_ctx, args.node);
-    ctx->setState({
+    ctx->set_state({
                       .task = task.key,
                       .key = cmd.key,
                       .variant = "success",
@@ -184,20 +184,20 @@ void Scanner::test_connection(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
     ScannerScanCommandArgs args(parser);
     if (!parser.ok())
-        return ctx->setState({
+        return ctx->set_state({
                                  .task = task.key,
                                  .key = cmd.key,
                                  .details = parser.error_json()
                              });
     const auto err = connect(args.connection, "[opc.scanner] ").second;
     if (err)
-        return ctx->setState({
+        return ctx->set_state({
                                  .task = task.key,
                                  .key = cmd.key,
                                  .variant = "error",
                                  .details = {{"message", err.data}}
                              });
-    return ctx->setState({
+    return ctx->set_state({
                              .task = task.key,
                              .key = cmd.key,
                              .variant = "success",

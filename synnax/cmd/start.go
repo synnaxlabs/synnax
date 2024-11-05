@@ -62,7 +62,7 @@ import (
 
 const stopKeyWord = "stop"
 
-var integrations = []string{"opc", "ni"}
+var integrations = []string{"opc", "ni", "labjack"}
 
 func scanForStopKeyword(interruptC chan os.Signal) {
 	scanner := bufio.NewScanner(os.Stdin)
