@@ -35,14 +35,14 @@ opcua_time = client.channels.create(
 node_0 = client.channels.create(
     name="node_0",
     index=opcua_time.key,
-    data_type=sy.DataType.FLOAT32,
+    data_type=sy.DataType.INT64,
     retrieve_if_name_exists=True
 )
 
 node_1 = client.channels.create(
     name="node_1",
     index=opcua_time.key,
-    data_type=sy.DataType.FLOAT32,
+    data_type=sy.DataType.INT64,
     retrieve_if_name_exists=True
 )
 
