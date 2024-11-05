@@ -45,6 +45,8 @@ public:
     }
 
     freighter::Error exec(Frame &frame) {
+        if(middlewares.empty())
+            return freighter::NIL;
         for (auto &middleware: middlewares) {
             if (!middleware->handle(frame)) {
                 return freighter::Error("Middleware failed");
