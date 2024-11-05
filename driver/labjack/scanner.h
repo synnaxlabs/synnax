@@ -66,7 +66,7 @@ public:
 
     int check_err(int err);
 
-    bool ok();
+    bool ok() const;
 
 private:
     json devices;
