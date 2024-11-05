@@ -12,12 +12,12 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Channel,
-  Divider,
   Form,
   Header,
   Input,
   List,
   Menu,
+  Select,
   Status,
   Synnax,
   Text,
@@ -335,8 +335,7 @@ const ChannelForm = ({
         inputProps={{ endContent: "V" }}
         grow
       />
-      <Divider.Divider direction="x" />
-      <ThermocoupleForm prefix={prefix} />
+      <ThermocoupleForm model={model} prefix={prefix} />
       <CustomScaleForm prefix={prefix} />
     </Align.Space>
   );
@@ -360,12 +359,11 @@ const ChannelList = ({
   onTare,
 }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChan>({ path });
-  const handleAdd = (): void => {
+  const handleAdd = (): void =>
     push({
       ...deep.copy(ZERO_READ_CHAN),
       key: id.id(),
     });
-  };
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
@@ -558,26 +556,66 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement | null => {
   );
 };
 
-const ThermocoupleForm = ({ prefix }: FormProps): ReactElement | null => {
+interface ThermocoupleFormProps extends FormProps {
+  model: ModelKey;
+}
+
+const ThermocoupleForm = ({
+  prefix,
+  model,
+}: ThermocoupleFormProps): ReactElement | null => {
   const path = `${prefix}`;
   const channelType = Form.useFieldValue<ChannelType>(`${path}.type`, true);
   if (channelType !== "TC") return null;
   return (
     <Align.Space direction="y" grow>
       <Form.NumericField
-        path={`${path}.thermocouple_type`}
+        path={`${path}.thermocoupleType`}
         label="Thermocouple Type"
         grow
       />
       <Align.Space direction="x" grow>
-        <Form.NumericField path={`${path}.pos_chan`} label="Positive Channel" grow />
-        <Form.NumericField path={`${path}.neg_chan`} label="Negative Channel" grow />
+        <Form.NumericField path={`${path}.posChan`} label="Positive Channel" grow />
+        <Form.NumericField path={`${path}.negChan`} label="Negative Channel" grow />
       </Align.Space>
       <Align.Space direction="x" grow>
-        <Form.NumericField path={`${path}.cjc_addr`} label="CJC Address" grow />
-        <Form.NumericField path={`${path}.cjc_slope`} label="CJC Slope" grow />
-        <Form.NumericField path={`${path}.cjc_offset`} label="CJC Offset" grow />{" "}
+        <Form.Field<string>
+          path={`${prefix}.cjcSource`}
+          grow
+          hideIfNull
+          label="CJC Source"
+        >
+          {(p) => <SelectCJCSourceField {...p} model={model} />}
+        </Form.Field>
+        <Form.NumericField path={`${path}.cjcSlope`} label="CJC Slope" grow />
+        <Form.NumericField path={`${path}.cjcOffset`} label="CJC Offset" grow />
       </Align.Space>
     </Align.Space>
+  );
+};
+
+interface SelectCJCSourceProps extends Select.SingleProps<string, CJCSourceType> {
+  model: ModelKey;
+}
+
+interface CJCSourceType {
+  key: string;
+}
+
+const SelectCJCSourceField = ({ model, ...props }: SelectCJCSourceProps) => {
+  const ports: CJCSourceType[] = DEVICES[model].ports.AI;
+  const data = [
+    { key: "TEMPERATURE_DEVICE_K" },
+    { key: "TEMPERATURE_AIR_K" },
+    ...ports,
+  ];
+  return (
+    <Select.Single<string, CJCSourceType>
+      data={data}
+      columns={[{ key: "key", name: "CJC Source" }]}
+      allowNone={false}
+      entryRenderKey="key"
+      {...props}
+    />
   );
 };

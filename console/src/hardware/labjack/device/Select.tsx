@@ -22,7 +22,6 @@ import {
 import {
   inputChan,
   ReadChan,
-  ReadChanType,
   thermocoupleChanZ,
   ZERO_READ_CHAN,
   ZERO_THERMOCOUPLE_CHAN,
@@ -38,12 +37,7 @@ export const SelectPort = ({ model, channelType, ...props }: SelectPortProps) =>
   return (
     <Select.Single<string, Port>
       data={data}
-      columns={[
-        {
-          key: "key",
-          name: "Port",
-        },
-      ]}
+      columns={[{ key: "key", name: "Port" }]}
       allowNone={false}
       entryRenderKey="key"
       {...props}
