@@ -11,7 +11,7 @@ nextURL: "/reference/device-drivers/labjack/read-task"
 
 import { StepText } from "@/components/StepText";
 import { Divider } from "@synnaxlabs/pluto";
-import { Video } from "@/components/Media";
+import { Image, Video } from "@/components/Media";
 
 The first step to start acquiring data and sending commands to your LabJack hardware is
 to connect and configure your module.
@@ -40,7 +40,7 @@ Synnax will automatically detect new LabJack devices, and display a notification
 Console when a new device is connected. To start configuring the device, find the device
 in the resources toolbar, right click on the device and select "Configure".
 
-{/* TODO: Video */}
+<Video client:only="react" id="device-drivers/labjack/configure-device/open" />
 
 <Divider.Divider direction="x" />
 
@@ -51,7 +51,7 @@ in the resources toolbar, right click on the device and select "Configure".
 The first step in the configuration dialog will prompt you to name your device. This name
 will be used to identify the device in Synnax.
 
-{/* TODO: Video */}
+<Image client:only="react" id="device-drivers/labjack/configure-devices/name" />
 
 <Divider.Divider direction="x" />
 
@@ -63,7 +63,7 @@ Next, you'll need to set a short device identifier. This identifier will prefix 
 names of all of the channels on your device. Synnax will automatically suggest a few
 identifiers, although you're welcome to create your own.
 
-{/* TODO: VIDEO */}
+<Image client:only="react" id="device-drivers/labjack/configure-devices/identifier" />
 
 <Divider.Divider direction="x" />
 
