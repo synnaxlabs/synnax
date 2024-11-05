@@ -136,7 +136,7 @@ export const writeChan = z.object({
 export type WriteChan = z.infer<typeof writeChan>;
 export type WriteChanType = WriteChan["type"];
 export const ZERO_WRITE_CHAN: WriteChan = {
-  port: "",
+  port: "DIO4",
   enabled: true,
   key: "",
   cmdKey: 0,
