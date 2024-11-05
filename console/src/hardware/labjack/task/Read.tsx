@@ -54,6 +54,7 @@ import {
   Scale,
   SCALE_SCHEMAS,
   ScaleType,
+  TemperatureUnits,
   thermocoupleChanZ,
   ZERO_READ_CHAN,
   ZERO_READ_PAYLOAD,
@@ -73,6 +74,7 @@ import {
   WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
+import { LabJackThermocoupleTypeField } from "@/hardware/task/common/thermocouple";
 import { Layout } from "@/layout";
 
 type LayoutArgs = TaskLayoutArgs<ReadPayload>;
@@ -552,19 +554,17 @@ const ThermocoupleForm = ({
   prefix,
   model,
 }: ThermocoupleFormProps): ReactElement | null => {
-  const path = `${prefix}`;
-  const channelType = Form.useFieldValue<ChannelType>(`${path}.type`, true);
+  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true);
   if (channelType !== "TC") return null;
   return (
     <Align.Space direction="y" grow>
-      <Form.NumericField
-        path={`${path}.thermocoupleType`}
-        label="Thermocouple Type"
-        grow
-      />
       <Align.Space direction="x" grow>
-        <Form.NumericField path={`${path}.posChan`} label="Positive Channel" grow />
-        <Form.NumericField path={`${path}.negChan`} label="Negative Channel" grow />
+        <LabJackThermocoupleTypeField path={prefix} grow />
+        <TemperatureUnitsField path={prefix} grow />
+      </Align.Space>
+      <Align.Space direction="x" grow>
+        <Form.NumericField path={`${prefix}.posChan`} label="Positive Channel" grow />
+        <Form.NumericField path={`${prefix}.negChan`} label="Negative Channel" grow />
       </Align.Space>
       <Align.Space direction="x" grow>
         <Form.Field<string>
@@ -575,8 +575,8 @@ const ThermocoupleForm = ({
         >
           {(p) => <SelectCJCSourceField {...p} model={model} />}
         </Form.Field>
-        <Form.NumericField path={`${path}.cjcSlope`} label="CJC Slope" grow />
-        <Form.NumericField path={`${path}.cjcOffset`} label="CJC Offset" grow />
+        <Form.NumericField path={`${prefix}.cjcSlope`} label="CJC Slope" grow />
+        <Form.NumericField path={`${prefix}.cjcOffset`} label="CJC Offset" grow />
       </Align.Space>
     </Align.Space>
   );
@@ -607,3 +607,20 @@ const SelectCJCSourceField = ({ model, ...props }: SelectCJCSourceProps) => {
     />
   );
 };
+
+const TemperatureUnitsField = Form.buildDropdownButtonSelectField<
+  TemperatureUnits,
+  KeyedNamed<TemperatureUnits>
+>({
+  fieldKey: "units",
+  fieldProps: { label: "Temperature Units" },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: [{ key: "name", name: "Name" }],
+    data: [
+      { key: "C", name: "Celsius" },
+      { key: "F", name: "Fahrenheit" },
+      { key: "K", name: "Kelvin" },
+    ],
+  },
+});
