@@ -235,7 +235,7 @@ void ReaderTask::stop(const std::string &cmd_key) {
 void ReaderTask::start(const std::string &cmd_key) {
     freighter::Error conn_err = refresh_connection(this->ua_client, device_props.connection.endpoint);
     if (conn_err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .key = cmd_key,
             .variant = "error",
