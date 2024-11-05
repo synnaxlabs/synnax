@@ -93,6 +93,8 @@
         }
       ]
     },
-    "deep-link:default"
+    "deep-link:default",
+    "store:default",
+    "shell:default"
   ]
 }

@@ -237,7 +237,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * channel. If this value is specified, the 'rate' parameter will be ignored.
    * @param isIndex - Set to true if the channel is an index channel, and false
    * otherwise. Index channels must have a data type of `DataType.TIMESTAMP`.
-   * @returns the created channel. {@see Channel}
+   * @returns the created channel. {@link Channel}
    * @throws {ValidationError} if any of the parameters for creating the channel are
    * invalid.
    *

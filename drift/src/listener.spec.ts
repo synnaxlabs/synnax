@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { listen, type StoreDispatch, type StoreStateGetter } from "@/listener";
 import { MockRuntime } from "@/mock/runtime";
-import { ZERO_SLICE_STATE, type StoreState } from "@/state";
+import { type StoreState, ZERO_SLICE_STATE } from "@/state";
 
 const state = {
   drift: ZERO_SLICE_STATE,

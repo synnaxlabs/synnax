@@ -151,7 +151,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
             f.add(this->reader_config.channels[i].channel_key, std::move(t));
             continue;
         }
-        auto series = synnax::Series(synnax::UINT8, d.samples_read_per_channel);
+        auto series = synnax::Series(synnax::SY_UINT8, d.samples_read_per_channel);
 
         for (int j = 0; j < d.samples_read_per_channel; j++)
             series.write((uint8_t) d.digital_data[data_index + j]);
@@ -173,16 +173,16 @@ int ni::DigitalReadSource::validate_channels() {
         }
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (channel_info.data_type != synnax::UINT8) {
-            this->log_error("Channel " + channel.name + " is not of type UINT8");
-            this->ctx->setState({
+        if (channel_info.data_type != synnax::SY_UINT8) {
+            this->log_error("Channel " + channel.name + " is not of type SY_UINT8");
+            this->ctx->set_state({
                 .task = task.key,
                 .variant = "error",
                 .details = {
                     {"running", "false"},
                     {
                         "message", "Channel " + channel.name +
-                                   " is not of type UINT8"
+                                   " is not of type SY_UINT8"
                     }
                 }
             });

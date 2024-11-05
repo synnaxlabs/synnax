@@ -28,7 +28,7 @@ type HTMLInputProps = Omit<
   "size" | "onChange" | "value" | "children" | "placeholder"
 >;
 
-export type Variant = "outlined" | "shadow" | "natural" | "preview";
+export type Variant = "outlined" | "shadow" | "natural" | "preview" | "button";
 
 export interface ExtensionProps<I extends Value = Value, O extends Value = I>
   extends Control<I, O> {

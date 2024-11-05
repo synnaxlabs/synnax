@@ -234,8 +234,8 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
     }
     if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
         const auto value = *static_cast<UA_Byte *>(val->data);
-        if (dt == synnax::UINT8) return synnax::Series(value);
-        if (dt == synnax::UINT16)
+        if (dt == synnax::SY_UINT8) return synnax::Series(value);
+        if (dt == synnax::SY_UINT16)
             return synnax::Series(static_cast<uint16_t>(value));
         if (dt == synnax::UINT32)
             return synnax::Series(static_cast<uint32_t>(value));
@@ -261,8 +261,8 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
     }
     if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
         const auto value = *static_cast<UA_Boolean *>(val->data);
-        if (dt == synnax::UINT8) return synnax::Series(static_cast<uint8_t>(value));
-        if (dt == synnax::UINT16)
+        if (dt == synnax::SY_UINT8) return synnax::Series(static_cast<uint8_t>(value));
+        if (dt == synnax::SY_UINT16)
             return synnax::Series(static_cast<uint16_t>(value));
         if (dt == synnax::UINT32)
             return synnax::Series(static_cast<uint32_t>(value));
@@ -289,6 +289,7 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
         if (dt == synnax::FLOAT64)
             return synnax::Series(static_cast<double>(value));
     }
+    LOG(INFO) << "test";
     return Series(1);
 }
 
@@ -321,7 +322,7 @@ inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val
         };
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT16]))
         return {
-            synnax::UINT16, true
+            synnax::SY_UINT16, true
         };
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT32]))
         return {
@@ -345,7 +346,7 @@ inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val
         };
     if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_BOOLEAN]))
         return {
-            synnax::UINT8, true
+            synnax::SY_UINT8, true
         };
     if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return {synnax::FLOAT32, false};
     if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return {synnax::FLOAT64, false};
@@ -353,14 +354,14 @@ inline std::pair<synnax::DataType, bool> variant_data_type(const UA_Variant &val
     if (val.type == &UA_TYPES[UA_TYPES_INT16]) return {synnax::INT16, false};
     if (val.type == &UA_TYPES[UA_TYPES_INT32]) return {synnax::INT32, false};
     if (val.type == &UA_TYPES[UA_TYPES_INT64]) return {synnax::INT64, false};
-    if (val.type == &UA_TYPES[UA_TYPES_BYTE]) return {synnax::UINT8, false};
-    if (val.type == &UA_TYPES[UA_TYPES_UINT16]) return {synnax::UINT16, false};
+    if (val.type == &UA_TYPES[UA_TYPES_BYTE]) return {synnax::SY_UINT8, false};
+    if (val.type == &UA_TYPES[UA_TYPES_UINT16]) return {synnax::SY_UINT16, false};
     if (val.type == &UA_TYPES[UA_TYPES_UINT32]) return {synnax::UINT32, false};
     if (val.type == &UA_TYPES[UA_TYPES_UINT64]) return {synnax::UINT64, false};
     if (val.type == &UA_TYPES[UA_TYPES_STRING]) return {synnax::STRING, false};
     if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) return {synnax::TIMESTAMP, false};
     if (val.type == &UA_TYPES[UA_TYPES_GUID]) return {synnax::UINT128, false};
-    if (val.type == &UA_TYPES[UA_TYPES_BOOLEAN]) return {synnax::UINT8, false};
+    if (val.type == &UA_TYPES[UA_TYPES_BOOLEAN]) return {synnax::SY_UINT8, false};
     LOG(ERROR) << "[opc.scanner] Unknown data type: " << val.type->typeName;
     return {synnax::DATA_TYPE_UNKNOWN, false};
 }
@@ -398,7 +399,7 @@ communicate_response_error(
             {"running", false}
         };
     }
-    ctx->setState(curr_state);
+    ctx->set_state(curr_state);
     return err;
 }
 }

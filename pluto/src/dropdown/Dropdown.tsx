@@ -160,9 +160,8 @@ export const Dialog = ({
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
-  useClickOutside({
-    ref: dialogRef,
-    exclude: (e) => {
+  const exclude = useCallback(
+    (e: { target: EventTarget | null }) => {
       if (targetRef.current?.contains(e.target as Node)) return true;
       // If the target has a parent with the role of dialog, don't close the dialog.
       const parent = findParent(e.target as HTMLElement, (el) => {
@@ -173,8 +172,10 @@ export const Dialog = ({
       });
       return parent != null;
     },
-    onClickOutside: close,
-  });
+    [zIndex],
+  );
+
+  useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
 
   let child: ReactElement = (
     <Align.Space
@@ -291,23 +292,11 @@ const calcConnectedDialog = ({
   initial = CONNECTED_PROPS.initial,
   prefer = CONNECTED_PROPS.prefer,
 }: CalcDialogProps): position.DialogReturn => {
-  let targetBox = box.construct(target);
+  const targetBox = box.construct(target);
   // the container is the nearest element that has a container-type or contain property
 
-  let container = box.construct(0, 0, window.innerWidth, window.innerHeight);
-  // iterate through the parent elements to find the container
-  let parent: HTMLElement | null = target.parentElement;
-  if (runtime.getOS() === "MacOS")
-    while (parent != null) {
-      const style = window.getComputedStyle(parent);
-      if (style.getPropertyValue("container-type") !== "normal") {
-        container = box.construct(parent);
-        targetBox = box.translate(targetBox, xy.scale(box.topLeft(container), -1));
-        break;
-      }
-      parent = parent.parentElement;
-    }
-  else parent = document.documentElement;
+  const win = box.construct(0, 0, window.innerWidth, window.innerHeight);
+  let container = win;
 
   const props: position.DialogProps = {
     target: targetBox,
@@ -317,14 +306,33 @@ const calcConnectedDialog = ({
     initial,
     prefer,
   };
-
   const res = position.dialog(props);
   const { location } = res;
-  const adjustedDialog = box.translate(
+  let adjustedDialog = box.translate(
     res.adjustedDialog,
     "y",
     invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
   );
 
+  let parent: HTMLElement | null = target.parentElement;
+  while (parent != null) {
+    const style = window.getComputedStyle(parent);
+    if (style.getPropertyValue("container-type") === "inline-size") {
+      container = box.construct(parent);
+      if (location.y === "bottom")
+        adjustedDialog = box.translate(
+          adjustedDialog,
+          xy.scale(box.topLeft(container), -1),
+        );
+      else
+        adjustedDialog = box.translate(adjustedDialog, {
+          x: -box.left(container),
+          y: -(box.bottom(container) - box.bottom(win)),
+        });
+      break;
+    }
+    parent = parent.parentElement;
+  }
+  console.log(parent);
   return { adjustedDialog, location };
 };
