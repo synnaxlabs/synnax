@@ -43,7 +43,7 @@ class Channel(BaseModel):
         super().__init__(**data)
 
 
-class ReadConfig(BaseModel):
+class ReadTaskConfig(BaseModel):
     """Configuration for an OPC UA read task. This typically should not be instantiated
     directly, but rather indirectly through the `ReadTask` constructor."""
 
@@ -101,10 +101,10 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = ReadConfig.parse_obj(json.loads(internal.config))
+            self.config = ReadTaskConfig.parse_obj(json.loads(internal.config))
             return
         self._internal = Task(name=name, type=self.TYPE)
-        self.config = ReadConfig(
+        self.config = ReadTaskConfig(
             device=device,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
