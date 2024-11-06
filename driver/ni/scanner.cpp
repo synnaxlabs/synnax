@@ -77,11 +77,13 @@ void ni::Scanner::scan() {
     NISysCfgResourceHandle resource = NULL;
 
     auto err = ni::NiSysCfgInterface::FindHardware(
-            this->session, NISysCfgFilterModeAll,
-            this->filter, NULL,
-            &this->resources_handle
+        this->session, NISysCfgFilterModeAll,
+        this->filter, NULL,
+        &this->resources_handle
     );
+
     if (err != NISysCfg_OK) return log_err("failed to find hardware");
+
     while (ni::NiSysCfgInterface::NextResource(
                this->session,
                this->resources_handle,
