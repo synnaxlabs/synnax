@@ -16,6 +16,7 @@ import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { Selector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 import { type LayoutType } from "@/vis/types";
 
@@ -30,6 +31,7 @@ interface ToolbarProps {
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
   schematic: Schematic.Toolbar,
   lineplot: LinePlot.Toolbar,
+  log: Log.Toolbar,
   vis: ({ layoutKey }) => (
     <Selector layoutKey={layoutKey} visible focused={false} onClose={() => {}} />
   ),

@@ -9,7 +9,7 @@
 
 import "@/modal/Modal.css";
 
-import { ReactElement, useRef } from "react";
+import { ReactElement, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
@@ -37,9 +37,10 @@ export const Dialog = ({
   style,
   ...props
 }: ModalProps): ReactElement => {
-  const ref = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const visibleRef = useRef(visible);
   useClickOutside({
-    ref,
+    ref: dialogRef,
     exclude: (e: MouseEvent) => {
       const parent = findParent(
         e.target as HTMLElement,
@@ -49,7 +50,17 @@ export const Dialog = ({
     },
     onClickOutside: close,
   });
-  Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
+
+  const handleTrigger = useCallback(
+    (e: Triggers.UseEvent) => {
+      if (!visibleRef.current || e.stage !== "start") return;
+      const visChildren = dialogRef.current?.querySelectorAll(`.${CSS.visible(true)}`);
+      if (visChildren && visChildren.length > 0) return;
+      close();
+    },
+    [close],
+  );
+  Triggers.use({ triggers: [["Escape"]], callback: handleTrigger, loose: true });
   return (
     <Align.Space
       className={CSS(
@@ -68,7 +79,7 @@ export const Dialog = ({
         )}
         role="dialog"
         empty
-        ref={ref}
+        ref={dialogRef}
         {...props}
         style={{ zIndex: enabled ? 11 : undefined, ...style }}
       >

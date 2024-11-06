@@ -29,7 +29,7 @@ import { Input } from "@/input";
 import { state } from "@/state";
 import { type status } from "@/status/aether";
 
-/** Props for the @see useField hook */
+/** Props for the @link useField hook */
 export interface UseFieldProps<I, O = I> {
   path: string;
   optional?: false;
@@ -41,7 +41,7 @@ export interface UseNullableFieldProps<I, O = I>
   optional: true;
 }
 
-/** Return type for the @see useField hook */
+/** Return type for the @link useField hook */
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
   extends FieldState<I> {
   onChange: (value: O) => void;
@@ -735,7 +735,7 @@ export const use = <Z extends z.ZodTypeAny>({
       setStatus,
       clearStatuses,
       reset,
-      mode
+      mode,
     ],
   );
 };

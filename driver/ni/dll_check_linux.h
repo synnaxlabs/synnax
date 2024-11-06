@@ -22,7 +22,7 @@ inline void log_dll_error(const std::shared_ptr<task::Context> &ctx,
     json j = {
         {"error", " NI acquisition and control not supported on Linux or MacOS"}
     };
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "error",
         .details = j

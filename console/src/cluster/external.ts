@@ -10,7 +10,7 @@
 import { Connect, connectWindowLayout } from "@/cluster/Connect";
 import { versionOutdatedAdapter } from "@/cluster/notification";
 import { Layout } from "@/layout";
-import { NotificationAdapter } from "@/notifications/Notifications";
+import { type NotificationAdapter } from "@/notifications/Notifications";
 
 export * from "@/cluster/Badges";
 export * from "@/cluster/Connect";

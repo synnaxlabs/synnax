@@ -127,9 +127,8 @@ frame = sy.Frame()
 with tsk.start():
     # Open a streamer on the analog input channels.
     with client.open_streamer(["ai_0", "ai_1"]) as streamer:
-        while total_reads > 0:
+        for i in range(total_reads):
             frame.append(streamer.read())
-            total_reads -= 1
 
 # Save the data to a CSV file.
 frame.to_df().to_csv("analog_read_result.csv")

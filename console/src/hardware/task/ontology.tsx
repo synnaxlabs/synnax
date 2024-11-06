@@ -15,6 +15,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
+import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
@@ -27,6 +28,8 @@ const ZERO_LAYOUT_STATES: Record<
   string,
   ({ create }: { create: boolean }) => Layout.State
 > = {
+  [LabJack.Task.READ_TYPE]: LabJack.Task.configureReadLayout,
+  [LabJack.Task.WRITE_TYPE]: LabJack.Task.configureWriteLayout,
   [OPC.Task.READ_TYPE]: OPC.Task.configureReadLayout,
   [OPC.Task.WRITE_TYPE]: OPC.Task.configureWriteLayout,
   [NI.Task.ANALOG_READ_TYPE]: NI.Task.configureAnalogReadLayout,
@@ -49,15 +52,12 @@ const handleSelect: Ontology.HandleSelect = ({
   addStatus,
 }) => {
   if (selection.length === 0) return;
-  const task = selection[0].id;
+  const key = selection[0].id.key;
   void (async () => {
     try {
-      const t = await client.hardware.tasks.retrieve(task.key);
-      const baseLayout = ZERO_LAYOUT_STATES[t.type];
-      placeLayout({
-        ...baseLayout({ create: false }),
-        key: selection[0].id.key,
-      });
+      const t = await client.hardware.tasks.retrieve(key);
+      const layout = createTaskLayout(key, t.type);
+      placeLayout(layout);
     } catch (e) {
       addStatus({ variant: "error", message: (e as Error).message });
     }

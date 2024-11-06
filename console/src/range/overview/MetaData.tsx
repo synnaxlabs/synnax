@@ -31,6 +31,7 @@ interface MetaDataProps {
   rangeKey: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const metaDataFormSchema = z.object({
   pairs: kv.stringPairZ.array(),
 });

@@ -1,9 +1,22 @@
-from pydantic import BaseModel, conint, confloat, constr, validator, Field
+#  Copyright 2024 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+from pydantic import BaseModel, conint, confloat, validator
 from typing import List, Literal, Union, Optional, Dict
 from uuid import uuid4
-from synnax.hardware.task import TaskPayload, Task, MetaTask
-from synnax.telem import CrudeRate, TimeSpan
-from contextlib import contextmanager
+from synnax.hardware.task import (
+    Task,
+    MetaTask,
+    StarterStopperMixin,
+    JSONConfigMixin,
+)
+from synnax.telem import CrudeRate
 import json
 
 UnitsVolts = Literal["Volts"]
@@ -808,7 +821,7 @@ class DIChan(BaseModel):
 class AnalogReadTaskConfig(BaseModel):
     sample_rate: conint(ge=0, le=50000)
     stream_rate: conint(ge=0, le=50000)
-    channels: List[AIChan]
+    channels: list[AIChan]
     data_saving: bool
 
     @validator("stream_rate")
@@ -853,7 +866,22 @@ class AnalogReadStateDetails(TaskStateDetails):
     errors: Optional[List[Dict[str, str]]]
 
 
-class DigitalWriteTask(MetaTask):
+class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+    """A task for reading digital data from NI devices and writing them to a Synnax
+    cluster. This task is a programmatic representation of the digital write task
+    configurable within the Synnax console. For detailed information on
+    configuring/operating a digital write task, see https://docs.synnaxlabs.com/reference/device-drivers/ni/digital-write-task
+
+    :param device: The key of the Synnax OPC UA device to read from.
+    :param name: A human-readable name for the task.
+    :param state_rate: The rate at which to write task channel states to the Synnax
+        cluster.
+    :param channels: A list of physical channel configurations to acquire data from.
+        These can be any channel subtype of AIChan
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    """
+
     TYPE = "ni_digital_write"
     config: DigitalWriteConfig
     _internal: Task
@@ -880,35 +908,26 @@ class DigitalWriteTask(MetaTask):
             channels=channels,
         )
 
-    @property
-    def name(self) -> str:
-        return self._internal.name
 
-    @property
-    def key(self) -> int:
-        return self._internal.key
+class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+    """A task for reading digital data from NI devices and writing them to a Synnax
+    cluster. This task is a programmatic representation of the digital read task
+    configurable within the Synnax console. For detailed information on
+    configuring/operating a digital read task,
+    see https://docs.synnaxlabs.com/reference/device-drivers/ni/digital-read-task
 
-    def to_payload(self) -> TaskPayload:
-        pld = self._internal.to_payload()
-        pld.config = json.dumps(self.config.dict())
-        return pld
+    :param device: The key of the Synnax OPC UA device to read from.
+    :param name: A human-readable name for the task.
+    :param sample_rate: The rate at which to sample data from the OPC UA device.
+    :param stream_rate: The rate at which acquired data will be streamed to the Synnax
+        cluster. For example, a sample rate of 100Hz and a stream rate of 25Hz will
+        result in groups of 4 samples being streamed to the cluster every 40ms.
+    :param channels: A list of physical channel configurations to acquire data from.
+        These can be any channel subtype of DIChan.
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    """
 
-    def set_internal(self, task: Task):
-        self._internal = task
-
-    @contextmanager
-    def start(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command("start", timeout)
-        try:
-            yield
-        finally:
-            self.stop()
-
-    def stop(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command("stop", timeout)
-
-
-class DigitalReadTask(MetaTask):
     TYPE = "ni_digital_read"
     config: DigitalReadConfig
     _internal: Task
@@ -937,35 +956,26 @@ class DigitalReadTask(MetaTask):
             channels=channels,
         )
 
-    @property
-    def name(self) -> str:
-        return self._internal.name
 
-    @property
-    def key(self) -> int:
-        return self._internal.key
+class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+    """A task for reading analog data from NI devices and writing them to a Synnax
+    cluster. This task is a programmatic representation of the analog read task
+    configurable within the Synnax console. For detailed information on
+    configuring/operating a analog read task,
+    see https://docs.synnaxlabs.com/reference/device-drivers/ni/analog-read-task
 
-    def to_payload(self) -> TaskPayload:
-        pld = self._internal.to_payload()
-        pld.config = json.dumps(self.config.dict())
-        return pld
+    :param device: The key of the Synnax OPC UA device to read from.
+    :param name: A human-readable name for the task.
+    :param sample_rate: The rate at which to sample data from the OPC UA device.
+    :param stream_rate: The rate at which acquired data will be streamed to the Synnax
+        cluster. For example, a sample rate of 100Hz and a stream rate of 25Hz will
+        result in groups of 4 samples being streamed to the cluster every 40ms.
+    :param channels: A list of physical channel configurations to acquire data from.
+        These can be any channel subtype of AIChan
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    """
 
-    def set_internal(self, task: Task):
-        self._internal = task
-
-    @contextmanager
-    def start(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command_sync("start", timeout)
-        try:
-            yield
-        finally:
-            self.stop()
-
-    def stop(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command_sync("stop", timeout)
-
-
-class AnalogReadTask(MetaTask):
     TYPE = "ni_analog_read"
     config: AnalogReadTaskConfig
     _internal: Task
@@ -993,30 +1003,3 @@ class AnalogReadTask(MetaTask):
             data_saving=data_saving,
             channels=channels,
         )
-
-    @property
-    def name(self) -> str:
-        return self._internal.name
-
-    @property
-    def key(self) -> int:
-        return self._internal.key
-
-    def to_payload(self) -> TaskPayload:
-        pld = self._internal.to_payload()
-        pld.config = json.dumps(self.config.dict())
-        return pld
-
-    def set_internal(self, task: Task):
-        self._internal = task
-
-    @contextmanager
-    def start(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command_sync("start", timeout)
-        try:
-            yield
-        finally:
-            self.stop()
-
-    def stop(self, timeout: float | TimeSpan = 0):
-        self._internal.execute_command_sync("stop", timeout)

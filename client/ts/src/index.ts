@@ -9,7 +9,7 @@
 
 export { access } from "@/access";
 export { policy } from "@/access/policy";
-export * from "@/channel";
+export { channel } from "@/channel";
 export { Channel } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
 export * from "@/connection";
@@ -37,6 +37,7 @@ export { signals } from "@/signals";
 export { user } from "@/user";
 export { workspace } from "@/workspace";
 export { linePlot } from "@/workspace/lineplot";
+export { log } from "@/workspace/log";
 export { schematic } from "@/workspace/schematic";
 export {
   type CrudeDataType,
@@ -48,7 +49,6 @@ export {
   DataType,
   Density,
   MultiSeries,
-  type NumericTelemValue,
   Rate,
   Series,
   type TelemValue,

@@ -16,19 +16,20 @@ import { telem } from "@/telem/aether";
 import { text } from "@/text/core";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
-import { fontString } from "@/theming/core/fontString";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { render } from "@/vis/render";
 
 const valueState = z.object({
   box: box.box,
   telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
-  font: text.levelZ.optional().default("p"),
+  level: text.levelZ.optional().default("p"),
   color: color.Color.z.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
 });
+
+const CANVAS_VARIANT: render.Canvas2DVariant = "upper2d";
 
 export interface ValueProps {
   scale?: scale.XY;
@@ -38,6 +39,7 @@ interface InternalState {
   theme: theming.Theme;
   render: render.Context;
   telem: telem.StringSource;
+  stopListening?: () => void;
   requestRender: render.RequestF | null;
   textColor: color.Color;
 }
@@ -57,7 +59,8 @@ export class Value
     if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
-    this.internal.telem.onChange(() => this.requestRender());
+    i.stopListening?.();
+    i.stopListening = this.internal.telem.onChange(() => this.requestRender());
     this.internal.requestRender = render.Controller.useOptionalRequest(this.ctx);
     this.requestRender();
   }
@@ -66,7 +69,7 @@ export class Value
     const { requestRender, telem, render: renderCtx } = this.internal;
     await telem.cleanup?.();
     if (requestRender == null)
-      renderCtx.erase(box.construct(this.state.box), xy.ZERO, "upper2d");
+      renderCtx.erase(box.construct(this.state.box), xy.ZERO, CANVAS_VARIANT);
     else requestRender(render.REASON_LAYOUT);
   }
 
@@ -80,42 +83,24 @@ export class Value
     const { render: renderCtx, telem, theme } = this.internal;
     const b = box.construct(this.state.box);
     if (box.areaIsZero(b)) return;
-    const canvas = renderCtx.upper2d.applyScale(viewportScale);
+    const canvas = renderCtx[CANVAS_VARIANT].applyScale(viewportScale);
     const value = await telem.value();
-    canvas.font = this.state.font;
-    const height = theme.typography[this.state.font].size * theme.sizes.base;
-    const width = dimensions(
-      value,
-      fontString(this.internal.theme, this.state.font),
-      canvas,
-    ).width;
+    const fontString = theming.fontString(this.internal.theme, this.state.level);
+    canvas.font = theming.fontString(this.internal.theme, this.state.level);
+    const height = theme.typography[this.state.level].size * theme.sizes.base;
+    const width = dimensions(value, fontString, canvas).width;
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
-
-    const requiredWidth = width + theme.sizes.base * 1;
-
+    const requiredWidth = width + theme.sizes.base;
     if (
       this.state.width == null ||
       this.state.width < requiredWidth ||
       (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
-    ) {
+    )
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
-    }
-
     const labelPosition = xy.couple(
-      xy.translate(
-        box.topLeft(b),
-        {
-          x: 0,
-          y: box.height(b) / 2,
-        },
-        {
-          y: height / 2,
-          x: 12,
-        },
-      ),
+      xy.translate(box.topLeft(b), { x: 12, y: (box.height(b) + height) / 2 }),
     );
-
     canvas.fillStyle = this.internal.textColor.hex;
     canvas.fillText(value, ...labelPosition);
   }

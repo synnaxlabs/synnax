@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Version } from "@/version";
-
-export * from "@/hardware/device/ontology";
+export * from "@/hardware/device/Configure";
+export * from "@/hardware/device/useDevice";
 export * from "@/hardware/device/useListenForChanges";
-
-export const NOTIFICATION_ADAPTERS = [Version.notificationAdapter];

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { observe,TimeStamp } from "@synnaxlabs/x";
+import { bounds, observe, Series, TimeStamp } from "@synnaxlabs/x";
 
 import { color } from "@/color/core";
 import { type status } from "@/status/aether";
@@ -23,6 +23,8 @@ import {
   type NumberSinkSpec,
   type NumberSource,
   type NumberSourceSpec,
+  SeriesSource,
+  SeriesSourceSpec,
   type Spec,
   type StatusSourceSpec,
   type StringSourceSpec,
@@ -143,6 +145,21 @@ export const noopColorSourceSpec: ColorSourceSpec = {
   valueType: "color",
 };
 
+class NoopSeries extends Noop implements SeriesSource {
+  static readonly TYPE = "noop-series";
+
+  async value(): Promise<[bounds.Bounds, Series[]]> {
+    return [bounds.ZERO, []];
+  }
+}
+
+export const noopSeriesSourceSpec: SeriesSourceSpec = {
+  type: NoopSeries.TYPE,
+  props: {},
+  variant: "source",
+  valueType: "series",
+};
+
 const REGISTRY: Record<string, new () => Telem> = {
   [NoopBooleanSink.TYPE]: NoopBooleanSink,
   [NumericSink.TYPE]: NumericSink,
@@ -151,6 +168,7 @@ const REGISTRY: Record<string, new () => Telem> = {
   [StatusSource.TYPE]: StatusSource,
   [NoopColorSource.TYPE]: NoopColorSource,
   [StringSource.TYPE]: StringSource,
+  [NoopSeries.TYPE]: NoopSeries,
 };
 
 export class NoopFactory implements Factory {

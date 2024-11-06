@@ -54,9 +54,14 @@ export const consoleNav: PageNavNode = {
       name: "Schematics",
     },
     {
+      key: "/reference/console/logs",
+      href: "/reference/console/logs",
+      name: "Logs",
+    },
+    {
       key: "/reference/console/users",
       href: "/reference/console/users",
       name: "Users",
-    }
+    },
   ],
 };
