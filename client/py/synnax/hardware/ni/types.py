@@ -148,6 +148,7 @@ class BaseChan(BaseModel):
 
 
 class BaseAIChan(BaseChan):
+    device: str
     port: int
     channel: int
 
@@ -805,7 +806,6 @@ class DIChan(BaseModel):
 
 
 class AnalogReadTaskConfig(BaseModel):
-    device: str
     sample_rate: conint(ge=0, le=50000)
     stream_rate: conint(ge=0, le=50000)
     channels: List[AIChan]

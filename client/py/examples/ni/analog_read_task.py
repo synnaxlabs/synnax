@@ -62,8 +62,6 @@ ai_1 = client.channels.create(
 tsk = ni.AnalogReadTask(
     # A name to find and monitor the task via the Synnax Console.
     name="Basic Analog Read",
-    # The key of the device to execute the task on.
-    device=dev.key,
     # The rate at which the task will sample data from the device.
     sample_rate=sy.Rate.HZ * 100,
     # The rate at which data will be streamed from the device into Synnax.
@@ -79,6 +77,8 @@ tsk = ni.AnalogReadTask(
         ni.AIVoltageChan(
             # The key of the Synnax channel we're acquiring data for.
             channel=ai_0.key,
+            # The key of the device on which the channel is located.
+            device=dev.key,
             # The port on the device the channel is connected to.
             port=0,
             # A custom scale to apply to the data. This is optional, but can be useful
@@ -92,6 +92,7 @@ tsk = ni.AnalogReadTask(
         ),
         ni.AIVoltageChan(
             channel=ai_1.key,
+            device=dev.key,
             port=1,
             custom_scale=ni.MapScale(
                 pre_scaled_min=0,
@@ -123,7 +124,7 @@ frame = sy.Frame()
 # tsk.stop()
 # We recommend wrapped your code in a try/finally block to ensure the task is
 # stopped in case of an exception.
-with tsk.run():
+with tsk.start():
     # Open a streamer on the analog input channels.
     with client.open_streamer(["ai_0", "ai_1"]) as streamer:
         while total_reads > 0:
