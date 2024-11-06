@@ -1040,6 +1040,7 @@ export interface ValueProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
   units?: string;
+  unitsLevel?: Text.Level;
   inlineSize?: number;
 }
 
@@ -1049,6 +1050,7 @@ export const Value = ({
   dimensions,
   orientation,
   units = "psi",
+  unitsLevel = "small",
   children,
   inlineSize = 80,
   ...props
@@ -1094,7 +1096,7 @@ export const Value = ({
         <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
       </HandleBoundary>
       <div className={CSS.BE("value", "units")} style={{ background: borderColor }}>
-        <Text.Text level="small" color={textColor}>
+        <Text.Text level={unitsLevel} color={textColor}>
           {units}
         </Text.Text>
       </div>

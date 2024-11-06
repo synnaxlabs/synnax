@@ -37,6 +37,7 @@ ReaderConfig::ReaderConfig(
    stream_rate(parser.required<std::float_t>("stream_rate")),
    array_size(parser.optional<std::size_t>("array_size", 1)),
    data_saving(parser.optional<bool>("data_saving", true)) {
+    if(array_size <= 0) array_size = 1;
     if (stream_rate.value <= 0) stream_rate = Rate(1);
     parser.iter("channels", [&](config::Parser &channel_builder) {
         const auto ch = ReaderChannelConfig(channel_builder);

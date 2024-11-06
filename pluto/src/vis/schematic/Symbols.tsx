@@ -9,8 +9,16 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
+import {
+  box,
+  dimensions,
+  direction,
+  location,
+  type UnknownRecord,
+  xy,
+} from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
+import { useReactFlow } from "reactflow";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -22,7 +30,6 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Button as CoreButton } from "@/vis/button";
-import { useInitialViewport } from "@/vis/diagram/aether/Diagram";
 import { Light as CoreLight } from "@/vis/light";
 import { Labeled, type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { Primitives } from "@/vis/schematic/primitives";
@@ -101,11 +108,7 @@ export const ThreeWayValve = Aether.wrap<SymbolProps<ThreeWayValveProps>>(
     orientation = "left",
     ...rest
   }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({
-      aetherKey,
-      source,
-      sink,
-    });
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState {...control} orientation={swapXLocation(orientation)}>
@@ -654,7 +657,7 @@ export interface ValueProps
 
 interface ValueDimensionsState {
   outerBox: box.Box;
-  labelBox: box.Box;
+  labelDims: dimensions.Dimensions;
 }
 
 export const Value = Aether.wrap<SymbolProps<ValueProps>>(
@@ -672,43 +675,43 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     onChange,
     tooltip,
     inlineSize,
+    unitsLevel,
   }): ReactElement => {
     const font = Theming.useTypography(level);
-    const [dimensions, setDimensions] = useState<ValueDimensionsState>({
+    const [dims, setDims] = useState<ValueDimensionsState>({
       outerBox: box.ZERO,
-      labelBox: box.ZERO,
+      labelDims: dimensions.ZERO,
     });
+
+    const flow = useReactFlow();
 
     const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
     const resizeRef = useResize(
-      useCallback((b) => {
+      useCallback((outerBox) => {
         // Find the element with the class pluto-symbol__label that is underneath
         // the 'react-flow__node' with the data-id of aetherKey
         const label = document.querySelector(
           `.react-flow__node[data-id="${aetherKey}"] .pluto-symbol__label`,
         );
-        let labelBox = { ...box.ZERO };
-        if (label != null) {
-          labelBox = box.construct(label);
-          labelBox = box.resize(labelBox, {
-            width: box.width(labelBox),
-            height: box.height(labelBox),
-          });
-        }
-        setDimensions({ outerBox: b, labelBox });
+        if (label == null) return;
+        const labelDims = dimensions.scale(
+          box.dims(box.construct(label)),
+          // Scale the label by the CSS value and the current flow zoom state.
+          // I don't really know why we need to do this, but it makes it work. The
+          // internals of react flow are strange.
+          1 / (LABEL_SCALE * flow.getZoom()),
+        );
+        setDims({ outerBox, labelDims });
       }, []),
       {},
     );
 
-    const { zoom } = useInitialViewport();
-
-    const adjustedBox = adjustBox({
+    const adjustedBox = adjustValueBox({
       labelOrientation: label?.orientation ?? "top",
       hasLabel: label?.label != null && label?.label.length > 0,
       valueBoxHeight,
       position,
-      zoom,
-      ...dimensions,
+      ...dims,
     });
 
     const { width: oWidth } = CoreValue.use({
@@ -746,6 +749,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
             }}
             inlineSize={inlineSize}
             units={units}
+            unitsLevel={unitsLevel}
           />
         </Labeled>
       </Tooltip.Dialog>
@@ -755,37 +759,38 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
 
 interface AdjustBoxProps {
   labelOrientation: location.Outer;
-  zoom: number;
   outerBox: box.Box;
-  labelBox: box.Box;
+  labelDims: dimensions.Dimensions;
   valueBoxHeight: number;
   position: xy.XY;
   hasLabel: boolean;
 }
 
+// We apply a label scale in CSS, so we need to apply it here too.
 const LABEL_SCALE = 0.9;
 
-const adjustBox = ({
+// Performs adjustments to the outer value box positioning in order to
+// place the value in the correct place on the canvas. Deals with things
+// like labels and orientations.
+const adjustValueBox = ({
   labelOrientation,
   outerBox,
-  labelBox,
+  labelDims,
   valueBoxHeight,
   position,
   hasLabel,
-  zoom,
 }: AdjustBoxProps): box.Box => {
-  const labelDims = xy.scale(box.dims(labelBox), 1 / (LABEL_SCALE * zoom));
   const dir = direction.construct(labelOrientation);
   if (dir === "x")
     position = xy.translate(
       position,
       "y",
-      Math.max((labelDims.y - valueBoxHeight) / 2 - 1, 0),
+      Math.max((labelDims.height - valueBoxHeight) / 2 - 1, 0),
     );
   if (hasLabel && labelOrientation === "left")
-    position = xy.translate(position, "x", labelDims.x + 4);
+    position = xy.translate(position, "x", labelDims.width + 4);
   else if (hasLabel && labelOrientation === "top")
-    position = xy.translate(position, "y", labelDims.y + 4);
+    position = xy.translate(position, "y", labelDims.height + 4);
   return box.construct(position.x, position.y, box.width(outerBox), valueBoxHeight);
 };
 

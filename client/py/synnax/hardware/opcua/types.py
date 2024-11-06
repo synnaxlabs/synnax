@@ -52,7 +52,7 @@ class ReadConfig(BaseModel):
     stream_rate: conint(ge=0, le=50000)
     channels: list[Channel]
     array_mode: bool
-    array_size: conint(ge=0)
+    array_size: conint(ge=1)
     data_saving: bool
 
 
