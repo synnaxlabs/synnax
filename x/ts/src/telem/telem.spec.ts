@@ -229,6 +229,28 @@ describe("TimeSpan", () => {
     expect(TimeSpan.hours(1).equals(36e11)).toBeTruthy();
   });
 
+  describe("fromMilliseconds", () => {
+    it("should interpret a pure number or bigint as milliseconds", () => {
+      const ts = TimeSpan.fromMilliseconds(1000);
+      expect(ts.equals(TimeSpan.seconds())).toBeTruthy();
+    });
+    it("should interpret a TimeSpan as a normal TimeSpan", () => {
+      const ts = TimeSpan.fromMilliseconds(TimeSpan.milliseconds(30));
+      expect(ts.equals(TimeSpan.milliseconds(30))).toBeTruthy();
+    });
+  });
+
+  describe("fromSeconds", () => {
+    it("should interpret a pure number or bigint as seconds", () => {
+      const ts = TimeSpan.fromSeconds(1);
+      expect(ts.equals(TimeSpan.SECOND)).toBeTruthy();
+    });
+    it("should interpret a TimeSpan as a normal TimeSpan", () => {
+      const ts = TimeSpan.fromSeconds(TimeSpan.milliseconds(30));
+      expect(ts.equals(TimeSpan.milliseconds(30))).toBeTruthy();
+    });
+  });
+
   test("seconds", () => {
     expect(TimeSpan.seconds(1).seconds).toEqual(1);
   });

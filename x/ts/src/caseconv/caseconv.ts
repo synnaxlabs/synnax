@@ -13,6 +13,7 @@ const snakeToCamelStr = (str: string): string => {
   // if only first character is upper case, convert to lower case
   if (c.length > 1 && c[0] === c[0].toUpperCase() && c[1] === c[1].toUpperCase())
     return c;
+  if (c.length === 0) return c;
   return c[0].toLowerCase() + c.slice(1);
 };
 /**

@@ -26,7 +26,9 @@ import { Theming } from "@/theming";
 export interface SwatchProps
   extends Input.Control<Crude, Color>,
     Omit<Button.ButtonProps, "onChange" | "value">,
-    UseProps {}
+    UseProps {
+  allowChange?: boolean;
+}
 
 const HAUL_TYPE = "color";
 
@@ -37,6 +39,7 @@ export const Swatch = ({
   size = "medium",
   onVisibleChange,
   initialVisible,
+  allowChange = true,
   draggable = true,
   ...props
 }: SwatchProps): ReactElement => {
@@ -66,6 +69,8 @@ export const Swatch = ({
     canDrop,
   });
 
+  const canChange = onChange != null && allowChange;
+
   const swatch = (
     <Button.Button
       className={CSS(
@@ -75,6 +80,7 @@ export const Swatch = ({
         CSS.dropRegion(canDrop(dragging)),
         className,
       )}
+      disabled={!canChange}
       draggable={draggable}
       onDragStart={() => startDrag([{ type: HAUL_TYPE, key: d.hex }])}
       style={{ backgroundColor: color.cssString(value) }}
@@ -82,7 +88,7 @@ export const Swatch = ({
       onClick={open}
       size={size}
       tooltip={
-        onChange != null ? (
+        canChange ? (
           <Text.Text level="small">Click to change color</Text.Text>
         ) : undefined
       }
@@ -91,7 +97,7 @@ export const Swatch = ({
     />
   );
 
-  if (onChange == null) return swatch;
+  if (!canChange) return swatch;
 
   return (
     <Dropdown.Dialog

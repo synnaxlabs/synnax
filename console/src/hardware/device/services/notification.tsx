@@ -7,49 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type change } from "@synnaxlabs/x";
+import { Button, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { type Make, MAKE_ICONS } from "@/hardware/makes";
 import { createConfigureLayout } from "@/hardware/ni/device/Configure";
 import { Layout } from "@/layout";
 import {
   type NotificationAdapter,
   SugaredNotification,
 } from "@/notifications/Notifications";
-
-export const useListenForChanges = (): void => {
-  const client = Synnax.use();
-  const addStatus = Status.useAggregator();
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const tracker = await client.hardware.devices.openDeviceTracker();
-    tracker.onChange((changes) => {
-      const sets = changes.filter(({ variant }) => variant === "set") as Array<
-        change.Set<string, device.Device>
-      >;
-      sets.forEach(({ value: dev }) => {
-        if (dev.configured === true) return;
-        addStatus({
-          variant: "info",
-          message: `New ${dev.model} connected`,
-          data: dev,
-        });
-      });
-    });
-    return () => {
-      void tracker.close();
-    };
-  }, [client, addStatus]);
-};
-
-const MAKE_ICONS: Record<string, ReactElement> = {
-  NI: <Icon.Logo.NI />,
-  opcua: <Icon.Logo.OPC />,
-};
 
 export const notificationAdapter: NotificationAdapter = (status) => {
   if (!status.key.startsWith("new-device-")) return null;
@@ -59,7 +27,7 @@ export const notificationAdapter: NotificationAdapter = (status) => {
     ...status,
     actions: [<ConfigureButton deviceKey={deviceKey} key="configure" />],
   };
-  const icon = MAKE_ICONS[status?.data?.make as string] ?? <Icon.Device />;
+  const icon = MAKE_ICONS[status?.data?.make as Make] ?? <Icon.Device />;
   sugared.content = (
     <Text.WithIcon level="p" startIcon={icon}>
       {status.message}
@@ -73,13 +41,12 @@ interface ConfigureButtonProps {
 }
 
 const ConfigureButton = ({ deviceKey }: ConfigureButtonProps): ReactElement => {
-  const place = Layout.usePlacer();
-
+  const placer = Layout.usePlacer();
   return (
     <Button.Button
       variant="outlined"
       size="small"
-      onClick={() => place(createConfigureLayout(deviceKey, {}))}
+      onClick={() => placer(createConfigureLayout(deviceKey, {}))}
     >
       Configure
     </Button.Button>

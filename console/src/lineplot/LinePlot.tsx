@@ -307,7 +307,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
-    const s = scale.Scale.scale(1).scale(bounds);
+    const s = scale.Scale.scale<number>(1).scale(bounds);
     const placer = Layout.usePlacer();
 
     const timeRange = new TimeRange(

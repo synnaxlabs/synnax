@@ -26,6 +26,10 @@
         width: 100%;
         border-bottom: none !important;
 
+        & .pluto-text {
+            text-align: start;
+        }
+
         & .pluto-caret-animated path {
             fill: var(--pluto-gray-l6) !important;
         }

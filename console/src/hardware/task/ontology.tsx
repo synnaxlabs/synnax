@@ -15,6 +15,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
+import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
@@ -27,6 +28,8 @@ const ZERO_LAYOUT_STATES: Record<
   string,
   ({ create }: { create: boolean }) => Layout.State
 > = {
+  [LabJack.Task.READ_TYPE]: LabJack.Task.configureReadLayout,
+  [LabJack.Task.WRITE_TYPE]: LabJack.Task.configureWriteLayout,
   [OPC.Task.READ_TYPE]: OPC.Task.configureReadLayout,
   [OPC.Task.WRITE_TYPE]: OPC.Task.configureWriteLayout,
   [NI.Task.ANALOG_READ_TYPE]: NI.Task.configureAnalogReadLayout,
