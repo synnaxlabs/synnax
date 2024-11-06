@@ -68,8 +68,7 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     config::Parser &parser, const std::string &channel_type,
     const std::string &channel_name) {
-    LOG(INFO) <<
-        "[ni.reader] Parsing channel " << channel_name << " of type " << channel_type;
+
     if (channel_type == "ai_accel")
         return std::make_shared<Acceleration>(
             parser, this->task_handle, channel_name);
@@ -156,7 +155,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
 
 
 int ni::AnalogReadSource::configure_timing() {
-    std::lock_guard<std::mutex> lock(ni::device_mutex);
     if (this->reader_config.timing_source == "none") {
         if (this->check_ni_error(
             ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
@@ -265,7 +263,6 @@ void ni::AnalogReadSource::write_to_series(synnax::Series &series, double &data,
 
 
 int ni::AnalogReadSource::create_channels() {
-    std::lock_guard<std::mutex> lock(ni::device_mutex);
     auto channels = this->reader_config.channels;
     for (auto &channel: channels) {
         this->num_channels++;

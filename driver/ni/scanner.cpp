@@ -47,12 +47,12 @@ ni::Scanner::Scanner(
         NISysCfgBoolTrue
     );
     ni::NiSysCfgInterface::SetFilterProperty(
-        filter,
+        this->filter,
         NISysCfgFilterPropertyIsPresent,
         NISysCfgIsPresentTypePresent
     );
     ni::NiSysCfgInterface::SetFilterProperty(
-        filter,
+        this->filter,
         NISysCfgFilterPropertyIsChassis,
         NISysCfgBoolFalse
     );
@@ -76,15 +76,12 @@ void ni::Scanner::scan() {
     if (!this->ok_state) return;
     NISysCfgResourceHandle resource = NULL;
 
-    {
-        std::lock_guard <std::mutex> lock(ni::device_mutex);
-        auto err = ni::NiSysCfgInterface::FindHardware(
-                this->session, NISysCfgFilterModeAll,
-                this->filter, NULL,
-                &this->resources_handle
-        );
-        if (err != NISysCfg_OK) return log_err("failed to find hardware");
-    }
+    auto err = ni::NiSysCfgInterface::FindHardware(
+            this->session, NISysCfgFilterModeAll,
+            this->filter, NULL,
+            &this->resources_handle
+    );
+    if (err != NISysCfg_OK) return log_err("failed to find hardware");
     while (ni::NiSysCfgInterface::NextResource(
                this->session,
                this->resources_handle,
