@@ -33,7 +33,7 @@ inline void log_dll_error(const std::shared_ptr<task::Context> &ctx,
             "Required NI DLLs not found. To find more information on how to install the required DLLS, please visit https://www.ni.com/en/support/downloads/driver"
         }
     };
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "error",
         .details = j

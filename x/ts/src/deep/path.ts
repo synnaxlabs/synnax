@@ -81,7 +81,7 @@ export interface Get {
   ): V | null;
 }
 
-/** A strongly typed version of the @see Get function. */
+/** A strongly typed version of the @link Get function. */
 export interface TypedGet<V = unknown, T = UnknownRecord> {
   (obj: T, path: string, options?: GetOptions<false>): V;
   (obj: T, path: string, options?: GetOptions<boolean | undefined>): V | null;

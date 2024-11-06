@@ -214,7 +214,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   /**
    * Opens an observable that can be used to subscribe to changes in both the ontology's
    * resources and relationships.
-   * @see ChangeTracker for more information.
+   * @link ChangeTracker for more information.
    * @returns An observable that emits changes to the ontology's resources and relationships.
    */
   async openChangeTracker(): Promise<ChangeTracker> {

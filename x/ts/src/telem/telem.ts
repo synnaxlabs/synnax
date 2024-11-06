@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 
+import { math } from "@/math";
 import { type Stringer } from "@/primitive";
 import { addSamples } from "@/telem/series";
 
@@ -470,6 +471,22 @@ export class TimeSpan implements Stringer {
     this.value = BigInt(value.valueOf());
   }
 
+  static fromSeconds(span: CrudeTimeSpan): TimeSpan {
+    if (span instanceof TimeSpan) return span;
+    if (span instanceof Rate) return span.period;
+    if (span instanceof TimeStamp) return new TimeSpan(span);
+    if (["number", "bigint"].includes(typeof span)) return TimeSpan.seconds(span);
+    return new TimeSpan(span);
+  }
+
+  static fromMilliseconds(span: CrudeTimeSpan): TimeSpan {
+    if (span instanceof TimeSpan) return span;
+    if (span instanceof Rate) return span.period;
+    if (span instanceof TimeStamp) return new TimeSpan(span);
+    if (["number", "bigint"].includes(typeof span)) return TimeSpan.milliseconds(span);
+    return new TimeSpan(span);
+  }
+
   encode(): string {
     return this.value.toString();
   }
@@ -606,7 +623,7 @@ export class TimeSpan implements Stringer {
    * @param value - The number of nanoseconds.
    * @returns A TimeSpan representing the given number of nanoseconds.
    */
-  static nanoseconds(value: number = 1): TimeSpan {
+  static nanoseconds(value: math.Numeric = 1): TimeSpan {
     return new TimeSpan(value);
   }
 
@@ -619,8 +636,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of microseconds.
    * @returns A TimeSpan representing the given number of microseconds.
    */
-  static microseconds(value: number = 1): TimeSpan {
-    return TimeSpan.nanoseconds(value * 1000);
+  static microseconds(value: math.Numeric = 1): TimeSpan {
+    return TimeSpan.nanoseconds(math.mult(value, 1000));
   }
 
   /** A microsecond. */
@@ -632,8 +649,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of milliseconds.
    * @returns A TimeSpan representing the given number of milliseconds.
    */
-  static milliseconds(value: number = 1): TimeSpan {
-    return TimeSpan.microseconds(value * 1000);
+  static milliseconds(value: math.Numeric = 1): TimeSpan {
+    return TimeSpan.microseconds(math.mult(value, 1000));
   }
 
   /** A millisecond. */
@@ -645,8 +662,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of seconds.
    * @returns A TimeSpan representing the given number of seconds.
    */
-  static seconds(value: number = 1): TimeSpan {
-    return TimeSpan.milliseconds(value * 1000);
+  static seconds(value: math.Numeric = 1): TimeSpan {
+    return TimeSpan.milliseconds(math.mult(value, 1000));
   }
 
   /** A second. */
@@ -658,8 +675,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of minutes.
    * @returns A TimeSpan representing the given number of minutes.
    */
-  static minutes(value: number): TimeSpan {
-    return TimeSpan.seconds(value.valueOf() * 60);
+  static minutes(value: math.Numeric = 1): TimeSpan {
+    return TimeSpan.seconds(math.mult(value, 60));
   }
 
   /** A minute. */
@@ -671,8 +688,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of hours.
    * @returns A TimeSpan representing the given number of hours.
    */
-  static hours(value: number): TimeSpan {
-    return TimeSpan.minutes(value * 60);
+  static hours(value: math.Numeric): TimeSpan {
+    return TimeSpan.minutes(math.mult(value, 60));
   }
 
   /** Represents an hour. */
@@ -684,8 +701,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of days.
    * @returns A TimeSpan representing the given number of days.
    */
-  static days(value: number): TimeSpan {
-    return TimeSpan.hours(value * 24);
+  static days(value: math.Numeric): TimeSpan {
+    return TimeSpan.hours(math.mult(value, 24));
   }
 
   /** Represents a day. */
@@ -1427,7 +1444,14 @@ export type CrudeTimeStamp =
   | DateComponents
   | Number;
 export type TimeStampT = number;
-export type CrudeTimeSpan = bigint | BigInt | TimeSpan | TimeStamp | number | Number;
+export type CrudeTimeSpan =
+  | bigint
+  | BigInt
+  | TimeSpan
+  | TimeStamp
+  | number
+  | Number
+  | Rate;
 export type TimeSpanT = number;
 export type CrudeRate = Rate | number | Number;
 export type RateT = number;
@@ -1477,7 +1501,6 @@ type TypedArrayConstructor =
   | Int16ArrayConstructor
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
-export type NumericTelemValue = number | bigint;
 export type TelemValue =
   | number
   | bigint
@@ -1503,10 +1526,11 @@ export const isTelemValue = (value: unknown): value is TelemValue => {
 export const convertDataType = (
   source: DataType,
   target: DataType,
-  value: NumericTelemValue,
-  offset: number | bigint = 0,
-): NumericTelemValue => {
+  value: math.Numeric,
+  offset: math.Numeric = 0,
+): math.PrimitiveNumeric => {
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
-  if (!source.usesBigInt && target.usesBigInt) return BigInt(value) - BigInt(offset);
-  return addSamples(value, -offset);
+  if (!source.usesBigInt && target.usesBigInt)
+    return BigInt(value.valueOf()) - BigInt(offset.valueOf());
+  return addSamples(value, -offset).valueOf();
 };

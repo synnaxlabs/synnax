@@ -216,7 +216,7 @@ void ni::Scanner::log_err(std::string err_msg) {
     json j = {
         {"error", err_msg}
     };
-    this->ctx->setState({
+    this->ctx->set_state({
         .task = this->task.key,
         .variant = "error",
         .details = j

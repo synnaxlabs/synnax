@@ -57,9 +57,11 @@ import {
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
 
+type LayoutArgs = TaskLayoutArgs<DigitalReadPayload>;
+
 export const configureDigitalReadLayout = (
-  args: TaskLayoutArgs<DigitalReadPayload> = { create: false },
-): Layout.State<TaskLayoutArgs<DigitalReadPayload>> => ({
+  args: LayoutArgs = { create: false },
+): Layout.State<LayoutArgs> => ({
   name: "Configure NI Digital Read Task",
   type: DIGITAL_READ_TYPE,
   key: id.id(),
@@ -225,8 +227,16 @@ const Wrapped = ({
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
-              <Form.NumericField label="Sample Rate" path="config.sampleRate" />
-              <Form.NumericField label="Stream Rate" path="config.streamRate" />
+              <Form.NumericField
+                label="Sample Rate"
+                path="config.sampleRate"
+                inputProps={{ endContent: "Hz" }}
+              />
+              <Form.NumericField
+                label="Stream Rate"
+                path="config.streamRate"
+                inputProps={{ endContent: "Hz" }}
+              />
               <Form.SwitchField label="Data Saving" path="config.dataSaving" />
             </Align.Space>
           </Align.Space>
@@ -263,6 +273,7 @@ const Wrapped = ({
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
           snapshot={task?.snapshot}
           startingOrStopping={start.isPending}

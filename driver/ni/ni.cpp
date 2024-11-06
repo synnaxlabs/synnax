@@ -544,7 +544,7 @@ int ni::Source::init() {
             "failed to parse configuration for " + this->reader_config.task_name +
             " Parser Error: " +
             config_parser.error_json().dump());
-        this->ctx->setState({
+        this->ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = config_parser.error_json()
@@ -575,7 +575,7 @@ int ni::Source::init() {
                 "sample rate must be greater than or equal to 1 and greater than or equal to the stream rate";
         this->err_info["running"] = false;
 
-        this->ctx->setState({
+        this->ctx->set_state({
             .task = this->task.key,
             .variant = "error",
             .details = err_info
@@ -623,7 +623,7 @@ freighter::Error ni::Source::start(const std::string &cmd_key) {
     this->breaker.start();
     this->start_ni();
     this->sample_thread = std::thread(&ni::Source::acquire_data, this);
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .key = cmd_key,
         .variant = "success",
@@ -641,7 +641,7 @@ freighter::Error ni::Source::stop(const std::string &cmd_key) {
     if (this->sample_thread.joinable()) this->sample_thread.join();
     this->stop_ni();
     data_queue.reset();
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .key = cmd_key,
         .variant = "success",
@@ -676,7 +676,7 @@ int ni::Source::check_ni_error(int32 error) {
     std::string s(errBuff);
     jsonify_error(errBuff);
 
-    this->ctx->setState({
+    this->ctx->set_state({
         .task = this->task.key,
         .variant = "error",
         .details = err_info
@@ -707,7 +707,7 @@ void ni::Source::log_error(std::string err_msg) {
 void ni::Source::stopped_with_err(const freighter::Error &err) {
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
-    this->ctx->setState({
+    this->ctx->set_state({
         .task = this->reader_config.task_key,
         .variant = "error",
         .details = {

@@ -7,6 +7,7 @@ cc_library(
     hdrs = [
         "acquisition.h",
         "control.h",
+        "middleware.h"
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

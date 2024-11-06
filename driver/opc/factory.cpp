@@ -18,14 +18,12 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const synnax::Task &task
 ) {
     if (task.type == "opc_scan"){
-        LOG(INFO) << "[opc] Task: " << task.type;
         return {std::make_unique<Scanner>(ctx, task), true};
     }
     if (task.type == "opc_read")
         return {ReaderTask::configure(ctx, task), true};
     if (task.type == "opc_write")
         return {WriterTask::configure(ctx, task), true};
-    LOG(ERROR) << "[opc] Unknown task type: " << task.type;
     return {nullptr, false};
 }
 

@@ -10,6 +10,7 @@
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
+import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
@@ -21,6 +22,7 @@ const SELECTABLES: Layout.Selectable[] = [
   LinePlot.SELECTABLE,
   Schematic.SELECTABLE,
   ...Log.SELECTABLES,
+  ...LabJack.SELECTABLES,
   ...NI.SELECTABLES,
   ...OPC.SELECTABLES,
 ];

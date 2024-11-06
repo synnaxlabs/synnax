@@ -18,5 +18,11 @@ export interface CircleProps extends IconProps {
 }
 
 export const Circle = ({ variant, ...props }: CircleProps): ReactElement => {
-  return <Icon.Circle color={variantColors[variant]} {...props} />;
+  return (
+    <Icon.Circle
+      color={variantColors[variant]}
+      style={{ color: variantColors[variant] }}
+      {...props}
+    />
+  );
 };
