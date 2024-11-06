@@ -42,6 +42,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
