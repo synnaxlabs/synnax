@@ -214,7 +214,7 @@ const Wrapped = ({
           commandsToCreate.map((c, i) => ({
             name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd`,
             index: commandIndexes[i].key,
-            dataType: "uint8",
+            dataType: c.type === "AO" ? "float32" : "uint8",
           })),
         );
         commands.forEach((s, i) => {
