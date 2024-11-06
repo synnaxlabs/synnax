@@ -10,7 +10,10 @@
 from __future__ import annotations
 
 import warnings
+import json
+from contextlib import contextmanager
 from typing import overload, Protocol
+
 from pydantic import ValidationError
 
 from alamos import NOOP, Instrumentation
@@ -163,6 +166,66 @@ class MetaTask(Protocol):
 
     def set_internal(self, task: Task):
         ...
+
+
+class StarterStopperMixin:
+    _internal: Task
+
+    def start(self, timeout: float | TimeSpan = 5):
+        """Starts the task and blocks until the Synnax cluster has acknowledged the
+        command or the specified timeout has elapsed.
+
+        :raises TimeoutError: If the timeout is reached before the Synnax cluster
+            acknowledges the command.
+        :raises Exception: If the Synnax cluster fails to start the task correctly.
+        """
+        self._internal.execute_command_sync("start", timeout=timeout)
+
+    def stop(self, timeout: float | TimeSpan = 5):
+        """Stops the task and blocks until the Synnax cluster has acknowledged the
+        command or the specified timeout has elapsed.
+
+        :raises TimeoutError: If the timeout is reached before the Synnax cluster
+            acknowledges the command.
+        :raises Exception: If the Synnax cluster fails to stop the task correctly.
+        """
+        self._internal.execute_command_sync("stop", timeout=timeout)
+
+    @contextmanager
+    def run(self, timeout: float | TimeSpan = 5):
+        """Context manager that starts the task before entering the block and stops the
+        task after exiting the block. This is useful for ensuring that the task is
+        properly stopped even if an exception occurs during execution.
+        """
+        self.start(timeout)
+        try:
+            yield
+        finally:
+            self.stop(timeout)
+
+
+class JSONConfigMixin(MetaTask):
+    _internal: Task
+    config: any
+
+    @property
+    def name(self) -> str:
+        return self._internal.name
+
+    @property
+    def key(self) -> int:
+        """Implements MetaTask protocol"""
+        return self._internal.key
+
+    def to_payload(self) -> TaskPayload:
+        """Implements MetaTask protocol"""
+        pld = self._internal.to_payload()
+        pld.config = json.dumps(self.config.dict())
+        return pld
+
+    def set_internal(self, task: Task):
+        """Implements MetaTask protocol"""
+        self._internal = task
 
 
 class Client:

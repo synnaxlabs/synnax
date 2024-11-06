@@ -18,7 +18,6 @@ client = sy.Synnax(
 )
 
 
-
 with client.open_streamer(["sy_task_set", "sy_task_state"]) as s:
     print("STREAMING")
     for frame in s:

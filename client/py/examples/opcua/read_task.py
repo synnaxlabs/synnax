@@ -26,7 +26,7 @@ opcua_time = client.channels.create(
     name="opcua_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 # Create two Synnax channels that will be used to store the node data. Notice how these
@@ -36,14 +36,14 @@ node_0 = client.channels.create(
     name="node_0",
     index=opcua_time.key,
     data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 node_1 = client.channels.create(
     name="node_1",
     index=opcua_time.key,
     data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 tsk = opcua.ReadTask(
@@ -62,8 +62,8 @@ tsk = opcua.ReadTask(
         opcua.Channel(
             channel=node_1.key,
             node_id="NS=2;I=10",
-        )
-    ]
+        ),
+    ],
 )
 
 client.hardware.tasks.configure(tsk)
