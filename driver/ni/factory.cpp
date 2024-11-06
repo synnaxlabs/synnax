@@ -33,7 +33,6 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     if (task.type == "ni_digital_write")
         return {ni::WriterTask::configure(ctx, task), true};
 
-    LOG(ERROR) << "[ni] Unknown task type: " << task.type << std::endl;
     return {nullptr, false};
 }
 
@@ -62,8 +61,6 @@ ni::Factory::configure_initial_tasks(
     bool hasScanner = false;
     for (const auto &t: existing) {
         if (t.type == "ni_scanner") {
-            LOG(INFO) << "[ni] found existing scanner task with key: " << t.key <<
-                    " skipping creation." << std::endl;
             hasScanner = true;
         }
     }

@@ -32,3 +32,19 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "series_test",
+    srcs = [
+        "series_test.cpp",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//client/cpp:synnax",
+        "//client/cpp/telem",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

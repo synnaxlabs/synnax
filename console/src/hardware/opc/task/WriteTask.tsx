@@ -309,6 +309,7 @@ const Wrapped = ({
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={start.isPending}
           configuring={configure.isPending}

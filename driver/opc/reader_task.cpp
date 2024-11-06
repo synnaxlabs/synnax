@@ -37,6 +37,7 @@ ReaderConfig::ReaderConfig(
    stream_rate(parser.required<std::float_t>("stream_rate")),
    array_size(parser.optional<std::size_t>("array_size", 1)),
    data_saving(parser.optional<bool>("data_saving", true)) {
+    if(array_size <= 0) array_size = 1;
     if (stream_rate.value <= 0) stream_rate = Rate(1);
     parser.iter("channels", [&](config::Parser &channel_builder) {
         const auto ch = ReaderChannelConfig(channel_builder);
@@ -88,7 +89,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     auto cfg = ReaderConfig(config_parser);
     if (!config_parser.ok()) {
         LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = config_parser.error_json(),
@@ -100,7 +101,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{
@@ -121,7 +122,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     // Fetch additional index channels we also need as part of the configuration.
     auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
     if (err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{{"message", err.message()}}
@@ -132,7 +133,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
 
     auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
     if (conn_err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = json{{"message", conn_err.message()}}
@@ -163,7 +164,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
     }
 
     if (!config_parser.ok()) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
             .variant = "error",
             .details = config_parser.error_json(),
@@ -192,7 +193,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         .enable_auto_commit = true
     };
 
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "success",
         .details = json{
@@ -213,15 +214,16 @@ std::unique_ptr<task::Task> ReaderTask::configure(
 }
 
 void ReaderTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") this->start();
-    else if (cmd.type == "stop") return stop();
-    else
-        LOG(ERROR) << "unknown command type: " << cmd.type;
+    if (cmd.type == "start") this->start(cmd.key);
+    else if (cmd.type == "stop") return this->stop(cmd.key);
 }
 
-void ReaderTask::stop() {
-    ctx->setState({
+void ReaderTask::stop() { this->stop(""); }
+
+void ReaderTask::stop(const std::string &cmd_key) {
+    ctx->set_state({
         .task = task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = json{
             {"running", false},
@@ -231,11 +233,12 @@ void ReaderTask::stop() {
     pipe.stop();
 }
 
-void ReaderTask::start() {
+void ReaderTask::start(const std::string &cmd_key) {
     freighter::Error conn_err = refresh_connection(this->ua_client, device_props.connection.endpoint);
     if (conn_err) {
-        ctx->setState({
+        ctx->set_state({
             .task = task.key,
+            .key = cmd_key,
             .variant = "error",
             .details = json{
                 {"message", conn_err.message()}
@@ -245,8 +248,9 @@ void ReaderTask::start() {
         return;
     }
     pipe.start();
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
+        .key = cmd_key,
         .variant = "success",
         .details = json{
             {"running", true},

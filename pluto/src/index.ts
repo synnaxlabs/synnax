@@ -37,6 +37,7 @@ export { Nav } from "@/nav";
 export { Note } from "@/note";
 export { Observe } from "@/observe";
 export { OS } from "@/os";
+export { Override } from "@/override";
 export { Pluto } from "@/pluto";
 export { Portal } from "@/portal";
 export { Progress } from "@/progress";

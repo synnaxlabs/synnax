@@ -48,7 +48,7 @@ opc::ReaderSource::ReaderSource(
         {"message", "Task configured successfully"},
         {"running", true}
     };
-    this->ctx->setState(curr_state);
+    this->ctx->set_state(curr_state);
 }
 
 void opc::ReaderSource::initialize_read_request() {
@@ -75,7 +75,7 @@ void opc::ReaderSource::stopped_with_err(const freighter::Error &err) {
         {"message", err.message()},
         {"running", false}
     };
-    ctx->setState(curr_state);
+    ctx->set_state(curr_state);
 }
 
 freighter::Error opc::ReaderSource::communicate_value_error(
@@ -87,7 +87,7 @@ freighter::Error opc::ReaderSource::communicate_value_error(
             "Failed to read value from channel " + channel + ": " +
             status_name;
     LOG(ERROR) << "[opc.reader]" << message;
-    ctx->setState({
+    ctx->set_state({
         .task = task.key,
         .variant = "error",
         .details = json{
@@ -117,7 +117,7 @@ size_t opc::ReaderSource::cap_array_length(
                 },
                 {"running", true}
             };
-            ctx->setState(curr_state);
+            ctx->set_state(curr_state);
         }
         return cfg.array_size - i;
     }
@@ -167,7 +167,7 @@ size_t opc::ReaderSource::write_to_series(
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BYTE])) {
         const UA_Byte *data = static_cast<UA_Byte *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == synnax::UINT8) return s.write(data, length);
+        if (s.data_type == synnax::SY_UINT8) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_SBYTE])) {
         const UA_SByte *data = static_cast<UA_SByte *>(val->data);
@@ -177,7 +177,7 @@ size_t opc::ReaderSource::write_to_series(
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BOOLEAN])) {
         const UA_Boolean *data = static_cast<UA_Boolean *>(val->data);
         const size_t length = cap_array_length(i, val->arrayLength);
-        if (s.data_type == synnax::UINT8) return s.write(data, length);
+        if (s.data_type == synnax::SY_UINT8) return s.write(data, length);
     }
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
         const UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
@@ -222,7 +222,7 @@ size_t opc::ReaderSource::write_to_series(
         if (s.data_type == synnax::INT64)
             return s.write(
                 static_cast<int64_t>(value));
-        if (s.data_type == synnax::UINT16)
+        if (s.data_type == synnax::SY_UINT16)
             return s.write(
                 static_cast<uint16_t>(value));
         if (s.data_type == synnax::UINT32)
@@ -293,8 +293,8 @@ size_t opc::ReaderSource::write_to_series(
     }
     if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
         const auto value = *static_cast<UA_Byte *>(val->data);
-        if (s.data_type == synnax::UINT8) return s.write(value);
-        if (s.data_type == synnax::UINT16)
+        if (s.data_type == synnax::SY_UINT8) return s.write(value);
+        if (s.data_type == synnax::SY_UINT16)
             return s.write(
                 static_cast<uint16_t>(value));
         if (s.data_type == synnax::UINT32)
@@ -341,10 +341,10 @@ size_t opc::ReaderSource::write_to_series(
     }
     if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
         const auto value = *static_cast<UA_Boolean *>(val->data);
-        if (s.data_type == synnax::UINT8)
+        if (s.data_type == synnax::SY_UINT8)
             return s.write(
                 static_cast<uint8_t>(value));
-        if (s.data_type == synnax::UINT16)
+        if (s.data_type == synnax::SY_UINT16)
             return s.write(
                 static_cast<uint16_t>(value));
         if (s.data_type == synnax::UINT32)
@@ -482,7 +482,7 @@ std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &bre
                     },
                     {"running", true}
                 };
-                ctx->setState(curr_state);
+                ctx->set_state(curr_state);
             }
         }
     }
@@ -492,7 +492,7 @@ std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &bre
             {"message", "Operating normally"},
             {"running", true}
         };
-        ctx->setState(curr_state);
+        ctx->set_state(curr_state);
     }
     return std::make_pair(std::move(fr), freighter::NIL);
 }

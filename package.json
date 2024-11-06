@@ -1,5 +1,5 @@
 {
-  "version": "0.32.0",
+  "version": "0.34.0",
   "private": true,
   "scripts": {
     "build": "npx turbo build --cache-dir=./.turbo-cache",
@@ -62,7 +62,7 @@
   "devDependencies": {
     "@microsoft/api-extractor": "^7.47.9",
     "prettier": "^3.3.3",
-    "turbo": "^2.1.3"
+    "turbo": "^2.2.3"
   },
   "engines": {
     "node": ">=18"

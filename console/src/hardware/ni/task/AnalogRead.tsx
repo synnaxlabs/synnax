@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, QueryError } from "@synnaxlabs/client";
+import { NotFoundError, QueryError, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
@@ -46,6 +46,7 @@ import {
   Controls,
   EnableDisableButton,
   ParentRangeButton,
+  TareButton,
   TaskLayoutArgs,
   useCreate,
   useObserveState,
@@ -214,16 +215,21 @@ const Wrapped = ({
     },
   });
 
+  const handleTare = useMutation({
+    mutationKey: [client?.key],
+    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    mutationFn: async (keys: number[]) => {
+      if (client == null) return;
+      await task?.executeCommand("tare", { keys });
+    },
+  }).mutate;
+
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string>
-              path="name"
-              showLabel={false}
-              padHelpText={!task?.snapshot}
-            >
+            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
               {(p) => (
                 <Input.Text
                   variant={task?.snapshot ? "preview" : "natural"}
@@ -242,12 +248,16 @@ const Wrapped = ({
           <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Align.Space direction="x">
-              <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
-              <Form.Field<number> label="Stream Rate" path="config.streamRate">
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
+              <Form.NumericField
+                label="Sample Rate"
+                path="config.sampleRate"
+                inputProps={{ endContent: "Hz" }}
+              />
+              <Form.NumericField
+                label="Stream Rate"
+                path="config.streamRate"
+                inputProps={{ endContent: "Hz" }}
+              />
               <Form.SwitchField path="config.dataSaving" label="Data Saving" />
             </Align.Space>
           </Align.Space>
@@ -270,11 +280,14 @@ const Wrapped = ({
                 },
                 [setSelectedChannels, setSelectedChannelIndex],
               )}
+              onTare={handleTare}
+              state={taskState}
             />
             <ChannelDetails selectedChannelIndex={selectedChannelIndex} />
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={startOrStop.isPending}
           configuring={configure.isPending}
@@ -295,7 +308,6 @@ const ChannelDetails = ({
   selectedChannelIndex,
 }: ChannelDetailsProps): ReactElement => {
   const ctx = Form.useContext();
-
   const copy = useCopyToClipboard();
   const handleCopyChannelDetails = () => {
     if (selectedChannelIndex == null) return;
@@ -343,7 +355,6 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   if (type == null) return <></>;
   const TypeForm = ANALOG_INPUT_FORMS[type];
   if (selectedChannelIndex == -1) return <></>;
-
   return (
     <>
       <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
@@ -359,6 +370,8 @@ interface ChannelListProps {
   onSelect: (keys: string[], index: number) => void;
   selected: string[];
   snapshot?: boolean;
+  onTare: (keys: number[]) => void;
+  state?: task.State<{ running?: boolean; message?: string }>;
 }
 
 const availablePortFinder = (channels: Chan[]): (() => number) => {
@@ -376,6 +389,8 @@ const ChannelList = ({
   snapshot,
   selected,
   onSelect,
+  state,
+  onTare,
 }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<Chan>({ path });
   const handleAdd = (): void => {
@@ -400,6 +415,8 @@ const ChannelList = ({
             remove={remove}
             onSelect={onSelect}
             snapshot={snapshot}
+            onTare={onTare}
+            allowTare={state?.details?.running === true}
             onDuplicate={(indices) => {
               const pf = availablePortFinder(value);
               push(
@@ -431,8 +448,15 @@ const ChannelList = ({
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => (
-                <ChannelListItem {...props} path={path} snapshot={snapshot} />
+              {({ key: i, ...props }) => (
+                <ChannelListItem
+                  {...props}
+                  key={i}
+                  path={path}
+                  snapshot={snapshot}
+                  state={state}
+                  onTare={(key) => onTare([key])}
+                />
               )}
             </List.Core>
           </List.Selector>
@@ -445,16 +469,23 @@ const ChannelList = ({
 const ChannelListItem = ({
   path: basePath,
   snapshot = false,
+  onTare,
+  state,
   ...props
 }: List.ItemProps<string, Chan> & {
   path: string;
   snapshot?: boolean;
+  onTare?: (channelKey: number) => void;
+  state?: task.State<{ running?: boolean; message?: string }>;
 }): ReactElement => {
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
   const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
   if (childValues == null) return <></>;
   const portValid = Form.useFieldValid(`${path}.port`);
+  const showTareButton = childValues.channel != null && onTare != null;
+  const tareIsDisabled =
+    !childValues.enabled || snapshot || state?.details?.running !== true;
   return (
     <List.ItemFrame
       {...props}
@@ -478,11 +509,19 @@ const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <EnableDisableButton
-        value={childValues.enabled}
-        onChange={(v) => ctx.set(`${path}.enabled`, v)}
-        snapshot={snapshot}
-      />
+      <Align.Pack direction="x" align="center" size="small">
+        {showTareButton && (
+          <TareButton
+            disabled={tareIsDisabled}
+            onClick={() => onTare(childValues.channel as number)}
+          />
+        )}
+        <EnableDisableButton
+          value={childValues.enabled}
+          onChange={(v) => ctx.set(`${path}.enabled`, v)}
+          snapshot={snapshot}
+        />
+      </Align.Pack>
     </List.ItemFrame>
   );
 };
