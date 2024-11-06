@@ -381,17 +381,15 @@ type renameBatchEntry struct {
 
 var _ proxy.Entry = renameBatchEntry{}
 
-func (r renameBatchEntry) Lease() core.NodeKey {
-	return r.key.Lease()
-}
+func (r renameBatchEntry) Lease() core.NodeKey { return r.key.Lease() }
 
-func unzipBatchEntries(entries []renameBatchEntry) ([]Key, []string) {
+func unzipRenameBatch(entries []renameBatchEntry) ([]Key, []string) {
 	return lo.UnzipBy2(entries, func(e renameBatchEntry) (Key, string) {
 		return e.key, e.name
 	})
 }
 
-func newBatchEntries(keys Keys, names []string) []renameBatchEntry {
+func newRenameBatch(keys Keys, names []string) []renameBatchEntry {
 	return lo.ZipBy2(keys, names, func(k Key, n string) renameBatchEntry {
 		return renameBatchEntry{key: k, name: n}
 	})
@@ -407,23 +405,23 @@ func (lp *leaseProxy) rename(
 	if len(keys) != len(names) {
 		return errors.Wrap(validate.Error, "keys and names must be the same length")
 	}
-	batch := lp.renameRouter.Batch(newBatchEntries(keys, names))
+	batch := lp.renameRouter.Batch(newRenameBatch(keys, names))
 	for nodeKey, entries := range batch.Peers {
-		keys, names := unzipBatchEntries(entries)
+		keys, names := unzipRenameBatch(entries)
 		err := lp.renameRemote(ctx, nodeKey, keys, names)
 		if err != nil {
 			return err
 		}
 	}
 	if len(batch.Free) > 0 {
-		keys, names := unzipBatchEntries(batch.Free)
+		keys, names := unzipRenameBatch(batch.Free)
 		err := lp.renameFreeVirtual(ctx, tx, keys, names, allowInternal)
 		if err != nil {
 			return err
 		}
 	}
 	if len(batch.Gateway) > 0 {
-		keys, names := unzipBatchEntries(batch.Gateway)
+		keys, names := unzipRenameBatch(batch.Gateway)
 		return lp.renameGateway(ctx, tx, keys, names, allowInternal)
 	}
 	return nil
