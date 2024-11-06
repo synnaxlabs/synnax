@@ -51,7 +51,6 @@
 #endif
 
 namespace ni {
-
 inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"Volts", DAQmx_Val_Volts},
     {"Amps", DAQmx_Val_Amps},

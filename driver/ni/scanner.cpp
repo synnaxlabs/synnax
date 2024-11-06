@@ -81,7 +81,6 @@ void ni::Scanner::scan() {
         this->filter, NULL,
         &this->resources_handle
     );
-
     if (err != NISysCfg_OK) return log_err("failed to find hardware");
 
     while (ni::NiSysCfgInterface::NextResource(
