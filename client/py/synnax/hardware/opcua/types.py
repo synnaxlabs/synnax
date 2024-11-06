@@ -27,7 +27,7 @@ class Channel(BaseModel):
     """The Synnax channel key that will be written to during acquisition."""
     node_id: str
     """An optional human-readable name for the node."""
-    node_name = ""
+    node_name: str = ""
     """The OPC UA node ID to read from."""
     enabled: bool = True
     """Whether acquisition for this channel is enabled."""
