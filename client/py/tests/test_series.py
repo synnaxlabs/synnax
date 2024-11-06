@@ -100,8 +100,6 @@ class TestSeries:
         assert len(d) == 1
         assert d.data_type == DataType.FLOAT32
 
-
-
     def test_construction_from_strings(self):
         """Should correctly construct the series from a list of strings"""
         d = Series(["hello"])

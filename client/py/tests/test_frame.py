@@ -291,7 +291,7 @@ class TestWriteFrameAdapter:
         )
         adapter = WriteFrameAdapter(client.channels._retriever)
         adapter.update(ch.name)
-        adapted = adapter.adapt({ ch.name: "hello" })
+        adapted = adapter.adapt({ch.name: "hello"})
         assert adapted[ch.key][0] == "hello"
 
     def test_adapt_single_string_name_value_pair(self, client):

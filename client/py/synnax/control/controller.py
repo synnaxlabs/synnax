@@ -146,7 +146,7 @@ class Controller:
         return self._receiver_opt
 
     @overload
-    def set(self, ch: ChannelKey | ChannelName, value:  SampleValue):
+    def set(self, ch: ChannelKey | ChannelName, value: SampleValue):
         ...
 
     @overload

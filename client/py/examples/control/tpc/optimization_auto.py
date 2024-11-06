@@ -77,7 +77,11 @@ def start_sim_cmd(aut: Controller):
 
 
 def log(aut: Controller, msg: str):
-    aut.set(AUTO_LOGS, f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}")
+    aut.set(
+        AUTO_LOGS,
+        f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}",
+    )
+
 
 def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Range:
     def run_tpc(auto: Controller):
