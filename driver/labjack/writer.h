@@ -135,7 +135,6 @@ struct WriterConfig {
             }
             channel.data_type = channel_info.data_type;
             channels.emplace_back(channel);
-            LOG(INFO) << "Channel data type: " << channel_info.data_type.value;
 
             /// digital outputs start active high
             double initial_val = 0.0;
