@@ -87,17 +87,17 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     _internal: Task
 
     def __init__(
-            self,
-            internal: Task | None = None,
-            *,
-            device: str = "",
-            name: str = "",
-            sample_rate: CrudeRate = 1000,
-            stream_rate: CrudeRate = 1000,
-            data_saving: bool = False,
-            array_mode: bool = False,
-            array_size: int = 0,
-            channels: list[Channel] = None,
+        self,
+        internal: Task | None = None,
+        *,
+        device: str = "",
+        name: str = "",
+        sample_rate: CrudeRate = 1000,
+        stream_rate: CrudeRate = 1000,
+        data_saving: bool = False,
+        array_mode: bool = False,
+        array_size: int = 1,
+        channels: list[Channel] = None,
     ):
         if internal is not None:
             self._internal = internal
