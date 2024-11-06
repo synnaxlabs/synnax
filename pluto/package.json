@@ -7,8 +7,8 @@
     "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "lint": "eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix",
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -45,6 +45,7 @@
     "@types/webgl2": "^0.0.11",
     "@vitejs/plugin-react": "^4.3.2",
     "@vitest/coverage-v8": "^2.1.2",
+    "eslint": "^9.12.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "jsdom": "^25.0.1",
     "react-dom": "^18.3.1",

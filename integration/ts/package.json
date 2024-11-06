@@ -13,8 +13,8 @@
   ],
   "scripts": {
     "watch": "tsc --noEmit && vite build --watch",
-    "lint": "eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix"
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix"
   },
   "dependencies": {
     "@synnaxlabs/client": "workspace:*",

@@ -7,14 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import globals from "globals";
+import { fixupConfigRules, includeIgnoreFile } from "@eslint/compat";
 import pluginJs from "@eslint/js";
-import tseslint from "typescript-eslint";
 import pluginReactConfig from "eslint-plugin-react/configs/recommended.js";
-import { fixupConfigRules } from "@eslint/compat";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
+import globals from "globals";
+import path from "path";
+import tseslint from "typescript-eslint";
+import { fileURLToPath } from "url";
+
+const filename = fileURLToPath(import.meta.url);
+const dirname = path.dirname(filename);
+const gitignorePath = path.join(dirname, "../../.gitignore");
 
 export default [
+  includeIgnoreFile(gitignorePath),
   { languageOptions: { globals: globals.browser } },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
@@ -26,7 +33,7 @@ export default [
       globals: { ...globals.browser },
       parserOptions: { ecmaVersion: "latest", sourceType: "module" },
     },
-    ignores: ["node_modules", "node_modules", "build", "dist", "release"],
+    ignores: ["node_modules", "build", "dist", "release"],
     plugins: { "simple-import-sort": simpleImportSort },
     rules: {
       "simple-import-sort/imports": "error",
