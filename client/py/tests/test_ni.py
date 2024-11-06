@@ -21,12 +21,12 @@ from synnax.hardware.ni import (
 class TestNITask:
     def test_parse_analog_read_task(self):
         data = {
-            "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
             "sample_rate": 10,
             "stream_rate": 5,
             "channels": [
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "k09AWoiyLxN",
                     "type": "ai_voltage",
                     "terminal_config": "Cfg_Default",
@@ -40,6 +40,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "Ar7iVF6Tjzf",
                     "type": "ai_thermocouple",
                     "channel": 1048583,
@@ -55,6 +56,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "3zRNCIt6H0A",
                     "channel": 1048584,
                     "type": "ai_rtd",
@@ -71,6 +73,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "2dYSMHhZHtt",
                     "type": "ai_pressure_bridge_two_point_lin",
                     "channel": 1048585,
@@ -94,6 +97,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "h6aNsbt9iXo",
                     "type": "ai_accel",
                     "channel": 1048586,
@@ -111,6 +115,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "88xDWnrIF90",
                     "type": "ai_bridge",
                     "units": "mVoltsPerVolt",
@@ -128,6 +133,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "9AvgGUrtyvw",
                     "channel": 1048588,
                     "port": 6,
@@ -143,6 +149,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "fo88BkNspw0",
                     "type": "ai_force_bridge_table",
                     "channel": 1048589,
@@ -163,6 +170,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "FN8PbpvQvBt",
                     "type": "ai_force_bridge_two_point_lin",
                     "channel": 1048590,
@@ -186,6 +194,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "s3KtqxSs6cD",
                     "type": "ai_force_iepe",
                     "channel": 1048591,
@@ -203,6 +212,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "VNUF26p0JC2",
                     "type": "ai_microphone",
                     "channel": 1048592,
@@ -218,6 +228,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "9b5IgxtRYIx",
                     "type": "ai_pressure_bridge_table",
                     "channel": 1048593,
@@ -238,6 +249,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "i6dz8FDpPwp",
                     "type": "ai_resistance",
                     "channel": 1048594,
@@ -254,6 +266,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "hfADiXS6IMR",
                     "type": "ai_strain_gauge",
                     "channel": 1048595,
@@ -275,6 +288,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "afSn8BOZ8Nv",
                     "type": "ai_temp_builtin",
                     "channel": 1048596,
@@ -284,6 +298,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "LuzjMHtLTR9",
                     "type": "ai_torque_bridge_table",
                     "channel": 1048597,
@@ -304,6 +319,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "IPJbBSbVf7F",
                     "type": "ai_torque_bridge_two_point_lin",
                     "channel": 1048598,
@@ -326,6 +342,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "ZayvFgaGurP",
                     "type": "ai_velocity_iepe",
                     "channel": 1048599,
