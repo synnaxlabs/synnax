@@ -84,10 +84,13 @@ export class Value
     const b = box.construct(this.state.box);
     if (box.areaIsZero(b)) return;
     const canvas = renderCtx[CANVAS_VARIANT].applyScale(viewportScale);
-    const value = await telem.value();
-    const fontString = theming.fontString(this.internal.theme, this.state.level);
-    canvas.font = theming.fontString(this.internal.theme, this.state.level);
-    const height = theme.typography[this.state.level].size * theme.sizes.base;
+    let value = await telem.value();
+    const fontString = theming.fontString(this.internal.theme, {
+      level: this.state.level,
+      code: true,
+    });
+    canvas.font = fontString;
+    const fontHeight = theme.typography[this.state.level].size * theme.sizes.base;
     const width = dimensions(value, fontString, canvas).width;
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
@@ -98,11 +101,24 @@ export class Value
       (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
     )
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
-    const labelPosition = xy.couple(
-      xy.translate(box.topLeft(b), { x: 12, y: (box.height(b) + height) / 2 }),
-    );
+    const labelPosition = xy.translate(box.topLeft(b), {
+      x: 15,
+      y: (box.height(b) + fontHeight) / 2,
+    });
     canvas.fillStyle = this.internal.textColor.hex;
-    canvas.fillText(value, ...labelPosition);
+    const isNegative = value[0] == "-";
+    // If the value is negative, chop of the negative sign and draw it separately
+    // so that the first digit always stays in the same position, regardless of the sign.
+    if (isNegative) {
+      value = value.slice(1);
+      canvas.fillText(
+        "-",
+        // 0.55 is a multiplier of the font height that seems to keep the sign in
+        // the right place.
+        ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.55)),
+      );
+    }
+    canvas.fillText(value, ...xy.couple(labelPosition));
   }
 }
 

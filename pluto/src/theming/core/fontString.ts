@@ -11,11 +11,15 @@ import { text } from "@/text/core";
 import { type ThemeSpec } from "@/theming/core/theme";
 import { type ComponentSize, isComponentSize } from "@/util/component";
 
+interface FontStringOptions {
+  level: text.Level | ComponentSize;
+  weight?: text.Weight;
+  code?: boolean;
+}
+
 export const fontString = (
   theme: ThemeSpec,
-  level: text.Level | ComponentSize,
-  weight?: text.Weight,
-  code?: boolean,
+  { level, weight, code }: FontStringOptions,
 ): string => {
   const {
     typography,
