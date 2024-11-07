@@ -222,7 +222,6 @@ struct ReaderConfig {
           data_saving(parser.optional<bool>("data_saving", false)
           ) {
 
-        LOG(INFO) << "ReaderConfig: " << parser.error_json().dump(4);
         if (!parser.ok())
             LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
@@ -250,17 +249,7 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task task,
         const ReaderConfig &reader_config
-    ) : ctx(ctx),
-        task(task),
-        reader_config(reader_config) {
-        auto breaker_config = breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 20,
-            .scale = 1.2,
-        };
-        this->breaker = breaker::Breaker(breaker_config);
-    }
+    );
 
     ~ReaderSource() override;
 
