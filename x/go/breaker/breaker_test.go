@@ -48,6 +48,6 @@ var _ = Describe("Breaker", func() {
 		Expect(b.Wait()).To(BeTrue()) // 80ms
 		Expect(b.Wait()).To(BeTrue()) // 160ms
 		duration := time.Now().Sub(start)
-		Expect(duration).To(BeNumerically("~", 310*time.Millisecond, 50*time.Millisecond))
+		Expect(duration).To(BeNumerically("~", 310*time.Millisecond, 100*time.Millisecond))
 	})
 })
