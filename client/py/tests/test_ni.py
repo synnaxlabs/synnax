@@ -9,11 +9,12 @@
 
 
 import pytest
-from numpy.distutils.misc_util import terminal_has_colors
 
 from synnax import ValidationError
 from synnax.hardware.ni import (
-    AIVoltageChan, AnalogReadTask, AnalogReadTaskConfig,
+    AIVoltageChan,
+    AnalogReadTask,
+    AnalogReadTaskConfig,
     DigitalReadConfig,
     DigitalWriteConfig,
 )
@@ -381,7 +382,7 @@ class TestNITask:
                         max_val=1,
                         units="Volts",
                     )
-                ]
+                ],
             )
 
     def test_parse_analog_read_task_default_device_provided(self):
@@ -400,7 +401,7 @@ class TestNITask:
                     max_val=1,
                     units="Volts",
                 )
-            ]
+            ],
         )
 
     def test_parse_digital_read_task(self):

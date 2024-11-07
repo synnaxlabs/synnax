@@ -843,6 +843,7 @@ class AnalogReadTaskConfig(BaseModel):
             raise ValueError(f"Port {duplicate_ports[0]} has already been used")
         return v
 
+
 class DigitalWriteConfig(BaseModel):
     device: str
     channels: List[DOChan]
@@ -1008,10 +1009,11 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         for i, channel in enumerate(self.config.channels):
             if len(channel.device) == 0:
                 if len(device) == 0:
-                    raise ValidationError(f"""
+                    raise ValidationError(
+                        f"""
                         No device provided for {channel} {i + 1} in task and no device
                         provided directly to the task. Please provide a device for the
                         channel or set the device for the task.
-                    """)
+                    """
+                    )
                 channel.device = device
-
