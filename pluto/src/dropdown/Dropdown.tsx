@@ -314,11 +314,7 @@ const calcConnectedDialog = ({
     invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
   );
 
-  // This is a temporary fix for the cross-browser issue where the container-type property
-  // behavior is not consistent across MacOS and Windows.
-  let stylePropertyValueFilter = (v: string) => ["inline-size", "size"].includes(v);
-  if (runtime.getOS() !== "MacOS")
-    stylePropertyValueFilter = (v: string) => v === "inline-size";
+  const stylePropertyValueFilter = (v: string) => ["inline-size", "size"].includes(v);
 
   let parent: HTMLElement | null = target.parentElement;
   while (parent != null) {
