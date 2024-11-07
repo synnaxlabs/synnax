@@ -79,7 +79,7 @@ def start_sim_cmd(aut: Controller):
 def log(aut: Controller, msg: str):
     aut.set(
         AUTO_LOGS,
-        [f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}"],
+        f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}",
     )
 
 
