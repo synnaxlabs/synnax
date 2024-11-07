@@ -11,6 +11,7 @@ import pytest
 
 from synnax.hardware.opcua import ReadTaskConfig
 
+
 @pytest.mark.opcua
 class TestOPCUATask:
     def test_parse_opcua_read_task(self):
@@ -30,6 +31,6 @@ class TestOPCUATask:
                     "enabled": True,
                     "use_as_index": False,
                 },
-            ]
+            ],
         }
         ReadTaskConfig.parse_obj(data)
