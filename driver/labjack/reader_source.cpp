@@ -27,16 +27,22 @@ labjack::ReaderSource::ReaderSource(
             .scale = 1.2,
     };
     this->breaker = breaker::Breaker(breaker_config);
-    {
-        std::lock_guard<std::mutex> lock(labjack::device_mutex);
+    this->open_device();
+}
+
+void labjack::ReaderSource::open_device(){
+    std::lock_guard<std::mutex> lock(labjack::device_mutex);
+    if (labjack::device_handles.find(this->reader_config.serial_number) != labjack::device_handles.end()) {
+        this->handle = labjack::device_handles[this->reader_config.serial_number];
+    } else {
         if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle),
-                      "init_stream.LJM_OPEN")) {
+                    "init_stream.LJM_OPEN")) {
             LOG(ERROR) << "[labjack.reader] LJM_Open error";
             return;
         }
+        labjack::device_handles[this->reader_config.serial_number] = this->handle;
     }
 }
-
 
 void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
     LOG(ERROR) << "stopped with error: " << err.message();

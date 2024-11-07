@@ -290,6 +290,8 @@ private:
 
     std::pair<Frame, freighter::Error> read_cmd_response(breaker::Breaker &breaker);
 
+    void open_device();
+
     int handle;
     ReaderConfig reader_config;
     std::shared_ptr<task::Context> ctx;

@@ -75,7 +75,7 @@ private:
     std::shared_ptr<task::Context> ctx;
     std::shared_ptr<std::thread> thread = nullptr;
     breaker::Breaker breaker;
-    synnax::Rate scan_rate = synnax::Rate(5);
+    synnax::Rate scan_rate = synnax::Rate(1);
     bool ok_state = true;
 };
 };

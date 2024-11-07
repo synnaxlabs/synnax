@@ -8,6 +8,7 @@
 
 #include <mutex>
 #include <thread>
+#include <map>
 
 #include "driver/labjack/errors.h"
 
@@ -48,4 +49,8 @@ inline int check_err_internal(
     ok_state = false;
     return -1;
 }
+
+// map from serial number string to device handle
+inline std::map<std::string, int> device_handles;
+
 }

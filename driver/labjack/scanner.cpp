@@ -110,6 +110,17 @@ void labjack::ScannerTask::create_devices() {
         } else {
             LOG(INFO) << "[labjack.scanner] successfully created device with key: " << device["key"];
         }
+        {
+            std::lock_guard<std::mutex> lock(labjack::device_mutex);
+            std::string serial_number = std::to_string(device["serial_number"].get<int>());
+            int handle = 0;
+            if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &handle))) {
+                LOG(ERROR) << "[labjack.scanner] LJM_Open error";
+                return;
+            }
+            // add to the map
+            labjack::device_handles[serial_number] = handle;
+        }
     }
 }
 
