@@ -12,13 +12,26 @@ import uuid
 from typing import overload
 from freighter import Payload, UnaryClient, send_required
 
+from synnax import ValidationError
 from synnax.util.normalize import normalize
+from synnax.util.primitive import Primitive, is_primitive
 
 
 class KVPair(Payload):
     range: uuid.UUID
     key: str
     value: str
+
+    def __init__(self, **kwargs):
+        value = kwargs.get("value")
+        if not isinstance(kwargs["value"], str):
+            if not is_primitive(value):
+                raise ValidationError(f"""
+                Synnax has no way of casting {value} to a string when setting meta-data
+                on a range. Please convert the value to a string before setting it.
+                """)
+        kwargs["value"] = str(value)
+        super().__init__(**kwargs)
 
 
 class _GetRequest(Payload):
@@ -69,14 +82,15 @@ class KV:
         return {pair.key: pair.value for pair in res.pairs}
 
     @overload
-    def set(self, key: str, value: str):
+    def set(self, key: str, value: Primitive):
         ...
 
     @overload
-    def set(self, key: dict[str, str]):
+    def set(self, key: dict[str, Primitive]):
         ...
 
-    def set(self, key: str | dict[str, str], value: str | None = None) -> None:
+    def set(self, key: str | dict[str, Primitive],
+            value: Primitive | None = None) -> None:
         pairs = list()
         if isinstance(key, str):
             pairs.append(KVPair(range=self._rng_key, key=key, value=value))
