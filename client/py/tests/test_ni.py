@@ -9,9 +9,11 @@
 
 
 import pytest
+from numpy.distutils.misc_util import terminal_has_colors
 
+from synnax import ValidationError
 from synnax.hardware.ni import (
-    AnalogReadTaskConfig,
+    AIVoltageChan, AnalogReadTask, AnalogReadTaskConfig,
     DigitalReadConfig,
     DigitalWriteConfig,
 )
@@ -362,6 +364,44 @@ class TestNITask:
             "data_saving": True,
         }
         AnalogReadTaskConfig.parse_obj(data)
+
+    def test_parse_analog_read_task_default_device_none_provided(self):
+        with pytest.raises(ValidationError):
+            AnalogReadTask(
+                sample_rate=10,
+                stream_rate=5,
+                channels=[
+                    AIVoltageChan(
+                        key="k09AWoiyLxN",
+                        terminal_config="Cfg_Default",
+                        channel=1048582,
+                        port=0,
+                        enabled=True,
+                        min_val=0,
+                        max_val=1,
+                        units="Volts",
+                    )
+                ]
+            )
+
+    def test_parse_analog_read_task_default_device_provided(self):
+        AnalogReadTask(
+            device="474503CF-49FD-11EF-80E5-91C59E7C9645",
+            sample_rate=10,
+            stream_rate=5,
+            channels=[
+                AIVoltageChan(
+                    key="k09AWoiyLxN",
+                    terminal_config="Cfg_Default",
+                    channel=1048582,
+                    port=0,
+                    enabled=True,
+                    min_val=0,
+                    max_val=1,
+                    units="Volts",
+                )
+            ]
+        )
 
     def test_parse_digital_read_task(self):
         data = {
