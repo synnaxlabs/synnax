@@ -339,6 +339,5 @@ const calcConnectedDialog = ({
     }
     parent = parent.parentElement;
   }
-  console.log(parent);
   return { adjustedDialog, location };
 };
