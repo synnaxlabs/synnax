@@ -94,6 +94,7 @@ var _ = Describe("Counter", func() {
 
 				Expect(keys).To(HaveLen(1000))
 				Expect(lo.Uniq(keys)).To(HaveLen(1000))
+				Expect(f.Close()).To(Succeed())
 			})
 		})
 	}

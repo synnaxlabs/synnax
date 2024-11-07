@@ -152,15 +152,15 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 // operations being executed on the database. Close is idempotent, and will return nil
 // if the database is already closed.
 func (db *DB) Close() error {
-	if db.closed.Load() {
+	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
 	err := db.domain.Close()
 	if err != nil {
+		db.closed.Store(false)
 		return db.wrapError(err)
 	}
 
-	db.closed.Store(true)
 	return nil
 }
 
