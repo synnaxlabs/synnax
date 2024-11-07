@@ -78,9 +78,9 @@ export const usePlacer = (): Placer => {
   const dispatch = useDispatch();
   const store = useStore<RootState, RootAction>();
   const windowKey = useSelectWindowKey();
-  if (windowKey == null) throw new Error("windowKey is null");
   return useCallback(
     (base) => {
+      if (windowKey == null) throw new Error("windowKey is null");
       const layout =
         typeof base === "function" ? base({ dispatch, store, windowKey }) : base;
       const { key } = layout;
@@ -241,7 +241,7 @@ export const useTriggers = () => {
       const state = store.getState();
       const active = selectActiveMosaicTabKey(state);
       const windowKey = selectWindowKey(state);
-      const [, focused] = selectFocused(state);
+      const { focused } = selectFocused(state);
       if (active == null || windowKey == null) return;
       if (focused != null) store.dispatch(setFocus({ key: null, windowKey }));
       else store.dispatch(setFocus({ key: active, windowKey }));
