@@ -8,12 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import {
-  type Drift,
-  MAIN_WINDOW,
-  selectWindow,
-  selectWindowKey,
-} from "@synnaxlabs/drift";
+import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
@@ -92,7 +88,12 @@ export const selectMosaic = (
   state: StoreState & Drift.StoreState,
   windowKey: string = MAIN_WINDOW,
 ): [string, Mosaic.Node] => {
+<<<<<<< HEAD
   return [windowKey, selectSliceState(state).mosaics[windowKey].root];
+=======
+  const winKey = selectWindowKey(state, windowKey) as string;
+  return [winKey, selectSliceState(state).mosaics[winKey].root];
+>>>>>>> 5b63e1d57d5da51b04108f14976a0d52c876e06d
 };
 
 export interface UseSelectFocusedReturn {
