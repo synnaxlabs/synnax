@@ -574,7 +574,6 @@ const value: Spec<ValueProps> = {
     color: t.colors.gray.l9.rgba255,
     units: "psi",
     level: "h5",
-    unitsLevel: "small",
     inlineSize: 70,
     ...zeroLabel("Value"),
     ...ZERO_PROPS,
