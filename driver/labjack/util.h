@@ -50,17 +50,17 @@ inline int check_err_internal(
     return -1;
 }
 
-class DeviceManager{
+class DeviceManager {
 public:
     DeviceManager() : device_handles() {
     }
 
-    int get_device_handle(std::string serial_number){
+    int get_device_handle(std::string serial_number) {
         std::lock_guard<std::mutex> lock(device_mutex);
-        if (this->device_handles.find(serial_number) == device_handles.end()){
+        if (this->device_handles.find(serial_number) == device_handles.end()) {
             int handle;
             int err = LJM_Open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &handle);
-            if (err != 0){
+            if (err != 0) {
                 char err_msg[LJM_MAX_NAME_SIZE];
                 LJM_ErrorToString(err, err_msg);
                 LOG(ERROR) << "[labjack.reader] LJM_Open error: " << err_msg << "(" << err << ")";
@@ -74,5 +74,4 @@ public:
 private:
     std::map<std::string, int> device_handles;
 };
-
 }

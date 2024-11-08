@@ -132,7 +132,7 @@ labjack::WriteSink::WriteSink(
 ) : ctx(ctx),
     task(task),
     writer_config(writer_config),
-    device_manager(device_manager){
+    device_manager(device_manager) {
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,

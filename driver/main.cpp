@@ -139,7 +139,6 @@ int main(int argc, char *argv[]) {
 #endif
 
 
-
     auto factory = std::make_unique<task::MultiFactory>(std::move(factories));
     task_manager = std::make_unique<task::Manager>(
         rack,

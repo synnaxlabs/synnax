@@ -14,19 +14,19 @@
 //                                   ReaderSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::ReaderSource::ReaderSource(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task task,
-        const ReaderConfig &reader_config,
-        std::shared_ptr<labjack::DeviceManager> device_manager
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task task,
+    const ReaderConfig &reader_config,
+    std::shared_ptr<labjack::DeviceManager> device_manager
 ) : ctx(ctx),
     task(task),
     reader_config(reader_config),
-    device_manager(device_manager){
+    device_manager(device_manager) {
     auto breaker_config = breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 20,
-            .scale = 1.2,
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
     };
     this->breaker = breaker::Breaker(breaker_config);
     this->handle = this->device_manager->get_device_handle(this->reader_config.serial_number);
@@ -483,12 +483,12 @@ bool labjack::ReaderSource::ok() {
     return this->ok_state;
 }
 
-std::vector<synnax::ChannelKey> labjack::ReaderSource::get_ai_channel_keys(){
+std::vector<synnax::ChannelKey> labjack::ReaderSource::get_ai_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
-    for(auto &channel: this->reader_config.channels){
-       if(channel.channel_type == "AI"){
-           keys.push_back(channel.key);
-       }
+    for (auto &channel: this->reader_config.channels) {
+        if (channel.channel_type == "AI") {
+            keys.push_back(channel.key);
+        }
     }
     return keys;
 }

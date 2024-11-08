@@ -113,9 +113,9 @@ struct WriterConfig {
     WriterConfig() = default;
 
     explicit WriterConfig(
-            config::Parser &parser,
-            const std::shared_ptr<task::Context> &ctx
-        )
+        config::Parser &parser,
+        const std::shared_ptr<task::Context> &ctx
+    )
         : device_type(parser.optional<std::string>("type", "")),
           device_key(parser.required<std::string>("device")),
           state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),

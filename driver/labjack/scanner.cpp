@@ -56,8 +56,7 @@ void labjack::ScannerTask::scan() {
     int connection_types[LJM_LIST_ALL_SIZE];
     int serial_numbers[LJM_LIST_ALL_SIZE];
     int ip_addresses[LJM_LIST_ALL_SIZE];
-    int num_found = 0;
-    {
+    int num_found = 0; {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
         check_err(LJM_ListAll(
             device_type,
@@ -66,7 +65,7 @@ void labjack::ScannerTask::scan() {
             device_types,
             connection_types,
             serial_numbers,
-           ip_addresses
+            ip_addresses
         ));
     }
 
@@ -97,9 +96,7 @@ void labjack::ScannerTask::create_devices() {
 
         // in order to differentiate same model devices, we append the last 4 digits of the serial number
         auto ser_num = std::to_string(device["serial_number"].get<int>());
-        auto last_four = ser_num.length() >= 4 ?
-                         ser_num.substr(ser_num.length() - 4) :
-                         ser_num;
+        auto last_four = ser_num.length() >= 4 ? ser_num.substr(ser_num.length() - 4) : ser_num;
         auto name = device["device_type"].get<std::string>() + "-" + last_four;
 
         auto new_device = synnax::Device(

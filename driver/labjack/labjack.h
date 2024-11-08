@@ -19,7 +19,8 @@ const std::string INTEGRATION_NAME = "labjack";
 
 class Factory final : public task::Factory {
 public:
-    Factory() : device_manager(std::make_shared<labjack::DeviceManager>()) {}
+    Factory() : device_manager(std::make_shared<labjack::DeviceManager>()) {
+    }
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
@@ -31,6 +32,7 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override;
+
 private:
     std::shared_ptr<labjack::DeviceManager> device_manager;
 };

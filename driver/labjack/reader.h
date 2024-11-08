@@ -223,7 +223,6 @@ struct ReaderConfig {
           connection_type(parser.optional<std::string>("connection_type", "")),
           data_saving(parser.optional<bool>("data_saving", false)
           ) {
-
         if (!parser.ok())
             LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
