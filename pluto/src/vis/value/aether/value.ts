@@ -44,6 +44,8 @@ interface InternalState {
   textColor: color.Color;
 }
 
+const SIZE_CHANGE_THRESHOLD = 9;
+
 export class Value
   extends aether.Leaf<typeof valueState, InternalState>
   implements Element
@@ -79,8 +81,26 @@ export class Value
     else void this.render({});
   }
 
+  private get fontHeight(): number {
+    const { theme } = this.internal;
+    return theme.typography[this.state.level].size * theme.sizes.base;
+  }
+
+  private maybeUpdateWidth(width: number) {
+    const { theme } = this.internal;
+    const requiredWidth = width + theme.sizes.base + this.fontHeight;
+    if (
+      this.state.width == null ||
+      this.state.width + SIZE_CHANGE_THRESHOLD < requiredWidth ||
+      (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
+    )
+      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
+    else if (this.state.width - SIZE_CHANGE_THRESHOLD > requiredWidth)
+      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
+  }
+
   async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
-    const { render: renderCtx, telem, theme } = this.internal;
+    const { render: renderCtx, telem } = this.internal;
     const b = box.construct(this.state.box);
     if (box.areaIsZero(b)) return;
     const canvas = renderCtx[CANVAS_VARIANT].applyScale(viewportScale);
@@ -90,23 +110,17 @@ export class Value
       code: true,
     });
     canvas.font = fontString;
-    const fontHeight = theme.typography[this.state.level].size * theme.sizes.base;
+    const fontHeight = this.fontHeight;
     const width = dimensions(value, fontString, canvas).width;
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
-    const requiredWidth = width + theme.sizes.base;
-    if (
-      this.state.width == null ||
-      this.state.width < requiredWidth ||
-      (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
-    )
-      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
+    this.maybeUpdateWidth(width);
+    const isNegative = value[0] == "-";
     const labelPosition = xy.translate(box.topLeft(b), {
-      x: 15,
+      x: 12 + fontHeight / 5,
       y: (box.height(b) + fontHeight) / 2,
     });
     canvas.fillStyle = this.internal.textColor.hex;
-    const isNegative = value[0] == "-";
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.
     if (isNegative) {
@@ -115,7 +129,7 @@ export class Value
         "-",
         // 0.55 is a multiplier of the font height that seems to keep the sign in
         // the right place.
-        ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.55)),
+        ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
       );
     }
     canvas.fillText(value, ...xy.couple(labelPosition));
