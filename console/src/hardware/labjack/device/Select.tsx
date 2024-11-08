@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form, Select } from "@synnaxlabs/pluto";
+import { Form, Select, Text } from "@synnaxlabs/pluto";
 import { deep, KeyedNamed } from "@synnaxlabs/x";
 
 import {
@@ -37,7 +37,18 @@ export const SelectPort = ({ model, channelType, ...props }: SelectPortProps) =>
   return (
     <Select.Single<string, Port>
       data={data}
-      columns={[{ key: "key", name: "Port" }]}
+      columns={[
+        { key: "key", name: "Port" },
+        {
+          key: "aliases",
+          name: "Aliases",
+          render: ({ entry: { aliases } }) => (
+            <Text.Text level="small" shade={8}>
+              {aliases.join(", ")}
+            </Text.Text>
+          ),
+        },
+      ]}
       allowNone={false}
       entryRenderKey="key"
       {...props}
