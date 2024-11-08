@@ -109,21 +109,26 @@ export class Value
     });
     canvas.font = fontString;
     const fontHeight = this.fontHeight;
-    const width = dimensions(value, fontString, canvas).width;
+    const isNegative = value[0] == "-";
+    if (isNegative) value = value.slice(1);
+
+    const { theme } = this.internal;
+    const width = dimensions(value, fontString, canvas).width + theme.sizes.base;
+
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
+
     this.maybeUpdateWidth(width);
-    const isNegative = value[0] == "-";
     const labelPosition = xy.translate(box.topLeft(b), {
       x: 6 + fontHeight * 0.75,
       y: box.height(b) / 2,
     });
+
     canvas.textBaseline = "middle";
     canvas.fillStyle = this.internal.textColor.hex;
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.
     if (isNegative) {
-      value = value.slice(1);
       canvas.fillText(
         "-",
         // 0.55 is a multiplier of the font height that seems to keep the sign in
