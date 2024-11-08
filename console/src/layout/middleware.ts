@@ -142,7 +142,7 @@ export const MIDDLEWARE = [
     [closeWindowOnEmptyMosaicEffect],
   ),
   effectMiddleware([place.type], [createWindowOnPlaceEffect]),
-  effectMiddleware([remove.type], [closeWindowOnRemoveEffect]),
+  effectMiddleware([remove.type], [closeWindowOnRemoveEffect], true),
   effectMiddleware([setWorkspace.type], [createWindowsOnSetWorkspaceEffect]),
   effectMiddleware([Drift.closeWindow.type], [deleteLayoutsOnMosaicCloseEffect]),
 ];
