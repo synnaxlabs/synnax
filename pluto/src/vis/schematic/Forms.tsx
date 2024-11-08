@@ -419,14 +419,8 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   const handleSourceChange = (v: channel.Key | null): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
-        {
-          from: "valueStream",
-          to: "rollingAverage",
-        },
-        {
-          from: "rollingAverage",
-          to: "stringifier",
-        },
+        { from: "valueStream", to: "rollingAverage" },
+        { from: "rollingAverage", to: "stringifier" },
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v ?? 0 }),
@@ -442,17 +436,29 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, telem: t });
   };
 
+  const handleNotationChange = (
+    notation: "standard" | "engineering" | "scientific",
+  ): void => {
+    const t = telem.sourcePipeline("string", {
+      connections: [
+        { from: "valueStream", to: "rollingAverage" },
+        { from: "rollingAverage", to: "stringifier" },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: source.channel }),
+        stringifier: telem.stringifyNumber({ notation }),
+        rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
+      },
+      outlet: "stringifier",
+    });
+    onChange({ ...value, telem: t });
+  };
+
   const handlePrecisionChange = (precision: number): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
-        {
-          from: "valueStream",
-          to: "rollingAverage",
-        },
-        {
-          from: "rollingAverage",
-          to: "stringifier",
-        },
+        { from: "valueStream", to: "rollingAverage" },
+        { from: "rollingAverage", to: "stringifier" },
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: source.channel }),
@@ -467,14 +473,8 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   const handleRollingAverageChange = (windowSize: number): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
-        {
-          from: "valueStream",
-          to: "rollingAverage",
-        },
-        {
-          from: "rollingAverage",
-          to: "stringifier",
-        },
+        { from: "valueStream", to: "rollingAverage" },
+        { from: "rollingAverage", to: "stringifier" },
       ],
       segments: {
         stringifier: telem.stringifyNumber({ precision: stringifier.precision ?? 2 }),
@@ -487,9 +487,7 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   const c = Channel.useName(source.channel as number);
-  useEffect(() => {
-    onChange({ ...value, tooltip: [c] });
-  }, [c]);
+  useEffect(() => onChange({ ...value, tooltip: [c] }), [c]);
 
   return (
     <FormWrapper direction="x" align="stretch">
@@ -497,6 +495,17 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
+        />
+      </Input.Item>
+      <Input.Item label="Notation" align="start">
+        <Input.Text
+          value={stringifier.notation ?? "standard"}
+          onChange={handleNotationChange}
+          options={[
+            { value: "standard", label: "Standard" },
+            { value: "scientific", label: "Scientific" },
+            { value: "engineering", label: "Engineering" },
+          ]}
         />
       </Input.Item>
       <Input.Item label="Precision" align="start">
@@ -871,7 +880,7 @@ export const TextBoxForm = (): ReactElement => {
 
 export const OffPageReferenceForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow >
+    <Align.Space direction="y" grow>
       <LabelControls path="label" omit={["maxInlineSize", "align"]} />
       <ColorControl path="color" />
     </Align.Space>

@@ -19,6 +19,7 @@ import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { render } from "@/vis/render";
 
+const notationZ = z.enum(["standard", "scientific", "engineering"]);
 const valueState = z.object({
   box: box.box,
   telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
@@ -27,6 +28,7 @@ const valueState = z.object({
   precision: z.number().optional().default(2),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
+  notation: notationZ.optional().default("standard"),
 });
 
 const CANVAS_VARIANT: render.Canvas2DVariant = "upper2d";
