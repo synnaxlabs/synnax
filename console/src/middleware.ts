@@ -28,13 +28,16 @@ export const effectMiddleware =
   <S, LP, DP>(
     deps: string[],
     effects: Array<MiddlewareEffect<S, LP, DP>>,
+    before: boolean = false,
   ): Middleware<Dispatch<PayloadAction<LP>>, S, Dispatch<PayloadAction<LP>>> =>
   ({ getState, dispatch }) =>
   (next) =>
   (unknownAction) => {
     const action = unknownAction as PayloadAction<LP>;
+    if (before && deps.includes(action.type))
+      effects.forEach((factory) => factory({ getState, dispatch, action }));
     const state = next(unknownAction);
-    if (deps.includes(action.type))
+    if (!before && deps.includes(action.type))
       effects.forEach((factory) => factory({ getState, dispatch, action }));
     return state;
   };

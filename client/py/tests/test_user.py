@@ -55,7 +55,6 @@ def compare_users(user: User, new_user: NewUser):
 
 
 class TestUserClient:
-
     def test_create_params(self, client: sy.Synnax):
         user = client.user.create(username="test", password="test")
         compare_users(user, NewUser(username="test", password="test"))

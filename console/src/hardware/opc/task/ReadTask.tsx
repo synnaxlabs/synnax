@@ -13,6 +13,7 @@ import { DataType, device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
+  Button,
   Device as PDevice,
   Form,
   Haul,
@@ -23,7 +24,6 @@ import {
   Status,
   Synnax,
   Text,
-  useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
@@ -33,7 +33,8 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Device } from "@/hardware/opc/device";
+import { useDevice } from "@/hardware/device/useDevice";
+import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import {
@@ -51,13 +52,14 @@ import {
   ChannelListContextMenu,
   Controls,
   EnableDisableButton,
-  TaskLayoutArgs,
+  type TaskLayoutArgs,
   useCreate,
   useObserveState,
-  WrappedTaskLayoutProps,
+  type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 
 export const configureReadLayout = (
   args: TaskLayoutArgs<ReadPayload> = { create: false },
@@ -98,34 +100,8 @@ const Wrapped = ({
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
-  const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
-    undefined,
-  );
-
   const methods = Form.use({ schema, values: initialValues });
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const dev = methods.value().config.device;
-    if (dev === "") return;
-    const d = await client.hardware.devices.retrieve<Device.Properties>(dev);
-    setDevice(d);
-  }, [client?.key]);
-
-  Form.useFieldListener<string, typeof schema>({
-    ctx: methods,
-    path: "config.device",
-    onChange: useCallback(
-      (fs) => {
-        if (!fs.touched || fs.status.variant !== "success" || client == null) return;
-        client.hardware.devices
-          .retrieve<Device.Properties>(fs.value)
-          .then((d) => setDevice(d))
-          .catch(console.error);
-      },
-      [client?.key, setDevice],
-    ),
-  });
+  const dev = useDevice<Device.Properties>(methods);
 
   const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
@@ -232,6 +208,11 @@ const Wrapped = ({
 
   const placer = Layout.usePlacer();
 
+  const name = task?.name;
+  const key = task?.key;
+
+  const handleLink = Link.useCopyToClipboard();
+
   return (
     <Align.Space
       className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
@@ -241,10 +222,24 @@ const Wrapped = ({
     >
       <Align.Space direction="y" grow>
         <Form.Form {...methods}>
-          <Align.Space direction="x">
+          <Align.Space direction="x" justify="spaceBetween">
             <Form.Field<string> path="name" label="Name">
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
+            {key != null && (
+              <Button.Icon
+                tooltip={
+                  <Text.Text level="small">
+                    {name == null ? "Copy link" : `Copy link to ${name}`}
+                  </Text.Text>
+                }
+                tooltipLocation="left"
+                variant="text"
+                onClick={() => handleLink({ name, ontologyID: { key, type: "task" } })}
+              >
+                <Icon.Link />
+              </Button.Icon>
+            )}
           </Align.Space>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
@@ -298,11 +293,12 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            <Browser device={device} />
-            <ChannelList path="config.channels" device={device} />
+            <Browser device={dev} />
+            <ChannelList path="config.channels" device={dev} />
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={start.isPending}
           configuring={configure.isPending}

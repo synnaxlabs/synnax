@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x";
-import { evaluate } from "mathjs";
+import { evaluate, Unit } from "mathjs";
 import { forwardRef, type ReactElement, useCallback, useEffect } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
@@ -86,7 +86,10 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       let ok = false;
       let v = 0;
       try {
-        v = evaluate(internalValueRef.current);
+        const ev = evaluate(internalValueRef.current);
+        // Sometimes mathjs returns a Unit object, so we need to convert it to a number.
+        if (ev instanceof Unit) v = ev.toNumber();
+        else v = ev;
         ok = v != null;
       } catch {
         ok = false;

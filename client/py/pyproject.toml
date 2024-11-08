@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.32.0"
+version = "0.33.3"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
@@ -19,13 +19,14 @@ pytest-asyncio = "^0.23.7"
 pytest-cov = "^5.0.0"
 black = "^23.3.0"
 isort = "^5.10.1"
+scipy = "^1.14.1"
 
 
 [tool.isort]
 profile = "black"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 pandas = "^2.0.2"
 rich = "^13.4.1"
 pick = "^2.0.2"
@@ -73,6 +74,7 @@ markers = [
     "device: mark test as a device test",
     "ontology: mark test as an ontology test",
     "timing: mark test as a timing test",
+    "opcua: mark test as an opcua test",
     "cli"
 ]
 

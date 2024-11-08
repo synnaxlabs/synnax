@@ -62,29 +62,29 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
         const WriterConfig &config) override {
-        this->writer_opens++;
-        this->config = config;
-        auto err = this->open_errors.empty()
-                       ? freighter::NIL
-                       : this->open_errors.front();
-        if (!this->open_errors.empty())
-            this->open_errors.erase(
-                this->open_errors.begin());
-        auto close_err = this->close_errors.empty()
-                             ? freighter::NIL
-                             : this->close_errors.front();
-        if (!this->close_errors.empty())
-            this->close_errors.erase(
-                this->close_errors.begin());
-        auto return_false_ok_on = this->return_false_ok_on.empty()
-                                      ? -1
-                                      : this->return_false_ok_on.front();
-        if (!this->return_false_ok_on.empty())
-            this->return_false_ok_on.erase(
-                this->return_false_ok_on.begin());
-        auto writer = std::make_unique<MockWriter>(
-            this->writes, close_err, return_false_ok_on);
-        return {std::move(writer), err};
+            this->writer_opens++;
+            this->config = config;
+            auto err = this->open_errors.empty()
+                           ? freighter::NIL
+                           : this->open_errors.front();
+            if (!this->open_errors.empty())
+                this->open_errors.erase(
+                    this->open_errors.begin());
+            auto close_err = this->close_errors.empty()
+                                 ? freighter::NIL
+                                 : this->close_errors.front();
+            if (!this->close_errors.empty())
+                this->close_errors.erase(
+                    this->close_errors.begin());
+            auto return_false_ok_on = this->return_false_ok_on.empty()
+                                          ? -1
+                                          : this->return_false_ok_on.front();
+            if (!this->return_false_ok_on.empty())
+                this->return_false_ok_on.erase(
+                    this->return_false_ok_on.begin());
+            auto writer = std::make_unique<MockWriter>(
+                this->writes, close_err, return_false_ok_on);
+            return {std::move(writer), err};
     }
 };
 

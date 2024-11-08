@@ -281,3 +281,26 @@ class TestWriteFrameAdapter:
         adapter, ch = adapter
         adapted = adapter.adapt_dict_keys({ch.name: 123})
         assert adapted[ch.key] == 123
+
+    def test_adapt_single_string(self, client):
+        """Should correctly adapt a single string into a string based series"""
+        ch = client.channels.create(
+            name=f"test-{random.randint(0, 100000)}",
+            virtual=True,
+            data_type=sy.DataType.STRING,
+        )
+        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter.update(ch.name)
+        adapted = adapter.adapt({ch.name: "hello"})
+        assert adapted[ch.key][0] == "hello"
+
+    def test_adapt_single_string_name_value_pair(self, client):
+        ch = client.channels.create(
+            name=f"test-{random.randint(0, 100000)}",
+            virtual=True,
+            data_type=sy.DataType.STRING,
+        )
+        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter.update(ch.name)
+        adapted = adapter.adapt(ch.name, "hello")
+        assert adapted[ch.key][0] == "hello"

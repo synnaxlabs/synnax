@@ -83,7 +83,6 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
-import { overviewLayout } from "@/range/external";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
@@ -307,7 +306,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
-    const s = scale.Scale.scale(1).scale(bounds);
+    const s = scale.Scale.scale<number>(1).scale(bounds);
     const placer = Layout.usePlacer();
 
     const timeRange = new TimeRange(
@@ -378,7 +377,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
       </PMenu.Menu>
     );
   };
-
+  const addRangeToNewPlot = Range.useAddToNewPlot();
   return (
     <PMenu.ContextMenu
       {...props}
@@ -420,13 +419,15 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                     download({ client, lines, timeRange, name });
                     break;
                   case "meta-data":
-                    placer({ ...overviewLayout, name, key });
+                    placer({ ...Range.overviewLayout, name, key });
+                    break;
+                  case "line-plot":
+                    addRangeToNewPlot(key);
                     break;
                   default:
                     break;
                 }
               };
-
               return (
                 <PMenu.Menu level="small" key={key} onChange={handleSelect}>
                   <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>

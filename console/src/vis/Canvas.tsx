@@ -16,7 +16,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
 export const Canvas = ({ children }: PropsWithChildren): ReactElement => {
-  const [, focused] = Layout.useSelectFocused();
+  const { focused } = Layout.useSelectFocused();
   return (
     <Core.Canvas
       id={CSS.BE("vis", "canvas")}

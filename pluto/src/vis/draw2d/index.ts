@@ -61,6 +61,7 @@ export interface DrawTextProps {
   weight?: text.Weight;
   shade?: text.Shade;
   maxWidth?: number;
+  code?: boolean;
 }
 
 export interface DrawTextInCenterProps
@@ -238,7 +239,7 @@ export class Draw2D {
     spacing = 1,
     level = "p",
   }: Draw2DMeasureTextContainerProps): [dimensions.Dimensions, (base: xy.XY) => void] {
-    const font = fontString(this.theme, level);
+    const font = fontString(this.theme, { level });
     const textDims = text.map((t) => textDimensions(t, font, this.canvas));
     const spacingPx = this.theme.sizes.base * spacing;
     const offset =
@@ -252,7 +253,7 @@ export class Draw2D {
       },
 
       (position: xy.XY) => {
-        const font = fontString(this.theme, level);
+        const font = fontString(this.theme, { level });
         this.canvas.font = font;
         this.canvas.fillStyle = this.theme.colors.text.hex;
         this.canvas.textBaseline = "top";
@@ -269,8 +270,16 @@ export class Draw2D {
     return this.text({ text, position: box.topLeft(pos), level });
   }
 
-  text({ text, position, level = "p", weight, shade, maxWidth }: DrawTextProps): void {
-    this.canvas.font = fontString(this.theme, level, weight);
+  text({
+    text,
+    position,
+    level = "p",
+    weight,
+    shade,
+    maxWidth,
+    code,
+  }: DrawTextProps): void {
+    this.canvas.font = fontString(this.theme, { level, weight, code });
     if (shade == null) this.canvas.fillStyle = this.theme.colors.text.hex;
     else this.canvas.fillStyle = this.theme.colors.gray[`l${shade}`].hex;
     this.canvas.textBaseline = "top";

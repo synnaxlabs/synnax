@@ -1040,6 +1040,7 @@ export interface ValueProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
   units?: string;
+  unitsLevel?: Text.Level;
   inlineSize?: number;
 }
 
@@ -1049,6 +1050,7 @@ export const Value = ({
   dimensions,
   orientation,
   units = "psi",
+  unitsLevel = "small",
   children,
   inlineSize = 80,
   ...props
@@ -1093,8 +1095,11 @@ export const Value = ({
         <Handle location="top" orientation="left" left={50} top={-2} id="3" />
         <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
       </HandleBoundary>
-      <div className={CSS.BE("value", "units")} style={{ background: borderColor }}>
-        <Text.Text level="small" color={textColor}>
+      <div
+        className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
+        style={{ background: borderColor }}
+      >
+        <Text.Text level={unitsLevel} color={textColor}>
           {units}
         </Text.Text>
       </div>
@@ -1122,7 +1127,7 @@ export const Switch = ({
 
 export interface ButtonProps
   extends Omit<DivProps, "onClick">,
-    Pick<CoreButton.ButtonProps, "color" | "size" | "level"> {
+    Pick<CoreButton.ButtonProps, "color" | "size" | "level" | "onClickDelay"> {
   label?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   color?: Color.Crude;
@@ -1135,9 +1140,16 @@ export const Button = ({
   color,
   size,
   level,
+  onClickDelay: delay,
 }: ButtonProps): ReactElement => (
   <Div orientation={orientation}>
-    <CoreButton.Button onClick={onClick} color={color} size={size} level={level}>
+    <CoreButton.Button
+      onClick={onClick}
+      color={color}
+      size={size}
+      level={level}
+      onClickDelay={delay}
+    >
       {label}
     </CoreButton.Button>
     <HandleBoundary orientation={orientation}>

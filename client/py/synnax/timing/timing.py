@@ -64,24 +64,22 @@ class Timer:
     counter to measure time. The timer can be started, reset, and the elapsed time can
     be queried.
     """
+
     _start: TimeStamp
 
     def __init__(self):
         self.reset()
 
     def elapsed(self) -> TimeSpan:
-        """Returns the time elapsed since the timer was started.
-        """
+        """Returns the time elapsed since the timer was started."""
         return TimeSpan(time.perf_counter_ns() - self._start)
 
     def start(self):
-        """Starts the timer.
-        """
+        """Starts the timer."""
         self.reset()
 
     def reset(self):
-        """Resets the timer to zero.
-        """
+        """Resets the timer to zero."""
         self._start = TimeStamp(time.perf_counter_ns())
 
 
@@ -93,6 +91,7 @@ class Loop:
     block of code is executed as soon as possible. The loop keeps track of the average
     execution time and uses this to correct for any drift in the interval.
     """
+
     _timer: Timer
     interval: TimeSpan
     """The interval at which to run the loop."""
@@ -102,11 +101,7 @@ class Loop:
     """The average execution time of the loop."""
     _correction: TimeSpan = TimeSpan(0)
 
-    def __init__(
-        self,
-        interval: Rate | TimeSpan | float | int,
-        precise: bool = False
-    ):
+    def __init__(self, interval: Rate | TimeSpan | float | int, precise: bool = False):
         """Creates a new Loop object with the given interval and precision.
 
         :param interval: The interval at which to run the loop. This can be a float or

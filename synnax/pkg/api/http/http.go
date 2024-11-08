@@ -90,6 +90,13 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.LinePlotRename = fhttp.UnaryServer[api.LinePlotRenameRequest, types.Nil](router, false, "/api/v1/workspace/lineplot/rename")
 	t.LinePlotSetData = fhttp.UnaryServer[api.LinePlotSetDataRequest, types.Nil](router, false, "/api/v1/workspace/lineplot/set-data")
 
+	// LOG
+	t.LogCreate = fhttp.UnaryServer[api.LogCreateRequest, api.LogCreateResponse](router, false, "/api/v1/workspace/log/create")
+	t.LogRetrieve = fhttp.UnaryServer[api.LogRetrieveRequest, api.LogRetrieveResponse](router, false, "/api/v1/workspace/log/retrieve")
+	t.LogDelete = fhttp.UnaryServer[api.LogDeleteRequest, types.Nil](router, false, "/api/v1/workspace/log/delete")
+	t.LogRename = fhttp.UnaryServer[api.LogRenameRequest, types.Nil](router, false, "/api/v1/workspace/log/rename")
+	t.LogSetData = fhttp.UnaryServer[api.LogSetDataRequest, types.Nil](router, false, "/api/v1/workspace/log/set-data")
+
 	// LABEL
 	t.LabelCreate = fhttp.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse](router, false, "/api/v1/label/create")
 	t.LabelRetrieve = fhttp.UnaryServer[api.LabelRetrieveRequest, api.LabelRetrieveResponse](router, false, "/api/v1/label/retrieve")

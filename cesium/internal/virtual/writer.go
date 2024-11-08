@@ -137,9 +137,7 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	// copy the alignment here because we want to return the alignment of the FIRST
 	// sample, not the last.
 	a := e.alignment
-	if series.DataType.Density() != telem.DensityUnknown {
-		e.alignment = e.alignment.AddSamples(uint32(series.Len()))
-	}
+	e.alignment = e.alignment.AddSamples(uint32(series.Len()))
 	return a, nil
 }
 

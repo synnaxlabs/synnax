@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from threading import Event, Lock
 from typing import Any, Protocol, overload
-from asyncio import create_task, Future
+from asyncio import Future
 
 import numpy as np
 
@@ -25,7 +25,7 @@ from synnax.channel.payload import (
     ChannelPayload,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
-from synnax.telem import CrudeTimeSpan, TimeSpan, TimeStamp
+from synnax.telem import CrudeTimeSpan, TimeSpan, TimeStamp, SampleValue
 from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep
 
@@ -146,17 +146,17 @@ class Controller:
         return self._receiver_opt
 
     @overload
-    def set(self, ch: ChannelKey | ChannelName, value: int | float | bool):
+    def set(self, ch: ChannelKey | ChannelName, value: SampleValue):
         ...
 
     @overload
-    def set(self, ch: dict[ChannelKey | ChannelName, int | float]):
+    def set(self, ch: dict[ChannelKey | ChannelName, SampleValue]):
         ...
 
     def set(
         self,
-        channel: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, int | float],
-        value: int | float | None = None,
+        channel: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, SampleValue],
+        value: SampleValue | None = None,
     ):
         """Sets the provided channel(s) to the provided value(s).
 
@@ -506,7 +506,6 @@ class _Receiver(AsyncThread):
             for i, key in enumerate(frame.channels):
                 self.state[key] = frame.series[i][-1]
             self._process()
-
 
     def stop(self):
         self.loop.call_soon_threadsafe(self.shutdown_future.set_result, None)

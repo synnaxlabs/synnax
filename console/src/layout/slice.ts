@@ -49,7 +49,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["hauling", "alreadyCheckedGetStarted"].map(
+export const PERSIST_EXCLUDE = ["hauling", "alreadyCheckedGetStarted", "themes"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<StoreState>>;
 
@@ -249,7 +249,7 @@ export const { actions, reducer } = createSlice({
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       keys.forEach((contentKey) => {
         const layout = select(state, contentKey);
-        if (layout == null) return;
+        if (layout == null || layout.key == MAIN_WINDOW) return;
         const mosaic = state.mosaics[layout.windowKey];
         if (layout == null || mosaic == null) return;
         const { location } = layout;

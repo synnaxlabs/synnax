@@ -123,8 +123,6 @@ const SymbolRenderer = ({
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
-  const zoom = useSelectViewport(layoutKey);
-
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
   return (
@@ -134,7 +132,6 @@ const SymbolRenderer = ({
       position={position}
       selected={selected}
       onChange={handleChange}
-      zoom={zoom.zoom}
       {...props}
     />
   );
@@ -207,12 +204,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const acquireControl = useCallback(
     (v: boolean) => {
-      dispatch(
-        toggleControl({
-          key: layoutKey,
-          status: v ? "acquired" : "released",
-        }),
-      );
+      dispatch(toggleControl({ key: layoutKey, status: v ? "acquired" : "released" }));
     },
     [layoutKey],
   );
@@ -400,7 +392,7 @@ export const Schematic: Layout.Renderer = ({
     name: "Schematic",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect: useSelect,
+    useSelect,
     fetcher: async (client, layoutKey) => {
       const { key, data } = await client.workspaces.schematic.retrieve(layoutKey);
       return { key, ...data } as unknown as State;

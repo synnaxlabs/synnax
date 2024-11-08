@@ -35,7 +35,7 @@ export const zeroCacheGCMetrics = (): CacheGCMetrics => ({
   purgedBytes: Size.bytes(0),
 });
 
-/** Props for the @see Static cache. */
+/** Props for the @link Static cache. */
 export interface StaticProps {
   /** Used for logging */
   instrumentation?: alamos.Instrumentation;

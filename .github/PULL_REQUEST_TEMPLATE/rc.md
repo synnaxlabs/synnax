@@ -207,6 +207,17 @@ I can successfully:
 - [ ] Add a value to the schematic and display live data.
 - [ ] Add a valve to the schematic and actuate it.
 
+### Logs
+
+I can successfully:
+
+- [] Create a new log from the mosaic.
+- [] Create a new log from the workspace context menu in the resources view.
+- [] Create a new log from the command search bar.
+- [] Stream data from a virtual channel in the schematic.
+- [] Stream data from a persisted channel in the schematic.
+- [] Scroll to see historical data.
+
 ### Workspaces
 
 I can successfully:
@@ -438,3 +449,47 @@ I can successfully:
 
 - [ ] Toggle the color theme from the command search bar.
 - [ ] Run the driver for long periods of time with minimal memory leakage.
+
+
+### LabJack
+
+#### Configuration
+
+I can successfully:
+
+- [ ] Enable and disable LabJack integration when starting the server.
+- [ ] Recognize and connect to a LabJack device available on local machine.
+- [ ] Save device configuration.
+- [ ] Run the driver without the LabJack library installed on the machine.
+
+#### Read Task
+
+I can successfully:
+
+- [ ] Plot live analog data from a read task
+- [ ] Plot live digital data from a read task
+- [ ] Stop, start and reconfigure tasks numerous times at will
+- [ ] Enable and disable data saving at will
+- [ ] Verify there is no lag between sensor input and data written to server
+- [ ] Configure and run a read task for a thermocouple
+- [ ] Run a read task with thermocouples, digital and analog channels
+- [ ] Reiliably plot data at the following sample rates:
+  - [ ] 1 Hz
+  - [ ] 10 Hz
+  - [ ] 50 Hz
+  - [ ] 100 Hz
+  - [ ] 500 Hz
+  - [ ] 1 kHz
+  - [ ] 5 kHz
+  - [ ] 10 kHz
+  - [ ] 50 kHz
+
+#### Write Task
+
+I can successfully:
+
+- [ ] Begin a write task and perform control actions with a schematic.
+  - [ ] actuate a valve via a digital input
+  - [ ] set an analog output to a specific voltage via a setpoint
+- [ ] Stop, start and reconfigure task at will.
+- [ ] configure a write and read task to run simultaneously and stop, delete either one without affecting the other

@@ -9,14 +9,6 @@
 
 import { z } from "zod";
 
-// VENDOR
-
-const VENDORS = ["NI", "other"] as const;
-
-export const vendorZ = z.enum(VENDORS);
-
-export type Vendor = z.infer<typeof vendorZ>;
-
 // DEVICE DIGEST
 
 const propertiesDigestZ = z.object({
@@ -36,7 +28,7 @@ const commandStatePairZ = z.object({
   state: z.number(),
 });
 
-const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
+export const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
   identifier: z.string().min(2).max(12),
   analogInput: z.object({
     portCount: z.number(),
