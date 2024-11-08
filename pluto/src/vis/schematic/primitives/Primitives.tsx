@@ -1095,7 +1095,10 @@ export const Value = ({
         <Handle location="top" orientation="left" left={50} top={-2} id="3" />
         <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
       </HandleBoundary>
-      <div className={CSS.BE("value", "units")} style={{ background: borderColor }}>
+      <div
+        className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
+        style={{ background: borderColor }}
+      >
         <Text.Text level={unitsLevel} color={textColor}>
           {units}
         </Text.Text>

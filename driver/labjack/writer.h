@@ -31,6 +31,7 @@
 #include "driver/breaker/breaker.h"
 #include "driver/loop/loop.h"
 #include "driver/config/config.h"
+#include "driver/labjack/util.h"
 
 namespace labjack {
 struct out_state {
@@ -112,9 +113,9 @@ struct WriterConfig {
     WriterConfig() = default;
 
     explicit WriterConfig(
-            config::Parser &parser,
-            const std::shared_ptr<task::Context> &ctx
-        )
+        config::Parser &parser,
+        const std::shared_ptr<task::Context> &ctx
+    )
         : device_type(parser.optional<std::string>("type", "")),
           device_key(parser.required<std::string>("device")),
           state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),
@@ -157,7 +158,8 @@ public:
     explicit WriteSink(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task,
-        const labjack::WriterConfig &writer_config
+        const labjack::WriterConfig &writer_config,
+        std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
     ~WriteSink();
@@ -182,6 +184,8 @@ public:
 
     bool ok();
 
+    void open_device();
+
 private:
     int handle;
     std::shared_ptr<task::Context> ctx;
@@ -189,6 +193,7 @@ private:
     breaker::Breaker breaker;
     synnax::Task task;
     bool ok_state = true;
+    std::shared_ptr<labjack::DeviceManager> device_manager;
 }; // class WriteSink
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -219,7 +224,8 @@ public:
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::Task &task,
+        std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
 private:

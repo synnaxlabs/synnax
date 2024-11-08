@@ -430,10 +430,13 @@ const ChannelListItem = ({
 }): ReactElement => {
   const { entry } = props;
   const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<ReadChan>({
-    path: `${path}.${props.index}`,
-    optional: true,
-  });
+  // TODO: Fix bug in useChildFieldValues
+  const channels = Form.useChildFieldValues<ReadChan[]>({ path });
+  const childValues = channels?.[props.index];
+  // const childValues = Form.useChildFieldValues<ReadChan>({
+  //   path: `${path}.${props.index}`,
+  //   optional: true,
+  // });
   const channelName = Channel.useName(childValues?.channel ?? 0, "No Channel");
   const channelValid =
     Form.useField<number>({

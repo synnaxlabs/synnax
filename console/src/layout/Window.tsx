@@ -10,6 +10,7 @@
 import "@/layout/Window.css";
 
 import {
+  MAIN_WINDOW,
   setWindowDecorations,
   setWindowMinimized,
   setWindowVisible,
@@ -89,7 +90,10 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 const WindowInternal = (): ReactElement | null => {
-  const win = useSelectWindowKey(getCurrentWindow().label) ?? "";
+  const currLabel = getCurrentWindow().label;
+  const isMain = currLabel === MAIN_WINDOW;
+  let win = useSelectWindowKey(getCurrentWindow().label) ?? "";
+  if (isMain) win = MAIN_WINDOW;
   const layout = useSelect(win);
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
