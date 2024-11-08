@@ -86,7 +86,7 @@ export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
  */
 export const selectMosaic = (
   state: StoreState & Drift.StoreState,
-  windowKey: string = MAIN_WINDOW,
+  windowKey?: string,
 ): [string, Mosaic.Node] => {
   const winKey = selectWindowKey(state, windowKey) as string;
   return [winKey, selectSliceState(state).mosaics[winKey].root];
