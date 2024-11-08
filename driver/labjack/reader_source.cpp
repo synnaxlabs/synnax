@@ -36,7 +36,7 @@ void labjack::ReaderSource::open_device(){
         this->handle = labjack::device_handles[this->reader_config.serial_number];
     } else {
         if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle),
-                    "init_stream.LJM_OPEN")) {
+                    "open_device.LJM_OPEN")) {
             LOG(ERROR) << "[labjack.reader] LJM_Open error";
             return;
         }

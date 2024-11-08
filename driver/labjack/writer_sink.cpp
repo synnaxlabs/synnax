@@ -147,10 +147,26 @@ labjack::WriteSink::WriteSink(
         state_index_keys,
         this->writer_config.initial_state_map
     );
+
+    this->open_device();
 }
 
 labjack::WriteSink::~WriteSink() {
     this->stop("");
+}
+
+void labjack::WriteSink::open_device(){
+    std::lock_guard<std::mutex> lock(labjack::device_mutex);
+    if (labjack::device_handles.find(this->writer_config.serial_number) != labjack::device_handles.end()) {
+        this->handle = labjack::device_handles[this->writer_config.serial_number];
+    } else {
+        if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->writer_config.serial_number.c_str(), &this->handle),
+                      "open_device.LJM_OPEN")) {
+            LOG(ERROR) << "[labjack.writer] LJM_Open error";
+            return;
+        }
+        labjack::device_handles[this->writer_config.serial_number] = this->handle;
+    }
 }
 
 void labjack::WriteSink::init() {
@@ -163,16 +179,6 @@ void labjack::WriteSink::init() {
             return;
         }
         this->writer_config.device_type = dev.model;
-    } {
-        std::lock_guard<std::mutex> lock(labjack::device_mutex);
-        check_err(
-            LJM_Open(
-                LJM_dtANY,
-                LJM_ctANY,
-                this->writer_config.serial_number.c_str(),
-                &this->handle
-            ), "init.LJM_OPEN"
-        );
     }
     // Set all DO channels to low because LabJack devices factory default is for DIO to be high
     for (auto &channel: this->writer_config.channels) {

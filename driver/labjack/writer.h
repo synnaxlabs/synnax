@@ -182,6 +182,8 @@ public:
 
     bool ok();
 
+    void open_device();
+
 private:
     int handle;
     std::shared_ptr<task::Context> ctx;
