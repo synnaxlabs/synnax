@@ -249,10 +249,7 @@ export const { actions, reducer } = createSlice({
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       keys.forEach((contentKey) => {
         const layout = select(state, contentKey);
-        if (layout == null || layout.key == MAIN_WINDOW) {
-          console.log("MAIN WINDOW - NOT CLOSING SLICE");
-          return;
-        }
+        if (layout == null || layout.key == MAIN_WINDOW) return;
         const mosaic = state.mosaics[layout.windowKey];
         if (layout == null || mosaic == null) return;
         const { location } = layout;

@@ -116,7 +116,6 @@ const WindowInternal = (): ReactElement | null => {
       ctx?.start(Haul.ZERO_ITEM, [Haul.FILE]);
   };
 
-  console.log(layout, win);
   if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
 
