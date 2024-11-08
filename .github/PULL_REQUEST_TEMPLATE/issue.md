@@ -2,11 +2,13 @@
 
 ## Key Information
 
+<!-- Edit the list below with the proper issue number and link -->
+
 - **Linear Issue**: [SY-####](https://linear.app/synnax/issue/)
 
 ## Description
 
-Please write a short (2-3 sentence) description describing the changes.
+<!-- Please write a short (2-3 sentence) description describing the changes. -->
 
 ## Basic Readiness
 
@@ -29,10 +31,10 @@ I have ensured that previous versions of stored data structures are properly mig
 
 The following projects have backwards-compatible APIs:
 
+- [ ] Python Client
 - [ ] Server
 - [ ] TypeScript Client
-- [ ] Python Client
 
 ### Breaking Changes
 
-If anything in this section is not true, please list all breaking changes.
+<!-- If anything in this section is not true, please list all breaking changes. -->
