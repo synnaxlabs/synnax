@@ -187,6 +187,18 @@ class TestRangeClient:
             with pytest.raises(sy.ValidationError):
                 rng.meta_data["key"] = object()
 
+        def test_set_non_string_str_implemented_object(self, client: sy.Synnax):
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+
+            class Test:
+                def __str__(self):
+                    return "test"
+
+            rng.meta_data["key"] = Test()
+            assert rng.meta_data["key"] == "test"
 
     @pytest.mark.ranger
     class TestRangeAlias:

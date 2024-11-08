@@ -14,7 +14,7 @@ from freighter import Payload, UnaryClient, send_required
 
 from synnax import ValidationError
 from synnax.util.normalize import normalize
-from synnax.util.primitive import Primitive, is_primitive
+from synnax.util.primitive import is_primitive
 
 
 class KVPair(Payload):
@@ -24,8 +24,8 @@ class KVPair(Payload):
 
     def __init__(self, **kwargs):
         value = kwargs.get("value")
-        if not isinstance(kwargs["value"], str):
-            if not is_primitive(value):
+        if not isinstance(value, str):
+            if not is_primitive(value) and type(value).__str__ == object.__str__:
                 raise ValidationError(f"""
                 Synnax has no way of casting {value} to a string when setting meta-data
                 on a range. Please convert the value to a string before setting it.
@@ -82,15 +82,15 @@ class KV:
         return {pair.key: pair.value for pair in res.pairs}
 
     @overload
-    def set(self, key: str, value: Primitive):
+    def set(self, key: str, value: any):
         ...
 
     @overload
-    def set(self, key: dict[str, Primitive]):
+    def set(self, key: dict[str, any]):
         ...
 
-    def set(self, key: str | dict[str, Primitive],
-            value: Primitive | None = None) -> None:
+    def set(self, key: str | dict[str, any],
+            value: any = None) -> None:
         pairs = list()
         if isinstance(key, str):
             pairs.append(KVPair(range=self._rng_key, key=key, value=value))
