@@ -44,8 +44,6 @@ interface InternalState {
   textColor: color.Color;
 }
 
-const SIZE_CHANGE_THRESHOLD = 9;
-
 export class Value
   extends aether.Leaf<typeof valueState, InternalState>
   implements Element
@@ -91,11 +89,11 @@ export class Value
     const requiredWidth = width + theme.sizes.base + this.fontHeight;
     if (
       this.state.width == null ||
-      this.state.width + SIZE_CHANGE_THRESHOLD < requiredWidth ||
+      this.state.width + this.fontHeight * 0.5 < requiredWidth ||
       (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
     )
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
-    else if (this.state.width - SIZE_CHANGE_THRESHOLD > requiredWidth)
+    else if (this.state.width - this.fontHeight > requiredWidth)
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
   }
 
@@ -117,9 +115,10 @@ export class Value
     this.maybeUpdateWidth(width);
     const isNegative = value[0] == "-";
     const labelPosition = xy.translate(box.topLeft(b), {
-      x: 12 + fontHeight / 5,
-      y: (box.height(b) + fontHeight) / 2,
+      x: 6 + fontHeight * 0.75,
+      y: box.height(b) / 2,
     });
+    canvas.textBaseline = "middle";
     canvas.fillStyle = this.internal.textColor.hex;
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.
