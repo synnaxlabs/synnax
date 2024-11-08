@@ -88,12 +88,8 @@ export const selectMosaic = (
   state: StoreState & Drift.StoreState,
   windowKey: string = MAIN_WINDOW,
 ): [string, Mosaic.Node] => {
-<<<<<<< HEAD
-  return [windowKey, selectSliceState(state).mosaics[windowKey].root];
-=======
   const winKey = selectWindowKey(state, windowKey) as string;
   return [winKey, selectSliceState(state).mosaics[winKey].root];
->>>>>>> 5b63e1d57d5da51b04108f14976a0d52c876e06d
 };
 
 export interface UseSelectFocusedReturn {
