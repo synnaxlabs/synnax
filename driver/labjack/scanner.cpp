@@ -22,8 +22,9 @@
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::ScannerTask::ScannerTask(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) : ctx(std::move(ctx)), task(std::move(task)) {
+    const synnax::Task &task,
+    std::shared_ptr<labjack::DeviceManager> device_manager
+) : ctx(std::move(ctx)), task(std::move(task)), device_manager(device_manager) {
     this->devices["devices"] = nlohmann::json::array();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&ScannerTask::run, this);
@@ -31,9 +32,10 @@ labjack::ScannerTask::ScannerTask(
 
 std::unique_ptr<task::Task> labjack::ScannerTask::configure(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::Task &task,
+    std::shared_ptr<labjack::DeviceManager> device_manager
 ) {
-    return std::make_unique<ScannerTask>(ctx, task);
+    return std::make_unique<ScannerTask>(ctx, task, device_manager);
 }
 
 
@@ -117,17 +119,8 @@ void labjack::ScannerTask::create_devices() {
         } else {
             LOG(INFO) << "[labjack.scanner] successfully created device with key: " << device["key"];
         }
-        {
-            std::lock_guard<std::mutex> lock(labjack::device_mutex);
-            std::string serial_number = std::to_string(device["serial_number"].get<int>());
-            int handle = 0;
-            if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &handle))) {
-                LOG(ERROR) << "[labjack.scanner] LJM_Open error";
-                return;
-            }
-            // add to the map
-            labjack::device_handles[serial_number] = handle;
-        }
+        std::string serial_number = std::to_string(device["serial_number"].get<int>());
+        int handle = this->device_manager->get_device_handle(serial_number);
     }
 }
 

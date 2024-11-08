@@ -24,6 +24,7 @@
 #include "driver/errors/errors.h"
 #include "driver/breaker/breaker.h"
 #include "driver/task/task.h"
+#include "driver/labjack/util.h"
 
 // Currently supports: T7, T4, T5, Digit products.
 
@@ -42,12 +43,14 @@ public:
 
     explicit ScannerTask(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::Task &task,
+        std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::Task &task,
+        std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
     std::string name() override { return task.name; }
@@ -77,5 +80,6 @@ private:
     breaker::Breaker breaker;
     synnax::Rate scan_rate = synnax::Rate(1);
     bool ok_state = true;
+    std::shared_ptr<labjack::DeviceManager> device_manager;
 };
 };

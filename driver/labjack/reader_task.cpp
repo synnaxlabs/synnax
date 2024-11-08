@@ -71,7 +71,9 @@ void labjack::ReaderTask::start(const std::string &cmd_key) {
 
 std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task) {
+    const synnax::Task &task,
+    std::shared_ptr<labjack::DeviceManager> device_manager
+    ) {
     LOG(INFO) << "[labjack.task] configuring task " << task.name;
 
     auto breaker_config = breaker::Config{
@@ -87,7 +89,8 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     auto source = std::make_shared<labjack::ReaderSource>(
         ctx,
         task,
-        reader_config
+        reader_config,
+        device_manager
     );
 
     std::vector<synnax::ChannelKey> channel_keys = source->get_channel_keys();

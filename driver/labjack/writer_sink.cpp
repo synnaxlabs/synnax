@@ -127,10 +127,12 @@ void labjack::StateSource::update_state(synnax::Frame frame) {
 labjack::WriteSink::WriteSink(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const labjack::WriterConfig &writer_config
+    const labjack::WriterConfig &writer_config,
+    std::shared_ptr<labjack::DeviceManager> device_manager
 ) : ctx(ctx),
     task(task),
-    writer_config(writer_config) {
+    writer_config(writer_config),
+    device_manager(device_manager){
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
@@ -148,26 +150,13 @@ labjack::WriteSink::WriteSink(
         this->writer_config.initial_state_map
     );
 
-    this->open_device();
+    this->handle = this->device_manager->get_device_handle(this->writer_config.serial_number);
 }
 
 labjack::WriteSink::~WriteSink() {
     this->stop("");
 }
 
-void labjack::WriteSink::open_device(){
-    std::lock_guard<std::mutex> lock(labjack::device_mutex);
-    if (labjack::device_handles.find(this->writer_config.serial_number) != labjack::device_handles.end()) {
-        this->handle = labjack::device_handles[this->writer_config.serial_number];
-    } else {
-        if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->writer_config.serial_number.c_str(), &this->handle),
-                      "open_device.LJM_OPEN")) {
-            LOG(ERROR) << "[labjack.writer] LJM_Open error";
-            return;
-        }
-        labjack::device_handles[this->writer_config.serial_number] = this->handle;
-    }
-}
 
 void labjack::WriteSink::init() {
     if (this->writer_config.device_type == "") {

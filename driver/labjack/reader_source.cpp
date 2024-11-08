@@ -16,10 +16,12 @@
 labjack::ReaderSource::ReaderSource(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task task,
-        const ReaderConfig &reader_config
+        const ReaderConfig &reader_config,
+        std::shared_ptr<labjack::DeviceManager> device_manager
 ) : ctx(ctx),
     task(task),
-    reader_config(reader_config) {
+    reader_config(reader_config),
+    device_manager(device_manager){
     auto breaker_config = breaker::Config{
             .name = task.name,
             .base_interval = 1 * SECOND,
@@ -27,21 +29,7 @@ labjack::ReaderSource::ReaderSource(
             .scale = 1.2,
     };
     this->breaker = breaker::Breaker(breaker_config);
-    this->open_device();
-}
-
-void labjack::ReaderSource::open_device(){
-    std::lock_guard<std::mutex> lock(labjack::device_mutex);
-    if (labjack::device_handles.find(this->reader_config.serial_number) != labjack::device_handles.end()) {
-        this->handle = labjack::device_handles[this->reader_config.serial_number];
-    } else {
-        if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle),
-                    "open_device.LJM_OPEN")) {
-            LOG(ERROR) << "[labjack.reader] LJM_Open error";
-            return;
-        }
-        labjack::device_handles[this->reader_config.serial_number] = this->handle;
-    }
+    this->handle = this->device_manager->get_device_handle(this->reader_config.serial_number);
 }
 
 void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {

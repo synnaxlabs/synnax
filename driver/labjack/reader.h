@@ -30,6 +30,8 @@
 #include "driver/pipeline/middleware.h"
 #include "driver/queue/ts_queue.h"
 #include "driver/breaker/breaker.h"
+#include "driver/labjack/util.h"
+
 
 namespace labjack {
 ///////////////////////////////////////////////////////////////////////////////////
@@ -248,7 +250,8 @@ public:
     explicit ReaderSource(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task task,
-        const ReaderConfig &reader_config
+        const ReaderConfig &reader_config,
+        std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
     ~ReaderSource() override;
@@ -312,6 +315,7 @@ private:
     int num_samples_per_chan = 0;
     bool ok_state = true;
     std::mutex mutex;
+    std::shared_ptr<labjack::DeviceManager> device_manager;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -339,7 +343,8 @@ public:
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::Task &task,
+        std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
 private:

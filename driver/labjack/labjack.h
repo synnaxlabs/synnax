@@ -12,11 +12,15 @@
 #include "driver/config/config.h"
 #include "driver/task/task.h"
 #include "driver/labjack/dll_check_windows.h"
+#include "driver/labjack/util.h"
 
 namespace labjack {
 const std::string INTEGRATION_NAME = "labjack";
 
 class Factory final : public task::Factory {
+public:
+    Factory() : device_manager(std::make_shared<labjack::DeviceManager>()) {}
+
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
@@ -27,6 +31,8 @@ class Factory final : public task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override;
+private:
+    std::shared_ptr<labjack::DeviceManager> device_manager;
 };
 
 static inline bool dlls_available() {
