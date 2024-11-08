@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
+import {
+  type Drift,
+  MAIN_WINDOW,
+  selectWindow,
+  selectWindowKey,
+} from "@synnaxlabs/drift";
 import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
@@ -85,23 +90,29 @@ export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
  */
 export const selectMosaic = (
   state: StoreState & Drift.StoreState,
-  windowKey?: string,
+  windowKey: string = MAIN_WINDOW,
 ): [string, Mosaic.Node] => {
-  const win = selectWindow(state, windowKey);
-  if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
-  return [win.key, selectSliceState(state).mosaics[win.key].root];
+  return [windowKey, selectSliceState(state).mosaics[windowKey].root];
 };
+
+export interface UseSelectFocusedReturn {
+  windowKey: string | null;
+  focused: string | null;
+}
 
 export const selectFocused = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
-): [string, string | null] => {
+): UseSelectFocusedReturn => {
   const win = selectWindow(state, windowKey);
-  if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
-  return [win.key, selectSliceState(state).mosaics[win.key]?.focused ?? null];
+  if (win == null) return { windowKey: null, focused: null };
+  return {
+    windowKey: win.key,
+    focused: selectSliceState(state).mosaics[win.key]?.focused ?? null,
+  };
 };
 
-export const useSelectFocused = (): [string, string | null] =>
+export const useSelectFocused = (): UseSelectFocusedReturn =>
   useMemoSelect(selectFocused, []);
 
 /**
@@ -201,9 +212,9 @@ export const selectActiveMosaicTabKey = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
 ): string | null => {
-  const win = selectWindow(state, windowKey);
-  if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
-  return selectSliceState(state).mosaics[win.key].activeTab;
+  const winKey = selectWindowKey(state, windowKey);
+  if (winKey == null) return null;
+  return selectSliceState(state).mosaics[winKey].activeTab;
 };
 
 export const useSelectActiveMosaicTabKey = (): string | null =>

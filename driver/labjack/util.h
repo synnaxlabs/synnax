@@ -8,9 +8,10 @@
 
 #include <mutex>
 #include <thread>
+#include <map>
 
 #include "driver/labjack/errors.h"
-
+#include "LJM_Utilities.h"
 
 namespace labjack {
 inline std::mutex device_mutex;
@@ -48,4 +49,29 @@ inline int check_err_internal(
     ok_state = false;
     return -1;
 }
+
+class DeviceManager {
+public:
+    DeviceManager() : device_handles() {
+    }
+
+    int get_device_handle(std::string serial_number) {
+        std::lock_guard<std::mutex> lock(device_mutex);
+        if (this->device_handles.find(serial_number) == device_handles.end()) {
+            int handle;
+            int err = LJM_Open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &handle);
+            if (err != 0) {
+                char err_msg[LJM_MAX_NAME_SIZE];
+                LJM_ErrorToString(err, err_msg);
+                LOG(ERROR) << "[labjack.reader] LJM_Open error: " << err_msg << "(" << err << ")";
+                return -1;
+            }
+            device_handles[serial_number] = handle;
+        }
+        return device_handles[serial_number];
+    }
+
+private:
+    std::map<std::string, int> device_handles;
+};
 }

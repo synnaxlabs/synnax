@@ -100,9 +100,10 @@ interface ContentCProps extends Tabs.Tab {
 const ModalContent = ({ node, tabKey }: ContentCProps) => {
   const d = useDispatch();
   const layout = Layout.useSelectRequired(tabKey);
-  const [windowKey, focusedKey] = Layout.useSelectFocused();
+  const { windowKey, focused: focusedKey } = Layout.useSelectFocused();
   const focused = tabKey === focusedKey;
-  const handleClose = () => d(Layout.setFocus({ windowKey, key: null }));
+  const handleClose = () =>
+    windowKey != null && d(Layout.setFocus({ windowKey, key: null }));
   const openInNewWindow = Layout.useOpenInNewWindow();
   const handleOpenInNewWindow = () => {
     openInNewWindow(tabKey);

@@ -44,7 +44,8 @@ labjack::WriterTask::WriterTask(
 
 std::unique_ptr<task::Task> labjack::WriterTask::configure(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::Task &task,
+    std::shared_ptr<labjack::DeviceManager> device_manager
 ) {
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -59,7 +60,8 @@ std::unique_ptr<task::Task> labjack::WriterTask::configure(
     auto sink = std::make_shared<labjack::WriteSink>(
         ctx,
         task,
-        writer_config
+        writer_config,
+        device_manager
     );
 
     std::vector<synnax::ChannelKey> cmd_keys = sink->get_cmd_channel_keys();
