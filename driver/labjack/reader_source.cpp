@@ -481,7 +481,12 @@ int labjack::ReaderSource::check_err(int err, std::string caller) {
         this->task.key
     );
 
-    if(err == LJME_RECONNECT_FAILED || err == LJME_NO_RESPONSE_BYTES_RECEIVED){
+    if( err == LJME_RECONNECT_FAILED ||
+        err == LJME_NO_RESPONSE_BYTES_RECEIVED ||
+        err == LJME_INCORRECT_NUM_COMMAND_BYTES_SENT ||
+        err == LJME_NO_COMMAND_BYTES_SENT ||
+        err == LJME_INCORRECT_NUM_RESPONSE_BYTES_RECEIVED
+    ) {
         this->device_manager->close_device(this->reader_config.serial_number);
     }
     return err;
