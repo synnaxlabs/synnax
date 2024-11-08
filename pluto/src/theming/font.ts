@@ -23,7 +23,7 @@ export const useTypography = (level: Text.Level): UseTypographyReturn => {
   const t = theme.typography[level];
   return {
     ...t,
-    toString: () => fontString(theme, level),
+    toString: () => fontString(theme, { level }),
     baseSize: theme.sizes.base,
     lineHeightPx: t.lineHeight * theme.sizes.base,
     sizePx: t.size * theme.sizes.base,

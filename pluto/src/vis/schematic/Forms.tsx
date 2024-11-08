@@ -564,14 +564,6 @@ export const ValueForm = (): ReactElement => {
                 >
                   {(p) => <Text.SelectLevel {...p} />}
                 </Form.Field>
-                <Form.Field<Text.Level>
-                  path="unitsLevel"
-                  label="Units Size"
-                  hideIfNull
-                  padHelpText={false}
-                >
-                  {(p) => <Text.SelectLevel {...p} />}
-                </Form.Field>
               </Align.Space>
             </Align.Space>
             <OrientationControl path="" showInner={false} />

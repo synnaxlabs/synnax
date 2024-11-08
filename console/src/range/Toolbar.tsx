@@ -182,7 +182,7 @@ const useViewDetails = (): ((key: string) => void) => {
   }).mutate;
 };
 
-const useAddToNewPlot = (): ((key: string) => void) => {
+export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const placer = Layout.usePlacer();
