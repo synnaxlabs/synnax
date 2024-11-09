@@ -344,7 +344,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::B
 
 std::pair<Frame, freighter::Error> labjack::ReaderSource::read(breaker::Breaker &breaker) {
     if(this->ok() == false){
-        return std::make_pair(Frame(0), freighter::Error("Device disconnected or is in error. Please reconfigure device and try again"));
+        return std::make_pair(Frame(0), freighter::Error("Device disconnected or is in error. Please reconfigure task and try again"));
     }
     if (this->reader_config.tc_channels.empty())
         return this->read_stream(breaker);
