@@ -375,6 +375,7 @@ interface ValueTelemFormT {
 
 const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<ValueTelemFormT>({ path });
+  console.log(value);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -406,9 +407,7 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, telem: t });
   };
 
-  const handleNotationChange = (
-    notation: "standard" | "engineering" | "scientific",
-  ): void => {
+  const handleNotationChange = (notation: Notation): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
         { from: "valueStream", to: "rollingAverage" },
@@ -418,7 +417,7 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
         valueStream: telem.streamChannelValue({ channel: source.channel }),
         stringifier: telem.stringifyNumber({
           precision: stringifier.precision,
-          notation: stringifier.notation ?? "standard",
+          notation,
         }),
         rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
       },
@@ -436,7 +435,7 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
       segments: {
         valueStream: telem.streamChannelValue({ channel: source.channel }),
         stringifier: telem.stringifyNumber({
-          precision: stringifier.precision ?? 2,
+          precision: precision ?? 2,
           notation: stringifier.notation,
         }),
         rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
@@ -476,25 +475,9 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
           onChange={handleSourceChange}
         />
       </Input.Item>
-      {/* <Input.Item label="Notation" align="start">
-        <Input.Text
-          value={stringifier?.notation ?? "standard"}
-          onChange={handleNotationChange as (v: string) => void}
-        />
-      </Input.Item> */}
-      <Form.Field<Notation>
-        path="notation"
-        label="Notation"
-        padHelpText={false}
-        // hideIfNull
-      >
-        {(p) => (
-          <>
-            <h1>poop</h1>
-            <SelectNotation {...p} />
-          </>
-        )}
-      </Form.Field>
+      <Input.Item label="Notation">
+        <SelectNotation value={stringifier.notation} onChange={handleNotationChange} />
+      </Input.Item>
       <Input.Item label="Precision" align="start">
         <Input.Numeric
           value={stringifier.precision ?? 2}

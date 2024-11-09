@@ -19,39 +19,59 @@ interface TestCase {
 
 const TEST_CASES: TestCase[] = [
   {
-    number: 1234.5678,
-    precision: 2,
-    expected: { standard: "1234.57", scientific: "1.23e+3", engineering: "1.23e3" },
+    number: 12345.678,
+    precision: 1,
+    expected: { standard: "12345.7", scientific: "1.2ᴇ4", engineering: "12.3ᴇ3" },
+  },
+  {
+    number: 12345.678,
+    precision: 0,
+    expected: { standard: "12346", scientific: "1ᴇ4", engineering: "12ᴇ3" },
   },
   {
     number: 0,
-    precision: 2,
-    expected: { standard: "0.00", scientific: "0.00e+0", engineering: "0.00e0" },
+    precision: 1,
+    expected: { standard: "0.0", scientific: "0.0ᴇ0", engineering: "0.0ᴇ0" },
+  },
+  {
+    number: 0,
+    precision: 0,
+    expected: { standard: "0", scientific: "0ᴇ0", engineering: "0ᴇ0" },
   },
   {
     number: -1234.5678,
-    precision: 2,
-    expected: { standard: "-1234.57", scientific: "-1.23e+3", engineering: "-1.23e3" },
+    precision: 1,
+    expected: { standard: "-1234.6", scientific: "-1.2ᴇ3", engineering: "-1.2ᴇ3" },
+  },
+  {
+    number: -1234.5678,
+    precision: 0,
+    expected: { standard: "-1235", scientific: "-1ᴇ3", engineering: "-1ᴇ3" },
   },
   {
     number: NaN,
-    precision: 2,
+    precision: 0,
     expected: { standard: "NaN", scientific: "NaN", engineering: "NaN" },
   },
   {
     number: Infinity,
-    precision: 2,
+    precision: 0,
     expected: { standard: "∞", scientific: "∞", engineering: "∞" },
   },
   {
     number: -Infinity,
-    precision: 2,
+    precision: 0,
     expected: { standard: "-∞", scientific: "-∞", engineering: "-∞" },
   },
   {
     number: 0.0001234,
-    precision: 2,
-    expected: { standard: "0.00", scientific: "1.23e-4", engineering: "123.40e-6" },
+    precision: 1,
+    expected: { standard: "0.0", scientific: "1.2ᴇ-4", engineering: "123.4ᴇ-6" },
+  },
+  {
+    number: 0.0001234,
+    precision: 0,
+    expected: { standard: "0", scientific: "1ᴇ-4", engineering: "123ᴇ-6" },
   },
 ];
 
