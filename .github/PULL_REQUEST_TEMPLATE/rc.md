@@ -506,7 +506,8 @@ I can successfully:
   - [ ] Invalid task type for devices (e.g. analog read on a analog output device)
   - [ ] Out of range values
   - [ ] Multiple tasks using the same channel
-- [ ] Shut down the driver with an embedded driver without receiving an error from the driver routine. <!-- Not really sure what this means-->
+  - [ ] Devices disconnected while task is running.
+- [ ] Shut down the server (ctrl-C) without receiving an error from the driver routine. <!-- Not really sure what this means-->
 
 ### LabJack
 
@@ -520,30 +521,39 @@ I can successfully:
 - **Read Task**
   <!-- we probably should add more tests here, right? -->
   <!-- like tares, scaling, etc. -->
+
   - [ ] Plot live analog data
   - [ ] Plot live digital data
+  - [ ] Tare livestreams of data from numerous channels on a device.
+  - [ ] Plot data with a linear scale applied.
   - [ ] Stop, start and reconfigure tasks numerous times
   - [ ] Enable and disable data saving
   - [ ] Verify there is no lag between sensor input and data written to server
   - [ ] Configure and run a read task for a thermocouple
   - [ ] Run a read task with thermocouples, digital and analog channels
-  - **Reliably plot data at the following sample rates:**
+  - [ ] Disconnect a device while reading data from it, reconnect the device and read data after reconfiguring.
+  - **Reliably plot analog input data at the following sample rates:**
     <!-- Let's just do like three, if it works at 10 and 100 then it works at 50 -->
     - [ ] 1 Hz
     - [ ] 10 Hz
-    - [ ] 50 Hz
     - [ ] 100 Hz
-    - [ ] 500 Hz
     - [ ] 1 kHz
-    - [ ] 5 kHz
     - [ ] 10 kHz
     - [ ] 50 kHz
+
 - **Write Task**
   <!-- there's probably other tests we can do on configuring it right! -->
+
   - **Begin a write task and perform control actions with a schematic**:
     - [ ] actuate a valve via a digital input
     - [ ] set an analog output to a specific voltage via a setpoint
   - [ ] Stop, start and reconfigure task at will.
+  - [ ] Disconnect a device while reading data from it, reconnect the device and read data after reconfiguring.
+
+  - **Configure response time based on state rate specified**:
+    - [ ] 1 Hz (should have visible delay in response)
+    - [ ] 20 Hz (should feel almost immediate)
+
 - [ ] configure a write and read task to run simultaneously and stop, delete either one without affecting the other
 
 ### NI
@@ -552,13 +562,12 @@ I can successfully:
 
 - [ ] Enable and disable NI integration when starting the server.
 - [ ] Recognize and connect to a National Instruments device available on local machine.
-- [ ] Recognize and connect to a National Instruments devices available on network. <!--what does this mean?>
-- [ ] Recognize and connect to a physcial device
-- [ ] Recognize and connect to a simulated device
+- [ ] Recognize and connect to a National Instruments devices connected over the network.
+- [ ] Recognize and connect to a physcial device.
+- [ ] Recognize and connect to a simulated device.
 - [ ] Disconnect a physical device from the machine with a task running without faulting.
-- [ ] Save device configuration.
-- [ ] Not see chassis devices connected to the machine
-- [ ] See devices connected to a chassis
+- [ ] Ignore chassis.
+- [ ] See devices connected to chassis.
 - [ ] Run the driver without the Daqmx and Syscfg libraries installed on the machine.
 - [ ] Get feedback when trying to create an NI task on a machine that doesn't have the required libraries installed.
 - **Pass in an invalid device configuration and receive meaningful feedback:**
@@ -572,62 +581,46 @@ I can successfully:
 - **Reliably stream data at the following sample rates**:
   - [ ] 1 Hz
   - [ ] 10 Hz
-  - [ ] 50 Hz
   - [ ] 100 Hz
-  - [ ] 500 Hz
   - [ ] 1 kHz
-  - [ ] 2 kHz
   - [ ] 5 kHz
 - **Configure the following stream rates**:
   - [ ] 1 Hz
-  - [ ] 5 Hz
   - [ ] 10 Hz
-  - [ ] 20 Hz
   - [ ] 30 Hz
 - **Analog Read Task**
   - [ ] Plot live data from an analog read task.
-  - [ ] Plot live data from a digital read task.
-  - [ ] Stop, start and reconfigure task at will.
+  - [ ] Tare data read through an analog read task.
   - [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
   - [ ] Begin several tasks at different times and see them all plotting live data.
   - [ ] Enable and disable data saving at will.
-  - [ ] verify there is no lag between sensor input and data written to sever.
+  - [ ] verify there is no lag between sensor input and data written to server.
   - [ ] I can succesfully configure and run an analog read task for each of the following channels:
-    - [ ] Acceleration
-    - [ ] Acceleration 4 wire
-    - [ ] Bridge
-      - [ ] All bridge configurations
-    - [ ] Charge
-    - [ ] Current
-    - [ ] Force bridge polynomial
-    - [ ] Force bridge table
-    - [ ] Force bridge two point linear
-    - [ ] Force iepe
-    - [ ] Microphone
-    - [ ] Pressure bridge polynomial
-    - [ ] Pressure bridge table
-    - [ ] Pressure bridge two point linear
-    - [ ] Resistance
-    - [ ] RTD
+    - [ ] Current (NI-9203)
+    - [ ] Resistance (NI-9219)
+    - [ ] RTD (NI-9217)
       - [ ] All RTD types.
       - [ ] All resistance configs.
-    - [ ] Strain gauge
-      - [ ] all strain guage configurations
-    - [ ] Built in temperature sensor
-    - [ ] Thermocouple
+    - [ ] Built in temperature sensor (USB-6289)
+    - [ ] Thermocouple (NI-9211A)
       - [ ] All thermocouple types.
       - [ ] All cjc options.
-    - [ ] Torque bridge polynomial
-    - [ ] Torque bridge table
-    - [ ] Torque bridge two point linear
-    - [ ] Velocity iepe
-    - [ ] Voltage
-      - [ ] All terminal configurations.
+    - [ ] Voltage (USB-6000)
+      - [ ] Terminal configurations.
+        - [ ] Default (USB-6000)
+        - [ ] Reference Single Ended (USB-6000)
+        - [ ] Non-Referenced Single Ended (NI-9206)
+        - [ ] Differential (NI-9206)
+        - [ ] Pseudo-Differential (NI-9234)
   - [ ] I can sucessfully configure the following scales:
     - [ ] Linear
     - [ ] Map
 - **Digital Read Task**
-  - [ ]
+
+  - [ ] Plot live data from a digital read task.
+  - [ ] Stop, start and reconfigure task at will.
+  - [ ] Enable and disable data saving at will.
+
 - **Digital Write Task**
 - [ ] Begin a digital write task and perform control actions with a schematic.
 - [ ] Stop, start and reconfigure task at will.
