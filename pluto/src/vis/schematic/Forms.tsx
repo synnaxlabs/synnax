@@ -461,30 +461,35 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   useEffect(() => onChange({ ...value, tooltip: [c] }), [c]);
 
   return (
-    <FormWrapper direction="x" align="stretch">
+    <FormWrapper direction="y" align="stretch">
       <Input.Item label="Input Channel" grow>
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
         />
       </Input.Item>
-      <Input.Item label="Notation">
-        <SelectNotation value={stringifier.notation} onChange={handleNotationChange} />
-      </Input.Item>
-      <Input.Item label="Precision" align="start">
-        <Input.Numeric
-          value={stringifier.precision ?? 2}
-          bounds={{ lower: 0, upper: 10 }}
-          onChange={handlePrecisionChange}
-        />
-      </Input.Item>
-      <Input.Item label="Averaging Window" align="start">
-        <Input.Numeric
-          value={rollingAverage.windowSize ?? 1}
-          bounds={{ lower: 1, upper: 100 }}
-          onChange={handleRollingAverageChange}
-        />
-      </Input.Item>
+      <Align.Space direction="x">
+        <Input.Item label="Notation">
+          <SelectNotation
+            value={stringifier.notation}
+            onChange={handleNotationChange}
+          />
+        </Input.Item>
+        <Input.Item label="Precision" align="start">
+          <Input.Numeric
+            value={stringifier.precision ?? 2}
+            bounds={{ lower: 0, upper: 10 }}
+            onChange={handlePrecisionChange}
+          />
+        </Input.Item>
+        <Input.Item label="Averaging Window" align="start">
+          <Input.Numeric
+            value={rollingAverage.windowSize ?? 1}
+            bounds={{ lower: 1, upper: 100 }}
+            onChange={handleRollingAverageChange}
+          />
+        </Input.Item>
+      </Align.Space>
     </FormWrapper>
   );
 };
