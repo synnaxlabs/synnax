@@ -68,6 +68,6 @@ export default [
     },
   },
   {
-    ignores: ["node_modules", "build", "dist", "release", "*.d.ts"],
+    ignores: ["node_modules", "build", "dist", "release", "**/*.d.ts"],
   },
 ];
