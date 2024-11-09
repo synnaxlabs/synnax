@@ -375,7 +375,6 @@ interface ValueTelemFormT {
 
 const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<ValueTelemFormT>({ path });
-  console.log(value);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -396,7 +395,7 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
         valueStream: telem.streamChannelValue({ channel: v ?? 0 }),
         stringifier: telem.stringifyNumber({
           precision: stringifier.precision ?? 2,
-          notation: stringifier.notation ?? "standard",
+          notation: stringifier.notation,
         }),
         rollingAverage: telem.rollingAverage({
           windowSize: rollingAverage.windowSize ?? 1,
@@ -414,12 +413,9 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
         { from: "rollingAverage", to: "stringifier" },
       ],
       segments: {
-        valueStream: telem.streamChannelValue({ channel: source.channel }),
-        stringifier: telem.stringifyNumber({
-          precision: stringifier.precision,
-          notation,
-        }),
-        rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
+        valueStream: telem.streamChannelValue(source),
+        stringifier: telem.stringifyNumber({ ...stringifier, notation }),
+        rollingAverage: telem.rollingAverage(rollingAverage),
       },
       outlet: "stringifier",
     });
@@ -434,10 +430,7 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: source.channel }),
-        stringifier: telem.stringifyNumber({
-          precision: precision ?? 2,
-          notation: stringifier.notation,
-        }),
+        stringifier: telem.stringifyNumber({ ...stringifier, precision }),
         rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
       },
       outlet: "stringifier",
@@ -453,8 +446,8 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
       ],
       segments: {
         stringifier: telem.stringifyNumber({
-          precision: stringifier.precision,
-          notation: stringifier.notation,
+          ...stringifier,
+          precision: stringifier.precision ?? 2,
         }),
         valueStream: telem.streamChannelValue({ channel: source.channel }),
         rollingAverage: telem.rollingAverage({ windowSize }),
