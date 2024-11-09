@@ -62,15 +62,15 @@ export const CustomConnectionLine = ({
     const res = location.outer.safeParse(toNodeHandle[1]);
     if (res.success) toPosition = res.data as Position;
   }
+  const flow = useReactFlow();
   const conn = connector.buildNew({
     sourcePos: xy.construct(fromX, fromY),
     targetPos: xy.construct(toX, toY),
     sourceOrientation: fromPosition,
     targetOrientation: toPosition,
-    sourceBox: selectNodeBox(useReactFlow(), fromNode?.id ?? ""),
-    targetBox: selectNodeBox(useReactFlow(), fromNode?.id ?? ""),
+    sourceBox: selectNodeBox(flow, fromNode?.id ?? ""),
+    targetBox: selectNodeBox(flow, fromNode?.id ?? ""),
   });
-  const flow = useReactFlow();
   const points = connector.segmentsToPoints(
     xy.construct(fromX, fromY),
     conn,
