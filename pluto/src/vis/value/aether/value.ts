@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
+import { notationZ } from "@/notation/notation";
 import { telem } from "@/telem/aether";
 import { text } from "@/text/core";
 import { dimensions } from "@/text/dimensions";
@@ -19,7 +20,6 @@ import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { render } from "@/vis/render";
 
-const notationZ = z.enum(["standard", "scientific", "engineering"]);
 const valueState = z.object({
   box: box.box,
   telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),

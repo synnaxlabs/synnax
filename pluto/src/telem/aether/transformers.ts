@@ -10,6 +10,7 @@
 import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { notationZ, stringifyNumber as stringify } from "@/notation/notation";
 import { status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
@@ -154,7 +155,6 @@ export const booleanStatus = (
   valueType: "boolean",
 });
 
-const notationZ = z.enum(["standard", "scientific", "engineering"]);
 export const stringifyNumberProps = z.object({
   precision: z.number().optional().default(2),
   prefix: z.string().optional().default(""),
@@ -172,22 +172,7 @@ export class StringifyNumber extends UnarySourceTransformer<
   schema = StringifyNumber.propsZ;
 
   protected transform(value: number): string {
-    const notation = this.props.notation;
-    if (notation === "scientific") {
-      return `${this.props.prefix}${value.toExponential(this.props.precision)}${
-        this.props.suffix
-      }`;
-    }
-    if (notation === "engineering") {
-      const exp = Math.floor(Math.log10(Math.abs(value)) / 3) * 3;
-      const mantissa = value / 10 ** exp;
-      return `${this.props.prefix}${mantissa.toFixed(this.props.precision)}e${exp}${
-        this.props.suffix
-      }`;
-    }
-    return `${this.props.prefix}${value.toFixed(this.props.precision)}${
-      this.props.suffix
-    }`;
+    return `${this.props.prefix}${stringify(value, this.props.precision, this.props.notation)}${this.props.suffix}`;
   }
 }
 

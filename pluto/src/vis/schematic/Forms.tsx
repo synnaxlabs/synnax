@@ -21,6 +21,8 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { type Notation } from "@/notation/notation";
+import { SelectNotation } from "@/notation/SelectNotation";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
@@ -77,10 +79,7 @@ const OrientationControl = ({
           onChange({
             ...value,
             orientation: v.inner,
-            label: {
-              ...value.label,
-              orientation: v.outer,
-            },
+            label: { ...value.label, orientation: v.outer },
           })
         }
       />
@@ -186,12 +185,7 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const handleSourceChange = (v: channel.Key | null): void => {
     v = v ?? 0;
     const t = telem.sourcePipeline("boolean", {
-      connections: [
-        {
-          from: "valueStream",
-          to: "threshold",
-        },
-      ],
+      connections: [{ from: "valueStream", to: "threshold" }],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
         threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
@@ -204,18 +198,10 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const handleSinkChange = (v: channel.Key | null): void => {
     v = v ?? 0;
     const t = telem.sinkPipeline("boolean", {
-      connections: [
-        {
-          from: "setpoint",
-          to: "setter",
-        },
-      ],
+      connections: [{ from: "setpoint", to: "setter" }],
       segments: {
         setter: control.setChannelValue({ channel: v }),
-        setpoint: telem.setpoint({
-          truthy: 1,
-          falsy: 0,
-        }),
+        setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
       },
       inlet: "setpoint",
     });
@@ -234,13 +220,8 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
         showChip: true,
         showIndicator: true,
         ...value.control,
-        chip: {
-          sink: controlChipSink,
-          source: authSource,
-        },
-        indicator: {
-          statusSource: authSource,
-        },
+        chip: { sink: controlChipSink, source: authSource },
+        indicator: { statusSource: authSource },
       },
     });
   };
@@ -267,14 +248,8 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
 };
 
 const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
-  {
-    tabKey: "style",
-    name: "Style",
-  },
-  {
-    tabKey: "control",
-    name: "Control",
-  },
+  { tabKey: "style", name: "Style" },
+  { tabKey: "control", name: "Control" },
 ];
 
 export const CommonToggleForm = (): ReactElement => {
@@ -389,14 +364,8 @@ export const TankForm = ({
 );
 
 const VALUE_FORM_TABS: Tabs.Tab[] = [
-  {
-    tabKey: "style",
-    name: "Style",
-  },
-  {
-    tabKey: "telemetry",
-    name: "Telemetry",
-  },
+  { tabKey: "style", name: "Style" },
+  { tabKey: "telemetry", name: "Telemetry" },
 ];
 
 interface ValueTelemFormT {
@@ -426,6 +395,7 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
         valueStream: telem.streamChannelValue({ channel: v ?? 0 }),
         stringifier: telem.stringifyNumber({
           precision: stringifier.precision ?? 2,
+          notation: stringifier.notation ?? "standard",
         }),
         rollingAverage: telem.rollingAverage({
           windowSize: rollingAverage.windowSize ?? 1,
@@ -446,7 +416,10 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: source.channel }),
-        stringifier: telem.stringifyNumber({ notation }),
+        stringifier: telem.stringifyNumber({
+          precision: stringifier.precision,
+          notation: stringifier.notation ?? "standard",
+        }),
         rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
       },
       outlet: "stringifier",
@@ -462,7 +435,10 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: source.channel }),
-        stringifier: telem.stringifyNumber({ precision }),
+        stringifier: telem.stringifyNumber({
+          precision: stringifier.precision ?? 2,
+          notation: stringifier.notation,
+        }),
         rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
       },
       outlet: "stringifier",
@@ -477,7 +453,10 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
         { from: "rollingAverage", to: "stringifier" },
       ],
       segments: {
-        stringifier: telem.stringifyNumber({ precision: stringifier.precision ?? 2 }),
+        stringifier: telem.stringifyNumber({
+          precision: stringifier.precision,
+          notation: stringifier.notation,
+        }),
         valueStream: telem.streamChannelValue({ channel: source.channel }),
         rollingAverage: telem.rollingAverage({ windowSize }),
       },
@@ -497,17 +476,25 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
           onChange={handleSourceChange}
         />
       </Input.Item>
-      <Input.Item label="Notation" align="start">
+      {/* <Input.Item label="Notation" align="start">
         <Input.Text
-          value={stringifier.notation ?? "standard"}
-          onChange={handleNotationChange}
-          options={[
-            { value: "standard", label: "Standard" },
-            { value: "scientific", label: "Scientific" },
-            { value: "engineering", label: "Engineering" },
-          ]}
+          value={stringifier?.notation ?? "standard"}
+          onChange={handleNotationChange as (v: string) => void}
         />
-      </Input.Item>
+      </Input.Item> */}
+      <Form.Field<Notation>
+        path="notation"
+        label="Notation"
+        padHelpText={false}
+        // hideIfNull
+      >
+        {(p) => (
+          <>
+            <h1>poop</h1>
+            <SelectNotation {...p} />
+          </>
+        )}
+      </Form.Field>
       <Input.Item label="Precision" align="start">
         <Input.Numeric
           value={stringifier.precision ?? 2}
@@ -587,12 +574,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   const handleSourceChange = (v: channel.Key | null): void => {
     v = v ?? 0;
     const t = telem.sourcePipeline("boolean", {
-      connections: [
-        {
-          from: "valueStream",
-          to: "threshold",
-        },
-      ],
+      connections: [{ from: "valueStream", to: "threshold" }],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
         threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
@@ -722,9 +704,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
     v = v ?? 0;
     const t = telem.sourcePipeline("number", {
       connections: [],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: v }),
-      },
+      segments: { valueStream: telem.streamChannelValue({ channel: v }) },
       outlet: "valueStream",
     });
     onChange({ ...value, source: t });
@@ -734,9 +714,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
     v = v ?? 0;
     const t = telem.sinkPipeline("number", {
       connections: [],
-      segments: {
-        setter: control.setChannelValue({ channel: v }),
-      },
+      segments: { setter: control.setChannelValue({ channel: v }) },
       inlet: "setter",
     });
 
@@ -753,14 +731,9 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
       control: {
         ...value.control,
         showChip: true,
-        chip: {
-          sink: controlChipSink,
-          source: authSource,
-        },
+        chip: { sink: controlChipSink, source: authSource },
         showIndicator: true,
-        indicator: {
-          statusSource: authSource,
-        },
+        indicator: { statusSource: authSource },
       },
     });
   };
