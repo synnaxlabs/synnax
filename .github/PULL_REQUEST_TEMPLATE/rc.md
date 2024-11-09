@@ -182,7 +182,7 @@ I can successfully:
 - [ ] Drag and drop a mosaic leaf into a new window.
 - [ ] Split a mosaic horizontally.
 - [ ] Split a mosaic vertically.
-- [ ] Rename a tab by double-clicking on its name.
+- [ ] Rename a tab by double-clicking its name.
 - [ ] Close layout tabs by clicking the close icon.
 - **Context Menu**
   - [ ] Split a mosaic horizontally.
@@ -246,7 +246,7 @@ I can successfully:
   - [ ] Stream data from a virtual channel.
   - [ ] Stream data from a persisted channel.
   - [ ] Pause and resume scrolling using the streaming icon in the top right.
-  - [ ] Switch the logging channel and see data switch.
+  - [ ] Switch the logging channel and observe data switching.
   - [ ] Preserve log data from a virtual channel in the buffer.
   - [ ] Copy a link to a log.
 - **Resources Toolbar**
@@ -499,35 +499,35 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Run the driver for long periods of time with minimal memory leakage.
-- **Pass in an invalid device configuration and receive meaningful feedback:**
+- [ ] Run the driver for long periods with minimal memory leakage.
+- **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
-  - [ ] Invalid task type for devices (e.g. analog read on a analog output device).
-  - [ ] Out of range values.
+  - [ ] Incorrect task type for devices (e.g., analog read on an analog output device).
+  - [ ] Out-of-range values.
   - [ ] Multiple tasks using the same channel.
-  - [ ] Devices disconnected while task is running.
-- [ ] Shut down the server (`Ctrl + C`) without receiving an error from the driver routine.
+  - [ ] Device disconnection during a running task.
+- [ ] Shut down the server (`Ctrl + C`) without errors from the driver routine.
 
 ### LabJack
 
 I can successfully:
 
 - [ ] Enable and disable LabJack integration when starting the server.
-- [ ] Recognize and connect to a LabJack device available on local machine.
+- [ ] Recognize and connect to a LabJack device available locally.
 - [ ] Save device configuration.
-- [ ] Run the driver without the LabJack library installed on the machine.
+- [ ] Run the driver without the LabJack library installed.
 - **Read Task**
   - [ ] Plot live analog data.
   - [ ] Plot live digital data.
-  - [ ] Tare data from numerous channels on a device.
+  - [ ] Tare data from multiple channels on a device.
   - [ ] Plot data with a linear scale applied.
-  - [ ] Stop, start and reconfigure tasks numerous times.
+  - [ ] Stop, start, and reconfigure tasks multiple times.
   - [ ] Enable and disable data saving.
-  - [ ] Verify there is no lag between sensor input and data written to server.
+  - [ ] Ensure no lag between sensor input and data written to the server.
   - [ ] Configure and run a read task for a thermocouple.
-  - [ ] Run a read task with thermocouples, digital and analog channels.
-  - [ ] Disconnect a device while reading data from it, reconnect the device and read data after reconfiguring.
-  - **Reliably plot analog input data at the following sample rates:**
+  - [ ] Run a read task with thermocouples, digital, and analog channels.
+  - [ ] Disconnect a device while reading, reconnect it, and read data after reconfiguration.
+  - **Reliable data plotting at the following sample rates:**
     - [ ] 1 Hz
     - [ ] 10 Hz
     - [ ] 100 Hz
@@ -535,94 +535,90 @@ I can successfully:
     - [ ] 10 kHz
     - [ ] 50 kHz
 - **Write Task**
-  - **Begin a write task and perform control actions with a schematic**:
+  - **Begin a write task and perform control actions with a schematic:**
     - [ ] Actuate a valve via a digital input.
     - [ ] Set an analog output to a specific voltage via a setpoint.
-  - [ ] Stop, start and reconfigure task.
-  - [ ] Disconnect a device while reading data from it, reconnect the device and read data after reconfiguring.
-  - **Configure response time based on state rate specified**:
-    - [ ] 1 Hz (should have visible delay in response)
-    - [ ] 20 Hz (should feel almost immediate)
-- [ ] configure a write and read task to run simultaneously and be able to stop or delete either one without affecting the other.
+  - [ ] Stop, start, and reconfigure the task.
+  - [ ] Disconnect a device while writing, reconnect it, and read data after reconfiguration.
+  - **Configure response time based on the specified state rate:**
+    - [ ] 1 Hz (should have a visible delay)
+    - [ ] 20 Hz (should be nearly immediate)
+- [ ] Configure simultaneous write and read tasks and stop or delete either without affecting the other.
 
 ### NI
 
 I can successfully:
 
 - [ ] Enable and disable NI integration when starting the server.
-- [ ] Recognize and connect to a National Instruments device available on local machine.
-- [ ] Recognize and connect to a National Instruments devices connected over the network.
-- [ ] Recognize and connect to a physcial device.
-- [ ] Recognize and connect to a simulated device.
-- [ ] Disconnect a physical device from the machine with a task running without faulting.
-- [ ] Ignore chassis.
-- [ ] See devices connected to chassis.
-- [ ] Run the driver without the NI-DAQmx and SysCfg libraries installed.
-- [ ] Get feedback when trying to create an NI task on a machine that doesn't have the required libraries installed.
-- **Pass in an invalid device configuration and receive meaningful feedback:**
+- [ ] Recognize and connect to a National Instruments device locally.
+- [ ] Recognize and connect to National Instruments devices over the network.
+- [ ] Recognize and connect to physical and simulated devices.
+- [ ] Disconnect a physical device while a task is running without causing faults.
+- [ ] Ignore chassis and view devices connected to it.
+- [ ] Run the driver without NI-DAQmx and SysCfg libraries installed.
+- [ ] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
+- **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
-  - [ ] Invalid task type for devices (e.g. analog read on a analog output device).
+  - [ ] Incorrect task type for devices.
   - [ ] Out-of-range values.
   - [ ] Multiple tasks using the same channel.
-- [ ] Shut down the driver with an embedded driver without receiving an error from the driver routine.
-- [ ] Run multiple types of tasks on a single device.
-- [ ] Run multiple tasks across multiple devices simultaneously.
-- **Reliably stream data at the following sample rates**:
+- [ ] Shut down the driver without errors during embedded operation.
+- [ ] Run various tasks on a single device.
+- [ ] Run multiple tasks across multiple devices concurrently.
+- **Reliable data streaming at the following sample rates:**
   - [ ] 1 Hz
   - [ ] 10 Hz
   - [ ] 100 Hz
   - [ ] 1 kHz
   - [ ] 5 kHz
-- **Configure the following stream rates**:
+- **Configure the following stream rates:**
   - [ ] 1 Hz
   - [ ] 10 Hz
   - [ ] 30 Hz
 - **Analog Read Task**
   - [ ] Plot live data.
   - [ ] Tare data.
-  - [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
-  - [ ] Begin several tasks at different times and see them all plotting live data.
+  - [ ] Handle device disconnection during active tasks with appropriate feedback.
+  - [ ] Start multiple tasks at different times and view live data.
   - [ ] Enable and disable data saving.
-  - [ ] Verify that there is no lag between sensor input and data written to server.
-  - [ ] Configure and run an analog read task for each of the following channels:
+  - [ ] Ensure no lag between sensor input and server data recording.
+  - [ ] Configure and run an analog read task for the following channels:
     - [ ] Current (NI-9203)
     - [ ] Resistance (NI-9219)
     - [ ] RTD (NI-9217)
-      - [ ] All RTD types.
-      - [ ] All resistance configs.
-    - [ ] Built in temperature sensor (USB-6289)
+      - [ ] All RTD types and resistance configurations.
+    - [ ] Built-in temperature sensor (USB-6289)
     - [ ] Thermocouple (NI-9211A)
-      - [ ] All thermocouple types.
-      - [ ] All CJC options.
+      - [ ] All thermocouple types and CJC options.
     - [ ] Voltage (USB-6000)
       - **Terminal configurations:**
         - [ ] Default (USB-6000)
-        - [ ] Reference Single Ended (USB-6000)
-        - [ ] Non-Referenced Single Ended (NI-9206)
+        - [ ] Reference Single-Ended (USB-6000)
+        - [ ] Non-Referenced Single-Ended (NI-9206)
         - [ ] Differential (NI-9206)
         - [ ] Pseudo-Differential (NI-9234)
-  - **Configure the following scales**:
+  - **Apply the following scales:**
     - [ ] Linear
     - [ ] Map
 - **Digital Read Task**
   - [ ] Plot live data.
-  - [ ] Stop, start and reconfigure task.
+  - [ ] Stop, start, and reconfigure tasks.
   - [ ] Enable and disable data saving.
 - **Digital Write Task**
-  - [ ] Perform control actions with a schematic.
-  - [ ] Stop, start and reconfigure task.
-  - [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialog.
-  - **Configure response time based on state rate specified**:
-    - [ ] 1 Hz (should have visible delay in response)
-    - [ ] 20 Hz (should feel almost immediate)
+  - [ ] Perform control actions using a schematic.
+  - [ ] Stop, start, and reconfigure tasks.
+  - [ ] Handle device disconnection during active tasks with feedback.
+  - **Configure response time for specified state rates:**
+    - [ ] 1 Hz (visible delay)
+    - [ ] 20 Hz (near-instant response)
 
 ### OPC UA
 
 I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
-- [ ] Connect to an OPC UA server running unencrypted.
-- [ ] Connect to an OPC UA server running encrypted.
+- [ ] Connect to an unencrypted OPC UA server.
+- [ ] Connect to an encrypted OPC UA server.
 - [ ] Create additional channels and move them to existing sampling groups.
 - [ ] Move and rename channels.
 - [ ] Save the device configuration.
@@ -633,21 +629,21 @@ I can successfully:
     - [ ] Read timestamps from the OPC UA server.
   - **Array Sampling**
     - [ ] Read from multiple channels.
-    - **Read with the following array sizes:**
+    - **Test the following array sizes:**
       - [ ] 1
       - [ ] 10
       - [ ] 100
     - [ ] Autogenerate timestamps on the driver.
     - [ ] Read timestamps from the OPC UA server.
-    - [ ] Not crash the driver if I specify an improper array size.
-  - [ ] Get recommended Synnax channels based on the configured OPC UA node.
+    - [ ] Avoid driver crashes when improper array sizes are specified.
+  - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
-  - [ ] Maintain operation of the driver when a device is disconnected or a channel is removed from the device while a task is running.
+  - [ ] Maintain driver operation during device disconnection or channel removal while a task is running.
   - [ ] Enable and disable data saving.
-  - [ ] Leave a task paused for an hour and resume it again without needing to reconfigure.
+  - [ ] Pause a task for an hour and resume without reconfiguration.
 - **Write Task**
-  - [ ] Perform control and see changes reflected on the connected OPC UA server.
-  - [ ] Stop, start and reconfigure a task.
+  - [ ] Perform control and verify changes on the connected OPC UA server.
+  - [ ] Stop, start, and reconfigure tasks.
   - [ ] Enable and disable data saving.
-  - [ ] Leave a write task played but idle for an hour and perform control without losing connection.
-  - [ ] Perform a write on an encrypted server.
+  - [ ] Leave a write task idle for an hour and perform control without losing connection.
+  - [ ] Perform a write operation on an encrypted server.
