@@ -343,8 +343,9 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::B
 }
 
 std::pair<Frame, freighter::Error> labjack::ReaderSource::read(breaker::Breaker &breaker) {
-    if(this->ok() == false){
-        return std::make_pair(Frame(0), freighter::Error("Device disconnected or is in error. Please reconfigure task and try again"));
+    if (this->ok() == false) {
+        return std::make_pair(
+            Frame(0), freighter::Error("Device disconnected or is in error. Please reconfigure task and try again"));
     }
     if (this->reader_config.tc_channels.empty())
         return this->read_stream(breaker);
@@ -481,7 +482,7 @@ int labjack::ReaderSource::check_err(int err, std::string caller) {
         this->task.key
     );
 
-    if( err == LJME_RECONNECT_FAILED ||
+    if (err == LJME_RECONNECT_FAILED ||
         err == LJME_NO_RESPONSE_BYTES_RECEIVED ||
         err == LJME_INCORRECT_NUM_COMMAND_BYTES_SENT ||
         err == LJME_NO_COMMAND_BYTES_SENT ||

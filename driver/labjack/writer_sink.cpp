@@ -278,7 +278,7 @@ int labjack::WriteSink::check_err(int err, std::string caller) {
         this->ok_state,
         this->task.key
     );
-    if(err == LJME_RECONNECT_FAILED){
+    if (err == LJME_RECONNECT_FAILED) {
         this->device_manager->close_device(this->writer_config.serial_number);
     }
     return err;
