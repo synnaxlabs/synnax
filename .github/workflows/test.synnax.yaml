@@ -1,4 +1,4 @@
-name: "Test: Synnax"
+name: "Test - Synnax"
 
 on:
   pull_request:

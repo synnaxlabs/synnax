@@ -1,4 +1,4 @@
-name: "Test: Cesium"
+name: "Test - Cesium"
 
 on:
   pull_request:

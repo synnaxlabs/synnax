@@ -1,4 +1,4 @@
-name: "Test: Aspen"
+name: "Test - Aspen"
 
 on:
   pull_request:
