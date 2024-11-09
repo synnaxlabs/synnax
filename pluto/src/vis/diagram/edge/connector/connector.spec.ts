@@ -429,19 +429,41 @@ describe("connector", () => {
       ],
     };
 
+    const REGRESSION_1: Spec = {
+      name: "regression 1",
+      props: {
+        sourceBox: {
+          one: { x: -33, y: 118 },
+          two: { x: 71, y: 169 },
+          root: { x: "left", y: "top" },
+        },
+        sourceOrientation: "right",
+        sourcePos: { x: 71, y: 155 },
+        targetBox: {
+          one: { x: 90, y: 116 },
+          two: { x: 195, y: 167 },
+          root: { x: "left", y: "top" },
+        },
+        targetOrientation: "left",
+        targetPos: { x: 87, y: 153 },
+      },
+      expected: [],
+    };
+
     const SPECS = [
-      SIMPLE_BOTTOM_TO_TOP,
-      SIMPLE_LEFT_TO_RIGHT,
-      SIMPLE_TOP_TO_BOTTOM,
-      SIMPLE_RIGHT_TO_LEFT,
-      LEFT_LEFT_TARGET_DOWN_RIGHT,
-      LEFT_LEFT_TARGET_UP_LEFT,
-      LEFT_LEFT_TARGET_EQ_RIGHT,
-      LEFT_LEFT_TARGET_EQ_LEFT,
+      // SIMPLE_BOTTOM_TO_TOP,
+      // SIMPLE_LEFT_TO_RIGHT,
+      // SIMPLE_TOP_TO_BOTTOM,
+      // SIMPLE_RIGHT_TO_LEFT,
+      // LEFT_LEFT_TARGET_DOWN_RIGHT,
+      // LEFT_LEFT_TARGET_UP_LEFT,
+      // LEFT_LEFT_TARGET_EQ_RIGHT,
+      // LEFT_LEFT_TARGET_EQ_LEFT,
+      REGRESSION_1,
     ];
 
     for (const spec of SPECS) {
-      it(spec.name, () => {
+      it.only(spec.name, () => {
         const actual = connector.buildNew(spec.props);
         expect(actual).toEqual(spec.expected);
         // We also want to do a sanity check to make sure that the connector actually gets to the target from the

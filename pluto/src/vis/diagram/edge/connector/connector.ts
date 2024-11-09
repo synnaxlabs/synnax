@@ -344,6 +344,15 @@ const internalNewConnector = ({
   targetOrientation,
   sourceOrientation,
 }: BuildNew): Segment[] => {
+  console.log({
+    sourceBox,
+    targetBox,
+    sourcePos,
+    targetPos,
+    targetOrientation,
+    sourceOrientation,
+  });
+
   let sourceStumpOrientation = sourceOrientation;
   let targetStumpOrientation = targetOrientation;
 
@@ -352,6 +361,15 @@ const internalNewConnector = ({
 
   const targetStump = { ...STUMPS[targetOrientation] };
   let targetStumpTip = travelSegments(targetPos, targetStump);
+
+  const xDist = Math.abs(sourceStumpTip.x - targetStumpTip.x);
+  const yDist = Math.abs(sourceStumpTip.y - targetStumpTip.y);
+  if (xDist < 2 * STUMP_LENGTH && yDist < 10) {
+    sourceStump.length = sourceStump.length - xDist / 2;
+    targetStump.length = targetStump.length + xDist / 2;
+    sourceStumpTip = travelSegments(sourcePos, sourceStump);
+    targetStumpTip = travelSegments(targetPos, targetStump);
+  }
 
   const segments = [sourceStump];
   const extraSourceSeg = prepareNode({

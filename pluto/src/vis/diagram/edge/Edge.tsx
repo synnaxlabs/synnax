@@ -55,6 +55,7 @@ export const CustomConnectionLine = ({
   connectionLineStyle,
   connectionStatus,
 }: ConnectionLineComponentProps): ReactElement => {
+  return <></>;
   // select an element with 'react-flow__handle-connecting' class
   const connectedHandle = document.querySelector(".react-flow__handle-connecting");
   const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
