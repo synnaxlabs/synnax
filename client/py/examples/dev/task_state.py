@@ -10,7 +10,7 @@
 import synnax as sy
 
 client = sy.Synnax(
-    host="nuc",
+    host="localhost",
     port=9090,
     secure=False,
     username="synnax",
@@ -18,6 +18,10 @@ client = sy.Synnax(
 )
 
 
-with client.open_streamer(["sy_task_state"]) as s:
+with client.open_streamer(["sy_task_set", "sy_task_state"]) as s:
+    print("STREAMING")
     for frame in s:
-        print(frame["sy_task_state"][0])
+        if "sy_task_set" in frame:
+            print(client.hardware.tasks.retrieve(frame["sy_task_set"][0]).to_payload())
+        elif "sy_task_state" in frame:
+            print(frame["sy_task_state"][0])

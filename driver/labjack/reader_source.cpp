@@ -13,6 +13,25 @@
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   ReaderSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
+labjack::ReaderSource::ReaderSource(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task task,
+    const ReaderConfig &reader_config,
+    std::shared_ptr<labjack::DeviceManager> device_manager
+) : ctx(ctx),
+    task(task),
+    reader_config(reader_config),
+    device_manager(device_manager) {
+    auto breaker_config = breaker::Config{
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
+    };
+    this->breaker = breaker::Breaker(breaker_config);
+    this->handle = this->device_manager->get_device_handle(this->reader_config.serial_number);
+}
+
 void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
     LOG(ERROR) << "stopped with error: " << err.message();
     json j = json(err.message());
@@ -90,14 +109,6 @@ void labjack::ReaderSource::init_tcs() {
     if (this->reader_config.tc_channels.empty()) {
         return;
     }
-    {
-        std::lock_guard<std::mutex> lock(labjack::device_mutex);
-        if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle),
-                      "init_tcs.LJM_OPEN")) {
-            LOG(ERROR) << "[labjack.reader] LJM_Open error";
-            return;
-        }
-    }
 
     for (auto &channel: this->reader_config.channels) {
         if (channel.channel_type == "AI") {
@@ -154,15 +165,7 @@ void labjack::ReaderSource::init_stream() {
 
     this->num_samples_per_chan = SCANS_PER_READ;
     this->buffer_size = this->reader_config.phys_channels.size() * SCANS_PER_READ;
-    {
-        std::lock_guard<std::mutex> lock(labjack::device_mutex);
-        if (check_err(LJM_Open(LJM_dtANY, LJM_ctANY, this->reader_config.serial_number.c_str(), &this->handle),
-                      "init_stream.LJM_OPEN")) {
-            LOG(ERROR) << "[labjack.reader] LJM_Open error";
-            return;
-        }
-    }
-    LOG(INFO) << "[labjack.reader] device opened successfully";
+
     // iterate through the channels, for the ones that analog device, need to set the resolution index
     for (auto &channel: this->reader_config.channels) {
         if (channel.channel_type == "AI") {
@@ -180,6 +183,7 @@ void labjack::ReaderSource::init_stream() {
             }
         }
     }
+
 
     this->port_addresses.resize(this->reader_config.phys_channels.size());
 
@@ -479,12 +483,12 @@ bool labjack::ReaderSource::ok() {
     return this->ok_state;
 }
 
-std::vector<synnax::ChannelKey> labjack::ReaderSource::get_ai_channel_keys(){
+std::vector<synnax::ChannelKey> labjack::ReaderSource::get_ai_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
-    for(auto &channel: this->reader_config.channels){
-       if(channel.channel_type == "AI"){
-           keys.push_back(channel.key);
-       }
+    for (auto &channel: this->reader_config.channels) {
+        if (channel.channel_type == "AI") {
+            keys.push_back(channel.key);
+        }
     }
     return keys;
 }

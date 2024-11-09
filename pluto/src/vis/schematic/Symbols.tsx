@@ -675,7 +675,6 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     onChange,
     tooltip,
     inlineSize,
-    unitsLevel,
   }): ReactElement => {
     const font = Theming.useTypography(level);
     const [dims, setDims] = useState<ValueDimensionsState>({
@@ -749,7 +748,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
             }}
             inlineSize={inlineSize}
             units={units}
-            unitsLevel={unitsLevel}
+            unitsLevel={Text.downLevel(level)}
           />
         </Labeled>
       </Tooltip.Dialog>
@@ -785,24 +784,17 @@ const adjustValueBox = ({
     position = xy.translate(
       position,
       "y",
-      Math.max((labelDims.height - valueBoxHeight) / 2 - 1, 0),
+      Math.max((labelDims.height - valueBoxHeight) / 2 - 1, 1),
     );
   if (hasLabel && labelOrientation === "left")
-    position = xy.translate(position, "x", labelDims.width + 4);
+    position = xy.translate(position, { x: labelDims.width + 6, y: 0 });
   else if (hasLabel && labelOrientation === "top")
-    position = xy.translate(position, "y", labelDims.height + 4);
+    position = xy.translate(position, "y", labelDims.height + 6);
   return box.construct(position.x, position.y, box.width(outerBox), valueBoxHeight);
 };
 
 export const ValuePreview = ({ color }: ValueProps): ReactElement => (
-  <Primitives.Value
-    color={color}
-    dimensions={{
-      width: 60,
-      height: 25,
-    }}
-    units={"psi"}
-  >
+  <Primitives.Value color={color} dimensions={{ width: 60, height: 25 }} units={"psi"}>
     <Text.Text level="p">50.00</Text.Text>
   </Primitives.Value>
 );

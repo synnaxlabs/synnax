@@ -7,6 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#endif
+
 #include <csignal>
 #include <fstream>
 #include <iostream>
@@ -123,7 +137,6 @@ int main(int argc, char *argv[]) {
 #else
     LOG(INFO) << "[driver] LabJack integration is not available on this platform";
 #endif
-
 
 
     auto factory = std::make_unique<task::MultiFactory>(std::move(factories));

@@ -22,8 +22,9 @@
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::ScannerTask::ScannerTask(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) : ctx(std::move(ctx)), task(std::move(task)) {
+    const synnax::Task &task,
+    std::shared_ptr<labjack::DeviceManager> device_manager
+) : ctx(std::move(ctx)), task(std::move(task)), device_manager(device_manager) {
     this->devices["devices"] = nlohmann::json::array();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&ScannerTask::run, this);
@@ -31,9 +32,10 @@ labjack::ScannerTask::ScannerTask(
 
 std::unique_ptr<task::Task> labjack::ScannerTask::configure(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::Task &task,
+    std::shared_ptr<labjack::DeviceManager> device_manager
 ) {
-    return std::make_unique<ScannerTask>(ctx, task);
+    return std::make_unique<ScannerTask>(ctx, task, device_manager);
 }
 
 
@@ -54,8 +56,7 @@ void labjack::ScannerTask::scan() {
     int connection_types[LJM_LIST_ALL_SIZE];
     int serial_numbers[LJM_LIST_ALL_SIZE];
     int ip_addresses[LJM_LIST_ALL_SIZE];
-    int num_found = 0;
-    {
+    int num_found = 0; {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
         check_err(LJM_ListAll(
             device_type,
@@ -64,7 +65,7 @@ void labjack::ScannerTask::scan() {
             device_types,
             connection_types,
             serial_numbers,
-           ip_addresses
+            ip_addresses
         ));
     }
 
@@ -93,9 +94,14 @@ void labjack::ScannerTask::create_devices() {
             continue;
         }
 
+        // in order to differentiate same model devices, we append the last 4 digits of the serial number
+        auto ser_num = std::to_string(device["serial_number"].get<int>());
+        auto last_four = ser_num.length() >= 4 ? ser_num.substr(ser_num.length() - 4) : ser_num;
+        auto name = device["device_type"].get<std::string>() + "-" + last_four;
+
         auto new_device = synnax::Device(
             key,
-            device["device_type"].get<std::string>(), // name
+            name, // name
             synnax::taskKeyRack(this->task.key), // rack key
             device["connection_type"].get<std::string>(), // location
             std::to_string(device["serial_number"].get<int>()),
@@ -110,6 +116,8 @@ void labjack::ScannerTask::create_devices() {
         } else {
             LOG(INFO) << "[labjack.scanner] successfully created device with key: " << device["key"];
         }
+        std::string serial_number = std::to_string(device["serial_number"].get<int>());
+        int handle = this->device_manager->get_device_handle(serial_number);
     }
 }
 
