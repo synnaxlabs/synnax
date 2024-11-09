@@ -8,7 +8,7 @@
 
 ## Description
 
-<!-- Please write a short (2-3 sentence) description describing the changes. -->
+<!-- Write a short (2-3 sentence) description describing the changes. -->
 
 ## Basic Readiness
 
@@ -37,4 +37,4 @@ The following projects have backwards-compatible APIs:
 
 ### Breaking Changes
 
-<!-- If anything in this section is not true, please list all breaking changes. -->
+<!-- If anything in this section is not true, list all breaking changes. -->
