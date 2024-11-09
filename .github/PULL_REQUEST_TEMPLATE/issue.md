@@ -1,4 +1,4 @@
-# Feature Pull Request Template
+# Issue Pull Request
 
 ## Key Information
 
