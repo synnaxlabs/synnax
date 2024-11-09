@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useState, type ReactElement } from "react";
-
 import { Tabs as Core } from "@synnaxlabs/pluto/tabs";
+import { type ReactElement,useEffect, useState } from "react";
 
 export type TabsProps = {
   tabs: Core.Tab[];

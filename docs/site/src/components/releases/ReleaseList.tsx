@@ -7,26 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect, useRef, useState } from "react";
-
+import { Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
-import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
-import { OSSelectButton } from "@/components/platform/PlatformTabs";
-import { Text } from "@synnaxlabs/pluto";
-
-interface ItemOffset {
-  id: string;
-  topOffset: number;
-}
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
 export const ReleaseList = ({
   headings = [],
-  url,
 }: {
   headings?: MarkdownHeading[];
   url: string;

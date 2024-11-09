@@ -9,7 +9,6 @@
 
 import { promises as fs } from "fs";
 import path from "path";
-
 import type { CompilerOptions } from "typescript";
 import ts from "typescript";
 import type { Alias, AliasOptions, Plugin } from "vite";

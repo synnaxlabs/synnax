@@ -19,8 +19,8 @@
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "lint": "eslint",
+    "fix": "eslint --fix"
   },
   "engines": {
     "node": ">=18"

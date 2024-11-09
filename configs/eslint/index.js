@@ -33,7 +33,7 @@ export default [
       globals: { ...globals.browser },
       parserOptions: { ecmaVersion: "latest", sourceType: "module" },
     },
-    ignores: ["node_modules", "build", "dist", "release"],
+
     plugins: { "simple-import-sort": simpleImportSort },
     rules: {
       "simple-import-sort/imports": "error",
@@ -66,5 +66,8 @@ export default [
       },
       react: { version: "^18.0.0" },
     },
+  },
+  {
+    ignores: ["node_modules", "build", "dist", "release", "*.d.ts"],
   },
 ];

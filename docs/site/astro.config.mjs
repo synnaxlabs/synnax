@@ -11,21 +11,24 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel/serverless";
 import { defineConfig } from "astro/config";
-const shikiResourcePaths = Object.keys(import.meta.glob(["../../node_modules/.pnpm/shiki@*/node_modules/shiki/languages/*.tmLanguage.json", "../../node_modules/.pnpm/shiki@*/node_modules/shiki/themes/*.json"]));
-
-// eslint-disable-next-line import/no-default-export
+const shikiResourcePaths = Object.keys(
+  import.meta.glob([
+    "../../node_modules/.pnpm/shiki@*/node_modules/shiki/languages/*.tmLanguage.json",
+    "../../node_modules/.pnpm/shiki@*/node_modules/shiki/themes/*.json",
+  ]),
+);
 
 // https://astro.build/config
 export default defineConfig({
   integrations: [react(), mdx()],
   output: "server",
   adapter: vercel({
-    includeFiles: shikiResourcePaths
+    includeFiles: shikiResourcePaths,
   }),
   markdown: {
     shikiConfig: {
-      theme: "css-variables"
-    }
+      theme: "css-variables",
+    },
   },
-  site: "https://docs.synnaxlabs.com"
+  site: "https://docs.synnaxlabs.com",
 });

@@ -7,8 +7,8 @@
     "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix",
+    "lint": "eslint",
+    "fix": "eslint --fix",
     "preview": "vite preview"
   },
   "dependencies": {

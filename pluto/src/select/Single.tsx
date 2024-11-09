@@ -16,7 +16,6 @@ import {
   primitiveIsZero,
 } from "@synnaxlabs/x";
 import {
-  FC,
   type FocusEventHandler,
   type ReactElement,
   ReactNode,

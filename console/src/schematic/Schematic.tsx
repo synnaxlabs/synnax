@@ -44,7 +44,6 @@ import {
   useSelect,
   useSelectHasPermission,
   useSelectNodeProps,
-  useSelectViewport,
   useSelectViewportMode,
 } from "@/schematic/selectors";
 import {

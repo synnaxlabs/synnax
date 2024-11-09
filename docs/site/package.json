@@ -10,8 +10,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "algolia": "node ./src/util/algoliasearch.js",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "lint": "eslint",
+    "fix": "eslint --fix"
   },
   "dependencies": {
     "@astrojs/mdx": "^3.1.8",

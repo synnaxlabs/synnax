@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable react/display-name */
-import { type ReactElement } from "react";
-
 import { type SynnaxProps } from "@synnaxlabs/client";
 import { Canvas, Channel, Pluto } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import WorkerURL from "@/components/pluto/worker?worker&url";
 

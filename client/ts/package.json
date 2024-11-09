@@ -28,8 +28,8 @@
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix",
+    "lint": "eslint",
+    "fix": "eslint --fix",
     "genApi": "tsc --noEmit && vite build && npx api-extractor run --local",
     "checkApi": "tsc --noEmit && vite build && npx api-extractor run"
   },

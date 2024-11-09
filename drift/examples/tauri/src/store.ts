@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice, combineReducers } from "@reduxjs/toolkit";
-
+import { combineReducers,createSlice } from "@reduxjs/toolkit";
 import {
+  configureStore,
   reducer as driftReducer,
   TauriRuntime,
-  configureStore,
 } from "@synnaxlabs/drift";
 import { appWindow } from "@tauri-apps/api/window";
 
