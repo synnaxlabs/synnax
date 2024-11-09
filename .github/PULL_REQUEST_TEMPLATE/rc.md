@@ -499,15 +499,14 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Run the driver for long periods of time with minimal memory leakage. <!-- Let's quantify this!-->
+- [ ] Run the driver for long periods of time with minimal memory leakage.
 - **Pass in an invalid device configuration and receive meaningful feedback:**
-  <!-- Should we add more / only check these 4? -->
-  - [ ] Invalid ports
-  - [ ] Invalid task type for devices (e.g. analog read on a analog output device)
-  - [ ] Out of range values
-  - [ ] Multiple tasks using the same channel
+  - [ ] Invalid ports.
+  - [ ] Invalid task type for devices (e.g. analog read on a analog output device).
+  - [ ] Out of range values.
+  - [ ] Multiple tasks using the same channel.
   - [ ] Devices disconnected while task is running.
-- [ ] Shut down the server (ctrl-C) without receiving an error from the driver routine. <!-- Not really sure what this means-->
+- [ ] Shut down the server (`Ctrl + C`) without receiving an error from the driver routine.
 
 ### LabJack
 
@@ -517,44 +516,34 @@ I can successfully:
 - [ ] Recognize and connect to a LabJack device available on local machine.
 - [ ] Save device configuration.
 - [ ] Run the driver without the LabJack library installed on the machine.
-- <!-- we should probably add some edge case tests like disconnecting a device while running -->
 - **Read Task**
-  <!-- we probably should add more tests here, right? -->
-  <!-- like tares, scaling, etc. -->
-
-  - [ ] Plot live analog data
-  - [ ] Plot live digital data
-  - [ ] Tare livestreams of data from numerous channels on a device.
+  - [ ] Plot live analog data.
+  - [ ] Plot live digital data.
+  - [ ] Tare data from numerous channels on a device.
   - [ ] Plot data with a linear scale applied.
-  - [ ] Stop, start and reconfigure tasks numerous times
-  - [ ] Enable and disable data saving
-  - [ ] Verify there is no lag between sensor input and data written to server
-  - [ ] Configure and run a read task for a thermocouple
-  - [ ] Run a read task with thermocouples, digital and analog channels
+  - [ ] Stop, start and reconfigure tasks numerous times.
+  - [ ] Enable and disable data saving.
+  - [ ] Verify there is no lag between sensor input and data written to server.
+  - [ ] Configure and run a read task for a thermocouple.
+  - [ ] Run a read task with thermocouples, digital and analog channels.
   - [ ] Disconnect a device while reading data from it, reconnect the device and read data after reconfiguring.
   - **Reliably plot analog input data at the following sample rates:**
-    <!-- Let's just do like three, if it works at 10 and 100 then it works at 50 -->
     - [ ] 1 Hz
     - [ ] 10 Hz
     - [ ] 100 Hz
     - [ ] 1 kHz
     - [ ] 10 kHz
     - [ ] 50 kHz
-
 - **Write Task**
-  <!-- there's probably other tests we can do on configuring it right! -->
-
   - **Begin a write task and perform control actions with a schematic**:
-    - [ ] actuate a valve via a digital input
-    - [ ] set an analog output to a specific voltage via a setpoint
-  - [ ] Stop, start and reconfigure task at will.
+    - [ ] Actuate a valve via a digital input.
+    - [ ] Set an analog output to a specific voltage via a setpoint.
+  - [ ] Stop, start and reconfigure task.
   - [ ] Disconnect a device while reading data from it, reconnect the device and read data after reconfiguring.
-
   - **Configure response time based on state rate specified**:
     - [ ] 1 Hz (should have visible delay in response)
     - [ ] 20 Hz (should feel almost immediate)
-
-- [ ] configure a write and read task to run simultaneously and stop, delete either one without affecting the other
+- [ ] configure a write and read task to run simultaneously and be able to stop or delete either one without affecting the other.
 
 ### NI
 
@@ -568,16 +557,16 @@ I can successfully:
 - [ ] Disconnect a physical device from the machine with a task running without faulting.
 - [ ] Ignore chassis.
 - [ ] See devices connected to chassis.
-- [ ] Run the driver without the Daqmx and Syscfg libraries installed on the machine.
+- [ ] Run the driver without the NI-DAQmx and SysCfg libraries installed.
 - [ ] Get feedback when trying to create an NI task on a machine that doesn't have the required libraries installed.
 - **Pass in an invalid device configuration and receive meaningful feedback:**
-  - [ ] Invalid ports
-  - [ ] Invalid task type for devices (e.g. analog read on a analog output device)
-  - [ ] Out of range values
-  - [ ] Multiple tasks using the same channel
-- [ ] Shut down the driver with an embedded driver without receiving an error from the driver routine
-- [ ] Run multiple types of tasks on a single device
-- [ ] Run multiple tasks across multiple devices simultaneously
+  - [ ] Invalid ports.
+  - [ ] Invalid task type for devices (e.g. analog read on a analog output device).
+  - [ ] Out-of-range values.
+  - [ ] Multiple tasks using the same channel.
+- [ ] Shut down the driver with an embedded driver without receiving an error from the driver routine.
+- [ ] Run multiple types of tasks on a single device.
+- [ ] Run multiple tasks across multiple devices simultaneously.
 - **Reliably stream data at the following sample rates**:
   - [ ] 1 Hz
   - [ ] 10 Hz
@@ -589,13 +578,13 @@ I can successfully:
   - [ ] 10 Hz
   - [ ] 30 Hz
 - **Analog Read Task**
-  - [ ] Plot live data from an analog read task.
-  - [ ] Tare data read through an analog read task.
+  - [ ] Plot live data.
+  - [ ] Tare data.
   - [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
   - [ ] Begin several tasks at different times and see them all plotting live data.
-  - [ ] Enable and disable data saving at will.
-  - [ ] verify there is no lag between sensor input and data written to server.
-  - [ ] I can succesfully configure and run an analog read task for each of the following channels:
+  - [ ] Enable and disable data saving.
+  - [ ] Verify that there is no lag between sensor input and data written to server.
+  - [ ] Configure and run an analog read task for each of the following channels:
     - [ ] Current (NI-9203)
     - [ ] Resistance (NI-9219)
     - [ ] RTD (NI-9217)
@@ -604,30 +593,28 @@ I can successfully:
     - [ ] Built in temperature sensor (USB-6289)
     - [ ] Thermocouple (NI-9211A)
       - [ ] All thermocouple types.
-      - [ ] All cjc options.
+      - [ ] All CJC options.
     - [ ] Voltage (USB-6000)
-      - [ ] Terminal configurations.
+      - **Terminal configurations:**
         - [ ] Default (USB-6000)
         - [ ] Reference Single Ended (USB-6000)
         - [ ] Non-Referenced Single Ended (NI-9206)
         - [ ] Differential (NI-9206)
         - [ ] Pseudo-Differential (NI-9234)
-  - [ ] I can sucessfully configure the following scales:
+  - **Configure the following scales**:
     - [ ] Linear
     - [ ] Map
 - **Digital Read Task**
-
-  - [ ] Plot live data from a digital read task.
-  - [ ] Stop, start and reconfigure task at will.
-  - [ ] Enable and disable data saving at will.
-
+  - [ ] Plot live data.
+  - [ ] Stop, start and reconfigure task.
+  - [ ] Enable and disable data saving.
 - **Digital Write Task**
-- [ ] Begin a digital write task and perform control actions with a schematic.
-- [ ] Stop, start and reconfigure task at will.
-- [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialogue.
-- **Configure response time based on state rate specified**:
-  - [ ] 1 Hz (should have visible delay in response)
-  - [ ] 20 Hz (should feel almost immediate)
+  - [ ] Perform control actions with a schematic.
+  - [ ] Stop, start and reconfigure task.
+  - [ ] Disconnect a device while tasks are active and provide meaningful feedback in the task dialog.
+  - **Configure response time based on state rate specified**:
+    - [ ] 1 Hz (should have visible delay in response)
+    - [ ] 20 Hz (should feel almost immediate)
 
 ### OPC UA
 
@@ -640,25 +627,27 @@ I can successfully:
 - [ ] Move and rename channels.
 - [ ] Save the device configuration.
 - **Read Task**
-  - [ ] Single Sampling - Read from multiple channels.
-  - [ ] Single Sampling - Auto-generate timestamps on the driver.
-  - [ ] Single Sampling - Read timestamps from the OPC UA server.
-  - [ ] Array Sampling - Read from multiple channels in array-sampling mode.
-  - **Array Sampling - Read from multiple channels in array-sampling mode with different array sizes**:
-    - [ ] 1
-    - [ ] 10
-    - [ ] 100
-  - [ ] Array Sampling - Auto-generate timestamps on the driver.
-  - [ ] Array Sampling - Read timestamps from the OPC UA server.
-  - [ ] Array Sampling - The driver will not crash if I specify an improper array size.
-  - [ ] Channel Selection - The read task dialog will recommend synnax channels based on the configured OPC UA node.
-  - [ ] Connect to a physical device and read data from it.
-  - [ ] Maintain operation of the driver when a device is disconnected or a channel is removed from the device while it is running.
-  - [ ] Enable and disable data saving at will.
+  - **Single Sampling**
+    - [ ] Read from multiple channels.
+    - [ ] Autogenerate timestamps on the driver.
+    - [ ] Read timestamps from the OPC UA server.
+  - **Array Sampling**
+    - [ ] Read from multiple channels.
+    - **Read with the following array sizes:**
+      - [ ] 1
+      - [ ] 10
+      - [ ] 100
+    - [ ] Autogenerate timestamps on the driver.
+    - [ ] Read timestamps from the OPC UA server.
+    - [ ] Not crash the driver if I specify an improper array size.
+  - [ ] Get recommended Synnax channels based on the configured OPC UA node.
+  - [ ] Connect to and read data from a physical device.
+  - [ ] Maintain operation of the driver when a device is disconnected or a channel is removed from the device while a task is running.
+  - [ ] Enable and disable data saving.
   - [ ] Leave a task paused for an hour and resume it again without needing to reconfigure.
 - **Write Task**
   - [ ] Perform control and see changes reflected on the connected OPC UA server.
-  - [ ] Stop, start and reconfigure task at will.
-  - [ ] Enable and disable data saving at will.
-  - [ ] Leave a write tasking played but idle for an hour and perform control without losing connection.
+  - [ ] Stop, start and reconfigure a task.
+  - [ ] Enable and disable data saving.
+  - [ ] Leave a write task played but idle for an hour and perform control without losing connection.
   - [ ] Perform a write on an encrypted server.
