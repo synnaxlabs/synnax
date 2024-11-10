@@ -122,10 +122,6 @@ func (db *DB) Close() error {
 	for _, u := range db.unaryDBs {
 		c.Exec(u.Close)
 	}
-	if c.Error() != nil {
-		db.closed.Store(false)
-		return c.Error()
-	}
 
-	return nil
+	return c.Error()
 }

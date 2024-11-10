@@ -151,13 +151,18 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 // will return an error if there are any unclosed writers, iterators, or delete
 // operations being executed on the database. Close is idempotent, and will return nil
 // if the database is already closed.
+// If close fails for a reason other than unclosed writers/readers, the database will
+// still be marked closed and no read/write operations are allowed on it to protect
+// data integrity.
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
 	err := db.domain.Close()
 	if err != nil {
-		db.closed.Store(false)
+		if errors.Is(err, domain.ErrOpenEntity) {
+			db.closed.Store(false)
+		}
 		return db.wrapError(err)
 	}
 
