@@ -126,7 +126,6 @@ const Wrapped = ({
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
-
       const devices = unique(config.channels.map((c) => c.device));
 
       for (const devKey of devices) {
@@ -180,9 +179,11 @@ const Wrapped = ({
               index: dev.properties.analogInput.index,
             })),
           );
-          channels.forEach((c, i) => {
-            dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key;
-          });
+          channels.forEach(
+            (c, i) =>
+              (dev.properties.analogInput.channels[toCreate[i].port.toString()] =
+                c.key),
+          );
         }
 
         if (modified)
@@ -480,9 +481,15 @@ const ChannelListItem = ({
 }): ReactElement => {
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
-  const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
-  if (childValues == null) return <></>;
   const portValid = Form.useFieldValid(`${path}.port`);
+
+  // TODO: fix bug so I can refactor this to original code
+  const channels = Form.useChildFieldValues<AIChan[]>({ path: basePath });
+  if (channels == null || props?.index == null) return <></>;
+  const childValues = channels[props.index];
+  // const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
+
+  if (childValues == null) return <></>;
   const showTareButton = childValues.channel != null && onTare != null;
   const tareIsDisabled =
     !childValues.enabled || snapshot || state?.details?.running !== true;

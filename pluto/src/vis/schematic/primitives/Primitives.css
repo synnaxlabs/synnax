@@ -166,6 +166,15 @@
         background: var(--pluto-gray-l7);
         padding-top: 1px;
         margin-right: -1px;
+        text-align: center;
+
+        &.pluto--h4 {
+            padding: 0 1.5rem;
+        }
+
+        &.pluto--h3 {
+            padding: 0 2rem;
+        }
 
         & small {
             color: var(--pluto-gray-l0);

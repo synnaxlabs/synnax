@@ -10,6 +10,8 @@
 from pydantic import BaseModel, conint, confloat, validator
 from typing import List, Literal, Union, Optional, Dict
 from uuid import uuid4
+
+from synnax import ValidationError
 from synnax.hardware.task import (
     Task,
     MetaTask,
@@ -161,6 +163,7 @@ class BaseChan(BaseModel):
 
 
 class BaseAIChan(BaseChan):
+    device: str = ""
     port: int
     channel: int
 
@@ -818,7 +821,6 @@ class DIChan(BaseModel):
 
 
 class AnalogReadTaskConfig(BaseModel):
-    device: str
     sample_rate: conint(ge=0, le=50000)
     stream_rate: conint(ge=0, le=50000)
     channels: list[AIChan]
@@ -997,9 +999,21 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = AnalogReadTaskConfig(
-            device=device,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=data_saving,
             channels=channels,
         )
+        # Set the device provided to the task for any channels that don't have a device
+        # field assigned.
+        for i, channel in enumerate(self.config.channels):
+            if len(channel.device) == 0:
+                if len(device) == 0:
+                    raise ValidationError(
+                        f"""
+                        No device provided for {channel} {i + 1} in task and no device
+                        provided directly to the task. Please provide a device for the
+                        channel or set the device for the task.
+                    """
+                    )
+                channel.device = device
