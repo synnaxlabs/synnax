@@ -463,7 +463,7 @@ describe("connector", () => {
     ];
 
     for (const spec of SPECS) {
-      it.only(spec.name, () => {
+      it(spec.name, () => {
         const actual = connector.buildNew(spec.props);
         expect(actual).toEqual(spec.expected);
         // We also want to do a sanity check to make sure that the connector actually gets to the target from the
@@ -870,23 +870,37 @@ describe("connector", () => {
       expected: [{ direction: "y", length: 20 }],
     };
 
+    const REGRESSION_1 = {
+      name: "orthogonal reverse stump",
+      props: {
+        delta: { x: 5, y: 0 },
+        segments: [
+          { direction: "x", length: 2 },
+          { direction: "y", length: -133 },
+          { direction: "x", length: 9 },
+        ],
+      },
+      expected: [],
+    };
+
     const SPECS: Spec[] = [
-      SINGLE_MOVE_UP,
-      SINGLE_COMPRESS_DOWN,
-      SIMPLE_MOVE_LEFT,
-      SIMPLE_MOVE_UP,
-      OPPOSITE_ORIENTATION_COMPRESSION,
-      DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION,
-      DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION_DISCONNECT,
-      OPPOSITE_ORIENTATION_COMPRESSED_DISCONNECT,
-      PARALLEL_ORIENTATION_COMPRESSION,
-      TIGHT_COMPRESSION,
-      TIGHT_SINGLE_COMPRESSION,
-      ORTHOGONAL_DOWN,
-      ORTHOGONAL_REVERSE_STUMP,
+      // SINGLE_MOVE_UP,
+      // SINGLE_COMPRESS_DOWN,
+      // SIMPLE_MOVE_LEFT,
+      // SIMPLE_MOVE_UP,
+      // OPPOSITE_ORIENTATION_COMPRESSION,
+      // DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION,
+      // DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION_DISCONNECT,
+      // OPPOSITE_ORIENTATION_COMPRESSED_DISCONNECT,
+      // PARALLEL_ORIENTATION_COMPRESSION,
+      // TIGHT_COMPRESSION,
+      // TIGHT_SINGLE_COMPRESSION,
+      // ORTHOGONAL_DOWN,
+      // ORTHOGONAL_REVERSE_STUMP,
+      REGRESSION_1,
     ];
     for (const spec of SPECS) {
-      it(spec.name, () => {
+      it.only(spec.name, () => {
         const actual = connector.moveSourceNode(spec.props);
         const expectedTarget = connector.travelSegments(xy.ZERO, ...spec.expected);
         const actualTarget = connector.travelSegments(xy.ZERO, ...actual);

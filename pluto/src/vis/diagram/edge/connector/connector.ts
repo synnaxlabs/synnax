@@ -242,8 +242,8 @@ const removeShortSegments = (segments: Segment[]): Segment[] => {
     // then we compress.
     const mag = Math.abs(seg.length);
     if (mag < COMPRESSION_THRESHOLD) {
-      if (mag < DIRECT_REMOVAL_THRESHOLD) return true;
       if (i === 0 || i === segments.length - 1) return false;
+      if (mag < DIRECT_REMOVAL_THRESHOLD) return true;
       if (segments.length <= 3) return false;
       if (i + 2 < segments.length) {
         const toAdjust = next[i + 2];
@@ -344,15 +344,6 @@ const internalNewConnector = ({
   targetOrientation,
   sourceOrientation,
 }: BuildNew): Segment[] => {
-  console.log({
-    sourceBox,
-    targetBox,
-    sourcePos,
-    targetPos,
-    targetOrientation,
-    sourceOrientation,
-  });
-
   let sourceStumpOrientation = sourceOrientation;
   let targetStumpOrientation = targetOrientation;
 
@@ -582,7 +573,10 @@ const canAdjustStump = (
   const next = { ...seg, length: seg.length - delta[dir] };
   const firstSegOrientation = segmentOrientation(seg);
   const nextFirstSegOrientation = segmentOrientation(next);
-  const isAboveMinLength = Math.abs(next.length) > STUMP_LENGTH;
+  const nextLengthMag = Math.abs(next.length);
+  const prevLengthMag = Math.abs(seg.length);
+  const isAboveMinLength =
+    nextLengthMag > prevLengthMag || nextLengthMag > STUMP_LENGTH;
   const isSameOrientation = firstSegOrientation === nextFirstSegOrientation;
   return isAboveMinLength && isSameOrientation;
 };
@@ -599,6 +593,14 @@ const moveNodeInDirection = (
   const stumpIdx = reverse ? segments.length - 1 : 0;
   const stump = segments[stumpIdx];
   if (canAdjustStump(dir, stump, delta)) {
+    const oppositeStump = segments[segments.length - 1];
+    if (oppositeStump.direction === dir && Math.abs(stump.length) < STUMP_LENGTH) {
+      segments[segments.length - 1] = {
+        ...oppositeStump,
+        length: oppositeStump.length + delta[dir],
+      };
+      return segments;
+    }
     segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
     return segments;
   }
@@ -615,13 +617,15 @@ const moveNodeInDirection = (
       };
       return segments;
     } else {
-      if (stump.direction === dir)
+      // If the stump is in the right direction and its larger than the opposite stump
+      if (stump.direction === dir && Math.abs(stump.length) > oppositeStump.length) {
         segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
-      else
+      } else {
         segments[oppositeStumpIdx] = {
           ...oppositeStump,
           length: oppositeStump.length - delta[dir],
         };
+      }
       return segments;
     }
   }
