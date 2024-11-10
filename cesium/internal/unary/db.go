@@ -161,6 +161,8 @@ func (db *DB) Close() error {
 	err := db.domain.Close()
 	if err != nil {
 		if errors.Is(err, domain.ErrOpenEntity) {
+			// If the close failed because of an open entity, the database should not
+			// be marked as closed and can still serve reads/writes.
 			db.closed.Store(false)
 		}
 		return db.wrapError(err)
