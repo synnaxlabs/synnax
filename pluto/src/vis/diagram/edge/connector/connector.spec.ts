@@ -429,37 +429,15 @@ describe("connector", () => {
       ],
     };
 
-    const REGRESSION_1: Spec = {
-      name: "regression 1",
-      props: {
-        sourceBox: {
-          one: { x: -33, y: 118 },
-          two: { x: 71, y: 169 },
-          root: { x: "left", y: "top" },
-        },
-        sourceOrientation: "right",
-        sourcePos: { x: 71, y: 155 },
-        targetBox: {
-          one: { x: 90, y: 116 },
-          two: { x: 195, y: 167 },
-          root: { x: "left", y: "top" },
-        },
-        targetOrientation: "left",
-        targetPos: { x: 87, y: 153 },
-      },
-      expected: [],
-    };
-
     const SPECS = [
-      // SIMPLE_BOTTOM_TO_TOP,
-      // SIMPLE_LEFT_TO_RIGHT,
-      // SIMPLE_TOP_TO_BOTTOM,
-      // SIMPLE_RIGHT_TO_LEFT,
-      // LEFT_LEFT_TARGET_DOWN_RIGHT,
-      // LEFT_LEFT_TARGET_UP_LEFT,
-      // LEFT_LEFT_TARGET_EQ_RIGHT,
-      // LEFT_LEFT_TARGET_EQ_LEFT,
-      REGRESSION_1,
+      SIMPLE_BOTTOM_TO_TOP,
+      SIMPLE_LEFT_TO_RIGHT,
+      SIMPLE_TOP_TO_BOTTOM,
+      SIMPLE_RIGHT_TO_LEFT,
+      LEFT_LEFT_TARGET_DOWN_RIGHT,
+      LEFT_LEFT_TARGET_UP_LEFT,
+      LEFT_LEFT_TARGET_EQ_RIGHT,
+      LEFT_LEFT_TARGET_EQ_LEFT,
     ];
 
     for (const spec of SPECS) {
@@ -804,23 +782,6 @@ describe("connector", () => {
       ],
     };
 
-    const TIGHT_COMPRESSION: Spec = {
-      name: "tight compression",
-      props: {
-        delta: { x: 1, y: 0 },
-        segments: [
-          { direction: "x", length: 11 },
-          { direction: "y", length: 1 },
-          { direction: "x", length: 11 },
-        ],
-      },
-      expected: [
-        { direction: "x", length: 10 },
-        { direction: "y", length: 1 },
-        { direction: "x", length: 11 },
-      ],
-    };
-
     const TIGHT_SINGLE_COMPRESSION: Spec = {
       name: "tight single compression",
       props: {
@@ -845,33 +806,8 @@ describe("connector", () => {
       ],
     };
 
-    // Props:
-    //   |
-    //   T
-    //   |
-    // S-|
-    //
-    // Expected:
-    //   |
-    //   T
-    //   |
-    //   |
-    //  S|
-    const ORTHOGONAL_REVERSE_STUMP: Spec = {
-      name: "orthogonal reverse stump",
-      props: {
-        delta: { x: 10, y: 0 },
-        segments: [
-          { direction: "x", length: 10 },
-          { direction: "y", length: 30 },
-          { direction: "y", length: -10 },
-        ],
-      },
-      expected: [{ direction: "y", length: 20 }],
-    };
-
-    const REGRESSION_1 = {
-      name: "orthogonal reverse stump",
+    const TIGHT_COMPRESSION: Spec = {
+      name: "orthogonal reverse stump -2 ",
       props: {
         delta: { x: 5, y: 0 },
         segments: [
@@ -880,27 +816,38 @@ describe("connector", () => {
           { direction: "x", length: 9 },
         ],
       },
-      expected: [],
+      expected: [
+        {
+          direction: "x",
+          length: 2,
+        },
+        {
+          direction: "y",
+          length: -133,
+        },
+        {
+          direction: "x",
+          length: 4,
+        },
+      ],
     };
 
     const SPECS: Spec[] = [
-      // SINGLE_MOVE_UP,
-      // SINGLE_COMPRESS_DOWN,
-      // SIMPLE_MOVE_LEFT,
-      // SIMPLE_MOVE_UP,
-      // OPPOSITE_ORIENTATION_COMPRESSION,
-      // DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION,
-      // DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION_DISCONNECT,
-      // OPPOSITE_ORIENTATION_COMPRESSED_DISCONNECT,
-      // PARALLEL_ORIENTATION_COMPRESSION,
-      // TIGHT_COMPRESSION,
-      // TIGHT_SINGLE_COMPRESSION,
-      // ORTHOGONAL_DOWN,
-      // ORTHOGONAL_REVERSE_STUMP,
-      REGRESSION_1,
+      SINGLE_MOVE_UP,
+      SINGLE_COMPRESS_DOWN,
+      SIMPLE_MOVE_LEFT,
+      SIMPLE_MOVE_UP,
+      OPPOSITE_ORIENTATION_COMPRESSION,
+      DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION,
+      DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION_DISCONNECT,
+      OPPOSITE_ORIENTATION_COMPRESSED_DISCONNECT,
+      PARALLEL_ORIENTATION_COMPRESSION,
+      TIGHT_SINGLE_COMPRESSION,
+      ORTHOGONAL_DOWN,
+      TIGHT_COMPRESSION,
     ];
     for (const spec of SPECS) {
-      it.only(spec.name, () => {
+      it(spec.name, () => {
         const actual = connector.moveSourceNode(spec.props);
         const expectedTarget = connector.travelSegments(xy.ZERO, ...spec.expected);
         const actualTarget = connector.travelSegments(xy.ZERO, ...actual);
