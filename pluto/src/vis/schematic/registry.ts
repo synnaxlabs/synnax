@@ -203,7 +203,6 @@ export const typeZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof typeZ>;
 
 const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
-
 const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("string", {
@@ -214,7 +213,7 @@ const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
     segments: {
       valueStream: telem.streamChannelValue({ channel: 0 }),
       rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-      stringifier: telem.stringifyNumber({ precision: 2 }),
+      stringifier: telem.stringifyNumber({ precision: 2, notation: "standard" }),
     },
     outlet: "stringifier",
   }),

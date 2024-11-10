@@ -10,31 +10,26 @@
 import { type ReactElement } from "react";
 
 import { Button as CoreButton } from "@/button";
+import { Notation } from "@/notation/notation";
 import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Button";
-import { type text } from "@/text/core";
 
 interface Entry {
-  key: text.Level;
+  key: Notation;
   label: string;
 }
 
-export interface SelectLevelProps
-  extends Omit<ButtonProps<text.Level, Entry>, "data" | "entryRenderKey"> {}
-
 const DATA: Entry[] = [
-  { key: "h2", label: "XL" },
-  { key: "h3", label: "L" },
-  { key: "h4", label: "M" },
-  { key: "h5", label: "S" },
-  { key: "small", label: "XS" },
+  { key: "standard", label: "Standard" },
+  { key: "scientific", label: "Scientific" },
+  { key: "engineering", label: "Engineering" },
 ];
 
-const defaultSelectDirectionButton = ({
+const defaultSelectNotationButton = ({
   key,
   entry,
   onClick,
   selected,
-}: ButtonOptionProps<text.Level, Entry>): ReactElement => (
+}: ButtonOptionProps<Notation, Entry>): ReactElement => (
   <CoreButton.Button
     key={key}
     variant={selected ? "filled" : "outlined"}
@@ -44,10 +39,13 @@ const defaultSelectDirectionButton = ({
   </CoreButton.Button>
 );
 
-export const SelectLevel = ({
-  children = defaultSelectDirectionButton,
+export interface SelectNotationProps
+  extends Omit<ButtonProps<Notation, Entry>, "data" | "entryRenderKey"> {}
+
+export const SelectNotation = ({
+  children = defaultSelectNotationButton,
   ...props
-}: SelectLevelProps): ReactElement => (
+}: SelectNotationProps): ReactElement => (
   <Button {...props} data={DATA}>
     {children}
   </Button>
