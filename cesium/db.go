@@ -123,7 +123,7 @@ func (db *DB) Close() error {
 		c.Exec(u.Close)
 	}
 	if c.Error() != nil {
-		db.closed.Store(true)
+		db.closed.Store(false)
 		return c.Error()
 	}
 
