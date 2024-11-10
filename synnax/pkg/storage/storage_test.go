@@ -17,6 +17,8 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 var _ = Describe("storage", func() {
@@ -42,32 +44,37 @@ var _ = Describe("storage", func() {
 			})
 		})
 		Describe("Permissions", func() {
-			Describe("Name Directory", func() {
-				It("Should set the correct permissions on the storage directory", func() {
-					cfg.Perm = storage.DefaultConfig.Perm
-					store, err := storage.Open(cfg)
-					Expect(err).NotTo(HaveOccurred())
-					stat, err := os.Stat(cfg.Dirname)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
-					Expect(store.Close()).To(Succeed())
+			// These two tests are failing on Windows because VFS cannot create a
+			// directory on Windows with custom permissions – all directories are created
+			// with 777.
+			if !strings.HasPrefix(runtime.GOOS, "windows") {
+				Describe("Name Directory", func() {
+					It("Should set the correct permissions on the storage directory", func() {
+						cfg.Perm = storage.DefaultConfig.Perm
+						store, err := storage.Open(cfg)
+						Expect(err).NotTo(HaveOccurred())
+						stat, err := os.Stat(cfg.Dirname)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
+						Expect(store.Close()).To(Succeed())
+					})
 				})
-			})
-			Describe("Existing Directory", func() {
-				var p string
-				BeforeEach(func() {
-					p = filepath.Join(tempDir, "x-storage")
-					Expect(os.Mkdir(p, xfs.OS_USER_R)).To(Succeed())
-					cfg.Dirname = p
+				Describe("Existing Directory", func() {
+					var p string
+					BeforeEach(func() {
+						p = filepath.Join(tempDir, "x-storage")
+						Expect(os.Mkdir(p, xfs.OS_USER_R)).To(Succeed())
+						cfg.Dirname = p
+					})
+					AfterEach(func() { Expect(os.RemoveAll(p)).To(Succeed()) })
+					It("Should return an error if the directory exists but has insufficient permissions", func() {
+						// use os.Stat to check the dir permissions
+						cfg.Perm = xfs.OS_USER_RWX
+						_, err := storage.Open(cfg)
+						Expect(err).To(HaveOccurred())
+					})
 				})
-				AfterEach(func() { Expect(os.RemoveAll(p)).To(Succeed()) })
-				It("Should return an error if the directory exists but has insufficient permissions", func() {
-					// use os.Stat to check the dir permissions
-					cfg.Perm = xfs.OS_USER_RWX
-					_, err := storage.Open(cfg)
-					Expect(err).To(HaveOccurred())
-				})
-			})
+			}
 		})
 		Describe("Membacked", func() {
 			It("Should open a memory backed version of storage", func() {
