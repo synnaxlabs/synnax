@@ -34,7 +34,7 @@ import { Core } from "@/select/List";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export interface ButtonOptionProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends Pick<CoreButton.ButtonProps, "onClick"> {
+  extends Pick<CoreButton.ButtonProps, "onClick" | "size"> {
   key: K;
   selected: boolean;
   entry: E;
@@ -45,10 +45,11 @@ export type ButtonProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Om
   UseSelectProps<K, E>,
   "data"
 > &
-  Omit<Align.PackProps, "children" | "onChange"> & {
+  Omit<Align.PackProps, "children" | "onChange" | "size"> & {
     data?: E[];
     children?: RenderProp<ButtonOptionProps<K, E>>;
     entryRenderKey?: keyof E;
+    size?: Pick<CoreButton.ButtonProps, "size">;
   };
 
 export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
@@ -61,6 +62,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   data,
   replaceOnSingle,
   className,
+  size = "small",
   ...props
 }: ButtonProps<K, E>): JSX.Element => {
   const { onSelect } = useSelect<K, E>({
@@ -76,12 +78,14 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     <Align.Pack
       borderShade={4}
       className={CSS(CSS.B("select-button"), className)}
+      size={size}
       {...props}
     >
       {data?.map((e) => {
         return children({
           key: e.key,
           onClick: () => onSelect(e.key),
+          size: size,
           selected: e.key === value,
           entry: e,
           title: e[entryRenderKey],
@@ -92,15 +96,18 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 };
 
 const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+  key,
   entry,
   onClick,
   selected,
   title,
+  ...props
 }: ButtonOptionProps<K, E>): JSX.Element => (
   <CoreButton.Button
-    key={entry.key}
+    key={key}
     onClick={onClick}
     variant={selected ? "filled" : "outlined"}
+    size="small"
   >
     {title as ReactNode}
   </CoreButton.Button>

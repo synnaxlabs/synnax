@@ -267,7 +267,14 @@ const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_P
 type zeroLabelReturn = { label: LabelExtensionProps };
 
 const zeroLabel = (label: string): zeroLabelReturn => ({
-  label: { label, level: "p", orientation: "top", maxInlineSize: 150, align: "center" },
+  label: {
+    label,
+    level: "p",
+    orientation: "top",
+    maxInlineSize: 150,
+    align: "center",
+    direction: "x",
+  },
 });
 
 const ZERO_DIMENSIONS = { width: 125, height: 200 };

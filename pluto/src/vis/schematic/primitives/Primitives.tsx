@@ -36,28 +36,36 @@ import { Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
-interface PathProps extends ComponentPropsWithoutRef<"path"> {}
+interface PathProps extends ComponentPropsWithoutRef<"path"> {
+  scaleStroke?: boolean;
+}
 
-const Path = (props: PathProps): ReactElement => (
-  <path vectorEffect="non-scaling-stroke" {...props} />
+const Path = ({ scaleStroke, ...props }: PathProps): ReactElement => (
+  <path vectorEffect={scaleStroke ? undefined : "non-scaling-stroke"} {...props} />
 );
 
-interface RectProps extends ComponentPropsWithoutRef<"rect"> {}
+interface RectProps extends ComponentPropsWithoutRef<"rect"> {
+  scaleStroke?: boolean;
+}
 
-const Rect = (props: RectProps): ReactElement => (
-  <rect vectorEffect="non-scaling-stroke" {...props} />
+const Rect = ({ scaleStroke, ...props }: RectProps): ReactElement => (
+  <rect vectorEffect={scaleStroke ? undefined : "non-scaling-stroke"} {...props} />
 );
 
-interface CircleProps extends ComponentPropsWithoutRef<"circle"> {}
+interface CircleProps extends ComponentPropsWithoutRef<"circle"> {
+  scaleStroke?: boolean;
+}
 
-const Circle = (props: CircleProps): ReactElement => (
-  <circle vectorEffect="non-scaling-stroke" {...props} />
+const Circle = ({ scaleStroke, ...props }: CircleProps): ReactElement => (
+  <circle vectorEffect={scaleStroke ? undefined : "non-scaling-stroke"} {...props} />
 );
 
-interface LineProps extends ComponentPropsWithoutRef<"line"> {}
+interface LineProps extends ComponentPropsWithoutRef<"line"> {
+  scaleStroke?: boolean;
+}
 
-const Line = (props: LineProps): ReactElement => (
-  <line vectorEffect="non-scaling-stroke" {...props} />
+const Line = ({ scaleStroke, ...props }: LineProps): ReactElement => (
+  <line vectorEffect={scaleStroke ? undefined : "non-scaling-stroke"} {...props} />
 );
 
 const ORIENTATION_RF_POSITIONS: Record<
@@ -242,6 +250,7 @@ const Div = ({ className, ...props }: DivProps): ReactElement => (
 interface SVGBasedPrimitiveProps extends OrientableProps {
   color?: Color.Crude;
   scale?: number;
+  scaleStroke?: boolean;
 }
 
 interface InternalSVGProps
@@ -412,6 +421,7 @@ export const SolenoidValve = ({
   orientation = "left",
   normallyOpen = false,
   scale,
+  scaleStroke,
   ...props
 }: SolenoidValveProps): ReactElement => (
   <Toggle
@@ -447,9 +457,10 @@ export const SolenoidValve = ({
       <Path
         className={CSS.B("body")}
         d="M43.5 48L6.35453 29.2035C4.35901 28.1937 2 29.6438 2 31.8803V64.1197C2 66.3562 4.35901 67.8063 6.35453 66.7965L43.5 48ZM43.5 48L80.6455 29.2035C82.641 28.1937 85 29.6438 85 31.8803V64.1197C85 66.3562 82.641 67.8063 80.6455 66.7965L43.5 48Z"
+        scaleStroke={scaleStroke}
       />
-      <Line x1={43.5} x2={43.5} y1={24.5333} y2={48} />
-      <Rect x="29" y="2" width="29" height="22.5333" rx="1" />
+      <Line x1={43.5} x2={43.5} y1={24.5333} y2={48} scaleStroke={scaleStroke} />
+      <Rect x="29" y="2" width="29" height="22.5333" rx="1" scaleStroke={scaleStroke} />
     </InternalSVG>
   </Toggle>
 );

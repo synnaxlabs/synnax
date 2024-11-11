@@ -17,7 +17,31 @@
     padding: 0 1rem 1rem;
 }
 
+.pluto-grid__item {
+    position: absolute;
+    --offset: 0.666rem;
+    &.pluto--top {
+        top: 0;
+        transform: translateY(calc(-100% - var(--offset)));
+    }
+    &.pluto--bottom {
+        bottom: 0;
+        transform: translateY(calc(100% + var(--offset)));
+    }
+    &.pluto--left {
+        left: 0;
+        transform: translateX(calc(-100% - var(--offset)));
+    }
+    &.pluto--right {
+        right: 0;
+        transform: translateX(calc(100% + var(--offset)));
+    }
+}
+
 .pluto-symbol__label {
-    transform: scale(0.9);
-    overflow-wrap: break-word;
+    --offset: 0.666rem;
+    text-wrap: nowrap;
+    &.pluto--y {
+        writing-mode: vertical-lr;
+    }
 }

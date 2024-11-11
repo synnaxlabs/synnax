@@ -18,13 +18,21 @@ import {
   xy,
 } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
-import { type ReactElement, useCallback, useState } from "react";
+import { width } from "node_modules/@synnaxlabs/x/dist/src/spatial/box/box";
+import {
+  Fragment,
+  PropsWithChildren,
+  type ReactElement,
+  ReactNode,
+  useCallback,
+  useState,
+} from "react";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
-import { useResize } from "@/hooks";
+import { useResize, useSyncedRef } from "@/hooks";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -51,6 +59,48 @@ const swapXLocation = (l: location.Outer): location.Outer =>
 const swapYLocation = (l: location.Outer): location.Outer =>
   direction.construct(l) === "y" ? (location.swap(l) as location.Outer) : l;
 
+interface GridItem {
+  key: string;
+  element: ReactNode;
+  location: location.Outer;
+}
+
+interface GridProps extends PropsWithChildren<{}> {
+  items: GridItem[];
+}
+
+interface GridElProps {
+  items: GridItem[];
+  loc: location.Outer;
+}
+
+const GridEl = ({ items: fItems, loc }: GridElProps): ReactElement | null => {
+  const items = fItems.filter((i) => i.location === loc);
+  if (items.length === 0) return null;
+  return (
+    <Align.Space
+      direction={location.direction(loc)}
+      className={CSS(CSS.BE("grid", "item"), CSS.loc(loc))}
+    >
+      {items.map(({ element, key }) => (
+        <Fragment key={key}>{element}</Fragment>
+      ))}
+    </Align.Space>
+  );
+};
+
+const Grid = ({ children, items }: GridProps) => {
+  return (
+    <div className={CSS(CSS.B("symbol-grid"))}>
+      <GridEl items={items} loc="top" />
+      <GridEl items={items} loc="left" />
+      <GridEl items={items} loc="right" />
+      <GridEl items={items} loc="bottom" />
+      {children}
+    </div>
+  );
+};
+
 const ControlState = ({
   showChip = true,
   showIndicator = true,
@@ -62,21 +112,12 @@ const ControlState = ({
   ...props
 }: ControlStateProps): ReactElement => (
   <Align.Space
-    direction={location.rotate90(orientation)}
+    // direction={location.rotate90(orientation)}
     align="center"
     justify="center"
     empty
     {...props}
   >
-    <Align.Space
-      direction={direction.construct(orientation)}
-      align="center"
-      className={CSS(CSS.B("control-state"))}
-      size="small"
-    >
-      {show && showChip && <Control.Chip size="small" {...chip} />}
-      {show && showIndicator && <Control.Indicator {...indicator} />}
-    </Align.Space>
     {children}
   </Align.Space>
 );
@@ -176,12 +217,57 @@ export interface SolenoidValveProps
   control?: ControlStateProps;
 }
 
+const labelGridItem = (props?: LabelExtensionProps): GridItem | null => {
+  if (props == null) return null;
+  const { label, level = "p", orientation = "top", direction } = props;
+  if (label == null || label.length === 0) return null;
+  return {
+    key: "label",
+    element: (
+      <Text.Editable
+        className={CSS(CSS.BE("symbol", "label"), CSS.dir(direction))}
+        level={level}
+        value={label}
+      />
+    ),
+    location: orientation,
+  };
+};
+
+const controlStateGridItem = (props?: ControlStateProps): GridItem | null => {
+  if (props == null) return null;
+  const {
+    show = true,
+    showChip = true,
+    showIndicator = true,
+    chip,
+    indicator,
+    orientation = "bottom",
+  } = props;
+  return {
+    key: "control",
+    element: (
+      <Align.Space
+        direction={direction.swap(orientation)}
+        align="center"
+        className={CSS(CSS.B("control-state"))}
+        size="small"
+      >
+        {show && showChip && <Control.Chip size="small" {...chip} />}
+        {show && showIndicator && <Control.Indicator {...indicator} />}
+      </Align.Space>
+    ),
+    location: orientation,
+  };
+};
+
 export const SolenoidValve = Aether.wrap<SymbolProps<SolenoidValveProps>>(
   "SolenoidValve",
   ({
     aetherKey,
     label,
     onChange,
+    position: _,
     orientation = "left",
     normallyOpen,
     source,
@@ -190,19 +276,23 @@ export const SolenoidValve = Aether.wrap<SymbolProps<SolenoidValveProps>>(
     ...rest
   }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    const gridItems: GridItem[] = [];
+    const labelItem = labelGridItem(label);
+    if (labelItem != null) gridItems.push(labelItem);
+    const controlItem = controlStateGridItem(control);
+    if (controlItem != null) gridItems.push(controlItem);
+    console.log(gridItems);
     return (
-      <Labeled {...label} onChange={onChange}>
-        <ControlState {...control} orientation={swapYLocation(orientation)}>
-          <Primitives.SolenoidValve
-            enabled={enabled}
-            triggered={triggered}
-            onClick={toggle}
-            orientation={orientation}
-            normallyOpen={normallyOpen}
-            {...rest}
-          />
-        </ControlState>
-      </Labeled>
+      <Grid items={gridItems}>
+        <Primitives.SolenoidValve
+          enabled={enabled}
+          triggered={triggered}
+          onClick={toggle}
+          orientation={orientation}
+          normallyOpen={normallyOpen}
+          {...rest}
+        />
+      </Grid>
     );
   },
 );
@@ -655,11 +745,6 @@ export interface ValueProps
   tooltip?: string[];
 }
 
-interface ValueDimensionsState {
-  outerBox: box.Box;
-  labelDims: dimensions.Dimensions;
-}
-
 export const Value = Aether.wrap<SymbolProps<ValueProps>>(
   "Value",
   ({
@@ -678,47 +763,16 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     notation,
   }): ReactElement => {
     const font = Theming.useTypography(level);
-    const [dims, setDims] = useState<ValueDimensionsState>({
-      outerBox: box.ZERO,
-      labelDims: dimensions.ZERO,
-    });
-
-    const flow = useReactFlow();
-
     const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
-    const resizeRef = useResize(
-      useCallback((outerBox) => {
-        // Find the element with the class pluto-symbol__label that is underneath
-        // the 'react-flow__node' with the data-id of aetherKey
-        const label = document.querySelector(
-          `.react-flow__node[data-id="${aetherKey}"] .pluto-symbol__label`,
-        );
-        if (label == null) return;
-        const labelDims = dimensions.scale(
-          box.dims(box.construct(label)),
-          // Scale the label by the CSS value and the current flow zoom state.
-          // I don't really know why we need to do this, but it makes it work. The
-          // internals of react flow are strange.
-          1 / (LABEL_SCALE * flow.getZoom()),
-        );
-        setDims({ outerBox, labelDims });
-      }, []),
-      {},
-    );
-
-    const adjustedBox = adjustValueBox({
-      labelOrientation: label?.orientation ?? "top",
-      hasLabel: label?.label != null && label?.label.length > 0,
-      valueBoxHeight,
-      position,
-      ...dims,
-    });
 
     const { width: oWidth } = CoreValue.use({
       aetherKey,
       color: textColor,
       level,
-      box: adjustedBox,
+      box: box.construct(xy.translateY({ ...position }, 1), {
+        height: valueBoxHeight,
+        width: inlineSize,
+      }),
       telem,
       minWidth: inlineSize,
       notation,
@@ -738,7 +792,6 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
         </Align.Space>
         <Labeled
           className={CSS(className, CSS.B("value-labeled"))}
-          ref={resizeRef}
           onChange={onChange}
           {...label}
         >
@@ -757,43 +810,6 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     );
   },
 );
-
-interface AdjustBoxProps {
-  labelOrientation: location.Outer;
-  outerBox: box.Box;
-  labelDims: dimensions.Dimensions;
-  valueBoxHeight: number;
-  position: xy.XY;
-  hasLabel: boolean;
-}
-
-// We apply a label scale in CSS, so we need to apply it here too.
-const LABEL_SCALE = 0.9;
-
-// Performs adjustments to the outer value box positioning in order to
-// place the value in the correct place on the canvas. Deals with things
-// like labels and orientations.
-const adjustValueBox = ({
-  labelOrientation,
-  outerBox,
-  labelDims,
-  valueBoxHeight,
-  position,
-  hasLabel,
-}: AdjustBoxProps): box.Box => {
-  const dir = direction.construct(labelOrientation);
-  if (dir === "x")
-    position = xy.translate(
-      position,
-      "y",
-      Math.max((labelDims.height - valueBoxHeight) / 2 - 1, 1),
-    );
-  if (hasLabel && labelOrientation === "left")
-    position = xy.translate(position, { x: labelDims.width + 6, y: 0 });
-  else if (hasLabel && labelOrientation === "top")
-    position = xy.translate(position, "y", labelDims.height + 6);
-  return box.construct(position.x, position.y, box.width(outerBox), valueBoxHeight);
-};
 
 export const ValuePreview = ({ color }: ValueProps): ReactElement => (
   <Primitives.Value color={color} dimensions={{ width: 60, height: 25 }} units={"psi"}>

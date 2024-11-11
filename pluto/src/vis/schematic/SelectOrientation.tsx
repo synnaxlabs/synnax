@@ -34,6 +34,7 @@ export const SelectOrientation = ({
   showOuter = true,
   showInner,
   onChange,
+  children,
 }: SelectOrientationProps): ReactElement => {
   const { outer } = value;
   const handleChange = (next: Partial<OrientationValue>) => () =>

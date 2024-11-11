@@ -99,11 +99,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       .filter((el) => el !== null) as Diagram.NodeLayout[];
 
     return (
-      <Align.Space
-        className={CSS.B("schematic-properties-pad")}
-        align="start"
-        direction="x"
-      >
+      <Align.Space align="start" direction="x">
         <Input.Item label="Selection Colors" align="start">
           <Align.Space direction="y">
             {Object.entries(groups).map(([hex, elements]) => {
@@ -190,7 +186,7 @@ const IndividualProperties = ({
   });
 
   return (
-    <Align.Space className={CSS.B("schematic-properties")} size="small">
+    <Align.Space style={{ height: "100%" }} direction="y">
       <Form.Form {...formMethods}>
         <C.Form {...formMethods} key={selected.key} />
       </Form.Form>
