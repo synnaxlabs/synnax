@@ -597,7 +597,7 @@ const moveNodeInDirection = (
     if (oppositeStump.direction === dir && Math.abs(stump.length) < STUMP_LENGTH) {
       segments[segments.length - 1] = {
         ...oppositeStump,
-        length: oppositeStump.length + delta[dir],
+        length: oppositeStump.length - delta[dir],
       };
       return segments;
     }
@@ -617,6 +617,7 @@ const moveNodeInDirection = (
       };
       return segments;
     } else {
+      console.log("SEG", segments, delta);
       // If the stump is in the right direction and its larger than the opposite stump
       if (stump.direction === dir && Math.abs(stump.length) > oppositeStump.length) {
         segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
@@ -626,6 +627,7 @@ const moveNodeInDirection = (
           length: oppositeStump.length - delta[dir],
         };
       }
+      console.log(segments);
       return segments;
     }
   }
