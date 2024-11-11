@@ -27,20 +27,20 @@ export interface Field {
  * Raised when a validation error occurs.
  */
 export class ValidationError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX  }validation`;
+  static readonly TYPE: string = `${_FREIGHTER_EXCEPTION_PREFIX}validation`;
   type = ValidationError.TYPE;
   static readonly matches = errorMatcher(ValidationError.TYPE);
 }
 
 export class FieldError extends ValidationError {
-  static readonly TYPE = `${ValidationError.TYPE  }.field`;
+  static readonly TYPE = `${ValidationError.TYPE}.field`;
   type = FieldError.TYPE;
   static readonly matches = errorMatcher(FieldError.TYPE);
   readonly field: string;
   readonly message: string;
 
   constructor(field: string, message: string) {
-    super(`${field  }: ${  message}`);
+    super(`${field}: ${message}`);
     this.field = field;
     this.message = message;
   }
@@ -50,7 +50,7 @@ export class FieldError extends ValidationError {
  * AuthError is raised when an authentication error occurs.
  */
 export class AuthError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX  }auth`;
+  static readonly TYPE: string = `${_FREIGHTER_EXCEPTION_PREFIX}auth`;
   type = AuthError.TYPE;
   static readonly matches = errorMatcher(AuthError.TYPE);
 }
@@ -59,7 +59,7 @@ export class AuthError extends BaseTypedError {
  * InvalidTokenError is raised when an authentication token is invalid.
  */
 export class InvalidTokenError extends AuthError {
-  static readonly TYPE = `${AuthError.TYPE  }.invalid-token`;
+  static readonly TYPE = `${AuthError.TYPE}.invalid-token`;
   type = InvalidTokenError.TYPE;
   static readonly matches = errorMatcher(InvalidTokenError.TYPE);
 }
@@ -68,7 +68,7 @@ export class InvalidTokenError extends AuthError {
  * UnexpectedError is raised when an unexpected error occurs.
  */
 export class UnexpectedError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX  }unexpected`;
+  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX}unexpected`;
   type = UnexpectedError.TYPE;
   static readonly matches = errorMatcher(UnexpectedError.TYPE);
 
@@ -87,19 +87,19 @@ export class UnexpectedError extends BaseTypedError {
  * QueryError is raised when a query error occurs.
  */
 export class QueryError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX  }query`;
+  static readonly TYPE: string = `${_FREIGHTER_EXCEPTION_PREFIX}query`;
   type = QueryError.TYPE;
   static readonly matches = errorMatcher(QueryError.TYPE);
 }
 
 export class NotFoundError extends QueryError {
-  static readonly TYPE = `${QueryError.TYPE  }.not_found`;
+  static readonly TYPE = `${QueryError.TYPE}.not_found`;
   type = NotFoundError.TYPE;
   static readonly matches = errorMatcher(NotFoundError.TYPE);
 }
 
 export class MultipleFoundError extends QueryError {
-  static readonly TYPE = `${QueryError.TYPE  }.multiple_results`;
+  static readonly TYPE = `${QueryError.TYPE}.multiple_results`;
   type = MultipleFoundError.TYPE;
   static readonly matches = errorMatcher(MultipleFoundError.TYPE);
 }
@@ -108,7 +108,7 @@ export class MultipleFoundError extends QueryError {
  * RouteError is raised when a routing error occurs.
  */
 export class RouteError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX  }route`;
+  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX}route`;
   type = RouteError.TYPE;
   static readonly matches = errorMatcher(RouteError.TYPE);
   path: string;
@@ -120,13 +120,13 @@ export class RouteError extends BaseTypedError {
 }
 
 export class ControlError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX  }control`;
+  static readonly TYPE: string = `${_FREIGHTER_EXCEPTION_PREFIX}control`;
   type = ControlError.TYPE;
   static readonly matches = errorMatcher(ControlError.TYPE);
 }
 
 export class UnauthorizedError extends ControlError {
-  static readonly TYPE = `${ControlError.TYPE  }.unauthorized`;
+  static readonly TYPE = `${ControlError.TYPE}.unauthorized`;
   type = UnauthorizedError.TYPE;
   static readonly matches = errorMatcher(UnauthorizedError.TYPE);
 }
@@ -135,7 +135,7 @@ export class UnauthorizedError extends ControlError {
  * Raised when time-series data is not contiguous.
  */
 export class ContiguityError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX  }contiguity`;
+  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX}contiguity`;
   type = ContiguityError.TYPE;
   static readonly matches = errorMatcher(ContiguityError.TYPE);
 }
@@ -157,9 +157,8 @@ const decode = (payload: ErrorPayload): Error | null => {
     return new AuthError(payload.data);
   }
 
-  if (payload.type.startsWith(UnexpectedError.TYPE)) 
+  if (payload.type.startsWith(UnexpectedError.TYPE))
     return new UnexpectedError(payload.data);
-  
 
   if (payload.type.startsWith(QueryError.TYPE)) {
     if (payload.type.startsWith(NotFoundError.TYPE))
