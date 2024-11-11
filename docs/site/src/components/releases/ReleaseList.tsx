@@ -29,14 +29,13 @@ export const ReleaseList = ({
     if (toc.current == null) return;
 
     const setCurrent: IntersectionObserverCallback = (entries) => {
-      for (const entry of entries) 
+      for (const entry of entries)
         if (entry.isIntersecting) {
           const { id } = entry.target;
           if (id === ON_THIS_PAGE_ID) continue;
           setCurrentID(entry.target.id);
           break;
         }
-      
     };
 
     const observerOptions: IntersectionObserverInit = {
@@ -69,22 +68,22 @@ export const ReleaseList = ({
           {headings
             .filter(({ depth }) => depth === 6)
             .map((heading) => (
-                <Menu.Item.Link
-                  href={`#${heading.slug}`}
-                  level="small"
-                  key={heading.slug}
-                  itemKey={heading.slug}
-                  id={heading.slug}
-                  onClick={() => {
-                    setCurrentID(heading.slug);
-                  }}
-                  className={`header-link ${heading.slug} depth-${heading.depth} ${
-                    currentID === heading.slug ? "current-header-link" : ""
-                  }`.trim()}
-                >
-                  {unescape(heading.text)}
-                </Menu.Item.Link>
-              ))}
+              <Menu.Item.Link
+                href={`#${heading.slug}`}
+                level="small"
+                key={heading.slug}
+                itemKey={heading.slug}
+                id={heading.slug}
+                onClick={() => {
+                  setCurrentID(heading.slug);
+                }}
+                className={`header-link ${heading.slug} depth-${heading.depth} ${
+                  currentID === heading.slug ? "current-header-link" : ""
+                }`.trim()}
+              >
+                {unescape(heading.text)}
+              </Menu.Item.Link>
+            ))}
         </Menu.Menu>
       </div>
     </Align.Space>

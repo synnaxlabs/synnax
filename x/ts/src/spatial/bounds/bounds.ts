@@ -46,7 +46,7 @@ export const construct = <T extends numeric.Value>(
   upper?: T,
 ): Bounds<T> => {
   const b: Bounds<T> = {} as const as Bounds<T>;
-  if (typeof lower === "number" || typeof lower === "bigint") 
+  if (typeof lower === "number" || typeof lower === "bigint")
     if (upper != null) {
       b.lower = lower;
       b.upper = upper;
@@ -54,7 +54,7 @@ export const construct = <T extends numeric.Value>(
       b.lower = (typeof lower === "bigint" ? 0n : 0) as T;
       b.upper = lower;
     }
-   else if (Array.isArray(lower)) {
+  else if (Array.isArray(lower)) {
     if (lower.length !== 2) throw new Error("bounds: expected array of length 2");
     [b.lower, b.upper] = lower;
   } else return makeValid(lower);

@@ -154,12 +154,11 @@ describe("connector", () => {
       BOTTOM_EQUAL_FALSE,
     ];
 
-    for (const spec of SPECS) 
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.needToGoAround(spec.props);
         expect(actual).toEqual(spec.expected);
       });
-    
   });
 
   describe("travelSegments", () => {
@@ -200,12 +199,11 @@ describe("connector", () => {
 
     const SPECS = [TO_RIGHT, TO_LEFT, TO_TOP, TO_BOTTOM];
 
-    for (const spec of SPECS) 
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.travelSegments(spec.source, ...spec.segments);
         expect(actual).toEqual(spec.expected);
       });
-    
   });
 
   describe("stump", () => {
@@ -275,12 +273,11 @@ describe("connector", () => {
       RIGHT_LEFT_TRUE_LONG_WAY,
     ];
 
-    for (const spec of SPECS) 
+    for (const spec of SPECS)
       it(spec.description, () => {
         const actual = connector.prepareNode(spec.props);
         expect(actual).toEqual(spec.expected);
       });
-    
   });
 
   describe("new connector formation", () => {
@@ -440,7 +437,7 @@ describe("connector", () => {
       LEFT_LEFT_TARGET_EQ_LEFT,
     ];
 
-    for (const spec of SPECS) 
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.buildNew(spec.props);
         expect(actual).toEqual(spec.expected);
@@ -449,7 +446,6 @@ describe("connector", () => {
         const target = connector.travelSegments(spec.props.sourcePos, ...actual);
         expect(target).toEqual(spec.props.targetPos);
       });
-    
   });
 
   describe("dragging segments", () => {
@@ -581,7 +577,7 @@ describe("connector", () => {
       ADD_SOURCE_STUMP,
     ];
 
-    for (const spec of SPECS) 
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.dragSegment(spec.props);
         const propsTarget = connector.travelSegments(xy.ZERO, ...spec.props.segments);
@@ -591,7 +587,6 @@ describe("connector", () => {
         expect(actual).toEqual(spec.expected);
         expect(propsTarget).toEqual(actualTarget);
       });
-    
   });
 
   describe("moving nodes", () => {
@@ -863,7 +858,7 @@ describe("connector", () => {
       ORTHOGONAL_DOWN,
       ORTHOGONAL_REVERSE_STUMP,
     ];
-    for (const spec of SPECS) 
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.moveSourceNode(spec.props);
         const expectedTarget = connector.travelSegments(xy.ZERO, ...spec.expected);
@@ -871,6 +866,5 @@ describe("connector", () => {
         expect(actual).toEqual(spec.expected);
         expect(actualTarget).toEqual(expectedTarget);
       });
-    
   });
 });

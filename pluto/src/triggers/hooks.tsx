@@ -120,7 +120,6 @@ export const useHeldRef = ({
         let next: Trigger[];
         if (e.stage === "start") next = unique([...prev.triggers, ...e.triggers]);
         else next = purge(prev.triggers, e.triggers);
-
         return { triggers: next, held: next.length > 0 };
       });
     }, []),

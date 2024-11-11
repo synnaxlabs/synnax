@@ -313,13 +313,12 @@ export const { actions, reducer } = createSlice({
       toArray(rule).forEach((r) => {
         const idx = plot.rules.findIndex((rr) => rr.key === r.key);
         if (idx >= 0) plot.rules[idx] = { ...plot.rules[idx], ...r };
-        else 
+        else
           plot.rules.push({
             ...latest.ZERO_RULE_STATE,
             label: `Rule ${plot.rules.length}`,
             ...r,
           });
-        
       });
     },
     removeRule: (state, { payload }: PayloadAction<RemoveRulePayload>) => {

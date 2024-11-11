@@ -1905,9 +1905,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
 }) => {
   const element = document.querySelector(`[data-id="${id}"]`);
   // add the orientation to the class list
-  if (element) 
-    element.classList.add(orientation);
-  
+  if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
 

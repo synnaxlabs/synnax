@@ -69,7 +69,7 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
           async (res) =>
             await client.workspaces.schematic.copy(
               res.id.key,
-              `${res.name  } (copy)`,
+              `${res.name} (copy)`,
               false,
             ),
         ),
@@ -106,7 +106,7 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
           async (res) =>
             await client.workspaces.schematic.copy(
               res.id.key,
-              `${res.name  } (snap)`,
+              `${res.name} (snap)`,
               true,
             ),
         ),

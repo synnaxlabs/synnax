@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Tabs as Core } from "@synnaxlabs/pluto/tabs";
-import { type ReactElement,useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 export type TabsProps = {
   tabs: Core.Tab[];

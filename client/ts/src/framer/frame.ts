@@ -419,8 +419,8 @@ export const seriesFromPayload = (series: SeriesPayload): Series => {
 };
 
 export const seriesToPayload = (series: Series): SeriesPayload => ({
-    timeRange: series._timeRange,
-    dataType: series.dataType,
-    data: new Uint8Array(series.data.buffer),
-    alignment: series.alignment,
-  });
+  timeRange: series._timeRange,
+  dataType: series.dataType,
+  data: new Uint8Array(series.data.buffer),
+  alignment: series.alignment,
+});

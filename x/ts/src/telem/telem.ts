@@ -47,7 +47,6 @@ const remainder = <T extends TimeStamp | TimeSpan>(
     throw new Error(
       "Invalid argument for remainder. Must be an even TimeSpan or Timestamp",
     );
-
   const v = value.valueOf() % ts.valueOf();
   return (value instanceof TimeStamp ? new TimeStamp(v) : new TimeSpan(v)) as T;
 };
@@ -100,7 +99,6 @@ export class TimeStamp implements Stringer {
           if (value === Infinity) value = TimeStamp.MAX;
           else value = TimeStamp.MIN;
         }
-
       this.value = BigInt(value.valueOf()) + offset;
     }
   }
@@ -1072,7 +1070,6 @@ export class DataType extends String implements Stringer {
       super(t.valueOf());
       return;
     }
-
     super(DataType.UNKNOWN.valueOf());
     throw new Error(`unable to find data type for ${value.toString()}`);
   }
@@ -1138,7 +1135,6 @@ export class DataType extends String implements Stringer {
       return false;
     if ((this.isFloat && other.isInteger) || (this.isInteger && other.isFloat))
       return this.density.valueOf() < other.density.valueOf();
-
     if ((this.isFloat && other.isFloat) || (this.isInteger && other.isInteger))
       return this.density.valueOf() <= other.density.valueOf();
     return false;

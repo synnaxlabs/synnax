@@ -55,7 +55,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.rounded = (rounded) => !(rounded === false) && CSS.M("rounded");
   CSS.bordered = (location) => {
     if (typeof location === "boolean") return location && CSS.M("bordered");
-    return location != null ? CSS.M(`bordered-${  location}`) : CSS.M("bordered");
+    return location != null ? CSS.M(`bordered-${location}`) : CSS.M("bordered");
   };
   CSS.selected = (selected) => selected && CSS.M("selected");
   CSS.altColor = (secondary) => secondary && CSS.M("alt-color");

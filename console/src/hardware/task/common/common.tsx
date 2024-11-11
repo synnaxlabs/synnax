@@ -202,12 +202,11 @@ export const useObserveState = <T extends ParserErrorsDetails>(
       if (state.task !== taskKey) return;
       setTaskState(state);
       if (state.variant !== "error") clearStatuses();
-      else if (state.details != null && state.details.errors != null) 
+      else if (state.details != null && state.details.errors != null)
         state.details.errors.forEach((e) => {
           const path = `config.${caseconv.snakeToCamel(e.path)}`;
           setStatus(path, { variant: "error", message: "" });
         });
-      
     },
   });
   return taskState;
@@ -352,15 +351,15 @@ export interface TareButtonProps {
 }
 
 export const TareButton = ({ onClick, disabled }: TareButtonProps) => (
-    <Button.Icon
-      variant={"outlined"}
-      disabled={disabled}
-      onClick={onClick}
-      tooltip="Click to tare"
-    >
-      <Icon.Tare />
-    </Button.Icon>
-  );
+  <Button.Icon
+    variant={"outlined"}
+    disabled={disabled}
+    onClick={onClick}
+    tooltip="Click to tare"
+  >
+    <Icon.Tare />
+  </Button.Icon>
+);
 
 export const useCreate = <
   C extends UnknownRecord,

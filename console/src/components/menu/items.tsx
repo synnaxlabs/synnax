@@ -37,7 +37,7 @@ export const RenameItem = (): ReactElement => (
 );
 
 export const DeleteItem = (): ReactElement => (
-    <Menu.Item itemKey="delete" startIcon={<Icon.Delete />} size="small">
-      Delete
-    </Menu.Item>
-  );
+  <Menu.Item itemKey="delete" startIcon={<Icon.Delete />} size="small">
+    Delete
+  </Menu.Item>
+);

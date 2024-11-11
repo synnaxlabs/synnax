@@ -119,14 +119,13 @@ const Wrapped = ({
       let shouldCreateStateIndex = primitiveIsZero(
         dev.properties.digitalOutput.stateIndex,
       );
-      if (!shouldCreateStateIndex) 
+      if (!shouldCreateStateIndex)
         try {
           await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
           else throw e;
         }
-      
 
       if (shouldCreateStateIndex) {
         modified = true;
@@ -174,9 +173,9 @@ const Wrapped = ({
         );
         states.forEach((s, i) => {
           const key = `${statesToCreate[i].port}l${statesToCreate[i].line}`;
-          if (!(key in dev.properties.digitalOutput.channels)) 
+          if (!(key in dev.properties.digitalOutput.channels))
             dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
-           else dev.properties.digitalOutput.channels[key].state = s.key;
+          else dev.properties.digitalOutput.channels[key].state = s.key;
         });
       }
 
@@ -197,9 +196,9 @@ const Wrapped = ({
         );
         commands.forEach((s, i) => {
           const key = `${commandsToCreate[i].port}l${commandsToCreate[i].line}`;
-          if (!(key in dev.properties.digitalOutput.channels)) 
+          if (!(key in dev.properties.digitalOutput.channels))
             dev.properties.digitalOutput.channels[key] = { state: 0, command: s.key };
-           else dev.properties.digitalOutput.channels[key].command = s.key;
+          else dev.properties.digitalOutput.channels[key].command = s.key;
         });
       }
 

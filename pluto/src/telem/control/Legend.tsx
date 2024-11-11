@@ -40,9 +40,7 @@ export const Legend = Aether.wrap<LegendProps>(
     const subjects = unique(states.map((s) => s.subject.key));
     const data = subjects.map((s) => {
       const d = states.find((s2) => s2.subject.key === s);
-      if (d == null) 
-        throw new UnexpectedError("Legend subject not found");
-      
+      if (d == null) throw new UnexpectedError("Legend subject not found");
       return { key: d.subject.key, label: d.subject.name, color: d.subjectColor };
     });
 

@@ -83,9 +83,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       focusedRef.current = false;
       if (resetOnBlurIfEmpty && e.target.value === "")
         onChange?.(cachedFocusRef.current);
-      else if (onlyChangeOnBlur) 
-        if (tempValue != null) onChange?.(tempValue);
-      
+      else if (onlyChangeOnBlur) if (tempValue != null) onChange?.(tempValue);
       setTempValue(null);
       onBlur?.(e);
     };

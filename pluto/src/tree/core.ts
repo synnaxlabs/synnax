@@ -48,9 +48,7 @@ export interface FlattenProps {
 }
 
 export const sortAndSplice = (nodes: Node[], sort: boolean): Node[] => {
-  if (sort) 
-    nodes.sort((a, b) => compare.stringsWithNumbers(a.name, b.name));
-  
+  if (sort) nodes.sort((a, b) => compare.stringsWithNumbers(a.name, b.name));
   let found = false;
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
@@ -167,14 +165,14 @@ export const updateNode = ({
     // splice the updated node into the parent's children
     const index = parent.children?.findIndex((child) => child.key === key);
     if (index != null && index !== -1) parent.children?.splice(index, 1, updater(node));
-  } else 
-    // we're in the root, so just update the node
+  }
+  // we're in the root, so just update the node
+  else
     tree.splice(
       tree.findIndex((node) => node.key === key),
       1,
       updater(node),
     );
-  
   return tree;
 };
 
@@ -247,13 +245,12 @@ export interface FindNodeParentProps {
 }
 
 export const findNodeParent = ({ tree, key }: FindNodeParentProps): Node | null => {
-  for (const node of tree) 
+  for (const node of tree)
     if (node.children != null) {
       if (node.children.some((child) => child.key === key)) return node;
       const found = findNodeParent({ tree: node.children, key });
       if (found != null) return found;
     }
-  
   return null;
 };
 

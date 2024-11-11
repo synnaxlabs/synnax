@@ -621,11 +621,11 @@ export const use = <Z extends z.ZodTypeAny>({
         // instead we just to a best effort construction of the field state. This means
         // that if the user has a field rendered for this path, the error will be displayed.
         fs ??= {
-            value: undefined,
-            status: statuses.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
-            touched: false,
-            required: false,
-          };
+          value: undefined,
+          status: statuses.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
+          touched: false,
+          required: false,
+        };
         listeners.get(issuePath)?.forEach((l) => l(fs));
       });
 
@@ -739,4 +739,6 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 };
 
-export const Form = (props: PropsWithChildren<ContextValue>): ReactElement => <Context.Provider value={props}>{props.children}</Context.Provider>;
+export const Form = (props: PropsWithChildren<ContextValue>): ReactElement => (
+  <Context.Provider value={props}>{props.children}</Context.Provider>
+);

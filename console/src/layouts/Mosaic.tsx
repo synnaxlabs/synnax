@@ -82,13 +82,12 @@ export const ContextMenu = ({
   const layout = Layout.useSelect(layoutKey);
   if (layout == null) return null;
   const C = Layout.useContextMenuRenderer(layout?.type);
-  if (C == null) 
+  if (C == null)
     return (
       <PMenu.Menu level="small" iconSpacing="small">
         <Layout.MenuItems layoutKey={layoutKey} />
       </PMenu.Menu>
     );
-  
   const res = <C layoutKey={layoutKey} />;
   return res;
 };
@@ -242,7 +241,7 @@ export const Mosaic = memo((): ReactElement => {
             const fileAsJSON = JSON.parse(new TextDecoder().decode(buffer));
 
             let handlerFound = false;
-            for (const fileHandler of FILE_HANDLERS) 
+            for (const fileHandler of FILE_HANDLERS)
               if (
                 await fileHandler({
                   file: fileAsJSON,
@@ -259,7 +258,6 @@ export const Mosaic = memo((): ReactElement => {
                 handlerFound = true;
                 break;
               }
-            
             if (!handlerFound)
               throw Error(`${name} is not recognized as a Synnax object`);
           } catch (e) {

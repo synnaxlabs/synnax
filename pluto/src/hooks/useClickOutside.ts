@@ -38,11 +38,10 @@ export const useClickOutside = ({
       const pos = xy.construct(e);
 
       const exclude = excludeRef.current;
-      if (exclude != null) 
+      if (exclude != null)
         if (typeof exclude === "function") {
           if (exclude(e)) return;
         } else if (exclude.some((r) => r.current?.contains(e.target as Node))) return;
-      
 
       if (
         el == null ||

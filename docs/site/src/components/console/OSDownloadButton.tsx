@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
-import { type ReactElement, useEffect,useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 export interface OSDownloadButtonEntry {
   os: runtime.OS;

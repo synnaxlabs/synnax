@@ -163,7 +163,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
 
   let content: ReactElement = emptyContent;
 
-  if (selectedRule != null) 
+  if (selectedRule != null)
     content = (
       <Align.Space direction="y" style={{ flexGrow: "1" }} empty>
         <Header.Header level="p">
@@ -223,7 +223,6 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
         </Align.Space>
       </Align.Space>
     );
-  
 
   const menuProps = Menu.useContextMenu();
 

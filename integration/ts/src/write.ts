@@ -29,7 +29,8 @@ class TestConfig {
   expectedError: string;
   channels: IndexWriterGroup[] = [];
 
-  numChannels: () => number = () => this.channels.reduce((a, l: IndexWriterGroup) => a + l.together().length, 0);
+  numChannels: () => number = () =>
+    this.channels.reduce((a, l: IndexWriterGroup) => a + l.together().length, 0);
 
   constructor(
     identifier: string,
@@ -124,20 +125,14 @@ class WriteTest {
         if (
           this.tc.expectedError != "no_error" &&
           e.message.includes(this.tc.expectedError)
-        ) 
+        )
           errorAssertion = true;
-         else 
-          throw e;
-        
-      } else 
-        throw e;
-      
+        else throw e;
+      } else throw e;
     });
 
     if (!caught) {
-      if (this.tc.expectedError == "no_error") 
-        errorAssertion = true;
-      
+      if (this.tc.expectedError == "no_error") errorAssertion = true;
       actualError = "no_error";
     }
 
@@ -170,7 +165,7 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
     const writers = new Array(this.tc.numWriters).fill(null);
     const timeSpanPerDomain = Number(this.tc.timeRange.span) / this.tc.domains;
 
-    for (let i = 0; i < this.tc.numWriters; i++) 
+    for (let i = 0; i < this.tc.numWriters; i++)
       writers[i] = await client.openWriter({
         start: this.tc.timeRange.start,
         channels: this.tc.channels[i].together(),
@@ -178,7 +173,6 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
         enableAutoCommit: this.tc.autoCommit,
         autoIndexPersistInterval: this.tc.indexPersistInterval,
       });
-    
 
     try {
       let tsHwm = this.tc.timeRange.start;
@@ -205,9 +199,7 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
 
           await writer.write(dataDict);
 
-          if (!this.tc.autoCommit) 
-            await writer.commit();
-          
+          if (!this.tc.autoCommit) await writer.commit();
 
           if (!this.tc.allInOneDomain) {
             await writer.close();
@@ -223,9 +215,7 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
         }
       }
     } finally {
-      for (const writer of writers) 
-        await writer.close();
-      
+      for (const writer of writers) await writer.close();
     }
   }
 }

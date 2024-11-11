@@ -17,7 +17,12 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { type Key, type KeyOrName, type KeysOrNames, type Params } from "@/channel/payload";
+import {
+  type Key,
+  type KeyOrName,
+  type KeysOrNames,
+  type Params,
+} from "@/channel/payload";
 import { analyzeChannelParams, type Retriever } from "@/channel/retriever";
 import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";

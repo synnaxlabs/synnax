@@ -11,7 +11,7 @@ import './App.css'
 
 import { createWindow } from '@synnaxlabs/drift'
 import { useSelectWindow } from '@synnaxlabs/drift/react'
-import { useDispatch,useSelector } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 
 import reactLogo from './assets/react.svg'
 import { incremented, StoreState } from './store'

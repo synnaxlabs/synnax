@@ -44,9 +44,7 @@ export const Search = (): ReactElement => {
   const d = Dropdown.use();
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") 
-        d.close();
-      
+      if (e.key === "Escape") d.close();
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         d.open();

@@ -123,9 +123,7 @@ export class Task<
       if (parsed.success) {
         res = parsed.data as State<D>;
         if (res.key === cmdKey) break;
-      } else 
-        console.error(parsed.error);
-      
+      } else console.error(parsed.error);
     }
     streamer.close();
     return res;

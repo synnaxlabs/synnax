@@ -129,14 +129,13 @@ const Wrapped = ({
 
       let modified = false;
       let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
-      if (!shouldCreateIndex) 
+      if (!shouldCreateIndex)
         try {
           await client.channels.retrieve(dev.properties.digitalInput.index);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateIndex = true;
           else throw e;
         }
-      
 
       if (shouldCreateIndex) {
         modified = true;
@@ -155,14 +154,13 @@ const Wrapped = ({
         // check if the channel is in properties
         const exKey = dev.properties.digitalInput.channels[key];
         if (primitiveIsZero(exKey)) toCreate.push(channel);
-        else 
+        else
           try {
             await client.channels.retrieve(exKey.toString());
           } catch (e) {
             if (NotFoundError.matches(e)) toCreate.push(channel);
             else throw e;
           }
-        
       }
 
       if (toCreate.length > 0) {

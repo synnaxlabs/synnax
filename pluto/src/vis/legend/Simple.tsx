@@ -31,7 +31,8 @@ export const legendSwatches = (
   data: SimpleEntry[],
   onEntryChange: SimpleProps["onEntryChange"],
   onVisibleChange?: (visible: boolean) => void,
-): ReactElement[] => data
+): ReactElement[] =>
+  data
     .sort((a, b) => a.label.localeCompare(b.label))
     .map(({ key, color, label }) => (
       <Align.Space

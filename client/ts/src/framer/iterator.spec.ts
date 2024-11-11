@@ -17,7 +17,8 @@ import { randomSeries } from "@/util/telem";
 
 const client = newClient();
 
-const newChannel = async (): Promise<channel.Channel> => await client.channels.create({
+const newChannel = async (): Promise<channel.Channel> =>
+  await client.channels.create({
     name: "test",
     leaseholder: 1,
     rate: Rate.hz(25),

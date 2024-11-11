@@ -207,12 +207,8 @@ describe("remote", () => {
 
       async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         this.retrieveChannelMock(key);
-        if (key === this.channel.key) 
-          return this.channel;
-        
-        if (key === this.channel.index) 
-          return this.indexChannel;
-        
+        if (key === this.channel.key) return this.channel;
+        if (key === this.channel.index) return this.indexChannel;
         throw new Error(`Channel with key ${key} not found`);
       }
 
@@ -346,12 +342,8 @@ describe("remote", () => {
       };
 
       async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
-        if (key === this.channel.key) 
-          return this.channel;
-        
-        if (key === this.channel.index) 
-          return this.indexChannel;
-        
+        if (key === this.channel.key) return this.channel;
+        if (key === this.channel.index) return this.indexChannel;
         throw new Error(`Channel with key ${key} not found`);
       }
 

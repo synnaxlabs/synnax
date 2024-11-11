@@ -121,14 +121,14 @@ const Wrapped = ({
       );
       let modified = false;
       let shouldCreateIndex = primitiveIsZero(dev.properties.read.index);
-      if (!shouldCreateIndex) 
+      if (!shouldCreateIndex)
         try {
           await client.channels.retrieve(dev.properties.read.index);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateIndex = true;
           else throw e;
         }
-      
+
       if (shouldCreateIndex) {
         modified = true;
         const idx = await client.channels.create({
@@ -145,17 +145,15 @@ const Wrapped = ({
         if (ch.useAsIndex) continue;
         const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
         if (primitiveIsZero(exKey)) toCreate.push(ch);
-        else 
+        else
           try {
             const rCh = await client.channels.retrieve(exKey);
-            if (rCh.name !== ch.name) 
+            if (rCh.name !== ch.name)
               await client.channels.rename(Number(exKey), ch.name);
-            
           } catch (e) {
             if (NotFoundError.matches(e)) toCreate.push(ch);
             else throw e;
           }
-        
       }
 
       if (toCreate.length > 0) {

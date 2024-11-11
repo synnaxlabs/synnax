@@ -33,12 +33,11 @@ export const throttle = <F extends (...args: any[]) => void>(
   if (waitFor === 0) return func;
 
   const throttled = (...args: Parameters<F>): void => {
-    if (timeout === null) 
+    if (timeout === null)
       timeout = setTimeout(() => {
         func(...args);
         timeout = null;
       }, waitFor);
-    
   };
 
   return throttled as F;

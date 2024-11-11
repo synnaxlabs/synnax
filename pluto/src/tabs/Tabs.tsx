@@ -300,10 +300,10 @@ export const Content = (): ReactNode | null => {
   let content: ReactNode = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selected == null || selectedTab == null) return emptyContent ?? null;
-  if (renderProp != null) 
+  if (renderProp != null)
     if (typeof renderProp === "function") content = renderProp(selectedTab);
     else content = renderProp;
-   else if (selectedTab.content != null) content = selectedTab.content as ReactNode;
+  else if (selectedTab.content != null) content = selectedTab.content as ReactNode;
   return (
     <div className={CSS.B("tabs-content")} onClick={() => onSelect?.(selected)}>
       {content}

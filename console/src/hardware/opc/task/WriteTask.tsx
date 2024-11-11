@@ -155,16 +155,14 @@ const Wrapped = ({
       const commandsToCreate: WriteChannelConfig[] = [];
       for (const channel of config.channels) {
         const key = getChannelByNodeID(dev.properties, channel.nodeId);
-        if (primitiveIsZero(key)) 
-          commandsToCreate.push(channel);
-         else 
+        if (primitiveIsZero(key)) commandsToCreate.push(channel);
+        else
           try {
             await client.channels.retrieve(key);
           } catch (e) {
             if (NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
-        
       }
 
       if (commandsToCreate.length > 0) {

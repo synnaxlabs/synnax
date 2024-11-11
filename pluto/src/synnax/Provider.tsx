@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection, Synnax, type SynnaxProps, TimeSpan } from "@synnaxlabs/client";
+import {
+  type connection,
+  Synnax,
+  type SynnaxProps,
+  TimeSpan,
+} from "@synnaxlabs/client";
 import { caseconv, migrate } from "@synnaxlabs/x";
 import {
   createContext,
@@ -46,7 +51,7 @@ const generateErrorDescription = (
   clientVersion: string,
   nodeVersion?: string,
 ): string =>
-  `Cluster version ${nodeVersion != null ? `${nodeVersion  } ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+  `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
 
 export const Provider = Aether.wrap<ProviderProps>(
   synnax.Provider.TYPE,
@@ -66,12 +71,11 @@ export const Provider = Aether.wrap<ProviderProps>(
 
     const handleChange = useCallback(
       (state: connection.State) => {
-        if (ref.current.state.status !== state.status) 
+        if (ref.current.state.status !== state.status)
           addStatus({
             variant: CONNECTION_STATE_VARIANT[state.status],
             message: state.message ?? caseconv.capitalize(state.status),
           });
-        
         setState((prev) => ({ ...prev, state }));
       },
       [addStatus],

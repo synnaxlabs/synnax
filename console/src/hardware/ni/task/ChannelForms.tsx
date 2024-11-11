@@ -418,13 +418,12 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
       const scaledValues = value[scaledCol] as number[] | undefined;
       const hasScaled = scaledValues != null;
       const hasPreScaled = preScaledValues != null;
-      if (hasScaled && hasPreScaled) 
+      if (hasScaled && hasPreScaled)
         if (preScaledValues!.length !== scaledValues!.length)
           preScaledField.setStatus({
             variant: "error",
             message: `Pre-scaled ${preScaledValues!.length} values and scaled ${scaledValues!.length} values must be the same length`,
           });
-      
       if (hasPreScaled) preScaledField.onChange(preScaledValues);
       if (hasScaled) scaledField.onChange(scaledValues);
     };

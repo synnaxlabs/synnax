@@ -235,7 +235,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
   private get _schema(): S {
     if (this.schema == null)
       throw new ValidationError(
-        `[AetherLeaf] - expected subclass to define component schema, but none was found. 
+        `[AetherLeaf] - expected subclass to define component schema, but none was found.
         Make sure to defne a property 'schema' on the class.`,
       );
     return this.schema;
@@ -290,18 +290,14 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
     if (variant === "state") {
       this.validatePath(path);
       const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
-      if (this._state != null) 
+      if (this._state != null)
         this.instrumentation.L.debug("updating state", () => ({
           diff: deep.difference(this.state, state_),
         }));
-       else 
-        this.instrumentation.L.debug("setting initial state", { state });
-      
+      else this.instrumentation.L.debug("setting initial state", { state });
       this._prevState = this._state ?? state_;
       this._state = state_;
-    } else 
-      this.instrumentation.L.debug("updating context");
-    
+    } else this.instrumentation.L.debug("updating context");
     await this.afterUpdate();
   }
 
@@ -436,11 +432,10 @@ export class Composite<
   async internalDelete(path: string[]): Promise<void> {
     const [key, subPath] = this.getRequiredKey(path);
     if (subPath.length === 0) {
-      if (key !== this.key) 
+      if (key !== this.key)
         throw new Error(
           `[Composite.delete] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
         );
-      
       const children = this.children;
       this._children = new Map();
       for (const c of children) await c.internalDelete([c.key]);
@@ -459,8 +454,9 @@ export class Composite<
     const [key, ...subPath] = path;
     if (key == null)
       throw new Error(
-        `Composite ${this.type}:${this.key} received an empty path${ 
-          type != null ? ` for ${type}` : ""}`,
+        `Composite ${this.type}:${this.key} received an empty path${
+          type != null ? ` for ${type}` : ""
+        }`,
       );
     return [key, subPath];
   }

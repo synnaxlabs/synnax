@@ -151,7 +151,7 @@ export class Draw2D {
     ctx.strokeStyle = this.resolveColor(color, this.theme.colors.border).hex;
     ctx.lineWidth = width ?? this.theme.sizes.border.width;
     radius ??= this.theme.sizes.border.radius;
-    if (location == null || location === true) 
+    if (location == null || location === true)
       if (radius > 0) {
         ctx.roundRect(
           ...xy.couple(box.topLeft(region)),
@@ -164,7 +164,7 @@ export class Draw2D {
         ctx.rect(...xy.couple(box.topLeft(region)), ...xy.couple(box.dims(region)));
         ctx.stroke();
       }
-     else
+    else
       toArray(location).forEach((loc) => {
         const [start, end] = box.edgePoints(region, loc);
         ctx.beginPath();
@@ -215,16 +215,10 @@ export class Draw2D {
     dims.height += 12;
     const { root = location.TOP_LEFT, offset = xy.ZERO } = props;
     const position = { ...props.position };
-    if (root.x === "right") 
-      position.x -= dims.width + offset.x;
-     else 
-      position.x += offset.x;
-    
-    if (root.y === "bottom") 
-      position.y -= dims.height + offset.y;
-     else 
-      position.y += offset.y;
-    
+    if (root.x === "right") position.x -= dims.width + offset.x;
+    else position.x += offset.x;
+    if (root.y === "bottom") position.y -= dims.height + offset.y;
+    else position.y += offset.y;
     this.container({
       region: box.construct(position, dims.width, dims.height),
       ...props,

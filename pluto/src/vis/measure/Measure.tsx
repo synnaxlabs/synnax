@@ -59,8 +59,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
         );
         if (["one", "two"].includes(measureMode))
           return setState((p) => ({ ...p, [measureMode]: cursor }));
-        if (measureMode === "clear")
-          setState((p) => ({ ...p, one: null, two: null }));
+        if (measureMode === "clear") setState((p) => ({ ...p, one: null, two: null }));
         else
           setState((p) => ({
             ...p,

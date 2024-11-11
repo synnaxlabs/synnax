@@ -385,12 +385,12 @@ export const { actions, reducer } = createSlice({
         state.nav[windowKey] = navState;
       }
 
-      if (key != null) 
+      if (key != null)
         Object.values(navState.drawers).forEach((drawer) => {
           if (drawer.menuItems.includes(key))
             drawer.activeItem = (value ?? drawer.activeItem !== key) ? key : null;
         });
-       else if (location != null) {
+      else if (location != null) {
         let drawer = navState.drawers[location];
         if (drawer == null) {
           drawer = { activeItem: null, menuItems: [] };
@@ -401,9 +401,7 @@ export const { actions, reducer } = createSlice({
         else if (value === false) drawer.activeItem = null;
         else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
         else drawer.activeItem = null;
-      } else 
-        throw new Error("setNavDrawerVisible requires either a key or location");
-      
+      } else throw new Error("setNavDrawerVisible requires either a key or location");
     },
     maybeCreateGetStartedTab: (state) => {
       const checkedGetStarted = state.alreadyCheckedGetStarted;
@@ -434,7 +432,8 @@ export const { actions, reducer } = createSlice({
     setWorkspace: (
       state,
       { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
-    ) => migrateSlice({
+    ) =>
+      migrateSlice({
         ...slice,
         layouts: {
           ...layoutsToPreserve(state.layouts),
@@ -447,16 +446,16 @@ export const { actions, reducer } = createSlice({
         nav: keepNav ? state.nav : slice.nav,
       }),
     clearWorkspace: (state) => ({
-        ...ZERO_SLICE_STATE,
-        layouts: {
-          ...layoutsToPreserve(state.layouts),
-          main: MAIN_LAYOUT,
-        },
-        hauling: state.hauling,
-        themes: state.themes,
-        activeTheme: state.activeTheme,
-        nav: state.nav,
-      }),
+      ...ZERO_SLICE_STATE,
+      layouts: {
+        ...layoutsToPreserve(state.layouts),
+        main: MAIN_LAYOUT,
+      },
+      hauling: state.hauling,
+      themes: state.themes,
+      activeTheme: state.activeTheme,
+      nav: state.nav,
+    }),
     setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
       const layout = select(state, key);
       if (layout == null) return;

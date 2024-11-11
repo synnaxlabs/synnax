@@ -59,7 +59,7 @@ export const assignActiveRangeEffect: MiddlewareEffect<
   const s = getState();
   const p = select(s, action.payload.key);
   const range = Range.selectActiveKey(s);
-  if (!p.axes.hasHadChannelSet && p.ranges.x1.length === 0 && range != null) 
+  if (!p.axes.hasHadChannelSet && p.ranges.x1.length === 0 && range != null)
     dispatch(
       setRanges({
         key: p.key,
@@ -67,7 +67,6 @@ export const assignActiveRangeEffect: MiddlewareEffect<
         ranges: [range],
       }),
     );
-  
 };
 
 export const deleteEffect: MiddlewareEffect<

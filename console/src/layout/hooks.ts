@@ -213,7 +213,6 @@ export const useNavDrawer = (
       onSelect: () => {},
       onResize: () => {},
     };
-
   let activeItem: NavDrawerItem | undefined;
   if (state.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);

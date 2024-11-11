@@ -102,9 +102,8 @@ export class Loop {
     let releaser: (() => void) | undefined;
     if (req.priority === "high") releaser = await this.mutex.acquire();
     const existing = this.requests.get(req.key);
-    if (existing == null) 
-      this.requests.set(req.key, req);
-     else {
+    if (existing == null) this.requests.set(req.key, req);
+    else {
       const priorityOK =
         PRIORITY_ORDER[req.priority] >= PRIORITY_ORDER[existing.priority];
       const canvasesOK = req.canvases.length >= existing.canvases.length;
@@ -124,11 +123,10 @@ export class Loop {
 
       const end = performance.now();
       const span = TimeSpan.milliseconds(end - start);
-      if (span.greaterThan(TARGET_LOOP_RATE.period)) 
+      if (span.greaterThan(TARGET_LOOP_RATE.period))
         console.warn(
           `Render loop for ${this.requests.size} took longer than ${TARGET_LOOP_RATE.period.toString()} to execute: ${span.milliseconds}`,
         );
-      
       this.requests.clear();
       this.afterRender?.();
     });
@@ -149,7 +147,7 @@ export class Loop {
   private async renderSync() {
     /** Render components. */
     const { requests } = this;
-    for (const req of requests.values()) 
+    for (const req of requests.values())
       try {
         const cleanup = await req.render();
         // We're safe to set the cleanup function here because we know that req.key
@@ -158,7 +156,6 @@ export class Loop {
       } catch (e) {
         console.error(e);
       }
-    
   }
 
   /** Starts the rendering loop. */

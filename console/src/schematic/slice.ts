@@ -359,7 +359,6 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       clearSelections(schematic);
       if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
-
       if (schematic.snapshot) return;
       schematic.editable = editable;
     },

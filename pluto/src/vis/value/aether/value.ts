@@ -130,14 +130,13 @@ export class Value
     canvas.fillStyle = this.internal.textColor.hex;
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.
-    if (isNegative) 
+    if (isNegative)
       canvas.fillText(
         "-",
         // 0.55 is a multiplier of the font height that seems to keep the sign in
         // the right place.
         ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
       );
-    
     canvas.fillText(value, ...xy.couple(labelPosition));
   }
 }

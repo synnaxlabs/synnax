@@ -336,7 +336,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 /** Just makes sure that the lines we draw to make stuff thick are really close together. */
 const THICKNESS_DIVISOR = 5000;
 
-const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => replicateBuffer(newDirectionBuffer(aspect), strokeWidth).map(
+const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>
+  replicateBuffer(newDirectionBuffer(aspect), strokeWidth).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 

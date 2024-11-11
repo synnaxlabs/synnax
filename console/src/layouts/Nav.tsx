@@ -224,18 +224,18 @@ const MemoryBadge = (): ReactElement | null => {
  * presentational.
  */
 export const NavBottom = (): ReactElement => (
-    <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
-      <Nav.Bar.Start>
-        <Vis.NavControls />
-      </Nav.Bar.Start>
-      <Nav.Bar.End className="console-main-nav-bottom__end" empty>
-        <MemoryBadge />
-        <Divider.Divider />
-        <Version.Badge />
-        <Divider.Divider />
-        <Cluster.Dropdown />
-        <Divider.Divider />
-        <Cluster.ConnectionBadge />
-      </Nav.Bar.End>
-    </Nav.Bar>
-  );
+  <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
+    <Nav.Bar.Start>
+      <Vis.NavControls />
+    </Nav.Bar.Start>
+    <Nav.Bar.End className="console-main-nav-bottom__end" empty>
+      <MemoryBadge />
+      <Divider.Divider />
+      <Version.Badge />
+      <Divider.Divider />
+      <Cluster.Dropdown />
+      <Divider.Divider />
+      <Cluster.ConnectionBadge />
+    </Nav.Bar.End>
+  </Nav.Bar>
+);

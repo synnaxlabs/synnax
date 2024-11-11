@@ -249,7 +249,7 @@ export const useCreateFromSelection = (): ((
       if (selection.parent == null) return;
       const resourcesToGroup = getResourcesToGroup(selection);
       const prevNodes = Tree.deepCopy(nodes);
-      Tree.setNode({
+      let nextNodes = Tree.setNode({
         tree: nodes,
         destination: selection.parent.key,
         additions: {
@@ -260,8 +260,8 @@ export const useCreateFromSelection = (): ((
           allowRename: true,
         },
       });
-      const nextNodes = Tree.moveNode({
-        tree: nodes,
+      nextNodes = Tree.moveNode({
+        tree: nextNodes,
         destination: newID.toString(),
         keys: resourcesToGroup.map((id) => id.toString()),
       });

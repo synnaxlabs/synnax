@@ -101,7 +101,6 @@ class Registry {
         const payload = provider.encode(error);
         if (payload != null) return payload;
       }
-
     return { type: UNKNOWN, data: JSON.stringify(error) };
   }
 

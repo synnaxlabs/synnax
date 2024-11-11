@@ -24,10 +24,10 @@ const TestThemeContent = (): ReactElement => {
 };
 
 const TestTheme = (): ReactElement => (
-    <Theming.Provider>
-      <TestThemeContent />
-    </Theming.Provider>
-  );
+  <Theming.Provider>
+    <TestThemeContent />
+  </Theming.Provider>
+);
 
 describe("Theming", () => {
   it("should render a theme", () => {

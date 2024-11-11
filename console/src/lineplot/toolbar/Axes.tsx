@@ -53,12 +53,12 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
   return (
     <Tabs.Tabs {...t} size="small">
       {(p) => (
-          <LinePlotAxisControls
-            key={p.tabKey}
-            axisKey={p.tabKey as AxisKey}
-            layoutKey={layoutKey}
-          />
-        )}
+        <LinePlotAxisControls
+          key={p.tabKey}
+          axisKey={p.tabKey as AxisKey}
+          layoutKey={layoutKey}
+        />
+      )}
     </Tabs.Tabs>
   );
 };
@@ -73,19 +73,17 @@ export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children">
 }
 
 const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElement => (
-    <Button.Icon
-      {...props}
-      variant="outlined"
-      disabled={enabled}
-      tooltip={
-        enabled
-          ? "Manually enter value to disable auto bounding"
-          : "Enable auto bounding"
-      }
-    >
-      <Icon.Auto />
-    </Button.Icon>
-  );
+  <Button.Icon
+    {...props}
+    variant="outlined"
+    disabled={enabled}
+    tooltip={
+      enabled ? "Manually enter value to disable auto bounding" : "Enable auto bounding"
+    }
+  >
+    <Icon.Auto />
+  </Button.Icon>
+);
 
 export const LinePlotAxisControls = ({
   axisKey,

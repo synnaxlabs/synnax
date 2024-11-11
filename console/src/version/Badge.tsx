@@ -28,7 +28,7 @@ export const Badge = (): ReactElement => {
       size="medium"
       color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-text-color)"}
     >
-      {`v${  version}`}
+      {`v${version}`}
     </Button.Button>
   );
 };

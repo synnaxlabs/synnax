@@ -177,7 +177,7 @@ const flexDirection = (
   reverse: boolean,
 ): FlexDirection => {
   const base = direction === "x" ? "row" : "column";
-  return reverse ? ((`${base  }-reverse`) as FlexDirection) : base;
+  return reverse ? (`${base}-reverse` as FlexDirection) : base;
 };
 
 const justifications: Record<Justification, CSSProperties["justifyContent"]> = {

@@ -35,7 +35,7 @@ async function createChannels(tc: SetUpConfig): Promise<void> {
   }
 
   const numDataChannelsPerIndex = Math.floor(tc.numData / tc.numIndex);
-  for (let ind = 0; ind < tc.numIndex; ind++) 
+  for (let ind = 0; ind < tc.numIndex; ind++)
     for (let k = 0; k < numDataChannelsPerIndex; k++) {
       const ch = await client.channels.create(
         {
@@ -47,7 +47,6 @@ async function createChannels(tc: SetUpConfig): Promise<void> {
       );
       channels.push(ch.key);
     }
-  
 }
 
 async function main() {

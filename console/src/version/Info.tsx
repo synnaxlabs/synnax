@@ -70,14 +70,14 @@ export const Info: Layout.Renderer = () => {
       Checking for updates
     </Status.Text>
   );
-  if (updateMutation.isPending) 
-    if (progressPercent === 100) 
+  if (updateMutation.isPending)
+    if (progressPercent === 100)
       updateContent = (
         <Status.Text level="h4" variant="loading" size="medium">
           Update downloaded. Restarting
         </Status.Text>
       );
-     else 
+    else
       updateContent = (
         <Align.Space direction="y" size="medium">
           <Status.Text variant="loading" level="h4" size="medium">
@@ -92,8 +92,7 @@ export const Info: Layout.Renderer = () => {
           </Align.Space>
         </Align.Space>
       );
-    
-   else if (updateQuery.isFetched) 
+  else if (updateQuery.isFetched)
     if (updateQuery.data?.available) {
       const version = updateQuery.data.version;
       updateContent = (
@@ -110,26 +109,24 @@ export const Info: Layout.Renderer = () => {
           </Button.Button>
         </>
       );
-    } else 
+    } else
       updateContent = (
         <Status.Text level="h4" variant="success">
           Up to date
         </Status.Text>
       );
-    
-   else if (updateQuery.isError) 
+  else if (updateQuery.isError)
     updateContent = (
       <Status.Text level="h4" variant="error">
         Error checking for update: {updateQuery.error.message}
       </Status.Text>
     );
-   else if (updateMutation.isError) 
+  else if (updateMutation.isError)
     updateContent = (
       <Status.Text level="h4" variant="error">
         Error updating: {updateMutation.error.message}
       </Status.Text>
     );
-  
 
   return (
     <Align.Space

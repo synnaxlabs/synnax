@@ -94,13 +94,13 @@ interface LabelControlsProps {
 
 const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement => (
   <Align.Space direction="x" align="stretch" grow>
-    <Form.Field<string> path={`${path  }.label`} label="Label" padHelpText={false} grow>
+    <Form.Field<string> path={`${path}.label`} label="Label" padHelpText={false} grow>
       {(p) => <Input.Text selectOnFocus {...p} />}
     </Form.Field>
     <Form.NumericField
       visible={!omit.includes("maxInlineSize")}
       style={{ maxWidth: 125 }}
-      path={`${path  }.maxInlineSize`}
+      path={`${path}.maxInlineSize`}
       hideIfNull
       label="Label Wrap Width"
       inputProps={{ endContent: "px" }}
@@ -108,7 +108,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
     <Form.Field<Text.Level>
       hideIfNull
       visible={!omit.includes("level")}
-      path={`${path  }.level`}
+      path={`${path}.level`}
       label="Label Size"
       padHelpText={false}
     >
@@ -116,7 +116,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
     </Form.Field>
     <Form.Field<Align.Alignment>
       visible={!omit.includes("align")}
-      path={`${path  }.align`}
+      path={`${path}.align`}
       label="Label Alignment"
       padHelpText={false}
       hideIfNull

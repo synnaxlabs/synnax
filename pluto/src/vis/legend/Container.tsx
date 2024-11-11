@@ -69,18 +69,14 @@ const stickyToDecimalXY = (pos: StickyXY, ref: RefObject<HTMLDivElement>): xy.XY
   const parentBox = box.construct(ref.current.parentElement as HTMLDivElement);
   if (pos.units?.x === "decimal") {
     if (pos.root?.x === "right") ret.x = 1 - pos.x;
-  } else 
-    if (pos.root?.x === "right")
-      ret.x = 1 - (pos.x + box.width(b)) / box.width(parentBox);
-    else ret.x /= box.width(parentBox);
-  
+  } else if (pos.root?.x === "right")
+    ret.x = 1 - (pos.x + box.width(b)) / box.width(parentBox);
+  else ret.x /= box.width(parentBox);
   if (pos.units?.y === "decimal") {
     if (pos.root?.y === "bottom") ret.y = 1 - pos.y;
-  } else 
-    if (pos.root?.y === "bottom")
-      ret.y = 1 - (pos.y + box.height(b)) / box.height(parentBox);
-    else ret.y /= box.height(parentBox);
-  
+  } else if (pos.root?.y === "bottom")
+    ret.y = 1 - (pos.y + box.height(b)) / box.height(parentBox);
+  else ret.y /= box.height(parentBox);
   return ret;
 };
 

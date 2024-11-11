@@ -41,32 +41,32 @@ export const Table = <K extends Key, E extends Keyed<K>>({
   data,
   highlights = [],
 }: TableProps<Key, E>): ReactElement => (
-    <div style={{ overflowX: "auto", paddingLeft: 2 }}>
-      <table>
-        <thead>
-          <tr>
-            {columns.map(({ key, name, width }) => (
-              <th key={key as string} style={{ width }}>
-                {name ?? (key as string)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, i) => (
-            <TableRow<K, E>
-              key={i}
-              columns={columns}
-              data={row}
-              highlights={highlights}
-              index={i}
-              dataLength={data.length}
-            />
+  <div style={{ overflowX: "auto", paddingLeft: 2 }}>
+    <table>
+      <thead>
+        <tr>
+          {columns.map(({ key, name, width }) => (
+            <th key={key as string} style={{ width }}>
+              {name ?? (key as string)}
+            </th>
           ))}
-        </tbody>
-      </table>
-    </div>
-  );
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((row, i) => (
+          <TableRow<K, E>
+            key={i}
+            columns={columns}
+            data={row}
+            highlights={highlights}
+            index={i}
+            dataLength={data.length}
+          />
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
 
 interface TableRowProps<K extends Key, E extends Keyed<K>> {
   index: number;
@@ -83,19 +83,19 @@ const TableRow = <K extends Key, E extends Keyed<K>>({
   data,
   highlights,
 }: TableRowProps<K, E>): ReactElement => (
-    <tr>
-      {columns.map((col) => (
-        <TableCell<K, E>
-          key={col.key as string}
-          index={index}
-          dataLength={dataLength}
-          highlights={highlights}
-          data={data}
-          column={col}
-        />
-      ))}
-    </tr>
-  );
+  <tr>
+    {columns.map((col) => (
+      <TableCell<K, E>
+        key={col.key as string}
+        index={index}
+        dataLength={dataLength}
+        highlights={highlights}
+        data={data}
+        column={col}
+      />
+    ))}
+  </tr>
+);
 
 interface TableCellProps<K extends Key, E extends Keyed<K>> {
   index: number;

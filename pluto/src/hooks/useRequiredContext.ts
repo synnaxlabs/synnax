@@ -11,8 +11,6 @@ import { useContext } from "react";
 
 export const useRequiredContext = <T>(context: React.Context<T | null>): T => {
   const value = useContext(context);
-  if (value === null) 
-    throw new Error(`useRequiredContext: context value is null`);
-  
+  if (value === null) throw new Error(`useRequiredContext: context value is null`);
   return value;
 };

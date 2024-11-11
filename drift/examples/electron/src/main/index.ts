@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { electronApp, is,optimizer } from '@electron-toolkit/utils'
-import { configureStore,MAIN_WINDOW } from '@synnaxlabs/drift'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import { configureStore, MAIN_WINDOW } from '@synnaxlabs/drift'
 import { ElectronRuntime, listenOnMain } from '@synnaxlabs/drift/electron'
-import { app, BrowserWindow, ipcMain,shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
 
 import icon from '../../resources/icon.png?asset'

@@ -108,7 +108,7 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       if (activeRange === null || parent == null) return;
       const tasks = await Promise.all(
         resources.map(({ id, name }) =>
-          client.hardware.tasks.copy(id.key, `${name  } (Snapshot)`, true),
+          client.hardware.tasks.copy(id.key, `${name} (Snapshot)`, true),
         ),
       );
       const otgIDs = tasks.map((t) => t.ontologyID);

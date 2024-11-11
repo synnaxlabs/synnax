@@ -46,20 +46,20 @@ const defaultSelectTextAlignmentButton = ({
   onClick,
   selected,
 }: ButtonOptionProps<Align.Alignment, Entry>): ReactElement => (
-    <CoreButton.Icon
-      key={key}
-      variant={selected ? "filled" : "outlined"}
-      onClick={onClick}
-    >
-      {entry.icon}
-    </CoreButton.Icon>
-  );
+  <CoreButton.Icon
+    key={key}
+    variant={selected ? "filled" : "outlined"}
+    onClick={onClick}
+  >
+    {entry.icon}
+  </CoreButton.Icon>
+);
 
 export const TextAlignment = ({
   children = defaultSelectTextAlignmentButton,
   ...props
 }: AlignmentProps): ReactElement => (
-    <Button {...props} allowMultiple={false} data={DATA}>
-      {children}
-    </Button>
-  );
+  <Button {...props} allowMultiple={false} data={DATA}>
+    {children}
+  </Button>
+);

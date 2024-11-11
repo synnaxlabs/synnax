@@ -291,7 +291,8 @@ const Core = Aether.wrap<DiagramProps>(
 
     const nodeTypes = useMemo(
       () => ({
-        custom: ({ id, xPos: x, yPos: y, selected }: RFNodeProps) => renderer({ symbolKey: id, position: { x, y }, selected }),
+        custom: ({ id, xPos: x, yPos: y, selected }: RFNodeProps) =>
+          renderer({ symbolKey: id, position: { x, y }, selected }),
       }),
       [renderer],
     );
