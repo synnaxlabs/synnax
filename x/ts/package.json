@@ -16,8 +16,8 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "lint": "eslint",
-    "fix": "eslint --fix"
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix"
   },
   "dependencies": {
     "js-convert-case": "^4.2.0",

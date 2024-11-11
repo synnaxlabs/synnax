@@ -8,8 +8,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "lint": "eslint",
-    "fix": "eslint --fix"
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix"
   },
   "dependencies": {
     "stylelint": "^16.9.0",

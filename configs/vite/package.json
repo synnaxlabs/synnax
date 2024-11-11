@@ -5,8 +5,8 @@
   "description": "Vite plugin for Synnax Labs",
   "scripts": {
     "build": "tsc",
-    "lint": "eslint",
-    "fix": "eslint --fix"
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix"
   },
   "exports": {
     ".": {
