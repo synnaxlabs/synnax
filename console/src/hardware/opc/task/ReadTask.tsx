@@ -128,7 +128,6 @@ const Wrapped = ({
           if (NotFoundError.matches(e)) shouldCreateIndex = true;
           else throw e;
         }
-
       if (shouldCreateIndex) {
         modified = true;
         const idx = await client.channels.create({

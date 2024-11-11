@@ -170,7 +170,6 @@ const decodeAliasChanges =
           key: alias,
           value: undefined,
         }));
-
     return data.parseJSON(aliasZ).map((alias) => ({
       variant,
       key: alias.alias,

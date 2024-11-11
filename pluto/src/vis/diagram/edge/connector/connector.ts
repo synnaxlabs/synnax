@@ -624,15 +624,6 @@ const moveNodeInDirection = (
       };
 
     return segments;
-
-    if (stump.direction === dir)
-      segments[stumschematicx] = { ...stump, length: stump.length - delta[dir] };
-    else
-      segments[oppositeStumschematicx] = {
-        ...oppositeStump,
-        length: oppositeStump.length - delta[dir],
-      };
-    return segments;
   }
   // This means that there is only one segment in the 'swappedDirection' direction in the whole
   // connector, so we split it in half and add a new segment.
