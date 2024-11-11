@@ -4,6 +4,10 @@
 
 - **Version Number**: <!-- MAJOR.MINOR.PATCH -->
 
+## QA Template
+
+- [ ] I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
+
 ## Versioning
 
 ### Version Consistency
