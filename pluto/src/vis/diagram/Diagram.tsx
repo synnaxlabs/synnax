@@ -119,7 +119,7 @@ export const use = ({
   };
 };
 
-const isValidConnection: IsValidConnection = (connection): boolean => true;
+const isValidConnection: IsValidConnection = (): boolean => true;
 
 export interface UseReturn {
   edges: Edge[];
