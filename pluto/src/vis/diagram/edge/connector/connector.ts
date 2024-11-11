@@ -125,7 +125,6 @@ export const travelSegments = (source: xy.XY, ...segments: Segment[]): xy.XY => 
   let current = source;
   for (const segment of segments)
     current = xy.translate(current, segment.direction, segment.length);
-
   return current;
 };
 
@@ -622,7 +621,6 @@ const moveNodeInDirection = (
         ...oppositeStump,
         length: oppositeStump.length - delta[dir],
       };
-
     return segments;
   }
   // This means that there is only one segment in the 'swappedDirection' direction in the whole
