@@ -17,8 +17,8 @@ import {
   type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
+import { useReactFlow } from "@xyflow/react";
 import { type ReactElement, useCallback, useState } from "react";
-import { useReactFlow } from "reactflow";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";

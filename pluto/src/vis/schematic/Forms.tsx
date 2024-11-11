@@ -268,6 +268,7 @@ export const CommonToggleForm = (): ReactElement => {
 
 const DIMENSIONS_DRAG_SCALE: xy.Crude = { y: 2, x: 0.25 };
 const DIMENSIONS_BOUNDS: bounds.Bounds = { lower: 0, upper: 2000 };
+const BORDER_RADIUS_BOUNDS: bounds.Bounds = { lower: 0, upper: 51 };
 
 export interface TankFormProps {
   includeBorderRadius?: boolean;
@@ -293,7 +294,7 @@ export const TankForm = ({
             <Input.Numeric
               value={value}
               dragScale={DIMENSIONS_DRAG_SCALE}
-              bounds={DIMENSIONS_BOUNDS}
+              bounds={BORDER_RADIUS_BOUNDS}
               endContent="%"
               {...props}
             />
@@ -310,7 +311,7 @@ export const TankForm = ({
             <Input.Numeric
               value={value}
               dragScale={DIMENSIONS_DRAG_SCALE}
-              bounds={DIMENSIONS_BOUNDS}
+              bounds={BORDER_RADIUS_BOUNDS}
               endContent="%"
               {...props}
             />

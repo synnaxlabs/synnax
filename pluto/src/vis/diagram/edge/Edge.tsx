@@ -11,19 +11,19 @@ import "@/vis/diagram/edge/Edge.css";
 
 import { box, direction, location, xy } from "@synnaxlabs/x";
 import {
+  BaseEdge,
+  type ConnectionLineComponentProps,
+  type EdgeProps as RFEdgeProps,
+  type Position,
+  useReactFlow,
+} from "@xyflow/react";
+import {
   type DragEvent,
   Fragment,
   type ReactElement,
   useCallback,
   useRef,
 } from "react";
-import {
-  BaseEdge,
-  type ConnectionLineComponentProps,
-  type EdgeProps as RFEdgeProps,
-  type Position,
-  useReactFlow,
-} from "reactflow";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -62,15 +62,15 @@ export const CustomConnectionLine = ({
     const res = location.outer.safeParse(toNodeHandle[1]);
     if (res.success) toPosition = res.data as Position;
   }
+  const flow = useReactFlow();
   const conn = connector.buildNew({
     sourcePos: xy.construct(fromX, fromY),
     targetPos: xy.construct(toX, toY),
     sourceOrientation: fromPosition,
     targetOrientation: toPosition,
-    sourceBox: selectNodeBox(useReactFlow(), fromNode?.id ?? ""),
-    targetBox: selectNodeBox(useReactFlow(), fromNode?.id ?? ""),
+    sourceBox: selectNodeBox(flow, fromNode?.id ?? ""),
+    targetBox: selectNodeBox(flow, fromNode?.id ?? ""),
   });
-  const flow = useReactFlow();
   const points = connector.segmentsToPoints(
     xy.construct(fromX, fromY),
     conn,

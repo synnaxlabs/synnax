@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location,xy } from "@synnaxlabs/x";
-import { type ReactFlowInstance } from "reactflow";
+import { box, dimensions, location, xy } from "@synnaxlabs/x";
+import { type ReactFlowInstance } from "@xyflow/react";
 
 export const selectNode = (key: string): HTMLDivElement => {
   const el = document.querySelector(`[data-id="${key}"]`);
@@ -20,7 +20,10 @@ export const selectNodeBox = (flow: ReactFlowInstance, key: string): box.Box => 
   const n = selectNode(key);
   const flowN = flow.getNodes().find((n) => n.id === key);
   if (flowN == null) throw new Error(`[diagram] - cannot find node with key: ${key}`);
-  return box.construct(flowN.position, xy.scale(box.dims(box.construct(n)), 1 / flow.getZoom()));
+  return box.construct(
+    flowN.position,
+    dimensions.scale(box.dims(box.construct(n)), 1 / flow.getZoom()),
+  );
 };
 
 export const selectNodeLayout = (key: string, flow: ReactFlowInstance): NodeLayout => {
@@ -54,7 +57,6 @@ export class HandleLayout {
 export class NodeLayout {
   key: string;
   box: box.Box;
-
   handles: HandleLayout[];
 
   constructor(key: string, box: box.Box, handles: HandleLayout[]) {

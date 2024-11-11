@@ -11,21 +11,22 @@ import "@/vis/schematic/primitives/Primitives.css";
 
 import { dimensions, direction, type location, xy } from "@synnaxlabs/x";
 import {
+  Handle as RFHandle,
+  type HandleProps as RFHandleProps,
+  Position as RFPosition,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
+import {
   type ComponentPropsWithoutRef,
   CSSProperties,
   type MouseEventHandler,
   type PropsWithChildren,
   type ReactElement,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
-import {
-  Handle as RFHandle,
-  type HandleProps as RFHandleProps,
-  Position as RFPosition,
-  useUpdateNodeInternals,
-} from "reactflow";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
@@ -127,9 +128,15 @@ interface OrientableProps {
   orientation?: location.Outer;
 }
 
-interface SmartHandlesProps extends PropsWithChildren<{}>, OrientableProps {}
+interface SmartHandlesProps extends PropsWithChildren<{}>, OrientableProps {
+  refreshDeps?: unknown;
+}
 
-const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElement => {
+const HandleBoundary = ({
+  children,
+  orientation,
+  refreshDeps,
+}: SmartHandlesProps): ReactElement => {
   let updateInternals: ReturnType<typeof useUpdateNodeInternals> | undefined;
   try {
     updateInternals = useUpdateNodeInternals();
@@ -148,7 +155,7 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
     const id = node?.getAttribute("data-id");
     if (id == null) return;
     updateInternals?.(id);
-  }, [orientation]);
+  }, [orientation, refreshDeps]);
   return (
     <>
       <span ref={ref} />
@@ -819,6 +826,17 @@ export const Tank = ({
   const detailedRadius = parseBorderRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
   const t = Theming.use();
+  const refreshDeps = useMemo(
+    () => [dimensions, borderRadius, detailedRadius],
+    [
+      detailedRadius.bottomLeft,
+      detailedRadius.bottomRight,
+      detailedRadius.topLeft,
+      detailedRadius.topRight,
+      dimensions.height,
+      dimensions.width,
+    ],
+  );
   return (
     <Div
       className={CSS(className, CSS.B("tank"))}
@@ -831,7 +849,7 @@ export const Tank = ({
       }}
       {...props}
     >
-      <HandleBoundary>
+      <HandleBoundary refreshDeps={refreshDeps}>
         <Handle location="top" orientation="left" left={50} top={0} id="1" />
         {hasCornerBoundaries && (
           <>
