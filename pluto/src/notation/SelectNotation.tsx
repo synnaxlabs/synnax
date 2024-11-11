@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Button as CoreButton } from "@/button";
-import { Notation } from "@/notation/notation";
+import { type Notation } from "@/notation/notation";
 import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Button";
 
 interface Entry {
