@@ -9,7 +9,7 @@
 
 import "@/palette/Palette.css";
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -20,7 +20,7 @@ import {
   Input,
   Mosaic,
   Status,
-  Synnax,
+  Synnax as PSynnax,
   Text,
   Tooltip,
   Triggers,
@@ -271,7 +271,7 @@ const PaletteDialogContent = ({
 }: PaletteDialogProps): ReactElement => {
   const { setSourceData } = List.useDataUtilContext<Key, Entry>();
   const addStatus = Status.useAggregator();
-  const client = Synnax.use();
+  const client = PSynnax.use();
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
@@ -283,8 +283,8 @@ const PaletteDialogContent = ({
   const confirm = Confirm.useModal();
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
-    () => ({ store, placeLayout, confirm }),
-    [store, placeLayout],
+    () => ({ store, placeLayout, confirm, client, addStatus }),
+    [store, placeLayout, client?.key, addStatus],
   );
 
   const handleSelect = useCallback(
@@ -457,8 +457,10 @@ export interface ResourceListItemProps
 
 export interface CommandSelectionContext {
   store: RootStore;
+  client: Synnax | null;
   placeLayout: Layout.Placer;
   confirm: CreateConfirmModal;
+  addStatus: Status.AddStatusFn;
 }
 
 interface CommandActionProps {
