@@ -271,8 +271,12 @@ var _ = Describe("Domain", func() {
 						Expect(w.Commit(ctx, 22*telem.SecondTS+1)).To(Succeed())
 						MustSucceed(w.Write(telem.NewSecondsTSV(25, 26).Data))
 						Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 						Expect(domain.Write(ctx, db2, (30 * telem.SecondTS).Range(33*telem.SecondTS+1), telem.NewSecondsTSV(30, 32, 33).Data)).To(Succeed())
 						idx2 = &index.Domain{DB: db2}
+					})
+					AfterEach(func() {
+						Expect(db2.Close()).To(Succeed())
 					})
 					DescribeTable("effectively continuous", func(
 						tr telem.TimeRange,

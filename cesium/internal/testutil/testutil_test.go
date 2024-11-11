@@ -71,10 +71,13 @@ var _ = Describe("Test Util Test", func() {
 						//   - file1
 						subsub1 := MustSucceed(sub1.Sub("subsub1"))
 						MustSucceed(sub1.Sub("subsub2"))
-						MustSucceed(sub1.Open("file1", os.O_CREATE))
+						f1 := MustSucceed(sub1.Open("file1", os.O_CREATE))
+						Expect(f1.Close()).To(Succeed())
 						subsubsub1 := MustSucceed(subsub1.Sub("subsubsub1"))
-						MustSucceed(subsub1.Open("file2", os.O_CREATE))
-						MustSucceed(subsubsub1.Open("file3", os.O_CREATE))
+						f2 := MustSucceed(subsub1.Open("file2", os.O_CREATE))
+						Expect(f2.Close()).To(Succeed())
+						f3 := MustSucceed(subsubsub1.Open("file3", os.O_CREATE))
+						Expect(f3.Close()).To(Succeed())
 					})
 
 					By("Copying the FS")

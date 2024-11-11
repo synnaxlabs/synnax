@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
+import { notationZ } from "@/notation/notation";
 import { telem } from "@/telem/aether";
 import { text } from "@/text/core";
 import { dimensions } from "@/text/dimensions";
@@ -27,6 +28,7 @@ const valueState = z.object({
   precision: z.number().optional().default(2),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
+  notation: notationZ.optional().default("standard"),
 });
 
 const CANVAS_VARIANT: render.Canvas2DVariant = "upper2d";

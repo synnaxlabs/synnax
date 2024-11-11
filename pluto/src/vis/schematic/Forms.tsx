@@ -21,6 +21,8 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { type Notation } from "@/notation/notation";
+import { SelectNotation } from "@/notation/SelectNotation";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
@@ -77,10 +79,7 @@ const OrientationControl = ({
           onChange({
             ...value,
             orientation: v.inner,
-            label: {
-              ...value.label,
-              orientation: v.outer,
-            },
+            label: { ...value.label, orientation: v.outer },
           })
         }
       />
@@ -186,12 +185,7 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const handleSourceChange = (v: channel.Key | null): void => {
     v ??= 0;
     const t = telem.sourcePipeline("boolean", {
-      connections: [
-        {
-          from: "valueStream",
-          to: "threshold",
-        },
-      ],
+      connections: [{ from: "valueStream", to: "threshold" }],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
         threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
@@ -204,18 +198,10 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const handleSinkChange = (v: channel.Key | null): void => {
     v ??= 0;
     const t = telem.sinkPipeline("boolean", {
-      connections: [
-        {
-          from: "setpoint",
-          to: "setter",
-        },
-      ],
+      connections: [{ from: "setpoint", to: "setter" }],
       segments: {
         setter: control.setChannelValue({ channel: v }),
-        setpoint: telem.setpoint({
-          truthy: 1,
-          falsy: 0,
-        }),
+        setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
       },
       inlet: "setpoint",
     });
@@ -234,13 +220,8 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
         showChip: true,
         showIndicator: true,
         ...value.control,
-        chip: {
-          sink: controlChipSink,
-          source: authSource,
-        },
-        indicator: {
-          statusSource: authSource,
-        },
+        chip: { sink: controlChipSink, source: authSource },
+        indicator: { statusSource: authSource },
       },
     });
   };
@@ -267,14 +248,8 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
 };
 
 const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
-  {
-    tabKey: "style",
-    name: "Style",
-  },
-  {
-    tabKey: "control",
-    name: "Control",
-  },
+  { tabKey: "style", name: "Style" },
+  { tabKey: "control", name: "Control" },
 ];
 
 export const CommonToggleForm = (): ReactElement => {
@@ -389,14 +364,8 @@ export const TankForm = ({
 );
 
 const VALUE_FORM_TABS: Tabs.Tab[] = [
-  {
-    tabKey: "style",
-    name: "Style",
-  },
-  {
-    tabKey: "telemetry",
-    name: "Telemetry",
-  },
+  { tabKey: "style", name: "Style" },
+  { tabKey: "telemetry", name: "Telemetry" },
 ];
 
 interface ValueTelemFormT {
@@ -419,19 +388,14 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   const handleSourceChange = (v: channel.Key | null): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
-        {
-          from: "valueStream",
-          to: "rollingAverage",
-        },
-        {
-          from: "rollingAverage",
-          to: "stringifier",
-        },
+        { from: "valueStream", to: "rollingAverage" },
+        { from: "rollingAverage", to: "stringifier" },
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v ?? 0 }),
         stringifier: telem.stringifyNumber({
           precision: stringifier.precision ?? 2,
+          notation: stringifier.notation,
         }),
         rollingAverage: telem.rollingAverage({
           windowSize: rollingAverage.windowSize ?? 1,
@@ -442,21 +406,31 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, telem: t });
   };
 
+  const handleNotationChange = (notation: Notation): void => {
+    const t = telem.sourcePipeline("string", {
+      connections: [
+        { from: "valueStream", to: "rollingAverage" },
+        { from: "rollingAverage", to: "stringifier" },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue(source),
+        stringifier: telem.stringifyNumber({ ...stringifier, notation }),
+        rollingAverage: telem.rollingAverage(rollingAverage),
+      },
+      outlet: "stringifier",
+    });
+    onChange({ ...value, telem: t });
+  };
+
   const handlePrecisionChange = (precision: number): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
-        {
-          from: "valueStream",
-          to: "rollingAverage",
-        },
-        {
-          from: "rollingAverage",
-          to: "stringifier",
-        },
+        { from: "valueStream", to: "rollingAverage" },
+        { from: "rollingAverage", to: "stringifier" },
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: source.channel }),
-        stringifier: telem.stringifyNumber({ precision }),
+        stringifier: telem.stringifyNumber({ ...stringifier, precision }),
         rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
       },
       outlet: "stringifier",
@@ -467,17 +441,14 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   const handleRollingAverageChange = (windowSize: number): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
-        {
-          from: "valueStream",
-          to: "rollingAverage",
-        },
-        {
-          from: "rollingAverage",
-          to: "stringifier",
-        },
+        { from: "valueStream", to: "rollingAverage" },
+        { from: "rollingAverage", to: "stringifier" },
       ],
       segments: {
-        stringifier: telem.stringifyNumber({ precision: stringifier.precision ?? 2 }),
+        stringifier: telem.stringifyNumber({
+          ...stringifier,
+          precision: stringifier.precision ?? 2,
+        }),
         valueStream: telem.streamChannelValue({ channel: source.channel }),
         rollingAverage: telem.rollingAverage({ windowSize }),
       },
@@ -487,32 +458,38 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   const c = Channel.useName(source.channel as number);
-  useEffect(() => {
-    onChange({ ...value, tooltip: [c] });
-  }, [c]);
+  useEffect(() => onChange({ ...value, tooltip: [c] }), [c]);
 
   return (
-    <FormWrapper direction="x" align="stretch">
+    <FormWrapper direction="y" align="stretch">
       <Input.Item label="Input Channel" grow>
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
         />
       </Input.Item>
-      <Input.Item label="Precision" align="start">
-        <Input.Numeric
-          value={stringifier.precision ?? 2}
-          bounds={{ lower: 0, upper: 10 }}
-          onChange={handlePrecisionChange}
-        />
-      </Input.Item>
-      <Input.Item label="Averaging Window" align="start">
-        <Input.Numeric
-          value={rollingAverage.windowSize ?? 1}
-          bounds={{ lower: 1, upper: 100 }}
-          onChange={handleRollingAverageChange}
-        />
-      </Input.Item>
+      <Align.Space direction="x">
+        <Input.Item label="Notation">
+          <SelectNotation
+            value={stringifier.notation}
+            onChange={handleNotationChange}
+          />
+        </Input.Item>
+        <Input.Item label="Precision" align="start">
+          <Input.Numeric
+            value={stringifier.precision ?? 2}
+            bounds={{ lower: 0, upper: 10 }}
+            onChange={handlePrecisionChange}
+          />
+        </Input.Item>
+        <Input.Item label="Averaging Window" align="start">
+          <Input.Numeric
+            value={rollingAverage.windowSize ?? 1}
+            bounds={{ lower: 1, upper: 100 }}
+            onChange={handleRollingAverageChange}
+          />
+        </Input.Item>
+      </Align.Space>
     </FormWrapper>
   );
 };
@@ -578,12 +555,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   const handleSourceChange = (v: channel.Key | null): void => {
     v ??= 0;
     const t = telem.sourcePipeline("boolean", {
-      connections: [
-        {
-          from: "valueStream",
-          to: "threshold",
-        },
-      ],
+      connections: [{ from: "valueStream", to: "threshold" }],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
         threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
@@ -713,9 +685,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
     v ??= 0;
     const t = telem.sourcePipeline("number", {
       connections: [],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: v }),
-      },
+      segments: { valueStream: telem.streamChannelValue({ channel: v }) },
       outlet: "valueStream",
     });
     onChange({ ...value, source: t });
@@ -725,9 +695,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
     v ??= 0;
     const t = telem.sinkPipeline("number", {
       connections: [],
-      segments: {
-        setter: control.setChannelValue({ channel: v }),
-      },
+      segments: { setter: control.setChannelValue({ channel: v }) },
       inlet: "setter",
     });
 
@@ -744,14 +712,9 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
       control: {
         ...value.control,
         showChip: true,
-        chip: {
-          sink: controlChipSink,
-          source: authSource,
-        },
+        chip: { sink: controlChipSink, source: authSource },
         showIndicator: true,
-        indicator: {
-          statusSource: authSource,
-        },
+        indicator: { statusSource: authSource },
       },
     });
   };

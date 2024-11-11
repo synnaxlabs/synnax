@@ -270,14 +270,18 @@ std::vector<synnax::ChannelKey> labjack::WriteSink::get_index_keys() {
 }
 
 int labjack::WriteSink::check_err(int err, std::string caller) {
-    return labjack::check_err_internal(
+    labjack::check_err_internal(
         err,
         caller,
         "writer",
         this->ctx,
         this->ok_state,
-        this->writer_config.task_key
+        this->task.key
     );
+    if (err == LJME_RECONNECT_FAILED) {
+        this->device_manager->close_device(this->writer_config.serial_number);
+    }
+    return err;
 }
 
 bool labjack::WriteSink::ok() {
