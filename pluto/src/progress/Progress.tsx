@@ -17,10 +17,8 @@ interface ProgressProps {
   value: number;
 }
 
-export const Progress = ({ value }: ProgressProps): ReactElement => {
-  return (
+export const Progress = ({ value }: ProgressProps): ReactElement => (
     <div className={CSS.B("progress")}>
       <div className={CSS.B("progress-bar")} style={{ width: `${value}%` }} />
     </div>
   );
-};

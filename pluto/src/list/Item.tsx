@@ -9,7 +9,7 @@
 
 import "@/list/Item.css";
 
-import { type Key, type Keyed, Optional } from "@synnaxlabs/x";
+import { type Key, type Keyed, type Optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";

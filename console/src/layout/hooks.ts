@@ -32,14 +32,15 @@ import {
   useSelectNavDrawer,
   useSelectTheme,
 } from "@/layout/selectors";
-import { setFocus, State } from "@/layout/slice";
 import {
   type NavDrawerLocation,
   place,
   remove,
   resizeNavDrawer,
   setActiveTheme,
+  setFocus,
   setNavDrawerVisible,
+  type State,
   toggleActiveTheme,
 } from "@/layout/slice";
 import { type RootAction, type RootState, type RootStore } from "@/store";
@@ -205,19 +206,18 @@ export const useNavDrawer = (
     100,
     [dispatch, windowKey],
   );
-  if (state == null) {
+  if (state == null)
     return {
       activeItem: undefined,
       menuItems: [],
       onSelect: () => {},
       onResize: () => {},
     };
-  }
+
   let activeItem: NavDrawerItem | undefined;
-  let menuItems: NavMenuItem[] = [];
   if (state.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);
-  menuItems = items.filter((item) => state.menuItems.includes(item.key));
+  const menuItems = items.filter((item) => state.menuItems.includes(item.key));
 
   if (activeItem != null) activeItem.initialSize = state.size;
 

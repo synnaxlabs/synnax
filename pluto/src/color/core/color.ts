@@ -23,9 +23,7 @@ export type Hex = z.infer<typeof hexZ>;
 const crudeColor = z.object({ rgba255: rgbaZ });
 type CrudeBase = z.infer<typeof crudeColor>;
 
-export const toHex = ((color?: Crude): string | undefined => {
-  return color == null ? undefined : new Color(color).hex;
-}) as ((color: Crude) => string) & ((color?: Crude) => string | undefined);
+export const toHex = ((color?: Crude): string | undefined => color == null ? undefined : new Color(color).hex) as ((color: Crude) => string) & ((color?: Crude) => string | undefined);
 
 /**
  * An unparsed representation of a color i.e. a value that can be converted into
@@ -73,9 +71,9 @@ export class Color {
    * alpha value, this value will be ignored. Defaults to 1.
    */
   constructor(color: Crude, alpha: number = 1) {
-    if (typeof color === "string") {
+    if (typeof color === "string") 
       this.rgba255 = Color.fromHex(color, alpha);
-    } else if (Array.isArray(color)) {
+     else if (Array.isArray(color)) {
       if (color.length < 3 || color.length > 4)
         throw new Error(`Invalid color: [${color.join(", ")}]`);
       this.rgba255 = color.length === 3 ? [...color, alpha ?? 1] : color;
@@ -180,7 +178,7 @@ export class Color {
     const [r, g, b] = this.rgba255;
     if (alpha > 100)
       throw new Error(`Color opacity must be between 0 and 100, got ${alpha}`);
-    if (alpha > 1) alpha = alpha / 100;
+    if (alpha > 1) alpha /= 100;
     return new Color([r, g, b, alpha]);
   }
 
@@ -188,9 +186,7 @@ export class Color {
    * @returns the luminance of the color, between 0 and 1.
    */
   get luminance(): number {
-    const [r, g, b] = this.rgb1.map((v) => {
-      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-    });
+    const [r, g, b] = this.rgb1.map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
     return Number((0.2126 * r + 0.7152 * g + 0.0722 * b).toFixed(3));
   }
 
@@ -257,9 +253,9 @@ export const fromHSLA = (hsla: RGBA): RGBA => {
   l /= 100;
   let r, g, b;
 
-  if (s === 0) {
+  if (s === 0) 
     r = g = b = l; // achromatic
-  } else {
+   else {
     const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
     const p = 2 * l - q;
     r = hueToRgb(p, q, h + 1 / 3);
@@ -296,18 +292,18 @@ const rgbaToHSLA = (rgba: RGBA): HSLA => {
   let s: number;
   let l: number = (max + min) / 2;
 
-  if (max === min) {
+  if (max === min) 
     h = s = 0; // achromatic
-  } else {
+   else {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    if (max === r) {
+    if (max === r) 
       h = (g - b) / d + (g < b ? 6 : 0);
-    } else if (max === g) {
+     else if (max === g) 
       h = (b - r) / d + 2;
-    } else {
+     else 
       h = (r - g) / d + 4;
-    }
+    
     h /= 6;
   }
 

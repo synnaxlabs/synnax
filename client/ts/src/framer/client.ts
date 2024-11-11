@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type StreamClient, UnaryClient } from "@synnaxlabs/freighter";
+import { type StreamClient, type UnaryClient } from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
   type CrudeTimeRange,
   type CrudeTimeStamp,
   type MultiSeries,
-  TimeRange,
+  type TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { type Key, type KeyOrName, KeysOrNames, type Params } from "@/channel/payload";
+import { type Key, type KeyOrName, type KeysOrNames, type Params } from "@/channel/payload";
 import { analyzeChannelParams, type Retriever } from "@/channel/retriever";
 import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";
-import { Iterator, IteratorConfig } from "@/framer/iterator";
+import { Iterator, type IteratorConfig } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { ontology } from "@/ontology";

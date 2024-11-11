@@ -12,7 +12,7 @@ import "@/vis/schematic/primitives/Primitives.css";
 import { dimensions, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
-  CSSProperties,
+  type CSSProperties,
   type MouseEventHandler,
   type PropsWithChildren,
   type ReactElement,
@@ -27,7 +27,7 @@ import {
   useUpdateNodeInternals,
 } from "reactflow";
 
-import { Align } from "@/align";
+import { type Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -1187,8 +1187,8 @@ export const TextBox = ({
     textAlign: align as CSSProperties["textAlign"],
   };
   if (direction.construct(orientation) === "y")
-    style["height"] = autoFit ? "fit-content" : width;
-  else style["width"] = autoFit ? "fit-content" : width;
+    style.height = autoFit ? "fit-content" : width;
+  else style.width = autoFit ? "fit-content" : width;
 
   return (
     <Div
@@ -1683,7 +1683,7 @@ export const Agitator = ({
       <Handle location="bottom" orientation={orientation} left={50} top={100} id="1" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1711,7 +1711,7 @@ export const PropellerAgitator = ({
       <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1736,7 +1736,7 @@ export const FlatBladeAgitator = ({
       <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1762,7 +1762,7 @@ export const PaddleAgitator = ({
       <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1813,7 +1813,7 @@ export const CrossBeamAgitator = ({
       <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1842,7 +1842,7 @@ export const HelicalAgitator = ({
       <Handle location="top" left={50} top={2} id="4" orientation={orientation} />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1905,9 +1905,9 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
 }) => {
   const element = document.querySelector(`[data-id="${id}"]`);
   // add the orientation to the class list
-  if (element) {
+  if (element) 
     element.classList.add(orientation);
-  }
+  
 
   const swap = direction.construct(orientation) === "y";
 

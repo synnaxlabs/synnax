@@ -120,13 +120,10 @@ export class CoreAxis<
       ...this.state,
     });
     render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
-
-    if (this.internal.updateBounds == null) {
-      this.internal.updateBounds = throttle(
-        (b) => this.setState((p) => ({ ...p, bounds: b })),
-        this.state.autoBoundUpdateInterval.milliseconds,
-      );
-    }
+    this.internal.updateBounds ??= throttle(
+      (b) => this.setState((p) => ({ ...p, bounds: b })),
+      this.state.autoBoundUpdateInterval.milliseconds,
+    );
   }
 
   async afterDelete(): Promise<void> {

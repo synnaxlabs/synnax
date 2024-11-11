@@ -22,26 +22,26 @@ export const difference = (
       return;
     }
 
-    if (typeof a === "object" && typeof b === "object") {
+    if (typeof a === "object" && typeof b === "object") 
       if (Array.isArray(a) && Array.isArray(b)) {
         if (a.length !== b.length) {
           diffMap[currentPath] = [a, b];
           return;
         }
-        for (let i = 0; i < a.length; i++) {
+        for (let i = 0; i < a.length; i++) 
           compare(a[i], b[i], `${currentPath}[${i}]`);
-        }
+        
       } else {
         const keys = new Set([...Object.keys(a as {}), ...Object.keys(b as {})]);
         keys.forEach((key) => {
           compare(a[key], b[key], currentPath !== "" ? `${currentPath}.${key}` : key);
         });
       }
-    } else {
-      if (a !== b) {
+     else 
+      if (a !== b) 
         diffMap[currentPath] = [a, b];
-      }
-    }
+      
+    
   };
 
   compare(obj1, obj2, path);

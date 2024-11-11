@@ -127,11 +127,11 @@ export class WriteFrameAdapter {
         Received a single channel name or key but no series.
         `);
       if (Array.isArray(series)) {
-        if (series.some((s) => s instanceof Series || Array.isArray(s))) {
+        if (series.some((s) => s instanceof Series || Array.isArray(s)))
           throw new ValidationError(`
           Received a single channel name or key but multiple series.
           `);
-        }
+
         series = series as CrudeSeries;
       }
       const pld = await this.fetchChannel(columnsOrData);
@@ -152,11 +152,11 @@ export class WriteFrameAdapter {
       const data = [];
       for (let i = 0; i < columnsOrData.length; i++) {
         const pld = await this.fetchChannel(columnsOrData[i]);
-        if (i >= series.length) {
+        if (i >= series.length)
           throw new ValidationError(`
           Received an array of channel names or keys but not enough series.
           `);
-        }
+
         const s = new Series({
           data: series[i] as CrudeSeries,
           dataType: pld.dataType,
@@ -170,8 +170,7 @@ export class WriteFrameAdapter {
     if (columnsOrData instanceof Frame || columnsOrData instanceof Map) {
       const fr = new Frame(columnsOrData);
       if (this.adapter == null) return fr;
-      let cols: Key[] = [];
-      cols = fr.columns.map((col_) => {
+      const cols = fr.columns.map((col_) => {
         const col = typeof col_ === "string" ? this.adapter?.get(col_) : col_;
         if (col == null)
           throw new ValidationError(`

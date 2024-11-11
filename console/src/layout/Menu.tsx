@@ -11,7 +11,7 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Menu, Mosaic, Text } from "@synnaxlabs/pluto";
-import { direction } from "@synnaxlabs/x";
+import { type direction } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -35,7 +35,7 @@ export const FocusMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement =
     <Menu.Item
       itemKey="focus"
       startIcon={<Icon.Focus />}
-      onClick={() => dispatch(setFocus({ windowKey: windowKey, key: layoutKey }))}
+      onClick={() => dispatch(setFocus({ windowKey, key: layoutKey }))}
       trigger={["Control", "F"]}
     >
       Focus

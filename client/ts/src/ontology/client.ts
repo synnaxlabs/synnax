@@ -290,9 +290,9 @@ export class ChangeTracker {
   }
 
   private async start(): Promise<void> {
-    for await (const frame of this.streamer) {
+    for await (const frame of this.streamer) 
       await this.update(frame);
-    }
+    
   }
 
   private async update(frame: framer.Frame): Promise<void> {

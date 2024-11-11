@@ -9,6 +9,4 @@
 
 import { type ReactElement } from "react";
 
-export const PipelineAssembler = (): ReactElement => {
-  return <></>;
-};
+export const PipelineAssembler = (): ReactElement => <></>;

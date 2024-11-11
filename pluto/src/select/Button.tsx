@@ -78,15 +78,13 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       className={CSS(CSS.B("select-button"), className)}
       {...props}
     >
-      {data?.map((e) => {
-        return children({
+      {data?.map((e) => children({
           key: e.key,
           onClick: () => onSelect(e.key),
           selected: e.key === value,
           entry: e,
           title: e[entryRenderKey],
-        });
-      })}
+        }))}
     </Align.Pack>
   );
 };

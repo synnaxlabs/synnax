@@ -46,10 +46,6 @@ export const errorMatcher =
 export class BaseTypedError extends Error implements TypedError {
   readonly discriminator = "FreighterError";
   type: string = "";
-
-  constructor(message?: string) {
-    super(message);
-  }
 }
 
 type ErrorDecoder = (encoded: ErrorPayload) => Error | null;
@@ -100,12 +96,12 @@ class Registry {
 
   encode(error: unknown): ErrorPayload {
     if (error == null) return { type: NONE, data: "" };
-    if (isTypedError(error)) {
+    if (isTypedError(error))
       for (const provider of this.providers) {
         const payload = provider.encode(error);
         if (payload != null) return payload;
       }
-    }
+
     return { type: UNKNOWN, data: JSON.stringify(error) };
   }
 
@@ -144,9 +140,7 @@ export const registerError = ({
  * @param error - The error to encode.
  * @returns The encoded error.
  */
-export const encodeError = (error: unknown): ErrorPayload => {
-  return REGISTRY.encode(error);
-};
+export const encodeError = (error: unknown): ErrorPayload => REGISTRY.encode(error);
 
 /**
  * Decodes an error payload into an exception. If a custom decoder can be found
@@ -156,22 +150,18 @@ export const encodeError = (error: unknown): ErrorPayload => {
  * @param payload - The encoded error payload.
  * @returns The decoded error.
  */
-export const decodeError = (payload: ErrorPayload): Error | null => {
-  return REGISTRY.decode(payload);
-};
+export const decodeError = (payload: ErrorPayload): Error | null =>
+  REGISTRY.decode(payload);
 
 export class UnknownError extends BaseTypedError implements TypedError {
   type = "unknown";
-  constructor(message: string) {
-    super(message);
-  }
 }
 
 const FREIGHTER_ERROR_TYPE = "freighter.";
 
 /** Thrown/returned when a stream closed normally. */
 export class EOF extends BaseTypedError implements TypedError {
-  static readonly TYPE = FREIGHTER_ERROR_TYPE + "eof";
+  static readonly TYPE = `${FREIGHTER_ERROR_TYPE}eof`;
   type = EOF.TYPE;
   static readonly matches = errorMatcher(EOF.TYPE);
 
@@ -182,7 +172,7 @@ export class EOF extends BaseTypedError implements TypedError {
 
 /** Thrown/returned when a stream is closed abnormally. */
 export class StreamClosed extends BaseTypedError implements TypedError {
-  static readonly TYPE = FREIGHTER_ERROR_TYPE + "stream_closed";
+  static readonly TYPE = `${FREIGHTER_ERROR_TYPE}stream_closed`;
   static readonly matches = errorMatcher(StreamClosed.TYPE);
   type = StreamClosed.TYPE;
 
@@ -198,7 +188,7 @@ export interface UnreachableArgs {
 
 /** Thrown when a target is unreachable. */
 export class Unreachable extends BaseTypedError implements TypedError {
-  static readonly TYPE = FREIGHTER_ERROR_TYPE + "unreachable";
+  static readonly TYPE = `${FREIGHTER_ERROR_TYPE}unreachable`;
   type = Unreachable.TYPE;
   static readonly matches = errorMatcher(Unreachable.TYPE);
   url: URL;

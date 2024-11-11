@@ -12,11 +12,11 @@ import { bounds, box, dimensions, direction, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
-  AxisKey,
+  type AxisKey,
   axisKeyZ,
-  MultiXAxisRecord,
-  MultiYAxisRecord,
-  XAxisRecord,
+  type MultiXAxisRecord,
+  type MultiYAxisRecord,
+  type XAxisRecord,
 } from "@/lineplot/axis";
 
 // |||||| TITLE ||||||

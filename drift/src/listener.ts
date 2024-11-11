@@ -48,7 +48,7 @@ export const listen = async <S extends StoreState, A extends Action = UnknownAct
       validateAction({ action, emitter });
       return s.dispatch(sugar(action, emitter));
     }
-    if (sendState === true && communicator.isMain()) {
+    if (sendState === true && communicator.isMain()) 
       void communicator.emit({ state: s.getState() }, emitter);
-    }
+    
   });

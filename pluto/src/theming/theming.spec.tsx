@@ -23,13 +23,11 @@ const TestThemeContent = (): ReactElement => {
   );
 };
 
-const TestTheme = (): ReactElement => {
-  return (
+const TestTheme = (): ReactElement => (
     <Theming.Provider>
       <TestThemeContent />
     </Theming.Provider>
   );
-};
 
 describe("Theming", () => {
   it("should render a theme", () => {

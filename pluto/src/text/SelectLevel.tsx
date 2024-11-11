@@ -49,8 +49,7 @@ const defaultSelectDirectionButton = ({
   entry,
   onClick,
   selected,
-}: ButtonOptionProps<text.Level, Entry>): ReactElement => {
-  return (
+}: ButtonOptionProps<text.Level, Entry>): ReactElement => (
     <CoreButton.Button
       key={key}
       variant={selected ? "filled" : "outlined"}
@@ -59,15 +58,12 @@ const defaultSelectDirectionButton = ({
       {entry.label}
     </CoreButton.Button>
   );
-};
 
 export const SelectLevel = ({
   children = defaultSelectDirectionButton,
   ...props
-}: SelectLevelProps): ReactElement => {
-  return (
+}: SelectLevelProps): ReactElement => (
     <Button {...props} data={DATA}>
       {children}
     </Button>
   );
-};

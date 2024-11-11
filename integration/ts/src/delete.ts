@@ -1,5 +1,5 @@
 import { Synnax } from "@synnaxlabs/client";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeRange, type TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import * as fs from 'fs';
 import { argv } from "process";
 
@@ -28,13 +28,13 @@ class DeleteTest {
         const expectedError = argv[argvCounter++];
         const number_of_channels = parseInt(argv[argvCounter++]);
         const channels = [];
-        for (let i = 0; i < number_of_channels; i++) {
+        for (let i = 0; i < number_of_channels; i++) 
             channels.push(argv[argvCounter++]);
-        }
+        
 
         this.tc = {
             identifier,
-            expectedError: expectedError,
+            expectedError,
             timeRange: new TimeRange(timeRangeStart, timeRangeEnd),
             channels,
         };
@@ -50,19 +50,19 @@ class DeleteTest {
             if (e instanceof Error) {
                 caught = true;
                 actualError = e.message;
-                if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) {
+                if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) 
                     errorAssertion = true;
-                } else {
+                 else 
                     throw e;
-                }
-            } else {
+                
+            } else 
                 throw e;
-            }
+            
         });
         if (!caught) {
-            if (this.tc.expectedError == "no_error") {
+            if (this.tc.expectedError == "no_error") 
                 errorAssertion = true;
-            }
+            
             actualError = "no_error";
         }
         const end = TimeStamp.now();

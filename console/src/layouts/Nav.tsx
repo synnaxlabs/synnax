@@ -223,8 +223,7 @@ const MemoryBadge = (): ReactElement | null => {
  * NavBottom is the bottom navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
-export const NavBottom = (): ReactElement => {
-  return (
+export const NavBottom = (): ReactElement => (
     <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
       <Nav.Bar.Start>
         <Vis.NavControls />
@@ -240,4 +239,3 @@ export const NavBottom = (): ReactElement => {
       </Nav.Bar.End>
     </Nav.Bar>
   );
-};

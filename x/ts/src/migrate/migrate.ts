@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { compare } from "@/compare";
-import { Optional } from "@/optional";
+import { type Optional } from "@/optional";
 
 export const semVerZ = z.string().regex(/^\d+\.\d+\.\d+$/);
 
@@ -179,7 +179,7 @@ export const migrator = <
   const latestMigrationVersion = Object.keys(migrations).sort(compareSemVer).pop();
   if (latestMigrationVersion == null)
     return (v: I) => {
-      if (v.version == null) v.version = defaultVersion;
+      v.version ??= defaultVersion;
       if (v.version !== def.version) {
         console.log(
           `${name} version ${v.version} is newer than latest version of ${def.version}. 
@@ -224,7 +224,7 @@ export const migrator = <
   };
   return (v: I): O => {
     try {
-      if (v.version == null) {
+      if (v.version == null) 
         if (defaultVersion != null) {
           console.log(
             `${name} version is null. Setting version to default of ${defaultVersion}`,
@@ -236,7 +236,7 @@ export const migrator = <
           );
           return def;
         }
-      }
+      
       return f(v as Migratable) as O;
     } catch (e) {
       console.log(`${name} failed to parse final result. Exiting with default`);

@@ -13,7 +13,7 @@ import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
 import { compare } from "@/compare";
 import { id } from "@/id";
-import { math } from "@/math";
+import { type math } from "@/math";
 import { bounds } from "@/spatial";
 import {
   type GLBufferController,
@@ -205,7 +205,7 @@ export class Series<T extends TelemValue = TelemValue> {
     const isArray = Array.isArray(data);
 
     if (dataType != null) this.dataType = new DataType(dataType);
-    else {
+    else 
       if (data instanceof ArrayBuffer)
         throw new Error(
           "cannot infer data type from an ArrayBuffer instance when constructing a Series. Please provide a data type.",
@@ -235,7 +235,7 @@ export class Series<T extends TelemValue = TelemValue> {
             `cannot infer data type of ${typeof first} when constructing a Series from a JS array`,
           );
       } else this.dataType = new DataType(data);
-    }
+    
 
     if (!isArray && !isSingle) this._data = data;
     else {
@@ -249,11 +249,11 @@ export class Series<T extends TelemValue = TelemValue> {
         data_ = data_.map((v) => new TimeStamp(v as CrudeTimeStamp).valueOf());
       if (this.dataType.equals(DataType.STRING)) {
         this._cachedLength = data_.length;
-        this._data = new TextEncoder().encode(data_.join("\n") + "\n");
+        this._data = new TextEncoder().encode(`${data_.join("\n")  }\n`);
       } else if (this.dataType.equals(DataType.JSON)) {
         this._cachedLength = data_.length;
         this._data = new TextEncoder().encode(
-          data_.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n") + "\n",
+          `${data_.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n")  }\n`,
         );
       } else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
     }
@@ -286,9 +286,9 @@ export class Series<T extends TelemValue = TelemValue> {
   static generateTimestamps(length: number, rate: Rate, start: TimeStamp): Series {
     const timeRange = start.spanRange(rate.span(length));
     const data = new BigInt64Array(length);
-    for (let i = 0; i < length; i++) {
+    for (let i = 0; i < length; i++) 
       data[i] = BigInt(start.add(rate.span(i)).valueOf());
-    }
+    
     return new Series({ data, dataType: DataType.TIMESTAMP, timeRange });
   }
 
@@ -297,13 +297,13 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   static fromStrings(data: string[], timeRange?: TimeRange): Series {
-    const buffer = new TextEncoder().encode(data.join("\n") + "\n");
+    const buffer = new TextEncoder().encode(`${data.join("\n")  }\n`);
     return new Series({ data: buffer, dataType: DataType.STRING, timeRange });
   }
 
   static fromJSON<T>(data: T[], timeRange?: TimeRange): Series {
     const buffer = new TextEncoder().encode(
-      data.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n") + "\n",
+      `${data.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n")  }\n`,
     );
     return new Series({ data: buffer, dataType: DataType.JSON, timeRange });
   }
@@ -475,9 +475,9 @@ export class Series<T extends TelemValue = TelemValue> {
   convert(target: DataType, sampleOffset: math.Numeric = 0): Series {
     if (this.dataType.equals(target)) return this;
     const data = new target.Array(this.length);
-    for (let i = 0; i < this.length; i++) {
+    for (let i = 0; i < this.length; i++) 
       data[i] = convertDataType(this.dataType, target, this.data[i], sampleOffset);
-    }
+    
     return new Series({
       data: data.buffer,
       dataType: target,
@@ -490,9 +490,9 @@ export class Series<T extends TelemValue = TelemValue> {
 
   private calcRawMax(): math.Numeric {
     if (this.length === 0) return -Infinity;
-    if (this.dataType.equals(DataType.TIMESTAMP)) {
+    if (this.dataType.equals(DataType.TIMESTAMP)) 
       this._cachedMax = this.data[this.data.length - 1];
-    } else if (this.dataType.usesBigInt) {
+     else if (this.dataType.usesBigInt) {
       const d = this.data as BigInt64Array;
       this._cachedMax = d.reduce((a, b) => (a > b ? a : b));
     } else {
@@ -507,15 +507,15 @@ export class Series<T extends TelemValue = TelemValue> {
     if (this.dataType.isVariable)
       throw new Error("cannot calculate maximum on a variable length data type");
     if (this.writePos === 0) return -Infinity;
-    else if (this._cachedMax == null) this._cachedMax = this.calcRawMax();
+    this._cachedMax ??= this.calcRawMax();
     return addSamples(this._cachedMax, this.sampleOffset);
   }
 
   private calcRawMin(): math.Numeric {
     if (this.length === 0) return Infinity;
-    if (this.dataType.equals(DataType.TIMESTAMP)) {
+    if (this.dataType.equals(DataType.TIMESTAMP)) 
       this._cachedMin = this.data[0];
-    } else if (this.dataType.usesBigInt) {
+     else if (this.dataType.usesBigInt) {
       const d = this.data as BigInt64Array;
       this._cachedMin = d.reduce((a, b) => (a < b ? a : b));
     } else {
@@ -530,7 +530,7 @@ export class Series<T extends TelemValue = TelemValue> {
     if (this.dataType.isVariable)
       throw new Error("cannot calculate minimum on a variable length data type");
     if (this.writePos === 0) return Infinity;
-    else if (this._cachedMin == null) this._cachedMin = this.calcRawMin();
+    this._cachedMin ??= this.calcRawMin();
     return addSamples(this._cachedMin, this.sampleOffset);
   }
 
@@ -596,7 +596,7 @@ export class Series<T extends TelemValue = TelemValue> {
       end = this._cachedIndexes[index + 1] - 1;
     } else {
       if (index < 0) index = this.length + index;
-      for (let i = 0; i < this.data.length; i++) {
+      for (let i = 0; i < this.data.length; i++) 
         if (this.data[i] === NEW_LINE) {
           if (index === 0) {
             end = i;
@@ -605,7 +605,7 @@ export class Series<T extends TelemValue = TelemValue> {
           start = i + 1;
           index--;
         }
-      }
+      
       if (end === 0) end = this.data.length;
       if (start >= end || index > 0) {
         if (required) throw new Error(`[series] - no value at index ${index}`);
@@ -656,9 +656,9 @@ export class Series<T extends TelemValue = TelemValue> {
 
     // This means we only need to buffer part of the array.
     if (this.writePos !== FULL_BUFFER) {
-      if (prevBuffer === 0) {
+      if (prevBuffer === 0) 
         gl.bufferData(gl.ARRAY_BUFFER, this.byteCapacity.valueOf(), gl.STATIC_DRAW);
-      }
+      
       const byteOffset = this.dataType.density.size(prevBuffer).valueOf();
       const slice = this.underlyingData.slice(this.gl.prevBuffer, this.writePos);
       gl.bufferSubData(gl.ARRAY_BUFFER, byteOffset, slice.buffer);
@@ -747,9 +747,9 @@ export class Series<T extends TelemValue = TelemValue> {
   [Symbol.iterator](): Iterator<T> {
     if (this.dataType.isVariable) {
       const s = new StringSeriesIterator(this);
-      if (this.dataType.equals(DataType.JSON)) {
+      if (this.dataType.equals(DataType.JSON)) 
         return new JSONSeriesIterator(s) as Iterator<T>;
-      }
+      
       return s as Iterator<T>;
     }
     return new FixedSeriesIterator(this) as Iterator<T>;
@@ -992,10 +992,10 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
       if (required) throw new Error(`[series] - no value at alignment ${alignment}`);
       return undefined;
     }
-    for (const ser of this.series) {
+    for (const ser of this.series) 
       if (bounds.contains(ser.alignmentBounds, alignment))
         return ser.atAlignment(alignment, required as true);
-    }
+    
     if (required) throw new Error(`[series] - no value at alignment ${alignment}`);
     return undefined;
   }

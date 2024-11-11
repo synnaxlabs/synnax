@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -20,7 +20,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { FC, useState } from "react";
+import { type FC, useState } from "react";
 
 import { Layout } from "@/layout";
 import { createLayout, overviewLayout } from "@/range/external";

@@ -1,6 +1,6 @@
 import { Synnax } from "@synnaxlabs/client";
-import { Iterator } from "@synnaxlabs/client/dist/framer/iterator";
-import { CrudeTimeStamp, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x"
+import { type Iterator } from "@synnaxlabs/client/dist/framer/iterator";
+import { type CrudeTimeStamp, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x"
 import * as fs from 'fs'
 import { argv } from 'process';
 
@@ -67,9 +67,9 @@ class ReadTest {
         for (let i = 0; i < number_of_channel_groups; i++) {
             const number_of_channels_in_group = parseInt(argv[argvCounter++]);
             const group = [];
-            for (let j = 0; j < number_of_channels_in_group; j++) {
+            for (let j = 0; j < number_of_channels_in_group; j++) 
                 group.push(argv[argvCounter++]);
-            }
+            
             channels.push(group);
         }
         this.tc = new TestConfig(identifier, numIterators, chunkSize, boundStart, boundEnd, samplesExpected, expectedError, channels);
@@ -85,20 +85,20 @@ class ReadTest {
             if (e instanceof Error) {
                 caught = true;
                 actualError = e.message;
-                if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) {
+                if (this.tc.expectedError != "no_error" && e.message.includes(this.tc.expectedError)) 
                     errorAssertion = true;
-                } else {
+                 else 
                     throw e;
-                }
-            } else {
+                
+            } else 
                 throw e;
-            }
+            
         });
 
         if (!caught) {
-            if (this.tc.expectedError == "no_error") {
+            if (this.tc.expectedError == "no_error") 
                 errorAssertion = true;
-            }
+            
             actualError = "no_error";
         }
         const end = TimeStamp.now();
@@ -127,25 +127,25 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
         const iterators: Iterator[] = new Array(this.tc.numIterators).fill(null);
         let samples_read = 0;
 
-        for (let i = 0; i < this.tc.numIterators; i++) {
+        for (let i = 0; i < this.tc.numIterators; i++) 
             iterators[i] = await client.openIterator(
                 this.tc.bounds,
                 this.tc.channels[i],
                 { chunkSize: this.tc.chunkSize },
             );
-        }
+        
 
         try {
             for (const i of iterators) {
                 await i.seekFirst();
-                for await (const frame of i) {
+                for await (const frame of i) 
                     samples_read += frame.series.reduce((a, s) => a + s.length, 0);
-                }
+                
             }
         } finally {
-            for (const i of iterators) {
+            for (const i of iterators) 
                 await i.close();
-            }
+            
         }
 
         return samples_read;

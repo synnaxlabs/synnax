@@ -21,7 +21,7 @@ import {
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { AxisKey } from "@/lineplot/axis";
+import { type AxisKey } from "@/lineplot/axis";
 import { useSelect } from "@/lineplot/selectors";
 import { type AxisState, setAxis, shouldDisplayAxis } from "@/lineplot/slice";
 
@@ -52,15 +52,13 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
 
   return (
     <Tabs.Tabs {...t} size="small">
-      {(p) => {
-        return (
+      {(p) => (
           <LinePlotAxisControls
             key={p.tabKey}
             axisKey={p.tabKey as AxisKey}
             layoutKey={layoutKey}
           />
-        );
-      }}
+        )}
     </Tabs.Tabs>
   );
 };
@@ -74,8 +72,7 @@ export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children">
   enabled: boolean;
 }
 
-const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElement => {
-  return (
+const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElement => (
     <Button.Icon
       {...props}
       variant="outlined"
@@ -89,7 +86,6 @@ const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElem
       <Icon.Auto />
     </Button.Icon>
   );
-};
 
 export const LinePlotAxisControls = ({
   axisKey,

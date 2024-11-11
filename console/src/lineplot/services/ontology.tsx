@@ -19,7 +19,7 @@ import { useExport } from "@/lineplot/file";
 import { create } from "@/lineplot/LinePlot";
 import { type State } from "@/lineplot/slice";
 import { Link } from "@/link";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {

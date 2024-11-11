@@ -37,11 +37,11 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
   async afterUpdate(): Promise<void> {
     let renderCtx = render.Context.useOptional(this.ctx);
     if (renderCtx == null) {
-      if (this.renderContextSet) {
+      if (this.renderContextSet) 
         throw new UnexpectedError(
           "[vis.worker.Canvas] - expected render context to be set",
         );
-      }
+      
       if (!this.state.bootstrap) return;
       const { glCanvas, lower2dCanvas, upper2dCanvas, os } = this.state;
       if (glCanvas == null || lower2dCanvas == null || upper2dCanvas == null)

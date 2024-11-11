@@ -75,9 +75,7 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
     ([a], [b]) => deep.equal(a, b),
     [meta],
   );
-  useEffect(() => {
-    return () => removeGridEntry(key);
-  }, []);
+  useEffect(() => () => removeGridEntry(key), []);
   const dir = direction.swap(location.direction(meta.loc));
   const gridArea =
     dir === "x"

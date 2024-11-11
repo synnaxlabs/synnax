@@ -15,7 +15,7 @@ import { useEffect, useRef } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
-import { RootState } from "@/store";
+import { type RootState } from "@/store";
 import { selectActiveKey } from "@/workspace/selectors";
 import { setActive } from "@/workspace/slice";
 

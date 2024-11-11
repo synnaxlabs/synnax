@@ -101,9 +101,9 @@ export class CSVCodec implements Codec {
   }
 
   encodeString(payload: unknown): string {
-    if (!Array.isArray(payload) || payload.length === 0 || !isObject(payload[0])) {
+    if (!Array.isArray(payload) || payload.length === 0 || !isObject(payload[0])) 
       throw new Error("Payload must be an array of objects");
-    }
+    
 
     const keys = Object.keys(payload[0]);
     const csvRows = [keys.join(",")];

@@ -114,14 +114,12 @@ export class SourcePipeline<V>
 export const sourcePipeline = <V extends string>(
   valueType: V,
   props: SourcePipelineProps,
-): SourceSpec<V> => {
-  return {
+): SourceSpec<V> => ({
     variant: "source",
     props,
     type: SourcePipeline.TYPE,
     valueType,
-  };
-};
+  });
 
 export const sinkPipelinePropsZ = z.object({
   connections: z.array(connectionZ),
@@ -163,9 +161,9 @@ export class SinkPipeline<V>
       const fromSink = this.sinks[from];
       const toSink = this.sinks[to];
       if (fromSink == null || toSink == null) return;
-      if ("setSinks" in fromSink) {
+      if ("setSinks" in fromSink) 
         fromSink.setSinks({ [to]: toSink });
-      }
+      
     });
   }
 

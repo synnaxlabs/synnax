@@ -72,8 +72,7 @@ export class Client {
   middleware(): Middleware {
     const mw: Middleware = async (reqCtx, next) => {
       if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
-        if (this.authenticating == null)
-          this.authenticating = new Promise((resolve, reject) => {
+        this.authenticating ??= new Promise((resolve, reject) => {
             this.client
               .send(
                 LOGIN_ENDPOINT,

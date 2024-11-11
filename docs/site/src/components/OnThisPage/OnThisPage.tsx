@@ -35,15 +35,13 @@ export const OnThisPage = ({
       ) as unknown as HTMLElement[];
       headerLinks.forEach((link) => {
         // check if there's a matching title
-        const title = Array.from(titles).find((title) => {
-          return title.id === link.id;
-        });
-        if (title == null) {
+        const title = Array.from(titles).find((title) => title.id === link.id);
+        if (title == null) 
           // set the link display to none
           link.style.display = "none";
-        } else {
+         else 
           link.style.display = "block";
-        }
+        
       });
     }, 200);
     return () => clearInterval(i);
@@ -71,14 +69,14 @@ export const OnThisPage = ({
     if (toc.current == null) return;
 
     const setCurrent: IntersectionObserverCallback = (entries) => {
-      for (const entry of entries) {
+      for (const entry of entries) 
         if (entry.isIntersecting) {
           const { id } = entry.target;
           if (id === ON_THIS_PAGE_ID) continue;
           setCurrentID(entry.target.id);
           break;
         }
-      }
+      
     };
 
     const observerOptions: IntersectionObserverInit = {
@@ -113,8 +111,7 @@ export const OnThisPage = ({
         <Menu.Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth > 1 && depth <= 3)
-            .map((heading) => {
-              return (
+            .map((heading) => (
                 <Menu.Item.Link
                   href={`#${heading.slug}`}
                   level="small"
@@ -130,8 +127,7 @@ export const OnThisPage = ({
                 >
                   {unescape(heading.text)}
                 </Menu.Item.Link>
-              );
-            })}
+              ))}
         </Menu.Menu>
       </div>
     </Align.Space>

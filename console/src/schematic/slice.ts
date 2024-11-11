@@ -11,8 +11,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
-import { box, scale, xy } from "@synnaxlabs/x";
-import { id } from "@synnaxlabs/x";
+import { box, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/migrations";
 
@@ -282,13 +281,11 @@ export const { actions, reducer } = createSlice({
       const { layoutKey, key, props } = payload;
       const schematic = state.schematics[layoutKey];
       if (!schematic.editable) return;
-      if (key in schematic.props) {
+      if (key in schematic.props)
         schematic.props[key] = { ...schematic.props[key], ...props };
-      } else {
+      else {
         const edge = schematic.edges.findIndex((edge) => edge.key === key);
-        if (edge !== -1) {
-          schematic.edges[edge] = { ...schematic.edges[edge], ...props };
-        }
+        if (edge !== -1) schematic.edges[edge] = { ...schematic.edges[edge], ...props };
       }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
@@ -361,9 +358,8 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, editable } = payload;
       const schematic = state.schematics[layoutKey];
       clearSelections(schematic);
-      if (schematic.control === "acquired") {
-        schematic.controlAcquireTrigger -= 1;
-      }
+      if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
+
       if (schematic.snapshot) return;
       schematic.editable = editable;
     },
@@ -379,8 +375,7 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey } = payload;
       let { status } = payload;
       const schematic = state.schematics[layoutKey];
-      if (status == null)
-        status = schematic.control === "released" ? "acquired" : "released";
+      status ??= schematic.control === "released" ? "acquired" : "released";
       if (status === "released") schematic.controlAcquireTrigger -= 1;
       else schematic.controlAcquireTrigger += 1;
     },
@@ -412,21 +407,18 @@ export const { actions, reducer } = createSlice({
           if ("color" in nodeProps) {
             const c = new Color.Color(nodeProps.color as string);
             // check the contrast of the color
-            if (c.contrast(bgColor) < 1.1) {
+            if (c.contrast(bgColor) < 1.1)
               // if the contrast is too low, change the color to the contrast color
               nodeProps.color = theme.colors.gray.l9;
-            }
           }
         });
         edges.forEach((edge) => {
           if (
             edge.color != null &&
             new Color.Color(edge.color as string).contrast(bgColor) < 1.1
-          ) {
+          )
             edge.color = theme.colors.gray.l9;
-          } else if (edge.color == null) {
-            edge.color = theme.colors.gray.l9;
-          }
+          else edge.color ??= theme.colors.gray.l9;
         });
       });
     },

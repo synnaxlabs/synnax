@@ -181,7 +181,7 @@ export const translateEdgesBackward = (
   defaultColor: color.Crude,
 ): Edge[] =>
   edges.map((edge) => {
-    if (edge.data == null) edge.data = { segments: [], color: defaultColor };
+    edge.data ??= { segments: [], color: defaultColor };
     return {
       key: edge.id,
       segments: edge.data?.segments ?? [],

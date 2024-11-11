@@ -30,7 +30,7 @@ import { type Button as CoreButton } from "@/vis/button";
 import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
 import { type ControlStateProps } from "@/vis/schematic/Symbols";
-import { Setpoint } from "@/vis/setpoint";
+import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 
 export interface SymbolFormProps {}
@@ -95,13 +95,13 @@ interface LabelControlsProps {
 
 const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement => (
   <Align.Space direction="x" align="stretch" grow>
-    <Form.Field<string> path={path + ".label"} label="Label" padHelpText={false} grow>
+    <Form.Field<string> path={`${path  }.label`} label="Label" padHelpText={false} grow>
       {(p) => <Input.Text selectOnFocus {...p} />}
     </Form.Field>
     <Form.NumericField
       visible={!omit.includes("maxInlineSize")}
       style={{ maxWidth: 125 }}
-      path={path + ".maxInlineSize"}
+      path={`${path  }.maxInlineSize`}
       hideIfNull
       label="Label Wrap Width"
       inputProps={{ endContent: "px" }}
@@ -109,7 +109,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
     <Form.Field<Text.Level>
       hideIfNull
       visible={!omit.includes("level")}
-      path={path + ".level"}
+      path={`${path  }.level`}
       label="Label Size"
       padHelpText={false}
     >
@@ -117,7 +117,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
     </Form.Field>
     <Form.Field<Align.Alignment>
       visible={!omit.includes("align")}
-      path={path + ".align"}
+      path={`${path  }.align`}
       label="Label Alignment"
       padHelpText={false}
       hideIfNull
@@ -184,7 +184,7 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
   const handleSourceChange = (v: channel.Key | null): void => {
-    v = v ?? 0;
+    v ??= 0;
     const t = telem.sourcePipeline("boolean", {
       connections: [
         {
@@ -202,7 +202,7 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   };
 
   const handleSinkChange = (v: channel.Key | null): void => {
-    v = v ?? 0;
+    v ??= 0;
     const t = telem.sinkPipeline("boolean", {
       connections: [
         {
@@ -576,7 +576,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 
   const handleSourceChange = (v: channel.Key | null): void => {
-    v = v ?? 0;
+    v ??= 0;
     const t = telem.sourcePipeline("boolean", {
       connections: [
         {
@@ -632,7 +632,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
   const handleSinkChange = (v: channel.Key): void => {
-    v = v ?? 0;
+    v ??= 0;
     const t = telem.sinkPipeline("boolean", {
       connections: [{ from: "setpoint", to: "setter" }],
       segments: {
@@ -710,7 +710,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
   const handleSourceChange = (v: channel.Key | null): void => {
-    v = v ?? 0;
+    v ??= 0;
     const t = telem.sourcePipeline("number", {
       connections: [],
       segments: {
@@ -722,7 +722,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   const handleSinkChange = (v: channel.Key | null): void => {
-    v = v ?? 0;
+    v ??= 0;
     const t = telem.sinkPipeline("number", {
       connections: [],
       segments: {

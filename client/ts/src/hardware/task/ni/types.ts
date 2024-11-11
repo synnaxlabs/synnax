@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { device } from "@/hardware/device";
-import { task } from "@/hardware/task";
+import { type task } from "@/hardware/task";
 
 export const unitsVoltsZ = z.literal("Volts");
 export type UnitsVolts = z.infer<typeof unitsVoltsZ>;

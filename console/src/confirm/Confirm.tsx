@@ -7,13 +7,13 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-import { Align, Button, Nav, Status, Text, Triggers } from "@synnaxlabs/pluto";
+import { Align, Button, Nav, type Status, Text, Triggers } from "@synnaxlabs/pluto";
 import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { selectArgs } from "@/layout/selectors";
-import { RootState } from "@/store";
+import { type RootState } from "@/store";
 
 interface ConfirmLayoutArgs {
   message: string;

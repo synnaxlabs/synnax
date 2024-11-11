@@ -49,9 +49,9 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
       this.prevState.props != null &&
       deep.equal(this.state.props, this.prevState.props) &&
       this.internal.synnax != null
-    ) {
+    ) 
       return;
-    }
+    
 
     this.internal.synnax = new Synnax(this.state.props);
     this.internal.synnax.connectivity.onChange((state) =>

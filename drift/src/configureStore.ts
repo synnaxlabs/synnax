@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type {
-  Action as CoreAction,
-  ConfigureStoreOptions as BaseOpts,
-  EnhancedStore,
-  StoreEnhancer,
-  Tuple,
-  UnknownAction,
+import {
+  type Action as CoreAction,
+  configureStore as base,
+  type ConfigureStoreOptions as BaseOpts,
+  type EnhancedStore,
+  type StoreEnhancer,
+  type Tuple,
+  type UnknownAction,
 } from "@reduxjs/toolkit";
-import { configureStore as base } from "@reduxjs/toolkit";
 
 import { listen } from "@/listener";
 import { configureMiddleware, type Middlewares } from "@/middleware";
@@ -93,11 +93,11 @@ const receivePreloadedState = async <
 ): Promise<S | undefined> =>
   await new Promise<S | undefined>((resolve) => {
     void listen(runtime, store, resolve);
-    if (runtime.isMain()) {
+    if (runtime.isMain())
       if (typeof preloadedState === "function")
         preloadedState().then(resolve).catch(console.error);
       else resolve(preloadedState);
-    } else void runtime.emit({ sendState: true }, MAIN_WINDOW);
+    else void runtime.emit({ sendState: true }, MAIN_WINDOW);
   });
 
 /**

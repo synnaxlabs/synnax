@@ -47,7 +47,7 @@ export const equal = <V extends Numeric>(a: V, b: Numeric): boolean => {
  * @example roundToNearestMagnitude(123456) => 100000
  */
 export const roundToNearestMagnitude = (num: number): number => {
-  const magnitude = Math.pow(10, Math.floor(Math.log10(num)));
+  const magnitude = 10**Math.floor(Math.log10(num));
   return Math.round(num / magnitude) * magnitude;
 };
 

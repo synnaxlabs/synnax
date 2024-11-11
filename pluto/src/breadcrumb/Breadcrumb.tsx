@@ -128,7 +128,7 @@ export const URL = ({
           .split(separator)
           .slice(0, idx + 1)
           .join("/");
-        href = "/" + href;
+        href = `/${  href}`;
         return (
           <Text.Link level={level} key={index} href={href}>
             {el

@@ -23,23 +23,23 @@ import {
 } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { Properties } from "@/hardware/ni/device/types";
+import { type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import {
-  Chan,
-  DIChan,
+  type Chan,
+  type DIChan,
   DIGITAL_READ_TYPE,
-  DigitalRead,
-  DigitalReadConfig,
+  type DigitalRead,
+  type DigitalReadConfig,
   digitalReadConfigZ,
-  DigitalReadPayload,
-  DigitalReadStateDetails,
-  DigitalReadType,
+  type DigitalReadPayload,
+  type DigitalReadStateDetails,
+  type DigitalReadType,
   ZERO_DI_CHAN,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/migrations";
@@ -49,13 +49,13 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
-  TaskLayoutArgs,
+  type TaskLayoutArgs,
   useCreate,
   useObserveState,
-  WrappedTaskLayoutProps,
+  type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 type LayoutArgs = TaskLayoutArgs<DigitalReadPayload>;
 
@@ -129,14 +129,14 @@ const Wrapped = ({
 
       let modified = false;
       let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
-      if (!shouldCreateIndex) {
+      if (!shouldCreateIndex) 
         try {
           await client.channels.retrieve(dev.properties.digitalInput.index);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateIndex = true;
           else throw e;
         }
-      }
+      
 
       if (shouldCreateIndex) {
         modified = true;
@@ -155,14 +155,14 @@ const Wrapped = ({
         // check if the channel is in properties
         const exKey = dev.properties.digitalInput.channels[key];
         if (primitiveIsZero(exKey)) toCreate.push(channel);
-        else {
+        else 
           try {
             await client.channels.retrieve(exKey.toString());
           } catch (e) {
             if (NotFoundError.matches(e)) toCreate.push(channel);
             else throw e;
           }
-        }
+        
       }
 
       if (toCreate.length > 0) {
@@ -427,7 +427,7 @@ const ChannelListItem = ({
             shade={9}
             color={(() => {
               if (channelName === "No Channel") return "var(--pluto-warning-m1)";
-              else if (channelValid) return undefined;
+              if (channelValid) return undefined;
               return "var(--pluto-error-z)";
             })()}
           >

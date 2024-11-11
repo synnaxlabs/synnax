@@ -186,9 +186,9 @@ export class Reader {
               r.end.span(tr.end).lessThan(TimeSpan.milliseconds(5)),
           );
           if (groupWith == null) compressedToFetch.push([tr, keys]);
-          else {
+          else 
             groupWith[1] = new Set([...groupWith[1], ...keys]);
-          }
+          
         });
         L.debug("batch read", {
           toFetch: compressedToFetch.map(([r, k]) => ({

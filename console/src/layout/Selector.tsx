@@ -14,8 +14,8 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { PlacerArgs, usePlacer } from "@/layout/hooks";
-import { RendererProps } from "@/layout/slice";
+import { type PlacerArgs, usePlacer } from "@/layout/hooks";
+import { type RendererProps } from "@/layout/slice";
 
 export interface Selectable {
   key: string;

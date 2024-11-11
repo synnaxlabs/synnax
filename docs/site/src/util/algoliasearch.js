@@ -46,11 +46,11 @@ const data = filenames
   .filter((f) => f.endsWith("mdx"))
   .map((filename) => {
     try {
-      const markdownWithMeta = fs.readFileSync("./src/pages/" + filename);
+      const markdownWithMeta = fs.readFileSync(`./src/pages/${  filename}`);
       const { data: frontmatter, content } = matter(markdownWithMeta);
       return {
         objectID: filename,
-        href: "/" + filename.replace(".mdx", "").replace("index", ""),
+        href: `/${  filename.replace(".mdx", "").replace("index", "")}`,
         title: frontmatter.heading ?? frontmatter.title,
         description: frontmatter.description,
         content: removeMd(purgeImports(content)).replace(/\n/g, " "),

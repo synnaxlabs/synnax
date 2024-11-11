@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
+import { type Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Button";
 
@@ -45,8 +45,7 @@ const defaultSelectTextAlignmentButton = ({
   entry,
   onClick,
   selected,
-}: ButtonOptionProps<Align.Alignment, Entry>): ReactElement => {
-  return (
+}: ButtonOptionProps<Align.Alignment, Entry>): ReactElement => (
     <CoreButton.Icon
       key={key}
       variant={selected ? "filled" : "outlined"}
@@ -55,15 +54,12 @@ const defaultSelectTextAlignmentButton = ({
       {entry.icon}
     </CoreButton.Icon>
   );
-};
 
 export const TextAlignment = ({
   children = defaultSelectTextAlignmentButton,
   ...props
-}: AlignmentProps): ReactElement => {
-  return (
+}: AlignmentProps): ReactElement => (
     <Button {...props} allowMultiple={false} data={DATA}>
       {children}
     </Button>
   );
-};

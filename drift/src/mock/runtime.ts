@@ -34,7 +34,7 @@ export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
   }
 
   async configure(): Promise<void> {
-    return;
+    
   }
 
   isMain(): boolean {

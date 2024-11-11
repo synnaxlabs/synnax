@@ -46,7 +46,7 @@ import ReactFlow, {
   useReactFlow,
   type Viewport as RFViewport,
 } from "reactflow";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -291,9 +291,7 @@ const Core = Aether.wrap<DiagramProps>(
 
     const nodeTypes = useMemo(
       () => ({
-        custom: ({ id, xPos: x, yPos: y, selected }: RFNodeProps) => {
-          return renderer({ symbolKey: id, position: { x, y }, selected });
-        },
+        custom: ({ id, xPos: x, yPos: y, selected }: RFNodeProps) => renderer({ symbolKey: id, position: { x, y }, selected }),
       }),
       [renderer],
     );

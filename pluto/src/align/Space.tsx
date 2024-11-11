@@ -19,7 +19,7 @@ import {
 
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
-import { Theming } from "@/theming";
+import { type Theming } from "@/theming";
 import { type ComponentSize } from "@/util/component";
 
 /** All possible alignments for the cross axis of a space */
@@ -177,7 +177,7 @@ const flexDirection = (
   reverse: boolean,
 ): FlexDirection => {
   const base = direction === "x" ? "row" : "column";
-  return reverse ? ((base + "-reverse") as FlexDirection) : base;
+  return reverse ? ((`${base  }-reverse`) as FlexDirection) : base;
 };
 
 const justifications: Record<Justification, CSSProperties["justifyContent"]> = {

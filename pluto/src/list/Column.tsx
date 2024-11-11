@@ -102,7 +102,7 @@ const Header = <K extends Key, E extends Keyed<K>>({
 
   const onSort = (k: keyof E): void => {
     const [prevSort, prevDir] = sort;
-    if (prevSort === k) {
+    if (prevSort === k) 
       if (!prevDir) {
         setSort([null, false]);
         deleteTransform(SORT_TRANSFORM);
@@ -110,7 +110,7 @@ const Header = <K extends Key, E extends Keyed<K>>({
         setSort([k, !prevDir]);
         setTransform(SORT_TRANSFORM, sortTransform(k, !prevDir));
       }
-    } else {
+     else {
       setSort([k, true]);
       setTransform(SORT_TRANSFORM, sortTransform(k, true));
     }

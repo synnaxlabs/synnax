@@ -156,10 +156,10 @@ describe("align", () => {
     THREE_NODES_SAME_DIMS_DIFF_HANDLES,
   ];
 
-  for (const spec of SPECS) {
+  for (const spec of SPECS) 
     it(spec.name, () => {
       const outputs = alignNodes(spec.inputs);
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual(spec.outputs);
     });
-  }
+  
 });

@@ -40,8 +40,7 @@ export const Table = <K extends Key, E extends Keyed<K>>({
   columns,
   data,
   highlights = [],
-}: TableProps<Key, E>): ReactElement => {
-  return (
+}: TableProps<Key, E>): ReactElement => (
     <div style={{ overflowX: "auto", paddingLeft: 2 }}>
       <table>
         <thead>
@@ -68,7 +67,6 @@ export const Table = <K extends Key, E extends Keyed<K>>({
       </table>
     </div>
   );
-};
 
 interface TableRowProps<K extends Key, E extends Keyed<K>> {
   index: number;
@@ -84,8 +82,7 @@ const TableRow = <K extends Key, E extends Keyed<K>>({
   columns,
   data,
   highlights,
-}: TableRowProps<K, E>): ReactElement => {
-  return (
+}: TableRowProps<K, E>): ReactElement => (
     <tr>
       {columns.map((col) => (
         <TableCell<K, E>
@@ -99,7 +96,6 @@ const TableRow = <K extends Key, E extends Keyed<K>>({
       ))}
     </tr>
   );
-};
 
 interface TableCellProps<K extends Key, E extends Keyed<K>> {
   index: number;

@@ -187,12 +187,12 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
       // Simple case. If we can't allow multiple, then just toggle the key.
       if (allowMultiple === false) nextSelected = value.includes(key) ? [] : [key];
       // If the control key is held, we can still allow multiple selection.
-      else if (ctrl.current.held && replaceOnSingle) {
+      else if (ctrl.current.held && replaceOnSingle) 
         // Remove the key if it's already selected.
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         // Add it if its not.
         else nextSelected = [...value, key];
-      } else if (shift.current.held && shiftValue !== null) {
+       else if (shift.current.held && shiftValue !== null) {
         // We might select in reverse order, so we need to sort the indexes.
         const [start, end] = [
           data.findIndex((v) => v.key === key),
@@ -216,7 +216,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
         else nextSelected = [...value, key];
       }
       const v = unique(nextSelected);
-      if (allowNone === false && v.length === 0) {
+      if (allowNone === false && v.length === 0) 
         // If we're not allowed to have no select, still call handleChange with the same
         // value. This is useful when you want to close a dialog on selection.
         return handleChange(value, {
@@ -224,7 +224,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
           clicked: key,
           clickedIndex: data.findIndex(({ key: k }) => k === key),
         });
-      }
+      
       if (v.length === 0) shiftValueRef.current = null;
       handleChange(v, {
         entries: data.filter(({ key }) => nextSelected.includes(key)),

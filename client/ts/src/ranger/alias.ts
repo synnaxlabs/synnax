@@ -161,7 +161,7 @@ const aliasSeparator = "---";
 const decodeAliasChanges =
   (rangeKey: Key): signals.Decoder<string, Alias> =>
   (variant, data) => {
-    if (variant === "delete") {
+    if (variant === "delete") 
       return data
         .toStrings()
         .filter((k) => k.split(aliasSeparator)[0] === rangeKey)
@@ -170,7 +170,7 @@ const decodeAliasChanges =
           key: alias,
           value: undefined,
         }));
-    }
+    
     return data.parseJSON(aliasZ).map((alias) => ({
       variant,
       key: alias.alias,

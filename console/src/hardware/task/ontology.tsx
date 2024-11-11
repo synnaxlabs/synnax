@@ -18,9 +18,9 @@ import { Group } from "@/group";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { Link } from "@/link";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 
@@ -108,7 +108,7 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       if (activeRange === null || parent == null) return;
       const tasks = await Promise.all(
         resources.map(({ id, name }) =>
-          client.hardware.tasks.copy(id.key, name + " (Snapshot)", true),
+          client.hardware.tasks.copy(id.key, `${name  } (Snapshot)`, true),
         ),
       );
       const otgIDs = tasks.map((t) => t.ontologyID);

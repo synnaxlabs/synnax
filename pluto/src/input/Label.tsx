@@ -34,10 +34,8 @@ export const Label = ({
   required = false,
   children,
   ...props
-}: LabelProps): ReactElement => {
-  return (
+}: LabelProps): ReactElement => (
     <label className={CSS(CSS.B("input-label"), className)} {...props}>
       {children} {required && <span className={CSS.B("required-indicator")}>*</span>}
     </label>
   );
-};

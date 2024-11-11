@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Confirm, LAYOUT_TYPE } from "@/confirm/Confirm";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export { useModal } from "@/confirm/Confirm";
 

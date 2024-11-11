@@ -41,7 +41,7 @@ export const buildQueryString = (
 ): string => {
   if (request === null) return "";
   return (
-    "?" +
+    `?${ 
     Object.entries(request)
       .filter(([, value]) => {
         if (value === undefined || value === null) return false;
@@ -50,7 +50,7 @@ export const buildQueryString = (
       })
        
       .map(([key, value]) => `${prefix}${key}=${value}`)
-      .join("&")
+      .join("&")}`
   );
 };
 

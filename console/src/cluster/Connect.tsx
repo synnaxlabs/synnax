@@ -103,9 +103,9 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
-      if (!methods.validate()) {
+      if (!methods.validate()) 
         return;
-      }
+      
       setConnState(null);
       setLoading("test");
       const state = await testConnection(methods.value() as SynnaxProps);

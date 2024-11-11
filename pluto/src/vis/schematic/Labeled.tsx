@@ -42,8 +42,7 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
       ...props
     },
     ref,
-  ) => {
-    return (
+  ) => (
       <Align.Space
         style={{
           // You may be wondering, why do we do this here? Well it's because react flow
@@ -67,7 +66,7 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
           <Text.Editable
             className={CSS.BE("symbol", "label")}
             value={value}
-            style={{ maxInlineSize: maxInlineSize }}
+            style={{ maxInlineSize }}
             onChange={useCallback(
               (label) =>
                 onChange({
@@ -80,7 +79,6 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
         )}
         {children}
       </Align.Space>
-    );
-  },
+    ),
 );
 Labeled.displayName = "Labeled";

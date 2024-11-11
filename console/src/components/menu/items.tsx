@@ -36,10 +36,8 @@ export const RenameItem = (): ReactElement => (
   </Menu.Item>
 );
 
-export const DeleteItem = (): ReactElement => {
-  return (
+export const DeleteItem = (): ReactElement => (
     <Menu.Item itemKey="delete" startIcon={<Icon.Delete />} size="small">
       Delete
     </Menu.Item>
   );
-};

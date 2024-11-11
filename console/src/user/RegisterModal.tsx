@@ -23,7 +23,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username must not be empty"),

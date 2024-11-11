@@ -11,7 +11,7 @@ import { NotFoundError, UnexpectedError } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { DialogFilter, open, save } from "@tauri-apps/plugin-dialog";
+import { type DialogFilter, open, save } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { useDispatch, useStore } from "react-redux";
 
@@ -55,8 +55,8 @@ export const fileHandler: Layout.FileHandler = async ({
     if (
       !(await confirm({
         message:
-          `${fileName} already exists` +
-          (existingName != null ? ` as ${existingName}` : ""),
+          `${fileName} already exists${ 
+          existingName != null ? ` as ${existingName}` : ""}`,
         description: "Would you like to replace the existing schematic?",
         cancel: { label: "Cancel" },
         confirm: { label: "Replace", variant: "error" },

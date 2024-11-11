@@ -11,12 +11,12 @@ import "@/status/Notification.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { toArray } from "@synnaxlabs/x";
-import { isValidElement, ReactElement } from "react";
+import { isValidElement, type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { NotificationSpec } from "@/status/Aggregator";
+import { type NotificationSpec } from "@/status/Aggregator";
 import { Circle } from "@/status/Circle";
 import { Text } from "@/text";
 
@@ -33,8 +33,7 @@ export const Notification = ({
   className,
   children,
   ...props
-}: NotificationProps): ReactElement => {
-  return (
+}: NotificationProps): ReactElement => (
     <Align.Space
       className={CSS(CSS.B("notification"), className)}
       direction="y"
@@ -106,7 +105,6 @@ export const Notification = ({
       )}
     </Align.Space>
   );
-};
 
 interface ActionProps {
   action: ReactElement | Button.ButtonProps;

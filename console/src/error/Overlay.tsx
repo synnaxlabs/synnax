@@ -26,7 +26,7 @@ import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
   ErrorBoundary,
   type ErrorBoundaryProps,
-  FallbackProps,
+  type FallbackProps,
 } from "react-error-boundary";
 import { useDispatch } from "react-redux";
 
@@ -62,9 +62,7 @@ const FallbackRenderWithStore: ErrorBoundaryProps["fallbackRender"] = ({ error }
 };
 const FallbackRenderWithoutStore: ErrorBoundaryProps["fallbackRender"] = ({
   error,
-}) => {
-  return <FallBackRenderContent onClear={Persist.hardClearAndReload} error={error} />;
-};
+}) => <FallBackRenderContent onClear={Persist.hardClearAndReload} error={error} />;
 
 type FallbackRenderContentProps = Pick<FallbackProps, "error"> & {
   onTryAgain?: () => void;

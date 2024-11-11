@@ -17,12 +17,10 @@ export interface CircleProps extends IconProps {
   variant: status.Variant;
 }
 
-export const Circle = ({ variant, ...props }: CircleProps): ReactElement => {
-  return (
+export const Circle = ({ variant, ...props }: CircleProps): ReactElement => (
     <Icon.Circle
       color={variantColors[variant]}
       style={{ color: variantColors[variant] }}
       {...props}
     />
   );
-};

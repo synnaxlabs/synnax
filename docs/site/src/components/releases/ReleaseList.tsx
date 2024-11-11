@@ -29,14 +29,14 @@ export const ReleaseList = ({
     if (toc.current == null) return;
 
     const setCurrent: IntersectionObserverCallback = (entries) => {
-      for (const entry of entries) {
+      for (const entry of entries) 
         if (entry.isIntersecting) {
           const { id } = entry.target;
           if (id === ON_THIS_PAGE_ID) continue;
           setCurrentID(entry.target.id);
           break;
         }
-      }
+      
     };
 
     const observerOptions: IntersectionObserverInit = {
@@ -68,8 +68,7 @@ export const ReleaseList = ({
         <Menu.Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth === 6)
-            .map((heading) => {
-              return (
+            .map((heading) => (
                 <Menu.Item.Link
                   href={`#${heading.slug}`}
                   level="small"
@@ -85,8 +84,7 @@ export const ReleaseList = ({
                 >
                   {unescape(heading.text)}
                 </Menu.Item.Link>
-              );
-            })}
+              ))}
         </Menu.Menu>
       </div>
     </Align.Space>

@@ -44,9 +44,9 @@ class StreamTest {
     const numberOfChannels = parseInt(argv[argvCounter++]);
 
     const channels: string[] = [];
-    for (let i = 0; i < numberOfChannels; i++) {
+    for (let i = 0; i < numberOfChannels; i++) 
       channels.push(argv[argvCounter++]);
-    }
+    
 
     this.tc = new TestConfig(
       identifier,
@@ -74,19 +74,19 @@ class StreamTest {
           if (
             this.tc.expectedError != "no_error" &&
             e.message.includes(this.tc.expectedError)
-          ) {
+          ) 
             errorAssertion = true;
-          } else {
+           else 
             throw e;
-          }
-        } else {
+          
+        } else 
           throw e;
-        }
+        
       });
     if (!caught) {
-      if (this.tc.expectedError == "no_error") {
+      if (this.tc.expectedError == "no_error") 
         errorAssertion = true;
-      }
+      
       actualError = "no_error";
     }
 
@@ -120,9 +120,9 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorA
     try {
       for await (const frame of streamer) {
         samplesStreamed += frame.series.reduce((total, s) => total + s.length, 0);
-        if (samplesStreamed >= 0.95 * this.tc.samplesExpected) {
+        if (samplesStreamed >= 0.95 * this.tc.samplesExpected) 
           return samplesStreamed;
-        }
+        
       }
     } finally {
       streamer.close();

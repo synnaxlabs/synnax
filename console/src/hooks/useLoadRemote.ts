@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PayloadAction } from "@reduxjs/toolkit";
-import { Synnax } from "@synnaxlabs/client";
+import { type PayloadAction } from "@reduxjs/toolkit";
+import { type Synnax } from "@synnaxlabs/client";
 import { Status, Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
