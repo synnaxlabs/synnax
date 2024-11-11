@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Edit, EDIT_LAYOUT_TYPE } from "@/label/Edit";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export * from "@/label/Edit";
 export * from "@/label/Select";

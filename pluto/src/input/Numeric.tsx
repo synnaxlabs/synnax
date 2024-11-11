@@ -83,7 +83,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       // This just means we never actually modified the input
       if (isValueValidRef.current) return;
       setIsValueValid(true);
-      let ok = false;
+      let ok: boolean;
       let v = 0;
       try {
         const ev = evaluate(internalValueRef.current);
@@ -128,13 +128,12 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       [onChange, setIsValueValid],
     );
 
-    if (dragScale == null && bounds.isFinite(propsBounds)) {
+    if (dragScale == null && bounds.isFinite(propsBounds))
       // make X 5% of the bounds and Y 10% of the bounds
       dragScale = {
         x: bounds.span(propsBounds) * 0.01,
         y: bounds.span(propsBounds) * 0.02,
       };
-    }
 
     if (variant === "preview" || disabled) showDragHandle = false;
 

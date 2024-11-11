@@ -9,7 +9,7 @@
 
 import { type ComponentPropsWithoutRef, type ReactNode } from "react";
 
-import { Align } from "@/align";
+import { type Align } from "@/align";
 import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 

@@ -24,7 +24,7 @@ import {
   DIGITAL_READ_TYPE,
   DIGITAL_WRITE_TYPE,
 } from "@/hardware/ni/task/migrations";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export * from "@/hardware/ni/task/AnalogRead";
 export * from "@/hardware/ni/task/DigitalRead";

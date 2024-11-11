@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { ontology, task, UnexpectedError } from "@synnaxlabs/client";
+import { ontology, type task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -28,15 +28,15 @@ import {
 import {
   caseconv,
   deep,
-  Key,
-  Keyed,
-  migrate,
-  Optional,
-  UnknownRecord,
+  type Key,
+  type Keyed,
+  type migrate,
+  type Optional,
+  type UnknownRecord,
 } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
-import { Migratable } from "node_modules/@synnaxlabs/x/dist/src/migrate/migrate";
-import { FC, ReactElement, useCallback, useId, useState } from "react";
+import { type Migratable } from "node_modules/@synnaxlabs/x/dist/src/migrate/migrate";
+import { type FC, type ReactElement, useCallback, useId, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -202,12 +202,11 @@ export const useObserveState = <T extends ParserErrorsDetails>(
       if (state.task !== taskKey) return;
       setTaskState(state);
       if (state.variant !== "error") clearStatuses();
-      else if (state.details != null && state.details.errors != null) {
+      else if (state.details != null && state.details.errors != null)
         state.details.errors.forEach((e) => {
           const path = `config.${caseconv.snakeToCamel(e.path)}`;
           setStatus(path, { variant: "error", message: "" });
         });
-      }
     },
   });
   return taskState;
@@ -351,18 +350,16 @@ export interface TareButtonProps {
   disabled?: boolean;
 }
 
-export const TareButton = ({ onClick, disabled }: TareButtonProps) => {
-  return (
-    <Button.Icon
-      variant={"outlined"}
-      disabled={disabled}
-      onClick={onClick}
-      tooltip="Click to tare"
-    >
-      <Icon.Tare />
-    </Button.Icon>
-  );
-};
+export const TareButton = ({ onClick, disabled }: TareButtonProps) => (
+  <Button.Icon
+    variant={"outlined"}
+    disabled={disabled}
+    onClick={onClick}
+    tooltip="Click to tare"
+  >
+    <Icon.Tare />
+  </Button.Icon>
+);
 
 export const useCreate = <
   C extends UnknownRecord,

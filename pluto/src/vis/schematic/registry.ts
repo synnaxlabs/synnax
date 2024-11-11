@@ -30,7 +30,7 @@ import { DEFAULT_BORDER_RADIUS } from "@/vis/schematic/primitives/Primitives";
 import {
   Agitator,
   AgitatorPreview,
-  AgitatorProps,
+  type AgitatorProps,
   AngledReliefValve,
   AngledReliefValvePreview,
   AngledValve,
@@ -95,7 +95,7 @@ import {
   type PistonPumpProps,
   PropellerAgitator,
   PropellerAgitatorPreview,
-  PropellerAgitatorProps,
+  type PropellerAgitatorProps,
   Pump,
   PumpPreview,
   type PumpProps,

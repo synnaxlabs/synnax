@@ -150,9 +150,7 @@ describe("DynamicCache", () => {
       });
       it("should allocate a buffer properly using a TimeSpan", () => {
         let nowF = () => TimeStamp.seconds(1);
-        const now = () => {
-          return nowF();
-        };
+        const now = () => nowF();
         const cache = new Dynamic({
           dynamicBufferSize: TimeSpan.minutes(5),
           dataType: DataType.FLOAT32,

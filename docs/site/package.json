@@ -9,7 +9,9 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "algolia": "node ./src/util/algoliasearch.js"
+    "algolia": "node ./src/util/algoliasearch.js",
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix"
   },
   "dependencies": {
     "@astrojs/mdx": "^3.1.8",
@@ -37,6 +39,7 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "algoliasearch": "^4.23.3",
+    "eslint": "^9.12.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "gray-matter": "^4.0.3",
     "remove-markdown": "^0.5.5",

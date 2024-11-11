@@ -131,20 +131,18 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
       (event: TauriEvent<string>) => lis(decode(event.payload)),
     );
     const propsHandlers = newWindowPropsHandlers();
-    for (const { key, handler, debounce } of propsHandlers) {
+    for (const { key, handler, debounce } of propsHandlers)
       this.unsubscribe[key] = await this.win.listen(
         key,
         debounceF(() => {
           handler(this.win)
             .then((action) => {
-              if (action != null) {
+              if (action != null)
                 this.emit({ action: action as A }, undefined, "WHITELIST");
-              }
             })
             .catch(console.error);
         }, debounce),
       );
-    }
   }
 
   onCloseRequested(cb: () => void): void {
@@ -333,21 +331,18 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
   {
     key: TauriEventKey.WINDOW_BLUR,
     debounce: 0,
-    handler: async (window) => {
-      return setWindowProps({ focus: false, label: window.label });
-    },
+    handler: async (window) => setWindowProps({ focus: false, label: window.label }),
   },
   {
     key: TauriEventKey.WINDOW_FOCUS,
     debounce: 0,
-    handler: async (window) => {
-      return setWindowProps({
+    handler: async (window) =>
+      setWindowProps({
         focus: true,
         visible: true,
         minimized: false,
         label: window.label,
-      });
-    },
+      }),
   },
 ];
 

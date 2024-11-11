@@ -10,9 +10,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MockRuntime } from "@/mock/runtime";
-import { setWindowStage, StoreState, ZERO_SLICE_STATE } from "@/state";
+import { setWindowStage, type StoreState, ZERO_SLICE_STATE } from "@/state";
 
-import { configureMiddleware, GetDefaultMiddleware, middleware } from "./middleware";
+import { configureMiddleware, type GetDefaultMiddleware, middleware } from "./middleware";
 
 const state = {
   drift: ZERO_SLICE_STATE,

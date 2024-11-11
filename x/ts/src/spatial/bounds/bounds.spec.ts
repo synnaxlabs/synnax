@@ -9,7 +9,7 @@
 
 import { describe, expect, it, test } from "vitest";
 
-import { numeric } from "@/numeric";
+import { type numeric } from "@/numeric";
 import * as bounds from "@/spatial/bounds/bounds";
 
 describe("Bounds", () => {

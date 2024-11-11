@@ -309,16 +309,14 @@ const slice = createSlice({
       incrementCounter("processCount", true)(s, a);
       const win = s.windows[a.payload.label];
       if (win == null) return;
-      if (win.processCount === 0) {
-        if (win.stage === "reloading") {
-          window.location.reload();
-        } else {
+      if (win.processCount === 0)
+        if (win.stage === "reloading") window.location.reload();
+        else {
           s.windows[a.payload.label].visible = false;
           delete s.windows[a.payload.label];
           delete s.labelKeys[a.payload.label];
           delete s.keyLabels[win.key];
         }
-      }
     }),
     setWindowError: (s: SliceState, a: PayloadAction<SetWindowErrorPayload>) => {
       const win = s.windows[a.payload.key];

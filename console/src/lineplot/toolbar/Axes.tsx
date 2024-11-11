@@ -21,7 +21,7 @@ import {
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { AxisKey } from "@/lineplot/axis";
+import { type AxisKey } from "@/lineplot/axis";
 import { useSelect } from "@/lineplot/selectors";
 import { type AxisState, setAxis, shouldDisplayAxis } from "@/lineplot/slice";
 
@@ -52,15 +52,13 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
 
   return (
     <Tabs.Tabs {...t} size="small">
-      {(p) => {
-        return (
-          <LinePlotAxisControls
-            key={p.tabKey}
-            axisKey={p.tabKey as AxisKey}
-            layoutKey={layoutKey}
-          />
-        );
-      }}
+      {(p) => (
+        <LinePlotAxisControls
+          key={p.tabKey}
+          axisKey={p.tabKey as AxisKey}
+          layoutKey={layoutKey}
+        />
+      )}
     </Tabs.Tabs>
   );
 };
@@ -74,22 +72,18 @@ export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children">
   enabled: boolean;
 }
 
-const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElement => {
-  return (
-    <Button.Icon
-      {...props}
-      variant="outlined"
-      disabled={enabled}
-      tooltip={
-        enabled
-          ? "Manually enter value to disable auto bounding"
-          : "Enable auto bounding"
-      }
-    >
-      <Icon.Auto />
-    </Button.Icon>
-  );
-};
+const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElement => (
+  <Button.Icon
+    {...props}
+    variant="outlined"
+    disabled={enabled}
+    tooltip={
+      enabled ? "Manually enter value to disable auto bounding" : "Enable auto bounding"
+    }
+  >
+    <Icon.Auto />
+  </Button.Icon>
+);
 
 export const LinePlotAxisControls = ({
   axisKey,

@@ -23,7 +23,7 @@ import {
   type EdgeChange as RFEdgeChange,
   type EdgeProps as RFEdgeProps,
   type FitViewOptions,
-  IsValidConnection,
+  type IsValidConnection,
   type Node as RFNode,
   type NodeChange as RFNodeChange,
   type NodeProps as RFNodeProps,
@@ -49,7 +49,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -69,7 +69,7 @@ import {
   edgeConverter,
   type Node,
   nodeConverter,
-  RFEdgeData,
+  type RFEdgeData,
   translateEdgesForward,
   translateNodesForward,
   translateViewportBackward,
@@ -119,7 +119,7 @@ export const use = ({
   };
 };
 
-const isValidConnection: IsValidConnection = (connection): boolean => true;
+const isValidConnection: IsValidConnection = (): boolean => true;
 
 export interface UseReturn {
   edges: Edge[];
@@ -299,9 +299,7 @@ const Core = Aether.wrap<DiagramProps>(
           positionAbsoluteX: x,
           positionAbsoluteY: y,
           selected = false,
-        }: RFNodeProps) => {
-          return renderer({ symbolKey: id, position: { x, y }, selected });
-        },
+        }: RFNodeProps) => renderer({ symbolKey: id, position: { x, y }, selected }),
       }),
       [renderer],
     );

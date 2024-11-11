@@ -12,7 +12,7 @@ import "@/menu/ContextMenu.css";
 import { box, position, unique, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
-  FC,
+  type FC,
   type ForwardedRef,
   forwardRef,
   type ReactElement,
@@ -109,7 +109,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
       // Prevent parent context menus from opening.
       e.stopPropagation();
       const selected = findSelected(e.target as HTMLElement);
-      keys = keys ?? unique(selected.map((el) => el.id).filter((id) => id.length > 0));
+      keys ??= unique(selected.map((el) => el.id).filter((id) => id.length > 0));
     } else keys = [];
     setMenuState({ visible: true, keys, position: p, cursor: p });
   };

@@ -12,7 +12,7 @@ import { isObject } from "@synnaxlabs/x/identity";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { framer } from "@/framer";
+import { type framer } from "@/framer";
 import { type Key, keyZ } from "@/ranger/payload";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
@@ -96,7 +96,7 @@ export class KV {
         key: k,
         value: v,
       }));
-    else pairs = [{ range: this.rangeKey, key: key, value: value }];
+    else pairs = [{ range: this.rangeKey, key, value }];
     await sendRequired(
       this.client,
       KV.SET_ENDPOINT,
