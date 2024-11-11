@@ -120,18 +120,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
     // If the value is valid, use the actual value, otherwise use the internal value.
     const value_ = isValueValid ? value : internalValue;
 
-    // We don't communicate the actual value until the user is done dragging, this
-    // prevents a bunch of re-renders every time the user moves the mouse.
     const onDragChange = useCallback(
-      (value: number) => {
-        setIsValueValid(false);
-        setInternalValue(Math.round(bounds.clamp(propsBounds, value)).toString());
-      },
-      [setInternalValue, setIsValueValid],
-    );
-
-    // See not above.
-    const onDragEnd = useCallback(
       (value: number) => {
         setIsValueValid(true);
         onChange?.(bounds.clamp(propsBounds, Math.round(value)));
@@ -174,7 +163,6 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
             onChange={onDragChange}
             dragScale={dragScale}
             resetValue={resetValue}
-            onDragEnd={onDragEnd}
             onBlur={handleBlur}
           />
         )}
