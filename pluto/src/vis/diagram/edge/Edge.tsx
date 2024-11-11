@@ -11,19 +11,19 @@ import "@/vis/diagram/edge/Edge.css";
 
 import { box, direction, location, xy } from "@synnaxlabs/x";
 import {
+  BaseEdge,
+  type ConnectionLineComponentProps,
+  type EdgeProps as RFEdgeProps,
+  type Position,
+  useReactFlow,
+} from "@xyflow/react";
+import {
   type DragEvent,
   Fragment,
   type ReactElement,
   useCallback,
   useRef,
 } from "react";
-import {
-  BaseEdge,
-  type ConnectionLineComponentProps,
-  type EdgeProps as RFEdgeProps,
-  type Position,
-  useReactFlow,
-} from "reactflow";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";

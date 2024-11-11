@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, dimensions, location, xy } from "@synnaxlabs/x";
-import { type ReactFlowInstance } from "reactflow";
+import { type ReactFlowInstance } from "@xyflow/react";
 
 export const selectNode = (key: string): HTMLDivElement => {
   const el = document.querySelector(`[data-id="${key}"]`);
