@@ -9,7 +9,6 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";

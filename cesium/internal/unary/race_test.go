@@ -75,6 +75,9 @@ var _ = Describe("Unary racing", func() {
 				dataDB.SetIndex(indexDB.Index())
 			})
 			AfterEach(func() {
+				Expect(rateDB.Close()).To(Succeed())
+				Expect(indexDB.Close()).To(Succeed())
+				Expect(dataDB.Close()).To(Succeed())
 				Expect(cleanUp()).To(Succeed())
 			})
 

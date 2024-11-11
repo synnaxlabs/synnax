@@ -248,7 +248,8 @@ func (idx *index) read(f func()) {
 
 func (idx *index) close() error {
 	idx.mu.Lock()
+	defer idx.mu.Unlock()
+
 	idx.mu.pointers = nil
-	idx.mu.Unlock()
-	return nil
+	return idx.indexPersist.Close()
 }

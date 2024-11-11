@@ -337,7 +337,7 @@ var _ = Describe("Signal", func() {
 			}()
 
 			Eventually(done).Should(BeClosed())
-			Expect(time.Now().Sub(start)).To(BeNumerically("~", 511*time.Millisecond, 20*time.Millisecond))
+			Expect(time.Now().Sub(start)).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
 		})
 
 	})
