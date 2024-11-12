@@ -457,6 +457,28 @@ var _ = Describe("FS", func() {
 					Expect(l[0].Name()).To(Equal("file1.json"))
 					Expect(f.Close()).To(Succeed())
 				})
+
+				Context("Windows Regression", func() {
+					It("Should list file sizes in the directory correctly", func() {
+						// Windows has a different implementation of DirEntry.Info()
+						// than other OS's - one of its problems is that it has trouble
+						// returning the size of a file that still has handles open to
+						// it.
+						// We avoided it by calling os.Stat() instead in our implementation
+						// of List().
+						subFS, err := fs.Sub("sub1")
+						Expect(err).ToNot(HaveOccurred())
+						f := MustSucceed(subFS.Open("file1.txt", os.O_CREATE|os.O_RDWR))
+						_, err = f.Write([]byte("tacocat"))
+						Expect(err).ToNot(HaveOccurred())
+						l := MustSucceed(subFS.List(""))
+						s, err := f.Stat()
+						Expect(err).ToNot(HaveOccurred())
+						Expect(s.Size()).To(Equal(int64(7)))
+						Expect(l[0].Size()).To(Equal(int64(7)))
+						Expect(f.Close()).To(Succeed())
+					})
+				})
 			})
 
 			Describe("Rename", func() {

@@ -10,7 +10,7 @@
 import {
   MultiSeries,
   Series,
-  SeriesPayload,
+  type SeriesPayload,
   Size,
   type TelemValue,
   TimeRange,
@@ -126,7 +126,7 @@ export class Frame {
         Object.entries(columnsOrData).forEach(([k, v]) => {
           const key = parseInt(k);
           if (!isNaN(key)) return this.push(key, ...toArray(v));
-          else this.push(k, ...toArray(v));
+          this.push(k, ...toArray(v));
         });
       return;
     }
@@ -334,7 +334,7 @@ export class Frame {
    */
   has(channel: KeyOrName): boolean {
     if (typeof channel === "string" && this.colType === "key") return false;
-    else if (typeof channel === "number" && this.colType === "name") return false;
+    if (typeof channel === "number" && this.colType === "name") return false;
     return (this.columns as Keys).includes(channel as Key);
   }
 
@@ -418,11 +418,9 @@ export const seriesFromPayload = (series: SeriesPayload): Series => {
   return new Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
 };
 
-export const seriesToPayload = (series: Series): SeriesPayload => {
-  return {
-    timeRange: series._timeRange,
-    dataType: series.dataType,
-    data: new Uint8Array(series.data.buffer),
-    alignment: series.alignment,
-  };
-};
+export const seriesToPayload = (series: Series): SeriesPayload => ({
+  timeRange: series._timeRange,
+  dataType: series.dataType,
+  data: new Uint8Array(series.data.buffer),
+  alignment: series.alignment,
+});

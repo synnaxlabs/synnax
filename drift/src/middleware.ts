@@ -9,11 +9,11 @@
 
 import {
   type Action as CoreAction,
-  configureStore,
+  type configureStore,
   type Dispatch,
   type Middleware,
   type PayloadAction,
-  Tuple,
+  type Tuple,
   type UnknownAction,
 } from "@reduxjs/toolkit";
 
@@ -127,12 +127,10 @@ export const configureMiddleware = <
   mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
   runtime: Runtime<S, A | Action>,
   debug: boolean = false,
-): ((def: GetDefaultMiddleware<S>) => M) => {
-  return (def) => {
+): ((def: GetDefaultMiddleware<S>) => M) => (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
     return [middleware<S, A>(runtime, debug), ...base] as unknown as M;
   };
-};
 
 type ConfigureStoreOptions<
   S extends StoreState,

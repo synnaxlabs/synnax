@@ -59,9 +59,9 @@ export const fileHandler: Layout.FileHandler = async ({
   if (existingState != null) {
     if (
       !(await confirm({
-        message:
-          `${fileName} already exists` +
-          (existingName != null ? ` as ${existingName}` : ""),
+        message: `${fileName} already exists${
+          existingName != null ? ` as ${existingName}` : ""
+        }`,
         description: "Would you like to replace the existing schematic?",
         cancel: { label: "Cancel" },
         confirm: { label: "Replace", variant: "error" },

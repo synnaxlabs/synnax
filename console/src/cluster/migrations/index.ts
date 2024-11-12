@@ -9,7 +9,7 @@
 
 import { migrate } from "@synnaxlabs/x";
 
-import * as v0 from "@/cluster/migrations/v0";
+import type * as v0 from "@/cluster/migrations/v0";
 import * as v1 from "@/cluster/migrations/v1";
 
 export type Cluster = v0.Cluster;

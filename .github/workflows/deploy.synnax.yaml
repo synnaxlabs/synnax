@@ -76,7 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ ubuntu-latest, windows-latest, macos-latest ]
+        platform: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout Repository
@@ -152,7 +152,7 @@ jobs:
         if: matrix.platform == 'windows-latest' && github.event_name == 'push' && needs.setup.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver_main.pdb 
+        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver_main.pdb
 
       - name: Determine Executable Name
         id: executable
@@ -172,10 +172,9 @@ jobs:
         run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/
 
       - name: Rename Driver
-        if:  needs.setup.outputs.changed == 'true'
+        if: needs.setup.outputs.changed == 'true'
         run: mv synnax/pkg/service/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
-      
-      
+
       - name: Set up Go
         if: needs.setup.outputs.changed == 'true'
         uses: actions/setup-go@v5

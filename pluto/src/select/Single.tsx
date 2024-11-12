@@ -16,10 +16,9 @@ import {
   primitiveIsZero,
 } from "@synnaxlabs/x";
 import {
-  FC,
   type FocusEventHandler,
   type ReactElement,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -32,7 +31,7 @@ import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
-import { List as CoreList, List } from "@/list";
+import { List as CoreList, type List } from "@/list";
 import {
   selectValueIsZero,
   type UseSelectOnChangeExtra,

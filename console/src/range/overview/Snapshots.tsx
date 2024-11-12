@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
-import { Synnax as Client } from "@synnaxlabs/client";
+import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -18,7 +17,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { FC, ReactElement, useState } from "react";
+import { type FC, type ReactElement, useState } from "react";
 
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";

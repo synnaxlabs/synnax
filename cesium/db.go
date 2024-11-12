@@ -102,6 +102,8 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 // Note that if this method is called while writers are still open on channels in the
 // database, a deadlock is caused since the signal context is closed while the writers
 // attempt to send to relay.
+// If there is an error in closing the cesium database, the database will be marked as
+// closed regardless of whether an error occurred.
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
@@ -122,5 +124,6 @@ func (db *DB) Close() error {
 	for _, u := range db.unaryDBs {
 		c.Exec(u.Close)
 	}
+
 	return c.Error()
 }

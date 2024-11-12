@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { create } from "@/lineplot/LinePlot";
-import { State } from "@/lineplot/slice";
-import { Link } from "@/link";
+import { type State } from "@/lineplot/slice";
+import { type Link } from "@/link";
 
 export const linkHandler: Link.Handler = async ({
   resource,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, UnknownRecord } from "@synnaxlabs/x";
+import { binary, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { rackKeyZ } from "@/hardware/rack/payload";

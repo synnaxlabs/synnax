@@ -9,9 +9,9 @@
 
 import "@/Logo/LogoWatermark.css";
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { Logo, LogoProps } from "@/Logo/Logo";
+import { Logo, type LogoProps } from "@/Logo/Logo";
 
 /**
  * LogoWatermark displays the Synnax logo as a watermark in the center of the screen.

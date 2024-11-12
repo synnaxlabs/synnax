@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
@@ -19,8 +19,8 @@ import { LabJack } from "@/hardware/labjack";
 import { type Make, makeZ } from "@/hardware/makes";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
+import { type Layout } from "@/layout";
+import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 type DeviceLayoutCreator = (

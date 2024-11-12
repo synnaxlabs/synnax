@@ -22,26 +22,11 @@ export interface SelectLevelProps
   extends Omit<ButtonProps<text.Level, Entry>, "data" | "entryRenderKey"> {}
 
 const DATA: Entry[] = [
-  {
-    key: "h2",
-    label: "XL",
-  },
-  {
-    key: "h3",
-    label: "L",
-  },
-  {
-    key: "h4",
-    label: "M",
-  },
-  {
-    key: "p",
-    label: "S",
-  },
-  {
-    key: "small",
-    label: "XS",
-  },
+  { key: "h2", label: "XL" },
+  { key: "h3", label: "L" },
+  { key: "h4", label: "M" },
+  { key: "h5", label: "S" },
+  { key: "small", label: "XS" },
 ];
 
 const defaultSelectDirectionButton = ({
@@ -49,25 +34,21 @@ const defaultSelectDirectionButton = ({
   entry,
   onClick,
   selected,
-}: ButtonOptionProps<text.Level, Entry>): ReactElement => {
-  return (
-    <CoreButton.Button
-      key={key}
-      variant={selected ? "filled" : "outlined"}
-      onClick={onClick}
-    >
-      {entry.label}
-    </CoreButton.Button>
-  );
-};
+}: ButtonOptionProps<text.Level, Entry>): ReactElement => (
+  <CoreButton.Button
+    key={key}
+    variant={selected ? "filled" : "outlined"}
+    onClick={onClick}
+  >
+    {entry.label}
+  </CoreButton.Button>
+);
 
 export const SelectLevel = ({
   children = defaultSelectDirectionButton,
   ...props
-}: SelectLevelProps): ReactElement => {
-  return (
-    <Button {...props} data={DATA}>
-      {children}
-    </Button>
-  );
-};
+}: SelectLevelProps): ReactElement => (
+  <Button {...props} data={DATA}>
+    {children}
+  </Button>
+);

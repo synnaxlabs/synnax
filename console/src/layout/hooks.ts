@@ -32,14 +32,15 @@ import {
   useSelectNavDrawer,
   useSelectTheme,
 } from "@/layout/selectors";
-import { setFocus, State } from "@/layout/slice";
 import {
   type NavDrawerLocation,
   place,
   remove,
   resizeNavDrawer,
   setActiveTheme,
+  setFocus,
   setNavDrawerVisible,
+  type State,
   toggleActiveTheme,
 } from "@/layout/slice";
 import { type RootAction, type RootState, type RootStore } from "@/store";
@@ -78,9 +79,9 @@ export const usePlacer = (): Placer => {
   const dispatch = useDispatch();
   const store = useStore<RootState, RootAction>();
   const windowKey = useSelectWindowKey();
-  if (windowKey == null) throw new Error("windowKey is null");
   return useCallback(
     (base) => {
+      if (windowKey == null) throw new Error("windowKey is null");
       const layout =
         typeof base === "function" ? base({ dispatch, store, windowKey }) : base;
       const { key } = layout;
@@ -205,19 +206,17 @@ export const useNavDrawer = (
     100,
     [dispatch, windowKey],
   );
-  if (state == null) {
+  if (state == null)
     return {
       activeItem: undefined,
       menuItems: [],
       onSelect: () => {},
       onResize: () => {},
     };
-  }
   let activeItem: NavDrawerItem | undefined;
-  let menuItems: NavMenuItem[] = [];
   if (state.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);
-  menuItems = items.filter((item) => state.menuItems.includes(item.key));
+  const menuItems = items.filter((item) => state.menuItems.includes(item.key));
 
   if (activeItem != null) activeItem.initialSize = state.size;
 
@@ -241,7 +240,7 @@ export const useTriggers = () => {
       const state = store.getState();
       const active = selectActiveMosaicTabKey(state);
       const windowKey = selectWindowKey(state);
-      const [, focused] = selectFocused(state);
+      const { focused } = selectFocused(state);
       if (active == null || windowKey == null) return;
       if (focused != null) store.dispatch(setFocus({ key: null, windowKey }));
       else store.dispatch(setFocus({ key: active, windowKey }));

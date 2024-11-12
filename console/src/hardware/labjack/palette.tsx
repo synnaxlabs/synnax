@@ -12,7 +12,7 @@ import { Icon as PIcon } from "@synnaxlabs/pluto";
 
 import { configureReadLayout } from "@/hardware/labjack/task/Read";
 import { configureWriteLayout } from "@/hardware/labjack/task/Write";
-import { Command } from "@/palette/Palette";
+import { type Command } from "@/palette/Palette";
 
 const createReadTaskCommand: Command = {
   key: "labjack-create-read-task",

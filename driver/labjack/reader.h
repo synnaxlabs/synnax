@@ -30,6 +30,8 @@
 #include "driver/pipeline/middleware.h"
 #include "driver/queue/ts_queue.h"
 #include "driver/breaker/breaker.h"
+#include "driver/labjack/util.h"
+
 
 namespace labjack {
 ///////////////////////////////////////////////////////////////////////////////////
@@ -221,8 +223,6 @@ struct ReaderConfig {
           connection_type(parser.optional<std::string>("connection_type", "")),
           data_saving(parser.optional<bool>("data_saving", false)
           ) {
-
-        LOG(INFO) << "ReaderConfig: " << parser.error_json().dump(4);
         if (!parser.ok())
             LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
@@ -249,18 +249,9 @@ public:
     explicit ReaderSource(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task task,
-        const ReaderConfig &reader_config
-    ) : ctx(ctx),
-        task(task),
-        reader_config(reader_config) {
-        auto breaker_config = breaker::Config{
-            .name = task.name,
-            .base_interval = 1 * SECOND,
-            .max_retries = 20,
-            .scale = 1.2,
-        };
-        this->breaker = breaker::Breaker(breaker_config);
-    }
+        const ReaderConfig &reader_config,
+        std::shared_ptr<labjack::DeviceManager> device_manager
+    );
 
     ~ReaderSource() override;
 
@@ -301,6 +292,8 @@ private:
 
     std::pair<Frame, freighter::Error> read_cmd_response(breaker::Breaker &breaker);
 
+    void open_device();
+
     int handle;
     ReaderConfig reader_config;
     std::shared_ptr<task::Context> ctx;
@@ -321,6 +314,7 @@ private:
     int num_samples_per_chan = 0;
     bool ok_state = true;
     std::mutex mutex;
+    std::shared_ptr<labjack::DeviceManager> device_manager;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -348,7 +342,8 @@ public:
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::Task &task,
+        std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
 private:

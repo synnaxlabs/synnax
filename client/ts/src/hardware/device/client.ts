@@ -14,11 +14,11 @@ import { z } from "zod";
 
 import { type framer } from "@/framer";
 import {
-  Device,
-  DeviceKey,
+  type Device,
+  type DeviceKey,
   deviceKeyZ,
   deviceZ,
-  NewDevice,
+  type NewDevice,
   newDeviceZ,
 } from "@/hardware/device/payload";
 import { signals } from "@/signals";

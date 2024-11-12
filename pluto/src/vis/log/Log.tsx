@@ -10,12 +10,12 @@
 import "@/vis/log/Log.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, Optional } from "@synnaxlabs/x";
-import { ReactElement, useCallback, useEffect } from "react";
-import { z } from "zod";
+import { box, type Optional } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect } from "react";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Align } from "@/align";
+import { type Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/memo";

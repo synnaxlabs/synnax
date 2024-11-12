@@ -9,12 +9,12 @@
 
 import "@/modal/Modal.css";
 
-import { ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { Dialog as Core } from "@/dialog";
+import { type Dialog as Core } from "@/dialog";
 import { useClickOutside } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { findParent } from "@/util/findParent";

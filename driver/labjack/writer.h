@@ -31,6 +31,7 @@
 #include "driver/breaker/breaker.h"
 #include "driver/loop/loop.h"
 #include "driver/config/config.h"
+#include "driver/labjack/util.h"
 
 namespace labjack {
 struct out_state {
@@ -111,7 +112,10 @@ struct WriterConfig {
 
     WriterConfig() = default;
 
-    explicit WriterConfig(config::Parser &parser)
+    explicit WriterConfig(
+        config::Parser &parser,
+        const std::shared_ptr<task::Context> &ctx
+    )
         : device_type(parser.optional<std::string>("type", "")),
           device_key(parser.required<std::string>("device")),
           state_rate(synnax::Rate(parser.optional<int>("state_rate", 1))),
@@ -122,10 +126,16 @@ struct WriterConfig {
         if (!parser.ok())
             LOG(ERROR) << "Failed to parse writer config: " << parser.error_json().dump(4);
 
-        parser.iter("channels", [this](config::Parser &channel_parser) {
+        parser.iter("channels", [this, ctx](config::Parser &channel_parser) {
             auto channel = WriterChannelConfig(channel_parser);
-            channels.emplace_back(channel);
 
+            auto [channel_info, err] = ctx->client->channels.retrieve(channel.cmd_key);
+            if (err) {
+                LOG(ERROR) << "Failed to retrieve channel info for key " << channel.cmd_key;
+                return;
+            }
+            channel.data_type = channel_info.data_type;
+            channels.emplace_back(channel);
 
             /// digital outputs start active high
             double initial_val = 0.0;
@@ -148,7 +158,8 @@ public:
     explicit WriteSink(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task,
-        const labjack::WriterConfig &writer_config
+        const labjack::WriterConfig &writer_config,
+        std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
     ~WriteSink();
@@ -173,6 +184,8 @@ public:
 
     bool ok();
 
+    void open_device();
+
 private:
     int handle;
     std::shared_ptr<task::Context> ctx;
@@ -180,6 +193,7 @@ private:
     breaker::Breaker breaker;
     synnax::Task task;
     bool ok_state = true;
+    std::shared_ptr<labjack::DeviceManager> device_manager;
 }; // class WriteSink
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -210,7 +224,8 @@ public:
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::Task &task,
+        std::shared_ptr<labjack::DeviceManager> device_manager
     );
 
 private:

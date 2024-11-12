@@ -127,10 +127,12 @@ void labjack::StateSource::update_state(synnax::Frame frame) {
 labjack::WriteSink::WriteSink(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const labjack::WriterConfig &writer_config
+    const labjack::WriterConfig &writer_config,
+    std::shared_ptr<labjack::DeviceManager> device_manager
 ) : ctx(ctx),
     task(task),
-    writer_config(writer_config) {
+    writer_config(writer_config),
+    device_manager(device_manager) {
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
@@ -147,11 +149,14 @@ labjack::WriteSink::WriteSink(
         state_index_keys,
         this->writer_config.initial_state_map
     );
+
+    this->handle = this->device_manager->get_device_handle(this->writer_config.serial_number);
 }
 
 labjack::WriteSink::~WriteSink() {
     this->stop("");
 }
+
 
 void labjack::WriteSink::init() {
     if (this->writer_config.device_type == "") {
@@ -163,16 +168,6 @@ void labjack::WriteSink::init() {
             return;
         }
         this->writer_config.device_type = dev.model;
-    } {
-        std::lock_guard<std::mutex> lock(labjack::device_mutex);
-        check_err(
-            LJM_Open(
-                LJM_dtANY,
-                LJM_ctANY,
-                this->writer_config.serial_number.c_str(),
-                &this->handle
-            ), "init.LJM_OPEN"
-        );
     }
     // Set all DO channels to low because LabJack devices factory default is for DIO to be high
     for (auto &channel: this->writer_config.channels) {
@@ -275,14 +270,18 @@ std::vector<synnax::ChannelKey> labjack::WriteSink::get_index_keys() {
 }
 
 int labjack::WriteSink::check_err(int err, std::string caller) {
-    return labjack::check_err_internal(
+    labjack::check_err_internal(
         err,
         caller,
         "writer",
         this->ctx,
         this->ok_state,
-        this->writer_config.task_key
+        this->task.key
     );
+    if (err == LJME_RECONNECT_FAILED) {
+        this->device_manager->close_device(this->writer_config.serial_number);
+    }
+    return err;
 }
 
 bool labjack::WriteSink::ok() {

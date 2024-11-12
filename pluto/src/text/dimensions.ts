@@ -12,7 +12,7 @@ import { type dimensions as core, runtime } from "@synnaxlabs/x";
 let canvas: HTMLCanvasElement | null = null;
 
 const getCanvas = (): HTMLCanvasElement => {
-  if (canvas == null) canvas = document.createElement("canvas");
+  canvas ??= document.createElement("canvas");
   return canvas;
 };
 
@@ -22,8 +22,7 @@ export const dimensions = (
   context?: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
 ): core.Dimensions => {
   if (runtime.RUNTIME === "node") return { width: 0, height: 0 };
-  if (context == null)
-    context = getCanvas().getContext("2d") as CanvasRenderingContext2D;
+  context ??= getCanvas().getContext("2d") as CanvasRenderingContext2D;
   context.font = font;
   const metrics = context.measureText(text);
   return {

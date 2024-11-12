@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice, PayloadAction } from "@reduxjs/toolkit/react";
-import { channel } from "@synnaxlabs/client";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit/react";
+import { type channel } from "@synnaxlabs/client";
 
 import * as latest from "@/log/migrations";
 

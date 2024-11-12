@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.import { type LabJack } from "./labjack";
 
 import { Icon } from "@synnaxlabs/media";
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { LabJack } from "@/hardware/labjack";

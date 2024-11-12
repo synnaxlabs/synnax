@@ -16,11 +16,11 @@ import {
 } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Haul, Mosaic } from "@synnaxlabs/pluto";
-import { deep, direction, id, type location } from "@synnaxlabs/x";
-import { ComponentType } from "react";
+import { type Haul, Mosaic } from "@synnaxlabs/pluto";
+import { type deep, type direction, id, type location } from "@synnaxlabs/x";
+import { type ComponentType } from "react";
 
-import { CreateConfirmModal } from "@/confirm/Confirm";
+import { type CreateConfirmModal } from "@/confirm/Confirm";
 import { type Placer } from "@/layout/hooks";
 import * as latest from "@/layout/migrations";
 
@@ -249,7 +249,7 @@ export const { actions, reducer } = createSlice({
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       keys.forEach((contentKey) => {
         const layout = select(state, contentKey);
-        if (layout == null) return;
+        if (layout == null || layout.key == MAIN_WINDOW) return;
         const mosaic = state.mosaics[layout.windowKey];
         if (layout == null || mosaic == null) return;
         const { location } = layout;
@@ -288,7 +288,7 @@ export const { actions, reducer } = createSlice({
       [prevMosaic.root] = Mosaic.removeTab(prevMosaic.root, tabKey);
       state.mosaics[prevWindowKey] = prevMosaic;
       const mosaic = state.mosaics[windowKey];
-      if (mosaic.activeTab == null) mosaic.activeTab = tabKey;
+      mosaic.activeTab ??= tabKey;
       state.layouts[layout.key].windowKey = windowKey;
 
       const mosaicTab = {
@@ -385,12 +385,12 @@ export const { actions, reducer } = createSlice({
         state.nav[windowKey] = navState;
       }
 
-      if (key != null) {
+      if (key != null)
         Object.values(navState.drawers).forEach((drawer) => {
           if (drawer.menuItems.includes(key))
             drawer.activeItem = (value ?? drawer.activeItem !== key) ? key : null;
         });
-      } else if (location != null) {
+      else if (location != null) {
         let drawer = navState.drawers[location];
         if (drawer == null) {
           drawer = { activeItem: null, menuItems: [] };
@@ -401,9 +401,7 @@ export const { actions, reducer } = createSlice({
         else if (value === false) drawer.activeItem = null;
         else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
         else drawer.activeItem = null;
-      } else {
-        throw new Error("setNavDrawerVisible requires either a key or location");
-      }
+      } else throw new Error("setNavDrawerVisible requires either a key or location");
     },
     maybeCreateGetStartedTab: (state) => {
       const checkedGetStarted = state.alreadyCheckedGetStarted;
@@ -434,8 +432,8 @@ export const { actions, reducer } = createSlice({
     setWorkspace: (
       state,
       { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
-    ) => {
-      return migrateSlice({
+    ) =>
+      migrateSlice({
         ...slice,
         layouts: {
           ...layoutsToPreserve(state.layouts),
@@ -446,21 +444,18 @@ export const { actions, reducer } = createSlice({
         themes: state.themes,
         activeTheme: state.activeTheme,
         nav: keepNav ? state.nav : slice.nav,
-      });
-    },
-    clearWorkspace: (state) => {
-      return {
-        ...ZERO_SLICE_STATE,
-        layouts: {
-          ...layoutsToPreserve(state.layouts),
-          main: MAIN_LAYOUT,
-        },
-        hauling: state.hauling,
-        themes: state.themes,
-        activeTheme: state.activeTheme,
-        nav: state.nav,
-      };
-    },
+      }),
+    clearWorkspace: (state) => ({
+      ...ZERO_SLICE_STATE,
+      layouts: {
+        ...layoutsToPreserve(state.layouts),
+        main: MAIN_LAYOUT,
+      },
+      hauling: state.hauling,
+      themes: state.themes,
+      activeTheme: state.activeTheme,
+      nav: state.nav,
+    }),
     setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
       const layout = select(state, key);
       if (layout == null) return;

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box,xy } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { alignNodes } from "@/vis/diagram/align";
-import { HandleLayout,NodeLayout } from "@/vis/diagram/util";
+import { HandleLayout, NodeLayout } from "@/vis/diagram/util";
 
 describe("align", () => {
   interface Spec {
@@ -156,10 +156,9 @@ describe("align", () => {
     THREE_NODES_SAME_DIMS_DIFF_HANDLES,
   ];
 
-  for (const spec of SPECS) {
+  for (const spec of SPECS)
     it(spec.name, () => {
       const outputs = alignNodes(spec.inputs);
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual(spec.outputs);
     });
-  }
 });

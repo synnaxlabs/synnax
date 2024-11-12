@@ -15,7 +15,7 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import {
   type ComponentPropsWithoutRef,
   type ReactElement,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useRef,
 } from "react";
@@ -23,7 +23,7 @@ import {
 import { type Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { status } from "@/status/aether";
+import { type status } from "@/status/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
@@ -115,7 +115,7 @@ export const Button = Tooltip.wrap(
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
 
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
-    if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
+    iconSpacing ??= size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input
     // component API.
     if (variant == "shadow") variant = "text";
@@ -173,7 +173,7 @@ export const Button = Tooltip.wrap(
 
     if (size == null && level != null) size = Text.LevelComponentSizes[level];
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
-    else if (size == null) size = "medium";
+    else size ??= "medium";
 
     return (
       <Text.WithIcon<"button", any>
