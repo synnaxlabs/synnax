@@ -72,7 +72,7 @@ export const toggleNIScanner: Command = {
         });
         addStatus({
           variant: "success",
-          message: `NI device scanning ${enabled ? "enabled" : "disabled"}`,
+          message: `NI device scanning ${!enabled ? "enabled" : "disabled"}`,
         });
       } catch (e) {
         addStatus({
