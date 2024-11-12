@@ -66,6 +66,10 @@ void ni::Scanner::set_scan_thread(std::shared_ptr<std::thread> scan_thread) {
     this->scan_thread = scan_thread;
 }
 
+void ni::Scanner::join_scan_thread() {
+    if (this->scan_thread && this->scan_thread->joinable()) this->scan_thread->join();
+}
+
 ni::Scanner::~Scanner() {
     ni::NiSysCfgInterface::CloseHandle(this->filter);
     ni::NiSysCfgInterface::CloseHandle(this->session);

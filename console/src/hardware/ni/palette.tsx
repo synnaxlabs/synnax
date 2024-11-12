@@ -64,11 +64,11 @@ export const toggleNIScanner: Command = {
     if (client == null) return;
     void (async () => {
       try {
-        const tsk = await client.hardware.tasks.retrieveByName<ScanConfig>(SCAN_TYPE);
+        const tsk = await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
         const enabled = tsk.config.enabled ?? true;
         client.hardware.tasks.create<ScanConfig>({
           ...tsk.payload,
-          config: { enabled },
+          config: { enabled  : !enabled },
         });
         addStatus({
           variant: "success",
