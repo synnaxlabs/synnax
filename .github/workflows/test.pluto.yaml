@@ -1,14 +1,15 @@
-name: "Test: Pluto"
+name: Test - Pluto
 
 on:
   pull_request:
     branches:
-      - rc
       - main
+      - rc
   push:
     branches:
-      - rc
       - main
+      - rc
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
 
 jobs:
@@ -25,6 +26,7 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref }}
           filters: |
             changed:
               - .github/workflows/test.drift.yaml
@@ -34,17 +36,19 @@ jobs:
               - configs/stylelint/**
               - configs/ts/**
               - configs/vite/**
+              - freighter/ts/**
               - pluto/**
               - x/media/**
               - x/ts/**
 
   test:
-    name: Test
+    name: Test (${{ matrix.os }})
     needs: changes
     if: needs.changes.outputs.changed == 'true'
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
             lint: true
@@ -73,5 +77,5 @@ jobs:
         run: pnpm test:pluto
 
       - name: Lint
-        if: matrix.lint == true
+        if: matrix.lint
         run: pnpm lint:pluto

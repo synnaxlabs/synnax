@@ -1,14 +1,15 @@
-name: "Test - Cesium"
+name: Test - Cesium
 
 on:
   pull_request:
     branches:
-      - rc
       - main
+      - rc
   push:
     branches:
-      - rc
       - main
+      - rc
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
 
 jobs:
@@ -41,6 +42,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -50,11 +54,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache-dependency-path: |
-            alamos/go/go.sum
-            cesium/go.sum
-            x/go/go.sum
+          cache-dependency-path: go.work.sum
 
       - name: Test
         run: go test -v -shuffle=on ./...
         working-directory: cesium
+
+      - name: Format
+        if: matrix.format
+        run: scripts/gofmt-check.sh cesium

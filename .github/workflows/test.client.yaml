@@ -1,14 +1,15 @@
-name: "Test: Client"
+name: Test - Client
 
 on:
   pull_request:
     branches:
-      - rc
       - main
+      - rc
   push:
     branches:
-      - rc
       - main
+      - rc
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
 
 permissions:
@@ -21,9 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       server: ${{ steps.filter.outputs.server }}
+      cpp: ${{ steps.filter.outputs.cpp }}
       py: ${{ steps.filter.outputs.py }}
       ts: ${{ steps.filter.outputs.ts }}
-      cpp: ${{ steps.filter.outputs.cpp }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -32,10 +33,10 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref }}
           filters: |
             shared: &shared
               - .github/workflows/test.client.yaml
-
             server: &server
               - *shared
               - alamos/go/**
@@ -44,27 +45,23 @@ jobs:
               - freighter/go/**
               - synnax/**
               - x/go/**
-
             cpp:
               - *shared
               - *server
               - client/cpp/**
               - freighter/cpp/**
-
             py:
               - *shared
               - *server
               - alamos/py/**
               - client/py/**
               - freighter/py/**
-
             ts:
               - *shared
               - *server
               - alamos/ts/**
               - client/ts/**
               - configs/eslint/**
-              - configs/stylelint/**
               - configs/ts/**
               - configs/vite/**
               - freighter/ts/**
@@ -103,20 +100,6 @@ jobs:
     needs: [changes, server]
     if: needs.changes.outputs.cpp == 'true'
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-
-      - name: Test
-        run: bazel test --test_output=all //client/... --nocache_test_results
-
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -131,12 +114,39 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 9090:9090
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Test
+        run: bazel test --test_output=all //client/... --nocache_test_results
 
   py:
     name: Python
     needs: [changes, server]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    services:
+      synnax:
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -158,6 +168,11 @@ jobs:
         run: poetry run pytest
         working-directory: client/py
 
+  ts:
+    name: TypeScript
+    needs: [changes, server]
+    if: needs.changes.outputs.ts == 'true'
+    runs-on: ubuntu-latest
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -172,12 +187,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 9090:9090
-
-  ts:
-    name: TypeScript
-    needs: [changes, server]
-    if: needs.changes.outputs.ts == 'true'
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -203,18 +212,3 @@ jobs:
 
       - name: Lint
         run: pnpm lint:client
-
-    services:
-      synnax:
-        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-        env:
-          SYNNAX_LISTEN: localhost:9090
-          SYNNAX_VERBOSE: true
-          SYNNAX_INSECURE: true
-          SYNNAX_MEM: true
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 9090:9090

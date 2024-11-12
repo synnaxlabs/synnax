@@ -1,4 +1,4 @@
-name: "Test - X"
+name: Test - X
 
 on:
   pull_request:
@@ -27,7 +27,7 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.ref}}
+          base: ${{ github.ref }}
           filters: |
             shared: &shared
               - .github/workflows/text.x.yaml
@@ -38,7 +38,6 @@ jobs:
             ts:
               - *shared
               - configs/eslint/**
-              - configs/stylelint/**
               - configs/ts/**
               - configs/vite/**
               - x/ts/**
@@ -53,7 +52,7 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            lint: true
+            format: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -63,16 +62,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache-dependency-path: |
-            alamos/go/go.sum
-            x/go/go.sum
+          cache-dependency-path: go.work.sum
 
       - name: Test
         run: go test -v -shuffle=on ./...
         working-directory: x/go
 
       - name: Check Formatting
-        if: matrix.lint
+        if: matrix.format
         run: scripts/gofmt-check.sh x/go
 
   ts:

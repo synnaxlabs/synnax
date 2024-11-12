@@ -1,14 +1,15 @@
-name: "Test: Freighter"
+name: Test - Freighter
 
 on:
   pull_request:
     branches:
-      - rc
       - main
+      - rc
   push:
     branches:
-      - rc
       - main
+      - rc
+      - sy-1375-run-ci-tests-on-windows-and-macos
   workflow_dispatch:
 
 permissions:
@@ -33,40 +34,35 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref }}
           filters: |
             shared: &shared
               - .github/workflows/test.freighter.yaml
-
             cpp:
               - *shared
               - freighter/cpp/**
-
             go: &go
               - *shared
               - alamos/go/**
               - freighter/go/**
               - x/go/**
-
             integration: &integration
               - *go
               - freighter/integration/**
               - x/go/**
-
             py:
               - *shared
               - *integration
               - alamos/py/**
               - freighter/py/**
-
             ts:
               - *shared
               - *integration
               - alamos/ts/**
-              - freighter/ts/**
               - configs/eslint/**
-              - configs/stylelint/**
               - configs/ts/**
               - configs/vite/**
+              - freighter/ts/**
               - x/ts/**
 
   cpp:
@@ -75,7 +71,7 @@ jobs:
     if: needs.changes.outputs.cpp == 'true'
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [maco-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -97,7 +93,7 @@ jobs:
     if: needs.changes.outputs.go == 'true'
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -107,14 +103,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache-dependency-path: |
-            alamos/go/go.sum
-            freighter/go/go.sum
-            x/go/go.sum
+          cache-dependency-path: go.work.sum
 
       - name: Test
         run: go test -v -shuffle=on ./...
         working-directory: freighter/go
+
+      - name: Check Formatting
+        run: scripts/gofmt-check.sh freighter/go
 
   integration:
     runs-on: ubuntu-latest
@@ -138,11 +134,28 @@ jobs:
         run: earthly --push +docker
         working-directory: freighter/integration
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Check Formatting
+        run: scripts/gofmt-check.sh freighter/integration
+
   py:
     name: Python
     needs: [changes, integration]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    services:
+      integration:
+        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 8080:8080
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -164,6 +177,11 @@ jobs:
         run: poetry run pytest
         working-directory: freighter/py
 
+  ts:
+    name: TypeScript
+    needs: [changes, integration]
+    if: needs.changes.outputs.ts == 'true'
+    runs-on: ubuntu-latest
     services:
       integration:
         image: ghcr.io/synnaxlabs/freighter-go-integration:latest
@@ -172,12 +190,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 8080:8080
-
-  ts:
-    name: TypeScript
-    needs: [changes, integration]
-    if: needs.changes.outputs.ts == 'true'
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -203,12 +215,3 @@ jobs:
 
       - name: Lint
         run: pnpm lint:freighter
-
-    services:
-      integration:
-        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 8080:8080
