@@ -314,10 +314,14 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
     return this.sugar([res.task])[0];
   }
 
-  async retrieveByName(name: string, rack?: number): Promise<Task> {
+  async retrieveByName<
+    C extends UnknownRecord = UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(name: string, rack?: number): Promise<Task<C, D, T>> {
     const tasks = await this.execRetrieve({ names: [name], rack });
     checkForMultipleOrNoResults("Task", name, tasks, true);
-    return this.sugar(tasks)[0];
+    return this.sugar(tasks)[0] as Task<C, D, T>;
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Payload[]> {
