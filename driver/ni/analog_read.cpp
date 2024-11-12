@@ -68,8 +68,7 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     config::Parser &parser, const std::string &channel_type,
     const std::string &channel_name) {
-    LOG(INFO) <<
-        "[ni.reader] Parsing channel " << channel_name << " of type " << channel_type;
+
     if (channel_type == "ai_accel")
         return std::make_shared<Acceleration>(
             parser, this->task_handle, channel_name);
