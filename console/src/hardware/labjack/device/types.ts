@@ -193,7 +193,7 @@ export const T7_AI_PORTS: AIPort[] = aiFactory(
 );
 export const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 export const T7_DI_PORTS: DIPort[] = [
-  ...diFactory({ lower: 4, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
+  ...diFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
   ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
   ...diFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
   ...diFactory({ lower: 20, upper: 22 }, [{ prefix: "MIO", offset: 20 }]),
