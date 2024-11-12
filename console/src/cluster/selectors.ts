@@ -9,6 +9,7 @@
 
 import {
   type Cluster,
+  type LocalState,
   SLICE_NAME,
   type SliceState,
   type StoreState,
@@ -77,3 +78,9 @@ export const selectMany = (state: StoreState, keys?: string[]): Cluster[] =>
  */
 export const useSelectMany = (keys?: string[]): Cluster[] =>
   useMemoSelect((s: StoreState) => selectMany(s, keys), [keys]);
+
+export const selectLocalState = (state: StoreState): LocalState =>
+  state[SLICE_NAME].localState;
+
+export const useSelectLocalState = (): LocalState =>
+  useMemoSelect((s: StoreState) => selectLocalState(s), []);

@@ -13,11 +13,13 @@ import * as latest from "@/cluster/migrations";
 
 export type Cluster = latest.Cluster;
 export type SliceState = latest.SliceState;
+export type LocalState = latest.LocalState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
+export const LOCAL_PROPS = latest.LOCAL_PROPS;
 export const migrateSlice = latest.migrateSlice;
 export const LOCAL_CLUSTER_KEY = latest.LOCAL_CLUSTER_KEY;
 export const isLocalCluster = latest.isLocalCluster;
-
+export const LOCAL = latest.LOCAL;
 export const SLICE_NAME = "cluster";
 
 /**
@@ -46,6 +48,8 @@ export interface RenamePayload {
   name: string;
 }
 
+export interface SetLocalStatePayload extends Partial<LocalState> {}
+
 export const {
   actions,
   /**
@@ -56,12 +60,17 @@ export const {
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    set: (state, { payload: cluster }: PayloadAction<SetPayload>) => {
-      state.clusters[cluster.key] = cluster;
-      state.activeCluster ??= cluster.key;
+    set: (
+      { activeCluster, clusters },
+      { payload: cluster }: PayloadAction<SetPayload>,
+    ) => {
+      clusters[cluster.key] = cluster;
+      if (activeCluster == null) activeCluster = cluster.key;
     },
     remove: ({ clusters }, { payload: { keys } }: PayloadAction<RemovePayload>) => {
-      for (const key of keys) delete clusters[key];
+      for (const key of keys) {
+        delete clusters[key];
+      }
     },
     setActive: (state, { payload: key }: PayloadAction<SetActivePayload>) => {
       state.activeCluster = key;
@@ -71,6 +80,9 @@ export const {
       if (cluster == null) return;
       cluster.name = name;
       if (cluster.props != null) cluster.props.name = name;
+    },
+    setLocalState: (state, { payload }: PayloadAction<SetLocalStatePayload>) => {
+      state.localState = { ...state.localState, ...payload };
     },
   },
 });
@@ -88,6 +100,7 @@ export const {
   setActive,
   remove,
   rename,
+  setLocalState,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

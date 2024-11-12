@@ -61,7 +61,6 @@
     "store:allow-delete",
     "store:allow-clear",
     "store:allow-save",
-    "shell:allow-open",
     "core:app:allow-app-show",
     "core:app:allow-app-hide",
     "updater:default",
@@ -95,6 +94,7 @@
     },
     "deep-link:default",
     "store:default",
-    "shell:default"
+    "shell:allow-execute",
+    "shell:allow-open"
   ]
 }

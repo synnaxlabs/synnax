@@ -33,6 +33,7 @@
       "providerShortName": null,
       "signingIdentity": null
     },
+    "externalBin": ["./bin/sy"],
     "resources": [],
     "shortDescription": "",
     "linux": {
