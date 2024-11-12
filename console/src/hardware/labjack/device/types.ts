@@ -111,33 +111,45 @@ const aiFactory = (
   voltageRange: bounds.Bounds,
   altConfigs: AltConfig[] = [],
 ): AIPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `AIN${i + b.lower}`,
-    type: "AI",
-    voltageRange,
-    aliases: altConfigs.map((config) => `${config.prefix}${i + config.offset}`),
-  }));
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const port = i + b.lower;
+    return {
+      key: `AIN${port}`,
+      type: "AI",
+      voltageRange,
+      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+    };
+  });
 
 const diFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DIPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `DIO${i + b.lower}`,
-    type: "DI",
-    aliases: altConfigs.map((config) => `${config.prefix}${i + config.offset}`),
-  }));
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const port = i + b.lower;
+    return {
+      key: `DIO${port}`,
+      type: "DI",
+      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+    };
+  });
 
 const doFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DOPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `DIO${i + b.lower}`,
-    type: "DO",
-    aliases: altConfigs.map((config) => `${config.prefix}${i + config.offset}`),
-  }));
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const port = i + b.lower;
+    return {
+      key: `DIO${i + b.lower}`,
+      type: "DO",
+      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+    };
+  });
 
 const aoFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): AOPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `DAC${i + b.lower}`,
-    type: "AO",
-    aliases: altConfigs.map((config) => `${config.prefix}${i + config.offset}`),
-  }));
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const port = i + b.lower;
+    return {
+      key: `DAC${port}`,
+      type: "AO",
+      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+    };
+  });
 
 const AIN_HIGH_VOLTAGE = bounds.construct(-10, 10);
 const AIN_LOW_VOLTAGE = bounds.construct(0, 2.5);
