@@ -36,10 +36,10 @@ import {
 import {
   connectionConfigZ,
   type Properties,
-  SecurityMode,
-  SecurityPolicy,
-  TestConnCommandResponse,
-  TestConnCommandState,
+  type SecurityMode,
+  type SecurityPolicy,
+  type TestConnCommandResponse,
+  type TestConnCommandState,
 } from "@/hardware/opc/device/types";
 import { Layout } from "@/layout";
 

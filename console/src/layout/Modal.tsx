@@ -11,10 +11,10 @@ import "@/layout/Modals.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { Breadcrumb, Button, Menu, Modal as Core, Nav } from "@synnaxlabs/pluto";
-import { CSSProperties } from "react";
+import { type CSSProperties } from "react";
 
 import { Content } from "@/layout/Content";
-import { State, WindowProps } from "@/layout/slice";
+import { type State, type WindowProps } from "@/layout/slice";
 import { DefaultContextMenu } from "@/layout/Window";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({

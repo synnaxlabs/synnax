@@ -15,7 +15,6 @@ import {
   type location as loc,
   location,
   position,
-  runtime,
   xy,
 } from "@synnaxlabs/x";
 import {
@@ -35,7 +34,7 @@ import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 import { findParent } from "@/util/findParent";
 import { getRootElement } from "@/util/rootElement";
 
@@ -196,7 +195,7 @@ export const Dialog = ({
     </Align.Space>
   );
   if (variant === "floating") child = createPortal(child, getRootElement());
-  else if (variant === "modal") {
+  else if (variant === "modal")
     child = createPortal(
       <Align.Space
         className={CSS(CSS.BE("dropdown", "bg"), CSS.visible(visible))}
@@ -210,7 +209,6 @@ export const Dialog = ({
       </Align.Space>,
       getRootElement(),
     );
-  }
 
   const ctxValue = useMemo(() => ({ close }), [close]);
   return (
@@ -314,11 +312,12 @@ const calcConnectedDialog = ({
     invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
   );
 
-  if (runtime.getOS() !== "MacOS") return { adjustedDialog, location };
+  const stylePropertyValueFilter = (v: string) => ["inline-size", "size"].includes(v);
+
   let parent: HTMLElement | null = target.parentElement;
   while (parent != null) {
     const style = window.getComputedStyle(parent);
-    if (style.getPropertyValue("container-type") !== "normal") {
+    if (stylePropertyValueFilter(style.getPropertyValue("container-type"))) {
       container = box.construct(parent);
       if (location.y === "bottom")
         adjustedDialog = box.translate(

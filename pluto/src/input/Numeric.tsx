@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x";
-import { evaluate } from "mathjs";
+import { evaluate, Unit } from "mathjs";
 import { forwardRef, type ReactElement, useCallback, useEffect } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
@@ -83,10 +83,13 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       // This just means we never actually modified the input
       if (isValueValidRef.current) return;
       setIsValueValid(true);
-      let ok = false;
+      let ok: boolean;
       let v = 0;
       try {
-        v = evaluate(internalValueRef.current);
+        const ev = evaluate(internalValueRef.current);
+        // Sometimes mathjs returns a Unit object, so we need to convert it to a number.
+        if (ev instanceof Unit) v = ev.toNumber();
+        else v = ev;
         ok = v != null;
       } catch {
         ok = false;
@@ -117,18 +120,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
     // If the value is valid, use the actual value, otherwise use the internal value.
     const value_ = isValueValid ? value : internalValue;
 
-    // We don't communicate the actual value until the user is done dragging, this
-    // prevents a bunch of re-renders every time the user moves the mouse.
     const onDragChange = useCallback(
-      (value: number) => {
-        setIsValueValid(false);
-        setInternalValue(Math.round(bounds.clamp(propsBounds, value)).toString());
-      },
-      [setInternalValue, setIsValueValid],
-    );
-
-    // See not above.
-    const onDragEnd = useCallback(
       (value: number) => {
         setIsValueValid(true);
         onChange?.(bounds.clamp(propsBounds, Math.round(value)));
@@ -136,13 +128,12 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       [onChange, setIsValueValid],
     );
 
-    if (dragScale == null && bounds.isFinite(propsBounds)) {
+    if (dragScale == null && bounds.isFinite(propsBounds))
       // make X 5% of the bounds and Y 10% of the bounds
       dragScale = {
         x: bounds.span(propsBounds) * 0.01,
         y: bounds.span(propsBounds) * 0.02,
       };
-    }
 
     if (variant === "preview" || disabled) showDragHandle = false;
 
@@ -172,7 +163,6 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
             onChange={onDragChange}
             dragScale={dragScale}
             resetValue={resetValue}
-            onDragEnd={onDragEnd}
             onBlur={handleBlur}
           />
         )}

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Status, Tabs } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
@@ -77,13 +78,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
-  const schematic = useSelect(layoutKey);
+  const state = useSelect(layoutKey);
   const handleExport = useExport(name);
-  const handleLink = Link.useCopyToClipboard();
 
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
-      if (!schematic.editable) return <NotEditableContent layoutKey={layoutKey} />;
+      if (!state.editable) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
@@ -91,7 +91,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, schematic?.editable],
+    [layoutKey, state?.editable],
   );
 
   const handleTabSelect = useCallback(
@@ -102,7 +102,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
 
   const canEdit = useSelectHasPermission();
-  if (schematic == null) return null;
+  if (state == null) return null;
 
   return (
     <Tabs.Provider
@@ -122,24 +122,14 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               sharp
               size="medium"
               style={{ height: "100%" }}
-              onClick={() => handleExport(schematic.key)}
+              onClick={() => handleExport(state.key)}
             >
               <Icon.Export />
             </Button.Icon>
-            <Button.Icon
-              tooltip={`Copy link to ${name}`}
-              sharp
-              size="medium"
-              style={{ height: "100%" }}
-              onClick={() =>
-                handleLink({
-                  name,
-                  ontologyID: { key: schematic.key, type: "schematic" },
-                })
-              }
-            >
-              <Icon.Link />
-            </Button.Icon>
+            <Link.ToolbarCopyButton
+              name={name}
+              ontologyID={{ key: state.key, type: schematic.ONTOLOGY_TYPE }}
+            />
           </Align.Space>
           {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />}
         </Align.Space>

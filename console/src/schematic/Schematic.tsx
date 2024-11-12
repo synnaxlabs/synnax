@@ -16,6 +16,7 @@ import {
   Diagram,
   Haul,
   type Legend,
+  Menu as PMenu,
   Schematic as Core,
   Text,
   Theming,
@@ -24,7 +25,6 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -44,7 +44,6 @@ import {
   useSelect,
   useSelectHasPermission,
   useSelectNodeProps,
-  useSelectViewport,
   useSelectViewportMode,
 } from "@/schematic/selectors";
 import {
@@ -123,8 +122,6 @@ const SymbolRenderer = ({
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
-  const zoom = useSelectViewport(layoutKey);
-
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
   return (
@@ -134,7 +131,6 @@ const SymbolRenderer = ({
       position={position}
       selected={selected}
       onChange={handleChange}
-      zoom={zoom.zoom}
       {...props}
     />
   );
@@ -213,9 +209,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const elRenderer = useCallback(
-    (props: Diagram.SymbolProps) => {
-      return <SymbolRenderer layoutKey={layoutKey} {...props} />;
-    },
+    (props: Diagram.SymbolProps) => <SymbolRenderer layoutKey={layoutKey} {...props} />,
     [layoutKey],
   );
 
@@ -395,7 +389,7 @@ export const Schematic: Layout.Renderer = ({
     name: "Schematic",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect: useSelect,
+    useSelect,
     fetcher: async (client, layoutKey) => {
       const { key, data } = await client.workspaces.schematic.retrieve(layoutKey);
       return { key, ...data } as unknown as State;

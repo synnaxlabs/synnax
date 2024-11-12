@@ -30,7 +30,7 @@ import { DEFAULT_BORDER_RADIUS } from "@/vis/schematic/primitives/Primitives";
 import {
   Agitator,
   AgitatorPreview,
-  AgitatorProps,
+  type AgitatorProps,
   AngledReliefValve,
   AngledReliefValvePreview,
   AngledValve,
@@ -95,7 +95,7 @@ import {
   type PistonPumpProps,
   PropellerAgitator,
   PropellerAgitatorPreview,
-  PropellerAgitatorProps,
+  type PropellerAgitatorProps,
   Pump,
   PumpPreview,
   type PumpProps,
@@ -203,7 +203,6 @@ export const typeZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof typeZ>;
 
 const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
-
 const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("string", {
@@ -214,7 +213,7 @@ const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
     segments: {
       valueStream: telem.streamChannelValue({ channel: 0 }),
       rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-      stringifier: telem.stringifyNumber({ precision: 2 }),
+      stringifier: telem.stringifyNumber({ precision: 2, notation: "standard" }),
     },
     outlet: "stringifier",
   }),
@@ -592,6 +591,7 @@ const button: Spec<ButtonProps> = {
     color: t.colors.primary.z.rgba255,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
+    onClickDelay: 0,
     scale: null,
   }),
   zIndex: Z_INDEX_UPPER,

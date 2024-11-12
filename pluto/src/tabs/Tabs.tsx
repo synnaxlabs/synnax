@@ -23,7 +23,7 @@ import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
 import { Selector, type SelectorProps } from "@/tabs/Selector";
-import { type RenderProp, type Spec, Tab } from "@/tabs/types";
+import { type RenderProp, type Spec, type Tab } from "@/tabs/types";
 import { type ComponentSize } from "@/util/component";
 
 /**
@@ -56,10 +56,10 @@ export const rename = (key: string, name: string, tabs: Tab[]): Tab[] => {
   if (name.length === 0) return tabs;
   const t = tabs.find((t) => t.tabKey === key);
   if (t == null || t.name === name) return tabs;
-  return tabs.map((t) => (t.tabKey === key ? { ...t, name: name } : t));
+  return tabs.map((t) => (t.tabKey === key ? { ...t, name } : t));
 };
 
-/** Props for the {@see useStatic} hook. */
+/** Props for the {@link useStatic} hook. */
 export interface UseStaticTabsProps {
   tabs: Tab[];
   content?: RenderProp;
@@ -77,7 +77,7 @@ export interface UseStaticTabsProps {
  * instead of pulling from the 'content' property of the tab object.
  * @pram onSelect An optional callback to be called when a tab is selected.
  * @param selected The key of the tab to be selected by default.
- * @returns props to pass to the {@see Tabs} component.
+ * @returns props to pass to the {@link Tabs} component.
  */
 export const useStatic = ({
   tabs,
@@ -163,7 +163,7 @@ export interface TabsContextValue {
   onCreate?: () => void;
 }
 
-/** Props for the {@see Tabs} component. */
+/** Props for the {@link Tabs} component. */
 export interface TabsProps
   extends Omit<
       Align.SpaceProps,
@@ -183,23 +183,23 @@ export interface TabsProps
 }
 
 /**
- * Context used to propagate tab related information to children. See the {@see TabsContextValue}
+ * Context used to propagate tab related information to children. See the {@link TabsContextValue}
  * type for information on the shape of the context.
  */
 export const Context = createContext<TabsContextValue>({ tabs: [] });
 
 /**
- * Provider for the {@see Context} context. See the {@see TabsContextValue} type for information
+ * Provider for the {@link Context} context. See the {@link TabsContextValue} type for information
  * on the shape of the context.
  */
 export const Provider = Context.Provider;
 
-/** @returns The current value of the {@see Context} context. */
+/** @returns The current value of the {@link Context} context. */
 export const useContext = (): TabsContextValue => reactUseContext(Context);
 
 /**
  * High-level component for creating a tabbed interface. This component is a composition
- * of the {@see Selector}, {@see Content}, and {@see Context} components to provide a
+ * of the {@link Selector}, {@link Content}, and {@link Context} components to provide a
  * complete tabbed interface. It's also possible to use these components individually
  * to create a custom tabbed interface.
  *
@@ -230,7 +230,7 @@ export const useContext = (): TabsContextValue => reactUseContext(Context);
  * @param onDrop A callback executed when a tab is dropped. Identical to a onDrop handler in
  * react.
  * @param size The size of the tabs selector to display. Can be "small", "medium", or "large".
- * @note all other props are inherited from the {@see Align.Space} component and are passed
+ * @note all other props are inherited from the {@link Align.Space} component and are passed
  * through to that component.
  * @param direction The direction in which to show the tabs selector. An 'x' direction
  * will show the selector on the left side of the tabs, while a 'y' direction will show
@@ -300,10 +300,10 @@ export const Content = (): ReactNode | null => {
   let content: ReactNode = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selected == null || selectedTab == null) return emptyContent ?? null;
-  if (renderProp != null) {
+  if (renderProp != null)
     if (typeof renderProp === "function") content = renderProp(selectedTab);
     else content = renderProp;
-  } else if (selectedTab.content != null) content = selectedTab.content as ReactNode;
+  else if (selectedTab.content != null) content = selectedTab.content as ReactNode;
   return (
     <div className={CSS.B("tabs-content")} onClick={() => onSelect?.(selected)}>
       {content}

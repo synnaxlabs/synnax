@@ -14,7 +14,7 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type framer } from "@/framer";
 import { type Key, type Label, labelZ } from "@/label/payload";
 import { Retriever } from "@/label/retriever";
-import { type NewLabelPayload, SetOptions, Writer } from "@/label/writer";
+import { type NewLabelPayload, type SetOptions, Writer } from "@/label/writer";
 import { ontology } from "@/ontology";
 import { signals } from "@/signals";
 

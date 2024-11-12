@@ -13,6 +13,7 @@
     height: 100%;
     align-items: center;
     container-type: size;
+    contain: layout size style;
 
     .pluto-field__config-sampleRate,
     .pluto-field__config--streamRate,
@@ -29,6 +30,7 @@
         flex-grow: 1;
 
         .console-channel-form-container {
+            background: var(--pluto-gray-l1);
             display: flex;
             min-height: 225px;
             /* height of 0 means list items will produce overflow scroll correctly */

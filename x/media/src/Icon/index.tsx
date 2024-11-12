@@ -36,7 +36,7 @@ import {
   FaAlignRight,
   FaApple,
   FaBezierCurve,
-  FaBookOpen,
+  FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
   FaStream,
@@ -44,10 +44,16 @@ import {
 } from "react-icons/fa";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
-import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
+import { HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh, IoMdReturnRight } from "react-icons/io";
-import { IoBookSharp, IoCopy, IoTime } from "react-icons/io5";
+import {
+  IoBookSharp,
+  IoCopy,
+  IoNotificationsOff,
+  IoShapes,
+  IoTime,
+} from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,
   MdAlignHorizontalLeft,
@@ -137,7 +143,7 @@ import { VscSplitHorizontal, VscSplitVertical } from "react-icons/vsc";
 export interface IconProps extends React.SVGProps<SVGSVGElement> {}
 type IconFC = FC<IconProps>;
 
-export const NI: IconFC = (props) => (
+const NI: IconFC = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 78 51"
@@ -200,11 +206,31 @@ const OPC: IconFC = ({ className, style, ...props }) => (
   </svg>
 );
 
+const LabJack: IconFC = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="96"
+    height="92"
+    viewBox="0 0 96 96"
+    fill="currentColor"
+    {...props}
+  >
+    <path
+      d="M62.638 80.81C71.378 80.47 76.888 74.61 76.918 65.96C76.9247 65.0267 76.978 50.5434 77.078 22.51C77.078 22.3827 77.1275 22.2606 77.2157 22.1706C77.3038 22.0806 77.4234 22.03 77.548 22.03H94.358C94.533 22.03 94.7009 22.0996 94.8247 22.2233C94.9485 22.3471 95.018 22.515 95.018 22.69C95.018 25.0367 95.0547 37.6 95.128 60.38C95.1547 68.1334 94.648 73.4734 93.608 76.4C89.578 87.71 78.278 91.56 66.858 91.83C61.8647 91.95 52.098 92 37.558 91.98C37.3379 91.98 37.1268 91.8926 36.9711 91.7369C36.8155 91.5813 36.728 91.3702 36.728 91.15V81.26C36.728 81.1539 36.7701 81.0522 36.8452 80.9772C36.9202 80.9022 37.0219 80.86 37.128 80.86C48.1747 81.0534 56.678 81.0367 62.638 80.81Z"
+      stroke="none"
+    />
+    <path
+      d="M0.027809 24.91L0.117809 0.5C0.117809 0.166667 0.284476 0 0.617809 0H17.3078C17.4775 0 17.6403 0.0674271 17.7604 0.18745C17.8804 0.307474 17.9478 0.470261 17.9478 0.639999L18.0178 26.89C18.0578 30.75 18.0711 34.5999 18.0578 38.4399C18.0511 43.9999 18.4211 47.8066 19.1678 49.8599C20.5944 53.7399 23.2744 56.3866 27.2078 57.7999C29.2144 58.5199 32.7411 58.8966 37.7878 58.9299C43.8144 58.9632 50.3878 58.9799 57.5078 58.9799C57.8811 58.9799 58.0678 59.1666 58.0678 59.5399V69.3899C58.0678 69.7699 57.8744 69.9599 57.4878 69.9599C39.7478 70.0266 29.6077 70.0166 27.0678 69.9299C25.4478 69.8699 23.1078 69.5432 20.0478 68.9499C17.1544 68.3832 14.8978 67.7266 13.2778 66.9799C7.59109 64.3666 3.68442 60.3032 1.55775 54.7899C0.571086 52.2432 0.0577555 47.2932 0.0177555 39.9399C-0.0089112 34.9332 -0.00552432 29.9233 0.027809 24.91Z"
+      stroke="none"
+    />
+  </svg>
+);
+
 interface WrapIconOpts {
   className?: string;
 }
 
-export const wrapIcon = (
+const wrapIcon = (
   Icon: IconFC,
   name: string,
   { className }: WrapIconOpts = {},
@@ -250,7 +276,7 @@ export const Icon: IconType = {
   Expand: wrapIcon(AiOutlineExpand, "expand"),
   Cluster: wrapIcon(HiSquare3Stack3D, "cluster"),
   Loading: wrapIcon(AiOutlineLoading, "loading", { className: "media--spin" }),
-  Schematic: wrapIcon(FaStream, "schematic"),
+  Schematic: wrapIcon(IoShapes, "schematic"),
   Caret: {
     Right: wrapIcon(PiCaretRight, "caret-right"),
     Bottom: wrapIcon(PiCaretDown, "caret-bottom"),
@@ -290,6 +316,7 @@ export const Icon: IconType = {
     LinkedIn: wrapIcon(AiFillLinkedin, "logo-linkedin"),
     NI: wrapIcon(NI, "logo-ni"),
     OPC: wrapIcon(OPC, "logo-opc"),
+    LabJack: wrapIcon(LabJack, "logo-labjack"),
   },
   Arrow: {
     Right: wrapIcon(TbArrowRight, "arrow-right"),
@@ -374,6 +401,9 @@ export const Icon: IconType = {
   AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
   ReturnRight: wrapIcon(IoMdReturnRight, "return-right"),
   Commit: wrapIcon(MdCommit, "commit"),
+  Snooze: wrapIcon(IoNotificationsOff, "snooze"),
+  Log: wrapIcon(FaStream, "log"),
+  Tare: wrapIcon(FaCreativeCommonsZero, "tare"),
 };
 
 export interface IconType {
@@ -443,6 +473,7 @@ export interface IconType {
     LinkedIn: IconFC;
     NI: IconFC;
     OPC: IconFC;
+    LabJack: IconFC;
   };
   Keyboard: {
     Command: IconFC;
@@ -466,6 +497,7 @@ export interface IconType {
   Zoom: IconFC;
   Pan: IconFC;
   Selection: IconFC;
+  Snooze: IconFC;
   Tooltip: IconFC;
   Annotate: IconFC;
   Rule: IconFC;
@@ -519,4 +551,6 @@ export interface IconType {
   SplitY: IconFC;
   AutoFitWidth: IconFC;
   Commit: IconFC;
+  Log: IconFC;
+  Tare: IconFC;
 }

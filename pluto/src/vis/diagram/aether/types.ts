@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { xy } from "@synnaxlabs/x";
-import type * as rf from "reactflow";
+import type * as rf from "@xyflow/react";
 import { z } from "zod";
 
 import { color } from "@/color/core";
@@ -135,11 +135,11 @@ export const nodeZ = z.object({
    */
   zIndex: z.number().optional(),
 
-  id: z.string().optional(),
   type: z.string().optional(),
-  data: z.unknown().optional(),
-  width: z.number().optional().nullable(),
-  height: z.number().optional().nullable(),
+  data: z.record(z.unknown()).optional(),
+  measured: z
+    .object({ width: z.number().optional(), height: z.number().optional() })
+    .optional(),
 });
 
 /**
@@ -152,10 +152,12 @@ export type Node = z.infer<typeof nodeZ>;
  */
 export const translateNodesForward = (nodes: Node[]): rf.Node[] =>
   nodes.map((node) => ({
-    ...node,
     id: node.key,
     type: "custom",
     zIndex: node.zIndex,
+    measured: { ...node.measured },
+    position: { ...node.position },
+    selected: node.selected,
     data: {},
   }));
 
@@ -181,7 +183,7 @@ export const translateEdgesBackward = (
   defaultColor: color.Crude,
 ): Edge[] =>
   edges.map((edge) => {
-    if (edge.data == null) edge.data = { segments: [], color: defaultColor };
+    edge.data ??= { segments: [], color: defaultColor };
     return {
       key: edge.id,
       segments: edge.data?.segments ?? [],
@@ -214,6 +216,6 @@ export const nodeConverter = (
 
 export const edgeConverter = (
   edges: Edge[],
-  f: (edges: rf.Edge[]) => rf.Edge[],
+  f: (edges: rf.Edge<RFEdgeData>[]) => rf.Edge<RFEdgeData>[],
   color: color.Crude,
 ): Edge[] => translateEdgesBackward(f(translateEdgesForward(edges)), color);

@@ -10,12 +10,12 @@
 import "@/fs/LoadFileContents.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Input } from "@synnaxlabs/pluto";
+import { Align, Button, type Input } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { ReactElement, useEffect, useState } from "react";
-import { z } from "zod";
+import { type ReactElement, useEffect, useState } from "react";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 

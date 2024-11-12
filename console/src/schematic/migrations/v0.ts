@@ -9,13 +9,13 @@
 
 import {
   Color,
-  Control,
+  type Control,
   control,
   Diagram,
   Schematic,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { migrate, xy } from "@synnaxlabs/x";
+import { type migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export type NodeProps = object & {

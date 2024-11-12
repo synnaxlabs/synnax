@@ -56,17 +56,12 @@ export const {
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    set: (
-      { activeCluster, clusters },
-      { payload: cluster }: PayloadAction<SetPayload>,
-    ) => {
-      clusters[cluster.key] = cluster;
-      if (activeCluster == null) activeCluster = cluster.key;
+    set: (state, { payload: cluster }: PayloadAction<SetPayload>) => {
+      state.clusters[cluster.key] = cluster;
+      state.activeCluster ??= cluster.key;
     },
     remove: ({ clusters }, { payload: { keys } }: PayloadAction<RemovePayload>) => {
-      for (const key of keys) {
-        delete clusters[key];
-      }
+      for (const key of keys) delete clusters[key];
     },
     setActive: (state, { payload: key }: PayloadAction<SetActivePayload>) => {
       state.activeCluster = key;

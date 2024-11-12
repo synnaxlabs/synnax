@@ -19,15 +19,10 @@ export const prettyParse = <Z extends z.ZodTypeAny>(
   } catch (e) {
     if (e instanceof z.ZodError) {
       const errors = e.errors.map((err) => {
-        if (err.path.length === 0) {
-          return err.message;
-        } else {
-          return `${err.path.join(".")}: ${err.message}`;
-        }
+        if (err.path.length === 0) return err.message;
+        return `${err.path.join(".")}: ${err.message}`;
       });
       throw new Error(`${prefix} - ${errors.join("\n")}`);
-    } else {
-      throw e;
-    }
+    } else throw e;
   }
 };

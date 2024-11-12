@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { ontology, task, UnexpectedError } from "@synnaxlabs/client";
+import { ontology, type task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -28,15 +28,15 @@ import {
 import {
   caseconv,
   deep,
-  Key,
-  Keyed,
-  migrate,
-  Optional,
-  UnknownRecord,
+  type Key,
+  type Keyed,
+  type migrate,
+  type Optional,
+  type UnknownRecord,
 } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
-import { Migratable } from "node_modules/@synnaxlabs/x/dist/src/migrate/migrate";
-import { FC, ReactElement, useCallback, useId, useState } from "react";
+import { type Migratable } from "node_modules/@synnaxlabs/x/dist/src/migrate/migrate";
+import { type FC, type ReactElement, useCallback, useId, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -46,6 +46,7 @@ import { Layout } from "@/layout";
 import { overviewLayout } from "@/range/external";
 
 export interface ControlsProps {
+  layoutKey: string;
   onStartStop: () => void;
   startingOrStopping: boolean;
   onConfigure: () => void;
@@ -85,6 +86,8 @@ interface ChannelListContextMenuProps<T> {
   path: string;
   onDuplicate?: (indices: number[]) => void;
   snapshot?: boolean;
+  allowTare?: boolean;
+  onTare?: (indices: number[]) => void;
 }
 
 export const ChannelListContextMenu = <
@@ -98,6 +101,8 @@ export const ChannelListContextMenu = <
   onDuplicate,
   path,
   snapshot,
+  allowTare,
+  onTare,
 }: ChannelListContextMenuProps<T>) => {
   const methods = Form.useContext();
   const indices = keys.map((k) => value.findIndex((v) => v.key === k));
@@ -116,6 +121,7 @@ export const ChannelListContextMenu = <
       if (!indices.includes(i)) return;
       methods.set(`${path}.${i}.enabled`, true);
     });
+  const handleTare = () => onTare?.(indices);
   const allowDisable = indices.some((i) => value[i].enabled);
   const allowEnable = indices.some((i) => !value[i].enabled);
   return (
@@ -125,6 +131,7 @@ export const ChannelListContextMenu = <
         duplicate: handleDuplicate,
         disable: handleDisable,
         enable: handleEnable,
+        tare: handleTare,
       }}
       level="small"
     >
@@ -150,6 +157,14 @@ export const ChannelListContextMenu = <
             </Menu.Item>
           )}
           {(allowEnable || allowDisable) && <Menu.Divider />}
+          {allowTare && (
+            <>
+              <Menu.Item itemKey="tare" startIcon={<Icon.Tare />}>
+                Tare
+              </Menu.Item>
+              <Menu.Divider />
+            </>
+          )}
         </>
       )}
       <CMenu.HardReloadItem />
@@ -187,12 +202,11 @@ export const useObserveState = <T extends ParserErrorsDetails>(
       if (state.task !== taskKey) return;
       setTaskState(state);
       if (state.variant !== "error") clearStatuses();
-      else if (state.details != null && state.details.errors != null) {
+      else if (state.details != null && state.details.errors != null)
         state.details.errors.forEach((e) => {
           const path = `config.${caseconv.snakeToCamel(e.path)}`;
           setStatus(path, { variant: "error", message: "" });
         });
-      }
     },
   });
   return taskState;
@@ -201,6 +215,7 @@ export const useObserveState = <T extends ParserErrorsDetails>(
 export const Controls = ({
   state,
   onStartStop,
+  layoutKey,
   startingOrStopping,
   onConfigure,
   configuring,
@@ -219,6 +234,7 @@ export const Controls = ({
         This task is a snapshot and cannot be modified or started.
       </Status.Text.Centered>
     );
+  const isActive = Layout.useSelectActiveMosaicTabKey() === layoutKey;
   return (
     <Align.Space
       direction="x"
@@ -259,7 +275,7 @@ export const Controls = ({
           loading={configuring}
           disabled={configuring || snapshot}
           onClick={onConfigure}
-          triggers={[CONFIGURE_TRIGGER]}
+          triggers={isActive ? [CONFIGURE_TRIGGER] : undefined}
           tooltip={
             <Align.Space direction="x" align="center" size="small">
               <Triggers.Text shade={7} level="small" trigger={CONFIGURE_TRIGGER} />
@@ -305,11 +321,11 @@ export interface EnableDisableButtonProps {
 
 export const EnableDisableButton = ({
   value,
-  onChange: onClick,
+  onChange,
   disabled,
   snapshot = false,
 }: EnableDisableButtonProps) => (
-  <Button.Toggle
+  <Button.ToggleIcon
     checkedVariant={snapshot ? "preview" : "outlined"}
     uncheckedVariant={snapshot ? "preview" : "outlined"}
     className={CSS.B("enable-disable-button")}
@@ -317,18 +333,32 @@ export const EnableDisableButton = ({
     value={value}
     size="small"
     onClick={(e) => e.stopPropagation()}
-    onChange={onClick}
+    onChange={(v) => onChange(v)}
     tooltip={
       <Text.Text level="small" style={{ maxWidth: 300 }}>
-        Data acquisition for this channel is {value ? "enabled" : "disabled"}. Click to
+        Data acquisition for this channel is {value ? "enabled" : "info"}. Click to
         {value ? " disable" : " enable"} it.
       </Text.Text>
     }
   >
-    <Status.Text variant={value ? "success" : "disabled"} level="small" align="center">
-      {value ? "Enabled" : "Disabled"}
-    </Status.Text>
-  </Button.Toggle>
+    <Status.Circle variant={value ? "success" : "disabled"} />
+  </Button.ToggleIcon>
+);
+
+export interface TareButtonProps {
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+export const TareButton = ({ onClick, disabled }: TareButtonProps) => (
+  <Button.Icon
+    variant={"outlined"}
+    disabled={disabled}
+    onClick={onClick}
+    tooltip="Click to tare"
+  >
+    <Icon.Tare />
+  </Button.Icon>
 );
 
 export const useCreate = <

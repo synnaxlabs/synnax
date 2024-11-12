@@ -15,14 +15,15 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import {
   type ComponentPropsWithoutRef,
   type ReactElement,
-  ReactNode,
+  type ReactNode,
   useCallback,
+  useRef,
 } from "react";
 
 import { type Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { status } from "@/status/aether";
+import { type status } from "@/status/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
@@ -64,7 +65,7 @@ export type ButtonProps = Omit<
     endIcon?: ReactElement | ReactElement[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
-    delay?: number | TimeSpan;
+    onClickDelay?: number | TimeSpan;
     endContent?: ReactNode;
   };
 
@@ -81,6 +82,12 @@ export type ButtonProps = Omit<
  * to match the color and size of the button.
  * @param props.endIcon - The same as {@link startIcon}, but renders after the button
  * text.
+ * @param props.iconSpacing - The spacing between the optional start and end icons
+ * and the button text. Can be "small", "medium", "large", or a number representing
+ * the spacing in rem.
+ * @param props.onClickDelay - An optional delay to wait before calling the `onClick`
+ * handler. This will cause the button to render a progress bar that fills up over the
+ * specified time before calling the handler.
  */
 export const Button = Tooltip.wrap(
   ({
@@ -96,24 +103,41 @@ export const Button = Tooltip.wrap(
     level,
     triggers,
     startIcon = [] as ReactElement[],
-    delay = 0,
+    onClickDelay = 0,
     onClick,
     color,
     status,
     style,
     endContent,
+    onMouseDown,
     ...props
   }: ButtonProps): ReactElement => {
+    const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
+
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
-    if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
+    iconSpacing ??= size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input
     // component API.
     if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
       if (disabled || variant === "preview") return;
-      const span = delay instanceof TimeSpan ? delay : TimeSpan.milliseconds(delay);
-      if (span.isZero) return onClick?.(e);
+      if (parsedDelay.isZero) return onClick?.(e);
+    };
+
+    const toRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleMouseDown: ButtonProps["onMouseDown"] = (e) => {
+      onMouseDown?.(e);
+      if (disabled || variant === "preview" || parsedDelay.isZero) return;
+      document.addEventListener(
+        "mouseup",
+        () => toRef.current != null && clearTimeout(toRef.current),
+      );
+      toRef.current = setTimeout(() => {
+        onClick?.(e);
+        toRef.current = null;
+      }, parsedDelay.milliseconds);
     };
 
     Triggers.use({
@@ -143,9 +167,13 @@ export const Button = Tooltip.wrap(
       ).rgbCSS;
     }
 
+    if (!parsedDelay.isZero)
+      // @ts-expect-error - css variable
+      pStyle[CSS.var("btn-delay")] = `${parsedDelay.seconds.toString()}s`;
+
     if (size == null && level != null) size = Text.LevelComponentSizes[level];
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
-    else if (size == null) size = "medium";
+    else size ??= "medium";
 
     return (
       <Text.WithIcon<"button", any>
@@ -164,9 +192,11 @@ export const Button = Tooltip.wrap(
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}
         onClick={handleClick}
+        onMouseDown={handleMouseDown}
         noWrap
         style={pStyle}
         startIcon={startIcon}
+        color={color}
         {...props}
       >
         {children}

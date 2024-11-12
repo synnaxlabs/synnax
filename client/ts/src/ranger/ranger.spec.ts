@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { change } from "@synnaxlabs/x";
+import { type change } from "@synnaxlabs/x";
 import { DataType, Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { QueryError } from "@/errors";
-import { ranger } from "@/ranger";
+import { type ranger } from "@/ranger";
 import { type NewPayload } from "@/ranger/payload";
 import { newClient } from "@/setupspecs";
 

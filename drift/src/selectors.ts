@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type SliceState, type StoreState } from "@/state";
-import { type WindowState } from "@/window";
+import { MAIN_WINDOW, type WindowState } from "@/window";
 
 export const selectSliceState = (state: StoreState): SliceState => state.drift;
 
@@ -32,7 +32,9 @@ export const selectWindow = (
 export const selectWindowKey = (state: StoreState, label?: string): string | null => {
   const driftState = selectSliceState(state);
   if (label == null) return driftState.labelKeys[driftState.label];
-  return driftState.labelKeys[label];
+  const key = driftState.labelKeys[label];
+  if (key == null && label == MAIN_WINDOW) return MAIN_WINDOW;
+  return key;
 };
 
 export const selectWindowAttribute = <K extends keyof WindowState>(

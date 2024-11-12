@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
-import { compare, type Destructor, shallowCopy, toArray } from "@synnaxlabs/x";
+import { type compare, type Destructor, shallowCopy, toArray } from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
 import { zodutil } from "@synnaxlabs/x/zodutil";
 import {
@@ -25,11 +25,11 @@ import {
 import { z } from "zod";
 
 import { useSyncedRef } from "@/hooks/ref";
-import { Input } from "@/input";
+import { type Input } from "@/input";
 import { state } from "@/state";
 import { type status } from "@/status/aether";
 
-/** Props for the @see useField hook */
+/** Props for the @link useField hook */
 export interface UseFieldProps<I, O = I> {
   path: string;
   optional?: false;
@@ -41,7 +41,7 @@ export interface UseNullableFieldProps<I, O = I>
   optional: true;
 }
 
-/** Return type for the @see useField hook */
+/** Return type for the @link useField hook */
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
   extends FieldState<I> {
   onChange: (value: O) => void;
@@ -620,13 +620,12 @@ export const use = <Z extends z.ZodTypeAny>({
         // If we can't find the field value, this means the user never set it, so
         // instead we just to a best effort construction of the field state. This means
         // that if the user has a field rendered for this path, the error will be displayed.
-        if (fs == null)
-          fs = {
-            value: undefined,
-            status: statuses.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
-            touched: false,
-            required: false,
-          };
+        fs ??= {
+          value: undefined,
+          status: statuses.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
+          touched: false,
+          required: false,
+        };
         listeners.get(issuePath)?.forEach((l) => l(fs));
       });
 
@@ -735,11 +734,11 @@ export const use = <Z extends z.ZodTypeAny>({
       setStatus,
       clearStatuses,
       reset,
-      mode
+      mode,
     ],
   );
 };
 
-export const Form = (props: PropsWithChildren<ContextValue>): ReactElement => {
-  return <Context.Provider value={props}>{props.children}</Context.Provider>;
-};
+export const Form = (props: PropsWithChildren<ContextValue>): ReactElement => (
+  <Context.Provider value={props}>{props.children}</Context.Provider>
+);

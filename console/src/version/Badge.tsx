@@ -14,11 +14,11 @@ import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
 import { infoLayout } from "@/version/Info";
-import { useSelect } from "@/version/selectors";
+import { useSelectVersion } from "@/version/selectors";
 import { useCheckForUpdates } from "@/version/Updater";
 
 export const Badge = (): ReactElement => {
-  const v = useSelect();
+  const version = useSelectVersion();
   const placer = Layout.usePlacer();
   const updateAvailable = useCheckForUpdates();
   return (
@@ -28,7 +28,7 @@ export const Badge = (): ReactElement => {
       size="medium"
       color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-text-color)"}
     >
-      {"v" + v}
+      {`v${version}`}
     </Button.Button>
   );
 };

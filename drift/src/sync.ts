@@ -52,16 +52,14 @@ export const syncInitial = async (
   log(debug, "syncInitial", state, await runtime.listLabels(), nonMain);
   // Create windows that are not in runtime, delete windows that are not in state
   const allLabels = unique([...runtimeLabels, ...nonMain]);
-  for (const label of allLabels) {
-    // Only the main runtime is allowed to create windows.
+  // Only the main runtime is allowed to create windows.
+  for (const label of allLabels)
     if (!runtimeLabels.includes(label) && runtime.isMain())
       await createRuntimeWindow(runtime, label, state.windows[label], debug);
-    else if (!nonMain.includes(label)) {
+    else if (!nonMain.includes(label))
       // We're safe to close the window even if we're not in the main runtime
       // because there's no state to maintain.
       await closeRuntimeWindow(runtime, label, debug);
-    }
-  }
   const label = runtime.label();
   const next = state.windows[label];
   if (next == null) return;
@@ -105,7 +103,7 @@ export const syncCurrent = async (
         await runtime.setVisible(nextWin.visible as boolean);
         if (nextWin.visible === false) return;
         let position = nextWin.position;
-        if (position == null) position = (await runtime.getProps()).position;
+        position ??= (await runtime.getProps()).position;
         // This is very much a hack - some times (tauri) won't emit window created events,
         // so we move the window a smidge to emit events in order to do things like
         // hide traffic lights

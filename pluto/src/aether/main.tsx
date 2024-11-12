@@ -186,18 +186,21 @@ const useLifecycle = <S extends z.ZodTypeAny>({
   }, [type, path, onReceive, setState]);
 
   // Destroy the component on unmount.
-  useLayoutEffect(() => {
-    return () => {
+  useLayoutEffect(
+    () => () => {
       comms.current?.delete();
       comms.current = null;
-    };
-  }, []);
+    },
+    [],
+  );
 
   return useMemo(() => ({ setState, path }), [setState, key, path]);
 };
 
 export interface UseProps<S extends z.ZodTypeAny>
-  extends Omit<UseLifecycleProps<S>, "onReceive"> {}
+  extends Omit<UseLifecycleProps<S>, "onReceive"> {
+  onAetherChange?: (state: z.output<S>) => void;
+}
 
 export type UseReturn<S extends z.ZodTypeAny> = [
   {
@@ -234,7 +237,7 @@ export type UseReturn<S extends z.ZodTypeAny> = [
  * worker thread.
  */
 export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> => {
-  const { type, schema, initialState } = props;
+  const { type, schema, initialState, onAetherChange } = props;
   const [internalState, setInternalState] = useState<z.output<S>>(() =>
     prettyParse(schema, initialState),
   );
@@ -242,7 +245,11 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
   // Update the internal component state when we receive communications from the
   // aether.
   const handleReceive = useCallback(
-    (state: any) => setInternalState(prettyParse(schema, state)),
+    (rawState: any) => {
+      const state = prettyParse(schema, rawState);
+      setInternalState(state);
+      onAetherChange?.(state);
+    },
     [schema],
   );
 

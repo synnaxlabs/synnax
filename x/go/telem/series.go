@@ -25,10 +25,21 @@ type Series struct {
 	// series in a logical group. This is typically used for defining the position of
 	// the series within a channel's data, but can be used for arbitrary purposes.
 	Alignment AlignmentPair `json:"alignment" msgpack:"alignment"`
+	// cachedLength tracks the length of a series with a variable data type.
+	cachedLength *int64
 }
 
 // Len returns the number of samples currently in the Series.
-func (s Series) Len() int64 { return s.DataType.Density().SampleCount(s.Size()) }
+func (s Series) Len() int64 {
+	if s.DataType.IsVariable() {
+		if s.cachedLength == nil {
+			cl := int64(bytes.Count(s.Data, []byte("\n")))
+			s.cachedLength = &cl
+		}
+		return *s.cachedLength
+	}
+	return s.DataType.Density().SampleCount(s.Size())
+}
 
 // Size returns the number of bytes in the Series.
 func (s Series) Size() Size { return Size(len(s.Data)) }
@@ -54,6 +65,7 @@ func (s Series) Split() [][]byte {
 	return o
 }
 
+// ValueAt returns the value at the given index in the series.
 func ValueAt[T types.Numeric](s Series, i int64) T {
 	b := s.Data[i*int64(s.DataType.Density()) : (i+1)*int64(s.DataType.Density())]
 	return UnmarshalF[T](s.DataType)(b)

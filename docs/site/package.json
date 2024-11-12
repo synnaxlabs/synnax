@@ -9,11 +9,14 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "algolia": "node ./src/util/algoliasearch.js"
+    "algolia": "node ./src/util/algoliasearch.js",
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix"
   },
   "dependencies": {
     "@astrojs/mdx": "^3.1.8",
     "@astrojs/react": "^3.6.2",
+    "@astrojs/vercel": "^7.8.1",
     "@fontsource/geist-mono": "^5.1.0",
     "@astrojs/vercel": "^7.8.1",
     "@synnaxlabs/client": "workspace:*",
@@ -27,16 +30,17 @@
     "clsx": "^2.1.1",
     "dotenv": "^16.4.5",
     "html-escaper": "^3.0.3",
+    "posthog-js": "^1.174.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "shiki": "^1.22.0",
-    "posthog-js": "^1.174.2"
+    "shiki": "^1.22.0"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
-    "algoliasearch": "^5.8.1",
+    "algoliasearch": "^4.23.3",
+    "eslint": "^9.12.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "gray-matter": "^4.0.3",
     "remove-markdown": "^0.5.5",

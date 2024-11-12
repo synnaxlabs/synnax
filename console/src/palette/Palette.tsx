@@ -13,11 +13,14 @@ import { ontology } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Align,
   Button,
   componentRenderProp,
   CSS as PCSS,
+  Dropdown,
   Haul,
   Input,
+  List,
   Mosaic,
   Status,
   Synnax,
@@ -26,9 +29,6 @@ import {
   Triggers,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto";
-import { Dropdown } from "@synnaxlabs/pluto/dropdown";
-import { List } from "@synnaxlabs/pluto/list";
 import { box, dimensions, runtime, xy } from "@synnaxlabs/x";
 import { listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";
@@ -44,7 +44,7 @@ import {
 import { useDispatch, useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
-import { CreateConfirmModal } from "@/confirm/Confirm";
+import { type CreateConfirmModal } from "@/confirm/Confirm";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";

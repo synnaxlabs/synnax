@@ -10,7 +10,7 @@
 import "@/tree/Tree.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Optional, unique } from "@synnaxlabs/x";
+import { type Optional, unique } from "@synnaxlabs/x";
 import {
   type FC,
   memo,
@@ -27,7 +27,7 @@ import { Haul } from "@/haul";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import {
-  UseSelectMultipleProps,
+  type UseSelectMultipleProps,
   type UseSelectOnChangeExtra,
   type UseSelectProps,
 } from "@/list/useSelect";
@@ -83,9 +83,10 @@ export const use = (props: UseProps): UseReturn => {
     value: propsSelected,
     onChange: onSelectedChange,
   });
-  const flat = useMemo(() => {
-    return flatten({ nodes, expanded, sort });
-  }, [nodes, expanded, sort]);
+  const flat = useMemo(
+    () => flatten({ nodes, expanded, sort }),
+    [nodes, expanded, sort],
+  );
   const flatRef = useSyncedRef(flat);
 
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
@@ -103,7 +104,7 @@ export const use = (props: UseProps): UseReturn => {
       const action = currentlyExpanded.some((key) => key === clicked)
         ? "contract"
         : "expand";
-      let nextExpanded = currentlyExpanded;
+      let nextExpanded: string[];
       if (action === "contract")
         nextExpanded = currentlyExpanded.filter((key) => key !== clicked);
       else nextExpanded = [...currentlyExpanded, clicked];

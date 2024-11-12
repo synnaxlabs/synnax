@@ -11,10 +11,11 @@ import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
 import { Group } from "@/group";
-import { Device } from "@/hardware/device";
+import { DeviceServices } from "@/hardware/device/services";
 import { Task } from "@/hardware/task";
 import { LinePlotServices } from "@/lineplot/services";
-import { Ontology } from "@/ontology";
+import { LogServices } from "@/log/services";
+import { type Ontology } from "@/ontology";
 import { Builtin } from "@/ontology/builtin";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
@@ -48,9 +49,10 @@ export const SERVICES: Ontology.Services = {
   label: EMPTY_ONTOLOGY_SERVICE,
   rack: EMPTY_ONTOLOGY_SERVICE,
   task: Task.ONTOLOGY_SERVICE,
-  device: Device.ONTOLOGY_SERVICE,
+  device: DeviceServices.ONTOLOGY_SERVICE,
   channel: ChannelServices.ONTOLOGY_SERVICE,
   framer: EMPTY_ONTOLOGY_SERVICE,
   policy: EMPTY_ONTOLOGY_SERVICE,
   allow_all: EMPTY_ONTOLOGY_SERVICE,
+  log: LogServices.ONTOLOGY_SERVICE,
 };

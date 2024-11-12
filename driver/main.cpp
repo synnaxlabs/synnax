@@ -7,6 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#endif
+
 #include <csignal>
 #include <fstream>
 #include <iostream>
@@ -21,6 +35,9 @@
 #include "driver/meminfo/meminfo.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
+#ifdef _WIN32
+#include "driver/labjack/labjack.h"
+#endif
 
 using json = nlohmann::json;
 
@@ -108,6 +125,19 @@ int main(int argc, char *argv[]) {
     } else
         LOG(INFO) << "[driver] NI integration is not enabled or the required DLLs are not available";
 #endif
+
+#ifdef _WIN32
+    auto labjack_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), labjack::INTEGRATION_NAME);
+    if(labjack_enabled != cfg.integrations.end() && labjack::dlls_available()) {
+        std::unique_ptr<labjack::Factory> labjack_factory = std::make_unique<labjack::Factory>();
+        factories.push_back(std::move(labjack_factory));
+    } else{
+        LOG(INFO) << "[driver] LabJack integration is not enabled or the required DLLs are not available";
+    }
+#else
+    LOG(INFO) << "[driver] LabJack integration is not available on this platform";
+#endif
+
 
     auto factory = std::make_unique<task::MultiFactory>(std::move(factories));
     task_manager = std::make_unique<task::Manager>(

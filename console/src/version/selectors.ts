@@ -8,8 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoSelect } from "@/hooks";
-import { type StoreState } from "@/version/slice";
+import { SLICE_NAME, type SliceState, type StoreState } from "@/version/slice";
 
-export const select = (state: StoreState): string => state.version.version;
+export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const useSelect = (): string => useMemoSelect(select, []);
+export const useSelectSliceState = (): SliceState =>
+  useMemoSelect((state: StoreState) => selectSliceState(state), []);
+
+export const selectVersion = (state: StoreState): string =>
+  selectSliceState(state).consoleVersion;
+
+export const useSelectVersion = (): string => useMemoSelect(selectVersion, []);
+
+export const selectUpdateNotificationsSilenced = (state: StoreState): boolean =>
+  selectSliceState(state).updateNotificationsSilenced;
+
+export const useSelectUpdateNotificationsSilenced = (): boolean =>
+  useMemoSelect(selectUpdateNotificationsSilenced, []);
