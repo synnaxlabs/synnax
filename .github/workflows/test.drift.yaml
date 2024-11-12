@@ -1,11 +1,11 @@
 name: Test - Drift
 
 on:
-  pull_request:
+  push:
     branches:
       - main
       - rc
-  push:
+  pull_request:
     branches:
       - main
       - rc

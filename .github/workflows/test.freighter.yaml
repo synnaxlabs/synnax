@@ -1,15 +1,15 @@
 name: Test - Freighter
 
 on:
-  pull_request:
-    branches:
-      - main
-      - rc
   push:
     branches:
       - main
       - rc
-      - sy-1375-run-ci-tests-on-windows-and-macos 
+      - sy-1375-run-ci-tests-on-windows-and-macos
+  pull_request:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
 
 permissions:
@@ -127,7 +127,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download Earhly
+      - name: Download Earthly
         uses: earthly/actions-setup@v1
 
       - name: Build Image

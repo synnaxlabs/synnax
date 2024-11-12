@@ -1,15 +1,15 @@
 name: Test - Alamos
 
 on:
-  pull_request:
-    branches:
-      - main
-      - rc
   push:
     branches:
       - main
       - rc
-      - sy-1375-run-ci-tests-on-windows-and-macos 
+      - sy-1375-run-ci-tests-on-windows-and-macos
+  pull_request:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
 
 jobs:
