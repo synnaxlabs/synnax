@@ -16,7 +16,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
-import { status } from "@/status/aether";
+import { type status } from "@/status/aether";
 
 export interface ItemProps extends Align.SpaceProps {
   label?: string;

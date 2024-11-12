@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Docs,LAYOUT_TYPE } from "@/docs/Docs";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export * from "@/docs/Docs";
 export * from "@/docs/palette";

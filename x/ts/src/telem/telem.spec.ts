@@ -11,7 +11,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import {
-  CrudeDataType,
+  type CrudeDataType,
   DataType,
   Density,
   Rate,
@@ -227,6 +227,28 @@ describe("TimeSpan", () => {
     expect(TimeSpan.seconds(1).equals(1e9)).toBeTruthy();
     expect(TimeSpan.minutes(1).equals(6e10)).toBeTruthy();
     expect(TimeSpan.hours(1).equals(36e11)).toBeTruthy();
+  });
+
+  describe("fromMilliseconds", () => {
+    it("should interpret a pure number or bigint as milliseconds", () => {
+      const ts = TimeSpan.fromMilliseconds(1000);
+      expect(ts.equals(TimeSpan.seconds())).toBeTruthy();
+    });
+    it("should interpret a TimeSpan as a normal TimeSpan", () => {
+      const ts = TimeSpan.fromMilliseconds(TimeSpan.milliseconds(30));
+      expect(ts.equals(TimeSpan.milliseconds(30))).toBeTruthy();
+    });
+  });
+
+  describe("fromSeconds", () => {
+    it("should interpret a pure number or bigint as seconds", () => {
+      const ts = TimeSpan.fromSeconds(1);
+      expect(ts.equals(TimeSpan.SECOND)).toBeTruthy();
+    });
+    it("should interpret a TimeSpan as a normal TimeSpan", () => {
+      const ts = TimeSpan.fromSeconds(TimeSpan.milliseconds(30));
+      expect(ts.equals(TimeSpan.milliseconds(30))).toBeTruthy();
+    });
   });
 
   test("seconds", () => {
@@ -525,19 +547,13 @@ describe("DataType", () => {
         DataType.FLOAT32,
         DataType.FLOAT64,
       ];
-      for (const from of numericTypes) {
-        for (const to of numericTypes) {
-          expect(from.canCastTo(to)).toBe(true);
-        }
-      }
+      for (const from of numericTypes)
+        for (const to of numericTypes) expect(from.canCastTo(to)).toBe(true);
     });
     it("should return true for non-numeric data types ONLY if they are equal", () => {
       const nonNumericTypes = [DataType.STRING, DataType.BOOLEAN];
-      for (const from of nonNumericTypes) {
-        for (const to of nonNumericTypes) {
-          expect(from.canCastTo(to)).toBe(from === to);
-        }
-      }
+      for (const from of nonNumericTypes)
+        for (const to of nonNumericTypes) expect(from.canCastTo(to)).toBe(from === to);
     });
   });
 

@@ -1,0 +1,102 @@
+---
+import { Icon } from "@synnaxlabs/media";
+import { Align, Button, Text } from "@synnaxlabs/pluto";
+const { date, version, title, breakingChanges } = Astro.props;
+const id = version.split(".").join("-");
+const firstPart = version.split(".").slice(0, 2).join(".");
+---
+
+<Align.Space direction="x" id={version.split(".").join("-")} className="release" empty>
+    <Align.Space direction="y" className="meta" align="start" size="large">
+        <Align.Space direction="y" empty>
+            <Text.Text level="h3" weight={500}>Version {firstPart}</Text.Text>
+            <Text.Text level="p" shade={8}>{date}</Text.Text>
+            {
+                breakingChanges ? (
+                    <Text.Text className="breaking-changes" level="small">
+                        Breaking Changes
+                    </Text.Text>
+                ) : (
+                    <Text.Text className="no-breaking-changes" level="small">
+                        No Breaking Changes
+                    </Text.Text>
+                )
+            }
+        </Align.Space>
+        <Align.Space direction="x" align="center" size="large">
+            <Text.Link
+                level="p"
+                href={`https://github.com/synnaxlabs/synnax/tree/synnax-v${version}`}
+            >
+                <Icon.Logo.Github className="link" />
+            </Text.Link>
+            <Text.Link level="p" href={`https://pypi.org/project/synnax/${firstPart}/`}>
+                <Icon.Python className="link" />
+            </Text.Link>
+            <Text.Link
+                level="p"
+                href={`https://npmjs.com/package/@synnaxlabs/client/v/${version}`}
+            >
+                <Icon.TypeScript className="link" />
+            </Text.Link>
+        </Align.Space>
+    </Align.Space>
+    <Align.Space direction="y" className="details" size="large">
+        <Text.Text level="h2" className="title">{title}</Text.Text>
+        <Align.Space direction="y">
+            <slot />
+        </Align.Space>
+    </Align.Space>
+</Align.Space>
+
+<style is:global>
+    .release {
+        padding: 10rem 0rem;
+        max-width: 1200px;
+        position: relative;
+        margin: 0 auto;
+        .meta {
+            height: fit-content;
+            position: sticky;
+            top: 120px;
+            padding-top: 1rem;
+            padding-left: 3rem;
+            flex-basis: 375px;
+            flex-grow: 1;
+        }
+        .details {
+            flex-basis: 650px;
+            flex-grow: 3;
+        }
+        .breaking-changes {
+            color: var(--pluto-error-z);
+        }
+        .no-breaking-changes {
+            color: var(--pluto-success-z);
+        }
+        .link {
+            height: 3.25rem;
+            width: 3.25rem;
+            &.synnax-icon-logo-github {
+                transform: scale(1.2);
+            }
+            color: var(--pluto-gray-l7);
+            transition: all 0.2s ease-in-out;
+
+            &:hover {
+                color: var(--pluto-gray-l10);
+            }
+        }
+    }
+    @media (max-width: 750px) {
+        .release {
+            flex-direction: column !important;
+            .meta {
+                position: unset;
+                flex-basis: fit-content;
+                padding-left: 0;
+                padding-bottom: 4rem;
+            }
+        }
+    }
+</style>

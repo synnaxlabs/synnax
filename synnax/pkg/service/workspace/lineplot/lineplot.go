@@ -14,10 +14,14 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// LinePlot is the data for a visualization used to plott lines of telemetry.
 type LinePlot struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Name string    `json:"name" msgpack:"name"`
-	Data string    `json:"data" msgpack:"data"`
+	// Key is a unique identifier for the line plot.
+	Key uuid.UUID `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the line plot.
+	Name string `json:"name" msgpack:"name"`
+	// Data is JSON-encoded data for the line plot.
+	Data string `json:"data" msgpack:"data"`
 }
 
 var _ gorp.Entry[uuid.UUID] = LinePlot{}

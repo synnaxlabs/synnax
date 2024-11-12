@@ -9,7 +9,7 @@
 
 import "@/divider/Divider.css";
 
-import { type direction, location } from "@synnaxlabs/x/spatial";
+import { type direction, type location } from "@synnaxlabs/x/spatial";
 import { type HTMLAttributes, type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";

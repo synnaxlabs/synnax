@@ -25,7 +25,7 @@ import {
   Portal,
   Status,
   Synnax,
-  Tabs,
+  type Tabs,
   Text,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
@@ -54,7 +54,7 @@ import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
-import { RootState, type RootStore } from "@/store";
+import { type RootState, type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
 
 const EmptyContent = (): ReactElement => (
@@ -82,13 +82,12 @@ export const ContextMenu = ({
   const layout = Layout.useSelect(layoutKey);
   if (layout == null) return null;
   const C = Layout.useContextMenuRenderer(layout?.type);
-  if (C == null) {
+  if (C == null)
     return (
       <PMenu.Menu level="small" iconSpacing="small">
         <Layout.MenuItems layoutKey={layoutKey} />
       </PMenu.Menu>
     );
-  }
   const res = <C layoutKey={layoutKey} />;
   return res;
 };
@@ -100,9 +99,10 @@ interface ContentCProps extends Tabs.Tab {
 const ModalContent = ({ node, tabKey }: ContentCProps) => {
   const d = useDispatch();
   const layout = Layout.useSelectRequired(tabKey);
-  const [windowKey, focusedKey] = Layout.useSelectFocused();
+  const { windowKey, focused: focusedKey } = Layout.useSelectFocused();
   const focused = tabKey === focusedKey;
-  const handleClose = () => d(Layout.setFocus({ windowKey, key: null }));
+  const handleClose = () =>
+    windowKey != null && d(Layout.setFocus({ windowKey, key: null }));
   const openInNewWindow = Layout.useOpenInNewWindow();
   const handleOpenInNewWindow = () => {
     openInNewWindow(tabKey);
@@ -144,6 +144,7 @@ export const Mosaic = memo((): ReactElement => {
   const client = Synnax.use();
   const placer = usePlacer();
   const dispatch = useDispatch();
+  const addStatus = Status.useAggregator();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
@@ -175,6 +176,7 @@ export const Mosaic = memo((): ReactElement => {
             nodeKey: mosaicKey,
             location,
             placeLayout: placer,
+            addStatus,
           });
         } else
           placer(
@@ -185,7 +187,7 @@ export const Mosaic = memo((): ReactElement => {
           );
       });
     },
-    [placer, store, client],
+    [placer, store, client, addStatus],
   );
 
   LinePlot.useTriggerHold({
@@ -225,7 +227,6 @@ export const Mosaic = memo((): ReactElement => {
 
   const workspaceKey = Workspace.useSelectActiveKey();
   const confirm = Confirm.useModal();
-  const addStatus = Status.useAggregator();
 
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
@@ -240,7 +241,7 @@ export const Mosaic = memo((): ReactElement => {
             const fileAsJSON = JSON.parse(new TextDecoder().decode(buffer));
 
             let handlerFound = false;
-            for (const fileHandler of FILE_HANDLERS) {
+            for (const fileHandler of FILE_HANDLERS)
               if (
                 await fileHandler({
                   file: fileAsJSON,
@@ -257,7 +258,6 @@ export const Mosaic = memo((): ReactElement => {
                 handlerFound = true;
                 break;
               }
-            }
             if (!handlerFound)
               throw Error(`${name} is not recognized as a Synnax object`);
           } catch (e) {

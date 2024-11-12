@@ -21,12 +21,14 @@ import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
+import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/constants";
 import { LinePlotServices } from "@/lineplot/services";
+import { LogServices } from "@/log/services";
 import { Palette } from "@/palette";
 import { Persist } from "@/persist";
 import { RangeServices } from "@/range/services";
@@ -51,12 +53,14 @@ const COMMANDS = [
   ...Workspace.COMMANDS,
   ...ClusterServices.COMMANDS,
   ...RangeServices.COMMANDS,
+  ...LabJack.COMMANDS,
   ...OPC.COMMANDS,
   ...Persist.COMMANDS,
   ...NI.COMMANDS,
   ...Channel.COMMANDS,
   ...LabelServices.COMMANDS,
   ...UserServices.COMMANDS,
+  ...LogServices.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => (
@@ -219,21 +223,19 @@ const MemoryBadge = (): ReactElement | null => {
  * NavBottom is the bottom navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
-export const NavBottom = (): ReactElement => {
-  return (
-    <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
-      <Nav.Bar.Start>
-        <Vis.NavControls />
-      </Nav.Bar.Start>
-      <Nav.Bar.End className="console-main-nav-bottom__end" empty>
-        <MemoryBadge />
-        <Divider.Divider />
-        <Version.Badge />
-        <Divider.Divider />
-        <Cluster.Dropdown />
-        <Divider.Divider />
-        <Cluster.ConnectionBadge />
-      </Nav.Bar.End>
-    </Nav.Bar>
-  );
-};
+export const NavBottom = (): ReactElement => (
+  <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
+    <Nav.Bar.Start>
+      <Vis.NavControls />
+    </Nav.Bar.Start>
+    <Nav.Bar.End className="console-main-nav-bottom__end" empty>
+      <MemoryBadge />
+      <Divider.Divider />
+      <Version.Badge />
+      <Divider.Divider />
+      <Cluster.Dropdown />
+      <Divider.Divider />
+      <Cluster.ConnectionBadge />
+    </Nav.Bar.End>
+  </Nav.Bar>
+);

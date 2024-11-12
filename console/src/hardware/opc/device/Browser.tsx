@@ -19,14 +19,14 @@ import {
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
-import { Optional } from "@synnaxlabs/x";
+import { type Optional } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import {
-  Device as OPCDevice,
-  ScannerScanCommandResult,
+  type Device as OPCDevice,
+  type ScannerScanCommandResult,
 } from "@/hardware/opc/device/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -120,7 +120,7 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
     refresh();
   }, [refresh]);
 
-  let content: ReactElement | null = null;
+  let content: ReactElement;
   if (initialLoading)
     content = (
       <Align.Center style={{ width: "100%", height: "100%" }}>

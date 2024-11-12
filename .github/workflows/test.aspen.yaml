@@ -1,4 +1,4 @@
-name: "Test: Aspen"
+name: "Test - Aspen"
 
 on:
   pull_request:
@@ -38,8 +38,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.changed == 'true'
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository

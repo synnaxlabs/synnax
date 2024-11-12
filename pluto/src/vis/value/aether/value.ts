@@ -12,23 +12,26 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
+import { notationZ } from "@/notation/notation";
 import { telem } from "@/telem/aether";
 import { text } from "@/text/core";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
-import { fontString } from "@/theming/core/fontString";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { render } from "@/vis/render";
 
 const valueState = z.object({
   box: box.box,
   telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
-  font: text.levelZ.optional().default("p"),
+  level: text.levelZ.optional().default("p"),
   color: color.Color.z.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
+  notation: notationZ.optional().default("standard"),
 });
+
+const CANVAS_VARIANT: render.Canvas2DVariant = "upper2d";
 
 export interface ValueProps {
   scale?: scale.XY;
@@ -38,6 +41,7 @@ interface InternalState {
   theme: theming.Theme;
   render: render.Context;
   telem: telem.StringSource;
+  stopListening?: () => void;
   requestRender: render.RequestF | null;
   textColor: color.Color;
 }
@@ -57,7 +61,8 @@ export class Value
     if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
-    this.internal.telem.onChange(() => this.requestRender());
+    i.stopListening?.();
+    i.stopListening = this.internal.telem.onChange(() => this.requestRender());
     this.internal.requestRender = render.Controller.useOptionalRequest(this.ctx);
     this.requestRender();
   }
@@ -66,7 +71,7 @@ export class Value
     const { requestRender, telem, render: renderCtx } = this.internal;
     await telem.cleanup?.();
     if (requestRender == null)
-      renderCtx.erase(box.construct(this.state.box), xy.ZERO, "upper2d");
+      renderCtx.erase(box.construct(this.state.box), xy.ZERO, CANVAS_VARIANT);
     else requestRender(render.REASON_LAYOUT);
   }
 
@@ -76,48 +81,63 @@ export class Value
     else void this.render({});
   }
 
+  private get fontHeight(): number {
+    const { theme } = this.internal;
+    return theme.typography[this.state.level].size * theme.sizes.base;
+  }
+
+  private maybeUpdateWidth(width: number) {
+    const { theme } = this.internal;
+    const requiredWidth = width + theme.sizes.base + this.fontHeight;
+    if (
+      this.state.width == null ||
+      this.state.width + this.fontHeight * 0.5 < requiredWidth ||
+      (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
+    )
+      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
+    else if (this.state.width - this.fontHeight > requiredWidth)
+      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
+  }
+
   async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
-    const { render: renderCtx, telem, theme } = this.internal;
+    const { render: renderCtx, telem } = this.internal;
     const b = box.construct(this.state.box);
     if (box.areaIsZero(b)) return;
-    const canvas = renderCtx.upper2d.applyScale(viewportScale);
-    const value = await telem.value();
-    canvas.font = this.state.font;
-    const height = theme.typography[this.state.font].size * theme.sizes.base;
-    const width = dimensions(
-      value,
-      fontString(this.internal.theme, this.state.font),
-      canvas,
-    ).width;
+    const canvas = renderCtx[CANVAS_VARIANT].applyScale(viewportScale);
+    let value = await telem.value();
+    const fontString = theming.fontString(this.internal.theme, {
+      level: this.state.level,
+      code: true,
+    });
+    canvas.font = fontString;
+    const fontHeight = this.fontHeight;
+    const isNegative = value[0] == "-";
+    if (isNegative) value = value.slice(1);
+
+    const { theme } = this.internal;
+    const width = dimensions(value, fontString, canvas).width + theme.sizes.base;
+
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
 
-    const requiredWidth = width + theme.sizes.base * 1;
+    this.maybeUpdateWidth(width);
+    const labelPosition = xy.translate(box.topLeft(b), {
+      x: 6 + fontHeight * 0.75,
+      y: box.height(b) / 2,
+    });
 
-    if (
-      this.state.width == null ||
-      this.state.width < requiredWidth ||
-      (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
-    ) {
-      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
-    }
-
-    const labelPosition = xy.couple(
-      xy.translate(
-        box.topLeft(b),
-        {
-          x: 0,
-          y: box.height(b) / 2,
-        },
-        {
-          y: height / 2,
-          x: 12,
-        },
-      ),
-    );
-
+    canvas.textBaseline = "middle";
     canvas.fillStyle = this.internal.textColor.hex;
-    canvas.fillText(value, ...labelPosition);
+    // If the value is negative, chop of the negative sign and draw it separately
+    // so that the first digit always stays in the same position, regardless of the sign.
+    if (isNegative)
+      canvas.fillText(
+        "-",
+        // 0.55 is a multiplier of the font height that seems to keep the sign in
+        // the right place.
+        ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
+      );
+    canvas.fillText(value, ...xy.couple(labelPosition));
   }
 }
 

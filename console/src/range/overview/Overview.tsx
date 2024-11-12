@@ -10,10 +10,10 @@
 import "@/range/overview/Overview.css";
 
 import { Align, Divider } from "@synnaxlabs/pluto";
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { Labels } from "@/range/overview/Labels";

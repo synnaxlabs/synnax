@@ -24,7 +24,9 @@ import { clear } from "@/vis/render/clear";
 import { Loop } from "@/vis/render/loop";
 import { applyOverScan } from "@/vis/render/util";
 
-export type CanvasVariant = "upper2d" | "lower2d" | "gl";
+export type Canvas2DVariant = "upper2d" | "lower2d";
+export type CanvasGLVariant = "gl";
+export type CanvasVariant = Canvas2DVariant | CanvasGLVariant;
 
 /**
  * A hybrid rendering context containing both 2D and WebGL canvases and contexts.

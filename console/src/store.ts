@@ -16,6 +16,7 @@ import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
 import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
@@ -40,6 +41,7 @@ const ZERO_STATE: RootState = {
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
+  [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -53,6 +55,7 @@ const reducer = combineReducers({
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [Permissions.SLICE_NAME]: Permissions.reducer,
+  [Log.SLICE_NAME]: Log.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -66,6 +69,7 @@ export interface RootState {
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Permissions.SLICE_NAME]: Permissions.SliceState;
+  [Log.SLICE_NAME]: Log.SliceState;
 }
 
 export type RootAction =
@@ -76,9 +80,10 @@ export type RootAction =
   | Cluster.Action
   | LinePlot.Action
   | Schematic.Action
-  | Range.Action
   | Permissions.Action
-  | Workspace.Action;
+  | Version.Action
+  | Workspace.Action
+  | Log.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 

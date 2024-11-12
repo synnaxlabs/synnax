@@ -44,16 +44,15 @@ class MyCustomError extends BaseTypedError {
 }
 
 const encodeTestError = (err: TypedError): ErrorPayload => {
-  if (!(err instanceof MyCustomError)) {
-    throw new Error("Unexpected error type");
-  }
+  if (!(err instanceof MyCustomError)) throw new Error("Unexpected error type");
+
   return { type: "integration.error", data: `${err.code},${err.message}` };
 };
 
 const decodeTestError = (encoded: ErrorPayload): TypedError | null => {
   if (encoded.type !== "integration.error") return null;
   const [code, message] = encoded.data.split(",");
-  return new MyCustomError(message, parseInt(code, 10));
+  return new MyCustomError(message, parseInt(code));
 };
 
 registerError({

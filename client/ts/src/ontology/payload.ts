@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { change, UnknownRecord } from "@synnaxlabs/x";
+import { type change, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export type ResourceChange = change.Change<ID, Resource>;
@@ -19,6 +19,7 @@ export type RelationshipDelete = change.Delete<Relationship, undefined>;
 
 export const resourceTypeZ = z.union([
   z.literal("label"),
+  z.literal("log"),
   z.literal("allow_all"),
   z.literal("builtin"),
   z.literal("cluster"),

@@ -41,7 +41,7 @@ const scrollToRelevantChild = (
   ref: HTMLDivElement,
 ) => {
   const dirMultiplier = hover > prevHover ? 1 : -1;
-  let scrollTo = hover;
+  let scrollTo: number;
   const idealHover = hover + dirMultiplier * 2;
   if (bounds.contains({ lower: 0, upper: ref.children.length }, idealHover))
     scrollTo = hover + dirMultiplier * 2;

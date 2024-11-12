@@ -1,4 +1,4 @@
-name: "Test: X"
+name: "Test - X"
 
 on:
   pull_request:
@@ -30,7 +30,7 @@ jobs:
           base: ${{ github.ref}}
           filters: |
             shared: &shared
-              - .github/workflows/test.x.yaml
+              - .github/workflows/text.x.yaml
             go:
               - *shared
               - alamos/go/**
@@ -48,6 +48,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:

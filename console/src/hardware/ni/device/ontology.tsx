@@ -15,7 +15,7 @@ import { configureAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { configureDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
 import { configureDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
 import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 
 interface InitialArgs {
   create: true;

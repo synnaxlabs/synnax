@@ -40,18 +40,15 @@ export const buildQueryString = (
   prefix: string = "",
 ): string => {
   if (request === null) return "";
-  return (
-    "?" +
-    Object.entries(request)
-      .filter(([, value]) => {
-        if (value === undefined || value === null) return false;
-        if (Array.isArray(value)) return value.length > 0;
-        return true;
-      })
-       
-      .map(([key, value]) => `${prefix}${key}=${value}`)
-      .join("&")
-  );
+  return `?${Object.entries(request)
+    .filter(([, value]) => {
+      if (value === undefined || value === null) return false;
+      if (Array.isArray(value)) return value.length > 0;
+      return true;
+    })
+
+    .map(([key, value]) => `${prefix}${key}=${value}`)
+    .join("&")}`;
 };
 
 /**

@@ -18,7 +18,7 @@ import {
 import {
   type FocusEventHandler,
   type ReactElement,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -26,11 +26,12 @@ import {
 } from "react";
 
 import { Button } from "@/button";
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
-import { List as CoreList, List } from "@/list";
+import { List as CoreList, type List } from "@/list";
 import {
   selectValueIsZero,
   type UseSelectOnChangeExtra,
@@ -93,7 +94,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   allowNone = true,
   searcher,
   className,
-  variant,
+  variant = "button",
   hideColumnHeader = false,
   disabled,
   omit,
@@ -288,6 +289,9 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
         if (visible) return;
         onFocus?.();
       })}
+      endContent={
+        <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
+      }
       style={{ flexGrow: 1 }}
       onClick={handleClick}
       placeholder={placeholder}

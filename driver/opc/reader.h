@@ -161,7 +161,11 @@ public:
 
     void stop() override;
 
+    void stop(const std::string &cmd_key);
+
     void start();
+
+    void start(const std::string &cmd_key);
 
 private:
     std::shared_ptr<task::Context> ctx;

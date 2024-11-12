@@ -11,10 +11,10 @@ import "@/haul/Haul.css";
 
 import {
   box,
-  Destructor,
+  type Destructor,
   type Key,
   type Optional,
-  UnknownRecord,
+  type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
 import React, {
@@ -320,14 +320,12 @@ export const useDropOutside = ({ type, key, ...rest }: UseDropOutsideProps): voi
       return { target, dropped };
     });
     const handleMouseEnter = () => {
-      const { canDrop } = propsRef.current;
       isOutside.current = false;
-      if (!canDrop(dragging.current)) return;
     };
     const handleMouseLeave = (e: globalThis.DragEvent) => {
       const { onDragOver, canDrop } = propsRef.current;
       const windowBox = box.construct(window.document.documentElement);
-      if ((box.contains(windowBox, xy.construct(e.clientX, e.clientY)), false)) return;
+      if (box.contains(windowBox, xy.construct(e.clientX, e.clientY))) return;
       isOutside.current = true;
       if (!canDrop(dragging.current)) return;
       onDragOver?.(dragging.current);

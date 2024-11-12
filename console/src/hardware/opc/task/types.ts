@@ -143,7 +143,7 @@ export const parseNodeId = (nodeIdStr: string): NodeId | null => {
 
   if (match === null) return null;
 
-  const namespaceIndex = parseInt(match[1], 10);
+  const namespaceIndex = parseInt(match[1]);
   const typeCode = match[2];
   const identifier = match[3];
 
@@ -155,7 +155,7 @@ export const parseNodeId = (nodeIdStr: string): NodeId | null => {
       return {
         namespaceIndex,
         identifierType,
-        identifier: parseInt(identifier, 10),
+        identifier: parseInt(identifier),
       };
     case "S":
       identifierType = "String";
@@ -184,7 +184,6 @@ export const nodeIdToString = (nodeId: NodeId): string => {
       return `${prefix}${nodeId.identifierType.charAt(0)}=${nodeId.identifier}`;
   }
 };
-
 
 // Writes
 export const WRITE_TYPE = "opc_write";
@@ -248,7 +247,7 @@ export const writeConfigZ = z
         },
       });
     });
-  })
+  });
 
 export type WriteConfig = z.infer<typeof writeConfigZ>;
 export type Write = task.Task<WriteConfig, WriteStateDetails, WriteType>;
@@ -265,4 +264,3 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
 };
 
 type NodeIdType = "Numeric" | "String" | "GUID" | "ByteString";
-

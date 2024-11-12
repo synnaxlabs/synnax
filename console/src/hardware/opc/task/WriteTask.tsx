@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/ReadTask.css";
 
-import { device, NotFoundError } from "@synnaxlabs/client";
+import { type device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -155,16 +155,14 @@ const Wrapped = ({
       const commandsToCreate: WriteChannelConfig[] = [];
       for (const channel of config.channels) {
         const key = getChannelByNodeID(dev.properties, channel.nodeId);
-        if (primitiveIsZero(key)) {
-          commandsToCreate.push(channel);
-        } else {
+        if (primitiveIsZero(key)) commandsToCreate.push(channel);
+        else
           try {
             await client.channels.retrieve(key);
           } catch (e) {
             if (NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
-        }
       }
 
       if (commandsToCreate.length > 0) {
@@ -309,6 +307,7 @@ const Wrapped = ({
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={start.isPending}
           configuring={configure.isPending}
@@ -476,7 +475,7 @@ const WriterChannelListItem = ({
   if (childValues == null) return <></>;
   const opcNode =
     childValues.nodeId.length > 0 ? childValues.nodeId : "No Node Selected";
-  let opcNodeColor = undefined;
+  let opcNodeColor;
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
 
   return (

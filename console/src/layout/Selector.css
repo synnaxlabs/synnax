@@ -9,6 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-vis-layout-selector button {
-    width: 175px;
+.console-vis-layout-selector {
+    container-type: size;
+    & .pluto-btn {
+        width: 100px;
+    }
 }
