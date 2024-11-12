@@ -71,7 +71,7 @@ jobs:
     if: needs.changes.outputs.cpp == 'true'
     strategy:
       matrix:
-        os: [maco-latest, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -94,6 +94,9 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -110,6 +113,7 @@ jobs:
         working-directory: freighter/go
 
       - name: Check Formatting
+        if: matrix.format
         run: scripts/gofmt-check.sh freighter/go
 
   integration:

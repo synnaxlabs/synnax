@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - rc
-      - sy-1375-run-ci-tests-on-windows-and-macos
   pull_request:
     branches:
       - main
