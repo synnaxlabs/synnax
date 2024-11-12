@@ -353,7 +353,7 @@ const ChannelForm = ({
         {(p) => (
           <SelectPort
             {...p}
-            model={(device?.model ?? "LJM_dtT8") as ModelKey}
+            model={(device?.model ?? "LJM_dtT4") as ModelKey}
             channelType={channelType}
           />
         )}
