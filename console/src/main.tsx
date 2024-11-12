@@ -14,12 +14,13 @@ import "@synnaxlabs/pluto/dist/style.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import { type Haul, Pluto, type state, type Triggers } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { memo, type ReactElement, useCallback, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
+import { EmbeddedLogsProvider } from "@/cluster/embedded";
 import { Confirm } from "@/confirm";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
@@ -103,7 +104,7 @@ const useBlockDefaultDropBehavior = (): void =>
     };
   }, []);
 
-const MainUnderContext = (): ReactElement => {
+const MainUnderContext = memo((): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   const activeRange = Range.useSelect();
@@ -133,7 +134,8 @@ const MainUnderContext = (): ReactElement => {
       </Pluto.Provider>
     </QueryClientProvider>
   );
-};
+});
+MainUnderContext.displayName = "MainUnderContext";
 
 const Main = (): ReactElement => (
   <ErrorOverlayWithoutStore>
@@ -142,7 +144,9 @@ const Main = (): ReactElement => (
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
-              <MainUnderContext />
+              <EmbeddedLogsProvider>
+                <MainUnderContext />
+              </EmbeddedLogsProvider>
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>

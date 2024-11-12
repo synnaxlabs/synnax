@@ -1,5 +1,5 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "$schema": "https://schema.tauri.app/config/2",
   "productName": "Synnax",
   "version": "../package.json",
   "build": {
@@ -33,7 +33,7 @@
       "providerShortName": null,
       "signingIdentity": null
     },
-    "externalBin": ["./bin/sy"],
+    "externalBin": ["bin/sy"],
     "resources": [],
     "shortDescription": "",
     "linux": {

@@ -60,6 +60,7 @@ const SideEffect = (): null => {
   Link.useDeep({ handlers: LINK_HANDLERS });
   Layout.useTriggers();
   Permissions.useFetchPermissions();
+  Cluster.useLocalServer();
   return null;
 };
 

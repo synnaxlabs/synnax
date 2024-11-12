@@ -28,6 +28,7 @@ import {
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
+import { embeddedControlsLayout } from "@/cluster/embedded";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
 import { Menu } from "@/components/menu";
@@ -220,7 +221,7 @@ export const NoneConnected = (): ReactElement => {
   );
 };
 
-export const Dropdown = (): ReactElement => {
+const Dropdown_ = (): ReactElement => {
   const dropProps = Core.use();
   const cluster = useSelect();
   return (
@@ -242,3 +243,20 @@ export const Dropdown = (): ReactElement => {
     </Core.Dialog>
   );
 };
+
+export const CommunityDropdown = () => {
+  const dropProps = Core.use();
+  const p = Layout.usePlacer();
+  return (
+    <Button.Button
+      onClick={() => p(embeddedControlsLayout)}
+      variant="text"
+      startIcon={<Icon.Cluster />}
+      justify="center"
+    >
+      Healthy
+    </Button.Button>
+  );
+};
+
+export const Dropdown = CommunityDropdown;

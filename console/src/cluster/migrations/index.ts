@@ -27,7 +27,7 @@ export const ZERO_SLICE_STATE = v2.ZERO_SLICE_STATE;
 
 export const SLICE_MIGRATIONS: migrate.Migrations = {
   "0.0.1": v1.sliceMigration,
-  "2.0.0": v2.sliceMigration,
+  "1.0.0": v2.sliceMigration,
 };
 
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({

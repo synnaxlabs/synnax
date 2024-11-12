@@ -33,6 +33,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
+import { useSelect } from "@/list/useSelect";
 import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
 import { findParent } from "@/util/findParent";
