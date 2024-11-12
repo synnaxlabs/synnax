@@ -1,4 +1,4 @@
-name: TypeScript Deploy
+name: Deploy - TypeScript
 
 on:
   push:

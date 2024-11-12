@@ -46,9 +46,9 @@ jobs:
 
   test:
     name: Test
-    needs: setup
+    needs: changes
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.changed == 'true'
+    if: needs.changes.outputs.changed == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
