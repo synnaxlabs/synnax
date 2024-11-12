@@ -71,9 +71,9 @@ void ni::Scanner::join_scan_thread() {
 }
 
 ni::Scanner::~Scanner() {
+    if (this->scan_thread && scan_thread->joinable()) scan_thread->join();
     ni::NiSysCfgInterface::CloseHandle(this->filter);
     ni::NiSysCfgInterface::CloseHandle(this->session);
-    if (this->scan_thread && scan_thread->joinable()) scan_thread->join();
 }
 
 void ni::Scanner::scan() {
