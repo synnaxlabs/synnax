@@ -16,6 +16,7 @@ import {
   type Tuple,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { Mutex } from "async-mutex";
 
 import { log } from "@/debug";
 import { type Runtime } from "@/runtime";
@@ -25,6 +26,7 @@ import {
   isDriftAction,
   type LabelPayload,
   type MaybeKeyPayload,
+  reloadWindow,
   setWindowError,
   setWindowProps,
   shouldEmit,
@@ -36,6 +38,8 @@ import { sync } from "@/sync";
 import { validateAction } from "@/validate";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
+
+const mu = new Mutex();
 
 /**
  * Redux middleware that conditionally does two things:
@@ -74,7 +78,10 @@ export const middleware =
     const isDrift = isDriftAction(action.type);
 
     // If the runtime is updating its own props, no need to sync.
-    const shouldSync = isDrift && action.type !== setWindowProps.type;
+    const shouldSync =
+      isDrift &&
+      action.type !== setWindowProps.type &&
+      action.type !== reloadWindow.type;
 
     let prevS: SliceState | null = null;
     if (isDrift) {
@@ -93,7 +100,7 @@ export const middleware =
 
     // Wrap everything in an async closure eto ensure that we synchronize before
     // before emitting to other windows.
-    void (async (): Promise<void> => {
+    mu.runExclusive(async (): Promise<void> => {
       try {
         if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
@@ -107,7 +114,7 @@ export const middleware =
         });
         dispatch(setWindowError({ key: label, message: (err as Error).message }));
       }
-    })();
+    });
 
     return res;
   };
@@ -119,15 +126,17 @@ export const middleware =
  * @param runtime - The runtime of the current window.
  * @returns a middleware function to be passed to `configureStore`.
  */
-export const configureMiddleware = <
-  S extends StoreState,
-  A extends CoreAction = UnknownAction,
-  M extends Middlewares<S> = Middlewares<S>,
->(
-  mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
-  runtime: Runtime<S, A | Action>,
-  debug: boolean = false,
-): ((def: GetDefaultMiddleware<S>) => M) => (def) => {
+export const configureMiddleware =
+  <
+    S extends StoreState,
+    A extends CoreAction = UnknownAction,
+    M extends Middlewares<S> = Middlewares<S>,
+  >(
+    mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
+    runtime: Runtime<S, A | Action>,
+    debug: boolean = false,
+  ): ((def: GetDefaultMiddleware<S>) => M) =>
+  (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
     return [middleware<S, A>(runtime, debug), ...base] as unknown as M;
   };
