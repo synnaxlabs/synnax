@@ -221,7 +221,7 @@ export const NoneConnected = (): ReactElement => {
   );
 };
 
-const Dropdown_ = (): ReactElement => {
+const Dropdown_ = (): ReactElement | null => {
   const dropProps = Core.use();
   const cluster = useSelect();
   return (
@@ -244,19 +244,4 @@ const Dropdown_ = (): ReactElement => {
   );
 };
 
-export const CommunityDropdown = () => {
-  const dropProps = Core.use();
-  const p = Layout.usePlacer();
-  return (
-    <Button.Button
-      onClick={() => p(embeddedControlsLayout)}
-      variant="text"
-      startIcon={<Icon.Cluster />}
-      justify="center"
-    >
-      Healthy
-    </Button.Button>
-  );
-};
-
-export const Dropdown = CommunityDropdown;
+export const Dropdown = Dropdown_;

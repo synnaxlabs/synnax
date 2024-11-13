@@ -7,4 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const isDev = () => (window as any).isDev;
+export interface Flags {
+  dev: boolean;
+  community: boolean;
+}
+
+export const getFlags = (): Flags => {
+  const win = window as unknown as Flags;
+  return { dev: win.dev, community: win.community };
+};

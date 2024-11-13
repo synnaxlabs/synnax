@@ -141,7 +141,9 @@ export const Console = (): ReactElement => (
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
-              <MainUnderContext />
+              <Cluster.EmbeddedLogsProvider>
+                <MainUnderContext />
+              </Cluster.EmbeddedLogsProvider>
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
