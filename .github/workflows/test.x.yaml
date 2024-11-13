@@ -29,7 +29,7 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             shared: &shared
-              - .github/workflows/text.x.yaml
+              - .github/workflows/test.x.yaml
             go:
               - *shared
               - alamos/go/**
