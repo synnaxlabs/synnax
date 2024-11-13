@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useState } from "react";
-
 import { Icon } from "@synnaxlabs/media";
 import { Select, Text } from "@synnaxlabs/pluto";
+import { useEffect, useState } from "react";
 
 import { Tabs as Core } from "@/components/Tabs";
 

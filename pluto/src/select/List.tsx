@@ -71,7 +71,7 @@ export const Core = <K extends Key, E extends Keyed<K>>({
     </CoreList.Hover>
   );
 
-  if (variant !== "connected") {
+  if (variant !== "connected")
     dialogContent = (
       <Align.Pack
         direction="y"
@@ -81,7 +81,6 @@ export const Core = <K extends Key, E extends Keyed<K>>({
         {dialogContent}
       </Align.Pack>
     );
-  }
 
   return (
     <CoreList.List<K, E> data={data} emptyContent={emptyContent} omit={omit}>

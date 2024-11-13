@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { CREATE_LAYOUT_TYPE, CreateModal } from "@/channel/Create";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export * from "@/channel/Create";
 export * from "@/channel/services/ontology";

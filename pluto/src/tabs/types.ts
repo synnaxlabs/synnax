@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
-import { RenderProp as BaseRenderProp } from "@/util/renderProp";
+import { type RenderProp as BaseRenderProp } from "@/util/renderProp";
 
 export const specZ = z.object({
   tabKey: z.string(),

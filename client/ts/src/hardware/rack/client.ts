@@ -15,11 +15,11 @@ import { z } from "zod";
 
 import { type framer } from "@/framer";
 import {
-  NewRack,
+  type NewRack,
   newRackZ,
-  RackKey,
+  type RackKey,
   rackKeyZ,
-  RackPayload,
+  type RackPayload,
   rackZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";

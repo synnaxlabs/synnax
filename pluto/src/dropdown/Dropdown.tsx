@@ -15,7 +15,6 @@ import {
   type location as loc,
   location,
   position,
-  runtime,
   xy,
 } from "@synnaxlabs/x";
 import {
@@ -35,7 +34,7 @@ import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 import { findParent } from "@/util/findParent";
 import { getRootElement } from "@/util/rootElement";
 
@@ -196,7 +195,7 @@ export const Dialog = ({
     </Align.Space>
   );
   if (variant === "floating") child = createPortal(child, getRootElement());
-  else if (variant === "modal") {
+  else if (variant === "modal")
     child = createPortal(
       <Align.Space
         className={CSS(CSS.BE("dropdown", "bg"), CSS.visible(visible))}
@@ -210,7 +209,6 @@ export const Dialog = ({
       </Align.Space>,
       getRootElement(),
     );
-  }
 
   const ctxValue = useMemo(() => ({ close }), [close]);
   return (

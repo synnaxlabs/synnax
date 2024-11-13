@@ -33,7 +33,7 @@ type Prev = [
   18,
   19,
   20,
-  ...Array<0>,
+  ...0[],
 ];
 
 /**
@@ -160,7 +160,7 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
   let result: UnknownRecord = obj as UnknownRecord;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    if (result[part] == null) result[part] = {};
+    result[part] ??= {};
     result = result[part] as UnknownRecord;
   }
   result[parts[parts.length - 1]] = value;
@@ -182,7 +182,7 @@ export const remove = <V>(obj: V, path: string): void => {
   }
   // if its an array, we need to splice it
   if (Array.isArray(result)) {
-    const index = parseInt(parts[parts.length - 1], 10);
+    const index = parseInt(parts[parts.length - 1]);
     if (isNaN(index)) return;
     result.splice(index, 1);
     return;

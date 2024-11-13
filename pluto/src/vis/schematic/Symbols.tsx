@@ -17,8 +17,8 @@ import {
   type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
+import { useReactFlow } from "@xyflow/react";
 import { type ReactElement, useCallback, useState } from "react";
-import { useReactFlow } from "reactflow";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -675,6 +675,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     onChange,
     tooltip,
     inlineSize,
+    notation,
   }): ReactElement => {
     const font = Theming.useTypography(level);
     const [dims, setDims] = useState<ValueDimensionsState>({
@@ -720,6 +721,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
       box: adjustedBox,
       telem,
       minWidth: inlineSize,
+      notation,
     });
 
     return (

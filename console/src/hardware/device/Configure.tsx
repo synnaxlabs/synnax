@@ -21,8 +21,7 @@ import {
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { deep, strings } from "@synnaxlabs/x";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useRef, useState } from "react";
 import { z } from "zod";

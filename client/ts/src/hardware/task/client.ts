@@ -19,18 +19,18 @@ import { framer } from "@/framer";
 import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
 import {
-  NewTask,
+  type NewTask,
   newTaskZ,
-  Payload,
-  State,
-  StateObservable,
+  type Payload,
+  type State,
+  type StateObservable,
   stateZ,
-  TaskKey,
+  type TaskKey,
   taskKeyZ,
   taskZ,
 } from "@/hardware/task/payload";
 import { ontology } from "@/ontology";
-import { ranger } from "@/ranger";
+import { type ranger } from "@/ranger";
 import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
@@ -123,9 +123,7 @@ export class Task<
       if (parsed.success) {
         res = parsed.data as State<D>;
         if (res.key === cmdKey) break;
-      } else {
-        console.error(parsed.error);
-      }
+      } else console.error(parsed.error);
     }
     streamer.close();
     return res;
@@ -316,10 +314,14 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
     return this.sugar([res.task])[0];
   }
 
-  async retrieveByName(name: string, rack?: number): Promise<Task> {
+  async retrieveByName<
+    C extends UnknownRecord = UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(name: string, rack?: number): Promise<Task<C, D, T>> {
     const tasks = await this.execRetrieve({ names: [name], rack });
     checkForMultipleOrNoResults("Task", name, tasks, true);
-    return this.sugar(tasks)[0];
+    return this.sugar(tasks)[0] as Task<C, D, T>;
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Payload[]> {

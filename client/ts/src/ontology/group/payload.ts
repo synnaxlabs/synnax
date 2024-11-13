@@ -52,9 +52,9 @@ export type ParamAnalysisResult =
 
 export const analyzeParams = (groups: Params): ParamAnalysisResult => {
   const normal = toArray(groups) as Keys | Names;
-  if (normal.length === 0) {
+  if (normal.length === 0) 
     throw new Error("No groups specified");
-  }
+  
   const isKey = keyZ.safeParse(normal[0]).success;
   return {
     single: !Array.isArray(groups),

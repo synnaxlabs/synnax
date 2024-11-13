@@ -9,7 +9,7 @@
 
 import {
   box,
-  Destructor,
+  type Destructor,
   type dimensions,
   direction,
   location,
@@ -22,7 +22,7 @@ import { type text } from "@/text/core";
 import { dimensions as textDimensions } from "@/text/dimensions";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import { type SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 
 export interface Draw2DLineProps {
   stroke: color.Color;
@@ -151,7 +151,7 @@ export class Draw2D {
     ctx.strokeStyle = this.resolveColor(color, this.theme.colors.border).hex;
     ctx.lineWidth = width ?? this.theme.sizes.border.width;
     radius ??= this.theme.sizes.border.radius;
-    if (location == null || location === true) {
+    if (location == null || location === true)
       if (radius > 0) {
         ctx.roundRect(
           ...xy.couple(box.topLeft(region)),
@@ -164,7 +164,7 @@ export class Draw2D {
         ctx.rect(...xy.couple(box.topLeft(region)), ...xy.couple(box.dims(region)));
         ctx.stroke();
       }
-    } else
+    else
       toArray(location).forEach((loc) => {
         const [start, end] = box.edgePoints(region, loc);
         ctx.beginPath();
@@ -183,8 +183,8 @@ export class Draw2D {
     borderWidth,
     backgroundColor,
   }: Draw2DContainerProps): void {
-    if (borderRadius == null) borderRadius = this.theme.sizes.border.radius;
-    if (borderWidth == null) borderWidth = 1;
+    borderRadius ??= this.theme.sizes.border.radius;
+    borderWidth ??= 1;
     const ctx = this.canvas;
     ctx.fillStyle = this.resolveColor(backgroundColor, this.theme.colors.gray.l1).hex;
     ctx.strokeStyle = this.resolveColor(borderColor, this.theme.colors.border).hex;
@@ -215,16 +215,10 @@ export class Draw2D {
     dims.height += 12;
     const { root = location.TOP_LEFT, offset = xy.ZERO } = props;
     const position = { ...props.position };
-    if (root.x === "right") {
-      position.x -= dims.width + offset.x;
-    } else {
-      position.x += offset.x;
-    }
-    if (root.y === "bottom") {
-      position.y -= dims.height + offset.y;
-    } else {
-      position.y += offset.y;
-    }
+    if (root.x === "right") position.x -= dims.width + offset.x;
+    else position.x += offset.x;
+    if (root.y === "bottom") position.y -= dims.height + offset.y;
+    else position.y += offset.y;
     this.container({
       region: box.construct(position, dims.width, dims.height),
       ...props,

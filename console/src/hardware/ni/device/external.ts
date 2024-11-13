@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/ni/device/Configure";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export * from "@/hardware/device/useListenForChanges";
 export * from "@/hardware/ni/device/Configure";

@@ -9,7 +9,10 @@
 
 package fs
 
-import "os"
+import (
+	"os"
+	goPath "path"
+)
 
 type defaultFS struct {
 	perm os.FileMode
@@ -40,14 +43,14 @@ func (d *defaultFS) Exists(name string) (bool, error) {
 }
 
 // List implements FS.
-func (d *defaultFS) List(name string) ([]os.FileInfo, error) {
-	entries, err := os.ReadDir(name)
+func (d *defaultFS) List(dirName string) ([]os.FileInfo, error) {
+	entries, err := os.ReadDir(dirName)
 	if err != nil {
 		return nil, err
 	}
 	infos := make([]os.FileInfo, len(entries))
 	for i, e := range entries {
-		infos[i], err = e.Info()
+		infos[i], err = os.Stat(goPath.Join(dirName, e.Name()))
 		if err != nil {
 			return nil, err
 		}

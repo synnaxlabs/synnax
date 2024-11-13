@@ -8,21 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
+import { type CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type Series } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { Key as ChannelKey } from "@/channel/payload";
+import { type Key as ChannelKey } from "@/channel/payload";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
-import { MultipleFoundError, NotFoundError } from "@/errors";
-import { QueryError } from "@/errors";
+import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { type Label } from "@/label/payload";
 import { ontology } from "@/ontology";
-import { Resource } from "@/ontology/payload";
+import { type Resource } from "@/ontology/payload";
 import { type Alias, Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
@@ -37,7 +36,7 @@ import {
   type Payload,
   payloadZ,
 } from "@/ranger/payload";
-import { CreateOptions, type Writer } from "@/ranger/writer";
+import { type CreateOptions, type Writer } from "@/ranger/writer";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
 
@@ -98,9 +97,8 @@ export class Range {
 
   async setAlias(channel: ChannelKey | Name, alias: string): Promise<void> {
     const ch = await this.channels.retrieve(channel);
-    if (ch.length === 0) {
-      throw new QueryError(`Channel ${channel} does not exist`);
-    }
+    if (ch.length === 0) throw new QueryError(`Channel ${channel} does not exist`);
+
     await this.aliaser.set({ [ch[0].key]: alias });
   }
 

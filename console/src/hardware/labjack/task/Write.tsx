@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, NotFoundError } from "@synnaxlabs/client";
+import { type device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -23,28 +23,28 @@ import {
 } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useDevice } from "@/hardware/device/useDevice";
 import { SelectOutputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
 import {
-  ChannelType,
-  ModelKey,
-  OutputChannelType,
-  Properties,
+  type ChannelType,
+  type ModelKey,
+  type OutputChannelType,
+  type Properties,
 } from "@/hardware/labjack/device/types";
 import { SelectDevice } from "@/hardware/labjack/task/common";
 import {
-  Write,
+  type Write,
   WRITE_TYPE,
-  WriteChan,
-  WritePayload,
-  WriteStateDetails,
-  WriteTaskConfig,
+  type WriteChan,
+  type WritePayload,
+  type WriteStateDetails,
+  type WriteTaskConfig,
   writeTaskConfigZ,
-  WriteType,
+  type WriteType,
   ZERO_WRITE_CHAN,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
@@ -54,13 +54,13 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
-  TaskLayoutArgs,
+  type TaskLayoutArgs,
   useCreate,
   useObserveState,
-  WrappedTaskLayoutProps,
+  type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 type LayoutArgs = TaskLayoutArgs<WritePayload>;
 
@@ -133,14 +133,13 @@ const Wrapped = ({
 
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
-      if (!shouldCreateStateIndex) {
+      if (!shouldCreateStateIndex)
         try {
           await client.channels.retrieve(dev.properties.writeStateIndex);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
           else throw e;
         }
-      }
 
       if (shouldCreateStateIndex) {
         modified = true;
@@ -189,14 +188,12 @@ const Wrapped = ({
         );
         states.forEach((s, i) => {
           const statesToCreateC = statesToCreate[i];
-          if (
-            !(statesToCreateC.port in dev.properties[statesToCreateC.type].channels)
-          ) {
+          if (!(statesToCreateC.port in dev.properties[statesToCreateC.type].channels))
             dev.properties[statesToCreateC.type].channels[statesToCreateC.port] = {
               state: s.key,
               command: 0,
             };
-          } else
+          else
             dev.properties[statesToCreateC.type].channels[statesToCreateC.port].state =
               s.key;
         });
@@ -219,12 +216,12 @@ const Wrapped = ({
         );
         commands.forEach((s, i) => {
           const cmdToCreate = commandsToCreate[i];
-          if (!(cmdToCreate.port in dev.properties[cmdToCreate.type].channels)) {
+          if (!(cmdToCreate.port in dev.properties[cmdToCreate.type].channels))
             dev.properties[cmdToCreate.type].channels[cmdToCreate.port] = {
               state: 0,
               command: s.key,
             };
-          } else
+          else
             dev.properties[cmdToCreate.type].channels[cmdToCreate.port].command = s.key;
         });
       }
@@ -498,7 +495,7 @@ const ChannelListItem = ({
             color={(() => {
               if (cmdChannelName === "No Command Channel")
                 return "var(--pluto-warning-m1)";
-              else if (cmdChannel) return undefined;
+              if (cmdChannel) return undefined;
               return "var(--pluto-error-z)";
             })()}
           >
@@ -510,7 +507,7 @@ const ChannelListItem = ({
             color={(() => {
               if (stateChannelName === "No State Channel")
                 return "var(--pluto-warning-m1)";
-              else if (stateChannel) return undefined;
+              if (stateChannel) return undefined;
               return "var(--pluto-error-z)";
             })()}
           >

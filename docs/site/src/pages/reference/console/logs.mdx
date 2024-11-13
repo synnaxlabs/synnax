@@ -9,7 +9,25 @@ nextURL: "/reference/console/users"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Video } from "@/components/Media";
+
+import { Video, Image } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+
+<Diagram style="height: 300px" preview>
+  <Image
+    client:only="react"
+    id="console/logs/thumbnail"
+    themed={false}
+    style={{
+      width: "500px",
+      position: "absolute",
+      left: "50%",
+      transform: "translateX(-50%)",
+      borderRadius: "1.5rem",
+      boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-15)",
+    }}
+  />
+</Diagram>
 
 Logs are used to view telemetry in a log format. They are useful for viewing low speed
 sensor values, viewing and communicating control sequences states, and debugging

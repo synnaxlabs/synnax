@@ -13,19 +13,19 @@ import { runtime } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
 import { select, selectSliceState } from "@/layout/selectors";
-import { WindowProps } from "@/layout/slice";
 import {
   clearWorkspace,
   MOSAIC_WINDOW_TYPE,
   moveMosaicTab,
   type MoveMosaicTabPayload,
   place,
-  PlacePayload,
+  type PlacePayload,
   remove,
   type RemovePayload,
   setWorkspace,
-  SetWorkspacePayload,
+  type SetWorkspacePayload,
   type StoreState,
+  type WindowProps,
 } from "@/layout/slice";
 import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
 

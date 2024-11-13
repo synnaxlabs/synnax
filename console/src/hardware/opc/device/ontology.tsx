@@ -9,13 +9,13 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
 import { configureWriteLayout } from "@/hardware/opc/task/WriteTask";
 import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 
 interface Args {
   create: boolean;

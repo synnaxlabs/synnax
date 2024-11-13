@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
-import { MutationFunction, useMutation } from "@tanstack/react-query";
+import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
 import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
@@ -28,8 +28,8 @@ import { useStore } from "react-redux";
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import {
-  BaseProps,
-  HandleTreeRenameProps,
+  type BaseProps,
+  type HandleTreeRenameProps,
   type Services,
   type TreeContextMenuProps,
 } from "@/ontology/service";
@@ -504,7 +504,7 @@ export const Tree = (): ReactElement => {
           setResources,
           expand: treeProps.expand,
           contract: treeProps.contract,
-          setLoading: setLoading,
+          setLoading,
         },
       };
 

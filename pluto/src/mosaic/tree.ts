@@ -334,7 +334,7 @@ const _gc = (node: Node): [Node, boolean] => {
   if (node.first == null || node.last == null) return [node, false];
   if (shouldGc(node.first)) return [liftUp(node.last, true), true];
   if (shouldGc(node.last)) return [liftUp(node.first, false), true];
-  let [sGC, eGC] = [false, false];
+  let sGC: boolean, eGC: boolean;
   [node.first, sGC] = _gc(node.first);
   [node.last, eGC] = _gc(node.last);
   return [node, sGC || eGC];
