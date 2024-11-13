@@ -26,7 +26,7 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
 - Logical and physical position calculations issues due to an open issue in Tauri.
 - Port indices in the LabJack task configuration dialogue.
 
-## [0.33.0] - 2924-11-04
+## [0.33.0] - 2024-11-04
 
 ### Added
 
