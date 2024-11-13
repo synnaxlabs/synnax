@@ -17,6 +17,8 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
 
 - Scientific and engineering notation to values on a schematic.
 - Ability to toggle the NI scanner on and off from the command palette.
+- [Python client] (https://docs-1gg5z500t-synnax.vercel.app/reference/python-client) support for [OPC UA read tasks](https://docs-1gg5z500t-synnax.vercel.app/reference/device-drivers/opc-ua/read-task)
+- Configurable font sizes on [schematic](https://docs-1gg5z500t-synnax.vercel.app/reference/console/schematic) values.
 
 ### Fixes
 
@@ -25,6 +27,7 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
 - Reconnection/disconnection issues with labjack devices that are actively streaming data.
 - Logical and physical position calculations issues due to an open issue in Tauri.
 - Port indices in the LabJack task configuration dialogue.
+- Improved schematic connection line pathing.
 
 ## v0.33.0 - 2024-11-04
 
@@ -35,6 +38,7 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
   - [Write Tasks](https://docs-1qlj556hd-synnax.vercel.app/reference/device-drivers/labjack/write-task) to control digital and analog outputs from the device.
   - [Read Tasks](https://docs-1qlj556hd-synnax.vercel.app/reference/device-drivers/labjack/read-task) to acquire data from inputs
 - A snooze button on the version update notification to silence version updates.
+- Taring functionality for National Instruments and LabJack read tasks to zero out channels actively reading from devices.
 
 ### Changes
 
