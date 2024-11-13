@@ -9,7 +9,7 @@
 
 import "@/palette/Palette.css";
 
-import { ontology, Synnax } from "@synnaxlabs/client";
+import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import {

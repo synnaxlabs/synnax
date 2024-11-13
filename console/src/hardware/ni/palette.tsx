@@ -13,8 +13,8 @@ import { Icon as PIcon } from "@synnaxlabs/pluto";
 import { configureAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { configureDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
 import { configureDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
-import { SCAN_TYPE, ScanConfig } from "@/hardware/ni/task/migrations";
-import { Command } from "@/palette/Palette";
+import { type ScanConfig } from "@/hardware/ni/task/migrations";
+import { type Command } from "@/palette/Palette";
 
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",
@@ -64,11 +64,12 @@ export const toggleNIScanner: Command = {
     if (client == null) return;
     void (async () => {
       try {
-        const tsk = await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
+        const tsk =
+          await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
         const enabled = tsk.config.enabled ?? true;
         client.hardware.tasks.create<ScanConfig>({
           ...tsk.payload,
-          config: { enabled  : !enabled },
+          config: { enabled: !enabled },
         });
         addStatus({
           variant: "success",
