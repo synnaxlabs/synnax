@@ -11,10 +11,6 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
 
 ## Upcoming
 
-### Additions
-
-- LabJack T-Series support on macOS and Linux.
-
 ## v0.34.0 - 2024-11-13
 
 ### Additions
