@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoSelect } from "@/hooks";
-import { SLICE_NAME, SliceState, State, StoreState } from "@/log/slice";
+import { SLICE_NAME, type SliceState, type State, type StoreState } from "@/log/slice";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 

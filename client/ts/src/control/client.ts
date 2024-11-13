@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { StateTracker } from "@/control/state";
-import { framer } from "@/framer";
+import { type framer } from "@/framer";
 
 const CONTROL_STATE_KEY = "sy_node_1_control";
 

@@ -43,20 +43,23 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel,
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(fs xfs.FS, codec binary.Codec) (core.Channel, error) {
+func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 	s, err := fs.Stat("")
 	if err != nil {
-		return core.Channel{}, err
+		return
 	}
 	metaF, err := fs.Open(metaFile, os.O_RDONLY)
-	var ch core.Channel
 	if err != nil {
-		return ch, err
+		return
 	}
-	if err = codec.DecodeStream(nil, metaF, &ch); err != nil {
-		return ch, errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
+	defer func() { err = errors.CombineErrors(err, metaF.Close()) }()
+
+	err = codec.DecodeStream(nil, metaF, &ch)
+	if err != nil {
+		err = errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
 	}
-	return ch, metaF.Close()
+
+	return
 }
 
 // Create creates the metadata file for a database whose data is kept in fs and is

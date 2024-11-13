@@ -22,7 +22,7 @@ import { useContext } from "@/triggers/Provider";
 import {
   diff,
   filter,
-  MatchOptions,
+  type MatchOptions,
   purge,
   type Stage,
   type Trigger,
@@ -117,12 +117,9 @@ export const useHeldRef = ({
     triggers,
     callback: useCallback((e: UseEvent) => {
       setRef((prev) => {
-        let next: Trigger[] = [];
-        if (e.stage === "start") {
-          next = unique([...prev.triggers, ...e.triggers]);
-        } else {
-          next = purge(prev.triggers, e.triggers);
-        }
+        let next: Trigger[];
+        if (e.stage === "start") next = unique([...prev.triggers, ...e.triggers]);
+        else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };
       });
     }, []),
@@ -137,7 +134,7 @@ export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
     triggers,
     callback: useCallback((e: UseEvent) => {
       setHeld((prev) => {
-        let next: Trigger[] = [];
+        let next: Trigger[];
         if (e.stage === "start") next = unique([...prev.triggers, ...e.triggers]);
         else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };

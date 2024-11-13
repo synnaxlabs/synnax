@@ -20,7 +20,7 @@ export interface LinkProps<L extends Text.Level = "h1">
 }
 
 const SCHEME_SEPARATOR = "://";
-const HTTP_SECURE_SCHEME = "https" + SCHEME_SEPARATOR;
+const HTTP_SECURE_SCHEME = `https${SCHEME_SEPARATOR}`;
 
 /**
  * Use.Link renders a button that looks like a link and redirects to the given href

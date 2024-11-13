@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
-import { AsyncTermSearcher, nullToArr, toArray, unique } from "@synnaxlabs/x";
+import { type ranger } from "@synnaxlabs/client";
+import { type AsyncTermSearcher, nullToArr, toArray, unique } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { CSS } from "@/css";

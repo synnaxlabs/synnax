@@ -72,46 +72,84 @@ export const aiPortZ = z.object({
   key: z.string(),
   type: aiChannelTypeZ,
   voltageRange: bounds.bounds,
+  aliases: z.array(z.string()),
 });
 export type AIPort = z.infer<typeof aiPortZ>;
 
-export const diPortZ = z.object({ key: z.string(), type: diChannelTypeZ });
+export const diPortZ = z.object({
+  key: z.string(),
+  type: diChannelTypeZ,
+  aliases: z.array(z.string()),
+});
 export type DIPort = z.infer<typeof diPortZ>;
 
-export const doPortZ = z.object({ key: z.string(), type: doChannelTypeZ });
+export const doPortZ = z.object({
+  key: z.string(),
+  type: doChannelTypeZ,
+  aliases: z.array(z.string()),
+});
 export type DOPort = z.infer<typeof doPortZ>;
 
-export const aoPortZ = z.object({ key: z.string(), type: aoChannelTypeZ });
+export const aoPortZ = z.object({
+  key: z.string(),
+  type: aoChannelTypeZ,
+  aliases: z.array(z.string()),
+});
 export type AOPort = z.infer<typeof aoPortZ>;
 
 export const portZ = z.union([aoPortZ, aiPortZ, doPortZ, diPortZ]);
 
 export type Port = z.infer<typeof portZ>;
 
-const aiFactory = (b: bounds.Bounds, voltageRange: bounds.Bounds): AIPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `AIN${i + b.lower}`,
-    type: "AI",
-    voltageRange,
-  }));
+interface AltConfig {
+  prefix: string;
+  offset: number;
+}
 
-const diFactory = (b: bounds.Bounds): DIPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `DIO${i + b.lower}`,
-    type: "DI",
-  }));
+const aiFactory = (
+  b: bounds.Bounds,
+  voltageRange: bounds.Bounds,
+  altConfigs: AltConfig[] = [],
+): AIPort[] =>
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const port = i + b.lower;
+    return {
+      key: `AIN${port}`,
+      type: "AI",
+      voltageRange,
+      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+    };
+  });
 
-const doFactory = (b: bounds.Bounds): DOPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `DIO${i + b.lower}`,
-    type: "DO",
-  }));
+const diFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DIPort[] =>
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const port = i + b.lower;
+    return {
+      key: `DIO${port}`,
+      type: "DI",
+      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+    };
+  });
 
-const aoFactory = (b: bounds.Bounds): AOPort[] =>
-  Array.from({ length: bounds.span(b) + 1 }, (_, i) => ({
-    key: `DAC${i + b.lower}`,
-    type: "AO",
-  }));
+const doFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DOPort[] =>
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const port = i + b.lower;
+    return {
+      key: `DIO${i + b.lower}`,
+      type: "DO",
+      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+    };
+  });
+
+const aoFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): AOPort[] =>
+  Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
+    const port = i + b.lower;
+    return {
+      key: `DAC${port}`,
+      type: "AO",
+      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+    };
+  });
 
 const AIN_HIGH_VOLTAGE = bounds.construct(-10, 10);
 const AIN_LOW_VOLTAGE = bounds.construct(0, 2.5);
@@ -131,8 +169,15 @@ export const T4_AI_PORTS: AIPort[] = [
   ...aiFactory({ lower: 5, upper: 11 }, AIN_LOW_VOLTAGE),
 ];
 export const T4_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
-export const T4_DI_PORTS: DIPort[] = diFactory({ lower: 4, upper: 15 });
-export const T4_DO_PORTS: DOPort[] = doFactory({ lower: 4, upper: 15 });
+export const T4_DI_PORTS: DIPort[] = [
+  ...diFactory({ lower: 4, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
+  ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
+];
+export const T4_DO_PORTS: DOPort[] = [
+  ...doFactory({ lower: 4, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
+  ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
+];
+
 export const T4_PORTS: Ports = {
   AI: T4_AI_PORTS,
   AO: T4_AO_PORTS,
@@ -147,8 +192,18 @@ export const T7_AI_PORTS: AIPort[] = aiFactory(
   AIN_HIGH_VOLTAGE,
 );
 export const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
-export const T7_DI_PORTS: DIPort[] = diFactory({ lower: 0, upper: 22 });
-export const T7_DO_PORTS: DOPort[] = doFactory({ lower: 0, upper: 22 });
+export const T7_DI_PORTS: DIPort[] = [
+  ...diFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
+  ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
+  ...diFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
+  ...diFactory({ lower: 20, upper: 22 }, [{ prefix: "MIO", offset: 20 }]),
+];
+export const T7_DO_PORTS: DOPort[] = [
+  ...doFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
+  ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
+  ...doFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
+  ...doFactory({ lower: 20, upper: 22 }, [{ prefix: "MIO", offset: 20 }]),
+];
 export const T7_PORTS: Ports = {
   AI: T7_AI_PORTS,
   AO: T7_AO_PORTS,
@@ -163,8 +218,16 @@ export const T8_AI_PORTS: AIPort[] = aiFactory(
   AIN_HIGH_VOLTAGE,
 );
 export const T8_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
-export const T8_DI_PORTS: DIPort[] = diFactory({ lower: 0, upper: 19 });
-export const T8_DO_PORTS: DOPort[] = doFactory({ lower: 0, upper: 19 });
+export const T8_DI_PORTS: DIPort[] = [
+  ...diFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
+  ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
+  ...diFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
+];
+export const T8_DO_PORTS: DOPort[] = [
+  ...doFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
+  ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
+  ...doFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
+];
 export const T8_PORTS: Ports = {
   AI: T8_AI_PORTS,
   AO: T8_AO_PORTS,

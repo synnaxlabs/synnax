@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Destructor, MultiSeries, TelemValue } from "@synnaxlabs/x";
+import { DataType, type Destructor, MultiSeries, type TelemValue } from "@synnaxlabs/x";
 import { box, xy } from "@synnaxlabs/x/spatial";
 import { z } from "zod";
 

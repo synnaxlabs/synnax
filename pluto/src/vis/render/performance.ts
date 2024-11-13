@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Destructor, TimeSpan } from "@synnaxlabs/x";
+import { type Destructor, TimeSpan } from "@synnaxlabs/x";
 
 class TrackerEntry {
   level: number;

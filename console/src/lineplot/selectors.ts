@@ -11,7 +11,7 @@ import { type Viewport } from "@synnaxlabs/pluto";
 import { type bounds } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
-import { AxisKey, XAxisRecord } from "@/lineplot/axis";
+import { type AxisKey, type XAxisRecord } from "@/lineplot/axis";
 import {
   type ControlState,
   type SelectionState,

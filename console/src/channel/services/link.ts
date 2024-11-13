@@ -10,7 +10,7 @@
 import { channel } from "@synnaxlabs/client";
 
 import { LinePlot } from "@/lineplot";
-import { Link } from "@/link";
+import { type Link } from "@/link";
 
 export const linkHandler: Link.Handler = async ({
   resource,

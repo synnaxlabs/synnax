@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useSelector, useDispatch } from 'react-redux'
-
-import reactLogo from './assets/react.svg'
 import './App.css'
-import { incremented, StoreState } from './store'
 
 import { createWindow } from '@synnaxlabs/drift'
 import { useSelectWindow } from '@synnaxlabs/drift/react'
+import { useDispatch, useSelector } from 'react-redux'
+
+import reactLogo from './assets/react.svg'
+import { incremented, StoreState } from './store'
 
 function App() {
   const count = useSelector((state: StoreState) => state.counter.value)

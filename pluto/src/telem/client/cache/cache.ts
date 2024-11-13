@@ -10,7 +10,7 @@
 import { type channel, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import { type Required } from "@synnaxlabs/x";
 
-import { DynamicProps } from "@/telem/client/cache/dynamic";
+import { type DynamicProps } from "@/telem/client/cache/dynamic";
 import {
   DEFAULT_STATIC_PROPS,
   type StaticProps,

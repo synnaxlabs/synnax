@@ -42,11 +42,10 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
     );
     this.internal.sink = await telem.useSink(this.ctx, sinkProps, this.internal.sink);
 
-    if (this.state.triggered && !this.prevState.triggered) {
+    if (this.state.triggered && !this.prevState.triggered)
       this.internal.sink
         .set(this.state.status.data?.authority !== Authority.Absolute.valueOf())
         .catch(console.error);
-    }
 
     await this.updateEnabledState();
     this.internal.stopListening?.();
@@ -57,9 +56,8 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
 
   private async updateEnabledState(): Promise<void> {
     const nextStatus = await this.internal.source.value();
-    if (!nextStatus.time.equals(this.state.status.time)) {
+    if (!nextStatus.time.equals(this.state.status.time))
       this.setState((p) => ({ ...p, status: nextStatus, triggered: false }));
-    }
   }
 
   async afterDelete(): Promise<void> {

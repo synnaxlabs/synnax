@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import * as v0 from "@/version/migrations/v0";
+import type * as v0 from "@/version/migrations/v0";
 
 export const sliceStateZ = z.object({
   version: z.literal("1.0.0"),

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { channel, control, type Synnax, UnexpectedError } from "@synnaxlabs/client";
+import { type channel, control, type Synnax, UnexpectedError } from "@synnaxlabs/client";
 import { type Destructor, observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 

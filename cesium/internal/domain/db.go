@@ -30,6 +30,7 @@ var (
 	ErrWriteConflict = errors.Wrap(validate.Error, "write overlaps with existing data in database")
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
+	ErrOpenEntity    = errors.New("cannot close database because there are open entities on it")
 	errDBClosed      = core.EntityClosed("domain.db")
 )
 
@@ -191,18 +192,22 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
+// If close fails for a reason other than unclosed writers/readers, the database will
+// still be marked closed and no read/write operations are allowed on it to protect
+// data integrity.
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
 	count := db.entityCount.Load()
 	if count > 0 {
-		err := errors.Newf("cannot close domain because there are %d unclosed writers/iterators accessing it", count)
+		err := errors.Wrapf(ErrOpenEntity, "there are %d unclosed writers/iterators accessing it", count)
 		db.closed.Store(false)
 		return err
 	}
 	w := errors.NewCatcher(errors.WithAggregation())
 	w.Exec(db.fc.close)
 	w.Exec(db.idx.close)
+
 	return w.Error()
 }

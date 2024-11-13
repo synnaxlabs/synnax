@@ -29,10 +29,8 @@ export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
 
   async afterUpdate(): Promise<void> {
     const { sink: sinkProps } = this.state;
-    if (this.internal.prevTrigger == null)
-      this.internal.prevTrigger = this.state.trigger;
+    this.internal.prevTrigger ??= this.state.trigger;
     this.internal.sink = await telem.useSink(this.ctx, sinkProps, this.internal.sink);
-
     const prevTrigger = this.internal.prevTrigger;
     this.internal.prevTrigger = this.state.trigger;
     if (this.state.trigger <= prevTrigger) return;

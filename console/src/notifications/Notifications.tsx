@@ -10,7 +10,7 @@
 import "@/notifications/Notifications.css";
 
 import { Status } from "@synnaxlabs/pluto";
-import { Button } from "@synnaxlabs/pluto/button";
+import { type Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";

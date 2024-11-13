@@ -53,6 +53,10 @@ func (ip *indexPersist) prepare(start int) func() error {
 	}
 }
 
+func (ip *indexPersist) Close() error {
+	return ip.p.Close()
+}
+
 type pointerPersist struct {
 	fs.File
 	sync.Mutex

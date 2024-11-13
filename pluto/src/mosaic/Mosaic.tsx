@@ -11,9 +11,9 @@ import "@/mosaic/Mosaic.css";
 
 import { type box, type location } from "@synnaxlabs/x";
 import {
-  DragEvent,
+  type DragEvent,
   memo,
-  MutableRefObject,
+  type MutableRefObject,
   type ReactElement,
   useCallback,
   useRef,

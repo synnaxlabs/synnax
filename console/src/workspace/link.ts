@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { Link } from "@/link";
+import { type Link } from "@/link";
 import { setActive } from "@/workspace/slice";
 
 export const linkHandler: Link.Handler = async ({

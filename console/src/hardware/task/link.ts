@@ -10,7 +10,7 @@
 import { task } from "@synnaxlabs/client";
 
 import { createTaskLayout } from "@/hardware/task/ontology";
-import { Link } from "@/link";
+import { type Link } from "@/link";
 
 export const linkHandler: Link.Handler = async ({
   resource,

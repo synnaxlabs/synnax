@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Context } from "@synnaxlabs/freighter";
+import { type Context } from "@synnaxlabs/freighter";
 import { URL } from "@synnaxlabs/x/url";
 import { describe, expect, it, test } from "vitest";
 

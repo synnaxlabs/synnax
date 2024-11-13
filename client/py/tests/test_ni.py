@@ -1,6 +1,19 @@
+#  Copyright 2024 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+
 import pytest
 
+from synnax import ValidationError
 from synnax.hardware.ni import (
+    AIVoltageChan,
+    AnalogReadTask,
     AnalogReadTaskConfig,
     DigitalReadConfig,
     DigitalWriteConfig,
@@ -11,12 +24,12 @@ from synnax.hardware.ni import (
 class TestNITask:
     def test_parse_analog_read_task(self):
         data = {
-            "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
             "sample_rate": 10,
             "stream_rate": 5,
             "channels": [
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "k09AWoiyLxN",
                     "type": "ai_voltage",
                     "terminal_config": "Cfg_Default",
@@ -30,6 +43,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "Ar7iVF6Tjzf",
                     "type": "ai_thermocouple",
                     "channel": 1048583,
@@ -45,6 +59,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "3zRNCIt6H0A",
                     "channel": 1048584,
                     "type": "ai_rtd",
@@ -61,6 +76,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "2dYSMHhZHtt",
                     "type": "ai_pressure_bridge_two_point_lin",
                     "channel": 1048585,
@@ -84,6 +100,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "h6aNsbt9iXo",
                     "type": "ai_accel",
                     "channel": 1048586,
@@ -101,6 +118,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "88xDWnrIF90",
                     "type": "ai_bridge",
                     "units": "mVoltsPerVolt",
@@ -118,6 +136,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "9AvgGUrtyvw",
                     "channel": 1048588,
                     "port": 6,
@@ -133,6 +152,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "fo88BkNspw0",
                     "type": "ai_force_bridge_table",
                     "channel": 1048589,
@@ -153,6 +173,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "FN8PbpvQvBt",
                     "type": "ai_force_bridge_two_point_lin",
                     "channel": 1048590,
@@ -176,6 +197,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "s3KtqxSs6cD",
                     "type": "ai_force_iepe",
                     "channel": 1048591,
@@ -193,6 +215,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "VNUF26p0JC2",
                     "type": "ai_microphone",
                     "channel": 1048592,
@@ -208,6 +231,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "9b5IgxtRYIx",
                     "type": "ai_pressure_bridge_table",
                     "channel": 1048593,
@@ -228,6 +252,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "i6dz8FDpPwp",
                     "type": "ai_resistance",
                     "channel": 1048594,
@@ -244,6 +269,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "hfADiXS6IMR",
                     "type": "ai_strain_gauge",
                     "channel": 1048595,
@@ -265,6 +291,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "afSn8BOZ8Nv",
                     "type": "ai_temp_builtin",
                     "channel": 1048596,
@@ -274,6 +301,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "LuzjMHtLTR9",
                     "type": "ai_torque_bridge_table",
                     "channel": 1048597,
@@ -294,6 +322,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "IPJbBSbVf7F",
                     "type": "ai_torque_bridge_two_point_lin",
                     "channel": 1048598,
@@ -316,6 +345,7 @@ class TestNITask:
                 },
                 {
                     "name": "",
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "key": "ZayvFgaGurP",
                     "type": "ai_velocity_iepe",
                     "channel": 1048599,
@@ -335,6 +365,44 @@ class TestNITask:
             "data_saving": True,
         }
         AnalogReadTaskConfig.parse_obj(data)
+
+    def test_parse_analog_read_task_default_device_none_provided(self):
+        with pytest.raises(ValidationError):
+            AnalogReadTask(
+                sample_rate=10,
+                stream_rate=5,
+                channels=[
+                    AIVoltageChan(
+                        key="k09AWoiyLxN",
+                        terminal_config="Cfg_Default",
+                        channel=1048582,
+                        port=0,
+                        enabled=True,
+                        min_val=0,
+                        max_val=1,
+                        units="Volts",
+                    )
+                ],
+            )
+
+    def test_parse_analog_read_task_default_device_provided(self):
+        AnalogReadTask(
+            device="474503CF-49FD-11EF-80E5-91C59E7C9645",
+            sample_rate=10,
+            stream_rate=5,
+            channels=[
+                AIVoltageChan(
+                    key="k09AWoiyLxN",
+                    terminal_config="Cfg_Default",
+                    channel=1048582,
+                    port=0,
+                    enabled=True,
+                    min_val=0,
+                    max_val=1,
+                    units="Volts",
+                )
+            ],
+        )
 
     def test_parse_digital_read_task(self):
         data = {

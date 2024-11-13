@@ -10,7 +10,7 @@
 import { migrate } from "@synnaxlabs/x";
 
 export * from "@/hardware/ni/task/migrations/v1";
-import * as v0 from "@/hardware/ni/task/migrations/v0";
+import type * as v0 from "@/hardware/ni/task/migrations/v0";
 import * as v1 from "@/hardware/ni/task/migrations/v1";
 
 export const ANALOG_READ_CONFIG_MIGRATIONS: migrate.Migrations = {

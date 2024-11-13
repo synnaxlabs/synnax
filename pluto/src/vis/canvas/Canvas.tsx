@@ -21,7 +21,7 @@ import {
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { useResize, type UseResizeHandler, UseResizeOpts } from "@/hooks";
+import { useResize, type UseResizeHandler, type UseResizeOpts } from "@/hooks";
 import { canvas } from "@/vis/canvas/aether";
 
 type HTMLDivProps = DetailedHTMLProps<

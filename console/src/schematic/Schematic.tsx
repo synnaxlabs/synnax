@@ -16,6 +16,7 @@ import {
   Diagram,
   Haul,
   type Legend,
+  Menu as PMenu,
   Schematic as Core,
   Text,
   Theming,
@@ -24,7 +25,6 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -44,7 +44,6 @@ import {
   useSelect,
   useSelectHasPermission,
   useSelectNodeProps,
-  useSelectViewport,
   useSelectViewportMode,
 } from "@/schematic/selectors";
 import {
@@ -210,9 +209,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const elRenderer = useCallback(
-    (props: Diagram.SymbolProps) => {
-      return <SymbolRenderer layoutKey={layoutKey} {...props} />;
-    },
+    (props: Diagram.SymbolProps) => <SymbolRenderer layoutKey={layoutKey} {...props} />,
     [layoutKey],
   );
 

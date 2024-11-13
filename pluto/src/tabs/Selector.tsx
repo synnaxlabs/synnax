@@ -21,7 +21,7 @@ import { CSS } from "@/css";
 import { Icon as PIcon } from "@/icon";
 import { Menu } from "@/menu";
 import { useContext } from "@/tabs/Tabs";
-import { Spec } from "@/tabs/types";
+import { type Spec } from "@/tabs/types";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 

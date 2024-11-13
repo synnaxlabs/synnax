@@ -7,24 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import React, {
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
-  type ReactElement,
-} from "react";
-
 import { Icon } from "@synnaxlabs/media";
+import { Breadcrumb } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
+import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
-import { Button } from "@synnaxlabs/pluto/button";
-import { Breadcrumb } from "@synnaxlabs/pluto";
 import { caseconv, deep } from "@synnaxlabs/x";
+import React, {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 interface SearchResult {
   key: string;
@@ -45,9 +44,7 @@ export const Search = (): ReactElement => {
   const d = Dropdown.use();
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") {
-        d.close();
-      }
+      if (e.key === "Escape") d.close();
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         d.open();

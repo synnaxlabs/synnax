@@ -16,7 +16,7 @@ import { createConfigureLayout } from "@/hardware/ni/device/Configure";
 import { Layout } from "@/layout";
 import {
   type NotificationAdapter,
-  SugaredNotification,
+  type SugaredNotification,
 } from "@/notifications/Notifications";
 
 export const notificationAdapter: NotificationAdapter = (status) => {

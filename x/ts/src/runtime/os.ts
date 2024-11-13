@@ -31,8 +31,8 @@ const evalOS = (): OS | undefined => {
   if (typeof window === "undefined") return undefined;
   const userAgent = window.navigator.userAgent.toLowerCase();
   if (userAgent.includes("mac")) return "MacOS";
-  else if (userAgent.includes("win")) return "Windows";
-  else if (userAgent.includes("linux")) return "Linux";
+  if (userAgent.includes("win")) return "Windows";
+  if (userAgent.includes("linux")) return "Linux";
   return undefined;
 };
 

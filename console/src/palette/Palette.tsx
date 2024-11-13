@@ -9,26 +9,26 @@
 
 import "@/palette/Palette.css";
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Align,
   Button,
   componentRenderProp,
   CSS as PCSS,
+  Dropdown,
   Haul,
   Input,
+  List,
   Mosaic,
   Status,
-  Synnax,
+  Synnax as PSynnax,
   Text,
   Tooltip,
   Triggers,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto";
-import { Dropdown } from "@synnaxlabs/pluto/dropdown";
-import { List } from "@synnaxlabs/pluto/list";
 import { box, dimensions, runtime, xy } from "@synnaxlabs/x";
 import { listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";
@@ -44,7 +44,7 @@ import {
 import { useDispatch, useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
-import { CreateConfirmModal } from "@/confirm/Confirm";
+import { type CreateConfirmModal } from "@/confirm/Confirm";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
@@ -271,7 +271,7 @@ const PaletteDialogContent = ({
 }: PaletteDialogProps): ReactElement => {
   const { setSourceData } = List.useDataUtilContext<Key, Entry>();
   const addStatus = Status.useAggregator();
-  const client = Synnax.use();
+  const client = PSynnax.use();
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
@@ -283,8 +283,8 @@ const PaletteDialogContent = ({
   const confirm = Confirm.useModal();
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
-    () => ({ store, placeLayout, confirm }),
-    [store, placeLayout],
+    () => ({ store, placeLayout, confirm, client, addStatus }),
+    [store, placeLayout, client?.key, addStatus],
   );
 
   const handleSelect = useCallback(
@@ -457,8 +457,10 @@ export interface ResourceListItemProps
 
 export interface CommandSelectionContext {
   store: RootStore;
+  client: Synnax | null;
   placeLayout: Layout.Placer;
   confirm: CreateConfirmModal;
+  addStatus: Status.AddStatusFn;
 }
 
 interface CommandActionProps {

@@ -15,7 +15,7 @@ import { DeviceServices } from "@/hardware/device/services";
 import { Task } from "@/hardware/task";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 import { Builtin } from "@/ontology/builtin";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";

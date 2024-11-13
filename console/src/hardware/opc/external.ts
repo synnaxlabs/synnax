@@ -9,7 +9,7 @@
 
 import { Device } from "@/hardware/opc/device";
 import { Task } from "@/hardware/opc/task";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export * from "@/hardware/opc/device";
 export * from "@/hardware/opc/palette";

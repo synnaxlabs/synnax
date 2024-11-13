@@ -23,7 +23,7 @@ import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
 import { Selector, type SelectorProps } from "@/tabs/Selector";
-import { type RenderProp, type Spec, Tab } from "@/tabs/types";
+import { type RenderProp, type Spec, type Tab } from "@/tabs/types";
 import { type ComponentSize } from "@/util/component";
 
 /**
@@ -56,7 +56,7 @@ export const rename = (key: string, name: string, tabs: Tab[]): Tab[] => {
   if (name.length === 0) return tabs;
   const t = tabs.find((t) => t.tabKey === key);
   if (t == null || t.name === name) return tabs;
-  return tabs.map((t) => (t.tabKey === key ? { ...t, name: name } : t));
+  return tabs.map((t) => (t.tabKey === key ? { ...t, name } : t));
 };
 
 /** Props for the {@link useStatic} hook. */
@@ -300,10 +300,10 @@ export const Content = (): ReactNode | null => {
   let content: ReactNode = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selected == null || selectedTab == null) return emptyContent ?? null;
-  if (renderProp != null) {
+  if (renderProp != null)
     if (typeof renderProp === "function") content = renderProp(selectedTab);
     else content = renderProp;
-  } else if (selectedTab.content != null) content = selectedTab.content as ReactNode;
+  else if (selectedTab.content != null) content = selectedTab.content as ReactNode;
   return (
     <div className={CSS.B("tabs-content")} onClick={() => onSelect?.(selected)}>
       {content}
