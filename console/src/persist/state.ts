@@ -117,10 +117,14 @@ export const open = async <S extends RequiredState>({
   }
   if (state != null)
     exclude.forEach((key) => {
-      if (typeof key === "function") return;
-      const v = deep.get(initial, key, { optional: true });
-      if (v == null) return;
-      deep.set(state, key, v);
+      try {
+        if (typeof key === "function") return;
+        const v = deep.get(initial, key, { optional: true });
+        if (v == null) return;
+        deep.set(state, key, v);
+      } catch (e) {
+        console.error("unable to apply exclusions. continuing with undefined state.");
+      }
     });
 
   return [

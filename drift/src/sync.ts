@@ -8,11 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { dimensions, unique, xy } from "@synnaxlabs/x";
+import { deep, dimensions, unique, xy } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
 import { type MainChecker, type Manager, type Properties } from "@/runtime";
-import { setWindowProps, type SetWindowPropsPayload, type SliceState } from "@/state";
+import {
+  setWindowPropsInternal,
+  type SetWindowPropsPayload,
+  type SliceState,
+} from "@/state";
 import {
   INITIAL_WINDOW_STATE,
   MAIN_WINDOW,
@@ -23,7 +27,7 @@ import {
 type RequiredRuntime = Manager & MainChecker & Properties;
 
 const purgeWinStateToProps = (
-  window: WindowState & { prerenderLabel?: string },
+  window: WindowState & { prerenderLabel?: string; label?: string },
 ): Omit<WindowProps, "key"> => {
   const {
     centerCount,
@@ -34,6 +38,7 @@ const purgeWinStateToProps = (
     prerenderLabel,
     reserved,
     minimized,
+    label,
     ...rest
   } = window;
   return rest;
@@ -49,7 +54,11 @@ export const syncInitial = async (
     (label) => label !== MAIN_WINDOW,
   );
   const nonMain = Object.keys(state.windows).filter((label) => label !== MAIN_WINDOW);
-  log(debug, "syncInitial", state, await runtime.listLabels(), nonMain);
+  log(debug, "syncInitial", {
+    state,
+    currWindows: await runtime.listLabels(),
+    nonMainWindows: nonMain,
+  });
   // Create windows that are not in runtime, delete windows that are not in state
   const allLabels = unique([...runtimeLabels, ...nonMain]);
   // Only the main runtime is allowed to create windows.
@@ -65,7 +74,9 @@ export const syncInitial = async (
   if (next == null) return;
   const initial: WindowState = { ...INITIAL_WINDOW_STATE, key: label };
   await syncCurrent(initial, next, runtime, debug);
-  dispatch(setWindowProps({ label: runtime.label(), ...(await runtime.getProps()) }));
+  dispatch(
+    setWindowPropsInternal({ label: runtime.label(), ...(await runtime.getProps()) }),
+  );
 };
 
 export const sync = async (
@@ -74,7 +85,7 @@ export const sync = async (
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
-  log(debug, "sync", prev, next);
+  log(debug, "sync", runtime.isMain(), prev, next);
   if (runtime.isMain()) await syncMain(prev, next, runtime, debug);
   const prevWin = prev.windows[runtime.label()];
   const nextWin = next.windows[runtime.label()];
@@ -88,17 +99,21 @@ export const syncCurrent = async (
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
-  const changes: Array<[string, () => Promise<void>]> = [];
+  const changes: Array<[string, any, () => Promise<void>]> = [];
 
   if (nextWin.title != null && nextWin.title !== prevWin.title)
-    changes.push(["title", async () => runtime.setTitle(nextWin.title as string)]);
+    changes.push([
+      "title",
+      nextWin.title,
+      async () => runtime.setTitle(nextWin.title as string),
+    ]);
 
-  const changeVisibility =
-    nextWin.visible != null && nextWin.visible !== prevWin.visible;
+  const changeVisibility = nextWin.visible != null;
   const changeVisibilityNow = nextWin.visible === false;
   const changeVisibilityF = (): number =>
     changes.push([
       "visible",
+      nextWin.visible,
       async () => {
         await runtime.setVisible(nextWin.visible as boolean);
         if (nextWin.visible === false) return;
@@ -119,45 +134,52 @@ export const syncCurrent = async (
   if (nextWin.skipTaskbar != null && nextWin.skipTaskbar !== prevWin.skipTaskbar)
     changes.push([
       "skipTaskbar",
+      nextWin.skipTaskbar,
       async () => await runtime.setSkipTaskbar(nextWin.skipTaskbar as boolean),
     ]);
 
   if (nextWin.maximized != null && nextWin.maximized !== prevWin.maximized)
     changes.push([
       "maximized",
+      nextWin.maximized,
       async () => await runtime.setMaximized(nextWin.maximized as boolean),
     ]);
 
   if (nextWin.fullscreen != null && nextWin.fullscreen !== prevWin.fullscreen)
     changes.push([
       "fullscreen",
+      nextWin.fullscreen,
       async () => await runtime.setFullscreen(nextWin.fullscreen as boolean),
     ]);
 
   if (nextWin.centerCount !== prevWin.centerCount)
-    changes.push(["center", async () => runtime.center()]);
+    changes.push(["center", "", async () => runtime.center()]);
 
   if (nextWin.minimized != null && nextWin.minimized !== prevWin.minimized)
     changes.push([
       "minimized",
+      nextWin.maximized,
       async () => await runtime.setMinimized(nextWin.minimized as boolean),
     ]);
 
   if (nextWin.minSize != null && !dimensions.equals(nextWin.minSize, prevWin.minSize))
     changes.push([
       "minSize",
+      nextWin.minSize,
       async () => await runtime.setMinSize(nextWin.minSize as dimensions.Dimensions),
     ]);
 
   if (nextWin.maxSize != null && !dimensions.equals(nextWin.maxSize, prevWin.maxSize))
     changes.push([
       "maxSize",
+      nextWin.maxSize,
       async () => await runtime.setMaxSize(nextWin.maxSize as dimensions.Dimensions),
     ]);
 
   if (nextWin.size != null && !dimensions.equals(nextWin.size, prevWin.size))
     changes.push([
       "size",
+      nextWin.size,
       async () => await runtime.setSize(nextWin.size as dimensions.Dimensions),
     ]);
 
@@ -167,30 +189,34 @@ export const syncCurrent = async (
   )
     changes.push([
       "position",
+      nextWin.position,
       async () => await runtime.setPosition(nextWin.position as xy.XY),
     ]);
 
   if (nextWin.focusCount !== prevWin.focusCount)
     changes.push(
-      ["setVisible", async () => await runtime.setVisible(true)],
-      ["focus", async () => await runtime.focus()],
+      ["setVisible", true, async () => await runtime.setVisible(true)],
+      ["focus", nextWin.focusCount, async () => await runtime.focus()],
     );
 
   if (nextWin.resizable != null && nextWin.resizable !== prevWin.resizable)
     changes.push([
       "resizable",
+      nextWin.resizable,
       async () => await runtime.setResizable(nextWin.resizable as boolean),
     ]);
 
   if (nextWin.decorations != null && nextWin.decorations !== prevWin.decorations)
     changes.push([
       "decorations",
+      nextWin.decorations,
       async () => await runtime.setDecorations(nextWin.decorations as boolean),
     ]);
 
   if (nextWin.alwaysOnTop != null && nextWin.alwaysOnTop !== prevWin.alwaysOnTop)
     changes.push([
       "alwaysOnTop",
+      nextWin.alwaysOnTop,
       async () => await runtime.setAlwaysOnTop(nextWin.alwaysOnTop as boolean),
     ]);
 
@@ -198,10 +224,17 @@ export const syncCurrent = async (
   // we make it visible.
   if (changeVisibility && !changeVisibilityNow) changeVisibilityF();
 
-  for (const [name, change] of changes) {
-    log(debug, "sync", "change", name);
+  await runtime.setVisible(true);
+
+  for (const [name, value, change] of changes) {
+    log(debug, "[drift] sync", "change", name, value);
     await change();
   }
+
+  const actualProps = await runtime.getProps();
+  const nextWinProps = purgeWinStateToProps(nextWin);
+  if (!deep.equal(nextWinProps, actualProps))
+    log(debug, "[drift] - WINDOW OUT OF SYNC", { nextWinProps, actualProps });
 };
 
 export const syncMain = async (

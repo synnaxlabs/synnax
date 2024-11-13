@@ -17,7 +17,11 @@ import {
 } from "electron";
 
 import { type Event, type Runtime } from "@/runtime";
-import { setWindowProps, type SetWindowPropsPayload, type StoreState } from "@/state";
+import {
+  setWindowPropsInternal,
+  type SetWindowPropsPayload,
+  type StoreState,
+} from "@/state";
 import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const ACTION_EVENT = "drift://action";
@@ -176,7 +180,7 @@ export const listenOnMain = ({ mainWindow, createWindow }: ListenOnMainProps) =>
     ) => {
       bindDebouncedHandler(win, ev, () => {
         sendToAll({
-          action: setWindowProps({ label, ...f(win) }),
+          action: setWindowPropsInternal({ label, ...f(win) }),
           emitter: "WHITELIST",
         });
       });

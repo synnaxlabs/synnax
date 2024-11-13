@@ -467,6 +467,7 @@ export const { actions, reducer } = createSlice({
     ) => {
       if (key == null) {
         const mosaic = state.mosaics[windowKey];
+        if (mosaic == null) return;
         mosaic.focused = null;
         return;
       }

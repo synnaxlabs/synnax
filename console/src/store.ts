@@ -14,6 +14,7 @@ import { type deep } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -87,7 +88,7 @@ export type RootAction =
 
 export type RootStore = Store<RootState, RootAction>;
 
-const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = { visible: false };
+const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = { visible: isDev() };
 
 export const migrateState = (prev: RootState): RootState => {
   console.log("--------------- Migrating State ---------------");
@@ -122,16 +123,21 @@ const newStore = async (): Promise<RootStore> => {
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });
-  if (preloadedState != null && Drift.SLICE_NAME in preloadedState) {
+  const runtime: TauriRuntime<RootState, RootAction> = new TauriRuntime();
+  if (
+    preloadedState != null &&
+    Drift.SLICE_NAME in preloadedState &&
+    runtime.isMain()
+  ) {
     const windows = preloadedState[Drift.SLICE_NAME].windows;
     Object.keys(windows).forEach((key) => {
-      windows[key].visible = false;
+      windows[key].visible = isDev();
       windows[key].focusCount = 0;
       windows[key].centerCount = 0;
     });
   }
   return await Drift.configureStore<RootState, RootAction>({
-    runtime: new TauriRuntime(),
+    runtime,
     preloadedState,
     middleware: (def) =>
       new Tuple(
@@ -142,7 +148,7 @@ const newStore = async (): Promise<RootStore> => {
         persistMiddleware,
       ),
     reducer,
-    enablePrerender: true,
+    enablePrerender: !isDev(),
     debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });

@@ -30,7 +30,11 @@ import {
 
 import { type Event, type Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
-import { setWindowProps, type SetWindowPropsPayload, type StoreState } from "@/state";
+import {
+  setWindowPropsInternal,
+  type SetWindowPropsPayload,
+  type StoreState,
+} from "@/state";
 import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const actionEvent = "drift://action";
@@ -85,7 +89,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
             prevFullscreen = isFullscreen;
             this.emit(
               {
-                action: setWindowProps({
+                action: setWindowPropsInternal({
                   label: this.win.label,
                   fullscreen: isFullscreen,
                 }) as unknown as A,
@@ -217,7 +221,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async setVisible(value: boolean): Promise<void> {
-    return value ? await this.win.show() : await this.win.hide();
+    await this.win.show();
+    // return value ? await this.win.show() : await this.win.hide();
   }
 
   async setFullscreen(value: boolean): Promise<void> {
@@ -309,7 +314,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
         position: await parsePosition(await window.innerPosition(), scaleFactor),
         size: await parseSize(await window.innerSize(), scaleFactor),
       };
-      return setWindowProps(nextProps);
+      return setWindowPropsInternal(nextProps);
     },
   },
   {
@@ -325,19 +330,20 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
         visible,
         position,
       };
-      return setWindowProps(nextProps);
+      return setWindowPropsInternal(nextProps);
     },
   },
   {
     key: TauriEventKey.WINDOW_BLUR,
     debounce: 0,
-    handler: async (window) => setWindowProps({ focus: false, label: window.label }),
+    handler: async (window) =>
+      setWindowPropsInternal({ focus: false, label: window.label }),
   },
   {
     key: TauriEventKey.WINDOW_FOCUS,
     debounce: 0,
     handler: async (window) =>
-      setWindowProps({
+      setWindowPropsInternal({
         focus: true,
         visible: true,
         minimized: false,

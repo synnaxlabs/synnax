@@ -12,7 +12,7 @@
 html {
     overscroll-behavior: none;
     overflow: hidden;
-    background: var(--pluto-gray-l0);
+    background: black;
     margin: 0;
     height: 100%;
     width: 100%;

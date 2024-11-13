@@ -26,7 +26,7 @@ import {
   type LabelPayload,
   type MaybeKeyPayload,
   setWindowError,
-  setWindowProps,
+  setWindowPropsInternal,
   shouldEmit,
   type SliceState,
   type StoreState,
@@ -61,20 +61,15 @@ export const middleware =
 
     validateAction({ action: action_ as A | Action, emitted, emitter });
 
-    log(debug, "[drift] - middleware", {
-      action,
-      emitted,
-      emitter,
-      host: label,
-    });
-
     // The action is recirculating from our own relay.
     if (emitter === runtime.label()) return;
+
+    log(debug, "[drift] - middleware", action);
 
     const isDrift = isDriftAction(action.type);
 
     // If the runtime is updating its own props, no need to sync.
-    const shouldSync = isDrift && action.type !== setWindowProps.type;
+    const shouldSync = isDrift && action.type !== setWindowPropsInternal.type;
 
     let prevS: SliceState | null = null;
     if (isDrift) {
@@ -119,15 +114,17 @@ export const middleware =
  * @param runtime - The runtime of the current window.
  * @returns a middleware function to be passed to `configureStore`.
  */
-export const configureMiddleware = <
-  S extends StoreState,
-  A extends CoreAction = UnknownAction,
-  M extends Middlewares<S> = Middlewares<S>,
->(
-  mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
-  runtime: Runtime<S, A | Action>,
-  debug: boolean = false,
-): ((def: GetDefaultMiddleware<S>) => M) => (def) => {
+export const configureMiddleware =
+  <
+    S extends StoreState,
+    A extends CoreAction = UnknownAction,
+    M extends Middlewares<S> = Middlewares<S>,
+  >(
+    mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
+    runtime: Runtime<S, A | Action>,
+    debug: boolean = false,
+  ): ((def: GetDefaultMiddleware<S>) => M) =>
+  (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
     return [middleware<S, A>(runtime, debug), ...base] as unknown as M;
   };

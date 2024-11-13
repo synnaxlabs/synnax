@@ -222,7 +222,7 @@ const slice = createSlice({
     },
     setWindowLabel: (s: SliceState, a: PayloadAction<SetWindowLabelPayload>) => {
       s.label = a.payload.label;
-      if (s.label !== MAIN_WINDOW && !s.config.enablePrerender) return;
+      if (s.label !== MAIN_WINDOW || !s.config.enablePrerender) return;
       const prerenderLabel = id.id();
       s.windows[prerenderLabel] = {
         ...INITIAL_PRERENDER_WINDOW_STATE,
@@ -353,18 +353,26 @@ const slice = createSlice({
       s.windows[a.payload.label].title = a.payload.title;
     }),
     setWindowDecorations: assignBool("decorations"),
-    setWindowProps: (s: SliceState, a: PayloadAction<SetWindowPropsPayload>) => {
+    setWindowPropsInternal: (
+      s: SliceState,
+      a: PayloadAction<SetWindowPropsPayload>,
+    ) => {
       const prev = s.windows[a.payload.label];
       const deepPartialEqual = deep.partialEqual(prev, a.payload);
       if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
     },
+    setWindowProps: assertLabel<SetWindowPropsPayload>((s, a) => {
+      const prev = s.windows[s.label];
+      const deepPartialEqual = deep.partialEqual(prev, a.payload);
+      if (!deepPartialEqual) s.windows[s.label] = { ...prev, ...a.payload };
+    }),
   },
 });
 
 export const {
   actions: {
     setConfig,
-    setWindowProps,
+    setWindowPropsInternal,
     setWindowLabel,
     createWindow,
     setWindowStage,
@@ -387,6 +395,7 @@ export const {
     setWindowSkipTaskbar,
     setWindowAlwaysOnTop,
     setWindowTitle,
+    setWindowProps,
     setWindowDecorations,
   },
 } = slice;

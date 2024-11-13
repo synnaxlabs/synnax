@@ -211,6 +211,9 @@ interface NoRangesProps {
   onLinkClick: (key?: string) => void;
 }
 
+export const DOG = "DOG";
+export const CAT = "DOG";
+
 const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
   const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
     e.stopPropagation();

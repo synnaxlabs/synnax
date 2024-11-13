@@ -10,6 +10,7 @@
 import { fixupConfigRules, includeIgnoreFile } from "@eslint/compat";
 import pluginJs from "@eslint/js";
 import pluginReact from "eslint-plugin-react/configs/recommended.js";
+import reactRefresh from "eslint-plugin-react-refresh";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import path from "path";
@@ -37,8 +38,9 @@ export default [
         sourceType: "module",
       },
     },
-    plugins: { "simple-import-sort": simpleImportSort },
+    plugins: { "simple-import-sort": simpleImportSort, "react-refresh": reactRefresh },
     rules: {
+      "react-refresh/only-export-components": "warn",
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
       "use-isnan": ["error", { enforceForIndexOf: true }],

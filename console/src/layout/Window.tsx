@@ -11,16 +11,15 @@ import "@/layout/Window.css";
 
 import {
   MAIN_WINDOW,
-  setWindowDecorations,
-  setWindowMinimized,
-  setWindowVisible,
+  setWindowProps,
+  type SetWindowPropsPayload,
 } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { type runtime } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { memo, type ReactElement, useEffect } from "react";
+import { memo, type ReactElement, useLayoutEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Controls } from "@/components";
@@ -98,12 +97,16 @@ const WindowInternal = (): ReactElement | null => {
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
 
-  useEffect(() => {
-    if (layout?.key != null) {
-      dispatch(setWindowVisible({ key: layout.key, value: true }));
-      dispatch(setWindowMinimized({ key: layout.key, value: false }));
-    }
-    if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
+  useLayoutEffect(() => {
+    if (layout?.key == null) return;
+    const p: SetWindowPropsPayload = {
+      key: layout.key,
+      label: layout.key,
+      visible: true,
+      minimized: false,
+    };
+    if (os === "Windows") p.decorations = false;
+    dispatch(setWindowProps(p));
   }, [os, layout?.key]);
 
   const menuProps = PMenu.useContextMenu();
