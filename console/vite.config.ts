@@ -44,4 +44,7 @@ export default defineConfig({
     // is loaded directly from disc instead of OTN
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
+  define: {
+    isDev,
+  },
 });

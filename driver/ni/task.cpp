@@ -28,7 +28,10 @@ ni::ScannerTask::ScannerTask(
         .scale = 1.2,
     });
 
-    if (!scanner.ok()) {
+    auto parser = config::Parser(task.config);
+    bool enabled = parser.optional<bool>("enabled", true);
+
+    if (!scanner.ok() || !enabled) {
         ctx->set_state({
             .task = task.key,
             .variant = "error",
@@ -60,6 +63,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
         scanner.create_devices();
     } else if (cmd.type == "stop") {
         this->stop();
+        this->scanner.join_scan_thread();
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
@@ -72,6 +76,7 @@ void ni::ScannerTask::run() {
         this->breaker.waitFor(this->scan_rate.period().chrono());
         this->exec(scan_cmd);
     }
+    LOG(INFO) << "[ni.scanner] stopped scanning " << this->task.name;
 }
 
 
@@ -79,10 +84,6 @@ bool ni::ScannerTask::ok() {
     return this->ok_state;
 }
 
-ni::ScannerTask::~ScannerTask() {
-    if (this->thread->joinable() && this->thread->get_id() != std::this_thread::get_id())
-        this->thread->detach();
-}
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //

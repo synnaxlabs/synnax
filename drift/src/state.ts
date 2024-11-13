@@ -225,8 +225,8 @@ const slice = createSlice({
       if (s.label !== MAIN_WINDOW && !s.config.enablePrerender) return;
       const prerenderLabel = id.id();
       s.windows[prerenderLabel] = {
-        ...INITIAL_PRERENDER_WINDOW_STATE,
         ...s.config.defaultWindowProps,
+        ...INITIAL_PRERENDER_WINDOW_STATE,
       };
     },
     createWindow: (s: SliceState, { payload }: PayloadAction<CreateWindowPayload>) => {
@@ -302,7 +302,7 @@ const slice = createSlice({
       const win = s.windows[a.payload.label];
       if (win == null || win.processCount > 0) return;
       win.stage = "reloading";
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 50);
     }),
     registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
     completeProcess: assertLabel<MaybeKeyPayload>((s, a) => {

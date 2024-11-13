@@ -432,6 +432,9 @@ importers:
       '@tauri-apps/api':
         specifier: ^2.1.0
         version: 2.1.0
+      async-mutex:
+        specifier: ^0.5.0
+        version: 0.5.0
       proxy-memoize:
         specifier: 2.0.3
         version: 2.0.3
