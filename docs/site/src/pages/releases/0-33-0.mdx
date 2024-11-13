@@ -4,29 +4,26 @@ import Diagram from "@/components/Diagram.astro";
 import LabJack from "@/pages/releases/LabJack.astro";
 
 <Release
-version="0.33.0"
-date="Nov 5, 2024"
-title="LabJack & Log Component"
+    version="0.33.0"
+    date="Nov 5, 2024"
+    title="Log Component"
 >
 
-<LabJack />
-
-Synnax beta version 33 introduces two highly requested features: Full support for
-LabJack devices and a new log component.
-
-We've also made a number of performance improvements and bug fixes.
-
-### LabJack Support
-
-All LabJack T-Series devices are fully supported using our built-in [LabJack driver](/reference/device-drivers/labjack).
-You can use a [write task](/reference/device-drivers/labjack/write-task) to control
-digital and analog outputs on the device, and a [read task](/reference/device-drivers/labjack/read-task) to acquire
-data from inputs.
-
-Synnax currently only support LabJack devices on Windows, although we plan to add support
-for other platforms soon.
-
-### Log Component
+<Diagram style="height: 300px" preview>
+  <Image
+    client:only="react"
+    id="console/logs/thumbnail"
+    themed={false}
+    style={{
+      width: "500px",
+      position: "absolute",
+      left: "50%",
+      transform: "translateX(-50%)",
+      borderRadius: "1.5rem",
+      boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-10)",
+    }}
+  />
+</Diagram>
 
 We've added a new [log component](/reference/console/logs) to the Synnax [Console](/reference/console/get-started)
 that allows you to view channel data in a log format. This component can be connected
