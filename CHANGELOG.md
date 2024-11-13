@@ -11,12 +11,16 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
 
 ## [Unreleased]
 
+## [0.34.0] - 2024-11-13
+
 ### Added
 
-### Changed
-
-### Removed
+- Scientific and engineering notation to values on a schematic.
+- Ability to toggle the NI scanner on and off from the command palette.
 
 ### Fixed
 
-### Deprecated
+- Issues with renaming multiple channels of different types (virtual, free virtual, persisted).
+- Issues with deleting channels on Windows.
+- Reconnection/disconnection issues with labjack devices that are actively streaming data.
+- Logical and physical position calculations issues due to an open issue in Tauri.
