@@ -16,6 +16,8 @@ import {
   type Tuple,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { deep } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
 
 import { log } from "@/debug";
 import { type Runtime } from "@/runtime";
@@ -36,6 +38,9 @@ import { sync } from "@/sync";
 import { validateAction } from "@/validate";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
+
+const mu = new Mutex();
+let prevSyncS: SliceState | null = null;
 
 /**
  * Redux middleware that conditionally does two things:
@@ -82,15 +87,21 @@ export const middleware =
 
     const res = next(action);
 
-    const nextS = shouldSync ? getState().drift : null;
+    const nextS = getState().drift;
 
     const shouldEmit_ = shouldEmit(emitted, action.type);
 
+    if (shouldEmit_ && shouldSync) return res;
+
     // Wrap everything in an async closure eto ensure that we synchronize before
     // before emitting to other windows.
-    void (async (): Promise<void> => {
+    mu.runExclusive(async () => {
       try {
-        if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
+        if (prevSyncS == null) prevSyncS = deep.copy(prevS);
+        else if (nextS != null) {
+          await sync(prevSyncS, nextS, runtime, debug);
+          prevSyncS = nextS;
+        }
         if (shouldEmit_) await runtime.emit({ action });
       } catch (err) {
         log(debug, "[drift] - ERROR", {
@@ -102,7 +113,7 @@ export const middleware =
         });
         dispatch(setWindowError({ key: label, message: (err as Error).message }));
       }
-    })();
+    }).catch(() => {});
 
     return res;
   };

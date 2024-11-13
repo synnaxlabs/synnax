@@ -20,7 +20,7 @@ import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { type runtime } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useLayoutEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { Controls } from "@/components";
 import { Menu } from "@/components/menu";

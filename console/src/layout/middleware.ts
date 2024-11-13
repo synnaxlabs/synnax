@@ -41,12 +41,14 @@ export const closeWindowOnEmptyMosaicEffect: MiddlewareEffect<
   Object.entries(mosaics).forEach(([k, { root }]) => {
     if (k === Drift.MAIN_WINDOW || !Mosaic.isEmpty(root)) return;
     const win = Drift.selectWindow(s, k);
+    console.log(win?.stage);
     if (win != null) dispatch(Drift.closeWindow({ key: k }));
   });
   // Close windows whose mosaics no longer exist.
   const windows = Drift.selectWindows(s);
   windows.forEach((win) => {
     if (!win.key.startsWith(MOSAIC_WINDOW_TYPE) || win.key in mosaics) return;
+    console.log(win.stage);
     dispatch(Drift.closeWindow({ key: win.key }));
   });
 };
@@ -133,7 +135,7 @@ const deleteLayoutsOnMosaicCloseEffect: MiddlewareEffect<
   const layoutKeys = Object.values(layouts)
     .filter((layout) => layout.windowKey === payload.key)
     .map((layout) => layout.key);
-  dispatch(Layout.remove({ keys: layoutKeys }));
+  if (layoutKeys.length > 0) dispatch(Layout.remove({ keys: layoutKeys }));
 };
 
 export const MIDDLEWARE = [

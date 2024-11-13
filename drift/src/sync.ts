@@ -108,7 +108,8 @@ export const syncCurrent = async (
       async () => runtime.setTitle(nextWin.title as string),
     ]);
 
-  const changeVisibility = nextWin.visible != null;
+  const changeVisibility =
+    nextWin.visible != null && nextWin.visible !== prevWin.visible;
   const changeVisibilityNow = nextWin.visible === false;
   const changeVisibilityF = (): number =>
     changes.push([
@@ -227,7 +228,7 @@ export const syncCurrent = async (
   await runtime.setVisible(true);
 
   for (const [name, value, change] of changes) {
-    log(debug, "[drift] sync", "change", name, value);
+    log(debug, "[drift] sync", "change", nextWin.key, name, value);
     await change();
   }
 
@@ -260,6 +261,8 @@ export const syncMain = async (
         );
       await closeRuntimeWindow(runtime, label, debug);
     }
+
+  console.log(isMain, added, removed);
   if (isMain && added.length > 0)
     for (const label of added)
       await createRuntimeWindow(runtime, label, next.windows[label], debug);
@@ -271,7 +274,7 @@ const createRuntimeWindow = async (
   window: WindowState & { prerenderLabel?: string },
   debug: boolean,
 ): Promise<void> => {
-  log(debug, "createWindow", window);
+  log(debug, "createWindow", label, window);
   return await runtime.create(label, purgeWinStateToProps(window));
 };
 

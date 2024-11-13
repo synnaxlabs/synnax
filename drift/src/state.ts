@@ -228,6 +228,7 @@ const slice = createSlice({
         ...INITIAL_PRERENDER_WINDOW_STATE,
         ...s.config.defaultWindowProps,
       };
+      console.log("WINS", Object.keys(s.windows).length);
     },
     createWindow: (s: SliceState, { payload }: PayloadAction<CreateWindowPayload>) => {
       if (payload.key === PRERENDER_WINDOW) return;
@@ -302,7 +303,7 @@ const slice = createSlice({
       const win = s.windows[a.payload.label];
       if (win == null || win.processCount > 0) return;
       win.stage = "reloading";
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 100);
     }),
     registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
     completeProcess: assertLabel<MaybeKeyPayload>((s, a) => {

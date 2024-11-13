@@ -9,7 +9,7 @@
 
 import "@/vis/canvas/Canvas.css";
 
-import { box, runtime, scale, xy } from "@synnaxlabs/x";
+import { box, deep, runtime, scale, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,
   type DetailedHTMLProps,
@@ -62,7 +62,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
       aetherKey,
       type: canvas.Canvas.TYPE,
       schema: canvas.canvasStateZ,
-      initialState: ZERO_PROPS,
+      initialState: deep.copy(ZERO_PROPS),
     });
 
     const canvases = useRef<Canvases>({ ...ZERO_CANVASES });
@@ -94,12 +94,12 @@ export const Canvas = Aether.wrap<CanvasProps>(
         .addEventListener("change", handleChange, { once: true });
     }, [dpr]);
 
-    // We want to trigger a re-render when the window is focused or blurred to ensure
-    // that we wake up sleeping render contexts.
-    useEffect(() => {
-      window.addEventListener("focus", () => setState((p) => ({ ...p })));
-      window.addEventListener("blur", () => setState((p) => ({ ...p })));
-    }, [setState]);
+    // // We want to trigger a re-render when the window is focused or blurred to ensure
+    // // that we wake up sleeping render contexts.
+    // useEffect(() => {
+    //   window.addEventListener("focus", () => setState((p) => ({ ...p })));
+    //   window.addEventListener("blur", () => setState((p) => ({ ...p })));
+    // }, [setState]);
 
     const refCallback = useCallback(
       (el: HTMLCanvasElement | null) => {

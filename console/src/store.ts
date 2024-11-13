@@ -29,6 +29,7 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   ...Layout.PERSIST_EXCLUDE,
   Cluster.PERSIST_EXCLUDE,
   ...Schematic.PERSIST_EXCLUDE,
+  Drift.SLICE_NAME,
 ];
 
 const ZERO_STATE: RootState = {
@@ -88,7 +89,7 @@ export type RootAction =
 
 export type RootStore = Store<RootState, RootAction>;
 
-const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = { visible: isDev() };
+const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = { visible: false };
 
 export const migrateState = (prev: RootState): RootState => {
   console.log("--------------- Migrating State ---------------");
@@ -124,21 +125,21 @@ const newStore = async (): Promise<RootStore> => {
     exclude: PERSIST_EXCLUDE,
   });
   const runtime: TauriRuntime<RootState, RootAction> = new TauriRuntime();
-  if (
-    preloadedState != null &&
-    Drift.SLICE_NAME in preloadedState &&
-    runtime.isMain()
-  ) {
-    const windows = preloadedState[Drift.SLICE_NAME].windows;
-    Object.keys(windows).forEach((key) => {
-      windows[key].visible = isDev();
-      windows[key].focusCount = 0;
-      windows[key].centerCount = 0;
-    });
-  }
+  // if (
+  //   preloadedState != null &&
+  //   Drift.SLICE_NAME in preloadedState &&
+  //   runtime.isMain()
+  // ) {
+  //   const windows = preloadedState[Drift.SLICE_NAME].windows;
+  //   Object.keys(windows).forEach((key) => {
+  //     windows[key].visible = false;
+  //     windows[key].focusCount = 0;
+  //     windows[key].centerCount = 0;
+  //   });
+  // }
   return await Drift.configureStore<RootState, RootAction>({
     runtime,
-    preloadedState,
+    preloadedState: undefined,
     middleware: (def) =>
       new Tuple(
         ...def(),
@@ -148,8 +149,8 @@ const newStore = async (): Promise<RootStore> => {
         persistMiddleware,
       ),
     reducer,
-    enablePrerender: !isDev(),
-    debug: false,
+    enablePrerender: true,
+    debug: true,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };

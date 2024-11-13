@@ -63,7 +63,12 @@ export class TypedWorker<RQ, RS = RQ> implements SenderHandler<RQ, RS> {
   }
 
   send(payload: RQ, transfer: Transferable[] = []): void {
-    this._send(payload, transfer);
+    try {
+      this._send(payload, transfer);
+    } catch (e) {
+      console.log(payload, transfer);
+      throw e;
+    }
   }
 
   handle(handler: (payload: RS) => void): void {
