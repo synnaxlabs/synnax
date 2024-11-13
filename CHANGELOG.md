@@ -17,7 +17,7 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
 
 - Scientific and engineering notation to values on a schematic.
 - Ability to toggle the NI scanner on and off from the command palette.
-- [Python client] (https://docs-1gg5z500t-synnax.vercel.app/reference/python-client) support for [OPC UA read tasks](https://docs-1gg5z500t-synnax.vercel.app/reference/device-drivers/opc-ua/read-task)
+- [Python client](https://docs-1gg5z500t-synnax.vercel.app/reference/python-client) support for [OPC UA read tasks](https://docs-1gg5z500t-synnax.vercel.app/reference/device-drivers/opc-ua/read-task)
 - Configurable font sizes on [schematic](https://docs-1gg5z500t-synnax.vercel.app/reference/console/schematic) values.
 
 ### Fixes
