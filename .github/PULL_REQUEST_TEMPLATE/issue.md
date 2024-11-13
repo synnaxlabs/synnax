@@ -12,7 +12,8 @@
 
 ## Basic Readiness
 
-- [ ] I have performed a self-review of my code.
+- [ ] I have performed a self-review of my code.r
+- [ ] I have added a line in the changelog to the unreleased section summarizing the changes made by this pr.
 - [ ] I have added relevant tests to cover the changes to CI.
 - [ ] I have added needed QA steps to the [release candidate](/synnaxlabs/synnax/blob/main/.github/PULL_REQUEST_TEMPLATE/rc.md) template that cover these changes.
 - [ ] I have updated in-code documentation to reflect the changes.

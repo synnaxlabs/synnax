@@ -9,7 +9,7 @@ Versions with the same patch (e.g. 0.0.1 and 0.0.2) are guaranteed to maintain t
 
 Our team is targeting a v1 release before the end of 2024, at which point all APIs will be stable and follow strict semantic versioning.
 
-## [Unreleased]
+## [Upcoming]
 
 ## [0.34.0] - 2024-11-13
 
@@ -24,3 +24,18 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
 - Issues with deleting channels on Windows.
 - Reconnection/disconnection issues with labjack devices that are actively streaming data.
 - Logical and physical position calculations issues due to an open issue in Tauri.
+- Port indices in the LabJack task configuration dialogue.
+
+## [0.33.0] - 2924-11-04
+
+## Added
+
+- A [log component](https://docs-1qlj556hd-synnax.vercel.app/reference/console/logs) to the synnax console, allowing you to view channel data in the form of logs.
+- Direct [LabJack Integration](https://docs-1qlj556hd-synnax.vercel.app/reference/device-drivers/labjack) for T-Series devices.
+  - [Write Tasks](https://docs-1qlj556hd-synnax.vercel.app/reference/device-drivers/labjack/write-task) to control digital and analog outputs from the device.
+  - [Read Tasks](https://docs-1qlj556hd-synnax.vercel.app/reference/device-drivers/labjack/read-task) to acquire data from inputs
+- A snooze button on the version update notification to silence version updates.
+
+## Changed
+
+- Upgraded to Tauri v2.

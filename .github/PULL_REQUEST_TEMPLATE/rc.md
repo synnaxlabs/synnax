@@ -76,6 +76,7 @@ I have verified that code examples for each of the following services run correc
 ### Release Notes
 
 - [ ] I have verified that release notes exist for this release.
+- [ ] I have verified the changelog is up to date with changes made for this release.
 
 ## Console
 
