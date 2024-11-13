@@ -28,7 +28,7 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
 
 ## [0.33.0] - 2924-11-04
 
-## Added
+### Added
 
 - A [log component](https://docs-1qlj556hd-synnax.vercel.app/reference/console/logs) to the synnax console, allowing you to view channel data in the form of logs.
 - Direct [LabJack Integration](https://docs-1qlj556hd-synnax.vercel.app/reference/device-drivers/labjack) for T-Series devices.
@@ -36,6 +36,6 @@ Our team is targeting a v1 release before the end of 2024, at which point all AP
   - [Read Tasks](https://docs-1qlj556hd-synnax.vercel.app/reference/device-drivers/labjack/read-task) to acquire data from inputs
 - A snooze button on the version update notification to silence version updates.
 
-## Changed
+### Changed
 
 - Upgraded to Tauri v2.
