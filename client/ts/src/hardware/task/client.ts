@@ -19,6 +19,9 @@ import { framer } from "@/framer";
 import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
 import {
+  type Command,
+  type CommandObservable,
+  commandZ,
   type NewTask,
   newTaskZ,
   type Payload,
@@ -378,6 +381,21 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
         const parse = stateZ.safeParse(s.at(-1));
         if (!parse.success) return [null, false];
         return [parse.data as State<D>, true];
+      },
+    );
+  }
+
+  async openCommandObserver<A extends UnknownRecord = UnknownRecord>(): Promise<
+    CommandObservable<A>
+  > {
+    return new framer.ObservableStreamer<Command<A>>(
+      await this.frameClient.openStreamer(TASK_CMD_CHANNEL),
+      (frame) => {
+        const s = frame.get(TASK_CMD_CHANNEL);
+        if (s.length === 0) return [null, false];
+        const parse = commandZ.safeParse(s.at(-1));
+        if (!parse.success) return [null, false];
+        return [parse.data as Command<A>, true];
       },
     );
   }
