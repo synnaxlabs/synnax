@@ -463,7 +463,6 @@ const ChannelListItem = ({
     path: `${path}.${props.index}.cmdKey`,
     optional: true,
   });
-  console.log(cmdChannelState);
   const cmdChannel = cmdChannelState?.status.variant === "success";
 
   const locationValid =
