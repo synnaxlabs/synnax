@@ -39,7 +39,14 @@ import { validateAction } from "@/validate";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 
+// Used to ensure two things:
+// 1. Only one set of window update operations is applied at a time, and they are applied
+//    in the correct order.
+// 2. Ensure that we emit actions to other windows in the correct order i.e. after synchronized
+//    window operations have been applied.
 const mu = new Mutex();
+
+const EXCLUDE_SYNC_ACTIONS: string[] = [setWindowProps.type, reloadWindow.type];
 
 /**
  * Redux middleware that conditionally does two things:
@@ -78,10 +85,7 @@ export const middleware =
     const isDrift = isDriftAction(action.type);
 
     // If the runtime is updating its own props, no need to sync.
-    const shouldSync =
-      isDrift &&
-      action.type !== setWindowProps.type &&
-      action.type !== reloadWindow.type;
+    const shouldSync = isDrift && !EXCLUDE_SYNC_ACTIONS.includes(action.type);
 
     let prevS: SliceState | null = null;
     if (isDrift) {
