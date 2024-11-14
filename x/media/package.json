@@ -16,7 +16,6 @@
     "build": "vite build",
     "watch": "vite build --watch",
     "test": "vitest",
-    "cov": "vitest --coverage",
     "lint": "eslint --cache",
     "fix": "eslint --cache --fix"
   },

@@ -27,7 +27,6 @@
     "build": "tsc --noEmit && vite build",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
-    "cov": "vitest --coverage",
     "lint": "eslint --cache",
     "fix": "eslint --cache --fix"
   },
@@ -42,7 +41,6 @@
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@types/node": "^22.7.5",
     "@types/uuid": "^10.0.0",
-    "@vitest/coverage-v8": "^2.1.4",
     "eslint": "^9.14.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.6.3",
