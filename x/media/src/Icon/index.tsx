@@ -42,6 +42,7 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
+import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
@@ -356,7 +357,7 @@ export const Icon: IconType = {
   Sync: wrapIcon(AiOutlineSync, "sync"),
   Search: wrapIcon(PiMagnifyingGlassBold, "search"),
   Auto: wrapIcon(MdAutoAwesome, "auto"),
-  Table: wrapIcon(MdOutlineTableRows, "table"),
+  Table: wrapIcon(FiTable, "table"),
   Align: {
     Right: wrapIcon(MdAlignHorizontalRight, "align-right"),
     Left: wrapIcon(MdAlignHorizontalLeft, "align-left"),

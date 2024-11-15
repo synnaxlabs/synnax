@@ -21,6 +21,7 @@ import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
+import { Table } from "@/table";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -42,6 +43,7 @@ const ZERO_STATE: RootState = {
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -56,6 +58,7 @@ const reducer = combineReducers({
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [Permissions.SLICE_NAME]: Permissions.reducer,
   [Log.SLICE_NAME]: Log.reducer,
+  [Table.SLICE_NAME]: Table.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -70,6 +73,7 @@ export interface RootState {
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Permissions.SLICE_NAME]: Permissions.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
+  [Table.SLICE_NAME]: Table.SliceState;
 }
 
 export type RootAction =

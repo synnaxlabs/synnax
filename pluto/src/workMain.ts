@@ -7,17 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@synnaxlabs/pluto/dist/style.css";
-import "./main.css";
+import { pluto } from "@/ether";
 
-import { Table } from "@synnaxlabs/pluto";
-import ReactDOM from "react-dom/client";
-
-import { ChildRanges } from "./ChildRanges";
-import WorkerURL from "./worker?worker&url";
-
-const Main = () => (
-
-)
-
-ReactDOM.createRoot(document.getElementById("root")!).render(<Main />);
+pluto.render();

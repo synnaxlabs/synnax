@@ -17,10 +17,12 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
+import { Table } from "@/table";
 
 const SELECTABLES: Layout.Selectable[] = [
   LinePlot.SELECTABLE,
   Schematic.SELECTABLE,
+  Table.SELECTABLE,
   ...Log.SELECTABLES,
   ...LabJack.SELECTABLES,
   ...NI.SELECTABLES,
