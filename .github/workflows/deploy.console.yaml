@@ -52,7 +52,7 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/test.console.yaml
+              - .github/workflows/deploy.console.yaml
               - alamos/ts/**
               - client/ts/**
               - configs/ts/**

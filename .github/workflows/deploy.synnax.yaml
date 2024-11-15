@@ -50,8 +50,6 @@ jobs:
               - freighter/go/**
               - synnax/**
               - x/go/**
-              - 'cesium/**'
-              - 'x/**'
 
   create-release:
     runs-on: ubuntu-latest

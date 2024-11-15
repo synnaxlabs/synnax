@@ -28,7 +28,7 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/test.drift.yaml
+              - .github/workflows/test.pluto.yaml
               - alamos/ts/**
               - client/ts/**
               - configs/eslint/**
