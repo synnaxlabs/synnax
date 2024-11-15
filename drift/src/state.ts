@@ -292,8 +292,10 @@ const slice = createSlice({
     }),
     closeWindow: assertLabel<CloseWindowPayload>((s, { payload: { label } }) => {
       const win = s.windows[label];
-      if (win == null || win.processCount > 0) return;
+      if (win == null) return;
+      console.log("CLOSING", label);
       win.stage = "closing";
+      if (win.processCount > 0) return;
       delete s.windows[label];
       delete s.labelKeys[label];
       delete s.keyLabels[win.key];
@@ -306,9 +308,11 @@ const slice = createSlice({
     }),
     registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
     completeProcess: assertLabel<MaybeKeyPayload>((s, a) => {
+      console.log("PRE_COMPLETE", s, a);
       incrementCounter("processCount", true)(s, a);
       const win = s.windows[a.payload.label];
       if (win == null) return;
+      console.log("COMPLETE", a.payload.label, win.processCount);
       if (win.processCount === 0)
         if (win.stage === "reloading") window.location.reload();
         else {

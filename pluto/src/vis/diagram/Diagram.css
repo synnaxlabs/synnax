@@ -58,7 +58,7 @@
 }
 
 .react-flow__edges {
-    z-index: 6 !important;
+    z-index: 3 !important;
 }
 
 .pluto-diagram {

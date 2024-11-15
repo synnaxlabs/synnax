@@ -91,7 +91,7 @@ export const Selector = (): ReactElement => {
         {active?.name ?? "No Workspace"}
       </Button.Button>
       <Align.Pack direction="y" borderShade={4} style={{ width: 500, height: 200 }}>
-        <Cluster.NoneConnectedBoundary>
+        <Cluster.Boundary>
           <List.List>
             <List.Selector
               value={active?.key ?? null}
@@ -138,7 +138,7 @@ export const Selector = (): ReactElement => {
               <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
             </List.Selector>
           </List.List>
-        </Cluster.NoneConnectedBoundary>
+        </Cluster.Boundary>
       </Align.Pack>
     </Dropdown.Dialog>
   );

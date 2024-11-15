@@ -9,14 +9,14 @@
 
 import { migrate } from "@synnaxlabs/x";
 
-import * as v0 from "@/cluster/migrations/v0";
+import type * as v0 from "@/cluster/migrations/v0";
 import * as v1 from "@/cluster/migrations/v1";
 import * as v2 from "@/cluster/migrations/v2";
 
 export type Cluster = v0.Cluster;
 export type SliceState = v2.SliceState;
 export type AnySliceState = v0.SliceState | v1.SliceState | v2.SliceState;
-export type LocalState = v2.LocalState;
+export type EmbeddedState = v2.EmbeddedState;
 
 export const LOCAL = v1.LOCAL;
 export const LOCAL_CLUSTER_KEY = v1.LOCAL_CLUSTER_KEY;

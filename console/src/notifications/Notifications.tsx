@@ -45,6 +45,7 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
     }
     return status;
   });
+  console.log("SUP", sugared);
   return createPortal(
     <List.List<string, Status.NotificationSpec | SugaredNotification> data={sugared}>
       <List.Core<string, SugaredNotification>

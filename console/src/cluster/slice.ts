@@ -13,7 +13,7 @@ import * as latest from "@/cluster/migrations";
 
 export type Cluster = latest.Cluster;
 export type SliceState = latest.SliceState;
-export type LocalState = latest.LocalState;
+export type EmbeddedState = latest.EmbeddedState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const LOCAL_PROPS = latest.LOCAL_PROPS;
 export const migrateSlice = latest.migrateSlice;
@@ -48,7 +48,7 @@ export interface RenamePayload {
   name: string;
 }
 
-export interface SetLocalStatePayload extends Partial<LocalState> {}
+export interface SetLocalStatePayload extends Partial<EmbeddedState> {}
 
 export const {
   actions,
@@ -65,12 +65,10 @@ export const {
       { payload: cluster }: PayloadAction<SetPayload>,
     ) => {
       clusters[cluster.key] = cluster;
-      if (activeCluster == null) activeCluster = cluster.key;
+      activeCluster ??= cluster.key;
     },
     remove: ({ clusters }, { payload: { keys } }: PayloadAction<RemovePayload>) => {
-      for (const key of keys) {
-        delete clusters[key];
-      }
+      for (const key of keys) delete clusters[key];
     },
     setActive: (state, { payload: key }: PayloadAction<SetActivePayload>) => {
       state.activeCluster = key;

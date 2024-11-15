@@ -17,7 +17,7 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
+import { Remote } from "@/cluster/remote";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { createSelector } from "@/layouts/Selector";
@@ -40,7 +40,7 @@ const NoCluster = (): ReactElement => {
   // select the new layout when we create it.
   const handleCluster: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    placer(Cluster.connectWindowLayout);
+    placer(Remote.connectWindowLayout);
   };
 
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {

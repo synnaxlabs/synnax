@@ -7,18 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/cluster/Dropdown.css";
+import "@/cluster/remote/Toolbar.css";
 
+import { type connection } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Divider,
   Dropdown as Core,
   List as CoreList,
   Menu as PMenu,
+  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
+import { caseconv } from "@synnaxlabs/x";
 import {
   type MouseEvent,
   type PropsWithChildren,
@@ -27,8 +31,8 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { connectWindowLayout } from "@/cluster/Connect";
-import { embeddedControlsLayout } from "@/cluster/embedded";
+import { Boundary } from "@/cluster/external";
+import { connectWindowLayout } from "@/cluster/remote/Connect";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
 import { Menu } from "@/components/menu";
@@ -142,10 +146,7 @@ export const List = (): ReactElement => {
         menu={contextMenu}
         {...menuProps}
       >
-        <CoreList.List<string, Cluster>
-          data={allClusters}
-          emptyContent={<NoneConnected />}
-        >
+        <CoreList.List<string, Cluster> data={allClusters} emptyContent={<Boundary />}>
           <CoreList.Selector
             value={selected}
             allowMultiple={false}
@@ -191,37 +192,7 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   );
 };
 
-export interface NoneConnectedProps extends PropsWithChildren {}
-
-export const NoneConnectedBoundary = ({
-  children,
-}: NoneConnectedProps): ReactElement => {
-  const client = Synnax.use();
-  if (client != null) return <>{children}</>;
-  return <NoneConnected />;
-};
-
-export const NoneConnected = (): ReactElement => {
-  const placer = Layout.usePlacer();
-
-  const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
-    e.stopPropagation();
-    placer(connectWindowLayout);
-  };
-
-  return (
-    <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <Align.Center direction="y" style={{ height: "100%" }} size="small">
-        <Text.Text level="p">No cluster connected.</Text.Text>
-        <Text.Link level="p" onClick={handleCluster}>
-          Connect a cluster
-        </Text.Link>
-      </Align.Center>
-    </Align.Space>
-  );
-};
-
-const Dropdown_ = (): ReactElement | null => {
+export const Dropdown = (): ReactElement | null => {
   const dropProps = Core.use();
   const cluster = useSelect();
   return (
@@ -244,4 +215,49 @@ const Dropdown_ = (): ReactElement | null => {
   );
 };
 
-export const Dropdown = Dropdown_;
+/** Props for the ConnectionStateBadge component. */
+export interface ConnectionStateBadgeProps {
+  state: connection.State;
+}
+
+export const statusVariants: Record<connection.Status, Status.Variant> = {
+  connected: "success",
+  failed: "error",
+  connecting: "loading",
+  disconnected: "warning",
+};
+
+/**
+ * A simple badge that displays the connection state of a cluster using an informative
+ * text, icon, and color.
+ * @param props - The props of the component.
+ * @param props.state - The connection state of the cluster.
+ */
+export const ConnectionStatusBadge = ({
+  state: { status },
+}: ConnectionStateBadgeProps): ReactElement => (
+  <Status.Text
+    className={CSS.B("connection-status-badge")}
+    variant={statusVariants[status]}
+    justify="center"
+  >
+    {caseconv.capitalize(status)}
+  </Status.Text>
+);
+
+/**
+ * Displays the connection state of the cluster.
+ */
+export const ConnectionBadge = (): ReactElement => {
+  const state = Synnax.useConnectionState();
+  return <ConnectionStatusBadge state={state} />;
+};
+
+export const Toolbar = () => (
+  <>
+    <Divider.Divider />
+    <Dropdown />
+    <Divider.Divider />
+    <ConnectionBadge />
+  </>
+);

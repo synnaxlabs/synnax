@@ -7,23 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Connect, connectWindowLayout } from "@/cluster/Connect";
-import { EmbeddedControls, embeddedControlsLayout } from "@/cluster/embedded";
+import { Embedded } from "@/cluster/embedded";
 import { versionOutdatedAdapter } from "@/cluster/notification";
+import { Remote } from "@/cluster/remote";
 import { type Layout } from "@/layout";
 import { type NotificationAdapter } from "@/notifications/Notifications";
 
-export * from "@/cluster/Badges";
-export * from "@/cluster/Connect";
-export * from "@/cluster/Dropdown";
-export * from "@/cluster/embedded";
+export { Boundary } from "@/cluster/remote/Boundary";
 export * from "@/cluster/selectors";
 export * from "@/cluster/slice";
 export * from "@/cluster/testConnection";
+export * from "@/cluster/Toolbar";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [connectWindowLayout.type]: Connect,
-  [embeddedControlsLayout.type]: EmbeddedControls,
+  ...Remote.LAYOUTS,
+  ...Embedded.LAYOUTS,
 };
 
 export const NOTIFICATION_ADAPTERS: NotificationAdapter[] = [versionOutdatedAdapter];

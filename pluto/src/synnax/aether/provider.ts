@@ -34,8 +34,12 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
   schema = Provider.stateZ;
 
   async afterUpdate(): Promise<void> {
+    // If no context exists, set it to the default value.
     if (!this.ctx.has(CONTEXT_KEY)) set(this.ctx, ZERO_CONTEXT_VALUE);
+
+    // If we have no connection or we're disconnected, clear state.
     if (this.state.props == null) {
+      // Disconnect if we're connected.
       if (this.internal.synnax != null) {
         this.setState((p) => ({ ...p, state: Synnax.connectivity.DEFAULT }));
         this.internal.synnax?.close();
@@ -48,9 +52,12 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
     if (
       this.prevState.props != null &&
       deep.equal(this.state.props, this.prevState.props) &&
-      this.internal.synnax != null
+      this.internal.synnax != null &&
+      this.state.state?.status === "connected"
     )
       return;
+
+    console.log("RECONNECT");
 
     this.internal.synnax = new Synnax(this.state.props);
     this.internal.synnax.connectivity.onChange((state) =>

@@ -205,7 +205,8 @@ export class Reader {
         }
         requests.forEach((toFetch) => toFetch.resolve());
       } catch (e) {
-        L.error("batch read failed", { error: e }, true);
+        console.log(e);
+        L.error("batch read failed", { error: JSON.stringify(e) }, true);
         requests.forEach((toFetch) => toFetch.reject(e));
       } finally {
         requests.clear();

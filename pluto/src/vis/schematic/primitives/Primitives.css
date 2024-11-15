@@ -86,7 +86,7 @@
     }
 
     &:active {
-        opacity: 0.95;
+        filter: brightness(0.9);
     }
 
     &:not(:hover):not(.pluto--enabled) svg {

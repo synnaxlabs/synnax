@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/cluster/Connect.css";
+import "@/cluster/remote/Connect.css";
 
 import { type connection, type SynnaxProps, synnaxPropsZ } from "@synnaxlabs/client";
 import {
@@ -26,7 +26,7 @@ import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { statusVariants } from "@/cluster/Badges";
+import { statusVariants } from "@/cluster/remote/Toolbar";
 import { useSelectMany } from "@/cluster/selectors";
 import { set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";

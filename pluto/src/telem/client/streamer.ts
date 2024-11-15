@@ -9,7 +9,8 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer, type Synnax } from "@synnaxlabs/client";
-import { type AsyncDestructor, compare, type Required } from "@synnaxlabs/x";
+import { EOF } from "@synnaxlabs/freighter";
+import { type AsyncDestructor, compare, errors, type Required } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
 import { type Cache } from "@/telem/client/cache/cache";
@@ -123,6 +124,12 @@ export class Streamer {
       await this.streamer.update(arrKeys);
     } catch (e) {
       L.error("failed to update streamer", { error: e });
+      if (EOF.matches(e)) {
+        L.warn("streamer closed unexpectedly, resetting");
+        this.streamer = null;
+        await this.updateStreamer();
+        return;
+      }
       throw e;
     }
   }
@@ -150,6 +157,7 @@ export class Streamer {
         });
       }
     } catch (e) {
+      console.error("streamer run loop failed", e);
       L.error("streamer run loop failed", { error: e }, true);
       throw e;
     }

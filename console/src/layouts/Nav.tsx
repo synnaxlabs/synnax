@@ -232,10 +232,7 @@ export const NavBottom = (): ReactElement => (
       <MemoryBadge />
       <Divider.Divider />
       <Version.Badge />
-      <Divider.Divider />
-      <Cluster.Dropdown />
-      <Divider.Divider />
-      <Cluster.ConnectionBadge />
+      <Cluster.Toolbar />
     </Nav.Bar.End>
   </Nav.Bar>
 );

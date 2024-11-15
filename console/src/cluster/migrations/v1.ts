@@ -20,7 +20,7 @@ export const sliceStateZ = v0.sliceStateZ.omit({ version: true }).extend({
 export type SliceState = z.input<typeof sliceStateZ>;
 
 export const LOCAL_PROPS: SynnaxProps = {
-  name: "Local",
+  name: "Embedded Cluster",
   host: "localhost",
   port: 9090,
   username: "synnax",

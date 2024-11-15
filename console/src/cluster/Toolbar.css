@@ -8,21 +8,3 @@
  * License, use of this software will be governed by the Apache License, Version 2.0,
  * included in the file licenses/APL.txt.
  */
-
-.console-cluster-list {
-    width: 400px;
-}
-
-.console-cluster-list-title {
-    padding-left: 1rem;
-}
-
-.console-cluster-list-add {
-    z-index: 6;
-}
-
-.console-cluster-list-item {
-    &.local.pluto--selected {
-        box-shadow: inset 2px 0 0 var(--pluto-secondary-z);
-    }
-}

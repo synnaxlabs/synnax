@@ -12,18 +12,24 @@ import { z } from "zod";
 
 import * as v1 from "@/cluster/migrations/v1";
 
-export const localCommand = z.enum(["start", "stop"]);
-export const localStatus = z.enum(["starting", "running", "stopping", "stopped"]);
+export const embeddedCommand = z.enum(["start", "stop", "kill"]);
+export const embeddedStatus = z.enum([
+  "starting",
+  "running",
+  "stopping",
+  "stopped",
+  "killed",
+]);
 
-const localStateZ = z.object({
+const embeddedStateZ = z.object({
   pid: z.number(),
-  command: localCommand,
-  status: localStatus,
+  command: embeddedCommand,
+  status: embeddedStatus,
 });
 
-export type LocalState = z.input<typeof localStateZ>;
+export type EmbeddedState = z.input<typeof embeddedStateZ>;
 
-export const ZERO_LOCAL_STATE: LocalState = {
+export const ZERO_EMBEDDED_STATE: EmbeddedState = {
   pid: 0,
   command: "stop",
   status: "stopped",
@@ -31,7 +37,7 @@ export const ZERO_LOCAL_STATE: LocalState = {
 
 export const sliceStateZ = v1.sliceStateZ.omit({ version: true }).extend({
   version: z.literal("2.0.0"),
-  localState: localStateZ,
+  localState: embeddedStateZ,
 });
 
 export type SliceState = z.input<typeof sliceStateZ>;
@@ -39,7 +45,7 @@ export type SliceState = z.input<typeof sliceStateZ>;
 export const ZERO_SLICE_STATE: SliceState = {
   ...v1.ZERO_SLICE_STATE,
   version: "2.0.0",
-  localState: ZERO_LOCAL_STATE,
+  localState: ZERO_EMBEDDED_STATE,
   clusters: {
     [v1.LOCAL_CLUSTER_KEY]: v1.LOCAL,
   },
@@ -50,6 +56,6 @@ export const sliceMigration = migrate.createMigration<v1.SliceState, SliceState>
   migrate: (slice) => ({
     ...slice,
     version: "2.0.0",
-    localState: ZERO_LOCAL_STATE,
+    localState: ZERO_EMBEDDED_STATE,
   }),
 });

@@ -19,6 +19,7 @@ import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
+import { Embedded } from "@/cluster/embedded";
 import { Confirm } from "@/confirm";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
@@ -105,6 +106,7 @@ const useBlockDefaultDropBehavior = (): void =>
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
+  console.log("cluster", cluster);
   const activeRange = Range.useSelect();
   useBlockDefaultDropBehavior();
   return (
@@ -123,7 +125,7 @@ const MainUnderContext = (): ReactElement => {
         haul={{ useState: useHaulState }}
         alamos={{
           level: "debug",
-          include: [],
+          include: ["aether.telem"],
         }}
       >
         <Vis.Canvas>
@@ -141,9 +143,9 @@ export const Console = (): ReactElement => (
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
-              <Cluster.EmbeddedLogsProvider>
+              <Embedded.LogsProvider>
                 <MainUnderContext />
-              </Cluster.EmbeddedLogsProvider>
+              </Embedded.LogsProvider>
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>

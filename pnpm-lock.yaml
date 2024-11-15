@@ -619,6 +619,9 @@ importers:
       '@synnaxlabs/client':
         specifier: workspace:*
         version: link:../client/ts
+      '@synnaxlabs/freighter':
+        specifier: workspace:*
+        version: link:../freighter/ts
       '@synnaxlabs/media':
         specifier: workspace:*
         version: link:../x/media

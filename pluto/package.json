@@ -17,6 +17,7 @@
     "@synnaxlabs/alamos": "workspace:*",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
+    "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "@tanstack/react-virtual": "^3.10.9",
     "@xyflow/react": "^12.3.4",

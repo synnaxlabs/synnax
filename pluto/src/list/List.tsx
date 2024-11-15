@@ -50,6 +50,7 @@ export const List = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     },
     [omit, data] as [K[] | undefined, E[] | undefined],
   );
+  console.log(omittedData);
   return (
     <InfiniteProvider>
       <DataProvider<K, E> data={omittedData} emptyContent={emptyContent}>

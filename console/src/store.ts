@@ -134,6 +134,7 @@ const newStore = async (): Promise<RootStore> => {
       windows[key].visible = DEFAULT_VISIBLE;
       windows[key].focusCount = 0;
       windows[key].centerCount = 0;
+      windows[key].processCount = 0;
     });
   }
   return await Drift.configureStore<RootState, RootAction>({

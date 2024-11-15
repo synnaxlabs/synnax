@@ -67,6 +67,7 @@ export class BaseProvider
     this.internal.instrumentation = I.child("provider");
     const shouldSwap = core !== this.prevClient;
     if (!shouldSwap) return;
+    console.log("SWAPPING CLIENT");
     I.L.info("swapping client", { client: core });
     if (core == null) await this.client.swap(null);
     else await this.client.swap(new client.Core({ core, instrumentation: I }));

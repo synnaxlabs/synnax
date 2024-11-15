@@ -21,9 +21,9 @@ const ResourcesTree = (): ReactElement => (
     <ToolbarHeader>
       <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
     </ToolbarHeader>
-    <Cluster.NoneConnectedBoundary>
+    <Cluster.Boundary>
       <Tree />
-    </Cluster.NoneConnectedBoundary>
+    </Cluster.Boundary>
   </Align.Space>
 );
 

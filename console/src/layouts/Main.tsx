@@ -16,6 +16,7 @@ import { useDispatch } from "react-redux";
 
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
+import { Embedded } from "@/cluster/embedded";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
 import { DeviceServices } from "@/hardware/device/services";
@@ -60,7 +61,7 @@ const SideEffect = (): null => {
   Link.useDeep({ handlers: LINK_HANDLERS });
   Layout.useTriggers();
   Permissions.useFetchPermissions();
-  Cluster.useLocalServer();
+  Embedded.use();
   return null;
 };
 

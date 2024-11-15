@@ -23,14 +23,14 @@ export default defineConfig({
   resolve: {
     alias: isDev
       ? {
-          // "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
-          // "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
-          // "@synnaxlabs/x/dist": path.resolve(__dirname, "../x/ts/dist"),
-          // "@synnaxlabs/x": path.resolve(__dirname, "../x/ts/src"),
-          // "@synnaxlabs/drift/dist": path.resolve(__dirname, "../drift/dist"),
-          // "@synnaxlabs/drift": path.resolve(__dirname, "../drift/src"),
-          // "@synnaxlabs/media/dist": path.resolve(__dirname, "../x/media/dist"),
-          // "@synnaxlabs/media": path.resolve(__dirname, "../x/media/src"),
+          "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
+          "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
+          "@synnaxlabs/x/dist": path.resolve(__dirname, "../x/ts/dist"),
+          "@synnaxlabs/x": path.resolve(__dirname, "../x/ts/src"),
+          "@synnaxlabs/drift/dist": path.resolve(__dirname, "../drift/dist"),
+          "@synnaxlabs/drift": path.resolve(__dirname, "../drift/src"),
+          "@synnaxlabs/media/dist": path.resolve(__dirname, "../x/media/dist"),
+          "@synnaxlabs/media": path.resolve(__dirname, "../x/media/src"),
         }
       : {},
   },
@@ -46,5 +46,6 @@ export default defineConfig({
   },
   define: {
     isDev,
+    community: true,
   },
 });

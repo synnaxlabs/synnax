@@ -39,6 +39,7 @@ import {
   FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
+  FaStop,
   FaStream,
   FaWindows,
 } from "react-icons/fa";
@@ -404,6 +405,7 @@ export const Icon: IconType = {
   Snooze: wrapIcon(IoNotificationsOff, "snooze"),
   Log: wrapIcon(FaStream, "log"),
   Tare: wrapIcon(FaCreativeCommonsZero, "tare"),
+  Stop: wrapIcon(FaStop, "stop"),
 };
 
 export interface IconType {
@@ -553,4 +555,5 @@ export interface IconType {
   Commit: IconFC;
   Log: IconFC;
   Tare: IconFC;
+  Stop: IconFC;
 }

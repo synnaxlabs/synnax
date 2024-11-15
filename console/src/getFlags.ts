@@ -14,5 +14,5 @@ export interface Flags {
 
 export const getFlags = (): Flags => {
   const win = window as unknown as Flags;
-  return { dev: win.dev, community: win.community };
+  return { dev: false, community: true };
 };
