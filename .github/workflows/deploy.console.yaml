@@ -84,7 +84,6 @@ jobs:
         with:
           node-version-file: package.json
           cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
 
       - name: Create Release
         id: create-release
@@ -162,7 +161,6 @@ jobs:
         with:
           node-version-file: package.json
           cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
 
       - name: Adjust Auto Updater URL for Release Candidate
         if: github.event_name == 'push' && github.ref == 'refs/heads/rc'
@@ -262,7 +260,6 @@ jobs:
         with:
           node-version-file: package.json
           cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
 
       - name: Add Auto Update JSON File
         uses: actions/github-script@v7
