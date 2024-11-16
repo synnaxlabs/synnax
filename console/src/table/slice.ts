@@ -8,7 +8,7 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { mapValues, xy } from "@synnaxlabs/x";
+import { id, mapValues, type xy } from "@synnaxlabs/x";
 
 import * as latest from "@/table/migrations";
 
@@ -34,6 +34,19 @@ export interface SelectCellsPayload {
   cells: string[];
 }
 
+export interface AddRowPayload {
+  key: string;
+}
+
+export interface AddColPayload {
+  key: string;
+}
+
+export interface SetCellStatePayload {
+  key: string;
+  state: Partial<CellState> & { key: string };
+}
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -50,22 +63,22 @@ export const { actions, reducer } = createSlice({
       const table = state.tables[key];
 
       if (cells.length === 0) {
-        if (mode === "replace") {
+        if (mode === "replace")
           table.cells = mapValues(table.cells, (cell) => ({
             ...cell,
             selected: false,
           }));
-        }
+
         return;
       }
 
       table.lastSelected = cells[cells.length - 1];
 
       if (mode === "replace") {
-        table.cells = mapValues(table.cells, (cell) => ({
-          ...cell,
-          selected: cells.includes(cell.key),
-        }));
+        Object.values(table.cells).forEach((cell) => {
+          if (cells.includes(cell.key)) cell.selected = true;
+          else cell.selected &&= false;
+        });
         return;
       }
 
@@ -79,17 +92,60 @@ export const { actions, reducer } = createSlice({
 
       const startPos = findPosition(table, table.lastSelected);
       const endPos = findPosition(table, cells[0]);
-      if (startPos == null || endPos == null) return;   
+      if (startPos == null || endPos == null) return;
       const selected = allCellsInRegion(table, startPos, endPos);
-        table.cells = mapValues(table.cells, (cell) => ({
-            ...cell,
-            selected: selected.includes(cell.key),
-        }));
+      table.cells = mapValues(table.cells, (cell) => ({
+        ...cell,
+        selected: selected.includes(cell.key),
+      }));
+    },
+    addRow: (state, { payload }: PayloadAction<AddRowPayload>) => {
+      const table = state.tables[payload.key];
+      table.layout.rows.push({
+        cells: table.layout.rows[0].cells.map(() => {
+          const key = id.id();
+          table.cells[key] = {
+            key,
+            type: "text",
+            selected: false,
+            props: {},
+          };
+          return {
+            key,
+          };
+        }),
+      });
+    },
+    addCol: (state, { payload }: PayloadAction<AddColPayload>) => {
+      const table = state.tables[payload.key];
+      table.layout.rows.forEach((row) => {
+        const key = id.id();
+        row.cells.push({
+          key,
+        });
+        table.cells[key] = {
+          key,
+          type: "text",
+          selected: false,
+          props: {},
+        };
+      });
+    },
+    setCellState: (state, { payload }: PayloadAction<SetCellStatePayload>) => {
+      const { key, state: cState } = payload;
+      const table = state.tables[key];
+      table.cells[cState.key] = { ...table.cells[cState.key], ...cState };
     },
   },
 });
 
-export const { create: internalCreate } = actions;
+export const {
+  create: internalCreate,
+  selectCells,
+  addCol,
+  addRow,
+  setCellState,
+} = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
