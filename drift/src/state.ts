@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction, type Reducer } from "@reduxjs/toolkit";
-import { box, deep, type dimensions, id, xy } from "@synnaxlabs/x";
+import { box, deep, type dimensions, id, TimeSpan, xy } from "@synnaxlabs/x";
 
 import {
   INITIAL_PRERENDER_WINDOW_STATE,
@@ -122,6 +122,11 @@ export type Payload =
 /** Type representing all possible actions that are drift related. */
 export type Action = PayloadAction<Payload>;
 
+// For some reason, delaying the reload causes Tauri to crash less
+const RELOAD_DELAY = TimeSpan.milliseconds(50);
+const delayedReload = () =>
+  setTimeout(() => window.location.reload(), RELOAD_DELAY.milliseconds);
+
 export const ZERO_SLICE_STATE: SliceState = {
   label: MAIN_WINDOW,
   config: {
@@ -225,8 +230,8 @@ const slice = createSlice({
       if (s.label !== MAIN_WINDOW && !s.config.enablePrerender) return;
       const prerenderLabel = id.id();
       s.windows[prerenderLabel] = {
-        ...INITIAL_PRERENDER_WINDOW_STATE,
         ...s.config.defaultWindowProps,
+        ...INITIAL_PRERENDER_WINDOW_STATE,
       };
     },
     createWindow: (s: SliceState, { payload }: PayloadAction<CreateWindowPayload>) => {
@@ -302,7 +307,7 @@ const slice = createSlice({
       const win = s.windows[a.payload.label];
       if (win == null || win.processCount > 0) return;
       win.stage = "reloading";
-      window.location.reload();
+      delayedReload();
     }),
     registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
     completeProcess: assertLabel<MaybeKeyPayload>((s, a) => {
@@ -310,7 +315,7 @@ const slice = createSlice({
       const win = s.windows[a.payload.label];
       if (win == null) return;
       if (win.processCount === 0)
-        if (win.stage === "reloading") window.location.reload();
+        if (win.stage === "reloading") delayedReload();
         else {
           s.windows[a.payload.label].visible = false;
           delete s.windows[a.payload.label];

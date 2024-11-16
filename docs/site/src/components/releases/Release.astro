@@ -43,16 +43,16 @@ const firstPart = version.split(".").slice(0, 2).join(".");
     </Align.Space>
     <Align.Space direction="y" className="details" size="large">
         <Text.Text level="h2" className="title">{title}</Text.Text>
-        <Align.Space direction="y">
+        <article>
             <slot />
-        </Align.Space>
+        </article>
     </Align.Space>
 </Align.Space>
 
 <style is:global>
     .release {
         padding: 10rem 0rem;
-        max-width: 1200px;
+        max-width: 1150px;
         position: relative;
         margin: 0 auto;
         .meta {
@@ -65,7 +65,7 @@ const firstPart = version.split(".").slice(0, 2).join(".");
             flex-grow: 1;
         }
         .details {
-            flex-basis: 650px;
+            flex-basis: 600px;
             flex-grow: 3;
         }
         .breaking-changes {

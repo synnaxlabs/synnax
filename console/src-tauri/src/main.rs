@@ -4,9 +4,6 @@
 #[cfg(target_os = "macos")]
 extern crate cocoa;
 
-#[cfg(target_os = "macos")]
-extern crate objc;
-
 use device_query::{DeviceEvents, DeviceQuery, DeviceState, MouseState};
 use std::thread;
 use std::time::Duration;
@@ -55,7 +52,6 @@ fn set_transparent_titlebar(_: &Window, _: bool) {}
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_store::Builder::new().build())
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
             return;
