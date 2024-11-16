@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { box } from "@synnaxlabs/x";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
-import { useResize } from "@/hooks";
+import { Color } from "@/color";
 import { useAsyncEffect } from "@/hooks";
 import { Pluto } from "@/pluto";
 import { Synnax } from "@/synnax";
@@ -65,35 +65,9 @@ const Main = () => (
       secure: true,
     }}
     workerURL={WorkerURL}
+    theming={{ defaultTheme: "synnaxDark" }}
   >
-    <Canvas.Canvas>
-      <Align.Center style={{ width: "100vh", height: "100vh" }}>
-        <Table.Table>
-          <Table.Row>
-            <Table.Cell>
-              <Text.Text level="p" shade={6}>
-                Urinary Tract
-              </Text.Text>
-            </Table.Cell>
-            <Table.Cell>
-              <Value />
-            </Table.Cell>
-          </Table.Row>
-          <Table.Row>
-            <Table.Cell>
-              <Text.Text level="p" shade={6}>
-                Urinary Tract
-              </Text.Text>
-            </Table.Cell>
-            <Table.Cell>
-              <Text.Text level="p" shade={6}>
-                Urinary Tract
-              </Text.Text>
-            </Table.Cell>
-          </Table.Row>
-        </Table.Table>
-      </Align.Center>
-    </Canvas.Canvas>
+    <Color.G />
   </Pluto.Provider>
 );
 

@@ -21,8 +21,6 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Form } from "@/form";
 import { Input } from "@/input";
-import { type Notation } from "@/notation/notation";
-import { SelectNotation } from "@/notation/SelectNotation";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
@@ -34,6 +32,7 @@ import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
 import { type ControlStateProps } from "@/vis/schematic/Symbols";
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
+import { Value } from "@/vis/value";
 
 export interface SymbolFormProps {}
 
@@ -369,137 +368,11 @@ const VALUE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "telemetry", name: "Telemetry" },
 ];
 
-interface ValueTelemFormT {
-  telem: telem.StringSourceSpec;
-  tooltip: string[];
-}
-
-const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<ValueTelemFormT>({ path });
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
-    sourceP.segments.valueStream.props,
-  );
-  const stringifier = telem.stringifyNumberProps.parse(
-    sourceP.segments.stringifier.props,
-  );
-  const rollingAverage = telem.rollingAverageProps.parse(
-    sourceP.segments.rollingAverage.props,
-  );
-  const handleSourceChange = (v: channel.Key | null): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: [
-        { from: "valueStream", to: "rollingAverage" },
-        { from: "rollingAverage", to: "stringifier" },
-      ],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: v ?? 0 }),
-        stringifier: telem.stringifyNumber({
-          precision: stringifier.precision ?? 2,
-          notation: stringifier.notation,
-        }),
-        rollingAverage: telem.rollingAverage({
-          windowSize: rollingAverage.windowSize ?? 1,
-        }),
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
-
-  const handleNotationChange = (notation: Notation): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: [
-        { from: "valueStream", to: "rollingAverage" },
-        { from: "rollingAverage", to: "stringifier" },
-      ],
-      segments: {
-        valueStream: telem.streamChannelValue(source),
-        stringifier: telem.stringifyNumber({ ...stringifier, notation }),
-        rollingAverage: telem.rollingAverage(rollingAverage),
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
-
-  const handlePrecisionChange = (precision: number): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: [
-        { from: "valueStream", to: "rollingAverage" },
-        { from: "rollingAverage", to: "stringifier" },
-      ],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: source.channel }),
-        stringifier: telem.stringifyNumber({ ...stringifier, precision }),
-        rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
-
-  const handleRollingAverageChange = (windowSize: number): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: [
-        { from: "valueStream", to: "rollingAverage" },
-        { from: "rollingAverage", to: "stringifier" },
-      ],
-      segments: {
-        stringifier: telem.stringifyNumber({
-          ...stringifier,
-          precision: stringifier.precision ?? 2,
-        }),
-        valueStream: telem.streamChannelValue({ channel: source.channel }),
-        rollingAverage: telem.rollingAverage({ windowSize }),
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
-
-  const c = Channel.useName(source.channel as number);
-  useEffect(() => onChange({ ...value, tooltip: [c] }), [c]);
-
-  return (
-    <FormWrapper direction="y" align="stretch">
-      <Input.Item label="Input Channel" grow>
-        <Channel.SelectSingle
-          value={source.channel as number}
-          onChange={handleSourceChange}
-        />
-      </Input.Item>
-      <Align.Space direction="x">
-        <Input.Item label="Notation">
-          <SelectNotation
-            value={stringifier.notation}
-            onChange={handleNotationChange}
-          />
-        </Input.Item>
-        <Input.Item label="Precision" align="start">
-          <Input.Numeric
-            value={stringifier.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
-            onChange={handlePrecisionChange}
-          />
-        </Input.Item>
-        <Input.Item label="Averaging Window" align="start">
-          <Input.Numeric
-            value={rollingAverage.windowSize ?? 1}
-            bounds={{ lower: 1, upper: 100 }}
-            onChange={handleRollingAverageChange}
-          />
-        </Input.Item>
-      </Align.Space>
-    </FormWrapper>
-  );
-};
-
 export const ValueForm = (): ReactElement => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "telemetry":
-        return <ValueTelemForm path="" />;
+        return <Value.TelemForm path="" />;
       default:
         return (
           <FormWrapper direction="x">

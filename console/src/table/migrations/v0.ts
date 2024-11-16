@@ -4,18 +4,33 @@ const cellLayout = z.object({
   key: z.string(),
 });
 
+export type CellLayout = z.infer<typeof cellLayout>;
+
 const rowLayout = z.object({
   cells: z.array(cellLayout),
 });
+
+export type RowLayout = z.infer<typeof rowLayout>;
 
 const cellState = z.object({
   key: z.string(),
   type: z.string(),
   selected: z.boolean(),
-  props: z.object({}),
+  props: z.unknown(),
 });
 
-export type CellState = z.infer<typeof cellState>;
+export interface CellState<T extends string = string, P = unknown>
+  extends z.infer<typeof cellState> {
+  type: T;
+  props: P;
+}
+
+export const ZERO_CELL_STATE: CellState = {
+  key: "",
+  type: "text",
+  selected: false,
+  props: {},
+};
 
 export const stateZ = z.object({
   key: z.string(),

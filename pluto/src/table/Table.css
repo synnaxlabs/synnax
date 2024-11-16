@@ -16,7 +16,6 @@
     border: var(--pluto-border);
 
     .pluto-table__cell {
-        padding: 1rem 1.5rem;
         border: var(--pluto-border);
         z-index: 20;
         position: relative;

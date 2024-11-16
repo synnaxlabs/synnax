@@ -1,0 +1,74 @@
+/*
+ * Copyright 2024 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-gradient-picker {
+    height: 2rem;
+    width: 100%;
+    border-radius: var(--pluto-border-radius);
+    position: relative;
+
+    .pluto-gradient-picker__stop {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        top: 0;
+        transform: translateX(-50%);
+
+        .pluto-gradient-picker__drag-region {
+            width: 2rem;
+            height: 2rem;
+        }
+
+        .pluto-color-swatch {
+            width: 1rem;
+            height: 2.5rem;
+        }
+
+        .pluto-gradient-picker__stop-line {
+            cursor: ew-resize;
+            width: 0.5rem;
+            height: 2.25rem;
+            background-color: var(--pluto-gray-l10);
+            border-radius: 1rem;
+            z-index: 1;
+            position: absolute;
+            top: -0.25rem;
+            left: 50%;
+            transform: translateX(-50%);
+
+            /* add an after pseudo-element that is
+            a small triangle to indicate the stop */
+            &::after {
+                content: "";
+                position: absolute;
+                bottom: 0%;
+                left: 50%;
+                width: 0;
+                height: 0;
+                transform: translate(-50%, 0.25rem);
+                border-left: 0.5rem solid transparent;
+                border-right: 0.5rem solid transparent;
+                border-bottom: 1rem solid var(--pluto-gray-l10);
+                z-index: 2;
+            }
+        }
+    }
+
+    .pluto-gradient-picker__preview {
+        user-select: none;
+        pointer-events: none;
+        position: absolute;
+        top: 0;
+        height: 2rem;
+        width: 1rem;
+        background-color: var(--pluto-gray-l10);
+    }
+}

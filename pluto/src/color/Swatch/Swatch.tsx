@@ -14,7 +14,7 @@ import { type ReactElement, useCallback } from "react";
 import { Button } from "@/button";
 import { color } from "@/color/core";
 import { type Color, type Crude } from "@/color/core/color";
-import { Picker } from "@/color/Picker";
+import { Picker, type PickerProps } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { type UseProps } from "@/dropdown/Dropdown";
@@ -26,7 +26,8 @@ import { Theming } from "@/theming";
 export interface SwatchProps
   extends Input.Control<Crude, Color>,
     Omit<Button.ButtonProps, "onChange" | "value">,
-    UseProps {
+    UseProps,
+    Pick<PickerProps, "onDelete" | "position"> {
   allowChange?: boolean;
 }
 
@@ -41,6 +42,7 @@ export const Swatch = ({
   initialVisible,
   allowChange = true,
   draggable = true,
+  style,
   ...props
 }: SwatchProps): ReactElement => {
   const { visible, open, close } = Dropdown.use({ onVisibleChange, initialVisible });
@@ -107,6 +109,7 @@ export const Swatch = ({
       keepMounted={false}
       variant="floating"
       zIndex={100}
+      style={style}
     >
       {swatch}
       <Picker value={value} onChange={onChange} />

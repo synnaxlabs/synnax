@@ -9,5 +9,6 @@
 
 export * from "@/color/core/color";
 export * from "@/color/external";
+export * from "@/color/Gradient";
 export * from "@/color/Picker";
 export * from "@/color/Swatch";

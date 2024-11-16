@@ -1,6 +1,6 @@
 .console-table {
     display: grid;
-    width: 500px;
+    width: 100%;
     padding: 1rem;
 
     grid-template-rows: auto 5rem;

@@ -28,10 +28,6 @@ import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/s
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
 const TABS = [
   {
     tabKey: "symbols",
@@ -73,6 +69,10 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
     </Align.Center>
   );
 };
+
+export interface ToolbarProps {
+  layoutKey: string;
+}
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);

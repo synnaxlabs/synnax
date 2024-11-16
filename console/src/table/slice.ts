@@ -8,7 +8,7 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { id, mapValues, type xy } from "@synnaxlabs/x";
+import { id, type location, mapValues, type xy } from "@synnaxlabs/x";
 
 import * as latest from "@/table/migrations";
 
@@ -16,7 +16,10 @@ export type State = latest.State;
 export const ZERO_STATE: State = latest.ZERO_STATE;
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
-export type CellState = latest.CellState;
+export type CellState<T extends string = string, P = unknown> = latest.CellState<T, P>;
+export const ZERO_CELL_STATE: CellState = latest.ZERO_CELL_STATE;
+export type RowLayout = latest.RowLayout;
+export type CellLayout = latest.CellLayout;
 
 export const SLICE_NAME = "table";
 
@@ -28,18 +31,26 @@ export type CreatePayload = latest.State & {
   key: string;
 };
 
+export type SelectionMode = "replace" | "add" | "region";
+
 export interface SelectCellsPayload {
   key: string;
-  mode: "replace" | "add" | "region";
+  mode: SelectionMode;
   cells: string[];
 }
 
 export interface AddRowPayload {
   key: string;
+  pos?: number;
+  cellKey?: string;
+  location?: location.Outer;
 }
 
 export interface AddColPayload {
   key: string;
+  pos?: number;
+  cellKey: string;
+  location?: location.Outer;
 }
 
 export interface SetCellStatePayload {
@@ -100,35 +111,35 @@ export const { actions, reducer } = createSlice({
       }));
     },
     addRow: (state, { payload }: PayloadAction<AddRowPayload>) => {
-      const table = state.tables[payload.key];
-      table.layout.rows.push({
-        cells: table.layout.rows[0].cells.map(() => {
-          const key = id.id();
-          table.cells[key] = {
-            key,
-            type: "text",
-            selected: false,
-            props: {},
-          };
-          return {
-            key,
-          };
-        }),
-      });
+      const { key, pos: location } = payload;
+      const table = state.tables[key];
+      if (table == null) return;
+
+      let newRow: RowLayout;
+      if (table.layout.rows.length === 0) {
+        const cellKey = id.id();
+        table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
+        newRow = { cells: [{ key: cellKey }] };
+      } else
+        newRow = {
+          cells: table.layout.rows[0].cells.map(() => {
+            const key = id.id();
+            table.cells[key] = { ...ZERO_CELL_STATE, key };
+            return { key };
+          }),
+        };
+      if (location == null) table.layout.rows.push(newRow);
+      else table.layout.rows.splice(location, 0, newRow);
     },
     addCol: (state, { payload }: PayloadAction<AddColPayload>) => {
+      const { pos: location } = payload;
       const table = state.tables[payload.key];
+      if (table == null) return;
       table.layout.rows.forEach((row) => {
-        const key = id.id();
-        row.cells.push({
-          key,
-        });
-        table.cells[key] = {
-          key,
-          type: "text",
-          selected: false,
-          props: {},
-        };
+        const cellKey = id.id();
+        if (location == null) row.cells.push({ key: cellKey });
+        else row.cells.splice(location, 0, { key: cellKey });
+        table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
       });
     },
     setCellState: (state, { payload }: PayloadAction<SetCellStatePayload>) => {
@@ -156,7 +167,7 @@ export const findPosition = (state: State, key: string): xy.XY | null => {
   state.layout.rows.find((row, i) => {
     const column = row.cells.find((cell, j) => {
       if (cell.key !== key) return false;
-      pos.y = i;
+      pos.y = j;
       return true;
     });
     if (column == null) return false;
