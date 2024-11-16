@@ -9,7 +9,6 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { type ReactElement } from "react";
-import { z } from "zod";
 
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
@@ -20,8 +19,7 @@ export const TYPE_PREFIXES = [
   NI.Task.PREFIX,
   OPC.Task.PREFIX,
 ] as const;
-export const typePrefixZ = z.enum(TYPE_PREFIXES);
-export type TypePrefix = z.infer<typeof typePrefixZ>;
+export type TypePrefix = (typeof TYPE_PREFIXES)[number];
 
 export const TASK_ICONS: Record<TypePrefix, ReactElement> = {
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
