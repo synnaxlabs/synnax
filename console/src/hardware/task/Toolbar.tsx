@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Header,
   List,
   Menu as PMenu,
   Observe,
@@ -32,7 +33,27 @@ import { createTaskLayout } from "@/hardware/task/ontology";
 import { getIcon } from "@/hardware/task/types";
 import { Layout } from "@/layout";
 
+import { createSelector } from "./Selector";
+
 type DesiredTaskState = "running" | "paused" | null;
+
+const EmptyContent = (): ReactElement => {
+  const place = Layout.usePlacer();
+  const handleClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
+    e.stopPropagation();
+    place(createSelector({}));
+  };
+  return (
+    <Align.Space empty style={{ height: "100%", position: "relative" }}>
+      <Align.Center direction="y" style={{ height: "100%" }} size="small">
+        <Text.Text level="p">No existing tasks.</Text.Text>
+        <Text.Link level="p" onClick={handleClick}>
+          Add a task
+        </Text.Link>
+      </Align.Center>
+    </Align.Space>
+  );
+};
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
@@ -240,8 +261,16 @@ const Content = (): ReactElement => {
       <Align.Space empty style={{ height: "100%" }}>
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
+          <Header.Actions>
+            {[
+              {
+                children: <Icon.Add />,
+                onClick: () => place(createSelector({})),
+              },
+            ]}
+          </Header.Actions>
         </ToolbarHeader>
-        <List.List data={tasks}>
+        <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>
               {({ key, ...props }) => (
