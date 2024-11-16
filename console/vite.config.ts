@@ -45,6 +45,6 @@ export default defineConfig({
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
   define: {
-    isDev,
+    IS_DEV: isDev,
   },
 });

@@ -102,8 +102,8 @@ export const middleware =
 
     const shouldEmit_ = shouldEmit(emitted, action.type);
 
-    // Wrap everything in an async closure eto ensure that we synchronize before
-    // before emitting to other windows.
+    // Run everything within a mutex locked closure to ensure that we correctly sync
+    // and then propagate actions to other windows.
     mu.runExclusive(async (): Promise<void> => {
       try {
         if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
@@ -124,7 +124,7 @@ export const middleware =
   };
 
 /**
- * Configures the Redux middleware for the curent window's store.
+ * Configures the Redux middleware for the current window's store.
  *
  * @param mw - Middleware provided by the drift user (if any).
  * @param runtime - The runtime of the current window.

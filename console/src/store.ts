@@ -121,6 +121,7 @@ export const migrateState = (prev: RootState): RootState => {
 };
 
 const newStore = async (): Promise<RootStore> => {
+  console.log(isDev());
   const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
     initial: ZERO_STATE,
     migrator: migrateState,
