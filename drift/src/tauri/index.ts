@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, type UnknownAction } from "@reduxjs/toolkit";
-import { debounce as debounceF, dimensions, xy } from "@synnaxlabs/x";
+import { debounce as debounceF, dimensions, runtime, xy } from "@synnaxlabs/x";
 import {
   emit,
   type Event as TauriEvent,
@@ -76,6 +76,9 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async configure(): Promise<void> {
+    // We only need to poll for fullscreen on MacOS, as tauri doesn't provide an
+    // emitted event for fullscreen changes.
+    if (runtime.getOS() !== "MacOS") return;
     let prevFullscreen = (await this.getProps()).fullscreen;
     this.fullscreenPoll = setInterval(() => {
       this.win
