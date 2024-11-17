@@ -7,10 +7,15 @@ const cellLayout = z.object({
 export type CellLayout = z.infer<typeof cellLayout>;
 
 const rowLayout = z.object({
+  size: z.number(),
   cells: z.array(cellLayout),
 });
 
 export type RowLayout = z.infer<typeof rowLayout>;
+
+const colLayout = z.object({
+  size: z.number(),
+});
 
 const cellState = z.object({
   key: z.string(),
@@ -38,6 +43,7 @@ export const stateZ = z.object({
   lastSelected: z.string().nullable(),
   layout: z.object({
     rows: z.array(rowLayout),
+    columns: colLayout.array(),
   }),
   cells: z.record(z.string(), cellState),
 });
@@ -51,12 +57,15 @@ export const ZERO_STATE: State = {
   layout: {
     rows: [
       {
+        size: 24,
         cells: [{ key: "123" }],
       },
       {
+        size: 24,
         cells: [{ key: "456" }],
       },
     ],
+    columns: [{ size: 24 }],
   },
   cells: {
     "123": {

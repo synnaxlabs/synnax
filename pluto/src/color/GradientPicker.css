@@ -10,10 +10,18 @@
  */
 
 .pluto-gradient-picker {
-    height: 2rem;
-    width: 100%;
-    border-radius: var(--pluto-border-radius);
     position: relative;
+    width: 500px;
+    height: fit-content;
+    height: 10rem;
+
+    & .pluto-gradient-picker__bar {
+        height: 2rem;
+        width: 100%;
+        border-radius: var(--pluto-border-radius);
+        border: var(--pluto-border);
+        cursor: pointer;
+    }
 
     .pluto-gradient-picker__stop {
         position: absolute;
@@ -28,19 +36,22 @@
         }
 
         .pluto-color-swatch {
-            width: 1rem;
+            width: 4rem;
             height: 2.5rem;
+            border-radius: 0.5rem;
+            border: var(--pluto-border);
+            border-color: var(--pluto-gray-l10);
+            box-shadow: var(--pluto-shadow-menu);
         }
 
         .pluto-gradient-picker__stop-line {
             cursor: ew-resize;
             width: 0.5rem;
-            height: 2.25rem;
+            height: 2.5rem;
             background-color: var(--pluto-gray-l10);
             border-radius: 1rem;
-            z-index: 1;
             position: absolute;
-            top: -0.25rem;
+            top: -0.35rem;
             left: 50%;
             transform: translateX(-50%);
 
@@ -60,15 +71,5 @@
                 z-index: 2;
             }
         }
-    }
-
-    .pluto-gradient-picker__preview {
-        user-select: none;
-        pointer-events: none;
-        position: absolute;
-        top: 0;
-        height: 2rem;
-        width: 1rem;
-        background-color: var(--pluto-gray-l10);
     }
 }

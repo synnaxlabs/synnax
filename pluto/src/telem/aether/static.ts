@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds,DataType, Rate, Series, TimeRange, typedArrayZ } from "@synnaxlabs/x";
+import { bounds, DataType, Rate, Series, TimeRange, typedArrayZ } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { color } from "@/ether";
 import { type Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,
+  type ColorSource,
+  type ColorSourceSpec,
   type NumberSource,
   type NumberSourceSpec,
   type SeriesSource,
@@ -34,6 +37,8 @@ export class StaticFactory implements Factory {
         return new FixedNumber(spec.props);
       case FixedString.TYPE:
         return new FixedString(spec.props);
+      case FixedColorSource.TYPE:
+        return new FixedColorSource(spec.props);
       default:
         return null;
     }
@@ -169,6 +174,22 @@ export class FixedString extends AbstractSource<typeof fixedStringPropsZ> {
   }
 }
 
+export const fixedColorSourcePropsZ = color.crudeZ;
+
+export type FixedColorSourceProps = z.infer<typeof fixedColorSourcePropsZ>;
+
+export class FixedColorSource
+  extends AbstractSource<typeof fixedColorSourcePropsZ>
+  implements ColorSource
+{
+  static readonly TYPE = "static-color";
+  schema = fixedColorSourcePropsZ;
+
+  async value(): Promise<color.Color> {
+    return new color.Color(this.props);
+  }
+}
+
 export const fixedArray = (props: FixedArrayProps): SeriesSourceSpec => ({
   type: FixedSeries.TYPE,
   props,
@@ -195,4 +216,11 @@ export const fixedString = (value: string): StringSourceSpec => ({
   props: value,
   variant: "source",
   valueType: "string",
+});
+
+export const fixedColor = (color: color.Crude): ColorSourceSpec => ({
+  type: FixedColorSource.TYPE,
+  props: color,
+  variant: "source",
+  valueType: "color",
 });

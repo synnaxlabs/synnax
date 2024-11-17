@@ -539,7 +539,6 @@ export const FitViewControl = ({
       }}
       // @ts-expect-error - toggle icon issues
       value={fitViewOnResize}
-      // @ts-expect-error - toggle icon issues
       onChange={(v) => setFitViewOnResize(v)}
       rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}

@@ -1,7 +1,17 @@
 import { Icon } from "@synnaxlabs/media";
-import { Align, Form, Select, Status, Text, Value } from "@synnaxlabs/pluto";
-import { deep, type KeyedNamed, zodutil } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import {
+  Align,
+  Color,
+  Form,
+  Input,
+  Select,
+  Status,
+  Tabs,
+  Text,
+  Value,
+} from "@synnaxlabs/pluto";
+import { deep, type KeyedNamed, scale, zodutil } from "@synnaxlabs/x";
+import { type FC, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
@@ -33,7 +43,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Table />}>Table</ToolbarTitle>
       </ToolbarHeader>
-      <Align.Space style={{ padding: "2rem" }}>
+      <Align.Space>
         {selected.length === 0 ? (
           <EmptyContent />
         ) : (
@@ -107,7 +117,116 @@ export const SelectCellType = ({
   />
 );
 
-const ValueForm = () => <Value.TelemForm path="props" />;
+const ValueForm = () => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
+    switch (tabKey) {
+      case "telem":
+        return (
+          <Align.Space direction="y" style={{ padding: "2rem" }}>
+            <Value.TelemForm path="props" />
+          </Align.Space>
+        );
+      case "redline":
+        return (
+          <Align.Space direction="y" style={{ padding: "2rem" }}>
+            <RedlineForm />
+          </Align.Space>
+        );
+      default:
+        return (
+          <Align.Space direction="y" grow empty style={{ padding: "2rem" }}>
+            <Align.Space direction="x">
+              <Form.Field<Color.Crude>
+                hideIfNull
+                label="Color"
+                align="start"
+                padHelpText={false}
+                path="props.color"
+              >
+                {({ value, onChange, variant: _, ...props }) => (
+                  <Color.Swatch
+                    value={value ?? Color.ZERO.setAlpha(1).rgba255}
+                    onChange={(v) => onChange(v.rgba255)}
+                    {...props}
+                    bordered
+                  />
+                )}
+              </Form.Field>
+              {/* <Form.TextField
+                path="props.units"
+                label="Units"
+                align="start"
+                padHelpText={false}
+              /> */}
+              {/* <Form.NumericField
+                path="inlineSize"
+                label="Value Width"
+                hideIfNull
+                inputProps={{
+                  dragScale: { x: 1, y: 0.25 },
+                  bounds: { lower: 40, upper: 500 },
+                  endContent: "px",
+                }}
+              /> */}
+              <Form.Field<Text.Level>
+                path="props.level"
+                label="Value Size"
+                hideIfNull
+                padHelpText={false}
+              >
+                {(p) => <Text.SelectLevel {...p} />}
+              </Form.Field>
+            </Align.Space>
+          </Align.Space>
+        );
+    }
+  }, []);
+  const tabsProps = Tabs.useStatic({
+    tabs: [
+      { tabKey: "style", name: "Style" },
+      { tabKey: "telem", name: "Telemetry" },
+      { tabKey: "redline", name: "Redline" },
+    ],
+    content,
+  });
+  return <Tabs.Tabs size="small" {...tabsProps} />;
+};
+
+const RedlineForm = (): ReactElement => {
+  const bounds = Form.useFieldValue("props.redline.bounds");
+  return (
+    <Align.Space direction="x" grow>
+      <Form.NumericField
+        inputProps={{ size: "small", showDragHandle: false }}
+        style={{ width: 60 }}
+        label="Lower"
+        path="props.redline.bounds.lower"
+      />
+      <Form.Field<Color.Gradient>
+        path="props.redline.gradient"
+        label="Gradient"
+        align="start"
+        padHelpText={false}
+      >
+        {({ value, onChange }) => (
+          <Color.GradientPicker
+            value={deep.copy(value)}
+            scale={scale.Scale.scale<number>(0, 1).scale(bounds)}
+            onChange={(v) =>
+              onChange(v.map((c) => ({ ...c, color: new Color.Color(c.color).hex })))
+            }
+          />
+        )}
+      </Form.Field>
+      <Form.NumericField
+        inputProps={{ size: "small", showDragHandle: false }}
+        style={{ width: 60 }}
+        label="Upper"
+        path="props.redline.bounds.upper"
+      />
+    </Align.Space>
+  );
+};
 
 const TextCellForm = () => (
   <Form.Field<CellType>

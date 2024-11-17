@@ -66,9 +66,7 @@ const Main = () => (
     }}
     workerURL={WorkerURL}
     theming={{ defaultTheme: "synnaxDark" }}
-  >
-    <Color.G />
-  </Pluto.Provider>
+  ></Pluto.Provider>
 );
 
 createRoot(document.getElementById("root")!).render(<Main />);

@@ -9,8 +9,8 @@
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
 
+// import "@synnaxlabs/pluto/dist/style.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import { type Haul, Pluto, type state, type Triggers } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -36,6 +36,7 @@ import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
+import { Table } from "@/table";
 import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
@@ -60,6 +61,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...User.LAYOUTS,
   ...Permissions.LAYOUTS,
   ...Log.LAYOUTS,
+  ...Table.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

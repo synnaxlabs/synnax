@@ -1,3 +1,5 @@
+import { i } from "node_modules/vite/dist/node/types.d-aGj9QkWt";
+
 import { useMemoSelect } from "@/hooks";
 import {
   type CellState,
@@ -49,3 +51,20 @@ export const useSelectSelectedCells = <T extends string = string, P = unknown>(
   key: string,
 ): CellState<T, P>[] =>
   useMemoSelect((state: StoreState) => selectSelectedCells<T, P>(state, key), [key]);
+
+export const selectSelectedColumns = (state: StoreState, key: string): number[] => {
+  const table = select(state, key);
+  const selected = selectSelectedCells(state, key);
+  const selectedKeys = selected.map((cell) => cell.key);
+  const columns = new Set<number>();
+  table.layout.rows.forEach((row) => {
+    row.cells.forEach((cell, j) => {
+      if (selectedKeys.includes(cell.key)) columns.add(j);
+    });
+  });
+  console.log(columns);
+  return Array.from(columns);
+};
+
+export const useSelectSelectedColumns = (key: string): number[] =>
+  useMemoSelect((state: StoreState) => selectSelectedColumns(state, key), [key]);

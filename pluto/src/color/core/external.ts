@@ -7,10 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createRoot } from "react-dom/client";
-
-import { Console } from "@/Console";
-
-const rootEl = document.getElementById("root") as HTMLElement;
-
-createRoot(rootEl).render(<Console />);
+export * from "@/color/core/color";
+export * from "@/color/core/gradient";

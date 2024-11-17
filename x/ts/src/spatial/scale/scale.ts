@@ -19,8 +19,10 @@ import * as location from "@/spatial/location/location";
 import * as xy from "@/spatial/xy/xy";
 
 export const crudeXYTransform = z.object({ offset: xy.crudeZ, scale: xy.crudeZ });
-
 export type XYTransformT = z.infer<typeof crudeXYTransform>;
+
+export const transform = z.object({ offset: z.number(), scale: z.number() });
+export type TransformT = z.infer<typeof transform>;
 
 export type BoundVariant = "domain" | "range";
 
@@ -414,6 +416,11 @@ export const xyScaleToTransform = (scale: XY): XYTransformT => ({
     x: scale.x.pos(0),
     y: scale.y.pos(0),
   },
+});
+
+export const scaleToTransform = (scale: Scale<number>): TransformT => ({
+  scale: scale.dim(1),
+  offset: scale.pos(0),
 });
 
 export class XY {

@@ -164,8 +164,8 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           <input
             ref={combinedRef}
             value={tempValue ?? value}
-            onChange={handleChange}
             role="textbox"
+            onChange={handleChange}
             autoCapitalize="off"
             autoComplete="off"
             autoCorrect="off"

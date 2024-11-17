@@ -15,7 +15,7 @@ import { render } from "@/vis/render";
 
 export const tableStateZ = z.object({
   region: box.box,
-  clearOverScan: xy.crudeZ.optional().default(10),
+  clearOverScan: xy.crudeZ.optional().default(0),
   visible: z.boolean().optional().default(true),
 });
 
@@ -54,6 +54,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
       xy.construct(this.state.clearOverScan),
       CANVASES,
     );
+
     try {
       await Promise.all(this.children.map((child) => child.render({ viewportScale })));
     } finally {

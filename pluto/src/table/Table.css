@@ -10,30 +10,116 @@
  */
 
 .pluto-table {
-    padding: 1rem;
-    background-color: var(--pluto-gray-l0);
-    border-collapse: collapse;
-    border: var(--pluto-border);
+    table-layout: fixed;
+    border-spacing: 0;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+    width: fit-content;
+    height: fit-content;
+    flex-shrink: 1;
+    min-width: 0;
+
+    .pluto-table__row:not(.pluto-table__col-resizer) {
+        &:has(.pluto--selected) {
+            .pluto-table__resizer {
+                background: var(--pluto-primary-z-30);
+                .pluto-text {
+                    color: var(--pluto-gray-l9) !important;
+                }
+            }
+        }
+    }
+
+    .pluto-table__resizer {
+        background: var(--pluto-gray-l2);
+        &.pluto--selected {
+            background: var(--pluto-primary-z-30);
+            .pluto-text {
+                color: var(--pluto-gray-l9) !important;
+            }
+        }
+
+        &.pluto--y {
+            border-right: var(--pluto-border-l4);
+            position: relative;
+
+            & button {
+                bottom: 0px;
+                left: 0px;
+                cursor: row-resize;
+                height: 5px;
+                width: 100%;
+                border-bottom: var(--pluto-border-l4);
+            }
+        }
+
+        &.pluto--x {
+            height: 3.5rem;
+            position: relative;
+            border-bottom: var(--pluto-border-l4);
+
+            & button {
+                right: 0px;
+                top: 0;
+                cursor: col-resize;
+                height: 100%;
+                width: 5px;
+                border-right: var(--pluto-border-l4);
+            }
+        }
+        & button {
+            border: none;
+            background: none;
+            position: absolute;
+            display: inline;
+            box-sizing: border-box;
+
+            &:hover {
+                border-color: var(--pluto-primary-m1);
+                border-width: 2px;
+            }
+
+            &:active {
+                border-color: var(--pluto-primary-p1);
+                border-width: 2px;
+            }
+        }
+    }
 
     .pluto-table__cell {
         border: var(--pluto-border);
         z-index: 20;
         position: relative;
+        border-top: none;
+        border-left: none;
         &.pluto--selected {
             border: none;
             &::before {
                 content: "";
                 position: absolute;
-                top: -1px;
-                left: -1px;
-                right: -1px;
-                bottom: -1px;
+                top: -2px;
+                left: -2px;
+                right: 0px;
+                bottom: 0px;
                 border: var(--pluto-border);
+                border-width: 2px;
+                border-radius: 1px;
                 border-color: var(
-                    --pluto-primary-z
+                    --pluto-primary-p1
                 ); /* Border is now handled by the pseudo-element */
                 z-index: -1; /* Ensure it stays behind the box */
             }
+        }
+    }
+
+    .pluto-table__col-resizer {
+        & > *:first-child {
+            width: 3.5rem;
+            max-width: 3.5rem;
+            min-width: 3.5rem;
+            margin: 0;
+            border-right: var(--pluto-border);
+            border-bottom: var(--pluto-border);
         }
     }
 }
