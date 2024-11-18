@@ -4,17 +4,22 @@
 #[cfg(target_os = "macos")]
 extern crate cocoa;
 
+#[cfg(target_os = "macos")]
 use device_query::{DeviceEvents, DeviceQuery, DeviceState, MouseState};
+#[cfg(target_os = "macos")]
 use std::thread;
+#[cfg(target_os = "macos")]
 use std::time::Duration;
-use tauri::{Emitter, Window};
-
+#[cfg(target_os = "macos")]
+use tauri::Emitted;
 #[cfg(target_os = "macos")]
 struct UnsafeWindowHandle(*mut std::ffi::c_void);
 #[cfg(target_os = "macos")]
 unsafe impl Send for UnsafeWindowHandle {}
 #[cfg(target_os = "macos")]
 unsafe impl Sync for UnsafeWindowHandle {}
+
+use tauri::Window;
 
 #[cfg(target_os = "macos")]
 fn set_transparent_titlebar(win: &Window, transparent: bool) {
@@ -87,7 +92,9 @@ fn main() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+            #[cfg(target_os = "macos")] 
             let app_handle = app.handle().clone();
+            #[cfg(target_os = "macos")] 
             thread::spawn(move || {
                 let app_handle = app_handle.clone();
                 let device_state = DeviceState::new();

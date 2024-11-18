@@ -60,6 +60,7 @@ const SideEffect = (): null => {
   Link.useDeep({ handlers: LINK_HANDLERS });
   Layout.useTriggers();
   Permissions.useFetchPermissions();
+  Layout.useDropOutside();
   return null;
 };
 
