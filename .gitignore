@@ -108,4 +108,7 @@ driver/vendor/mbedtls/mbedtls
 **/ignore*
 *.test
 
+# |||| ESLINT ||||
+.eslintcache
+
 python_install

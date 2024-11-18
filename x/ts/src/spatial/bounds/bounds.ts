@@ -23,7 +23,8 @@ export interface Construct {
    * with a 'lower' and 'upper' property or an array of length 2. If the bounds are
    * invalid i.e., the lower bound is greater than the upper bound, the bounds are
    * swapped.
-   */ <T extends numeric.Value = number>(bounds: Crude<T>): Bounds<T>;
+   */
+  <T extends numeric.Value = number>(bounds: Crude<T>): Bounds<T>;
 
   /**
    * Constructs a bounds object from the given lower and upper bounds.
@@ -34,7 +35,8 @@ export interface Construct {
    * bound is set to 0.
    *
    * If the lower bound is greater than the upper bound, the bounds are swapped.
-   */ <T extends numeric.Value = number>(lower: T, upper?: T): Bounds<T>;
+   */
+  <T extends numeric.Value = number>(lower: T, upper?: T): Bounds<T>;
 
   <T extends numeric.Value = number>(lower: T | Crude, upper?: T): Bounds<T>;
 }
@@ -44,7 +46,7 @@ export const construct = <T extends numeric.Value>(
   upper?: T,
 ): Bounds<T> => {
   const b: Bounds<T> = {} as const as Bounds<T>;
-  if (typeof lower === "number" || typeof lower === "bigint") {
+  if (typeof lower === "number" || typeof lower === "bigint")
     if (upper != null) {
       b.lower = lower;
       b.upper = upper;
@@ -52,7 +54,7 @@ export const construct = <T extends numeric.Value>(
       b.lower = (typeof lower === "bigint" ? 0n : 0) as T;
       b.upper = lower;
     }
-  } else if (Array.isArray(lower)) {
+  else if (Array.isArray(lower)) {
     if (lower.length !== 2) throw new Error("bounds: expected array of length 2");
     [b.lower, b.upper] = lower;
   } else return makeValid(lower);

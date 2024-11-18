@@ -22,8 +22,9 @@
 ///////////////////////////////////////////////////////////////////////////////////
 labjack::ScannerTask::ScannerTask(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) : ctx(std::move(ctx)), task(std::move(task)) {
+    const synnax::Task &task,
+    std::shared_ptr<labjack::DeviceManager> device_manager
+) : ctx(std::move(ctx)), task(std::move(task)), device_manager(device_manager) {
     this->devices["devices"] = nlohmann::json::array();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&ScannerTask::run, this);
@@ -31,9 +32,10 @@ labjack::ScannerTask::ScannerTask(
 
 std::unique_ptr<task::Task> labjack::ScannerTask::configure(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::Task &task,
+    std::shared_ptr<labjack::DeviceManager> device_manager
 ) {
-    return std::make_unique<ScannerTask>(ctx, task);
+    return std::make_unique<ScannerTask>(ctx, task, device_manager);
 }
 
 
@@ -47,32 +49,31 @@ void labjack::ScannerTask::exec(task::Command &cmd) {
 }
 
 void labjack::ScannerTask::scan() {
-    int DeviceType = LJM_dtANY;
-    int ConnectionType = LJM_ctANY;
+    int device_type = LJM_dtANY;
+    int connection_type = LJM_ctANY;
 
-    int aDeviceTypes[LJM_LIST_ALL_SIZE];
-    int aConnectionTypes[LJM_LIST_ALL_SIZE];
-    int aSerialNumbers[LJM_LIST_ALL_SIZE];
-    int aIPAddresses[LJM_LIST_ALL_SIZE];
-    int NumFound = 0;
-    {
+    int device_types[LJM_LIST_ALL_SIZE];
+    int connection_types[LJM_LIST_ALL_SIZE];
+    int serial_numbers[LJM_LIST_ALL_SIZE];
+    int ip_addresses[LJM_LIST_ALL_SIZE];
+    int num_found = 0; {
         std::lock_guard<std::mutex> lock(labjack::device_mutex);
         check_err(LJM_ListAll(
-            DeviceType,
-            ConnectionType,
-            &NumFound,
-            aDeviceTypes,
-            aConnectionTypes,
-            aSerialNumbers,
-            aIPAddresses
+            device_type,
+            connection_type,
+            &num_found,
+            device_types,
+            connection_types,
+            serial_numbers,
+            ip_addresses
         ));
     }
 
-    for (int i = 0; i < NumFound; i++) {
+    for (int i = 0; i < num_found; i++) {
         nlohmann::json device;
-        device["device_type"] = NumberToDeviceType(aDeviceTypes[i]);
-        device["connection_type"] = NumberToConnectionType(aConnectionTypes[i]);
-        device["serial_number"] = aSerialNumbers[i];
+        device["device_type"] = NumberToDeviceType(device_types[i]);
+        device["connection_type"] = NumberToConnectionType(connection_types[i]);
+        device["serial_number"] = serial_numbers[i];
         device["key"] = device["serial_number"];
         device["failed_to_create"] = false;
         if (device_keys.find(device["key"].get<int>()) == device_keys.end()) {
@@ -93,9 +94,14 @@ void labjack::ScannerTask::create_devices() {
             continue;
         }
 
+        // in order to differentiate same model devices, we append the last 4 digits of the serial number
+        auto ser_num = std::to_string(device["serial_number"].get<int>());
+        auto last_four = ser_num.length() >= 4 ? ser_num.substr(ser_num.length() - 4) : ser_num;
+        auto name = device["device_type"].get<std::string>() + "-" + last_four;
+
         auto new_device = synnax::Device(
             key,
-            device["device_type"].get<std::string>(), // name
+            name, // name
             synnax::taskKeyRack(this->task.key), // rack key
             device["connection_type"].get<std::string>(), // location
             std::to_string(device["serial_number"].get<int>()),
@@ -110,6 +116,8 @@ void labjack::ScannerTask::create_devices() {
         } else {
             LOG(INFO) << "[labjack.scanner] successfully created device with key: " << device["key"];
         }
+        std::string serial_number = std::to_string(device["serial_number"].get<int>());
+        int handle = this->device_manager->get_device_handle(serial_number);
     }
 }
 
@@ -136,7 +144,10 @@ json labjack::ScannerTask::get_devices() {
     return devices;
 }
 
-int labjack::ScannerTask::check_err(int err) {
+int labjack::ScannerTask::check_err(const int err) {
+    // First check if it is LJME_AUTO_IPS_FILE_NOT_FOUND as this is a known
+    // bug on the LJM Library when no devices are connected
+    if (err == LJME_AUTO_IPS_FILE_NOT_FOUND) return 0;
     return labjack::check_err_internal(
         err,
         "",
@@ -147,6 +158,6 @@ int labjack::ScannerTask::check_err(int err) {
     );
 }
 
-bool labjack::ScannerTask::ok() {
+bool labjack::ScannerTask::ok() const {
     return this->ok_state;
 }

@@ -7,25 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect, useRef, useState } from "react";
-
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
-import { OSSelectButton } from "@/components/platform/PlatformTabs";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
-interface ItemOffset {
-  id: string;
-  topOffset: number;
-}
+import { OSSelectButton } from "@/components/platform/PlatformTabs";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
 export const OnThisPage = ({
   headings = [],
-  url,
 }: {
   headings?: MarkdownHeading[];
   url: string;
@@ -41,15 +35,11 @@ export const OnThisPage = ({
       ) as unknown as HTMLElement[];
       headerLinks.forEach((link) => {
         // check if there's a matching title
-        const title = Array.from(titles).find((title) => {
-          return title.id === link.id;
-        });
-        if (title == null) {
+        const title = Array.from(titles).find((title) => title.id === link.id);
+        if (title == null)
           // set the link display to none
           link.style.display = "none";
-        } else {
-          link.style.display = "block";
-        }
+        else link.style.display = "block";
       });
     }, 200);
     return () => clearInterval(i);
@@ -77,14 +67,13 @@ export const OnThisPage = ({
     if (toc.current == null) return;
 
     const setCurrent: IntersectionObserverCallback = (entries) => {
-      for (const entry of entries) {
+      for (const entry of entries)
         if (entry.isIntersecting) {
           const { id } = entry.target;
           if (id === ON_THIS_PAGE_ID) continue;
           setCurrentID(entry.target.id);
           break;
         }
-      }
     };
 
     const observerOptions: IntersectionObserverInit = {
@@ -119,25 +108,23 @@ export const OnThisPage = ({
         <Menu.Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth > 1 && depth <= 3)
-            .map((heading) => {
-              return (
-                <Menu.Item.Link
-                  href={`#${heading.slug}`}
-                  level="small"
-                  key={heading.slug}
-                  itemKey={heading.slug}
-                  id={heading.slug}
-                  onClick={() => {
-                    setCurrentID(heading.slug);
-                  }}
-                  className={`header-link ${heading.slug} depth-${heading.depth} ${
-                    currentID === heading.slug ? "current-header-link" : ""
-                  }`.trim()}
-                >
-                  {unescape(heading.text)}
-                </Menu.Item.Link>
-              );
-            })}
+            .map((heading) => (
+              <Menu.Item.Link
+                href={`#${heading.slug}`}
+                level="small"
+                key={heading.slug}
+                itemKey={heading.slug}
+                id={heading.slug}
+                onClick={() => {
+                  setCurrentID(heading.slug);
+                }}
+                className={`header-link ${heading.slug} depth-${heading.depth} ${
+                  currentID === heading.slug ? "current-header-link" : ""
+                }`.trim()}
+              >
+                {unescape(heading.text)}
+              </Menu.Item.Link>
+            ))}
         </Menu.Menu>
       </div>
     </Align.Space>

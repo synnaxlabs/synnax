@@ -109,6 +109,10 @@ class Series(Payload):
                 data_ = b"".join(d.bytes for d in data)
             else:
                 data_ = np.array(data, dtype=data_type.np).tobytes()
+                data_type = data_type or DataType(data)
+        elif isinstance(data, str):
+            data_ = bytes(f"{data}\n", "utf-8")
+            data_type = DataType.STRING
         else:
             if data_type is None:
                 raise ValueError(
@@ -234,7 +238,7 @@ class Series(Payload):
 
 Series = overload_comparison_operators(Series, "__array__")
 
-SampleValue = np.number | uuid.UUID | dict | str
+SampleValue = np.number | uuid.UUID | dict | str | int | float | TimeStamp
 TypedCrudeSeries = Series | pd.Series | np.ndarray
 CrudeSeries = (
     Series

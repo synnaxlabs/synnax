@@ -41,4 +41,4 @@ export type Workspace = z.infer<typeof workspaceZ>;
 export const ONTOLOGY_TYPE: ontology.ResourceType = "workspace";
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

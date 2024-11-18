@@ -186,12 +186,13 @@ const useLifecycle = <S extends z.ZodTypeAny>({
   }, [type, path, onReceive, setState]);
 
   // Destroy the component on unmount.
-  useLayoutEffect(() => {
-    return () => {
+  useLayoutEffect(
+    () => () => {
       comms.current?.delete();
       comms.current = null;
-    };
-  }, []);
+    },
+    [],
+  );
 
   return useMemo(() => ({ setState, path }), [setState, key, path]);
 };

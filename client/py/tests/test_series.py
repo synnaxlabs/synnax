@@ -105,6 +105,13 @@ class TestSeries:
         d = Series(["hello"])
         assert len(d) == 1
         assert d.data_type == DataType.STRING
+        assert d[0] == "hello"
+
+    def test_construction_from_string(self):
+        """Should correctly construct the series from a single string"""
+        d = Series("hello")
+        assert len(d) == 1
+        assert d.data_type == DataType.STRING
 
     def test_construction_from_dicts(self):
         """Should correctly construct the series from a list of dicts"""

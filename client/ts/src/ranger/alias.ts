@@ -12,7 +12,7 @@ import { type change } from "@synnaxlabs/x/change";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { type Key as ChannelKey,keyZ as channelKeyZ } from "@/channel/payload";
+import { type Key as ChannelKey, keyZ as channelKeyZ } from "@/channel/payload";
 import { type Client as FrameClient } from "@/framer/client";
 import { type Key, keyZ } from "@/ranger/payload";
 import { signals } from "@/signals";
@@ -161,7 +161,7 @@ const aliasSeparator = "---";
 const decodeAliasChanges =
   (rangeKey: Key): signals.Decoder<string, Alias> =>
   (variant, data) => {
-    if (variant === "delete") {
+    if (variant === "delete")
       return data
         .toStrings()
         .filter((k) => k.split(aliasSeparator)[0] === rangeKey)
@@ -170,7 +170,6 @@ const decodeAliasChanges =
           key: alias,
           value: undefined,
         }));
-    }
     return data.parseJSON(aliasZ).map((alias) => ({
       variant,
       key: alias.alias,

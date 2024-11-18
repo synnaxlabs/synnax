@@ -156,9 +156,7 @@ export const stringsWithNumbers = (a: string, b: string): number => {
     } else if (!isNaN(Number(aPart)) && !isNaN(Number(bPart))) {
       const numComparison = Number(aPart) - Number(bPart);
       if (numComparison !== 0) return numComparison;
-    } else {
-      return isNaN(Number(aPart)) ? -1 : 1;
-    }
+    } else return isNaN(Number(aPart)) ? -1 : 1;
   }
 
   return aParts.length - bParts.length;

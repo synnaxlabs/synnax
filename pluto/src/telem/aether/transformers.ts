@@ -10,6 +10,7 @@
 import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { notationZ, stringifyNumber as stringify } from "@/notation/notation";
 import { status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
@@ -158,6 +159,7 @@ export const stringifyNumberProps = z.object({
   precision: z.number().optional().default(2),
   prefix: z.string().optional().default(""),
   suffix: z.string().optional().default(""),
+  notation: notationZ.optional().default("standard"),
 });
 
 export class StringifyNumber extends UnarySourceTransformer<
@@ -170,9 +172,7 @@ export class StringifyNumber extends UnarySourceTransformer<
   schema = StringifyNumber.propsZ;
 
   protected transform(value: number): string {
-    return `${this.props.prefix}${value.toFixed(this.props.precision)}${
-      this.props.suffix
-    }`;
+    return `${this.props.prefix}${stringify(value, this.props.precision, this.props.notation)}${this.props.suffix}`;
   }
 }
 
@@ -206,9 +206,7 @@ export class RollingAverage extends UnarySourceTransformer<
 
   protected shouldNotify(value: number): boolean {
     if (this.props.windowSize < 2) return true;
-    if (this.values.length > this.props.windowSize) {
-      this.values = [];
-    }
+    if (this.values.length > this.props.windowSize) this.values = [];
     this.values.push(value);
     return this.values.length === this.props.windowSize;
   }

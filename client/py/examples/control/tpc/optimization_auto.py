@@ -75,8 +75,13 @@ auto_logs = client.channels.create(
 def start_sim_cmd(aut: Controller):
     return sim_cmd.key in aut.state and aut[START_SIM_CMD] == 1
 
+
 def log(aut: Controller, msg: str):
-    aut.set(AUTO_LOGS, [f"TPC  {sy.TimeStamp.now().datetime().strftime("%H:%M:%S.%f")}  {msg}"])
+    aut.set(
+        AUTO_LOGS,
+        f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}",
+    )
+
 
 def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Range:
     def run_tpc(auto: Controller):
@@ -85,11 +90,11 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
         if pressure > params.tpc_upper_bound:
             if one_open:
                 auto[TPC_CMD] = False
-                log(auto,  "TPC Valve Closed")
+                log(auto, "TPC Valve Closed")
         elif pressure < params.tpc_lower_bound:
             if not one_open:
                 auto[TPC_CMD] = True
-                log(auto,  "TPC Valve Open")
+                log(auto, "TPC Valve Open")
         return pressure < 15
 
     with client.control.acquire(
@@ -107,7 +112,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 name="TPC Test",
                 time_range=sy.TimeRange(sy.TimeStamp.now(), sy.TimeStamp.now()),
             )
-            log(ctrl,  "Starting TPC Test. Setting initial system state.")
+            log(ctrl, "Starting TPC Test. Setting initial system state.")
             ctrl.set(
                 {
                     TPC_CMD: 0,
@@ -119,7 +124,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             ctrl.sleep(2)
 
-            log(ctrl,  f"Pressing SCUBA and L-Stand to 50 PSI")
+            log(ctrl, f"Pressing SCUBA and L-Stand to 50 PSI")
 
             # Pressurize l-stand and scuba to 50 PSI
             # Open TPC Valve
@@ -130,7 +135,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             curr_target = params.press_1_step
             while True:
-                log(ctrl,  f"Pressing L-Stand to {curr_target} PSI")
+                log(ctrl, f"Pressing L-Stand to {curr_target} PSI")
                 ctrl[SUPPLY_CMD] = True
                 ctrl.wait_until(lambda c: c[FUEL_TANK_PT] > curr_target)
                 ctrl[SUPPLY_CMD] = False
@@ -138,7 +143,10 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 curr_target = min(curr_target, params.l_stand_press_target)
                 if ctrl[FUEL_TANK_PT] > params.l_stand_press_target:
                     break
-                log(ctrl,  f"Holding at {curr_target} PSI for {params.press_step_delay} seconds")
+                log(
+                    ctrl,
+                    f"Holding at {curr_target} PSI for {params.press_step_delay} seconds",
+                )
                 ctrl.sleep(params.press_step_delay)
 
             dual_press_end = sy.TimeStamp.now()
@@ -150,7 +158,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             press_tank_start = sy.TimeStamp.now()
 
-            log(ctrl,  "L-Stand Pressurized. Waiting for five seconds")
+            log(ctrl, "L-Stand Pressurized. Waiting for five seconds")
             ctrl.sleep(params.press_step_delay)
             # ISO off TESCOM and press scuba with ISO
             ctrl[TPC_CMD] = False
@@ -159,7 +167,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             curr_target = params.l_stand_press_target + params.press_2_step
             while True:
-                log(ctrl,  f"Pressing Press Tank to {curr_target} PSI")
+                log(ctrl, f"Pressing Press Tank to {curr_target} PSI")
                 ctrl[SUPPLY_CMD] = True
                 ctrl.wait_until(lambda c: c[PRESS_TANK_PT] > curr_target)
                 ctrl[SUPPLY_CMD] = False
@@ -167,10 +175,13 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 curr_target = min(curr_target, params.scuba_press_target)
                 if ctrl[PRESS_TANK_PT] > params.scuba_press_target:
                     break
-                log(ctrl,  f"Holding at {curr_target} PSI for {params.press_step_delay} seconds")
+                log(
+                    ctrl,
+                    f"Holding at {curr_target} PSI for {params.press_step_delay} seconds",
+                )
                 ctrl.sleep(params.press_step_delay)
 
-            log(ctrl,  "Pressurized. Waiting for five seconds")
+            log(ctrl, "Pressurized. Waiting for five seconds")
             ctrl.sleep(2)
 
             press_tank_end = sy.TimeStamp.now()
@@ -182,11 +193,11 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
             start = sy.TimeStamp.now()
 
-            log(ctrl,  "Opening MPV")
+            log(ctrl, "Opening MPV")
             ctrl[PRESS_ISO_CMD] = True
             ctrl[MPV_CMD] = True
             ctrl.wait_until(lambda c: run_tpc(c))
-            log(ctrl,  "Test complete. Safeing System")
+            log(ctrl, "Test complete. Safeing System")
 
             rng = parent_rng.create_sub_range(
                 name=f"Test",
@@ -218,7 +229,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             return rng
 
         except KeyboardInterrupt:
-            log(ctrl,  "Test interrupted. Safeing System")
+            log(ctrl, "Test interrupted. Safeing System")
             ctrl.set(
                 {
                     TPC_CMD: 1,

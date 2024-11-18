@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, task } from "@synnaxlabs/client";
+import { device, type task } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v0 from "@/hardware/ni/task/migrations/v0";
+import type * as v0 from "@/hardware/ni/task/migrations/v0";
 import { thermocoupleTypeZ } from "@/hardware/task/common/thermocouple";
 
 export const unitsVoltsZ = z.literal("Volts");
@@ -1747,6 +1747,14 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   config: ZERO_DIGITAL_READ_CONFIG,
   type: DIGITAL_READ_TYPE,
 };
+
+export const scanConfigZ = z.object({
+  enabled: z.boolean().optional().default(true),
+});
+export type ScanConfig = z.infer<typeof scanConfigZ>;
+export const SCAN_TYPE = "ni_scanner";
+export type ScanType = typeof SCAN_TYPE;
+export type Scan = task.Task<ScanConfig, task.State, ScanType>;
 
 export type Task = AnalogRead | DigitalWrite | DigitalRead;
 export type Chan = DIChan | AIChan | DOChan;

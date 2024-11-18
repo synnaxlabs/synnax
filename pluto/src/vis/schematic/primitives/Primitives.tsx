@@ -11,23 +11,24 @@ import "@/vis/schematic/primitives/Primitives.css";
 
 import { dimensions, direction, type location, xy } from "@synnaxlabs/x";
 import {
-  type ComponentPropsWithoutRef,
-  CSSProperties,
-  type MouseEventHandler,
-  type PropsWithChildren,
-  type ReactElement,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import {
   Handle as RFHandle,
   type HandleProps as RFHandleProps,
   Position as RFPosition,
   useUpdateNodeInternals,
-} from "reactflow";
+} from "@xyflow/react";
+import {
+  type ComponentPropsWithoutRef,
+  type CSSProperties,
+  type MouseEventHandler,
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-import { Align } from "@/align";
+import { type Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -127,9 +128,15 @@ interface OrientableProps {
   orientation?: location.Outer;
 }
 
-interface SmartHandlesProps extends PropsWithChildren<{}>, OrientableProps {}
+interface SmartHandlesProps extends PropsWithChildren<{}>, OrientableProps {
+  refreshDeps?: unknown;
+}
 
-const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElement => {
+const HandleBoundary = ({
+  children,
+  orientation,
+  refreshDeps,
+}: SmartHandlesProps): ReactElement => {
   let updateInternals: ReturnType<typeof useUpdateNodeInternals> | undefined;
   try {
     updateInternals = useUpdateNodeInternals();
@@ -148,7 +155,7 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
     const id = node?.getAttribute("data-id");
     if (id == null) return;
     updateInternals?.(id);
-  }, [orientation]);
+  }, [orientation, refreshDeps]);
   return (
     <>
       <span ref={ref} />
@@ -819,6 +826,17 @@ export const Tank = ({
   const detailedRadius = parseBorderRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
   const t = Theming.use();
+  const refreshDeps = useMemo(
+    () => [dimensions, borderRadius, detailedRadius],
+    [
+      detailedRadius.bottomLeft,
+      detailedRadius.bottomRight,
+      detailedRadius.topLeft,
+      detailedRadius.topRight,
+      dimensions.height,
+      dimensions.width,
+    ],
+  );
   return (
     <Div
       className={CSS(className, CSS.B("tank"))}
@@ -831,7 +849,7 @@ export const Tank = ({
       }}
       {...props}
     >
-      <HandleBoundary>
+      <HandleBoundary refreshDeps={refreshDeps}>
         <Handle location="top" orientation="left" left={50} top={0} id="1" />
         {hasCornerBoundaries && (
           <>
@@ -1040,6 +1058,7 @@ export interface ValueProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
   units?: string;
+  unitsLevel?: Text.Level;
   inlineSize?: number;
 }
 
@@ -1049,6 +1068,7 @@ export const Value = ({
   dimensions,
   orientation,
   units = "psi",
+  unitsLevel = "small",
   children,
   inlineSize = 80,
   ...props
@@ -1093,8 +1113,11 @@ export const Value = ({
         <Handle location="top" orientation="left" left={50} top={-2} id="3" />
         <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
       </HandleBoundary>
-      <div className={CSS.BE("value", "units")} style={{ background: borderColor }}>
-        <Text.Text level="small" color={textColor}>
+      <div
+        className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
+        style={{ background: borderColor }}
+      >
+        <Text.Text level={unitsLevel} color={textColor}>
           {units}
         </Text.Text>
       </div>
@@ -1182,8 +1205,8 @@ export const TextBox = ({
     textAlign: align as CSSProperties["textAlign"],
   };
   if (direction.construct(orientation) === "y")
-    style["height"] = autoFit ? "fit-content" : width;
-  else style["width"] = autoFit ? "fit-content" : width;
+    style.height = autoFit ? "fit-content" : width;
+  else style.width = autoFit ? "fit-content" : width;
 
   return (
     <Div
@@ -1678,7 +1701,7 @@ export const Agitator = ({
       <Handle location="bottom" orientation={orientation} left={50} top={100} id="1" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1706,7 +1729,7 @@ export const PropellerAgitator = ({
       <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1731,7 +1754,7 @@ export const FlatBladeAgitator = ({
       <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1757,7 +1780,7 @@ export const PaddleAgitator = ({
       <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1808,7 +1831,7 @@ export const CrossBeamAgitator = ({
       <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1837,7 +1860,7 @@ export const HelicalAgitator = ({
       <Handle location="top" left={50} top={2} id="4" orientation={orientation} />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height: height }}
+      dimensions={{ width: 86, height }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -1900,9 +1923,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
 }) => {
   const element = document.querySelector(`[data-id="${id}"]`);
   // add the orientation to the class list
-  if (element) {
-    element.classList.add(orientation);
-  }
+  if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
 

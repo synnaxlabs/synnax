@@ -99,9 +99,9 @@ export const formatChildren = <L extends text.Level>(
       typeof child === "string" ||
       typeof child === "number" ||
       !isValidElement(child)
-    ) {
+    ) 
       buff.push(child);
-    } else {
+     else {
       if (buff.length > 0) {
         o.push(
           // @ts-expect-error - level type errors

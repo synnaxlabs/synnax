@@ -24,7 +24,7 @@ import {
   type Callback,
   eventKey,
   match,
-  MatchOptions,
+  type MatchOptions,
   MOUSE_KEYS,
   type MouseKey,
   type Trigger,

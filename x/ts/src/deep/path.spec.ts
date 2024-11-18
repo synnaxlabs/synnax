@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { deep } from "@/deep";
-import { UnknownRecord } from "@/record";
+import { type UnknownRecord } from "@/record";
 
 interface TestRecord {
   a: number;

@@ -7,26 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect, useRef, useState } from "react";
-
+import { Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
-import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
-import { OSSelectButton } from "@/components/platform/PlatformTabs";
-import { Text } from "@synnaxlabs/pluto";
-
-interface ItemOffset {
-  id: string;
-  topOffset: number;
-}
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
 export const ReleaseList = ({
   headings = [],
-  url,
 }: {
   headings?: MarkdownHeading[];
   url: string;
@@ -38,14 +29,13 @@ export const ReleaseList = ({
     if (toc.current == null) return;
 
     const setCurrent: IntersectionObserverCallback = (entries) => {
-      for (const entry of entries) {
+      for (const entry of entries)
         if (entry.isIntersecting) {
           const { id } = entry.target;
           if (id === ON_THIS_PAGE_ID) continue;
           setCurrentID(entry.target.id);
           break;
         }
-      }
     };
 
     const observerOptions: IntersectionObserverInit = {
@@ -77,25 +67,23 @@ export const ReleaseList = ({
         <Menu.Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth === 6)
-            .map((heading) => {
-              return (
-                <Menu.Item.Link
-                  href={`#${heading.slug}`}
-                  level="small"
-                  key={heading.slug}
-                  itemKey={heading.slug}
-                  id={heading.slug}
-                  onClick={() => {
-                    setCurrentID(heading.slug);
-                  }}
-                  className={`header-link ${heading.slug} depth-${heading.depth} ${
-                    currentID === heading.slug ? "current-header-link" : ""
-                  }`.trim()}
-                >
-                  {unescape(heading.text)}
-                </Menu.Item.Link>
-              );
-            })}
+            .map((heading) => (
+              <Menu.Item.Link
+                href={`#${heading.slug}`}
+                level="small"
+                key={heading.slug}
+                itemKey={heading.slug}
+                id={heading.slug}
+                onClick={() => {
+                  setCurrentID(heading.slug);
+                }}
+                className={`header-link ${heading.slug} depth-${heading.depth} ${
+                  currentID === heading.slug ? "current-header-link" : ""
+                }`.trim()}
+              >
+                {unescape(heading.text)}
+              </Menu.Item.Link>
+            ))}
         </Menu.Menu>
       </div>
     </Align.Space>

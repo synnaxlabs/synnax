@@ -25,7 +25,7 @@ export const useDevice = <P extends UnknownRecord>(
     setDevice(d);
   }, [client?.key]);
   Form.useFieldListener<string>({
-    ctx: ctx,
+    ctx,
     path: "config.device",
     onChange: useCallback(
       (fs) => {

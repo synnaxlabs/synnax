@@ -9,8 +9,8 @@
 
 import "@/range/Toolbar.css";
 
-import { Store } from "@reduxjs/toolkit";
-import { type label, ranger, Synnax as Client } from "@synnaxlabs/client";
+import { type Store } from "@reduxjs/toolkit";
+import { type label, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -50,9 +50,9 @@ import {
   rename,
   setActive,
   type StaticRange,
-  StoreState,
+  type StoreState,
 } from "@/range/slice";
-import { RootState } from "@/store";
+import { type RootState } from "@/store";
 
 export const addToNewPlotMenuItem = (
   <PMenu.Item
@@ -182,7 +182,7 @@ const useViewDetails = (): ((key: string) => void) => {
   }).mutate;
 };
 
-const useAddToNewPlot = (): ((key: string) => void) => {
+export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const placer = Layout.usePlacer();

@@ -10,7 +10,7 @@
 import "@/tag/Tag.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Optional } from "@synnaxlabs/x";
+import { type Optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";

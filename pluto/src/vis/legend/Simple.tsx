@@ -46,6 +46,7 @@ export const legendSwatches = (
           value={color}
           onChange={(c) => onEntryChange?.({ key, color: c, label })}
           onVisibleChange={onVisibleChange}
+          allowChange={onEntryChange != null}
           draggable={false}
           size="small"
         />

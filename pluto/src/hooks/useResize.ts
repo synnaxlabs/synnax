@@ -50,7 +50,7 @@ export const useResize = <E extends HTMLElement>(
   const startObserving = useCallback(
     (el: HTMLElement) => {
       if (obs.current != null) obs.current.disconnect();
-      if (prev.current == null) prev.current = box.ZERO;
+      prev.current ??= box.ZERO;
       const deb = debounceF(() => {
         const next = box.construct(el);
         if (shouldResize(memoTriggers, prev.current, next)) {

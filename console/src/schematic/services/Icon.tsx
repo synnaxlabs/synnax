@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon } from "@synnaxlabs/pluto";
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 export const ImportIcon = (): ReactElement => (
   <PIcon.Import>

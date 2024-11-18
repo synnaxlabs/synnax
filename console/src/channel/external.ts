@@ -12,7 +12,7 @@ import {
   CREATE_CALCULATED_LAYOUT_TYPE,
   CreateCalculatedModal,
 } from "@/channel/CreateCalculated";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export * from "@/channel/Create";
 export * from "@/channel/services/ontology";

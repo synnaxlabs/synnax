@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
-import { debounce, dimensions, type xy } from "@synnaxlabs/x";
+import { debounce, type dimensions, type xy } from "@synnaxlabs/x";
 import {
   type BrowserWindow,
-  BrowserWindowConstructorOptions,
-  IpcMainEvent,
+  type BrowserWindowConstructorOptions,
+  type IpcMainEvent,
   type IpcRendererEvent,
 } from "electron";
 
-import { Event, Runtime } from "@/runtime";
-import { setWindowProps, SetWindowPropsPayload, StoreState } from "@/state";
+import { type Event, type Runtime } from "@/runtime";
+import { setWindowProps, type SetWindowPropsPayload, type StoreState } from "@/state";
 import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const ACTION_EVENT = "drift://action";

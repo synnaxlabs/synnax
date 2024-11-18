@@ -15,7 +15,7 @@ import {
   type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
+import { debounce, deep, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { createTauriKV } from "@/persist/kv";
@@ -56,6 +56,8 @@ export const hardClearAndReload = () => {
     .then(async (db) => await db.clear())
     .finally(window.location.reload);
 };
+
+const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250).milliseconds;
 
 export const open = async <S extends RequiredState>({
   exclude = [],
@@ -102,7 +104,7 @@ export const open = async <S extends RequiredState>({
       await db.set(DB_VERSION_KEY, { version }).catch(console.error);
       await db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
     })();
-  }, 500);
+  }, PERSIST_DEBOUNCE);
 
   let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
   if (state != null && migrator != null) {

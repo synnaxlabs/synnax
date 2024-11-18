@@ -8,10 +8,35 @@
 // included in the file licenses/APL.txt.
 
 import "@/vis/diagram/Diagram.css";
-import "reactflow/dist/style.css";
+import "@xyflow/react/dist/base.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { box, location, xy } from "@synnaxlabs/x";
+import {
+  addEdge as rfAddEdge,
+  applyEdgeChanges as rfApplyEdgeChanges,
+  applyNodeChanges as rfApplyNodeChanges,
+  Background as RFBackground,
+  type Connection as RFConnection,
+  ConnectionMode,
+  type Edge as RFEdge,
+  type EdgeChange as RFEdgeChange,
+  type EdgeProps as RFEdgeProps,
+  type FitViewOptions,
+  type IsValidConnection,
+  type Node as RFNode,
+  type NodeChange as RFNodeChange,
+  type NodeProps as RFNodeProps,
+  type ProOptions,
+  ReactFlow,
+  type ReactFlowProps,
+  ReactFlowProvider,
+  reconnectEdge,
+  SelectionMode,
+  useOnViewportChange as useRFOnViewportChange,
+  useReactFlow,
+  type Viewport as RFViewport,
+} from "@xyflow/react";
 import {
   type ComponentPropsWithoutRef,
   createContext,
@@ -24,35 +49,13 @@ import {
   useRef,
   useState,
 } from "react";
-import ReactFlow, {
-  addEdge as rfAddEdge,
-  applyEdgeChanges as rfApplyEdgeChanges,
-  applyNodeChanges as rfApplyNodeChanges,
-  Background as RFBackground,
-  type Connection as RFConnection,
-  ConnectionMode,
-  type Edge as RFEdge,
-  type EdgeChange as RFEdgeChange,
-  type EdgeProps as RFEdgeProps,
-  type FitViewOptions,
-  type NodeChange as RFNodeChange,
-  type NodeProps as RFNodeProps,
-  type ProOptions,
-  type ReactFlowProps,
-  ReactFlowProvider,
-  SelectionMode,
-  updateEdge,
-  useOnViewportChange as useRFOnViewportChange,
-  useReactFlow,
-  type Viewport as RFViewport,
-} from "reactflow";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
+import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
 import { useMemoCompare, useMemoDeepEqualProps } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -66,6 +69,7 @@ import {
   edgeConverter,
   type Node,
   nodeConverter,
+  type RFEdgeData,
   translateEdgesForward,
   translateNodesForward,
   translateViewportBackward,
@@ -115,8 +119,7 @@ export const use = ({
   };
 };
 
-const isValidConnection = (connection: RFConnection): boolean =>
-  connection.source !== connection.target;
+const isValidConnection: IsValidConnection = (): boolean => true;
 
 export interface UseReturn {
   edges: Edge[];
@@ -149,9 +152,9 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   zoomOnDoubleClick: false,
   zoomOnPinch: false,
   edgesFocusable: false,
-  edgesUpdatable: false,
+  edgesReconnectable: false,
   nodesFocusable: false,
-  edgeUpdaterRadius: 0,
+  reconnectRadius: 0,
 };
 
 const FIT_VIEW_OPTIONS: FitViewOptions = {
@@ -172,6 +175,7 @@ export interface DiagramProps
 
 interface ContextValue {
   editable: boolean;
+  visible: boolean;
   onEditableChange: (v: boolean) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
   fitViewOnResize: boolean;
@@ -180,6 +184,7 @@ interface ContextValue {
 
 const Context = createContext<ContextValue>({
   editable: true,
+  visible: true,
   onEditableChange: () => {},
   registerNodeRenderer: () => {},
   fitViewOnResize: false,
@@ -245,7 +250,9 @@ const Core = Aether.wrap<DiagramProps>(
     );
 
     const { fitView } = useReactFlow();
-    const debouncedFitView = useDebouncedCallback(fitView, 50, [fitView]);
+    const debouncedFitView = useDebouncedCallback((args) => fitView(args), 50, [
+      fitView,
+    ]);
     const resizeRef = Canvas.useRegion(
       useCallback(
         (b) => {
@@ -287,19 +294,18 @@ const Core = Aether.wrap<DiagramProps>(
 
     const nodeTypes = useMemo(
       () => ({
-        custom: ({ id, xPos, yPos, selected }: RFNodeProps) => {
-          return renderer({
-            symbolKey: id,
-            position: { x: xPos, y: yPos },
-            selected,
-          });
-        },
+        custom: ({
+          id,
+          positionAbsoluteX: x,
+          positionAbsoluteY: y,
+          selected = false,
+        }: RFNodeProps) => renderer({ symbolKey: id, position: { x, y }, selected }),
       }),
       [renderer],
     );
 
     const edgesRef = useRef(edges);
-    const edges_ = useMemo(() => {
+    const edges_ = useMemo<RFEdge<RFEdgeData>[]>(() => {
       edgesRef.current = edges;
       return translateEdgesForward(edges);
     }, [edges]);
@@ -318,7 +324,7 @@ const Core = Aether.wrap<DiagramProps>(
     );
 
     const handleEdgesChange = useCallback(
-      (changes: RFEdgeChange[]) =>
+      (changes: RFEdgeChange<RFEdge<RFEdgeData>>[]) =>
         onEdgesChange(
           edgeConverter(
             edgesRef.current,
@@ -330,11 +336,11 @@ const Core = Aether.wrap<DiagramProps>(
     );
 
     const handleEdgeUpdate = useCallback(
-      (oldEdge: RFEdge, newConnection: RFConnection) =>
+      (oldEdge: RFEdge<RFEdgeData>, newConnection: RFConnection) =>
         onEdgesChange(
           edgeConverter(
             edgesRef.current,
-            (e) => updateEdge(oldEdge, newConnection, e),
+            (e) => reconnectEdge(oldEdge, newConnection, e),
             defaultEdgeColor,
           ),
         ),
@@ -364,22 +370,24 @@ const Core = Aether.wrap<DiagramProps>(
 
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
-    const EDGE_TYPES = useMemo(
+    const handleEdgeSegmentsChangeRef = useSyncedRef(handleEdgeSegmentsChange);
+
+    const edgeTypes = useMemo(
       () => ({
-        default: (props: RFEdgeProps) => (
+        default: (props: RFEdgeProps<RFEdge<RFEdgeData>>) => (
           <EdgeComponent
             key={props.id}
             {...props}
-            segments={props.data.segments}
-            color={props.data.color}
+            segments={props.data?.segments ?? []}
+            color={props.data?.color}
             onSegmentsChange={useCallback(
-              (segment) => handleEdgeSegmentsChange(props.id, segment),
+              (segment) => handleEdgeSegmentsChangeRef.current(props.id, segment),
               [props.id],
             )}
           />
         ),
       }),
-      [handleEdgeSegmentsChange],
+      [],
     );
 
     const triggerRef = useRef<HTMLElement>(null);
@@ -410,32 +418,34 @@ const Core = Aether.wrap<DiagramProps>(
 
     const ctxValue = useMemo(
       () => ({
+        visible,
         editable,
         onEditableChange,
         registerNodeRenderer,
         fitViewOnResize,
         setFitViewOnResize,
       }),
-      [editable, onEditableChange, registerNodeRenderer, fitViewOnResize],
+      [editable, visible, onEditableChange, registerNodeRenderer, fitViewOnResize],
     );
 
     return (
       <Context.Provider value={ctxValue}>
         <Aether.Composite path={path}>
           {visible && (
-            <ReactFlow
+            <ReactFlow<RFNode, RFEdge<RFEdgeData>>
               {...triggerProps}
               className={CSS(CSS.B("diagram"), CSS.editable(editable))}
               nodes={nodes_}
+              // @ts-expect-error - edge types
               edges={edges_}
               nodeTypes={nodeTypes}
-              edgeTypes={EDGE_TYPES}
+              edgeTypes={edgeTypes}
               ref={combinedRefs}
               fitView
               onNodesChange={handleNodesChange}
               onEdgesChange={handleEdgesChange}
               onConnect={handleConnect}
-              onEdgeUpdate={handleEdgeUpdate}
+              onReconnect={handleEdgeUpdate}
               defaultViewport={translateViewportForward(viewport)}
               connectionLineComponent={CustomConnectionLine}
               elevateEdgesOnSelect

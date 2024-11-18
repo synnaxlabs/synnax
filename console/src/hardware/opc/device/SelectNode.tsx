@@ -10,7 +10,7 @@
 import { type List, Select, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useMemo } from "react";
 
-import { ScannedNode } from "@/hardware/opc/device/types";
+import { type ScannedNode } from "@/hardware/opc/device/types";
 import { type NodeId, parseNodeId } from "@/hardware/opc/task/types";
 
 interface NodeEntry extends NodeId {

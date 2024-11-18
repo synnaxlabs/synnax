@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type z } from "zod";
 
 import { type Partial } from "@/deep/partial";
 import { isObject } from "@/identity";
@@ -22,23 +22,17 @@ export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
   if (overrides.length === 0) return base;
   const source = overrides.shift();
 
-  if (isObject(base) && isObject(source)) {
-    for (const key in source) {
+  if (isObject(base) && isObject(source))
+    for (const key in source)
       try {
         if (isObject(source[key])) {
           if (!(key in base)) Object.assign(base, { [key]: {} });
           override(base[key], source[key]);
-        } else {
-          Object.assign(base, { [key]: source[key] });
-        }
+        } else Object.assign(base, { [key]: source[key] });
       } catch (e) {
-        if (e instanceof TypeError) {
-          throw new TypeError(`.${key}: ${e.message}`);
-        }
+        if (e instanceof TypeError) throw new TypeError(`.${key}: ${e.message}`);
         throw e;
       }
-    }
-  }
 
   return override(base, ...overrides);
 };
@@ -65,13 +59,12 @@ export const overrideValidItems = <A, B>(
         typeof overrideValue === "object" &&
         !Array.isArray(overrideValue) &&
         overrideValue !== null
-      ) {
-        // If it's a nested object, recurse into it only if a valid schema exists
+      )
         if (currentSchema && currentSchema.shape && currentSchema.shape[key]) {
-          if (!baseObj[key]) baseObj[key] = {};
+          // If it's a nested object, recurse into it only if a valid schema exists
+          baseObj[key] ||= {};
           mergeValidFields(baseObj[key], overrideValue, currentSchema.shape[key]);
         }
-      }
     }
     return baseObj;
   };

@@ -10,7 +10,7 @@
 import "@/icon/Icon.css";
 
 import { Icon as MediaIcon } from "@synnaxlabs/media";
-import { deep, location } from "@synnaxlabs/x";
+import { deep, type location } from "@synnaxlabs/x";
 import {
   cloneElement,
   type ComponentPropsWithoutRef,

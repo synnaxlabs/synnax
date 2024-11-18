@@ -13,36 +13,36 @@ import {
   Divider,
   Form,
   Input,
-  List,
+  type List,
   Select,
   state,
   Synnax,
 } from "@synnaxlabs/pluto";
-import { binary, deep, KeyedNamed } from "@synnaxlabs/x";
-import { FC, ReactElement, useRef } from "react";
+import { binary, deep, type KeyedNamed } from "@synnaxlabs/x";
+import { type FC, type ReactElement, useRef } from "react";
 import { z } from "zod";
 
 import { FS } from "@/fs";
 import { Device as NIDevice } from "@/hardware/ni/device";
-import { Properties } from "@/hardware/ni/device/types";
+import { type Properties } from "@/hardware/ni/device/types";
 import {
-  AccelSensitivityUnits,
+  type AccelSensitivityUnits,
   AI_CHANNEL_SCHEMAS,
   AI_CHANNEL_TYPE_NAMES,
-  AIChan,
-  AIChanType,
-  ElectricalUnits,
-  ForceUnits,
-  PressureUnits,
-  Scale,
+  type AIChan,
+  type AIChanType,
+  type ElectricalUnits,
+  type ForceUnits,
+  type PressureUnits,
+  type Scale,
   SCALE_SCHEMAS,
-  ScaleType,
-  ShuntResistorLoc,
-  TemperatureUnits,
-  TorqueUnits,
-  Units,
-  VelocitySensitivityUnits,
-  VelocityUnits,
+  type ScaleType,
+  type ShuntResistorLoc,
+  type TemperatureUnits,
+  type TorqueUnits,
+  type Units,
+  type VelocitySensitivityUnits,
+  type VelocityUnits,
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
 } from "@/hardware/ni/task/migrations";
@@ -418,13 +418,12 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
       const scaledValues = value[scaledCol] as number[] | undefined;
       const hasScaled = scaledValues != null;
       const hasPreScaled = preScaledValues != null;
-      if (hasScaled && hasPreScaled) {
+      if (hasScaled && hasPreScaled)
         if (preScaledValues!.length !== scaledValues!.length)
           preScaledField.setStatus({
             variant: "error",
             message: `Pre-scaled ${preScaledValues!.length} values and scaled ${scaledValues!.length} values must be the same length`,
           });
-      }
       if (hasPreScaled) preScaledField.onChange(preScaledValues);
       if (hasScaled) scaledField.onChange(scaledValues);
     };

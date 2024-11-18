@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import {
   type ReactElement,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -40,7 +40,7 @@ import { List as CoreList } from "@/list";
 import {
   selectValueIsZero,
   type UseSelectMultipleProps,
-  UseSelectOnChangeExtra,
+  type UseSelectOnChangeExtra,
 } from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
@@ -167,15 +167,14 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     if (compare.unorderedPrimitiveArrays(inSelected, nextValue) === compare.EQUAL)
       return;
     let nextSelected: E[] = [];
-    if (searchMode) {
+    if (searchMode)
       // Wrap this in a try-except clause just in case the searcher throws an error.
       try {
         nextSelected = await searcher.retrieve(nextValue);
       } finally {
         setLoading(false);
       }
-    } else if (data != null)
-      nextSelected = data.filter((v) => nextValue.includes(v.key));
+    else if (data != null) nextSelected = data.filter((v) => nextValue.includes(v.key));
     setSelected(nextSelected);
   }, [searcher, searchMode, value, data]);
 
@@ -195,7 +194,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   let searchInput: ReactElement | undefined;
   let trigger: ReactElement;
-  if (dropdownVariant === "connected") {
+  if (dropdownVariant === "connected")
     trigger = (
       <InputWrapper<K, E> searcher={searcher}>
         {({ onChange, value: inputValue }) => (
@@ -220,7 +219,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         )}
       </InputWrapper>
     );
-  } else {
+  else {
     const arrValue = toArray(value);
     trigger = (
       <Align.Space direction="x" align="center" grow style={style} size="small">

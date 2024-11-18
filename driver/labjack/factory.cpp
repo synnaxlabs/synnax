@@ -19,11 +19,11 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
     const synnax::Task &task
 ) {
     if (task.type == "labjack_scan")
-        return {labjack::ScannerTask::configure(ctx, task), true};
+        return {labjack::ScannerTask::configure(ctx, task, this->device_manager), true};
     if (task.type == "labjack_read")
-        return {labjack::ReaderTask::configure(ctx, task), true};
+        return {labjack::ReaderTask::configure(ctx, task, this->device_manager), true};
     if (task.type == "labjack_write")
-        return {labjack::WriterTask::configure(ctx, task), true};
+        return {labjack::WriterTask::configure(ctx, task, this->device_manager), true};
     return {nullptr, false};
 }
 

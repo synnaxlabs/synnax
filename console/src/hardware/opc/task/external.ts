@@ -10,7 +10,7 @@
 import { READ_SELECTABLE, ReadTask } from "@/hardware/opc/task/ReadTask";
 import { READ_TYPE, WRITE_TYPE } from "@/hardware/opc/task/types";
 import { WRITE_SELECTABLE, WriteTask } from "@/hardware/opc/task/WriteTask";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export * from "@/hardware/opc/task/ReadTask";
 export * from "@/hardware/opc/task/types";

@@ -10,9 +10,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MockRuntime } from "@/mock/runtime";
-import { setWindowStage, StoreState, ZERO_SLICE_STATE } from "@/state";
+import { setWindowStage, type StoreState, ZERO_SLICE_STATE } from "@/state";
 
-import { configureMiddleware, GetDefaultMiddleware, middleware } from "./middleware";
+import {
+  configureMiddleware,
+  type GetDefaultMiddleware,
+  middleware,
+} from "./middleware";
 
 const state = {
   drift: ZERO_SLICE_STATE,
@@ -21,17 +25,19 @@ const state = {
 describe("middleware", () => {
   describe("middleware", () => {
     describe("emitting actions", () => {
-      it("should emit an action if it hasn't already been emited", () => {
+      it("should emit an action if it hasn't already been emited", async () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
         const mw = middleware(runtime)(store);
         mw((action) => action)({ type: "test" });
-        expect(runtime.emissions).toEqual([
-          {
-            action: { type: "test" },
-            emitter: "mock",
-          },
-        ]);
+        await expect
+          .poll(() => runtime.emissions)
+          .toEqual([
+            {
+              action: { type: "test" },
+              emitter: "mock",
+            },
+          ]);
       });
       it("should not emit an action if it has already been emited", () => {
         const store = { getState: () => state, dispatch: vi.fn() };
