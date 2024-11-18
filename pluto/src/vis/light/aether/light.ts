@@ -17,7 +17,16 @@ import { type diagram } from "@/vis/diagram/aether";
 
 export const lightStateZ = z.object({
   enabled: z.boolean(),
-  source: telem.booleanSourceSpecZ.optional().default(telem.noopBooleanSourceSpec),
+  source: z.union([
+    telem.booleanSourceSpecZ,
+    z.object({
+      channel: z.number(),
+      threshold: z.object({
+        lower: z.number().default(0.9),
+        upper: z.number().default(1.1)
+      }).default({ lower: 0.9, upper: 1.1 })
+    })
+  ]).optional().default(telem.noopBooleanSourceSpec),
 });
 
 export type LightState = z.input<typeof lightStateZ>;
@@ -27,6 +36,32 @@ interface InternalState {
   addStatus: status.Aggregate;
   stopListening: Destructor;
 }
+
+
+const createSourcePipeline = (source: LightState["source"]) => {
+  // If it's already a boolean source spec, return as is
+  if (!source) return telem.noopBooleanSourceSpec;
+  if ("type" in source) return source;
+
+  // Get threshold values with defaults
+  const threshold = source.threshold ?? { lower: 0.9, upper: 1.1 };
+  
+  // Otherwise, create a pipeline with withinBounds
+  return telem.sourcePipeline("boolean", {
+    connections: [{ from: "valueStream", to: "threshold" }],
+    segments: {
+      valueStream: telem.streamChannelValue({ channel: source.channel }),
+      threshold: telem.withinBounds({ 
+        trueBound: { 
+          lower: threshold.lower ?? 0.9, 
+          upper: threshold.upper ?? 1.1
+        } 
+      }),
+    },
+    outlet: "threshold",
+  });
+};
+
 
 // Light is a component that listens to a boolean telemetry source to update its state.
 export class Light
@@ -41,9 +76,12 @@ export class Light
     this.internal.addStatus = status.useOptionalAggregate(this.ctx);
     const { source: sourceProps } = this.state;
     const { internal: i } = this;
+
+    const source = createSourcePipeline(sourceProps);
+
     this.internal.source = await telem.useSource(
       this.ctx,
-      sourceProps,
+      source,
       this.internal.source,
     );
 
