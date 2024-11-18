@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/task/Toolbar.css";
+
 import { type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -29,6 +31,7 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
+import { CSS } from "@/css";
 import { createTaskLayout } from "@/hardware/task/ontology";
 import { getIcon } from "@/hardware/task/types";
 import { Layout } from "@/layout";
@@ -258,7 +261,7 @@ const Content = (): ReactElement => {
       }}
       {...menuProps}
     >
-      <Align.Space empty style={{ height: "100%" }}>
+      <Align.Space empty style={{ height: "100%" }} className={CSS.B("task-toolbar")}>
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
           <Header.Actions>
@@ -329,13 +332,24 @@ const TaskListItem = ({ desiredState, onStopStart, ...props }: TaskListItemProps
   };
   return (
     <List.ItemFrame {...props} justify="spaceBetween" align="center" rightAligned>
-      <Align.Space direction="y" size="small">
-        <Align.Space direction="x" align="center">
+      <Align.Space
+        direction="y"
+        size="small"
+        grow
+        className={CSS.BE("task", "meta-data")}
+      >
+        <Align.Space direction="x" align="center" size="small">
           <Status.Circle
             variant={Status.VARIANTS.find((v) => v === state?.variant)}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
           />
-          <Text.WithIcon level="p" startIcon={logo} weight={500}>
+          <Text.WithIcon
+            className={CSS.BE("task", "title")}
+            level="p"
+            startIcon={logo}
+            weight={500}
+            noWrap
+          >
             {entry.name}
           </Text.WithIcon>
         </Align.Space>
