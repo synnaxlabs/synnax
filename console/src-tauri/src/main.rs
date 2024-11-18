@@ -11,7 +11,7 @@ use std::thread;
 #[cfg(target_os = "macos")]
 use std::time::Duration;
 #[cfg(target_os = "macos")]
-use tauri::Emitted;
+use tauri::Emitter;
 #[cfg(target_os = "macos")]
 struct UnsafeWindowHandle(*mut std::ffi::c_void);
 #[cfg(target_os = "macos")]
