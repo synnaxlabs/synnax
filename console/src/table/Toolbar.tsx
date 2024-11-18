@@ -229,21 +229,23 @@ const RedlineForm = (): ReactElement => {
 };
 
 const TextCellForm = () => (
-  <Form.Field<CellType>
-    path="type"
-    onChange={(value, { get, set }) => {
-      const { value: prevValue } = get<CellState<CellType, CellProps>>("");
-      if (prevValue.type == value) return;
-      const nextProps = deep.overrideValidItems<CellProps, CellProps>(
-        prevValue.props,
-        ZERO_PROPS[value],
-        ZERO_SCHEMAS[value],
-      );
-      set("props", nextProps);
-    }}
-  >
-    {(p) => <SelectCellType {...p} />}
-  </Form.Field>
+  <Align.Space direction="x" grow style={{ padding: "2rem" }}>
+    <Form.Field<CellType>
+      path="type"
+      onChange={(value, { get, set }) => {
+        const { value: prevValue } = get<CellState<CellType, CellProps>>("");
+        if (prevValue.type == value) return;
+        const nextProps = deep.overrideValidItems<CellProps, CellProps>(
+          prevValue.props,
+          ZERO_PROPS[value],
+          ZERO_SCHEMAS[value],
+        );
+        set("props", nextProps);
+      }}
+    >
+      {(p) => <SelectCellType {...p} />}
+    </Form.Field>
+  </Align.Space>
 );
 
 export const EmptyContent = () => (

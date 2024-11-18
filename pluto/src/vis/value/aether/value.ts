@@ -143,7 +143,7 @@ export class Value
 
     const labelPosition = xy.translate(box.topLeft(b), labelOffset);
 
-    // const clearScissor = upper2d.scissor(b, undefined);
+    const clearScissor = upper2d.scissor(b, undefined);
 
     if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
       const lower2d = renderCtx.lower2d.applyScale(viewportScale);
@@ -168,7 +168,7 @@ export class Value
         ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
       );
     upper2d.fillText(value, ...xy.couple(labelPosition));
-    // clearScissor();
+    clearScissor();
   }
 }
 

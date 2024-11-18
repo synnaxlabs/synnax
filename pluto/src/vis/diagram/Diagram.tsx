@@ -523,7 +523,7 @@ export const ToggleEditControl = ({
   );
 };
 
-export type FitViewControlProps = Omit<Button.IconProps, "children">;
+export type FitViewControlProps = Omit<Button.IconProps, "children" | "onChange">;
 
 export const FitViewControl = ({
   onClick,
@@ -539,7 +539,7 @@ export const FitViewControl = ({
       }}
       // @ts-expect-error - toggle icon issues
       value={fitViewOnResize}
-      onChange={(v) => setFitViewOnResize(v)}
+      onChange={(v: boolean) => setFitViewOnResize(v)}
       rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.RIGHT_CENTER}

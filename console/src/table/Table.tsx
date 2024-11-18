@@ -222,9 +222,10 @@ export const TEXT_CELL_TYPE = "text";
 export type TextCellType = typeof TEXT_CELL_TYPE;
 export const textCellPropsZ = z.object({
   value: z.string(),
+  level: Text.levelZ,
 });
 export type TextCellProps = z.infer<typeof textCellPropsZ>;
-export const ZERO_TEXT_CELL_PROPS: TextCellProps = { value: "" };
+export const ZERO_TEXT_CELL_PROPS: TextCellProps = { value: "", level: "p" };
 
 const TextCell = ({
   state,
@@ -237,6 +238,7 @@ const TextCell = ({
     selected={state.selected}
     onClick={onSelect}
     onContextMenu={onSelect}
+    style={{ paddingLeft: "1rem" }}
   >
     <Input.Text
       level="p"

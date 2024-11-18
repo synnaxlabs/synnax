@@ -1,11 +1,10 @@
-go 1.22.7
-
-toolchain go1.23.0
+go 1.23.0
 
 use (
 	./alamos/go
 	./aspen
 	./cesium
+	./computron
 	./freighter/go
 	./freighter/integration
 	./integration
