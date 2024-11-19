@@ -561,7 +561,12 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
       connections: [{ from: "valueStream", to: "threshold" }],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
-        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+        threshold: telem.withinBounds({
+          trueBound: {
+            lower: threshold.trueBound.lower ?? 0.9,
+            upper: threshold.trueBound.upper ?? 1.1,
+          },
+        }),
       },
       outlet: "threshold",
     });
