@@ -39,14 +39,11 @@ interface InternalState {
 
 
 const createSourcePipeline = (source: LightState["source"]) => {
-  // If it's already a boolean source spec, return as is
   if (!source) return telem.noopBooleanSourceSpec;
   if ("type" in source) return source;
 
-  // Get threshold values with defaults
   const threshold = source.threshold ?? { lower: 0.9, upper: 1.1 };
   
-  // Otherwise, create a pipeline with withinBounds
   return telem.sourcePipeline("boolean", {
     connections: [{ from: "valueStream", to: "threshold" }],
     segments: {
