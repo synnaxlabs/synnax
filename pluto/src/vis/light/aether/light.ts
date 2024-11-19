@@ -37,7 +37,6 @@ interface InternalState {
   stopListening: Destructor;
 }
 
-
 const createSourcePipeline = (source: LightState["source"]) => {
   if (!source) return telem.noopBooleanSourceSpec;
   if ("type" in source) return source;
@@ -60,7 +59,7 @@ const createSourcePipeline = (source: LightState["source"]) => {
 };
 
 
-// Light is a component that listens to a boolean telemetry source to update its state.
+// Light is a component that listens to a telemetry source to update its state.
 export class Light
   extends aether.Leaf<typeof lightStateZ, InternalState>
   implements diagram.Element
