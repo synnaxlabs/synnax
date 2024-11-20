@@ -10,6 +10,7 @@
 import { type FC } from "react";
 import { z } from "zod";
 
+import { color } from "@/ether";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
@@ -52,6 +53,9 @@ import {
   CheckValve,
   CheckValvePreview,
   type CheckValveProps,
+  Clock,
+  ClockPreview,
+  type ClockProps,
   Compressor,
   CompressorPreview,
   type CompressorProps,
@@ -168,6 +172,7 @@ const VARIANTS = [
   "cap",
   "cavityPump",
   "checkValve",
+  "clock",
   "compressor",
   "crossBeamAgitator",
   "electricRegulator",
@@ -843,6 +848,20 @@ const offPageReference: Spec<OffPageReferenceProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const clock: Spec<ClockProps> = {
+  name: "Clock",
+  key: "clock",
+  Form: CommonStyleForm,
+  Symbol: Clock,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Clock"),
+    ...ZERO_PROPS,
+  }),
+  Preview: ClockPreview,
+  zIndex: Z_INDEX_UPPER, // What is this
+}
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -883,4 +902,5 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   crossBeamAgitator,
   helicalAgitator,
   compressor,
+  clock,
 };

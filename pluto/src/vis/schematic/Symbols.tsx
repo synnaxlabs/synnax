@@ -1429,3 +1429,22 @@ export const OffPageReferencePreview = ({
 }: OffPageReferenceProps) => (
   <Primitives.OffPageReference label="Off Page" {...props} orientation="right" />
 );
+
+export interface ClockProps extends Primitives.ClockProps {
+  label?: LabelExtensionProps;
+}
+
+export const Clock = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<ClockProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Clock {...rest} />
+  </Labeled>
+);
+
+export const ClockPreview = (props: ClockProps): ReactElement => (
+  <Primitives.Clock {...props} />
+);

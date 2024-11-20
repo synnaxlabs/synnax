@@ -1985,3 +1985,28 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
     </Div>
   );
 };
+
+export interface ClockProps extends SVGBasedPrimitiveProps, DivProps {}
+
+export const Clock = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: ClockProps): ReactElement => (
+  <Div className={CSS(CSS.B("clock"), className)} orientation={orientation} {...props}>
+    <InternalSVG
+      dimensions={{ width: 64, height: 64 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="32" cy="32" r="30" />
+      <Path d="M32 32L32 17" />
+      <Path d="M32 32L47 32" />
+      <Path d="M32 32L32 47" />
+      <Path d="M32 32L17 32" />
+    </InternalSVG>
+  </Div>
+);
