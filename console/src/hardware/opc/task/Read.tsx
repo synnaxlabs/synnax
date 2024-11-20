@@ -89,10 +89,7 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureReadLayout({ create: true }), key: layoutKey }),
 };
 
-const schema = z.object({
-  name: z.string(),
-  config: readConfigZ,
-});
+const schema = z.object({ name: z.string(), config: readConfigZ });
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.read.channels[nodeId] ?? props.read.channels[caseconv.snakeToCamel(nodeId)];
@@ -106,7 +103,6 @@ const Wrapped = ({
   const addStatus = Status.useAggregator();
   const methods = Form.use({ schema, values: initialValues });
   const dev = useDevice<Device.Properties>(methods);
-
   const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
@@ -118,7 +114,6 @@ const Wrapped = ({
     running === true ? "running" : running === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
-
   const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
@@ -127,7 +122,6 @@ const Wrapped = ({
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
         config.device,
       );
-      // kill me
 
       let modified = false;
       let shouldCreateIndex = primitiveIsZero(dev.properties.read.index);

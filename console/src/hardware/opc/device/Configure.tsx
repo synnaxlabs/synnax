@@ -24,7 +24,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -33,11 +33,13 @@ import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
   connectionConfigZ,
+  migrateProperties,
   type Properties,
   type SecurityMode,
   type SecurityPolicy,
   type TestConnCommandResponse,
   type TestConnCommandState,
+  ZERO_CONNECTION_CONFIG,
 } from "@/hardware/opc/device/types";
 import { Layout } from "@/layout";
 
@@ -53,7 +55,7 @@ export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const createConfigureLayout =
-  (device?: string, initial: Omit<Partial<Layout.State>, "type"> = {}) =>
+  (device?: string, initial: Omit<Partial<Layout.State>, "type" | "icon"> = {}) =>
   (): Layout.State => {
     const { name = "OPC UA.Connect", location = "modal", ...rest } = initial;
     const key = device ?? initial.key ?? CONFIGURE_LAYOUT_TYPE;
@@ -80,27 +82,14 @@ export const Configure: Layout.Renderer = ({ onClose, layoutKey }): ReactElement
     queryFn: async () => {
       if (client == null || layoutKey === CONFIGURE_LAYOUT_TYPE)
         return [
-          {
-            name: "My OPC Server",
-            connection: {
-              endpoint: "opc.tcp://localhost:4840",
-              username: "",
-              password: "",
-              serverCertificate: "",
-              clientCertificate: "",
-              clientPrivateKey: "",
-              securityPolicy: "None",
-              securityMode: "None",
-            },
-          },
+          { name: "My OPC Server", connection: { ...ZERO_CONNECTION_CONFIG } },
           undefined,
         ];
       const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
+      dev.properties = migrateProperties(dev.properties);
+      await client.hardware.devices.create(dev);
       return [
-        {
-          name: dev.name,
-          connection: dev.properties.connection,
-        },
+        { name: dev.name, connection: dev.properties.connection },
         dev.properties,
       ];
     },
@@ -138,12 +127,7 @@ const ConfigureInternal = ({
   const client = Synnax.use();
   const [connState, setConnState] = useState<TestConnCommandState | null>(null);
   const addStatus = Status.useAggregator();
-
-  const methods = Form.use({
-    values: initialValues,
-    schema: formSchema,
-  });
-
+  const methods = Form.use({ values: initialValues, schema: formSchema });
   const testConnection = useMutation<void, Error, void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
@@ -162,41 +146,31 @@ const ConfigureInternal = ({
 
   const confirm = useMutation<void, Error, void>({
     mutationKey: [client?.key],
+    onError: (e) => addStatus({ variant: "error", message: e.message }),
     mutationFn: async () => {
       if (!methods.validate() || client == null) return;
       await testConnection.mutateAsync();
       if (connState?.variant !== "success") return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      const key = layoutKey === CONFIGURE_LAYOUT_TYPE ? uuidv4() : layoutKey;
-      try {
-        await client.hardware.devices.create({
-          key,
-          name: methods.get<string>("name").value,
-          model: "opc",
-          make: "opc",
-          rack: rack.key,
-          location: methods.get<string>("connection.endpoint").value,
-          properties: {
-            read: {
-              index: 0,
-              channels: {},
-            },
-            write: {
-              index: 0,
-              channels: {},
-            },
-            ...properties,
-            connection: methods.get<Properties>("connection").value,
-          },
-          configured: true,
-        });
-      } catch (e) {
-        console.error(e);
-      }
+      const key = layoutKey === CONFIGURE_LAYOUT_TYPE ? uuid() : layoutKey;
+      await client.hardware.devices.create({
+        key,
+        name: methods.get<string>("name").value,
+        model: "opc",
+        make: "opc",
+        rack: rack.key,
+        location: methods.get<string>("connection.endpoint").value,
+        properties: {
+          read: { index: [0], channels: {} },
+          write: { index: 0, channels: {} },
+          ...properties,
+          connection: methods.get<Properties>("connection").value,
+        },
+        configured: true,
+      });
       onClose();
     },
   });
-
   const hasSecPolicy =
     Form.useFieldValue<SecurityPolicy>("connection.securityMode", undefined, methods) !=
     "None";
