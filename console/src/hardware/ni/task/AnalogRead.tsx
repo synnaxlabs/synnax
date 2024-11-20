@@ -298,7 +298,9 @@ const Wrapped = ({
           layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={
-            startOrStop.isPending || !checkDesiredStateMatch(desiredState, running)
+            startOrStop.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
           }
           configuring={configure.isPending}
           onStartStop={startOrStop.mutate}

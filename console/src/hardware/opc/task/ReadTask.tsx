@@ -117,7 +117,6 @@ const Wrapped = ({
   const initialState =
     running === true ? "running" : running === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-
   const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
 
   const configure = useMutation<void>({
@@ -310,7 +309,9 @@ const Wrapped = ({
           layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={
-            start.isPending || !checkDesiredStateMatch(desiredState, running)
+            start.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
           }
           configuring={configure.isPending}
           onStartStop={start.mutate}

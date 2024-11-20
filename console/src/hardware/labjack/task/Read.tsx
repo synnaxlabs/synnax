@@ -286,7 +286,9 @@ const Wrapped = ({
           state={taskState}
           snapshot={task?.snapshot}
           startingOrStopping={
-            start.isPending || !checkDesiredStateMatch(desiredState, running)
+            start.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
           }
           configuring={configure.isPending}
           onConfigure={configure.mutate}

@@ -33,6 +33,7 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
+import { checkDesiredStateMatch } from "@/hardware/task/common/useDesiredState";
 import { createTaskLayout } from "@/hardware/task/ontology";
 import { createSelector } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
@@ -387,7 +388,7 @@ const TaskListItem = ({
   const isRunning = entry.state?.details?.running === true;
   const isLoading =
     desiredState != null &&
-    (desiredState === "running" ? !isRunning : isRunning) &&
+    !checkDesiredStateMatch(desiredState, isRunning) &&
     state?.variant === "success";
   const loading = useDelayedState<boolean>(false, isLoading);
   const handleClick = () => {
