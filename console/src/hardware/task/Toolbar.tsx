@@ -22,6 +22,7 @@ import {
   Synnax,
   Text,
   useAsyncEffect,
+  useDelayedState,
 } from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -33,10 +34,9 @@ import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { createTaskLayout } from "@/hardware/task/ontology";
-import { getIcon } from "@/hardware/task/types";
+import { createSelector } from "@/hardware/task/Selector";
+import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
-
-import { createSelector } from "./Selector";
 
 type DesiredTaskState = "running" | "paused" | null;
 
@@ -58,10 +58,61 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
+interface MutationVars {
+  name: string;
+  key: string;
+}
+
 const Content = (): ReactElement => {
   const client = Synnax.use();
   const [tasks, setTasks] = useState<task.Task[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const handleRename = useMutation<void, Error, MutationVars, string>({
+    mutationKey: ["renameTask"],
+    onMutate: ({ name, key }) => {
+      const oldTask = tasks.find((t) => t.key === key);
+      const oldName = oldTask?.name;
+      if (oldTask == null) return oldName;
+      setTasks((prev) => {
+        const t = prev.find((t) => t.key === key);
+        if (t != null) t.name = name;
+        return [...prev];
+      });
+      return oldName;
+    },
+    mutationFn: async ({ name, key }) => {
+      const tsk = tasks.find((t) => t.key === key);
+      const isRunning = tsk?.state?.details?.running === true;
+      if (
+        isRunning &&
+        !(await confirm({
+          message: `Are you sure you want to rename the task to ${name}?`,
+          description: "This will cause the task to stop and be reconfigured.",
+          cancel: { label: "Cancel" },
+          confirm: { label: "Rename", variant: "error" },
+        }))
+      )
+        return;
+      if (client == null) throw new Error("Client not available");
+      const t = await client.hardware.tasks.retrieve(key);
+      if (t == null) return;
+      await client.hardware.tasks.create({ ...t, name });
+    },
+    onError: (e, { name, key }, oldName) => {
+      if (oldName != null)
+        setTasks((prev) => {
+          const t = prev.find((t) => t.key === key);
+          if (t != null) t.name = oldName;
+          return [...prev];
+        });
+      if (errors.CANCELED.matches(e)) return;
+      addStatus({
+        variant: "error",
+        message: `Failed to rename ${oldName ?? "task"} to ${name}`,
+        description: e.message,
+      });
+    },
+  }).mutate;
   const [desiredStates, setDesiredStates] = useState<
     Record<task.TaskKey, DesiredTaskState>
   >({});
@@ -204,6 +255,7 @@ const Content = (): ReactElement => {
             level="small"
             iconSpacing="small"
             onChange={{
+              rename: () => Text.edit(`text-${keys[0]}`),
               delete: () => handleDelete.mutate(keys),
               start: () =>
                 selected.forEach((t) => {
@@ -233,19 +285,23 @@ const Content = (): ReactElement => {
           >
             {canStart && (
               <PMenu.Item startIcon={<Icon.Play />} itemKey="start">
-                {isSingle ? "Start Task" : "Start Tasks"}
+                Start
               </PMenu.Item>
             )}
             {canStop && (
               <PMenu.Item startIcon={<Icon.Pause />} itemKey="stop">
-                {isSingle ? "Stop Task" : "Stop Tasks"}
+                Stop
               </PMenu.Item>
             )}
             {(canStart || canStop) && <PMenu.Divider />}
             {isSingle && (
-              <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
-                Edit Configuration
-              </PMenu.Item>
+              <>
+                <PMenu.Item startIcon={<Icon.Edit />} itemKey="edit">
+                  Edit Configuration
+                </PMenu.Item>
+                <PMenu.Divider />
+                <Menu.RenameItem />
+              </>
             )}
             {someSelected && (
               <>
@@ -290,6 +346,7 @@ const Content = (): ReactElement => {
                       return next;
                     });
                   }}
+                  onRename={(name) => handleRename({ name, key })}
                 />
               )}
             </List.Core>
@@ -313,9 +370,15 @@ export const Toolbar: Layout.NavDrawerItem = {
 interface TaskListItemProps extends List.ItemProps<string, task.Task> {
   desiredState: DesiredTaskState;
   onStopStart: (state: DesiredTaskState) => void;
+  onRename: (name: string) => void;
 }
 
-const TaskListItem = ({ desiredState, onStopStart, ...props }: TaskListItemProps) => {
+const TaskListItem = ({
+  desiredState,
+  onStopStart,
+  onRename,
+  ...props
+}: TaskListItemProps) => {
   const {
     entry,
     entry: { type, state },
@@ -326,6 +389,7 @@ const TaskListItem = ({ desiredState, onStopStart, ...props }: TaskListItemProps
     desiredState != null &&
     (desiredState === "running" ? !isRunning : isRunning) &&
     state?.variant === "success";
+  const loading = useDelayedState<boolean>(false, isLoading);
   const handleClick = () => {
     onStopStart(isRunning ? "paused" : "running");
     entry.executeCommand(isRunning ? "stop" : "start");
@@ -350,17 +414,22 @@ const TaskListItem = ({ desiredState, onStopStart, ...props }: TaskListItemProps
             weight={500}
             noWrap
           >
-            {entry.name}
+            <Text.MaybeEditable
+              id={`text-${entry.key}`}
+              level="p"
+              value={entry.name}
+              onChange={onRename}
+              allowDoubleClick={false}
+            />
           </Text.WithIcon>
         </Align.Space>
         <Text.Text level="small" shade={6}>
-          {type}
+          {parseType(type)}
         </Text.Text>
       </Align.Space>
       <Button.Icon
         variant="outlined"
-        loading={isLoading}
-        disabledWhileLoading
+        loading={loading}
         onClick={handleClick}
         tooltip={`${isRunning ? "Stop" : "Start"} ${entry.name}`}
       >

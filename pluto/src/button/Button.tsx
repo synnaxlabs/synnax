@@ -23,7 +23,6 @@ import {
 import { type Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { useDelayedLoading } from "@/hooks";
 import { type status } from "@/status/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
@@ -44,8 +43,6 @@ export interface ButtonExtensionProps {
   size?: ComponentSize;
   sharp?: boolean;
   loading?: boolean;
-  loadingDelay?: number;
-  disabledWhileLoading?: boolean;
   triggers?: Triggers.Trigger[];
   status?: status.Variant;
   color?: Color.Crude;
@@ -93,10 +90,6 @@ export type ButtonProps = Omit<
  * specified time before calling the handler.
  * @param props.loading - Whether the button is in a loading state. This will cause the
  * button to render a loading spinner.
- * @param props.loadingDelay - The delay before the loading spinner appears. This delay can
- * be used to prevent the spinner from appearing too quickly. The default is 150 ms.
- * @param props.disabledWhileLoading - Whether the button should be disabled while in a
- * loading state. Defaults to `false`.
  */
 export const Button = Tooltip.wrap(
   ({
@@ -109,8 +102,6 @@ export const Button = Tooltip.wrap(
     sharp = false,
     disabled = false,
     loading = false,
-    loadingDelay,
-    disabledWhileLoading = false,
     level,
     triggers,
     startIcon = [] as ReactElement[],
@@ -124,9 +115,8 @@ export const Button = Tooltip.wrap(
     ...props
   }: ButtonProps): ReactElement => {
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-    const isLoading = useDelayedLoading(loading, loadingDelay);
-    if (isLoading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
-    const isDisabled = disabled || (disabledWhileLoading && isLoading);
+    if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
+    const isDisabled = disabled || loading;
     iconSpacing ??= size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input
     // component API.

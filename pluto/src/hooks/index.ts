@@ -11,7 +11,7 @@ export * from "@/hooks/effect";
 export * from "@/hooks/ref";
 export * from "@/hooks/useClickOutside";
 export * from "@/hooks/useDebouncedCallback";
-export * from "@/hooks/useDelayedLoading";
+export * from "@/hooks/useDelayedState";
 export * from "@/hooks/useFilter";
 export * from "@/hooks/useResize";
 export * from "@/hooks/useTransforms";

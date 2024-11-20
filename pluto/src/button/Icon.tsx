@@ -14,7 +14,6 @@ import { cloneElement, forwardRef, type ReactElement } from "react";
 import { type BaseProps } from "@/button/Button";
 import { color } from "@/button/color";
 import { CSS } from "@/css";
-import { useDelayedLoading } from "@/hooks";
 import { Tooltip } from "@/tooltip";
 
 interface ChildProps {
@@ -26,8 +25,6 @@ interface ChildProps {
 export interface IconProps extends BaseProps, Tooltip.WrapProps {
   children: ReactElement<ChildProps> | string;
   loading?: boolean;
-  loadingDelay?: number;
-  disabledWhileLoading?: boolean;
 }
 
 const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
@@ -40,17 +37,14 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
       sharp = false,
       disabled = false,
       loading = false,
-      loadingDelay,
-      disabledWhileLoading = false,
       onClick,
       color: propColor,
       ...props
     },
     ref,
   ): ReactElement => {
-    const isLoading = useDelayedLoading(loading, loadingDelay);
-    if (isLoading) children = <MediaIcon.Loading />;
-    const isDisabled = disabled || (disabledWhileLoading && isLoading);
+    if (loading) children = <MediaIcon.Loading />;
+    const isDisabled = disabled || loading;
     return (
       <button
         ref={ref}
@@ -91,9 +85,5 @@ CoreIcon.displayName = "ButtonIcon";
  * @param props.children - A ReactElement representing the icon to render.
  * @param props.loading - Whether the button is in a loading state. This will cause the
  * button to render a loading spinner.
- * @param props.loadingDelay - The delay before the loading spinner appears. This delay can
- * be used to prevent the spinner from appearing too quickly. The default is 150 ms.
- * @param props.disabledWhileLoading - Whether the button should be disabled while in a
- * loading state. Defaults to `false`.
  */
 export const Icon = Tooltip.wrap(CoreIcon);

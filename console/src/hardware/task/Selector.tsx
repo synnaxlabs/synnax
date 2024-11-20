@@ -37,8 +37,9 @@ export const createSelector = ({
   ...props,
 });
 
+const SELECTOR = Layout.createSelectorComponent(SELECTABLES);
+
 export const Selector = ({
   text = "Select a Task Type",
   ...props
-}: Layout.SelectorProps): ReactElement =>
-  Layout.createSelectorComponent(SELECTABLES)({ text, ...props });
+}: Layout.SelectorProps): ReactElement => SELECTOR({ text, ...props });
