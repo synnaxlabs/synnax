@@ -9,7 +9,7 @@
     },
     "linux-x86_64": {
       "signature": "not_supported_and_tauri_requires_an_entry",
-      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.34.0-rc/Synnax.app.tar.gz"
+      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.34.0/Synnax.app.tar.gz"
     },
     "windows-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUE1RVBxc2N5YXBoV3BqVDZYZVB2dWh6SHdLQUg4cmE2c3V3Y3BValVrdDB0Z2hQRVZ0cWtUR0wrYzlON1lKU2JPNXBabkFncWEyMks2amVpSitKbEFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzMxOTUwMzMwCWZpbGU6U3lubmF4XzAuMzQuMF94NjRfZW4tVVMubXNpCmFOMGNKa253bEtjUGhDSjlkNVhoM29SVEdya1hMRFdvUzNGbDc0WHBBekVvemNCdG10Z0NoYzRmZ0pJenNIdlNaWnJza1RyTzhCZDk0dEVtSEp1ZUNRPT0K",
