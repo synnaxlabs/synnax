@@ -140,6 +140,7 @@
     .pluto-table__col-resizer {
         & > *:first-child {
             width: 3.5rem;
+            height: 3.5rem;
             max-width: 3.5rem;
             min-width: 3.5rem;
             margin: 0;

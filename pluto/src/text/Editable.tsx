@@ -32,6 +32,7 @@ export type EditableProps<L extends text.Level = "h1"> = Omit<
   Input.Control<string> & {
     useEditableState?: state.PureUse<boolean>;
     allowDoubleClick?: boolean;
+    allowEmpty?: boolean;
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
@@ -80,6 +81,7 @@ export const Editable = <L extends text.Level = text.Level>({
   useEditableState = useState,
   allowDoubleClick = true,
   onDoubleClick,
+  allowEmpty = false,
   ...props
 }: EditableProps<L>): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
@@ -100,7 +102,7 @@ export const Editable = <L extends text.Level = text.Level>({
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
     const innerText = getInnerText(el);
     if (optimisticValueRef.current === innerText) return;
-    if (forceEscape || innerText.length === 0) {
+    if (forceEscape || (innerText.length === 0 && !allowEmpty)) {
       el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
     } else {

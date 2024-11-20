@@ -74,6 +74,7 @@ export const Text = ({
         weight={weight}
         onChange={handleValueChange}
         style={{ justifyContent: align }}
+        allowEmpty
       />
     </Core>
   );

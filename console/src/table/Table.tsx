@@ -148,13 +148,14 @@ export const Table: Layout.Renderer = ({ layoutKey, visible }) => {
     callback: useCallback(
       ({ triggers, stage }: Triggers.UseEvent) => {
         if (ref.current == null || stage !== "start") return;
-        const copy = triggers.some((t) => t.includes("C"));
-        if (copy) dispatch(copySelected({ key: layoutKey }));
+        const isCopy = triggers.some((t) => t.includes("C"));
         const isDelete = triggers.some(
           (t) => t.includes("Delete") || t.includes("Backspace"),
         );
+        const isPaste = triggers.some((t) => t.includes("V"));
+        if (isCopy) dispatch(copySelected({ key: layoutKey }));
         if (isDelete) dispatch(clearSelected({ key: layoutKey }));
-        else dispatch(pasteSelected({ key: layoutKey }));
+        if (isPaste) dispatch(pasteSelected({ key: layoutKey }));
       },
       [dispatch, layoutKey],
     ),

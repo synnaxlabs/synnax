@@ -132,14 +132,25 @@ const addRowInternal = (
   if (table == null) return;
 
   let newRow: RowLayout;
-  if (table.layout.rows.length === 0) {
-    const cellKey = id.id();
-    table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
-    if (table.layout.columns.length === 0) {
+  // If we have no rows, initialize the table with a single cell and add a column
+  // as well.
+  if (table.layout.rows.length === 0)
+    if (table.layout.columns.length == 0) {
+      const cellKey = id.id();
+      table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
       newRow = { cells: [{ key: cellKey }], size: BASE_ROW_SIZE };
       table.layout.columns = [{ size: BASE_COL_SIZE }];
-    } else newRow = { cells: [{ key: cellKey }], size: BASE_ROW_SIZE };
-  } else
+    } else
+      newRow = {
+        cells: table.layout.columns.map(() => {
+          const key = id.id();
+          table.cells[key] = { ...ZERO_CELL_STATE, key };
+          return { key };
+        }),
+        size: BASE_ROW_SIZE,
+      };
+  // If we have an existing row, use it as a template for the new row.
+  else
     newRow = {
       cells: table.layout.rows[0].cells.map(() => {
         const key = id.id();
@@ -149,6 +160,7 @@ const addRowInternal = (
       size: BASE_ROW_SIZE,
     };
 
+  // This means that the user wants to add a row above or below a specific cell.
   if (cellKey != null && loc != null) {
     const pos = findCellPosition(table, cellKey);
     if (pos == null) return;
@@ -159,6 +171,7 @@ const addRowInternal = (
       if (pos.y === table.layout.rows.length - 1) table.layout.rows.push(newRow);
       else table.layout.rows.splice(pos.y + 1, 0, newRow);
   } else if (index == null) table.layout.rows.push(newRow);
+  // This means they clicked on a row, and want to add a row above or below it.
   else if (loc !== "top") table.layout.rows.splice(index + 1, 0, newRow);
   else table.layout.rows.splice(index, 0, newRow);
 };
@@ -170,6 +183,8 @@ export const addColInternal = (
   const { index, loc, cellKey } = payload;
   const table = state.tables[payload.key];
   if (table == null) return;
+
+  // Means the user clicked
   if (cellKey != null && loc != null) {
     const pos = findCellPosition(table, cellKey);
     if (pos == null) return;
@@ -218,19 +233,16 @@ export const { actions, reducer } = createSlice({
             ...cell,
             selected: false,
           }));
-
         return;
       }
 
       table.lastSelected = cells[cells.length - 1];
 
-      if (mode === "replace") {
-        Object.values(table.cells).forEach((cell) => {
+      if (mode === "replace")
+        return Object.values(table.cells).forEach((cell) => {
           if (cells.includes(cell.key)) cell.selected = true;
           else cell.selected &&= false;
         });
-        return;
-      }
 
       if (mode === "add") {
         table.cells = mapValues(table.cells, (cell) => ({
@@ -276,29 +288,33 @@ export const { actions, reducer } = createSlice({
       const { key, index, cellKey } = payload;
       const table = state.tables[key];
       if (table == null) return;
+      let pos = index;
       if (cellKey != null) {
-        const pos = findCellPosition(table, cellKey);
-        if (pos == null) return;
-        table.layout.rows.splice(pos.y, 1);
-        return;
+        const cellPos = findCellPosition(table, cellKey);
+        if (cellPos == null) return;
+        pos = cellPos.y;
       }
-      if (index == null) return;
-      table.layout.rows.splice(index, 1);
+      if (pos == null) return;
+      table.layout.rows[pos].cells.forEach((cell) => delete table.cells[cell.key]);
+      table.layout.rows.splice(pos, 1);
     },
     deleteCol: (state, { payload }: PayloadAction<DeleteColPayload>) => {
       const { key, index, cellKey } = payload;
       const table = state.tables[key];
       if (table == null) return;
+      let pos = index;
       if (cellKey != null) {
-        const pos = findCellPosition(table, cellKey);
-        if (pos == null) return;
-        table.layout.rows.forEach((row) => row.cells.splice(pos.x, 1));
-        table.layout.columns.splice(pos.x, 1);
+        const cellPos = findCellPosition(table, cellKey);
+        if (cellPos == null) return;
+        pos = cellPos.x;
         return;
       }
-      if (index == null) return;
-      table.layout.rows.forEach((row) => row.cells.splice(index, 1));
-      table.layout.columns.splice(index, 1);
+      if (pos == null) return;
+      table.layout.rows.forEach((row) => {
+        delete table.cells[row.cells[pos].key];
+        row.cells.splice(pos, 1);
+      });
+      table.layout.columns.splice(pos, 1);
     },
     setCellProps: (state, { payload }: PayloadAction<SetCellPropsPayload>) => {
       const { key, cellKey, props } = payload;
@@ -341,23 +357,29 @@ export const { actions, reducer } = createSlice({
       if (table == null) return;
 
       // Grab all currently selected cells, as we assume that is what we want to copy.
-      const cells = Object.values(table.cells).filter((cell) => cell.selected);
+      const candidateCells = Object.values(table.cells).filter((cell) => cell.selected);
       // We need to store the positions so we can paste them in the correct location
       // later.
-      const positions = cells
+      const candidatePositions = candidateCells
         .map((cell) => findCellPosition(table, cell.key))
         .filter((pos) => pos != null) as xy.XY[];
       const positionsObj = Object.fromEntries(
-        positions.map((pos, i) => [cells[i].key, pos]),
+        candidatePositions.map((pos, i) => [candidateCells[i].key, pos]),
       );
 
       if (table.lastSelected == null) return;
+      // We only want to copy the contiguous region of cells that the user has selected,
+      // using the last selected cell as the reference point for contiguity.
       const contiguousRegion = contiguousRegionFrom(
         positionsObj[table.lastSelected],
-        positions,
+        candidatePositions,
       );
-      const contiguousCells = contiguousRegion.map((cell) => cells[cell.index]);
-      const minContiguous = contiguousCells.reduce(
+      const contiguousCells = contiguousRegion.map(
+        (cell) => candidateCells[cell.index],
+      );
+      // Choose the top left cell as the reference point for the copy buffer. We use
+      // this cell as the location to paste.
+      const topLeftContiguous = contiguousCells.reduce(
         (min, cell) => {
           const pos = positionsObj[cell.key];
           return {
@@ -370,9 +392,7 @@ export const { actions, reducer } = createSlice({
       );
 
       state.copyBuffer = {
-        // The epicenter is the cell that was last selected i.e. the "reference point"
-        // where the user started the copy operation.
-        epicenter: minContiguous.key,
+        epicenter: topLeftContiguous.key,
         cells: Object.fromEntries(contiguousCells.map((cell) => [cell.key, cell])),
         positions: Object.fromEntries(
           contiguousCells.map((cell) => [cell.key, positionsObj[cell.key]]),
@@ -441,18 +461,17 @@ export const { actions, reducer } = createSlice({
     clearSelected: (state, { payload }: PayloadAction<ClearSelectedPayload>) => {
       const table = state.tables[payload.key];
       if (table == null) return;
-      const rowIdxToDelete = table.layout.rows
-        .map((row, j) => {
-          if (row.cells.every((cell) => !table.cells[cell.key].selected)) return j;
-          return null;
-        })
-        .filter((row) => row != null);
-      rowIdxToDelete.forEach((row) => {
-        const cells = table.layout.rows[row].cells;
-        cells.forEach((cell) => delete table.cells[cell.key]);
-        table.layout.rows.splice(row, 1);
+
+      // We want to remove any rows that are completely selected.
+      table.layout.rows = table.layout.rows.filter((row) => {
+        if (row.cells.every((cell) => table.cells[cell.key].selected)) {
+          row.cells.forEach((cell) => delete table.cells[cell.key]);
+          return false;
+        }
+        return true;
       });
 
+      // Identify any columns that are entirely selected.
       const colIdxToDelete = table.layout.columns
         .map((_, i) => {
           if (table.layout.rows.every((row) => table.cells[row.cells[i].key].selected))
@@ -460,14 +479,18 @@ export const { actions, reducer } = createSlice({
           return null;
         })
         .filter((col) => col != null);
-      colIdxToDelete.forEach((col) => {
+
+      // Filter out and delete the columns that are entirely selected.
+      table.layout.columns = table.layout.columns.filter((_, col) => {
+        if (!colIdxToDelete.includes(col)) return true;
         table.layout.rows.forEach((row) => {
           delete table.cells[row.cells[col].key];
           row.cells.splice(col, 1);
         });
-        table.layout.columns.splice(col, 1);
+        return false;
       });
 
+      // Clear all selected cells.
       Object.values(table.cells).forEach((cell) => {
         if (!cell.selected) return;
         cell.variant = "text";
