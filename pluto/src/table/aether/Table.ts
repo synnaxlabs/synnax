@@ -56,7 +56,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     );
 
     try {
-      await Promise.all(this.children.map((child) => child.render({ viewportScale })));
+      for (const child of this.children) await child.render({ viewportScale });
     } finally {
       clearScissor();
     }

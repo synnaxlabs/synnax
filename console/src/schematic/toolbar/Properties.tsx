@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { box, deep, location, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { memo, type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -37,140 +37,143 @@ export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement => {
-  const elements = useSelectSelectedElementsProps(layoutKey);
-  const viewport = useSelectViewport(layoutKey);
+export const PropertiesControls = memo(
+  ({ layoutKey }: PropertiesProps): ReactElement => {
+    const elements = useSelectSelectedElementsProps(layoutKey);
+    const viewport = useSelectViewport(layoutKey);
 
-  const dispatch = useDispatch();
+    const dispatch = useDispatch();
 
-  const handleChange = (key: string, props: any): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
-  };
+    const handleChange = (key: string, props: any): void => {
+      dispatch(setElementProps({ layoutKey, key, props }));
+    };
 
-  if (elements.length === 0)
-    return (
-      <Status.Text.Centered variant="disabled" hideIcon>
-        Select a Schematic element to configure its properties.
-      </Status.Text.Centered>
-    );
+    if (elements.length === 0)
+      return (
+        <Status.Text.Centered variant="disabled" hideIcon>
+          Select a Schematic element to configure its properties.
+        </Status.Text.Centered>
+      );
 
-  if (elements.length > 1) {
-    const groups: Record<string, ElementInfo[]> = {};
-    elements.forEach((e) => {
-      let color: Color.Color | null = null;
-      if (e.type === "edge") color = new Color.Color(e.edge.color);
-      else if (e.props.color != null) color = new Color.Color(e.props.color);
-      if (color === null) return;
-      const hex = color.hex;
-      if (!(hex in groups)) groups[hex] = [];
-      groups[hex].push(e);
-    });
+    if (elements.length > 1) {
+      const groups: Record<string, ElementInfo[]> = {};
+      elements.forEach((e) => {
+        let color: Color.Color | null = null;
+        if (e.type === "edge") color = new Color.Color(e.edge.color);
+        else if (e.props.color != null) color = new Color.Color(e.props.color);
+        if (color === null) return;
+        const hex = color.hex;
+        if (!(hex in groups)) groups[hex] = [];
+        groups[hex].push(e);
+      });
 
-    const layouts = elements
-      .map((el) => {
-        if (el.type !== "node") return null;
-        // grab all child elements with the class 'react-flow__handle'
-        try {
-          const nodeEl = Diagram.selectNode(el.key);
-          const nodeBox = box.construct(
-            el.node.position,
-            box.dims(box.construct(nodeEl)),
-          );
-          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
-          const nodeElBox = box.construct(nodeEl);
-          const handles = Array.from(handleEls).map((el) => {
-            const pos = box.center(box.construct(el));
-            const dist = xy.scale(
-              xy.translation(box.topLeft(nodeElBox), pos),
-              1 / viewport.zoom,
+      const layouts = elements
+        .map((el) => {
+          if (el.type !== "node") return null;
+          // grab all child elements with the class 'react-flow__handle'
+          try {
+            const nodeEl = Diagram.selectNode(el.key);
+            const nodeBox = box.construct(
+              el.node.position,
+              box.dims(box.construct(nodeEl)),
             );
-            const match = el.className.match(/react-flow__handle-(\w+)/);
-            if (match == null)
-              throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.construct(match[1]) as location.Outer;
-            return new Diagram.HandleLayout(dist, orientation);
-          });
-          return new Diagram.NodeLayout(el.key, nodeBox, handles);
-        } catch (e) {
-          console.log(e);
-        }
-        return null;
-      })
-      .filter((el) => el !== null) as Diagram.NodeLayout[];
+            const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
+            const nodeElBox = box.construct(nodeEl);
+            const handles = Array.from(handleEls).map((el) => {
+              const pos = box.center(box.construct(el));
+              const dist = xy.scale(
+                xy.translation(box.topLeft(nodeElBox), pos),
+                1 / viewport.zoom,
+              );
+              const match = el.className.match(/react-flow__handle-(\w+)/);
+              if (match == null)
+                throw new Error(`[schematic] - cannot find handle orientation`);
+              const orientation = location.construct(match[1]) as location.Outer;
+              return new Diagram.HandleLayout(dist, orientation);
+            });
+            return new Diagram.NodeLayout(el.key, nodeBox, handles);
+          } catch (e) {
+            console.log(e);
+          }
+          return null;
+        })
+        .filter((el) => el !== null) as Diagram.NodeLayout[];
 
-    return (
-      <Align.Space
-        className={CSS.B("schematic-properties-pad")}
-        align="start"
-        direction="x"
-      >
-        <Input.Item label="Selection Colors" align="start">
-          <Align.Space direction="y">
-            {Object.entries(groups).map(([hex, elements]) => (
-              <Color.Swatch
-                key={elements[0].key}
-                value={hex}
-                onChange={(color: Color.Color) => {
-                  elements.forEach((e) => {
-                    handleChange(e.key, { color: color.hex });
-                  });
+      return (
+        <Align.Space
+          className={CSS.B("schematic-properties-pad")}
+          align="start"
+          direction="x"
+        >
+          <Input.Item label="Selection Colors" align="start">
+            <Align.Space direction="y">
+              {Object.entries(groups).map(([hex, elements]) => (
+                <Color.Swatch
+                  key={elements[0].key}
+                  value={hex}
+                  onChange={(color: Color.Color) => {
+                    elements.forEach((e) => {
+                      handleChange(e.key, { color: color.hex });
+                    });
+                  }}
+                />
+              ))}
+            </Align.Space>
+          </Input.Item>
+          <Input.Item label="Align">
+            <Align.Space direction="x">
+              <Button.Icon
+                tooltip="Align nodes vertically"
+                onClick={() => {
+                  const newPositions = Diagram.alignNodes(layouts, "x");
+                  dispatch(
+                    setNodePositions({
+                      key: layoutKey,
+                      positions: Object.fromEntries(
+                        newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                      ),
+                    }),
+                  );
                 }}
-              />
-            ))}
-          </Align.Space>
-        </Input.Item>
-        <Input.Item label="Align">
-          <Align.Space direction="x">
-            <Button.Icon
-              tooltip="Align nodes vertically"
-              onClick={() => {
-                const newPositions = Diagram.alignNodes(layouts, "x");
-                dispatch(
-                  setNodePositions({
-                    key: layoutKey,
-                    positions: Object.fromEntries(
-                      newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                    ),
-                  }),
-                );
-              }}
-            >
-              <Icon.Align.YCenter />
-            </Button.Icon>
-            <Button.Icon
-              tooltip="Align nodes horizontally"
-              onClick={() => {
-                const newPositions = Diagram.alignNodes(layouts, "y");
-                dispatch(
-                  setNodePositions({
-                    key: layoutKey,
-                    positions: Object.fromEntries(
-                      newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                    ),
-                  }),
-                );
-              }}
-            >
-              <Icon.Align.XCenter />
-            </Button.Icon>
-          </Align.Space>
-        </Input.Item>
-      </Align.Space>
+              >
+                <Icon.Align.YCenter />
+              </Button.Icon>
+              <Button.Icon
+                tooltip="Align nodes horizontally"
+                onClick={() => {
+                  const newPositions = Diagram.alignNodes(layouts, "y");
+                  dispatch(
+                    setNodePositions({
+                      key: layoutKey,
+                      positions: Object.fromEntries(
+                        newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                      ),
+                    }),
+                  );
+                }}
+              >
+                <Icon.Align.XCenter />
+              </Button.Icon>
+            </Align.Space>
+          </Input.Item>
+        </Align.Space>
+      );
+    }
+
+    const selected = elements[0];
+
+    if (selected.type === "edge")
+      return <EdgeProperties edge={selected} onChange={handleChange} />;
+    return (
+      <IndividualProperties
+        key={selected.key}
+        element={selected}
+        onChange={handleChange}
+      />
     );
-  }
-
-  const selected = elements[0];
-
-  if (selected.type === "edge")
-    return <EdgeProperties edge={selected} onChange={handleChange} />;
-  return (
-    <IndividualProperties
-      key={selected.key}
-      element={selected}
-      onChange={handleChange}
-    />
-  );
-};
+  },
+);
+PropertiesControls.displayName = "PropertiesControls";
 
 const IndividualProperties = ({
   element: selected,

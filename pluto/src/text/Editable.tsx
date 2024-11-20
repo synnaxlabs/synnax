@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
+import { useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { type text } from "@/text/core";
@@ -83,6 +84,11 @@ export const Editable = <L extends text.Level = text.Level>({
 }: EditableProps<L>): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
+  // Sometimes the onBlur event fires right after the user hits
+  // the enter key (since we trigger it artificially). We track
+  // this value as an optimistic update to make sure we don't
+  // call onChange twice in quick succession.
+  const optimisticValueRef = useSyncedRef(value);
 
   const handleDoubleClick = (
     e: React.MouseEvent<HTMLParagraphElement, MouseEvent>,
@@ -93,11 +99,13 @@ export const Editable = <L extends text.Level = text.Level>({
 
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
     const innerText = getInnerText(el);
+    if (optimisticValueRef.current === innerText) return;
     if (forceEscape || innerText.length === 0) {
       el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
     } else {
       onChange?.(innerText);
+      optimisticValueRef.current = innerText;
       el.dispatchEvent(new Event(RENAMED_EVENT_NAME));
     }
   };

@@ -8,18 +8,24 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { id, type location, mapValues, type xy } from "@synnaxlabs/x";
+import { type TableCells } from "@synnaxlabs/pluto";
+import { id, type location, mapValues, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/table/migrations";
+import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/migrations/v0";
 
 export type State = latest.State;
 export const ZERO_STATE: State = latest.ZERO_STATE;
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
-export type CellState<T extends string = string, P = unknown> = latest.CellState<T, P>;
+export type CellState<
+  T extends TableCells.Variant = TableCells.Variant,
+  P = unknown,
+> = latest.CellState<T, P>;
 export const ZERO_CELL_STATE: CellState = latest.ZERO_CELL_STATE;
 export type RowLayout = latest.RowLayout;
 export type CellLayout = latest.CellLayout;
+export const ZERO_CELL_PROPS = latest.ZERO_CELL_PROPS;
 
 export const SLICE_NAME = "table";
 
@@ -65,9 +71,10 @@ export interface DeleteColPayload {
   cellKey?: string;
 }
 
-export interface SetCellStatePayload {
+export interface SetCellPropsPayload {
   key: string;
-  state: Partial<CellState> & { key: string };
+  cellKey: string;
+  props: CellState["props"];
 }
 
 export interface ResizeRowPayload {
@@ -92,6 +99,103 @@ export interface SelectRowPayload {
   index: number;
 }
 
+export interface SetCellVariantPayload {
+  key: string;
+  cellKey: string;
+  variant: TableCells.Variant;
+  nextProps?: CellState["props"];
+}
+
+export interface SetEditablePayload {
+  key: string;
+  editable?: boolean;
+}
+
+export interface CopySelectedPayload {
+  key: string;
+}
+
+export interface PasteCelebrationPayload {
+  key: string;
+}
+
+export interface ClearSelectedPayload {
+  key: string;
+}
+
+const addRowInternal = (
+  state: SliceState,
+  { payload }: PayloadAction<AddRowPayload>,
+) => {
+  const { key, index, loc, cellKey } = payload;
+  const table = state.tables[key];
+  if (table == null) return;
+
+  let newRow: RowLayout;
+  if (table.layout.rows.length === 0) {
+    const cellKey = id.id();
+    table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
+    if (table.layout.columns.length === 0) {
+      newRow = { cells: [{ key: cellKey }], size: BASE_ROW_SIZE };
+      table.layout.columns = [{ size: BASE_COL_SIZE }];
+    } else newRow = { cells: [{ key: cellKey }], size: BASE_ROW_SIZE };
+  } else
+    newRow = {
+      cells: table.layout.rows[0].cells.map(() => {
+        const key = id.id();
+        table.cells[key] = { ...ZERO_CELL_STATE, key };
+        return { key };
+      }),
+      size: BASE_ROW_SIZE,
+    };
+
+  if (cellKey != null && loc != null) {
+    const pos = findCellPosition(table, cellKey);
+    if (pos == null) return;
+    if (loc === "top")
+      if (pos.y === 0) table.layout.rows.unshift(newRow);
+      else table.layout.rows.splice(pos.y, 0, newRow);
+    else if (loc === "bottom")
+      if (pos.y === table.layout.rows.length - 1) table.layout.rows.push(newRow);
+      else table.layout.rows.splice(pos.y + 1, 0, newRow);
+  } else if (index == null) table.layout.rows.push(newRow);
+  else if (loc !== "top") table.layout.rows.splice(index + 1, 0, newRow);
+  else table.layout.rows.splice(index, 0, newRow);
+};
+
+export const addColInternal = (
+  state: SliceState,
+  { payload }: PayloadAction<AddColPayload>,
+) => {
+  const { index, loc, cellKey } = payload;
+  const table = state.tables[payload.key];
+  if (table == null) return;
+  if (cellKey != null && loc != null) {
+    const pos = findCellPosition(table, cellKey);
+    if (pos == null) return;
+    table.layout.rows.forEach((row) => {
+      const cellKey = id.id();
+      if (loc === "left") row.cells.splice(pos.x, 0, { key: cellKey });
+      else if (loc === "right") row.cells.splice(pos.x + 1, 0, { key: cellKey });
+      table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
+    });
+    table.layout.columns.splice(pos.x, 0, { size: BASE_COL_SIZE });
+    return;
+  }
+
+  table.layout.rows.forEach((row) => {
+    const cellKey = id.id();
+    if (index == null) row.cells.push({ key: cellKey });
+    else if (loc !== "left") row.cells.splice(index + 1, 0, { key: cellKey });
+    else row.cells.splice(index, 0, { key: cellKey });
+    table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
+  });
+  if (index == null) table.layout.columns.push({ size: BASE_COL_SIZE });
+  else if (loc !== "left")
+    table.layout.columns.splice(index + 1, 0, { size: BASE_COL_SIZE });
+  else table.layout.columns.splice(index, 0, { size: BASE_COL_SIZE });
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -106,6 +210,7 @@ export const { actions, reducer } = createSlice({
     selectCells: (state, { payload }: PayloadAction<SelectCellsPayload>) => {
       const { key, mode, cells } = payload;
       const table = state.tables[key];
+      if (table == null || !table.editable) return;
 
       if (cells.length === 0) {
         if (mode === "replace")
@@ -144,68 +249,12 @@ export const { actions, reducer } = createSlice({
         selected: selected.includes(cell.key),
       }));
     },
-    addRow: (state, { payload }: PayloadAction<AddRowPayload>) => {
-      const { key, index, loc, cellKey } = payload;
-      const table = state.tables[key];
-      if (table == null) return;
-
-      let newRow: RowLayout;
-      if (table.layout.rows.length === 0) {
-        const cellKey = id.id();
-        table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
-        newRow = { cells: [{ key: cellKey }], size: 24 };
-      } else
-        newRow = {
-          cells: table.layout.rows[0].cells.map(() => {
-            const key = id.id();
-            table.cells[key] = { ...ZERO_CELL_STATE, key };
-            return { key };
-          }),
-          size: 24,
-        };
-
-      if (cellKey != null && loc != null) {
-        const pos = findCellPosition(table, cellKey);
-        if (pos == null) return;
-        if (loc === "top")
-          if (pos.y === 0) table.layout.rows.unshift(newRow);
-          else table.layout.rows.splice(pos.y, 0, newRow);
-        else if (loc === "bottom")
-          if (pos.y === table.layout.rows.length - 1) table.layout.rows.push(newRow);
-          else table.layout.rows.splice(pos.y + 1, 0, newRow);
-      } else if (index == null) table.layout.rows.push(newRow);
-      else table.layout.rows.splice(index, 0, newRow);
-    },
-    addCol: (state, { payload }: PayloadAction<AddColPayload>) => {
-      const { index, loc, cellKey } = payload;
-      const table = state.tables[payload.key];
-      if (table == null) return;
-      if (cellKey != null && loc != null) {
-        const pos = findCellPosition(table, cellKey);
-        if (pos == null) return;
-        table.layout.rows.forEach((row) => {
-          const cellKey = id.id();
-          if (loc === "left") row.cells.splice(pos.x, 0, { key: cellKey });
-          else if (loc === "right") row.cells.splice(pos.x + 1, 0, { key: cellKey });
-          table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
-        });
-        table.layout.columns.splice(pos.x, 0, { size: 24 });
-        return;
-      }
-
-      table.layout.rows.forEach((row) => {
-        const cellKey = id.id();
-        if (index == null) row.cells.push({ key: cellKey });
-        else row.cells.splice(index, 0, { key: cellKey });
-        table.cells[cellKey] = { ...ZERO_CELL_STATE, key: cellKey };
-      });
-      if (index == null) table.layout.columns.push({ size: 24 });
-      else table.layout.columns.splice(index, 0, { size: 24 });
-    },
+    addRow: addRowInternal,
+    addCol: addColInternal,
     selectRow: (state, { payload }: PayloadAction<SelectRowPayload>) => {
       const { key, index } = payload;
       const table = state.tables[key];
-      if (table == null) return;
+      if (table == null || !table.editable) return;
       table.layout.rows.forEach((row, i) => {
         if (i === index)
           row.cells.forEach((cell) => (table.cells[cell.key].selected = true));
@@ -215,7 +264,7 @@ export const { actions, reducer } = createSlice({
     selectCol: (state, { payload }: PayloadAction<SelectColPayload>) => {
       const { key, index } = payload;
       const table = state.tables[key];
-      if (table == null) return;
+      if (table == null || !table.editable) return;
       table.layout.rows.forEach((row) => {
         row.cells.forEach((cell, i) => {
           if (i === index) table.cells[cell.key].selected = true;
@@ -251,10 +300,10 @@ export const { actions, reducer } = createSlice({
       table.layout.rows.forEach((row) => row.cells.splice(index, 1));
       table.layout.columns.splice(index, 1);
     },
-    setCellState: (state, { payload }: PayloadAction<SetCellStatePayload>) => {
-      const { key, state: cState } = payload;
+    setCellProps: (state, { payload }: PayloadAction<SetCellPropsPayload>) => {
+      const { key, cellKey, props } = payload;
       const table = state.tables[key];
-      table.cells[cState.key] = { ...table.cells[cState.key], ...cState };
+      table.cells[cellKey].props = props;
     },
     resizeRow: (state, { payload }: PayloadAction<ResizeRowPayload>) => {
       const { key, index, size } = payload;
@@ -268,6 +317,163 @@ export const { actions, reducer } = createSlice({
       if (table == null) return;
       table.layout.columns[index].size = size;
     },
+    setCellType: (state, { payload }: PayloadAction<SetCellVariantPayload>) => {
+      const { key, cellKey, variant, nextProps } = payload;
+      const table = state.tables[key];
+      const cell = table.cells[cellKey];
+      if (cell == null) return;
+      cell.variant = variant;
+      if (nextProps != null) cell.props = nextProps;
+    },
+    setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
+      const { key, editable } = payload;
+      const table = state.tables[key];
+      if (table == null) return;
+      if (editable == null) table.editable = !table.editable;
+      else table.editable = editable;
+      if (!table.editable) {
+        Object.values(table.cells).forEach((cell) => (cell.selected = false));
+        table.lastSelected = "";
+      }
+    },
+    copySelected: (state, { payload }: PayloadAction<CopySelectedPayload>) => {
+      const table = state.tables[payload.key];
+      if (table == null) return;
+
+      // Grab all currently selected cells, as we assume that is what we want to copy.
+      const cells = Object.values(table.cells).filter((cell) => cell.selected);
+      // We need to store the positions so we can paste them in the correct location
+      // later.
+      const positions = cells
+        .map((cell) => findCellPosition(table, cell.key))
+        .filter((pos) => pos != null) as xy.XY[];
+      const positionsObj = Object.fromEntries(
+        positions.map((pos, i) => [cells[i].key, pos]),
+      );
+
+      if (table.lastSelected == null) return;
+      const contiguousRegion = contiguousRegionFrom(
+        positionsObj[table.lastSelected],
+        positions,
+      );
+      const contiguousCells = contiguousRegion.map((cell) => cells[cell.index]);
+      const minContiguous = contiguousCells.reduce(
+        (min, cell) => {
+          const pos = positionsObj[cell.key];
+          return {
+            x: Math.min(min.x, pos.x),
+            y: Math.min(min.y, pos.y),
+            key: cell.key,
+          };
+        },
+        { x: Infinity, y: Infinity, key: "" },
+      );
+
+      state.copyBuffer = {
+        // The epicenter is the cell that was last selected i.e. the "reference point"
+        // where the user started the copy operation.
+        epicenter: minContiguous.key,
+        cells: Object.fromEntries(contiguousCells.map((cell) => [cell.key, cell])),
+        positions: Object.fromEntries(
+          contiguousCells.map((cell) => [cell.key, positionsObj[cell.key]]),
+        ),
+      };
+    },
+    pasteSelected: (state, { payload }: PayloadAction<PasteCelebrationPayload>) => {
+      const table = state.tables[payload.key];
+      if (table == null) return;
+      const { copyBuffer } = state;
+      if (copyBuffer == null) return;
+
+      // Use the last selected cell as the reference point for pasting.
+      const pasteCenter = table.lastSelected;
+      if (pasteCenter == null) return;
+
+      const copyCenter = copyBuffer.epicenter;
+      const pasteCenterPosition = findCellPosition(table, pasteCenter);
+      const copyCenterPosition = copyBuffer.positions[copyCenter];
+
+      if (pasteCenterPosition == null || copyCenterPosition == null) return;
+
+      // Find the translation between the copy center and the paste center.
+      const translation = xy.translation(copyCenterPosition, pasteCenterPosition);
+
+      const copiedCells = Object.values(copyBuffer.cells);
+
+      const tableDims = {
+        width: table.layout.columns.length - 1,
+        height: table.layout.rows.length - 1,
+      };
+
+      copiedCells.forEach((cell) => {
+        // Grab the position of the cell in the original table.
+        const copiedPos = copyBuffer.positions[cell.key];
+        const pastePos = xy.translate(copiedPos, translation);
+        if (pastePos.y > tableDims.height) {
+          const delta = pastePos.y - tableDims.height;
+          for (let i = 0; i < delta; i++)
+            addRowInternal(state, {
+              type: addRow.type,
+              payload: { key: payload.key, loc: "bottom" },
+            });
+          tableDims.height += delta;
+        }
+        if (pastePos.x > tableDims.width) {
+          const delta = pastePos.x - tableDims.width;
+          for (let i = 0; i < delta; i++)
+            addColInternal(state, {
+              type: addCol.type,
+              payload: { key: payload.key, loc: "right" },
+            });
+          tableDims.width += delta;
+        }
+
+        const existing = getCellAt(table, pastePos);
+        if (existing == null) return;
+        table.cells[existing.key] = {
+          ...existing,
+          ...(cell as CellState),
+          // Keep the existing cell key so we don't need to update the new layout.
+          key: existing.key,
+        };
+      });
+    },
+    clearSelected: (state, { payload }: PayloadAction<ClearSelectedPayload>) => {
+      const table = state.tables[payload.key];
+      if (table == null) return;
+      const rowIdxToDelete = table.layout.rows
+        .map((row, j) => {
+          if (row.cells.every((cell) => !table.cells[cell.key].selected)) return j;
+          return null;
+        })
+        .filter((row) => row != null);
+      rowIdxToDelete.forEach((row) => {
+        const cells = table.layout.rows[row].cells;
+        cells.forEach((cell) => delete table.cells[cell.key]);
+        table.layout.rows.splice(row, 1);
+      });
+
+      const colIdxToDelete = table.layout.columns
+        .map((_, i) => {
+          if (table.layout.rows.every((row) => table.cells[row.cells[i].key].selected))
+            return i;
+          return null;
+        })
+        .filter((col) => col != null);
+      colIdxToDelete.forEach((col) => {
+        table.layout.rows.forEach((row) => {
+          delete table.cells[row.cells[col].key];
+          row.cells.splice(col, 1);
+        });
+        table.layout.columns.splice(col, 1);
+      });
+
+      Object.values(table.cells).forEach((cell) => {
+        if (!cell.selected) return;
+        cell.variant = "text";
+        cell.props = { ...ZERO_CELL_PROPS };
+      });
+    },
   },
 });
 
@@ -275,14 +481,19 @@ export const {
   create: internalCreate,
   selectCells,
   addCol,
+  clearSelected,
   addRow,
-  setCellState,
+  setCellProps,
   resizeCol,
   resizeRow,
   deleteCol,
   deleteRow,
+  setCellType,
   selectCol,
   selectRow,
+  setEditable,
+  copySelected,
+  pasteSelected,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
@@ -305,10 +516,64 @@ export const findCellPosition = (state: State, key: string): xy.XY | null => {
   return pos;
 };
 
+export const getCellAt = (state: State, pos: xy.XY): CellState | null => {
+  const row = state.layout.rows[pos.y];
+  if (row == null) return null;
+  return state.cells[row.cells[pos.x].key] as CellState;
+};
+
 export const allCellsInRegion = (state: State, start: xy.XY, end: xy.XY): string[] => {
   const cells: string[] = [];
   for (let i = start.x; i <= end.x; i++)
     for (let j = start.y; j <= end.y; j++)
       cells.push(state.layout.rows[i].cells[j].key);
   return cells;
+};
+
+type XYWithIndex = { x: number; y: number; index: number };
+
+// The function finds all contiguous points starting from 'pos' in the 'points' array,
+// and includes their indexes from the 'points' array.
+const contiguousRegionFrom = (pos: xy.XY, points: xy.XY[]): XYWithIndex[] => {
+  // Create a map for quick lookup of point indexes by their coordinates
+  const positionMap = new Map<string, number>();
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i];
+    const key = `${point.x},${point.y}`;
+    positionMap.set(key, i);
+  }
+
+  const visited = new Set<string>(); // To keep track of visited positions
+  const queue: xy.XY[] = [pos]; // Queue for BFS traversal
+  const region: XYWithIndex[] = []; // To store the contiguous region points with indexes
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const key = `${current.x},${current.y}`;
+
+    if (visited.has(key)) continue;
+    visited.add(key);
+
+    // Check if the current point exists in the positionMap
+    if (!positionMap.has(key)) continue;
+
+    const index = positionMap.get(key)!;
+    const point = points[index];
+    region.push({ x: point.x, y: point.y, index });
+
+    // Define the four adjacent positions (up, down, left, right)
+    const neighbors = [
+      { x: current.x + 1, y: current.y },
+      { x: current.x - 1, y: current.y },
+      { x: current.x, y: current.y + 1 },
+      { x: current.x, y: current.y - 1 },
+    ];
+
+    for (const neighbor of neighbors) {
+      const neighborKey = `${neighbor.x},${neighbor.y}`;
+      if (!visited.has(neighborKey)) queue.push(neighbor);
+    }
+  }
+
+  return region;
 };

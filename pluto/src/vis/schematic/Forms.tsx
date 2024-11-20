@@ -400,7 +400,7 @@ export const ValueForm = (): ReactElement => {
                 />
                 <Form.Field<Text.Level>
                   path="level"
-                  label="Value Size"
+                  label="Size"
                   hideIfNull
                   padHelpText={false}
                 >

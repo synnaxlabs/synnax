@@ -15,6 +15,7 @@ export const stopZ = z.object({
   key: z.string(),
   color: crudeZ,
   position: z.number(),
+  switched: z.boolean().optional(),
 });
 
 export type Stop = z.infer<typeof stopZ>;
@@ -44,14 +45,16 @@ export const fromGradient = (gradient: Gradient, position: number): Color => {
       // Interpolate
       const t = (position - start.position) / (end.position - start.position);
 
-      // Convert colors to RGB
-      const startRGB = new Color(start.color);
-      const endRGB = new Color(end.color);
+      // Convert colors to RGBA
+      const startColor = new Color(start.color);
+      const endColor = new Color(end.color);
 
-      const r = Math.round(startRGB.r + t * (endRGB.r - startRGB.r));
-      const g = Math.round(startRGB.g + t * (endRGB.g - startRGB.g));
-      const b = Math.round(startRGB.b + t * (endRGB.b - startRGB.b));
-      return new Color([r, g, b]);
+      const r = Math.round(startColor.r + t * (endColor.r - startColor.r));
+      const g = Math.round(startColor.g + t * (endColor.g - startColor.g));
+      const b = Math.round(startColor.b + t * (endColor.b - startColor.b));
+      const a = startColor.a + t * (endColor.a - startColor.a); // Interpolate alpha directly
+
+      return new Color([r, g, b, a]);
     }
   }
 

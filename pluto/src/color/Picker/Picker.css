@@ -11,7 +11,7 @@
 
 .pluto-color-picker {
     border: var(--pluto-border-l4) !important;
-    border-radius: inherit !important;
+    border-radius: 1rem !important;
     width: 37rem !important;
     box-shadow: none !important;
     padding: 1rem !important;

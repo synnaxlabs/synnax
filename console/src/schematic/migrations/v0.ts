@@ -21,6 +21,9 @@ import { z } from "zod";
 export type NodeProps = object & {
   key: Schematic.Variant;
   color?: Color.Crude;
+  label?: {
+    label?: string;
+  };
 };
 
 export const nodePropsZ = z.object({}).and(

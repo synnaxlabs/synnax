@@ -44,6 +44,7 @@ import {
 } from "react-icons/fa";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
+import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
@@ -105,6 +106,7 @@ import {
   MdSensors,
   MdShield,
   MdSquareFoot,
+  MdTextFields,
   MdTypeSpecimen,
   MdWorkspacesFilled,
 } from "react-icons/md";
@@ -403,6 +405,8 @@ export const Icon: IconType = {
   Snooze: wrapIcon(IoNotificationsOff, "snooze"),
   Log: wrapIcon(FaStream, "log"),
   Tare: wrapIcon(FaCreativeCommonsZero, "tare"),
+  Text: wrapIcon(MdTextFields, "text"),
+  Value: wrapIcon(GoNumber, "value"),
 };
 
 export interface IconType {
@@ -551,4 +555,6 @@ export interface IconType {
   Commit: IconFC;
   Log: IconFC;
   Tare: IconFC;
+  Text: IconFC;
+  Value: IconFC;
 }

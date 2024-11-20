@@ -199,8 +199,8 @@ const VARIANTS = [
   "valve",
 ] as const;
 
-export const typeZ = z.enum(VARIANTS);
-export type Variant = z.infer<typeof typeZ>;
+export const variantZ = z.enum(VARIANTS);
+export type Variant = z.infer<typeof variantZ>;
 
 const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
 const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {

@@ -62,7 +62,13 @@
 }
 
 .pluto-diagram {
+    .react-flow__pane.selection {
+        cursor: default !important;
+    }
     &.pluto--editable {
+        .react-flow__pane.selection {
+            cursor: pointer !important;
+        }
         & .pluto-symbol-primitive,
         .pluto-control-chip {
             pointer-events: none;

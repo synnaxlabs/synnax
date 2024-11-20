@@ -37,4 +37,10 @@
         border-top-left-radius: 0;
         border-top-right-radius: 0;
     }
+
+    .console-table__edit {
+        position: absolute;
+        bottom: 2rem;
+        left: 2rem;
+    }
 }

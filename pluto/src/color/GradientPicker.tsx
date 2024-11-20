@@ -27,6 +27,21 @@ interface GradientProps extends Input.Control<color.Stop[]> {
   scale?: scale.Scale<number>;
 }
 
+const SWITCH_THRESHOLD = 0.05;
+
+const switchStops = (stops: color.Stop[]): color.Stop[] =>
+  stops.map((stop, i) => {
+    if (i === 0) {
+      if (stop.switched === true) stop.switched = false;
+      return stop;
+    }
+    const prev = stops[i - 1];
+    const delta = Math.abs(stop.position - prev.position);
+    if (delta < SWITCH_THRESHOLD && prev.switched !== true) stop.switched = true;
+    if (delta > SWITCH_THRESHOLD && stop.switched === true) stop.switched = false;
+    return stop;
+  });
+
 const PICKER_CLS = CSS.B("gradient-picker");
 const PREVIEW_CLS = CSS.BE("gradient-picker", "preview");
 
@@ -45,7 +60,7 @@ export const GradientPicker = ({
   onChange,
   scale: scl = scale.Scale.IDENTITY,
 }: GradientProps): ReactElement => {
-  const sortedStops = value.sort((a, b) => a.position - b.position);
+  const sortedStops = switchStops(value.sort((a, b) => a.position - b.position));
   const grad = buildGradient(sortedStops);
   const prevValue = useSyncedRef(value);
   const handleChange = (stop: color.Stop) => {
@@ -72,9 +87,10 @@ export const GradientPicker = ({
           onChange([...sortedStops, newStop]);
         }}
       >
-        {sortedStops.map((stop) => (
+        {sortedStops.map((stop, i) => (
           <StopSwatch
             stop={stop}
+            nextStop={sortedStops[i + 1] ?? null}
             onChange={handleChange}
             onDelete={handleDelete}
             key={stop.key}
@@ -87,21 +103,30 @@ export const GradientPicker = ({
 };
 
 const buildGradient = (stops: color.Stop[]): string => {
-  if (stops.length === 0) return "white, black";
+  if (stops.length === 0) return "";
   return stops
-    .map(({ color, position }) => `${cssString(color)} ${position * 100}%`)
+    .map(({ color, position }, i) => {
+      if (i === 0)
+        return `#00000000 ${position * 100}%, ${cssString(color)} ${position * 100}%`;
+      const prevColor = stops[i - 1].color;
+      return `${cssString(prevColor)} ${position * 100}%, ${cssString(color)} ${
+        position * 100
+      }%`;
+    })
     .join(", ");
 };
 
 interface StopSwatchProps {
   stop: color.Stop;
+  nextStop: color.Stop | null;
   onChange: (stop: color.Stop) => void;
   onDelete: (key: string) => void;
   scale: scale.Scale<number>;
 }
 
-const StopSwatch = ({ stop, onChange, onDelete, scale }: StopSwatchProps) => {
+const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchProps) => {
   const positionRef = useRef(stop.position);
+  const { switched } = stop;
   const stopElRef = useRef<HTMLDivElement>(null);
   const onDragStart = useCursorDrag({
     onStart: () => {
@@ -130,26 +155,35 @@ const StopSwatch = ({ stop, onChange, onDelete, scale }: StopSwatchProps) => {
       onDelete(stop.key);
     },
   });
+
   return (
     <Align.Space
       ref={stopElRef}
-      className={CSS.BE("gradient-picker", "stop")}
+      className={CSS(CSS.BE("gradient-picker", "stop"), switched && CSS.M("switched"))}
       direction="y"
       style={{
         left: `${stop.position * 100}%`,
+        width: `${(nextStop?.position ?? 1) * 100 - stop.position * 100}%`,
       }}
       empty
-      align="center"
-      justify="center"
       onClick={(e) => e.stopPropagation()}
     >
-      <div
+      <Align.Space
+        direction="y"
         className={CSS.BE("gradient-picker", "drag-region")}
         draggable
         onDragStart={onDragStart}
+        empty
       >
         <div className={CSS.BE("gradient-picker", "stop-line")} />
-      </div>
+        <Text.Editable
+          level="small"
+          value={scale.pos(stop.position).toFixed(2)}
+          onChange={(v) => {
+            onChange({ ...stop, position: scale.reverse().pos(Number(v)) });
+          }}
+        />
+      </Align.Space>
       <Swatch
         size="small"
         draggable
@@ -160,13 +194,6 @@ const StopSwatch = ({ stop, onChange, onDelete, scale }: StopSwatchProps) => {
         }}
         onChange={(v: color.Color) => {
           onChange({ ...stop, color: v });
-        }}
-      />
-      <Text.Editable
-        level="small"
-        value={scale.pos(stop.position).toFixed(2)}
-        onChange={(v) => {
-          onChange({ ...stop, position: scale.reverse().pos(Number(v)) });
         }}
       />
     </Align.Space>

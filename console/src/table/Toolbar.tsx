@@ -1,53 +1,74 @@
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  Color,
+  Breadcrumb,
   Form,
-  Input,
   Select,
   Status,
-  Tabs,
+  Table,
+  TableCells,
   Text,
-  Value,
+  useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { deep, type KeyedNamed, scale, zodutil } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
+import { deep, type KeyedNamed } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
+import { useDispatch, useStore } from "react-redux";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { useSelectSelectedCells } from "@/table/selectors";
-import { type CellState, setCellState } from "@/table/slice";
+import { ToolbarHeader } from "@/components";
+import { Layout } from "@/layout";
+import { selectTheme } from "@/layout/selectors";
+import { type RootState } from "@/store";
 import {
-  type CellProps,
-  type CellType,
-  TEXT_CELL_TYPE,
-  VALUE_CELL_TYPE,
-  ZERO_PROPS,
-  ZERO_SCHEMAS,
-} from "@/table/Table";
-
+  selectCell,
+  useSelectCellType,
+  useSelectSelectedCellPos,
+  useSelectSelectedCells,
+} from "@/table/selectors";
+import { type CellState, setCellProps, setCellType } from "@/table/slice";
 export interface ToolbarProps {
   layoutKey: string;
 }
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
-  const selected = useSelectSelectedCells<CellType, CellProps>(layoutKey);
-  const cell = selected[0];
-  const dispatch = useDispatch();
-  const handleChange = (values: Partial<CellState<CellType, CellProps>>) => {
-    dispatch(setCellState({ key: layoutKey, state: { key: cell.key, ...values } }));
-  };
+  const { name } = Layout.useSelectRequired(layoutKey);
+  const breadCrumbs: Breadcrumb.Segments = [
+    {
+      label: name,
+      icon: <Icon.Table />,
+      level: "h5",
+      weight: 500,
+      shade: 8,
+    },
+  ];
+  const selectedCells = useSelectSelectedCells(layoutKey);
+
+  const selectedCellMeta = useSelectSelectedCellPos(layoutKey);
+  if (selectedCellMeta != null)
+    breadCrumbs.push({
+      label: `${Table.getCellColumn(selectedCellMeta.x)}${selectedCellMeta.y + 1}`,
+      level: "p",
+      weight: 400,
+      shade: 7,
+    });
+
+  const isSingleCellSelected = selectedCells.length === 1;
+  const firstCell = selectedCells[0];
 
   return (
     <Align.Space empty>
       <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Table />}>Table</ToolbarTitle>
+        <Align.Space direction="x" align="center">
+          <Breadcrumb.Breadcrumb level="p">{breadCrumbs}</Breadcrumb.Breadcrumb>
+          {isSingleCellSelected && (
+            <SelectCellTypeField tableKey={layoutKey} cellKey={firstCell.key} />
+          )}
+        </Align.Space>
       </ToolbarHeader>
       <Align.Space>
-        {selected.length === 0 ? (
+        {selectedCells.length === 0 ? (
           <EmptyContent />
         ) : (
-          <CellForm key={cell.type} cell={cell} handleChange={handleChange} />
+          <CellForm tableKey={layoutKey} cell={firstCell} />
         )}
       </Align.Space>
     </Align.Space>
@@ -55,18 +76,27 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
 };
 
 interface CellFormProps {
-  cell: CellState<CellType, CellProps>;
-  handleChange: (state: Partial<CellState<CellType, CellProps>>) => void;
+  tableKey: string;
+  cell: CellState;
 }
 
-const CellForm = ({ cell, handleChange }: CellFormProps): ReactElement => {
-  const F = FORMS[cell.type];
+const CellForm = ({ tableKey, cell }: CellFormProps): ReactElement => {
+  const tableRef = useSyncedRef(tableKey);
+  const cellRef = useSyncedRef(cell?.key);
+
+  const d = useDispatch();
+
+  const handleChange = useCallback(({ values }: Form.OnChangeProps<any>) => {
+    d(setCellProps({ key: tableRef.current, cellKey: cellRef.current, props: values }));
+  }, []);
+
   const methods = Form.use({
-    values: deep.copy(cell),
-    onChange: ({ values }) => handleChange(values),
+    values: deep.copy(cell.props),
+    onChange: handleChange,
     sync: true,
   });
 
+  const F = TableCells.CELLS[cell.variant].Form;
   return (
     <Form.Form {...methods}>
       <F />
@@ -74,179 +104,82 @@ const CellForm = ({ cell, handleChange }: CellFormProps): ReactElement => {
   );
 };
 
-type CellEntry = KeyedNamed<CellType> & { icon: ReactElement };
+type CellEntry = KeyedNamed<TableCells.Variant> & { icon: ReactElement };
 
 const CELL_TYPE_OPTIONS: CellEntry[] = [
   {
-    key: TEXT_CELL_TYPE,
+    key: TableCells.CELLS.text.key,
     name: "Text",
-    icon: <Icon.Schematic />,
+    icon: <Icon.Text />,
   },
   {
-    key: VALUE_CELL_TYPE,
+    key: TableCells.CELLS.value.key,
     name: "Value",
-    icon: <Icon.TypeScript />,
+    icon: <Icon.Value />,
   },
 ];
 
-interface SelectCellTypeProps
-  extends Omit<Select.DropdownButtonProps<CellType, CellEntry>, "data"> {}
+interface SelectCellTypeFieldProps {
+  tableKey: string;
+  cellKey: string;
+}
 
-export const SelectCellType = ({
-  value,
-  onChange,
-  ...props
-}: SelectCellTypeProps): ReactElement => (
-  <Select.DropdownButton<CellType, CellEntry>
-    value={value}
-    onChange={onChange}
-    {...props}
-    columns={[
-      {
-        key: "name",
-        name: "Name",
-        render: ({ entry }) => (
-          <Text.WithIcon level="p" startIcon={entry.icon}>
-            {entry.name}
-          </Text.WithIcon>
-        ),
-      },
-    ]}
-    data={CELL_TYPE_OPTIONS}
-    entryRenderKey="name"
-  />
-);
-
-const ValueForm = () => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "telem":
-        return (
-          <Align.Space direction="y" style={{ padding: "2rem" }}>
-            <Value.TelemForm path="props" />
-          </Align.Space>
-        );
-      case "redline":
-        return (
-          <Align.Space direction="y" style={{ padding: "2rem" }}>
-            <RedlineForm />
-          </Align.Space>
-        );
-      default:
-        return (
-          <Align.Space direction="y" grow empty style={{ padding: "2rem" }}>
-            <Align.Space direction="x">
-              <Form.Field<Color.Crude>
-                hideIfNull
-                label="Color"
-                align="start"
-                padHelpText={false}
-                path="props.color"
-              >
-                {({ value, onChange, variant: _, ...props }) => (
-                  <Color.Swatch
-                    value={value ?? Color.ZERO.setAlpha(1).rgba255}
-                    onChange={(v) => onChange(v.rgba255)}
-                    {...props}
-                    bordered
-                  />
-                )}
-              </Form.Field>
-              {/* <Form.TextField
-                path="props.units"
-                label="Units"
-                align="start"
-                padHelpText={false}
-              /> */}
-              {/* <Form.NumericField
-                path="inlineSize"
-                label="Value Width"
-                hideIfNull
-                inputProps={{
-                  dragScale: { x: 1, y: 0.25 },
-                  bounds: { lower: 40, upper: 500 },
-                  endContent: "px",
-                }}
-              /> */}
-              <Form.Field<Text.Level>
-                path="props.level"
-                label="Value Size"
-                hideIfNull
-                padHelpText={false}
-              >
-                {(p) => <Text.SelectLevel {...p} />}
-              </Form.Field>
-            </Align.Space>
-          </Align.Space>
-        );
-    }
+export const SelectCellTypeField = ({
+  tableKey,
+  cellKey,
+}: SelectCellTypeFieldProps) => {
+  const cellType = useSelectCellType(tableKey, cellKey);
+  const store = useStore<RootState>();
+  const dispatch = useDispatch();
+  const propsRef = useSyncedRef({ tableKey, cellKey });
+  const handleChange = useCallback((variant: TableCells.Variant) => {
+    const { tableKey, cellKey } = propsRef.current;
+    const storeState = store.getState();
+    const theme = selectTheme(storeState);
+    const cellState = selectCell(storeState, tableKey, cellKey);
+    if (variant === cellState.variant || theme == null) return;
+    const spec = TableCells.CELLS[variant];
+    const nextProps = deep.overrideValidItems(
+      cellState.props,
+      spec.defaultProps(theme),
+      spec.schema,
+    );
+    dispatch(setCellType({ key: tableKey, cellKey, variant, nextProps }));
   }, []);
-  const tabsProps = Tabs.useStatic({
-    tabs: [
-      { tabKey: "style", name: "Style" },
-      { tabKey: "telem", name: "Telemetry" },
-      { tabKey: "redline", name: "Redline" },
-    ],
-    content,
-  });
-  return <Tabs.Tabs size="small" {...tabsProps} />;
-};
-
-const RedlineForm = (): ReactElement => {
-  const bounds = Form.useFieldValue("props.redline.bounds");
   return (
-    <Align.Space direction="x" grow>
-      <Form.NumericField
-        inputProps={{ size: "small", showDragHandle: false }}
-        style={{ width: 60 }}
-        label="Lower"
-        path="props.redline.bounds.lower"
-      />
-      <Form.Field<Color.Gradient>
-        path="props.redline.gradient"
-        label="Gradient"
-        align="start"
-        padHelpText={false}
-      >
-        {({ value, onChange }) => (
-          <Color.GradientPicker
-            value={deep.copy(value)}
-            scale={scale.Scale.scale<number>(0, 1).scale(bounds)}
-            onChange={(v) =>
-              onChange(v.map((c) => ({ ...c, color: new Color.Color(c.color).hex })))
-            }
-          />
-        )}
-      </Form.Field>
-      <Form.NumericField
-        inputProps={{ size: "small", showDragHandle: false }}
-        style={{ width: 60 }}
-        label="Upper"
-        path="props.redline.bounds.upper"
-      />
-    </Align.Space>
+    <Select.DropdownButton<TableCells.Variant, CellEntry>
+      value={cellType}
+      onChange={handleChange}
+      columns={[
+        {
+          key: "name",
+          name: "Name",
+          render: ({ entry }) => (
+            <Text.WithIcon level="p" startIcon={entry.icon}>
+              {entry.name}
+            </Text.WithIcon>
+          ),
+        },
+      ]}
+      dropdownVariant="floating"
+      data={CELL_TYPE_OPTIONS}
+      entryRenderKey="name"
+    >
+      {({ selected, ...p }) => (
+        <Select.BaseButton
+          style={{ width: 80 }}
+          variant="text"
+          size="small"
+          selected={selected}
+          {...p}
+          startIcon={selected?.icon}
+        >
+          {selected?.name}
+        </Select.BaseButton>
+      )}
+    </Select.DropdownButton>
   );
 };
-
-const TextCellForm = () => (
-  <Align.Space direction="x" grow style={{ padding: "2rem" }}>
-    <Form.Field<CellType>
-      path="type"
-      onChange={(value, { get, set }) => {
-        const { value: prevValue } = get<CellState<CellType, CellProps>>("");
-        if (prevValue.type == value) return;
-        const nextProps = deep.overrideValidItems<CellProps, CellProps>(
-          prevValue.props,
-          ZERO_PROPS[value],
-          ZERO_SCHEMAS[value],
-        );
-        set("props", nextProps);
-      }}
-    >
-      {(p) => <SelectCellType {...p} />}
-    </Form.Field>
-  </Align.Space>
-);
 
 export const EmptyContent = () => (
   <Align.Center direction="x" size="small">
@@ -255,8 +188,3 @@ export const EmptyContent = () => (
     </Status.Text>
   </Align.Center>
 );
-
-const FORMS: Record<CellType, FC> = {
-  [TEXT_CELL_TYPE]: TextCellForm,
-  [VALUE_CELL_TYPE]: ValueForm,
-};

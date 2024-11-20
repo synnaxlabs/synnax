@@ -3,26 +3,24 @@ import "@/table/Table.css";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Align,
   Button,
-  Color,
-  Input,
   Menu,
   Table as Core,
-  telem,
-  Text,
-  Value,
+  TableCells,
+  Triggers,
 } from "@synnaxlabs/pluto";
-import { bounds, box, clamp, dimensions, scale, xy } from "@synnaxlabs/x";
-import { memo, type MouseEventHandler, type ReactElement, useCallback } from "react";
+import { box, clamp, dimensions, type location, xy } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
-import { z } from "zod";
 
+import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { type CellState } from "@/table/migrations";
 import {
   useSelectCell,
+  useSelectEditable,
   useSelectLayout,
   useSelectSelectedColumns,
 } from "@/table/selectors";
@@ -30,16 +28,20 @@ import {
   addCol,
   addRow,
   type CellLayout,
+  clearSelected,
+  copySelected,
   deleteCol,
   deleteRow,
   internalCreate,
+  pasteSelected,
   resizeCol,
   resizeRow,
   selectCells,
   selectCol,
   type SelectionMode,
   selectRow,
-  setCellState,
+  setCellProps,
+  setEditable,
   type State,
   ZERO_STATE,
 } from "@/table/slice";
@@ -47,9 +49,29 @@ import {
 export const LAYOUT_TYPE = "table";
 export type LayoutType = typeof LAYOUT_TYPE;
 
+const parseContextKey = (key: string): string | number => {
+  if (key.startsWith("resizer")) {
+    const [, , index] = key.split("-");
+    return parseInt(index);
+  }
+  return key;
+};
+
+const parseRowCalArgs = <L extends location.Outer | undefined>(
+  tableKey: string,
+  keys: string[],
+  loc?: L,
+): { key: string; index?: number; cellKey?: string; loc: L } => {
+  const cellKey = parseContextKey(keys[0]);
+  if (typeof cellKey === "number")
+    return { key: tableKey, index: cellKey, loc: loc as L };
+  return { key: tableKey, cellKey: keys[0], loc: loc as L };
+};
+
 export const Table: Layout.Renderer = ({ layoutKey, visible }) => {
   const layout = useSelectLayout(layoutKey);
   const dispatch = useDispatch();
+  const editable = useSelectEditable(layoutKey);
 
   const handleAddRow = () => {
     dispatch(addRow({ key: layoutKey }));
@@ -63,16 +85,13 @@ export const Table: Layout.Renderer = ({ layoutKey, visible }) => {
     <Menu.Menu
       onChange={{
         addRowBelow: () => {
-          dispatch(addRow({ key: layoutKey, loc: "bottom", cellKey: keys[0] }));
+          dispatch(addRow(parseRowCalArgs(layoutKey, keys, "bottom")));
         },
-        addRowAbove: () =>
-          dispatch(addRow({ key: layoutKey, loc: "top", cellKey: keys[0] })),
-        addColRight: () =>
-          dispatch(addCol({ key: layoutKey, loc: "right", cellKey: keys[0] })),
-        addColLeft: () =>
-          dispatch(addCol({ key: layoutKey, loc: "left", cellKey: keys[0] })),
-        deleteRow: () => dispatch(deleteRow({ key: layoutKey, cellKey: keys[0] })),
-        deleteCol: () => dispatch(deleteCol({ key: layoutKey, cellKey: keys[0] })),
+        addRowAbove: () => dispatch(addRow(parseRowCalArgs(layoutKey, keys, "top"))),
+        addColRight: () => dispatch(addCol(parseRowCalArgs(layoutKey, keys, "right"))),
+        addColLeft: () => dispatch(addCol(parseRowCalArgs(layoutKey, keys, "left"))),
+        deleteRow: () => dispatch(deleteRow(parseRowCalArgs(layoutKey, keys))),
+        deleteCol: () => dispatch(deleteCol(parseRowCalArgs(layoutKey, keys))),
       }}
       iconSpacing="small"
       level="small"
@@ -97,6 +116,8 @@ export const Table: Layout.Renderer = ({ layoutKey, visible }) => {
       <Menu.Item size="small" startIcon={<Icon.Delete />} itemKey="deleteCol">
         Delete Column
       </Menu.Item>
+      <Menu.Divider />
+      <CMenu.HardReloadItem />
     </Menu.Menu>
   );
 
@@ -109,18 +130,47 @@ export const Table: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
 
   const handleDoubleClick = useCallback(() => {
+    if (!editable) return;
     dispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-  }, []);
+  }, [editable]);
 
   const colSizes = layout.columns.map((col) => col.size);
+  const totalColSizes = colSizes.reduce((acc, size) => acc + size, 0);
+  const totalRowSizes = layout.rows.reduce((acc, row) => acc + row.size, 0);
+
+  const ref = useRef<HTMLDivElement>(null);
+
+  Triggers.use({
+    triggers: [["Control", "V"], ["Control", "C"], ["Delete"], ["Backspace"]],
+    // region: ref,
+    callback: useCallback(
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (ref.current == null || stage !== "start") return;
+        const copy = triggers.some((t) => t.includes("C"));
+        if (copy) dispatch(copySelected({ key: layoutKey }));
+        const isDelete = triggers.some(
+          (t) => t.includes("Delete") || t.includes("Backspace"),
+        );
+        if (isDelete) dispatch(clearSelected({ key: layoutKey }));
+        else dispatch(pasteSelected({ key: layoutKey }));
+      },
+      [dispatch, layoutKey],
+    ),
+  });
 
   let currPos = 3.5 * 6;
   return (
-    <div className={CSS.B("table")} onDoubleClick={handleDoubleClick}>
+    <div className={CSS.B("table")} ref={ref} onDoubleClick={handleDoubleClick}>
       <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-        <Core.Table visible={visible}>
+        <Core.Table
+          visible={visible}
+          style={{
+            width: totalColSizes,
+            height: totalRowSizes,
+          }}
+        >
           <ColResizer
             tableKey={layoutKey}
             onResize={handleColResize}
@@ -143,26 +193,51 @@ export const Table: Layout.Renderer = ({ layoutKey, visible }) => {
           })}
         </Core.Table>
       </Menu.ContextMenu>
-      <Button.Button
-        className={CSS.BE("table", "add-col")}
-        justify="center"
-        align="center"
-        size="small"
-        onClick={handleAddCol}
-      >
-        <Icon.Add />
-      </Button.Button>
-      <Button.Button
-        className={CSS.BE("table", "add-row")}
-        variant="filled"
-        justify="center"
-        align="center"
-        size="small"
-        onClick={handleAddRow}
-      >
-        <Icon.Add />
-      </Button.Button>
+      {editable && (
+        <>
+          <Button.Button
+            className={CSS.BE("table", "add-col")}
+            justify="center"
+            align="center"
+            size="small"
+            onClick={handleAddCol}
+          >
+            <Icon.Add />
+          </Button.Button>
+          <Button.Button
+            className={CSS.BE("table", "add-row")}
+            variant="filled"
+            justify="center"
+            align="center"
+            size="small"
+            onClick={handleAddRow}
+          >
+            <Icon.Add />
+          </Button.Button>
+        </>
+      )}
+      <TableControls tableKey={layoutKey} />
     </div>
+  );
+};
+
+interface TableControls {
+  tableKey: string;
+}
+
+const TableControls = ({ tableKey }: TableControls) => {
+  const dispatch = useDispatch();
+  const editable = useSelectEditable(tableKey);
+  const handleEdit = useCallback(() => {
+    dispatch(setEditable({ key: tableKey }));
+  }, []);
+
+  return (
+    <Align.Pack className={CSS.BE("table", "edit")}>
+      <Button.ToggleIcon value={editable} onChange={handleEdit}>
+        {editable ? <Icon.EditOff /> : <Icon.Edit />}
+      </Button.ToggleIcon>
+    </Align.Pack>
   );
 };
 
@@ -185,7 +260,13 @@ const Row = ({ cells, size, columns, position, index, tableKey }: RowProps) => {
   }, []);
   let currPos = 3.5 * 6;
   return (
-    <Core.Row index={index} size={size} onResize={handleResize} onSelect={handleSelect}>
+    <Core.Row
+      index={index}
+      position={position}
+      size={size}
+      onResize={handleResize}
+      onSelect={handleSelect}
+    >
       {cells.map((cell, i) => {
         const pos = currPos;
         currPos += columns[i];
@@ -210,169 +291,6 @@ interface CellContainerProps {
   tableKey: string;
   cellKey: string;
 }
-
-interface CellCProps<T extends string = string, P = unknown> {
-  box: box.Box;
-  state: CellState<T, P>;
-  onChange: (state: Partial<CellState>) => void;
-  onSelect: MouseEventHandler;
-}
-
-export const TEXT_CELL_TYPE = "text";
-export type TextCellType = typeof TEXT_CELL_TYPE;
-export const textCellPropsZ = z.object({
-  value: z.string(),
-  level: Text.levelZ,
-});
-export type TextCellProps = z.infer<typeof textCellPropsZ>;
-export const ZERO_TEXT_CELL_PROPS: TextCellProps = { value: "", level: "p" };
-
-const TextCell = ({
-  state,
-  onChange,
-  onSelect,
-}: CellCProps<TextCellType, TextCellProps>): ReactElement => (
-  <Core.Cell
-    id={state.key}
-    className={CSS(Menu.CONTEXT_TARGET, state.selected && Menu.CONTEXT_SELECTED)}
-    selected={state.selected}
-    onClick={onSelect}
-    onContextMenu={onSelect}
-    style={{ paddingLeft: "1rem" }}
-  >
-    <Input.Text
-      level="p"
-      variant="natural"
-      value={state.props.value}
-      onChange={(value) => onChange({ props: { value } })}
-      selectOnFocus
-      onlyChangeOnBlur
-      style={{ width: "100%" }}
-    />
-  </Core.Cell>
-);
-
-export const VALUE_CELL_TYPE = "value";
-export type ValueCellType = typeof VALUE_CELL_TYPE;
-export const valueCellPropsZ = z.object({
-  telem: telem.stringSourceSpecZ,
-  redline: z.object({
-    bounds: bounds.bounds,
-    gradient: Color.gradientZ,
-  }),
-  level: Text.levelZ,
-  color: z.string(),
-  units: z.string(),
-});
-export type ValueCellProps = z.infer<typeof valueCellPropsZ>;
-export const ZERO_VALUE_CELL_PROPS: ValueCellProps = {
-  telem: telem.sourcePipeline("string", {
-    connections: [
-      { from: "valueStream", to: "rollingAverage" },
-      { from: "rollingAverage", to: "stringifier" },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 0 }),
-      rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-      stringifier: telem.stringifyNumber({ precision: 2, notation: "standard" }),
-    },
-    outlet: "stringifier",
-  }),
-  redline: {
-    bounds: { lower: 0, upper: 1 },
-    gradient: [],
-  },
-  color: "#FFFFFF",
-  level: "p",
-  units: "",
-};
-
-export type ValueCellCProps = CellCProps<
-  ValueCellType,
-  z.infer<typeof valueCellPropsZ>
->;
-
-export type CellType = TextCellType | ValueCellType;
-export type CellProps = TextCellProps | ValueCellProps;
-
-export const ValueCell = ({
-  state: {
-    key,
-    props: {
-      telem: t,
-      level,
-      color,
-      redline: { gradient, bounds },
-    },
-    selected,
-  },
-  box: b,
-  onSelect,
-}: ValueCellCProps) => {
-  const { width } = Value.use({
-    aetherKey: key,
-    box: b,
-    telem: t,
-    level,
-    color,
-    backgroundTelem: telem.sourcePipeline("color", {
-      connections: [
-        { from: "source", to: "scale" },
-        { from: "scale", to: "gradient" },
-      ],
-      segments: {
-        source: t,
-        scale: telem.scaleNumber({
-          scale: scale.scaleToTransform(scale.Scale.scale<number>(bounds).scale(0, 1)),
-        }),
-        gradient: telem.colorGradient({ gradient }),
-      },
-      outlet: "gradient",
-    }),
-  });
-
-  return (
-    <Core.Cell
-      id={key}
-      selected={selected}
-      onClick={onSelect}
-      onContextMenu={onSelect}
-      style={{ height: "5rem", width }}
-      className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
-    />
-  );
-};
-
-const CELL_TYPES: Record<CellType, React.FC<CellCProps<any, any>>> = {
-  [TEXT_CELL_TYPE]: TextCell,
-  [VALUE_CELL_TYPE]: ValueCell,
-};
-
-export const ZERO_PROPS: Record<CellType, CellProps> = {
-  [TEXT_CELL_TYPE]: ZERO_TEXT_CELL_PROPS,
-  [VALUE_CELL_TYPE]: ZERO_VALUE_CELL_PROPS,
-};
-
-export const ZERO_SCHEMAS: Record<CellType, z.ZodType<any>> = {
-  [TEXT_CELL_TYPE]: textCellPropsZ,
-  [VALUE_CELL_TYPE]: valueCellPropsZ,
-};
-
-const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement => {
-  const state = useSelectCell<CellType>(tableKey, cellKey);
-  const dispatch = useDispatch();
-  const handleSelect: React.MouseEventHandler = ({ shiftKey, ctrlKey, metaKey }) => {
-    let mode: SelectionMode = "replace";
-    if (shiftKey) mode = "region";
-    if (ctrlKey || metaKey) mode = "add";
-    dispatch(selectCells({ key: tableKey, mode, cells: [cellKey] }));
-  };
-  const handleChange = (state: Partial<CellState>) =>
-    dispatch(setCellState({ key: tableKey, state: { key: cellKey, ...state } }));
-  const C = CELL_TYPES[state?.type ?? TEXT_CELL_TYPE];
-  return <C box={box} state={state} onChange={handleChange} onSelect={handleSelect} />;
-});
-Cell.displayName = "Cell";
 
 export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
@@ -412,7 +330,7 @@ const ColResizer = ({ tableKey, columns, onResize }: ColResizerProps) => {
   }, []);
 
   return (
-    <Core.ColResizer
+    <Core.ColumnIndicators
       onSelect={handleSelect}
       selected={selectedCols}
       onResize={onResize}
@@ -420,3 +338,31 @@ const ColResizer = ({ tableKey, columns, onResize }: ColResizerProps) => {
     />
   );
 };
+
+const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement => {
+  const state = useSelectCell(tableKey, cellKey);
+  const dispatch = useDispatch();
+  const handleSelect = (
+    cellKey: string,
+    { shiftKey, ctrlKey, metaKey }: MouseEvent,
+  ) => {
+    let mode: SelectionMode = "replace";
+    if (shiftKey) mode = "region";
+    if (ctrlKey || metaKey) mode = "add";
+    dispatch(selectCells({ key: tableKey, mode, cells: [cellKey] }));
+  };
+  const handleChange = (props: object) =>
+    dispatch(setCellProps({ key: tableKey, cellKey, props }));
+  const C = TableCells.CELLS[state.variant];
+  return (
+    <C.Cell
+      cellKey={cellKey}
+      box={box}
+      onChange={handleChange}
+      onSelect={handleSelect}
+      selected={state.selected}
+      {...state.props}
+    />
+  );
+});
+Cell.displayName = "Cell";

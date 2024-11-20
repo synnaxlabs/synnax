@@ -1,8 +1,10 @@
-import { i } from "node_modules/vite/dist/node/types.d-aGj9QkWt";
+import { type TableCells } from "@synnaxlabs/pluto";
+import { type UnknownRecord, type xy } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
 import {
   type CellState,
+  findCellPosition,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -17,18 +19,39 @@ export const select = (state: StoreState, key: string): State =>
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
-export const selectCell = <T extends string = string, P = unknown>(
+export const selectCell = <
+  V extends TableCells.Variant = TableCells.Variant,
+  P extends object = UnknownRecord,
+>(
   state: StoreState,
   key: string,
   cellKey: string,
-): CellState<T, P> => select(state, key).cells[cellKey] as CellState<T, P>;
+): CellState<V, P> => select(state, key).cells[cellKey] as CellState<V, P>;
 
-export const useSelectCell = <T extends string = string, P = unknown>(
+export const useSelectCell = <
+  V extends TableCells.Variant = TableCells.Variant,
+  P extends object = UnknownRecord,
+>(
   key: string,
   cellKey: string,
-): CellState<T, P> =>
+): CellState<V, P> =>
   useMemoSelect(
-    (state: StoreState) => selectCell<T, P>(state, key, cellKey),
+    (state: StoreState) => selectCell<V, P>(state, key, cellKey),
+    [key, cellKey],
+  );
+
+export const selectCellType = <V extends TableCells.Variant = TableCells.Variant>(
+  state: StoreState,
+  key: string,
+  cellKey: string,
+): V => selectCell(state, key, cellKey).variant as V;
+
+export const useSelectCellType = <V extends TableCells.Variant = TableCells.Variant>(
+  key: string,
+  cellKey: string,
+): V =>
+  useMemoSelect(
+    (state: StoreState) => selectCellType<V>(state, key, cellKey),
     [key, cellKey],
   );
 
@@ -38,19 +61,25 @@ export const selectLayout = (state: StoreState, key: string) =>
 export const useSelectLayout = (key: string) =>
   useMemoSelect((state: StoreState) => selectLayout(state, key), [key]);
 
-const selectSelectedCells = <T extends string, P = unknown>(
+const selectSelectedCells = <
+  V extends TableCells.Variant = TableCells.Variant,
+  P extends object = UnknownRecord,
+>(
   state: StoreState,
   key: string,
-): CellState<T, P>[] =>
+): CellState<V, P>[] =>
   Object.values(select(state, key).cells).filter((cell) => cell.selected) as CellState<
-    T,
+    V,
     P
   >[];
 
-export const useSelectSelectedCells = <T extends string = string, P = unknown>(
+export const useSelectSelectedCells = <
+  V extends TableCells.Variant = TableCells.Variant,
+  P extends object = UnknownRecord,
+>(
   key: string,
-): CellState<T, P>[] =>
-  useMemoSelect((state: StoreState) => selectSelectedCells<T, P>(state, key), [key]);
+): CellState<V, P>[] =>
+  useMemoSelect((state: StoreState) => selectSelectedCells<V, P>(state, key), [key]);
 
 export const selectSelectedColumns = (state: StoreState, key: string): number[] => {
   const table = select(state, key);
@@ -62,9 +91,33 @@ export const selectSelectedColumns = (state: StoreState, key: string): number[] 
       if (selectedKeys.includes(cell.key)) columns.add(j);
     });
   });
-  console.log(columns);
   return Array.from(columns);
 };
 
 export const useSelectSelectedColumns = (key: string): number[] =>
   useMemoSelect((state: StoreState) => selectSelectedColumns(state, key), [key]);
+
+export const selectSellLocation = (state: StoreState, key: string): xy.XY | null => {
+  const table = select(state, key);
+  return findCellPosition(table, key);
+};
+
+export const useSelectSellLocation = (key: string): xy.XY | null =>
+  useMemoSelect((state: StoreState) => selectSellLocation(state, key), [key]);
+
+export const selectSelectedCellPos = (state: StoreState, key: string): xy.XY | null => {
+  const table = select(state, key);
+  const selected = selectSelectedCells(state, key);
+  if (selected.length === 0) return null;
+  const pos = findCellPosition(table, selected[0].key);
+  return pos;
+};
+
+export const useSelectSelectedCellPos = (key: string): xy.XY | null =>
+  useMemoSelect((state: StoreState) => selectSelectedCellPos(state, key), [key]);
+
+export const selectEditable = (state: StoreState, key: string): boolean =>
+  select(state, key).editable;
+
+export const useSelectEditable = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);

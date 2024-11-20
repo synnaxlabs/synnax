@@ -21,7 +21,7 @@ import {
   xy,
 } from "@/spatial/base";
 
-export { type ClientXY as Client, clientXY, type XY,xy };
+export { type ClientXY as Client, clientXY, type XY, xy };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
@@ -143,10 +143,10 @@ export const distance = (ca: Crude, cb: Crude): number => {
  * @returns the translation that would need to be applied to move the first coordinate
  * to the second coordinate.
  */
-export const translation = (ca: Crude, cb: Crude): XY => {
-  const a = construct(ca);
-  const b = construct(cb);
-  return { x: b.x - a.x, y: b.y - a.y };
+export const translation = (to: Crude, from: Crude): XY => {
+  const to_ = construct(to);
+  const from_ = construct(from);
+  return { x: from_.x - to_.x, y: from_.y - to_.y };
 };
 
 /** @returns true if both the x and y coordinates of the given coordinate are NaN. */
@@ -182,4 +182,10 @@ export const css = (a: Crude): { left: number; top: number } => {
 export const truncate = (a: Crude, precision: number = 0): XY => {
   const xy = construct(a);
   return { x: Number(xy.x.toFixed(precision)), y: Number(xy.y.toFixed(precision)) };
+};
+
+export const sortFunc = (a: Crude, b: Crude): number => {
+  const x = construct(a);
+  const y = construct(b);
+  return x.x === y.x ? x.y - y.y : x.x - y.x;
 };

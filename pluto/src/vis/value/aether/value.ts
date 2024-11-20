@@ -31,7 +31,7 @@ const valueState = z.object({
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
   notation: notationZ.optional().default("standard"),
-  location: location.xy.optional().default({ x: "center", y: "center" }),
+  location: location.xy.optional().default({ x: "left", y: "center" }),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -145,17 +145,22 @@ export class Value
 
     const clearScissor = upper2d.scissor(b, undefined);
 
+    let setDefaultFillStyle = true;
     if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
       const lower2d = renderCtx.lower2d.applyScale(viewportScale);
       const color = await backgroundTelem.value();
-      lower2d.fillStyle = color.hex;
-      lower2d.rect(...xy.couple(box.topLeft(b)), box.width(b), box.height(b));
-      lower2d.fill();
-      upper2d.fillStyle = color.pickByContrast(
-        theme.colors.gray.l0,
-        theme.colors.gray.l9,
-      ).hex;
-    } else upper2d.fillStyle = this.internal.textColor.hex;
+      setDefaultFillStyle = color.isZero;
+      if (!color.isZero) {
+        lower2d.fillStyle = color.hex;
+        lower2d.rect(...xy.couple(box.topLeft(b)), box.width(b), box.height(b));
+        lower2d.fill();
+        upper2d.fillStyle = color.pickByContrast(
+          theme.colors.gray.l0,
+          theme.colors.gray.l9,
+        ).hex;
+      }
+    }
+    if (setDefaultFillStyle) upper2d.fillStyle = this.internal.textColor.hex;
 
     upper2d.textBaseline = "middle";
     // If the value is negative, chop of the negative sign and draw it separately

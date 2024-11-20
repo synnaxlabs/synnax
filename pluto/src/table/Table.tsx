@@ -9,7 +9,7 @@
 
 import "@/table/Table.css";
 
-import { box, direction } from "@synnaxlabs/x";
+import { box, direction, location } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   forwardRef,
@@ -24,6 +24,7 @@ import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Menu } from "@/menu";
 import { table } from "@/table/aether";
 import { Text } from "@/text";
 import { Canvas } from "@/vis/canvas";
@@ -77,6 +78,7 @@ export interface RowProps
   extends Omit<ComponentPropsWithoutRef<"tr">, "size" | "onResize" | "onSelect"> {
   index: number;
   size: number;
+  position: number;
   onResize?: (size: number, index: number) => void;
   onSelect: (index: number) => void;
 }
@@ -88,15 +90,17 @@ export const Row = ({
   index,
   onResize,
   onSelect,
+  position,
   ...props
 }: RowProps): ReactElement => (
   <tr className={CSS(CSS.BE("table", "row"), className)} {...props}>
     {onResize != null && (
-      <ResizerCell
+      <Indicator
         onSelect={onSelect}
         index={index}
         value={size}
         onChange={onResize}
+        position={position}
         direction="y"
       />
     )}
@@ -129,18 +133,22 @@ interface ResizerCellProps {
   value: number;
   index: number;
   selected?: boolean;
+  position: number;
   onChange: (size: number, index: number) => void;
   onSelect: (index: number) => void;
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-const ResizerCell = ({
+export const getCellColumn = (index: number): string => ALPHABET[index];
+
+const Indicator = ({
   value,
   selected = false,
   index,
   onChange,
-  direction: dir,
+  position,
+  direction: dir = "x",
   onSelect,
 }: ResizerCellProps) => {
   const valueRef = useSyncedRef(value);
@@ -154,49 +162,65 @@ const ResizerCell = ({
       [onChange, index],
     ),
   });
-
   return (
     <td
-      onDragStart={onDragStart}
-      className={CSS(CSS.BE("table", "resizer"), CSS.dir(dir), CSS.selected(selected))}
+      id={`resizer-${dir}-${index}`}
+      className={CSS(
+        CSS.BE("table", "resizer"),
+        CSS.dir(dir),
+        CSS.selected(selected),
+        Menu.CONTEXT_TARGET,
+        selected && Menu.CONTEXT_SELECTED,
+      )}
       style={{ [direction.dimension(dir)]: value }}
-      draggable
       onClick={() => onSelect(index)}
       onContextMenu={() => onSelect(index)}
     >
       <Text.Text level="p" shade={7} style={{ width: "100%", textAlign: "center" }}>
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
-      <button />
+      <button
+        style={{ [direction.location(dir)]: position + value }}
+        onDragStart={onDragStart}
+        draggable
+      />
     </td>
   );
 };
 
-interface ColResizerProps {
+interface ColumnIndicators {
   selected: number[];
   columns: number[];
   onResize: (size: number, index: number) => void;
   onSelect: (index: number) => void;
 }
 
-export const ColResizer = ({
+export const ColumnIndicators = ({
   selected,
   onSelect,
   columns,
   onResize,
-}: ColResizerProps) => (
-  <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
-    <td></td>
-    {columns.map((size, i) => (
-      <ResizerCell
-        onSelect={onSelect}
-        key={i}
-        selected={selected.includes(i)}
-        index={i}
-        value={size}
-        onChange={(size) => onResize(size, i)}
-        direction="x"
-      />
-    ))}
-  </tr>
-);
+}: ColumnIndicators) => {
+  let currPos = 2.5 * 6;
+  return (
+    <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
+      <td></td>
+      {columns.map((size, i) => {
+        const pos = currPos;
+        currPos += size;
+        return (
+          <Indicator
+            onSelect={onSelect}
+            key={i}
+            position={pos}
+            selected={selected.includes(i)}
+            index={i}
+            value={size}
+            onChange={(size) => onResize(size, i)}
+            direction="x"
+          />
+        );
+      })}
+    </tr>
+  );
+};
