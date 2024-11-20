@@ -29,10 +29,8 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { FS } from "@/fs";
-import {
-  SelectSecurityMode,
-  SelectSecurityPolicy,
-} from "@/hardware/opc/device/SelectSecurityPolicy";
+import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
+import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
   connectionConfigZ,
   type Properties,

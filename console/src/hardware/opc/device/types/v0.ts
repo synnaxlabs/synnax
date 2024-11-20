@@ -55,13 +55,8 @@ export type ScannedNode = z.infer<typeof scannedNodeZ>;
 
 export const propertiesZ = z.object({
   connection: connectionConfigZ,
-  read: z.object({
-    index: z.number(),
-    channels: z.record(z.string(), z.number()),
-  }),
-  write: z.object({
-    channels: z.record(z.string(), z.number()),
-  }),
+  read: z.object({ index: z.number(), channels: z.record(z.string(), z.number()) }),
+  write: z.object({ channels: z.record(z.string(), z.number()) }),
 });
 
 export type Properties = z.infer<typeof propertiesZ>;
@@ -74,8 +69,6 @@ export interface TestConnCommandResponse extends UnknownRecord {
 
 export type TestConnCommandState = task.State<TestConnCommandResponse>;
 
-export const scannerScanCommandResult = z.object({
-  channels: scannedNodeZ.array(),
-});
+export const scannerScanCommandResult = z.object({ channels: scannedNodeZ.array() });
 
 export type ScannerScanCommandResult = z.infer<typeof scannerScanCommandResult>;

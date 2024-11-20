@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-import { type SecurityMode, type SecurityPolicy } from "@/hardware/opc/device/types";
+import { type SecurityPolicy } from "@/hardware/opc/device/types";
 
 interface SecurityPolicyInfo {
   key: SecurityPolicy;
@@ -17,65 +18,26 @@ interface SecurityPolicyInfo {
 }
 
 const SECURITY_POLICIES: SecurityPolicyInfo[] = [
-  {
-    key: "None",
-    name: "None",
-  },
-  {
-    key: "Basic128Rsa15",
-    name: "Basic128Rsa15",
-  },
-  {
-    key: "Basic256",
-    name: "Basic256",
-  },
-  {
-    key: "Basic256Sha256",
-    name: "Basic256Sha256",
-  },
-  {
-    key: "Aes128_Sha256_RsaOaep",
-    name: "Aes128_Sha256_RsaOaep",
-  },
-  {
-    key: "Aes256_Sha256_RsaPss",
-    name: "Aes256_Sha256_RsaPss",
-  },
+  { key: "None", name: "None" },
+  { key: "Basic128Rsa15", name: "Basic 128-bit (SHA-1)" },
+  { key: "Basic256", name: "Basic 256-bit (SHA-1)" },
+  { key: "Basic256Sha256", name: "Basic 256-bit (SHA-256)" },
+  { key: "Aes128_Sha256_RsaOaep", name: "AES 128-bit (SHA-256, RSA-OAEP)" },
+  { key: "Aes256_Sha256_RsaPss", name: "AES 256-bit (SHA-256, RSA-PSS)" },
 ];
 
 export interface SelectSecurityPolicyProps
-  extends Omit<Select.ButtonProps<SecurityPolicy, SecurityPolicyInfo>, "data"> {}
+  extends Omit<
+    Select.ButtonProps<SecurityPolicy, SecurityPolicyInfo>,
+    "data" | "entryRenderKey"
+  > {}
 
-export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
+export const SelectSecurityPolicy = (
+  props: SelectSecurityPolicyProps,
+): ReactElement => (
   <Select.Button<SecurityPolicy, SecurityPolicyInfo>
     data={SECURITY_POLICIES}
+    entryRenderKey="name"
     {...props}
   />
-);
-
-interface SecurityModeInfo {
-  key: SecurityMode;
-  name: string;
-}
-
-const SECURITY_MODES: SecurityModeInfo[] = [
-  {
-    key: "None",
-    name: "None",
-  },
-  {
-    key: "Sign",
-    name: "Sign",
-  },
-  {
-    key: "SignAndEncrypt",
-    name: "Sign And Encrypt",
-  },
-];
-
-export interface SelectSecurityModeProps
-  extends Omit<Select.ButtonProps<SecurityMode, SecurityModeInfo>, "data"> {}
-
-export const SelectSecurityMode = (props: SelectSecurityModeProps) => (
-  <Select.Button<SecurityMode, SecurityModeInfo> data={SECURITY_MODES} {...props} />
 );

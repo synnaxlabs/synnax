@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/task/ReadTask.css";
+import "@/hardware/opc/task/Task.css";
 
-import { type device, NotFoundError } from "@synnaxlabs/client";
+import { DataType, type device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -24,7 +24,6 @@ import {
   Status,
   Synnax,
   Text,
-  useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
@@ -34,19 +33,20 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { useDevice } from "@/hardware/device/useDevice";
 import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import {
-  type Write,
-  WRITE_TYPE,
-  type WriteChannelConfig,
-  type WriteConfig,
-  writeConfigZ,
-  type WritePayload,
-  type WriteStateDetails,
-  type WriteType,
-  ZERO_WRITE_PAYLOAD,
+  type Read,
+  READ_TYPE,
+  type ReadChannelConfig,
+  type ReadConfig,
+  readConfigZ,
+  type ReadPayload,
+  type ReadStateDetails,
+  type ReadType,
+  ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import {
   ChannelListContextMenu,
@@ -65,15 +65,15 @@ import {
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
-export const configureWriteLayout = (
-  args: TaskLayoutArgs<WritePayload> = { create: false },
-): Layout.State => ({
-  name: "Configure OPC UA Write Task",
+export const configureReadLayout = (
+  args: TaskLayoutArgs<ReadPayload> = { create: false },
+): Layout.State<TaskLayoutArgs<ReadPayload>> => ({
+  name: "Configure OPC UA Read Task",
   key: uuid(),
-  type: WRITE_TYPE,
-  windowKey: WRITE_TYPE,
-  location: "mosaic",
+  type: READ_TYPE,
+  windowKey: READ_TYPE,
   icon: "Logo.OPC",
+  location: "mosaic",
   window: {
     resizable: true,
     size: { width: 1200, height: 900 },
@@ -82,61 +82,32 @@ export const configureWriteLayout = (
   args,
 });
 
-export const WRITE_SELECTABLE: Layout.Selectable = {
-  key: WRITE_TYPE,
-  title: "OPC UA Write Task",
+export const READ_SELECTABLE: Layout.Selectable = {
+  key: READ_TYPE,
+  title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({
-    ...configureWriteLayout({ create: true }),
-    key: layoutKey,
-  }),
+  create: (layoutKey) => ({ ...configureReadLayout({ create: true }), key: layoutKey }),
 };
 
 const schema = z.object({
   name: z.string(),
-  config: writeConfigZ,
+  config: readConfigZ,
 });
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
-  props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
+  props.read.channels[nodeId] ?? props.read.channels[caseconv.snakeToCamel(nodeId)];
 
 const Wrapped = ({
   layoutKey,
   initialValues,
   task,
-}: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
+}: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
-  const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
-    undefined,
-  );
-
   const methods = Form.use({ schema, values: initialValues });
+  const dev = useDevice<Device.Properties>(methods);
 
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const dev = methods.value().config.device;
-    if (dev === "") return;
-    const d = await client.hardware.devices.retrieve<Device.Properties>(dev);
-    setDevice(d);
-  }, [client?.key]);
-
-  Form.useFieldListener<string, typeof schema>({
-    ctx: methods,
-    path: "config.device",
-    onChange: useCallback(
-      (fs) => {
-        if (!fs.touched || fs.status.variant !== "success" || client == null) return;
-        client.hardware.devices
-          .retrieve<Device.Properties>(fs.value)
-          .then((d) => setDevice(d))
-          .catch(console.error);
-      },
-      [client?.key, setDevice],
-    ),
-  });
-
-  const taskState = useObserveState<WriteStateDetails>(
+  const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -146,63 +117,73 @@ const Wrapped = ({
   const initialState =
     running === true ? "running" : running === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-  const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
+  const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
 
   const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (!methods.validate() || client == null) return;
+      if (client == null) return;
       const { config, name } = methods.value();
-
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
         config.device,
       );
+      // kill me
 
       let modified = false;
+      let shouldCreateIndex = primitiveIsZero(dev.properties.read.index);
+      if (!shouldCreateIndex)
+        try {
+          await client.channels.retrieve(dev.properties.read.index);
+        } catch (e) {
+          if (NotFoundError.matches(e)) shouldCreateIndex = true;
+          else throw e;
+        }
+      if (shouldCreateIndex) {
+        modified = true;
+        const idx = await client.channels.create({
+          name: `${dev.name} time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.read.index = idx.key;
+        dev.properties.read.channels = {};
+      }
 
-      const commandsToCreate: WriteChannelConfig[] = [];
-      for (const channel of config.channels) {
-        const key = getChannelByNodeID(dev.properties, channel.nodeId);
-        if (primitiveIsZero(key)) commandsToCreate.push(channel);
+      const toCreate: ReadChannelConfig[] = [];
+      for (const ch of config.channels) {
+        if (ch.useAsIndex) continue;
+        const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
+        if (primitiveIsZero(exKey)) toCreate.push(ch);
         else
           try {
-            await client.channels.retrieve(key);
+            const rCh = await client.channels.retrieve(exKey);
+            if (rCh.name !== ch.name)
+              await client.channels.rename(Number(exKey), ch.name);
           } catch (e) {
-            if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+            if (NotFoundError.matches(e)) toCreate.push(ch);
             else throw e;
           }
       }
 
-      if (commandsToCreate.length > 0) {
+      if (toCreate.length > 0) {
         modified = true;
-        if (
-          dev.properties.write.channels == null ||
-          Array.isArray(dev.properties.write.channels)
-        )
-          dev.properties.write.channels = {};
-        const commandIndexes = await client.channels.create(
-          commandsToCreate.map((c) => ({
-            name: `${c.name}_cmd_time`,
-            dataType: "timestamp",
-            isIndex: true,
-          })),
-        );
-        const commands = await client.channels.create(
-          commandsToCreate.map((c, i) => ({
-            name: `${c.name}_cmd`,
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: c.name,
             dataType: c.dataType,
-            index: commandIndexes[i].key,
+            index: dev.properties.read.index,
           })),
         );
-        commands.forEach((c, i) => {
-          const key = commandsToCreate[i].nodeId;
-          dev.properties.write.channels[key] = c.key;
+        channels.forEach((c, i) => {
+          dev.properties.read.channels[toCreate[i].nodeId] = c.key;
         });
       }
 
       config.channels = config.channels.map((c) => ({
         ...c,
-        channel: getChannelByNodeID(dev.properties, c.nodeId),
+        channel: c.useAsIndex
+          ? dev.properties.read.index
+          : getChannelByNodeID(dev.properties, c.nodeId),
       }));
 
       if (modified)
@@ -211,20 +192,16 @@ const Wrapped = ({
           properties: dev.properties,
         });
 
-      await createTask({
-        key: task?.key,
-        name,
-        type: WRITE_TYPE,
-        config,
-      });
+      createTask({ key: task?.key, name, type: READ_TYPE, config });
       setDesiredState("paused");
     },
-    onError: (e) =>
+    onError: (e) => {
       addStatus({
         variant: "error",
         message: "Failed to configure task",
         description: e.message,
-      }),
+      });
+    },
   });
 
   const start = useMutation({
@@ -233,14 +210,17 @@ const Wrapped = ({
       if (task == null) return;
       const isRunning = running === true;
       setDesiredState(isRunning ? "paused" : "running");
-      await task.executeCommand(isRunning ? "stop" : "start");
+      await task.executeCommand(running ? "stop" : "start");
     },
   });
+
+  const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
   const placer = Layout.usePlacer();
 
   const name = task?.name;
   const key = task?.key;
+
   const handleLink = Link.useCopyToClipboard();
 
   return (
@@ -269,7 +249,7 @@ const Wrapped = ({
               >
                 <Icon.Link />
               </Button.Icon>
-            )}{" "}
+            )}
           </Align.Space>
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
@@ -306,6 +286,16 @@ const Wrapped = ({
               >
                 {(p) => <Input.Switch {...p} />}
               </Form.Field>
+              <Form.Field<number> label="Sample Rate" path="config.sampleRate">
+                {(p) => <Input.Numeric {...p} />}
+              </Form.Field>
+              <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
+              <Form.Field<number>
+                label={arrayMode ? "Array Size" : "Stream Rate"}
+                path={arrayMode ? "config.arraySize" : "config.streamRate"}
+              >
+                {(p) => <Input.Numeric {...p} />}
+              </Form.Field>
             </Align.Space>
           </Align.Space>
           <Align.Space
@@ -313,8 +303,8 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            <Browser device={device} />
-            <WriterChannelList path="config.channels" device={device} />
+            <Browser device={dev} />
+            <ChannelList path="config.channels" device={dev} />
           </Align.Space>
         </Form.Form>
         <Controls
@@ -334,13 +324,13 @@ const Wrapped = ({
   );
 };
 
-interface WriterChannelListProps {
+interface ChannelListProps {
   path: string;
   device?: device.Device<Device.Properties>;
 }
 
-const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<WriteChannelConfig>({ path });
+const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
+  const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 
   const menuProps = Menu.useContextMenu();
@@ -358,9 +348,10 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
           key: nodeId,
           name,
           nodeName: name,
-          cmdChannel: 0,
+          channel: 0,
           enabled: true,
           nodeId,
+          useAsIndex: false,
           dataType: (i.data?.dataType as string) ?? "float32",
         };
       });
@@ -376,7 +367,7 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
   }, []);
 
   const props = Haul.useDrop({
-    type: "opc.WriteTask",
+    type: "opc.ReadTask",
     canDrop,
     onDrop: handleDrop,
   });
@@ -397,12 +388,14 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
       empty
       bordered
       rounded
+      background={1}
       {...props}
     >
       <Header.Header level="h4">
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
       <Menu.ContextMenu
+        style={{ maxHeight: value.length > 0 ? "calc(100% - 200px)" : "100%" }}
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
           <ChannelListContextMenu
             path={path}
@@ -417,7 +410,7 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
         )}
         {...menuProps}
       >
-        <List.List<string, WriteChannelConfig>
+        <List.List<string, ReadChannelConfig>
           data={value}
           emptyContent={
             <Align.Center>
@@ -431,7 +424,7 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
             </Align.Center>
           }
         >
-          <List.Selector<string, WriteChannelConfig>
+          <List.Selector<string, ReadChannelConfig>
             value={selectedChannels}
             allowNone={false}
             autoSelectOnNone={false}
@@ -443,9 +436,9 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
             }}
             replaceOnSingle
           >
-            <List.Core<string, WriteChannelConfig> grow>
+            <List.Core<string, ReadChannelConfig> grow>
               {({ key, ...props }) => (
-                <WriterChannelListItem
+                <ChannelListItem
                   key={key}
                   {...props}
                   path={path}
@@ -473,17 +466,17 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
   );
 };
 
-const WriterChannelListItem = ({
+export const ChannelListItem = ({
   path,
   remove,
   ...props
-}: List.ItemProps<string, WriteChannelConfig> & {
+}: List.ItemProps<string, ReadChannelConfig> & {
   path: string;
   remove?: () => void;
 }): ReactElement => {
   const { entry } = props;
   const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<WriteChannelConfig>({
+  const childValues = Form.useChildFieldValues<ReadChannelConfig>({
     path: `${path}.${props.index}`,
     optional: true,
   });
@@ -523,6 +516,11 @@ const WriterChannelListItem = ({
         </Text.WithIcon>
       </Align.Space>
       <Align.Space direction="x" align="center">
+        {childValues.useAsIndex && (
+          <Text.Text level="p" style={{ color: "var(--pluto-success-z)" }}>
+            Index
+          </Text.Text>
+        )}
         <EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
@@ -554,8 +552,17 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
         label="Channel Name"
         inputProps={{ variant: "natural", level: "h3" }}
       />
+      <Form.SwitchField
+        path={`${prefix}.useAsIndex`}
+        label="Use as Index"
+        visible={(_, ctx) =>
+          DataType.TIMESTAMP.equals(
+            ctx.get<string>(`${prefix}.dataType`, { optional: true })?.value ?? "",
+          )
+        }
+      />
     </Align.Space>
   );
 };
 
-export const WriteTask: Layout.Renderer = wrapTaskLayout(Wrapped, ZERO_WRITE_PAYLOAD);
+export const ReadTask: Layout.Renderer = wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);
