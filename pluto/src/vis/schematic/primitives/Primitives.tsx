@@ -800,6 +800,41 @@ export const ManualValve = ({
   </Div>
 );
 
+export interface OrificePlateProps extends SVGBasedPrimitiveProps, DivProps {}
+
+export const OrificePlate = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: OrificePlateProps): ReactElement => (
+  <Div className={CSS(CSS.B("orifice_plate"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={50}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      color={color}
+      dimensions={{ width: 186, height: 98 }}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Line x1="0" y1="1" x2="186" y2="1" strokeWidth="2" />
+      <Line x1="0" y1="97" x2="186" y2="97" strokeWidth="2" />
+      <Line x1="1" y1="2" x2="1" y2="98" strokeWidth="2" />
+      <Line x1="185" y1="2" x2="185" y2="98" strokeWidth="2" />
+      <Line x1="52" y1="2" x2="52" y2="40" strokeWidth="2" />
+      <Line x1="52" y1="61" x2="52" y2="98" strokeWidth="2" />
+    </InternalSVG>
+  </Div>
+);
 export interface FilterProps extends SVGBasedPrimitiveProps, DivProps {}
 
 export const Filter = ({

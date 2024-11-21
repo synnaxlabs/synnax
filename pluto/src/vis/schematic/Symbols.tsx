@@ -1486,3 +1486,22 @@ export const OffPageReferencePreview = ({
 }: OffPageReferenceProps) => (
   <Primitives.OffPageReference label="Off Page" {...props} orientation="right" />
 );
+
+export interface OrificePlateProps extends Primitives.OrificePlateProps {
+  label?: LabelExtensionProps;
+}
+
+export const OrificePlate = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<OrificePlateProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.OrificePlate {...rest} />
+  </Labeled>
+);
+
+export const OrificePlatePreview = (props: OrificePlateProps): ReactElement => (
+  <Primitives.OrificePlate {...props} />
+);

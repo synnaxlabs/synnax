@@ -90,6 +90,9 @@ import {
   OffPageReferencePreview,
   type OffPageReferenceProps,
   Orifice,
+  OrificePlate,
+  OrificePlatePreview,
+  type OrificePlateProps,
   OrificePreview,
   type OrificeProps,
   PaddleAgitator,
@@ -189,6 +192,7 @@ const VARIANTS = [
   "manualValve",
   "needleValve",
   "orifice",
+  "orificePlate",
   "paddleAgitator",
   "propellerAgitator",
   "pistonPump",
@@ -515,6 +519,20 @@ const manualValve: Spec<ManualValveProps> = {
     ...ZERO_PROPS,
   }),
   Preview: ManualValvePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const orificePlate: Spec<OrificePlateProps> = {
+  name: "Orifice Plate",
+  key: "orificePlate",
+  Form: CommonStyleForm,
+  Symbol: OrificePlate,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Orifice Plate"),
+    ...ZERO_PROPS,
+  }),
+  Preview: OrificePlatePreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -930,6 +948,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   isoCap,
   filter,
   orifice,
+  orificePlate,
   agitator,
   propellerAgitator,
   flatBladeAgitator,
