@@ -2153,3 +2153,111 @@ export const ISOFilter = ({
     </InternalSVG>
   </Div>
 );
+
+export interface CylinderProps extends DivProps {
+  dimensions?: dimensions.Dimensions;
+  borderRadius?: BorderRadius;
+  color?: Color.Crude;
+  onResize?: (dimensions: dimensions.Dimensions) => void;
+  boxBorderRadius?: number;
+  backgroundColor?: Color.Crude;
+}
+
+export const Cylinder = ({
+  className,
+  dimensions = DEFAULT_DIMENSIONS,
+  borderRadius = DEFAULT_BORDER_RADIUS,
+  boxBorderRadius,
+  color,
+  backgroundColor,
+  ...props
+}: CylinderProps): ReactElement => {
+  const detailedRadius = parseBorderRadius(borderRadius);
+  const hasCornerBoundaries = boxBorderRadius == null;
+  const t = Theming.use();
+  const refreshDeps = useMemo(
+    () => [dimensions, borderRadius, detailedRadius],
+    [
+      detailedRadius.bottomLeft,
+      detailedRadius.bottomRight,
+      detailedRadius.topLeft,
+      detailedRadius.topRight,
+      dimensions.height,
+      dimensions.width,
+    ],
+  );
+  return (
+    <Div
+      className={CSS(className, CSS.B("cylinder"))}
+      style={{
+        ...dimensions,
+        borderColor: Color.cssString(color ?? t.colors.gray.l9),
+        backgroundColor:
+          backgroundColor == null ? undefined : Color.cssString(backgroundColor),
+      }}
+      {...props}
+    >
+      <svg width="100%" height="100%" viewBox="0 0 68 192" fill="none">
+        <path d="M67 72.4103V192" stroke="white" strokeWidth="2" />
+        <path d="M1 191H66.8105" stroke="white" strokeWidth="2" />
+        <path
+          d="M67 73.8747C67 65.421 63.5232 57.3135 57.3345 51.3359C51.1458 45.3582 42.7522 42 34 42C25.2479 42 16.8542 45.3582 10.6655 51.3359C4.47679 57.3135 1.00001 65.421 1.00001 73.8747"
+          stroke="white"
+          strokeWidth="2"
+        />
+        <path d="M1 73L1.18951 192" stroke="white" strokeWidth="2" />
+        <path d="M67 72.2911V191.413" stroke="white" strokeWidth="2" />
+        <path
+          d="M52 22C52 16.4304 49.9982 11.089 46.435 7.15075C42.8718 3.21249 38.0391 0.999995 33 0.999994C27.9609 0.999994 23.1282 3.21249 19.565 7.15075C16.0018 11.089 14 16.4304 14 22"
+          stroke="white"
+          strokeWidth="2"
+        />
+        <path d="M14 22L14 48" stroke="white" strokeWidth="2" />
+        <path d="M52 21V48" stroke="white" strokeWidth="2" />
+      </svg>
+
+      <HandleBoundary refreshDeps={refreshDeps}>
+        <Handle location="top" orientation="left" left={50} top={0} id="1" />
+        {hasCornerBoundaries && (
+          <>
+            <Handle
+              location="top"
+              orientation="left"
+              left={-0.5}
+              top={detailedRadius.topLeft.y - 1}
+              id="2"
+            />
+            <Handle
+              location="top"
+              orientation="left"
+              left={101}
+              top={detailedRadius.topRight.y - 1}
+              id="3"
+            />
+          </>
+        )}
+        <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
+        {hasCornerBoundaries && (
+          <>
+            <Handle
+              location="bottom"
+              orientation="left"
+              left={-0.5}
+              top={100 - detailedRadius.bottomLeft.y + 1}
+              id="5"
+            />
+            <Handle
+              location="bottom"
+              orientation="left"
+              left={101}
+              top={100 - detailedRadius.bottomRight.y + 1}
+              id="6"
+            />
+          </>
+        )}
+        <Handle location="left" orientation="left" left={-0.5} top={50} id="7" />
+        <Handle location="right" orientation="left" left={101} top={50} id="8" />
+      </HandleBoundary>
+    </Div>
+  );
+};

@@ -1524,3 +1524,33 @@ export const ISOFilter = ({
 export const ISOFilterPreview = (props: ISOFilterProps): ReactElement => (
   <Primitives.ISOFilter {...props} />
 );
+
+export interface CylinderProps
+  extends Omit<Primitives.CylinderProps, "boxBorderRadius"> {
+  label?: LabelExtensionProps;
+}
+
+export const Cylinder = ({
+  backgroundColor,
+  label,
+  onChange,
+  orientation,
+  color,
+  dimensions,
+  borderRadius,
+}: SymbolProps<CylinderProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Cylinder
+      onResize={(dims) => onChange({ dimensions: dims })}
+      orientation={orientation}
+      color={color}
+      dimensions={dimensions}
+      borderRadius={borderRadius}
+      backgroundColor={backgroundColor}
+    />
+  </Labeled>
+);
+
+export const CylinderPreview = (props: CylinderProps): ReactElement => (
+  <Primitives.Cylinder {...props} dimensions={{ width: 25, height: 50 }} />
+);

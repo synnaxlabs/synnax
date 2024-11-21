@@ -58,6 +58,9 @@ import {
   CrossBeamAgitator,
   CrossBeamAgitatorPreview,
   type CrossBeamAgitatorProps,
+  Cylinder,
+  CylinderPreview,
+  type CylinderProps,
   ElectricRegulator,
   ElectricRegulatorPreview,
   type ElectricRegulatorProps,
@@ -181,6 +184,7 @@ const VARIANTS = [
   "cap",
   "cavityPump",
   "checkValve",
+  "cylinder",
   "compressor",
   "crossBeamAgitator",
   "electricRegulator",
@@ -407,6 +411,23 @@ const tank: Spec<TankProps> = {
     ...ZERO_PROPS,
   }),
   Preview: TankPreview,
+  zIndex: Z_INDEX_LOWER,
+};
+
+const cylinder: Spec<CylinderProps> = {
+  name: "Cylinder",
+  key: "cylinder",
+  Form: TankForm,
+  Symbol: Cylinder,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    ...zeroLabel("cylinder"),
+    borderRadius: DEFAULT_BORDER_RADIUS,
+    ...ZERO_BOX_PROPS,
+    ...ZERO_PROPS,
+  }),
+  Preview: CylinderPreview,
   zIndex: Z_INDEX_LOWER,
 };
 
@@ -975,5 +996,6 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   helicalAgitator,
   compressor,
   isoCheckValve,
-  vent
+  vent,
+  cylinder
 };
