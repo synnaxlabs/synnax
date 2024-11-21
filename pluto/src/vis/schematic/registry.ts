@@ -17,6 +17,7 @@ import {
   ButtonForm,
   CommonStyleForm,
   CommonToggleForm,
+  CylinderForm,
   LightForm,
   OffPageReferenceForm,
   SetpointForm,
@@ -33,6 +34,9 @@ import {
   type AgitatorProps,
   AngledReliefValve,
   AngledReliefValvePreview,
+  AngledSpringLoadedReliefValve,
+  AngledSpringLoadedReliefValvePreview,
+  type AngledSpringLoadedReliefValveProps,
   AngledValve,
   AngledValvePreview,
   type AngledValveProps,
@@ -83,7 +87,7 @@ import {
   ISOCheckValvePreview,
   type ISOCheckValveProps,
   ISOFilter,
-  ISOFilterPreview, 
+  ISOFilterPreview,
   Light,
   LightPreview,
   type LightProps,
@@ -132,6 +136,9 @@ import {
   SolenoidValve,
   SolenoidValvePreview,
   type SolenoidValveProps,
+  SpringLoadedReliefValve,
+  SpringLoadedReliefValvePreview,
+  type SpringLoadedReliefValveProps,
   StaticMixer,
   StaticMixerPreview,
   type StaticMixerProps,
@@ -178,6 +185,7 @@ const Z_INDEX_LOWER = 2;
 const VARIANTS = [
   "agitator",
   "angledReliefValve",
+  "angledSpringLoadedReliefValve",
   "angledValve",
   "offPageReference",
   "box",
@@ -213,6 +221,7 @@ const VARIANTS = [
   "screwPump",
   "setpoint",
   "solenoidValve",
+  "springLoadedReliefValve",
   "staticMixer",
   "switch",
   "tank",
@@ -221,7 +230,7 @@ const VARIANTS = [
   "vacuumPump",
   "value",
   "valve",
-  "vent"
+  "vent",
 ] as const;
 
 export const typeZ = z.enum(VARIANTS);
@@ -420,14 +429,16 @@ const tank: Spec<TankProps> = {
 const cylinder: Spec<CylinderProps> = {
   name: "Cylinder",
   key: "cylinder",
-  Form: TankForm,
+  Form: CylinderForm,
   Symbol: Cylinder,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
     ...zeroLabel("cylinder"),
-    borderRadius: DEFAULT_BORDER_RADIUS,
-    ...ZERO_BOX_PROPS,
+    dimensions: {
+      width: 66,
+      height: 181,
+    },
     ...ZERO_PROPS,
   }),
   Preview: CylinderPreview,
@@ -462,6 +473,34 @@ const reliefValve: Spec<ReliefValveProps> = {
     ...ZERO_PROPS,
   }),
   Preview: ReliefValvePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
+  name: "Spring Loaded Relief Valve",
+  key: "springLoadedReliefValve",
+  Form: CommonStyleForm,
+  Symbol: SpringLoadedReliefValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Spring Loaded Relief Valve"),
+    ...ZERO_PROPS,
+  }),
+  Preview: SpringLoadedReliefValvePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = {
+  name: "Angled Spring Loaded Relief Valve",
+  key: "angledSpringLoadedReliefValve",
+  Form: CommonStyleForm,
+  Symbol: AngledSpringLoadedReliefValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Angled Spring Loaded Relief Valve"),
+    ...ZERO_PROPS,
+  }),
+  Preview: AngledSpringLoadedReliefValvePreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -1015,5 +1054,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   compressor,
   isoCheckValve,
   vent,
-  cylinder
+  cylinder,
+  springLoadedReliefValve,
+  angledSpringLoadedReliefValve,
 };

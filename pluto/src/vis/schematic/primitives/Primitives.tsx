@@ -437,6 +437,21 @@ export const SolenoidValve = ({
         top={69.5652}
         id="2"
       />
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={33.3333}
+        top={17.7778}
+        id="3"
+      />
+      <Handle location="top" orientation={orientation} left={50} top={2.8986} id="4" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={66.6667}
+        top={17.7778}
+        id="5"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 87, height: 69 }}
@@ -549,45 +564,42 @@ export const ISOCheckValve = ({
   color,
   scale,
   ...props
-}: ISOCheckValveProps): ReactElement => (
-  <Div {...props} orientation={orientation}>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
-      <Handle
-        location="right"
+}: ISOCheckValveProps): ReactElement => {
+  const colorStr = Color.cssString(color);
+  return (
+    <Div {...props} orientation={orientation}>
+      <HandleBoundary orientation={orientation}>
+        <Handle
+          location="left"
+          orientation={orientation}
+          left={8.3333}
+          top={50}
+          id="1"
+        />
+        <Handle
+          location="right"
+          orientation={orientation}
+          left={96.4286}
+          top={50}
+          id="2"
+        />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 84, height: 42 }}
+        color={color}
         orientation={orientation}
-        left={97.7011}
-        top={50}
-        id="2"
-      />
-    </HandleBoundary>
-    <InternalSVG
-      dimensions={{ width: 100, height: 60 }} // Increased height
-      color={color}
-      orientation={orientation}
-      scale={scale}
-    >
-      <g transform="translate(0, 6)">
+        scale={scale}
+      >
+        <Circle cx="7" cy="7" r="4" fill={colorStr} />
         <Path
-          d="M6 47V9.23607C6 7.74931 7.56463 6.78231 8.89443 7.44721L87.1056 46.5528C88.4354 47.2177 90 46.2507 90 44.7639V6"
-          strokeWidth="2"
+          d="M7 39.5V11.5941C7 9.42886 9.22384 7.97669 11.2063 8.84738L76.7937 37.6526C78.7762 38.5233 81 37.0711 81 34.9059V6"
           strokeLinecap="round"
         />
-        <Circle cx="6" cy="6" r="6" />
-        <Circle cx="6" cy="6" r="5.5" />
-        <Circle cx="6" cy="6" r="5" />
-        <Circle cx="6" cy="6" r="4.5" />
-        <Circle cx="6" cy="6" r="4" />
-        <Circle cx="6" cy="6" r="3.5" />
-        <Circle cx="6" cy="6" r="3" />
-        <Circle cx="6" cy="6" r="2.5" />
-        <Circle cx="6" cy="6" r="2" />
-        <Circle cx="6" cy="6" r="1.5" />
-        <Circle cx="6" cy="6" r="1" />
-      </g>
-    </InternalSVG>
-  </Div>
-);
+      </InternalSVG>
+    </Div>
+  );
+};
+
 export interface AngledValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const AngledValve = ({
@@ -652,6 +664,14 @@ export const Pump = ({
         left={96.875}
         top={50}
         id="2"
+      />
+      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={96.875}
+        id="4"
       />
     </HandleBoundary>
     <InternalSVG
@@ -721,30 +741,31 @@ export const ISOBurstDisc = ({
   orientation = "left",
   scale,
   ...props
-}: ISOBurstDiscProps): ReactElement => {
-  const _colorStr = Color.cssString(color);
-  return (
-    <Div {...props} className={CSS(CSS.B("symbol"), className)}>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={5} top={50} id="1" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 33, height: 72 }} // Reduced to ~2/3 of original size (50x108)
-        color={color}
+}: ISOBurstDiscProps): ReactElement => (
+  <Div {...props} className={CSS(CSS.B("symbol"), className)}>
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="left"
         orientation={orientation}
-        scale={scale}
-      >
-        <Path
-          d="M8.4111 53.605C12.9378 53.6391 17.2925 51.9019 20.5174 48.775C23.7422 45.6484 25.5729 41.3884 25.6068 36.9321C25.6407 32.4759 23.875 28.1885 20.6981 25.0131C17.5212 21.8377 13.1934 20.0344 8.6667 20"
-          strokeWidth="2"
-        />
-        <Rect x="0.667" y="0.667" width="32" height="70.667" strokeWidth="2" />
-        <Path d="M8.3333 53L8.3333 71.3333" strokeWidth="2" />
-        <Path d="M8.6667 20.6667L8.6667 0.666681" strokeWidth="2" />
-      </InternalSVG>
-    </Div>
-  );
-};
+        left={11.1111}
+        top={50}
+        id="1"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 36, height: 72 }} // Reduced to ~2/3 of original size (50x108)
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Rect x="4" y="4" width="28" height="64" rx="2" strokeWidth="2" />
+      <Path
+        d="M13 68V47C13 46.4477 13.4489 45.9892 13.9928 45.8933C16.1351 45.5152 21 43.7981 21 36C21 28.2019 16.1351 26.4848 13.9928 26.1068C13.4489 26.0108 13 25.5523 13 25V4"
+        strokeWidth="2"
+      />
+    </InternalSVG>
+  </Div>
+);
 
 export interface CapProps extends SVGBasedPrimitiveProps, DivProps {}
 
@@ -781,17 +802,18 @@ export const ISOCap = ({
 }: ISOCapProps): ReactElement => (
   <Div className={CSS(CSS.B("cap"), className)} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={7.6923} top={50} id="1" />
+      <Handle location="left" orientation={orientation} left={50} top={50} id="1" />
     </HandleBoundary>
     <InternalSVG
       color={color}
-      dimensions={{ width: 32, height: 48 }}
+      dimensions={{ width: 36, height: 48 }}
       orientation={orientation}
       scale={scale}
     >
-      <Line x1="0" y1="1" x2="30" y2="1" strokeWidth="1.5" />
-      <Line x1="30" y1="2" x2="30" y2="48" strokeWidth="1.5" />
-      <Line x1="0" y1="46" x2="30" y2="46" strokeWidth="1.5" />
+      <Path
+        d="M3 3H30C31.6569 3 33 4.34315 33 6V42C33 43.6569 31.6569 45 30 45H3"
+        strokeLinecap="round"
+      />
     </InternalSVG>
   </Div>
 );
@@ -846,27 +868,24 @@ export const OrificePlate = ({
 }: OrificePlateProps): ReactElement => (
   <Div className={CSS(CSS.B("orifice_plate"), className)} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
+      <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
       <Handle
         location="right"
         orientation={orientation}
-        left={97.7011}
+        left={96.875}
         top={50}
         id="2"
       />
     </HandleBoundary>
     <InternalSVG
       color={color}
-      dimensions={{ width: 93, height: 49 }}
+      dimensions={{ width: 96, height: 48 }}
       orientation={orientation}
       scale={scale}
     >
-      <Line x1="0" y1="1" x2="93" y2="1" strokeWidth="2" />
-      <Line x1="0" y1="48" x2="93" y2="48" strokeWidth="2" />
-      <Line x1="1" y1="2" x2="1" y2="49" strokeWidth="2" />
-      <Line x1="92" y1="2" x2="92" y2="49" strokeWidth="2" />
-      <Line x1="26" y1="2" x2="26" y2="20" strokeWidth="2" />
-      <Line x1="26" y1="30" x2="26" y2="49" strokeWidth="2" />
+      <Rect x="3" y="3" width="90" height="42" rx="2" ry="2" />
+      <Line x1="33" y1="3" x2="33" y2="21" strokeLinecap="round" />
+      <Line x1="33" y1="27" x2="33" y2="45" strokeLinecap="round" />
     </InternalSVG>
   </Div>
 );
@@ -1063,6 +1082,13 @@ export const Regulator = ({
         left={97.7273}
         top={66.25}
         id="2"
+      />
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50.9091}
+        top={12.5}
+        id="3"
       />
     </HandleBoundary>
     <InternalSVG
@@ -1451,6 +1477,14 @@ export const ScrewPump = ({
         top={50}
         id="2"
       />
+      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={96.875}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 64, height: 64 }}
@@ -1512,6 +1546,14 @@ export const VacuumPump = ({
         top={50}
         id="2"
       />
+      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={96.875}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 64, height: 64 }}
@@ -1560,6 +1602,14 @@ export const CavityPump = ({
         left={96.875}
         top={50}
         id="2"
+      />
+      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={96.875}
+        id="4"
       />
     </HandleBoundary>
     <InternalSVG
@@ -1616,6 +1666,14 @@ export const PistonPump = ({
         top={50}
         id="2"
       />
+      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={96.875}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 64, height: 64 }}
@@ -1669,6 +1727,14 @@ export const StaticMixer = ({
         left={98.4848}
         top={50}
         id="2"
+      />
+      <Handle location="top" orientation={orientation} left={50} top={3.3333} id="3" />
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={96.6667}
+        id="4"
       />
     </HandleBoundary>
     <InternalSVG
@@ -1813,6 +1879,21 @@ export const ElectricRegulator = ({
         left={97.7273}
         top={66.25}
         id="2"
+      />
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={21.5909}
+        top={25}
+        id="3"
+      />
+      <Handle location="top" orientation={orientation} left={50} top={12.5} id="4" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={(70 / 88) * 100}
+        top={(20 / 80) * 100}
+        id="5"
       />
     </HandleBoundary>
     <InternalSVG
@@ -2141,16 +2222,28 @@ export const Vent = ({
 }: VentProps): ReactElement => (
   <Div className={CSS(CSS.B("vent"), className)} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={7.6923} top={50} id="1" />
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={64.5833}
+        top={50}
+        id="1"
+      />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={91.6667}
+        top={50}
+        id="2"
+      />
     </HandleBoundary>
     <InternalSVG
       color={color}
-      dimensions={{ width: 32, height: 48 }} // Keeping same dimensions as before
+      dimensions={{ width: 48, height: 32 }}
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M16 15L16 47" strokeWidth="1.5" strokeLinecap="round" />
-      <Path d="M30 14L16 2L2 14" strokeWidth="1.5" />
+      <Path d="M31 3 L43 14 Q 45 16 43 18 L31 29" strokeLinecap="round" />
     </InternalSVG>
   </Div>
 );
@@ -2166,25 +2259,19 @@ export const ISOFilter = ({
 }: ISOFilterProps): ReactElement => (
   <Div className={CSS(CSS.B("iso-filter"), className)} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={97.7011}
-        top={50}
-        id="2"
-      />
+      <Handle location="left" orientation={orientation} left={95} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={5} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 63, height: 96 }}
+      dimensions={{ width: 60, height: 42 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M1 1H30H61.5V50.5V95H1V1Z" strokeWidth="2" />
-      <Line x1="2" y1="48" x2="16" y2="48" strokeWidth="2" />
-      <Line x1="47" y1="48" x2="62" y2="48" strokeWidth="2" />
-      <Line x1="24" y1="48" x2="40" y2="48" strokeWidth="2" />
+      <Rect x="3" y="3" width="54" height="36" rx="3" ry="3" />
+      <Line x1="30" y1="3" x2="30" y2="13" strokeLinecap="round" />
+      <Line x1="30" y1="17" x2="30" y2="25" strokeLinecap="round" />
+      <Line x1="30" y1="29" x2="30" y2="39" strokeLinecap="round" />
     </InternalSVG>
   </Div>
 );
@@ -2208,7 +2295,6 @@ export const Cylinder = ({
   ...props
 }: CylinderProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);
-  const hasCornerBoundaries = boxBorderRadius == null;
   const t = Theming.use();
   const refreshDeps = useMemo(
     () => [dimensions, borderRadius, detailedRadius],
@@ -2221,78 +2307,149 @@ export const Cylinder = ({
       dimensions.width,
     ],
   );
+  const boardColor = Color.cssString(color ?? t.colors.gray.l9);
+  const bgColor =
+    backgroundColor == null ? undefined : Color.cssString(backgroundColor);
+  const widthScale = dimensions.width / 66;
+  const heightScale = dimensions.height / 180;
+  const transform = `scale(${widthScale},${heightScale})`;
+
   return (
     <Div
       className={CSS(className, CSS.B("cylinder"))}
       style={{
         ...dimensions,
-        borderColor: Color.cssString(color ?? t.colors.gray.l9),
-        backgroundColor:
-          backgroundColor == null ? undefined : Color.cssString(backgroundColor),
       }}
       {...props}
     >
-      <svg width="100%" height="100%" viewBox="0 0 68 192" fill="none">
-        <path d="M67 72.4103V192" stroke="white" strokeWidth="2" />
-        <path d="M1 191H66.8105" stroke="white" strokeWidth="2" />
+      <svg
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        transform={transform}
+      >
         <path
-          d="M67 73.8747C67 65.421 63.5232 57.3135 57.3345 51.3359C51.1458 45.3582 42.7522 42 34 42C25.2479 42 16.8542 45.3582 10.6655 51.3359C4.47679 57.3135 1.00001 65.421 1.00001 73.8747"
-          stroke="white"
+          d="M23 33.6712C11.9844 36.0332 3 42.4382 3 52.8862V174.568C3 176.225 4.34315 177.568 6 177.568H60C61.6569 177.568 63 176.225 63 174.568V52.8862C63 36.3342 40.4511 29.9292 23 33.6712ZM23 33.6712V13.3181C23 0.318109 42.9975 0.318123 42.9975 13.3181V33.6712"
+          stroke="black"
+          vectorEffect={"non-scaling-stroke"}
           strokeWidth="2"
+          color={boardColor}
+          transform={transform}
+          fill={bgColor}
         />
-        <path d="M1 73L1.18951 192" stroke="white" strokeWidth="2" />
-        <path d="M67 72.2911V191.413" stroke="white" strokeWidth="2" />
-        <path
-          d="M52 22C52 16.4304 49.9982 11.089 46.435 7.15075C42.8718 3.21249 38.0391 0.999995 33 0.999994C27.9609 0.999994 23.1282 3.21249 19.565 7.15075C16.0018 11.089 14 16.4304 14 22"
-          stroke="white"
-          strokeWidth="2"
-        />
-        <path d="M14 22L14 48" stroke="white" strokeWidth="2" />
-        <path d="M52 21V48" stroke="white" strokeWidth="2" />
       </svg>
-
       <HandleBoundary refreshDeps={refreshDeps}>
         <Handle location="top" orientation="left" left={50} top={0} id="1" />
-        {hasCornerBoundaries && (
-          <>
-            <Handle
-              location="top"
-              orientation="left"
-              left={-0.5}
-              top={detailedRadius.topLeft.y - 1}
-              id="2"
-            />
-            <Handle
-              location="top"
-              orientation="left"
-              left={101}
-              top={detailedRadius.topRight.y - 1}
-              id="3"
-            />
-          </>
-        )}
-        <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
-        {hasCornerBoundaries && (
-          <>
-            <Handle
-              location="bottom"
-              orientation="left"
-              left={-0.5}
-              top={100 - detailedRadius.bottomLeft.y + 1}
-              id="5"
-            />
-            <Handle
-              location="bottom"
-              orientation="left"
-              left={101}
-              top={100 - detailedRadius.bottomRight.y + 1}
-              id="6"
-            />
-          </>
-        )}
-        <Handle location="left" orientation="left" left={-0.5} top={50} id="7" />
-        <Handle location="right" orientation="left" left={101} top={50} id="8" />
+        <Handle location="bottom" orientation="left" left={50} top={98.3333} id="2" />
       </HandleBoundary>
+    </Div>
+  );
+};
+
+export interface SpringLoadedReliefValveProps
+  extends DivProps,
+    SVGBasedPrimitiveProps {}
+
+export const SpringLoadedReliefValve = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: SpringLoadedReliefValveProps): ReactElement => {
+  const colorStr = Color.cssString(color);
+  return (
+    <Div
+      orientation={orientation}
+      className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
+      {...props}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle
+          location="left"
+          orientation={orientation}
+          left={2.1373}
+          top={69.0785}
+          id="1"
+        />
+        <Handle
+          location="right"
+          orientation={orientation}
+          left={96.7416}
+          top={72.368}
+          id="2"
+        />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 89, height: 76 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Path d="M46.3625 54.1079C45.6312 54.4779 45.6311 55.5223 46.3624 55.8924L81.7435 73.7989C83.7389 74.8088 86.098 73.3588 86.0982 71.1224L86.1002 38.883C86.1003 36.6465 83.7414 35.1962 81.7458 36.2059L46.3625 54.1079Z" />
+        <Path d="M71 38.0014V72.0014" strokeLinecap="round" vectorEffect="" />
+        <Path d="M41.6389 55.8923C42.3702 55.5222 42.3702 54.4778 41.6389 54.1077L6.2567 36.2035C4.26118 35.1937 1.90217 36.6438 1.90217 38.8803L1.90217 71.1197C1.90217 73.3562 4.26119 74.8063 6.2567 73.7965L41.6389 55.8923Z" />
+        <Circle cx="44" cy="55" r="4" fill={colorStr} />
+        <Path
+          fill={colorStr}
+          d="M45 4V3H43V4H45ZM44.47 8.29375L45 7.44575L44.47 8.29375ZM50.6432 12.152L50.1132 13L50.6432 12.152ZM37.3568 23.848L36.8268 24.696L37.3568 23.848ZM37.3568 22.152L36.8268 21.304L37.3568 22.152ZM50.6432 32.152L51.1732 31.304L50.6432 32.152ZM37.3568 43.848L36.8268 44.696L37.3568 43.848ZM37.3568 42.152L36.8268 41.304L37.3568 42.152ZM43.53 47.7062L43 48.5542L43.53 47.7062ZM45 52V48.5542H43V52H45ZM44.06 46.8583L37.8868 43L36.8268 44.696L43 48.5542L44.06 46.8583ZM37.8868 43L51.1732 34.696L50.1132 33L36.8268 41.304L37.8868 43ZM51.1732 31.304L37.8868 23L36.8268 24.696L50.1132 33L51.1732 31.304ZM37.8868 23L51.1732 14.696L50.1132 13L36.8268 21.304L37.8868 23ZM51.1732 11.304L45 7.44575L43.94 9.14175L50.1132 13L51.1732 11.304ZM45 7.44575V4H43V7.44575H45ZM45 7.44575L45 7.44575H43C43 8.13533 43.3552 8.77627 43.94 9.14175L45 7.44575ZM51.1732 14.696C52.4265 13.9127 52.4265 12.0873 51.1732 11.304L50.1132 13L50.1132 13L51.1732 14.696ZM37.8868 23L37.8868 23L36.8268 21.304C35.5735 22.0873 35.5735 23.9127 36.8268 24.696L37.8868 23ZM51.1732 34.696C52.4265 33.9127 52.4265 32.0873 51.1732 31.304L50.1132 33L50.1132 33L51.1732 34.696ZM37.8868 43L37.8868 43L36.8268 41.304C35.5735 42.0873 35.5735 43.9127 36.8268 44.696L37.8868 43ZM45 48.5542C45 47.8647 44.6448 47.2237 44.06 46.8583L43 48.5542L43 48.5542H45Z"
+        />
+      </InternalSVG>
+    </Div>
+  );
+};
+
+export interface AngledSpringLoadedReliefValveProps
+  extends DivProps,
+    SVGBasedPrimitiveProps {}
+
+export const AngledSpringLoadedReliefValve = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: AngledSpringLoadedReliefValveProps): ReactElement => {
+  const colorStr = Color.cssString(color);
+  return (
+    <Div
+      orientation={orientation}
+      className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
+      {...props}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={31.8182}
+          top={97.1995}
+          id="1"
+        />
+        <Handle
+          location="right"
+          orientation={orientation}
+          left={95.6061}
+          top={55.5185}
+          id="2"
+        />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 66, height: 101 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Path d="M23.3625 55.6237C22.6312 55.9937 22.6311 57.0381 23.3624 57.4082L58.7435 75.3147C60.7389 76.3246 63.098 74.8747 63.0981 72.6382L63.1001 40.3988C63.1003 38.1624 60.7414 36.7121 58.7458 37.7217L23.3625 55.6237Z" />
+        <Path d="M48 38.633V72.633" strokeLinecap="round" />
+        <Path d="M21.8923 58.4348C21.5222 57.7035 20.4778 57.7035 20.1077 58.4348L2.20349 93.817C1.19372 95.8125 2.64384 98.1715 4.8803 98.1715H37.1197C39.3562 98.1715 40.8063 95.8125 39.7965 93.817L21.8923 58.4348Z" />
+        <Circle cx="21" cy="56.0737" r="4" fill={colorStr} />
+        <Path
+          d="M22 4V3H20V4H22ZM21.462 8.37907L20.9241 9.22205L21.462 8.37907ZM27.679 12.3465L27.1411 13.1895L27.679 12.3465ZM14.321 24.243L13.783 25.086L14.321 24.243ZM14.321 22.557L13.783 21.714L14.321 22.557ZM27.679 34.4535L28.217 35.2965L27.679 34.4535ZM27.679 32.7675L28.217 31.9246L27.679 32.7675ZM14.321 44.664L14.8589 43.8211L14.321 44.664ZM14.321 42.9781L14.8589 43.8211L14.321 42.9781ZM22 53.0105V49.4744H20V53.0105H22ZM21.0759 47.7885L14.8589 43.8211L13.783 45.507L20 49.4744L21.0759 47.7885ZM14.8589 43.8211L28.217 35.2965L27.1411 33.6105L13.783 42.1351L14.8589 43.8211ZM28.217 31.9246L14.8589 23.4L13.783 25.086L27.1411 33.6105L28.217 31.9246ZM14.8589 23.4L28.217 14.8754L27.1411 13.1895L13.783 21.714L14.8589 23.4ZM28.217 11.5035L22 7.53609L20.9241 9.22205L27.1411 13.1895L28.217 11.5035ZM22 7.53609V4H20V7.53609H22ZM22 7.53609L22 7.53609H20C20 8.21899 20.3484 8.85468 20.9241 9.22205L22 7.53609ZM28.217 14.8754C29.4491 14.0891 29.4491 12.2898 28.217 11.5035L27.1411 13.1895L27.1411 13.1895L28.217 14.8754ZM14.8589 23.4L14.8589 23.4L13.783 21.714C12.5509 22.5003 12.5509 24.2997 13.783 25.086L14.8589 23.4ZM28.217 35.2965C29.4491 34.5102 29.4491 32.7109 28.217 31.9246L27.1411 33.6105L27.1411 33.6105L28.217 35.2965ZM14.8589 43.8211L14.8589 43.8211L13.783 42.1351C12.5509 42.9214 12.5509 44.7207 13.783 45.507L14.8589 43.8211ZM22 49.4744C22 48.7915 21.6516 48.1558 21.0759 47.7885L20 49.4744L20 49.4744H22Z"
+          fill={colorStr}
+        />
+      </InternalSVG>
     </Div>
   );
 };

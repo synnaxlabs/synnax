@@ -408,6 +408,46 @@ export const ReliefValvePreview = (props: ReliefValveProps): ReactElement => (
   <Primitives.ReliefValve {...props} />
 );
 
+export interface SpringLoadedReliefValveProps
+  extends Primitives.SpringLoadedReliefValveProps {
+  label?: LabelExtensionProps;
+}
+
+export const SpringLoadedReliefValve = ({
+  label,
+  onChange,
+  aetherKey: _,
+  ...rest
+}: SymbolProps<SpringLoadedReliefValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.SpringLoadedReliefValve {...rest} />
+  </Labeled>
+);
+
+export const SpringLoadedReliefValvePreview = (
+  props: SpringLoadedReliefValveProps,
+): ReactElement => <Primitives.SpringLoadedReliefValve {...props} />;
+
+export interface AngledSpringLoadedReliefValveProps
+  extends Primitives.AngledSpringLoadedReliefValveProps {
+  label?: LabelExtensionProps;
+}
+
+export const AngledSpringLoadedReliefValve = ({
+  label,
+  onChange,
+  aetherKey: _,
+  ...rest
+}: SymbolProps<AngledSpringLoadedReliefValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.AngledSpringLoadedReliefValve {...rest} />
+  </Labeled>
+);
+
+export const AngledSpringLoadedReliefValvePreview = (
+  props: AngledSpringLoadedReliefValveProps,
+): ReactElement => <Primitives.AngledSpringLoadedReliefValve {...props} />;
+
 export interface RegulatorProps extends Primitives.RegulatorProps {
   label?: LabelExtensionProps;
 }
