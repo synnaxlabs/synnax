@@ -711,6 +711,41 @@ export const BurstDisc = ({
   );
 };
 
+export interface ISOBurstDiscProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export interface ISOBurstDiscProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const ISOBurstDisc = ({
+  className,
+  color,
+  orientation = "left",
+  scale,
+  ...props
+}: ISOBurstDiscProps): ReactElement => {
+  const _colorStr = Color.cssString(color);
+  return (
+    <Div {...props} className={CSS(CSS.B("symbol"), className)}>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={5} top={50} id="1" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 33, height: 72 }} // Reduced to ~2/3 of original size (50x108)
+        color={color}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Path
+          d="M8.4111 53.605C12.9378 53.6391 17.2925 51.9019 20.5174 48.775C23.7422 45.6484 25.5729 41.3884 25.6068 36.9321C25.6407 32.4759 23.875 28.1885 20.6981 25.0131C17.5212 21.8377 13.1934 20.0344 8.6667 20"
+          strokeWidth="2"
+        />
+        <Rect x="0.667" y="0.667" width="32" height="70.667" strokeWidth="2" />
+        <Path d="M8.3333 53L8.3333 71.3333" strokeWidth="2" />
+        <Path d="M8.6667 20.6667L8.6667 0.666681" strokeWidth="2" />
+      </InternalSVG>
+    </Div>
+  );
+};
+
 export interface CapProps extends SVGBasedPrimitiveProps, DivProps {}
 
 export const Cap = ({

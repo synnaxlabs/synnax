@@ -75,6 +75,8 @@ import {
   HelicalAgitator,
   HelicalAgitatorPreview,
   type HelicalAgitatorProps,
+  ISOBurstDisc,
+  ISOBurstDiscPreview,
   ISOCap,
   ISOCapPreview,
   ISOCheckValve,
@@ -180,6 +182,7 @@ const VARIANTS = [
   "offPageReference",
   "box",
   "burstDisc",
+  "isoBurstDisc",
   "button",
   "cap",
   "cavityPump",
@@ -501,6 +504,20 @@ const burstDisc: Spec<ReliefValveProps> = {
     ...ZERO_PROPS,
   }),
   Preview: BurstDiscPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const isoBurstDisc: Spec<ReliefValveProps> = {
+  name: "ISO Burst Disc",
+  key: "isoBurstDisc",
+  Form: CommonStyleForm,
+  Symbol: ISOBurstDisc,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Burst Disc"),
+    ...ZERO_PROPS,
+  }),
+  Preview: ISOBurstDiscPreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -982,6 +999,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   staticMixer,
   rotaryMixer,
   burstDisc,
+  isoBurstDisc,
   cap,
   isoCap,
   filter,

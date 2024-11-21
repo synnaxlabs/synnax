@@ -1554,3 +1554,22 @@ export const Cylinder = ({
 export const CylinderPreview = (props: CylinderProps): ReactElement => (
   <Primitives.Cylinder {...props} dimensions={{ width: 25, height: 50 }} />
 );
+
+export interface ISOBurstDiscProps extends Primitives.ISOBurstDiscProps {
+  label?: LabelExtensionProps;
+}
+
+export const ISOBurstDisc = ({
+  label,
+  onChange,
+  aetherKey: _,
+  ...rest
+}: SymbolProps<ISOBurstDiscProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ISOBurstDisc {...rest} />
+  </Labeled>
+);
+
+export const ISOBurstDiscPreview = (props: ISOBurstDiscProps): ReactElement => (
+  <Primitives.ISOBurstDisc {...props} />
+);
