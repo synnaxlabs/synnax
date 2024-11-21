@@ -735,6 +735,34 @@ export const Cap = ({
   </Div>
 );
 
+export interface ISOCapProps extends SVGBasedPrimitiveProps, DivProps {}
+
+export interface ISOCapProps extends SVGBasedPrimitiveProps, DivProps {}
+
+export const ISOCap = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: ISOCapProps): ReactElement => (
+  <Div className={CSS(CSS.B("cap"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={7.6923} top={50} id="1" />
+    </HandleBoundary>
+    <InternalSVG
+      color={color}
+      dimensions={{ width: 32, height: 48 }}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Line x1="0" y1="1" x2="30" y2="1" strokeWidth="1.5" />
+      <Line x1="30" y1="2" x2="30" y2="48" strokeWidth="1.5" />
+      <Line x1="0" y1="46" x2="30" y2="46" strokeWidth="1.5" />
+    </InternalSVG>
+  </Div>
+);
+
 export interface ManualValveProps extends SVGBasedPrimitiveProps, DivProps {}
 
 export const ManualValve = ({

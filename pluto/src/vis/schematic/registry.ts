@@ -72,6 +72,8 @@ import {
   HelicalAgitator,
   HelicalAgitatorPreview,
   type HelicalAgitatorProps,
+  ISOCap,
+  ISOCapPreview,
   ISOCheckValve,
   ISOCheckValvePreview,
   type ISOCheckValveProps,
@@ -178,6 +180,7 @@ const VARIANTS = [
   "flatBladeAgitator",
   "fourWayValve",
   "helicalAgitator",
+  "isoCap",
   "isoCheckValve",
   "light",
   "manualValve",
@@ -480,6 +483,20 @@ const cap: Spec<ReliefValveProps> = {
     ...ZERO_PROPS,
   }),
   Preview: CapPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const isoCap: Spec<ReliefValveProps> = {
+  name: "ISO Cap",
+  key: "isoCap",
+  Form: CommonStyleForm,
+  Symbol: ISOCap,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Cap"),
+    ...ZERO_PROPS,
+  }),
+  Preview: ISOCapPreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -892,6 +909,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   rotaryMixer,
   burstDisc,
   cap,
+  isoCap,
   filter,
   orifice,
   agitator,

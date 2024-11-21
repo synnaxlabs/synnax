@@ -484,6 +484,25 @@ export const CapPreview = (props: CapProps): ReactElement => (
   <Primitives.Cap {...props} />
 );
 
+export interface ISOCapProps extends Primitives.ISOCapProps {
+  label?: LabelExtensionProps;
+}
+
+export const ISOCap = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<ISOCapProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ISOCap {...rest} />
+  </Labeled>
+);
+
+export const ISOCapPreview = (props: ISOCapProps): ReactElement => (
+  <Primitives.ISOCap {...props} />
+);
+
 export interface ManualValveProps extends Primitives.ManualValveProps {
   label?: LabelExtensionProps;
 }
