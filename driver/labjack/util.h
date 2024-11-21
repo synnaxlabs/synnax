@@ -55,7 +55,8 @@ inline int check_err_internal(
 
     // Get additional description if available
     std::string description = "";
-    if (auto it = ERROR_DESCRIPTIONS.find(err_msg); it != ERROR_DESCRIPTIONS.end()) {
+    const auto& error_map = GetErrorDescriptions();  // Changed this line
+    if (auto it = error_map.find(err_msg); it != error_map.end()) {
         description = ": " + it->second;
     }
 

@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "driver/config/config.h"
 #include "driver/task/task.h"
 #include "driver/labjack/dll_check_windows.h"
 #include "driver/labjack/util.h"

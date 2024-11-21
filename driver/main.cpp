@@ -21,10 +21,12 @@
 #include <windows.h>
 #endif
 
-#include <csignal>
+// Removed: #include <csignal>
 #include <fstream>
 #include <iostream>
 #include <thread>
+#include <condition_variable>
+#include <mutex>
 
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
@@ -42,11 +44,15 @@
 using json = nlohmann::json;
 
 std::unique_ptr<task::Manager> task_manager;
+std::atomic<bool> stopped = false;
+std::mutex mtx;
+std::condition_variable cv;
+bool should_stop = false;
 
 std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
-    const config::Config &config,
-    breaker::Breaker &breaker,
-    const std::shared_ptr<synnax::Synnax> &client
+        const configd::Config &config,
+        breaker::Breaker &breaker,
+        const std::shared_ptr<synnax::Synnax> &client
 ) {
     std::pair<synnax::Rack, freighter::Error> res;
     if (config.rack_key != 0)
@@ -59,21 +65,39 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
     return res;
 }
 
-std::atomic<bool> stopped = false;
+// Removed signal handlers
+
+// Added input listener function
+void inputListener() {
+    std::string input;
+    while (std::getline(std::cin, input)) {
+        LOG(INFO) << "[driver] received input: " << input;
+        if (input == "STOP") {
+            {
+                std::lock_guard<std::mutex> lock(mtx);
+                should_stop = true;
+            }
+            cv.notify_one();
+            break;
+        }
+    }
+}
 
 int main(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
     // Use the first argument as the config path if provided
     if (argc > 1) config_path = argv[1];
 
-    auto cfg_json = config::read(config_path);
+    // json cfg_json;
+    LOG(INFO) << config_path;
+    auto cfg_json = configd::read(config_path);
     if (cfg_json.empty())
         LOG(INFO) << "[driver] no configuration found at " << config_path <<
-                ". We'll just use the default configuration";
+                  ". We'll just use the default configuration";
     else {
         LOG(INFO) << "[driver] loaded configuration from " << config_path;
     }
-    auto [cfg, cfg_err] = config::parse(cfg_json);
+    auto [cfg, cfg_err] = configd::parse(cfg_json);
     if (cfg_err) {
         LOG(FATAL) << "[driver] failed to parse configuration: " << cfg_err;
         return 1;
@@ -85,8 +109,8 @@ int main(int argc, char *argv[]) {
     if (cfg.debug) FLAGS_v = 1;
     google::InitGoogleLogging(argv[0]);
 
-    VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":" <<
-            cfg.client_config.port;
+    VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":"
+            << cfg.client_config.port;
 
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
 
@@ -96,21 +120,21 @@ int main(int argc, char *argv[]) {
     auto [rack, rack_err] = retrieveDriverRack(cfg, breaker, client);
     breaker.stop();
     if (rack_err) {
-        LOG(FATAL) <<
-                "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
-                << rack_err;
+        LOG(FATAL) << "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
+                   << rack_err;
         return 1;
     }
 
     // auto meminfo_factory = std::make_unique<meminfo::Factory>();
     auto heartbeat_factory = std::make_unique<heartbeat::Factory>();
 
-    std::vector<std::shared_ptr<task::Factory> > factories = {
+    std::vector<std::shared_ptr<task::Factory>> factories = {
         // std::move(meminfo_factory),
         std::move(heartbeat_factory)
     };
 
-    auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), opc::INTEGRATION_NAME);
+    auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(),
+                                 opc::INTEGRATION_NAME);
     if (opc_enabled != cfg.integrations.end()) {
         auto opc_factory = std::make_unique<opc::Factory>();
         factories.push_back(std::move(opc_factory));
@@ -118,26 +142,40 @@ int main(int argc, char *argv[]) {
         LOG(INFO) << "[driver] OPC integration is not enabled";
 
 #ifdef USE_NI
-    auto ni_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), ni::INTEGRATION_NAME);
-    if( ni_enabled != cfg.integrations.end() && ni::dlls_available()) {
-        std::unique_ptr<ni::Factory>  ni_factory = std::make_unique<ni::Factory>();
+
+    auto ni_enabled = std::find(
+        cfg.integrations.begin(), 
+        cfg.integrations.end(),
+        ni::INTEGRATION_NAME
+    );
+   
+    if (ni_enabled != cfg.integrations.end() && ni::dlls_available()) {
+        std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
         factories.push_back(std::move(ni_factory));
     } else
-        LOG(INFO) << "[driver] NI integration is not enabled or the required DLLs are not available";
+        LOG(INFO)
+            << "[driver] NI integration is not enabled or the required DLLs are not available";
+
 #endif
 
 #ifdef _WIN32
-    auto labjack_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(), labjack::INTEGRATION_NAME);
-    if(labjack_enabled != cfg.integrations.end() && labjack::dlls_available()) {
+    auto labjack_enabled = std::find(
+        cfg.integrations.begin(), 
+        cfg.integrations.end(),
+        labjack::INTEGRATION_NAME
+    );
+
+    if (labjack_enabled != cfg.integrations.end() && labjack::dlls_available()) {
         std::unique_ptr<labjack::Factory> labjack_factory = std::make_unique<labjack::Factory>();
         factories.push_back(std::move(labjack_factory));
-    } else{
+    } else {
         LOG(INFO) << "[driver] LabJack integration is not enabled or the required DLLs are not available";
     }
 #else
     LOG(INFO) << "[driver] LabJack integration is not available on this platform";
 #endif
 
+    LOG(INFO) << "[driver] starting task manager";
 
     auto factory = std::make_unique<task::MultiFactory>(std::move(factories));
     task_manager = std::make_unique<task::Manager>(
@@ -146,17 +184,33 @@ int main(int argc, char *argv[]) {
         std::move(factory),
         cfg.breaker_config
     );
-    signal(SIGINT, [](int) {
-        if (stopped) return;
-        LOG(INFO) << "[driver] received interrupt signal. shutting down";
+
+    // Removed signal handler setup
+
+    // Start input listener thread
+    std::thread listener(inputListener);
+
+    auto err = task_manager->start();
+    if (err) {
+        LOG(FATAL) << "[driver] failed to start: " << err;
+        return 1;
+    }
+
+    // Wait for shutdown signal
+    {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [] { return should_stop; });
+    }
+
+    if (!stopped) {
+        LOG(INFO) << "[driver] received stop command. Shutting down";
         stopped = true;
         task_manager->stop();
-    });
-    std::atomic<bool> running = false;
-    auto err = task_manager->start(running);
-    running.wait(false);
-    if (err)
-        LOG(FATAL) << "[driver] failed to start: " << err;
+    }
+
+    // Join the input listener thread
+    listener.join();
+
     LOG(INFO) << "[driver] shutdown complete";
     return 0;
 }
