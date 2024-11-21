@@ -77,7 +77,7 @@ export const flatten = ({
   if (depth === 0 && sort) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
-    const nextPath = `${path + node.key}/`;
+    const nextPath = `${path}${node.key}/`;
     const expand = shouldExpand(node, expanded);
     flattened.push({ ...node, depth, expanded: expand, index, path: nextPath });
     if (expand && node.children != null) {
