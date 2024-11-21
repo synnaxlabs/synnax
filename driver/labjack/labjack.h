@@ -18,8 +18,8 @@ const std::string INTEGRATION_NAME = "labjack";
 
 class Factory final : public task::Factory {
 public:
-    Factory() : device_manager(std::make_shared<labjack::DeviceManager>()) {
-    }
+
+    Factory() = default; 
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
@@ -33,7 +33,7 @@ public:
     ) override;
 
 private:
-    std::shared_ptr<labjack::DeviceManager> device_manager;
+    std::shared_ptr<labjack::DeviceManager> device_manager = std::make_shared<labjack::DeviceManager>();
 };
 
 static inline bool dlls_available() {

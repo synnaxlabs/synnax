@@ -7,9 +7,6 @@ config_setting(
 
 cc_library(
     name = "driver",
-    srcs = [
-        "config.cpp",
-    ],
     hdrs = [
         "config.h",
     ],
@@ -60,10 +57,14 @@ cc_binary(
     }),
     copts = select({
         ":use_ni": ["-DUSE_NI"],
-        #         "@platforms//os:windows": [
-        # #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
-        #             "-std:c++20"
-        #         ],
+                # "@platforms//os:windows": [
+                #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+                #     "/ZI",                # Debug info
+                #     "/DEBUG",             # Enable debug info
+                #     "/MDd",              # Debug runtime
+                #     "-std:c++20",
+                #     "/D_DEBUG",          # Debug mode  "/D_DEBUG",          # Debug mode
+                # ],
         "//conditions:default": ["-std=c++20"],
     }),
     linkopts = select({
@@ -72,8 +73,9 @@ cc_binary(
             "/DEFAULTLIB:iphlpapi.lib",
             "/DEFAULTLIB:psapi.lib",
             "/FORCE:MULTIPLE",  # FIXME: handles the current duplicate symbo,ls because of labjack lib. temp workaround
-            #            "/debug",
-            #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+            # "/DEBUG",
+            # "/INCREMENTAL:NO",    # Required for ASAN
+            # "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
             "/DELAYLOAD:LabJackM.dll",
             "/DELAYLOAD:LabJackWUSB.dll", # so that link to dll is only attempted once a function is called
         ],
