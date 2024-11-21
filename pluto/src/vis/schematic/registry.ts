@@ -147,6 +147,9 @@ import {
   Valve,
   ValvePreview,
   type ValveProps,
+  Vent,
+  VentPreview,
+  type VentProps,
 } from "@/vis/schematic/Symbols";
 
 export interface Spec<P extends object> {
@@ -204,6 +207,7 @@ const VARIANTS = [
   "vacuumPump",
   "value",
   "valve",
+  "vent"
 ] as const;
 
 export const typeZ = z.enum(VARIANTS);
@@ -878,6 +882,20 @@ const isoCheckValve: Spec<ISOCheckValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const vent: Spec<VentProps> = {
+  name: "Vent",
+  key: "vent",
+  Form: CommonStyleForm,
+  Symbol: Vent,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Vent"),
+    ...ZERO_PROPS,
+  }),
+  Preview: VentPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -919,5 +937,6 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   crossBeamAgitator,
   helicalAgitator,
   compressor,
-  isoCheckValve
+  isoCheckValve,
+  vent
 };

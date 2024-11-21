@@ -737,8 +737,6 @@ export const Cap = ({
 
 export interface ISOCapProps extends SVGBasedPrimitiveProps, DivProps {}
 
-export interface ISOCapProps extends SVGBasedPrimitiveProps, DivProps {}
-
 export const ISOCap = ({
   className,
   orientation = "left",
@@ -2060,3 +2058,28 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
     </Div>
   );
 };
+
+export interface VentProps extends SVGBasedPrimitiveProps, DivProps {}
+
+export const Vent = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: VentProps): ReactElement => (
+  <Div className={CSS(CSS.B("vent"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={7.6923} top={50} id="1" />
+    </HandleBoundary>
+    <InternalSVG
+      color={color}
+      dimensions={{ width: 32, height: 48 }} // Keeping same dimensions as before
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path d="M16 15L16 47" strokeWidth="1.5" strokeLinecap="round" />
+      <Path d="M30 14L16 2L2 14" strokeWidth="1.5" />
+    </InternalSVG>
+  </Div>
+);

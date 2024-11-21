@@ -1447,6 +1447,25 @@ export interface OffPageReferenceProps
   label: LabelExtensionProps;
 }
 
+export interface VentProps extends Primitives.VentProps {
+  label?: LabelExtensionProps;
+}
+
+export const Vent = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<VentProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Vent {...rest} />
+  </Labeled>
+);
+
+export const VentPreview = (props: VentProps): ReactElement => (
+  <Primitives.Vent {...props} />
+);
+
 export const OffPageReference = ({
   label: { label, level },
   aetherKey,
