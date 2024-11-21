@@ -607,6 +607,25 @@ export const CheckValvePreview = (props: CheckValveProps): ReactElement => (
   <Primitives.CheckValve {...props} />
 );
 
+export interface ISOCheckValveProps extends Primitives.ISOCheckValveProps {
+  label?: LabelExtensionProps;
+}
+
+export const ISOCheckValve = ({
+  label,
+  onChange,
+  aetherKey: _,
+  ...rest
+}: SymbolProps<ISOCheckValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ISOCheckValve {...rest} />
+  </Labeled>
+);
+
+export const ISOCheckValvePreview = (props: ISOCheckValveProps): ReactElement => (
+  <Primitives.ISOCheckValve {...props} />
+);
+
 export interface OrificeProps extends Primitives.OrificeProps {
   label?: LabelExtensionProps;
 }

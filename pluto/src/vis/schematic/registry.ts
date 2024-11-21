@@ -72,6 +72,9 @@ import {
   HelicalAgitator,
   HelicalAgitatorPreview,
   type HelicalAgitatorProps,
+  ISOCheckValve,
+  ISOCheckValvePreview,
+  type ISOCheckValveProps,
   Light,
   LightPreview,
   type LightProps,
@@ -175,6 +178,7 @@ const VARIANTS = [
   "flatBladeAgitator",
   "fourWayValve",
   "helicalAgitator",
+  "isoCheckValve",
   "light",
   "manualValve",
   "needleValve",
@@ -843,6 +847,20 @@ const offPageReference: Spec<OffPageReferenceProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const isoCheckValve: Spec<ISOCheckValveProps> = {
+  name: "ISO Check Valve",
+  key: "isoCheckValve",
+  Form: CommonStyleForm,
+  Symbol: ISOCheckValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Check Valve"),
+    ...ZERO_PROPS,
+  }),
+  Preview: ISOCheckValvePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -883,4 +901,5 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   crossBeamAgitator,
   helicalAgitator,
   compressor,
+  isoCheckValve
 };

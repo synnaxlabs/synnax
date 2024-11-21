@@ -541,6 +541,53 @@ export const CheckValve = ({
   </Div>
 );
 
+export interface ISOCheckValveProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const ISOCheckValve = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: ISOCheckValveProps): ReactElement => (
+  <Div {...props} orientation={orientation}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={50}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 100, height: 60 }} // Increased height
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <g transform="translate(0, 6)">
+        <Path
+          d="M6 47V9.23607C6 7.74931 7.56463 6.78231 8.89443 7.44721L87.1056 46.5528C88.4354 47.2177 90 46.2507 90 44.7639V6"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <Circle cx="6" cy="6" r="6" />
+        <Circle cx="6" cy="6" r="5.5" />
+        <Circle cx="6" cy="6" r="5" />
+        <Circle cx="6" cy="6" r="4.5" />
+        <Circle cx="6" cy="6" r="4" />
+        <Circle cx="6" cy="6" r="3.5" />
+        <Circle cx="6" cy="6" r="3" />
+        <Circle cx="6" cy="6" r="2.5" />
+        <Circle cx="6" cy="6" r="2" />
+        <Circle cx="6" cy="6" r="1.5" />
+        <Circle cx="6" cy="6" r="1" />
+      </g>
+    </InternalSVG>
+  </Div>
+);
 export interface AngledValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const AngledValve = ({
