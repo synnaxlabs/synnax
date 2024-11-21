@@ -77,6 +77,8 @@ import {
   ISOCheckValve,
   ISOCheckValvePreview,
   type ISOCheckValveProps,
+  ISOFilter,
+  ISOFilterPreview, 
   Light,
   LightPreview,
   type LightProps,
@@ -188,6 +190,7 @@ const VARIANTS = [
   "helicalAgitator",
   "isoCap",
   "isoCheckValve",
+  "isoFilter",
   "light",
   "manualValve",
   "needleValve",
@@ -533,6 +536,20 @@ const orificePlate: Spec<OrificePlateProps> = {
     ...ZERO_PROPS,
   }),
   Preview: OrificePlatePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const isoFilter: Spec<ManualValveProps> = {
+  name: "ISO Filter",
+  key: "isoFilter",
+  Form: CommonStyleForm,
+  Symbol: ISOFilter,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Filter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: ISOFilterPreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -947,6 +964,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   cap,
   isoCap,
   filter,
+  isoFilter,
   orifice,
   orificePlate,
   agitator,

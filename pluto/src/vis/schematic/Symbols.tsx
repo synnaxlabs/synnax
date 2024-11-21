@@ -1505,3 +1505,22 @@ export const OrificePlate = ({
 export const OrificePlatePreview = (props: OrificePlateProps): ReactElement => (
   <Primitives.OrificePlate {...props} />
 );
+
+export interface ISOFilterProps extends Primitives.ISOFilterProps {
+  label?: LabelExtensionProps;
+}
+
+export const ISOFilter = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<ISOFilterProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ISOFilter {...rest} />
+  </Labeled>
+);
+
+export const ISOFilterPreview = (props: ISOFilterProps): ReactElement => (
+  <Primitives.ISOFilter {...props} />
+);

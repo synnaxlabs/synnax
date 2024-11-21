@@ -2119,3 +2119,37 @@ export const Vent = ({
     </InternalSVG>
   </Div>
 );
+
+export interface ISOFilterProps extends SVGBasedPrimitiveProps, DivProps {}
+
+export const ISOFilter = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: ISOFilterProps): ReactElement => (
+  <Div className={CSS(CSS.B("iso-filter"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={50}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 63, height: 96 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path d="M1 1H30H61.5V50.5V95H1V1Z" strokeWidth="2" />
+      <Line x1="2" y1="48" x2="16" y2="48" strokeWidth="2" />
+      <Line x1="47" y1="48" x2="62" y2="48" strokeWidth="2" />
+      <Line x1="24" y1="48" x2="40" y2="48" strokeWidth="2" />
+    </InternalSVG>
+  </Div>
+);
