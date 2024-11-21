@@ -18,14 +18,13 @@ import {
   type OutputChannelType,
   type Port,
 } from "@/hardware/labjack/device/types";
-
 import {
   inputChan,
   type ReadChan,
   thermocoupleChanZ,
   ZERO_READ_CHAN,
   ZERO_THERMOCOUPLE_CHAN,
-} from "../task/types";
+} from "@/hardware/labjack/task/types";
 
 export interface SelectPortProps extends Select.SingleProps<string, Port> {
   model: ModelKey;
@@ -81,20 +80,6 @@ export const SelectInputChannelType = (props: SelectInputChannelTypeProps) => (
   />
 );
 
-export interface SelectOutputChannelTypeProps
-  extends Omit<
-    Select.ButtonProps<OutputChannelType, KeyedNamed<OutputChannelType>>,
-    "data"
-  > {}
-
-export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
-  <Select.Button<OutputChannelType, KeyedNamed<OutputChannelType>>
-    data={OUTPUT_CHANNEL_TYPES}
-    entryRenderKey="name"
-    {...props}
-  />
-);
-
 export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   InputChannelType,
   KeyedNamed<InputChannelType>
@@ -103,7 +88,6 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   fieldProps: {
     label: "Channel Type",
     onChange: (value, { get, set, path }) => {
-      console.log("did this get overwritten");
       const prevType = get<InputChannelType>(path).value;
       if (prevType === value) return;
       const next = deep.copy(value === "TC" ? ZERO_THERMOCOUPLE_CHAN : ZERO_READ_CHAN);
@@ -126,3 +110,17 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
     ],
   },
 });
+
+export interface SelectOutputChannelTypeProps
+  extends Omit<
+    Select.ButtonProps<OutputChannelType, KeyedNamed<OutputChannelType>>,
+    "data"
+  > {}
+
+export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
+  <Select.Button<OutputChannelType, KeyedNamed<OutputChannelType>>
+    data={OUTPUT_CHANNEL_TYPES}
+    entryRenderKey="name"
+    {...props}
+  />
+);
