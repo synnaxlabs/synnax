@@ -35,6 +35,7 @@ export interface FlattenedNode extends Node {
   index: number;
   depth: number;
   expanded: boolean;
+  path: string;
 }
 
 export const shouldExpand = (node: Node, expanded: string[]): boolean =>
@@ -45,6 +46,7 @@ export interface FlattenProps {
   expanded: string[];
   depth?: number;
   sort?: boolean;
+  path?: string;
 }
 
 export const sortAndSplice = (nodes: Node[], sort: boolean): Node[] => {
@@ -69,17 +71,25 @@ export const flatten = ({
   expanded,
   depth = 0,
   sort = true,
+  path = "",
 }: FlattenProps): FlattenedNode[] => {
   // Sort the first level of the tree independently of the rest
   if (depth === 0 && sort) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
+    const nextPath = `${path + node.key}/`;
     const expand = shouldExpand(node, expanded);
-    flattened.push({ ...node, depth, expanded: expand, index });
+    flattened.push({ ...node, depth, expanded: expand, index, path: nextPath });
     if (expand && node.children != null) {
       node.children = sortAndSplice(node.children, sort);
       flattened.push(
-        ...flatten({ nodes: node.children, expanded, depth: depth + 1, sort }),
+        ...flatten({
+          nodes: node.children,
+          expanded,
+          depth: depth + 1,
+          sort,
+          path: nextPath,
+        }),
       );
     }
   });
