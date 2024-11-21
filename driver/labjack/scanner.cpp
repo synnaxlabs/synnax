@@ -57,8 +57,7 @@ void labjack::ScannerTask::scan() {
     int serial_numbers[LJM_LIST_ALL_SIZE];
     int ip_addresses[LJM_LIST_ALL_SIZE];
     int num_found = 0; {
-        std::lock_guard<std::mutex> lock(labjack::device_mutex);
-        check_err(LJM_ListAll(
+        check_err(labjack::locked::LJM_ListAll_wrapped(
             device_type,
             connection_type,
             &num_found,

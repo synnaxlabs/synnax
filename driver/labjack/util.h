@@ -14,7 +14,31 @@
 #include "LJM_Utilities.h"
 
 namespace labjack {
-inline std::mutex device_mutex;
+// An internal namespace for special labjack methods that cannot be called concurrently.
+namespace locked {
+    // This mutex is reserved for internal use to the namespace only.
+    inline std::mutex _priv_device_mutex;
+    inline int LJM_ListAll_wrapped(int DeviceType, int ConnectionType,
+                    int * NumFound, int * aDeviceTypes, int * aConnectionTypes,
+                                 int * aSerialNumbers, int * aIPAddresses) {
+        std::lock_guard<std::mutex> lock(_priv_device_mutex);
+        return LJM_ListAll(
+                DeviceType,
+                ConnectionType,
+                NumFound,
+                aDeviceTypes,
+                aConnectionTypes,
+                aSerialNumbers,
+                aIPAddresses
+        );
+    }
+
+    inline int LJM_Open_wrapped(int DeviceType, int ConnectionType,
+             const char * Identifier, int * Handle) {
+        std::lock_guard<std::mutex> lock(_priv_device_mutex);
+        return LJM_Open(DeviceType, ConnectionType, Identifier, Handle);
+    }
+}
 
 inline int check_err_internal(
     int err,
@@ -56,10 +80,10 @@ public:
     }
 
     int get_device_handle(std::string serial_number) {
-        std::lock_guard<std::mutex> lock(device_mutex);
+        std::lock_guard<std::mutex> lock(mu);
         if (this->device_handles.find(serial_number) == device_handles.end()) {
             int handle;
-            int err = LJM_Open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &handle);
+            int err = locked::LJM_Open_wrapped(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &handle);
             if (err != 0) {
                 char err_msg[LJM_MAX_NAME_SIZE];
                 LJM_ErrorToString(err, err_msg);
@@ -72,6 +96,7 @@ public:
     }
 
 private:
+    std::mutex mu;
     std::map<std::string, int> device_handles;
 };
 }
