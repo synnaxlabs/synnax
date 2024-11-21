@@ -185,9 +185,6 @@ int main(int argc, char *argv[]) {
         cfg.breaker_config
     );
 
-    // Removed signal handler setup
-
-    // Start input listener thread
     std::thread listener(inputListener);
 
     auto err = task_manager->start();
@@ -196,7 +193,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Wait for shutdown signal
     {
         std::unique_lock<std::mutex> lock(mtx);
         cv.wait(lock, [] { return should_stop; });
@@ -208,7 +204,6 @@ int main(int argc, char *argv[]) {
         task_manager->stop();
     }
 
-    // Join the input listener thread
     listener.join();
 
     LOG(INFO) << "[driver] shutdown complete";
