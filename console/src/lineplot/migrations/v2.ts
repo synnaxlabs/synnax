@@ -104,7 +104,8 @@ export const stateMigration = migrate.createMigration<v1.State, State>({
       ...s.axes,
       axes: Object.fromEntries(
         Object.entries(s.axes.axes).map(([key, value]) => {
-          if (!X_AXIS_KEYS.includes(key as XAxisKey)) return [key, value];
+          if (!X_AXIS_KEYS.includes(key as XAxisKey))
+            return [key, { ...value, labelDirection: "y" }];
           return [key, { ...value, type: "time" }];
         }),
       ) as AxesState["axes"],
