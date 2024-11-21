@@ -822,19 +822,20 @@ export const OrificePlate = ({
     </HandleBoundary>
     <InternalSVG
       color={color}
-      dimensions={{ width: 186, height: 98 }}
+      dimensions={{ width: 93, height: 49 }}
       orientation={orientation}
       scale={scale}
     >
-      <Line x1="0" y1="1" x2="186" y2="1" strokeWidth="2" />
-      <Line x1="0" y1="97" x2="186" y2="97" strokeWidth="2" />
-      <Line x1="1" y1="2" x2="1" y2="98" strokeWidth="2" />
-      <Line x1="185" y1="2" x2="185" y2="98" strokeWidth="2" />
-      <Line x1="52" y1="2" x2="52" y2="40" strokeWidth="2" />
-      <Line x1="52" y1="61" x2="52" y2="98" strokeWidth="2" />
+      <Line x1="0" y1="1" x2="93" y2="1" strokeWidth="2" />
+      <Line x1="0" y1="48" x2="93" y2="48" strokeWidth="2" />
+      <Line x1="1" y1="2" x2="1" y2="49" strokeWidth="2" />
+      <Line x1="92" y1="2" x2="92" y2="49" strokeWidth="2" />
+      <Line x1="26" y1="2" x2="26" y2="20" strokeWidth="2" />
+      <Line x1="26" y1="30" x2="26" y2="49" strokeWidth="2" />
     </InternalSVG>
   </Div>
 );
+
 export interface FilterProps extends SVGBasedPrimitiveProps, DivProps {}
 
 export const Filter = ({
