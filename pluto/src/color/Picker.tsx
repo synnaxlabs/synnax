@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/color/Picker/Picker.css";
+import "@/color/Picker.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { color } from "@/color/core";
+import { useFrequent, useFrequentUpdater } from "@/color/Provider";
+import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
+import { useDebouncedCallback } from "@/hooks";
 import { type Input } from "@/input";
 import { Text } from "@/text";
 
@@ -34,13 +37,32 @@ export const Picker = ({
   onDelete,
   ...props
 }: PickerProps): ReactElement => {
-  const handleChange = (res: ColorResult): void => {
-    if (res.hex === "transparent") onChange(color.ZERO);
-    onChange(new color.Color(res.hex, res.rgb.a));
-  };
+  const updateFreq = useFrequentUpdater();
+  const updateFreqDebounced = useDebouncedCallback(updateFreq, 1000, [updateFreq]);
+
+  const baseHandleChange = useCallback(
+    (c: color.Color): void => {
+      onChange(c);
+      updateFreqDebounced(c);
+    },
+    [onChange, updateFreqDebounced],
+  );
+
+  const pickerHandleChange = useCallback(
+    (res: ColorResult): void => {
+      if (res.hex === "transparent") onChange(color.ZERO);
+      const c = new color.Color(res.hex, res.rgb.a);
+      baseHandleChange(c);
+    },
+    [baseHandleChange, updateFreqDebounced],
+  );
 
   return (
-    <Align.Space direction="y">
+    <Align.Space
+      direction="y"
+      align="start"
+      className={CSS.B("color-picker-container")}
+    >
       {position != null ||
         (onDelete != null && (
           <Align.Space direction="x" justify="spaceBetween">
@@ -56,14 +78,29 @@ export const Picker = ({
             )}
           </Align.Space>
         ))}
-
       <SketchPicker
         className={CSS.B("color-picker")}
         color={new color.Color(value).hex}
-        onChange={handleChange}
+        onChange={pickerHandleChange}
         presetColors={[]}
         {...props}
       />
+      <Frequent onChange={baseHandleChange} />
+    </Align.Space>
+  );
+};
+
+interface FrequentProps extends Omit<ComponentPropsWithoutRef<"div">, "onChange"> {
+  onChange?: (value: color.Color) => void;
+}
+
+const Frequent = ({ onChange }: FrequentProps) => {
+  const frequent = useFrequent();
+  return (
+    <Align.Space direction="x" wrap empty>
+      {frequent.map((c, i) => (
+        <Swatch key={i} value={c} size="tiny" onClick={() => onChange?.(c)} />
+      ))}
     </Align.Space>
   );
 };

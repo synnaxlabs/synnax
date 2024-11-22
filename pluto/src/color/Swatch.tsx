@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/color/Swatch/Swatch.css";
+import "@/color/Swatch.css";
 
 import { type ReactElement, useCallback } from "react";
 
@@ -19,16 +19,17 @@ import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { type UseProps } from "@/dropdown/Dropdown";
 import { Haul } from "@/haul";
-import { type Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
 export interface SwatchProps
-  extends Input.Control<Crude, Color>,
-    Omit<Button.ButtonProps, "onChange" | "value">,
+  extends Omit<Button.ButtonProps, "onChange" | "value" | "size">,
     UseProps,
     Pick<PickerProps, "onDelete" | "position"> {
   allowChange?: boolean;
+  value: Crude;
+  onChange?: (c: Color) => void;
+  size?: Button.ButtonProps["size"] | "tiny";
 }
 
 const HAUL_TYPE = "color";
@@ -43,6 +44,7 @@ export const Swatch = ({
   allowChange = true,
   draggable = true,
   style,
+  onClick,
   ...props
 }: SwatchProps): ReactElement => {
   const { visible, open, close } = Dropdown.use({ onVisibleChange, initialVisible });
@@ -71,35 +73,32 @@ export const Swatch = ({
     canDrop,
   });
 
-  const canChange = onChange != null && allowChange;
+  const canPick = onChange != null && allowChange;
 
   const swatch = (
     <Button.Button
       className={CSS(
         CSS.B("color-swatch"),
-        CSS.size(size),
+        CSS.M(size),
         d.contrast(bg) > 1.5 && d.a > 0.5 && CSS.M("no-border"),
         CSS.dropRegion(canDrop(dragging)),
         className,
       )}
-      disabled={!canChange}
+      disabled={!canPick && onClick == null}
       draggable={draggable}
       onDragStart={() => startDrag([{ type: HAUL_TYPE, key: d.hex }])}
       style={{ backgroundColor: color.cssString(value) }}
       variant="text"
-      onClick={open}
-      size={size}
+      onClick={canPick ? open : onClick}
       tooltip={
-        canChange ? (
-          <Text.Text level="small">Click to change color</Text.Text>
-        ) : undefined
+        canPick ? <Text.Text level="small">Click to change color</Text.Text> : undefined
       }
       {...haulProps}
       {...props}
     />
   );
 
-  if (!canChange) return swatch;
+  if (!canPick) return swatch;
 
   return (
     <Dropdown.Dialog

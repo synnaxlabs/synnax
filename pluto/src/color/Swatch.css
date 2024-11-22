@@ -13,6 +13,7 @@
     border-radius: 1rem;
     aspect-ratio: 1.5;
     transform: scale(0.8);
+    border: var(--pluto-border);
 
     border-color: var(--pluto-gray-l4) !important;
 
@@ -24,5 +25,10 @@
         border: var(--pluto-border-l4) !important;
         border-color: var(--haul-border-color) !important;
         background: var(--haul-background) !important;
+    }
+
+    &.pluto--tiny {
+        width: 3rem;
+        height: 3rem;
     }
 }
