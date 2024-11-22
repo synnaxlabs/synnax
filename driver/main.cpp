@@ -43,13 +43,11 @@
 
 using json = nlohmann::json;
 
-std::unique_ptr<task::Manager> task_manager;
-std::atomic<bool> stopped = false;
 std::mutex mtx;
 std::condition_variable cv;
 bool should_stop = false;
 
-std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
+std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
         const configd::Config &config,
         breaker::Breaker &breaker,
         const std::shared_ptr<synnax::Synnax> &client
@@ -61,18 +59,16 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
         res = client->hardware.retrieveRack(config.rack_name);
     auto err = res.second;
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
-        return retrieveDriverRack(config, breaker, client);
+        return retrieve_driver_rack(config, breaker, client);
     return res;
 }
 
-// Removed signal handlers
+const std::string STOP_COMMAND = "STOP";
 
-// Added input listener function
-void inputListener() {
+void input_listener() {
     std::string input;
     while (std::getline(std::cin, input)) {
-        LOG(INFO) << "[driver] received input: " << input;
-        if (input == "STOP") {
+        if (input == STOP_COMMAND) {
             {
                 std::lock_guard<std::mutex> lock(mtx);
                 should_stop = true;
@@ -117,7 +113,7 @@ int main(int argc, char *argv[]) {
     auto breaker = breaker::Breaker(cfg.breaker_config);
     breaker.start();
     VLOG(1) << "[driver] retrieving meta-data";
-    auto [rack, rack_err] = retrieveDriverRack(cfg, breaker, client);
+    auto [rack, rack_err] = retrieve_driver_rack(cfg, breaker, client);
     breaker.stop();
     if (rack_err) {
         LOG(FATAL) << "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
@@ -178,14 +174,14 @@ int main(int argc, char *argv[]) {
     LOG(INFO) << "[driver] starting task manager";
 
     auto factory = std::make_unique<task::MultiFactory>(std::move(factories));
-    task_manager = std::make_unique<task::Manager>(
+    auto task_manager = std::make_unique<task::Manager>(
         rack,
         client,
         std::move(factory),
         cfg.breaker_config
     );
 
-    std::thread listener(inputListener);
+    std::thread listener(input_listener);
 
     auto err = task_manager->start();
     if (err) {
@@ -198,14 +194,9 @@ int main(int argc, char *argv[]) {
         cv.wait(lock, [] { return should_stop; });
     }
 
-    if (!stopped) {
-        LOG(INFO) << "[driver] received stop command. Shutting down";
-        stopped = true;
-        task_manager->stop();
-    }
-
+    LOG(INFO) << "[driver] received stop command. Shutting down";
+    task_manager->stop();
     listener.join();
-
     LOG(INFO) << "[driver] shutdown complete";
     return 0;
 }

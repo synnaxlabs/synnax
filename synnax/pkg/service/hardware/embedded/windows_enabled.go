@@ -14,6 +14,7 @@ package embedded
 import (
 	"embed"
 	"os/exec"
+	"syscall"
 )
 
 //go:embed assets/driver.exe
@@ -23,5 +24,5 @@ var executable embed.FS
 const driverName = "driver.exe"
 
 func configureSysProcAttr(cmd *exec.Cmd) {
-	return
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP}
 }

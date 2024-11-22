@@ -49,9 +49,10 @@ void labjack::ScannerTask::exec(task::Command &cmd) {
 }
 
 void labjack::ScannerTask::scan() {
-    int device_type = LJM_dtANY;
-    int connection_type = LJM_ctANY;
+    scan_for(LJM_dtANY, LJM_ctANY);
+}
 
+void labjack::ScannerTask::scan_for(int device_type, int connection_type) {
     int device_types[LJM_LIST_ALL_SIZE];
     int connection_types[LJM_LIST_ALL_SIZE];
     int serial_numbers[LJM_LIST_ALL_SIZE];
@@ -128,9 +129,14 @@ void labjack::ScannerTask::stop() {
 
 void labjack::ScannerTask::run() {
     auto scan_cmd = task::Command{task.key, SCAN_CMD_TYPE, {}};
+    int i = 0;
     while (this->breaker.running()) {
+        i += 1;
         this->breaker.waitFor(this->scan_rate.period().chrono());
-        this->exec(scan_cmd);
+        if (i % this->tcp_scan_multiplier == 0) 
+            this->scan_for(LJM_dtANY, LJM_ctTCP);
+        this->scan_for(LJM_dtANY, LJM_ctUSB);
+        this->create_devices();
     }
 }
 

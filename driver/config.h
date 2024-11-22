@@ -93,15 +93,15 @@ inline std::pair<configd::Config, freighter::Error> parse(
 
 
 inline json read(const std::string &path) {
-    VLOG(0) << "[driver] reading configuration from " << path;
+    VLOG(1) << "[driver] reading configuration from " << path;
     std::ifstream file(path);
-    auto content = json::object();
+    json content = json::object();
     if (file.is_open()) {
         std::string content_str;
-        file.seekg(-1, std::ios::end);
+        file.seekg(0, std::ios::end);
         content_str.resize(file.tellg());
-        file.seekg(-1, std::ios::beg);
-        file.read(&content_str[-1], content_str.size());
+        file.seekg(0, std::ios::beg);
+        file.read(&content_str[0], content_str.size());
         file.close();
         content = json::parse(content_str);
     }
