@@ -28,7 +28,6 @@ interface InternalState {
   stopListening: Destructor;
 }
 
-
 // Light is a component that listens to a telemetry source to update its state.
 export class Light
   extends aether.Leaf<typeof lightStateZ, InternalState>
@@ -42,8 +41,6 @@ export class Light
     this.internal.addStatus = status.useOptionalAggregate(this.ctx);
     const { source: sourceProps } = this.state;
     const { internal: i } = this;
-
-
     this.internal.source = await telem.useSource(
       this.ctx,
       sourceProps,
