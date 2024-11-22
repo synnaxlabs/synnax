@@ -75,7 +75,7 @@ export class SetPoint
   }
 }
 
-const withinBoundsProps = z.object({ trueBound: bounds.bounds });
+export const withinBoundsProps = z.object({ trueBound: bounds.bounds });
 
 export type WithinBoundsProps = z.infer<typeof withinBoundsProps>;
 
