@@ -1,10 +1,10 @@
 {
   "version": "v0.35.0",
   "notes": "Synnax Update",
-  "pub_date": "2024-11-22T19:19:03Z",
+  "pub_date": "2024-11-22T19:31:43Z",
   "platforms": {
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUFmWXE2Ujg2R2VzcFdmelJwTmk1RUY1UEJVZ0FUNDI2WFE4UlB6Y0ZNNTJ6RCt0SmNlWHZUYVFzVHNqVkNSa1NYNE1VbldOeVlHaHBveWplK0NORXd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzMyMzAyODQzCWZpbGU6U3lubmF4LmFwcC50YXIuZ3oKTHZRTFQwdVB1SmdEdjNDeFB3T1BRbHl1Uk55NVJKOEtrbTYzejh1VEczTmhaUW5nc2x2azRzZ0tuYWJLRG1XS1dBa28yOGhMS0hlTWJLU3AzYmtYREE9PQo=",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUpXdENJOG9aaGJmOHJRYWdTbDZlbVdEUGxSM3BBZWg2WjJLdkNYYWNST1BOTjJMYy96ajNWeUc1aktMckVWZVFaUUR2OHJvQjJER3R6S1NjTnJuYkFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzMyMzAzNTk5CWZpbGU6U3lubmF4LmFwcC50YXIuZ3oKZXlidjJOS1BqU1huOXJ3RGRBWkFrZGR6MmllZThsSERaNDJicHNLSDZIUUNKOERrby9JNVk5N1E5VnNuV2t3b21PdDREc3VZUjNGRUkrYzZJMytMREE9PQo=",
       "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.35.0-rc/Synnax.app.tar.gz"
     },
     "linux-x86_64": {
@@ -12,7 +12,7 @@
       "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.35.0-rc/Synnax.app.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUVLMG1sQmRQNFBHUWZCa2hGbit4ZEdEempVa3JIZGYyR0d3SDFPYVcrQkFsazFEdE5DM2VtVW1VNTE5aHMwTy8vTnphaDZoeXIrTWxPU3RCWXlDTlFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzMyMzAyOTU5CWZpbGU6U3lubmF4XzAuMzUuMF94NjRfZW4tVVMubXNpClByZ1JaRzFmOGVKOXlKamczeWphTTlQNHljUEdTNGJtcW1PRk5vQ0p1UTRBazhsY3lrdjBkSkFTYkx1aHdTamttZmI2R1hMaUc1VlU4akM1S3VmeEFRPT0K",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUxsYUpSd0s1ZFJGOEhIdW8xbTRDaUZxVlBFV1ZwdUh5Mk1CRUJQcVRXVHBsV1ZoR3lJOStidTRVZmFYU0RTamM5YnFrM2E3dDU1V2IwRWYzV0RuQ1FnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzMyMzAzNzQ1CWZpbGU6U3lubmF4XzAuMzUuMF94NjRfZW4tVVMubXNpCmU1VWFoUldBLzRrVmdUZnNtZzQzTGZYS2Z1SUZCcWV5NXJxQmRFWE1DRE9ET2plUkxIaU9QbTdhK3lEMUs1cnlMR3FWeXJjVFpGVS9RSTYwZUgwakRBPT0K",
       "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.35.0-rc/Synnax_0.35.0_x64_en-US.msi"
     }
   }
