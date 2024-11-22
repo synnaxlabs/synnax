@@ -80,14 +80,12 @@
             border-radius: 50%;
             z-index: 1;
         }
-        & .pluto-symbol {
-            &:hover {
-                .react-flow__handle {
-                    border-color: var(--pluto-primary-z) !important;
-                    background: var(--pluto-text-color) !important;
-                    &:hover {
-                        background: var(--pluto-primary-z) !important;
-                    }
+        & .react-flow__node:hover {
+            .react-flow__handle {
+                border-color: var(--pluto-primary-z) !important;
+                background: var(--pluto-text-color) !important;
+                &:hover {
+                    background: var(--pluto-primary-z) !important;
                 }
             }
         }
