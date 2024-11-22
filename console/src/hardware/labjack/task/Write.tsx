@@ -28,9 +28,13 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useDevice } from "@/hardware/device/useDevice";
-import { SelectOutputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
+import {
+  SelectOutputChannelTypeField,
+  SelectPort,
+} from "@/hardware/labjack/device/Select";
 import {
   type ChannelType,
+  DEVICES,
   type ModelKey,
   type OutputChannelType,
   type Properties,
@@ -40,6 +44,7 @@ import {
   type Write,
   WRITE_TYPE,
   type WriteChan,
+  writeChan,
   type WritePayload,
   type WriteStateDetails,
   type WriteTaskConfig,
@@ -344,11 +349,29 @@ const ChannelForm = ({
 }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
   const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ?? "DO";
+  const model = (device?.model ?? "LJM_dtT4") as ModelKey;
   return (
     <Align.Space direction="y" grow>
-      <Form.Field<OutputChannelType> path={`${prefix}.type`} label="Type" hideIfNull>
-        {(p) => <SelectOutputChannelType grow {...p} />}
-      </Form.Field>
+      <SelectOutputChannelTypeField
+        path={prefix}
+        onChange={(value, ctx) => {
+          const prevType = ctx.get<OutputChannelType>(ctx.path).value;
+          if (prevType === value) return;
+          const next = deep.copy(ZERO_WRITE_CHAN);
+          const parentPath = ctx.path.slice(0, ctx.path.lastIndexOf("."));
+          const prevParent = ctx.get<WriteChan>(parentPath).value;
+          const schema = writeChan;
+          const port = DEVICES[model].ports[value][0].key;
+          ctx.set(parentPath, {
+            ...deep.overrideValidItems(next, prevParent, schema),
+            type: next.type,
+          });
+          // Need to explicitly set port to cause select port field to rerender
+          ctx.set(`${parentPath}.port`, port);
+        }}
+        inputProps={{ allowNone: false }}
+        grow
+      />
       <Form.Field<string> path={`${prefix}.port`} label="Port" grow hideIfNull>
         {(p) => (
           <SelectPort
@@ -419,8 +442,8 @@ const ChannelList = ({
             replaceOnSingle
           >
             <List.Core<string, WriteChan> grow>
-              {(props) => (
-                <ChannelListItem {...props} snapshot={snapshot} path={path} />
+              {({ key, ...props }) => (
+                <ChannelListItem key={key} {...props} snapshot={snapshot} path={path} />
               )}
             </List.Core>
           </List.Selector>
@@ -463,7 +486,6 @@ const ChannelListItem = ({
     path: `${path}.${props.index}.cmdKey`,
     optional: true,
   });
-  console.log(cmdChannelState);
   const cmdChannel = cmdChannelState?.status.variant === "success";
 
   const locationValid =

@@ -318,8 +318,9 @@ const ChannelForm = ({
             set(parentPath, {
               ...deep.overrideValidItems(next, prevParent, schema),
               type: next.type,
-              port,
             });
+            // Need to explicitly set port to cause select port field to rerender
+            set(`${parentPath}.port`, port);
           }}
           inputProps={{ allowNone: false }}
           grow
