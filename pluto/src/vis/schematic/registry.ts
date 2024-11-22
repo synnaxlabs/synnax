@@ -155,6 +155,9 @@ import {
   ThreeWayValve,
   ThreeWayValvePreview,
   type ThreeWayValveProps,
+  TJunction,
+  TJunctionPreview,
+  type TJunctionProps,
   VacuumPump,
   VacuumPumpPreview,
   type VacuumPumpProps,
@@ -231,6 +234,7 @@ const VARIANTS = [
   "value",
   "valve",
   "vent",
+  "tJunction",
 ] as const;
 
 export const typeZ = z.enum(VARIANTS);
@@ -1008,10 +1012,25 @@ const vent: Spec<VentProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const tJunction: Spec<TJunctionProps> = {
+  name: "T Junction",
+  key: "tJunction",
+  Form: CommonStyleForm,
+  Symbol: TJunction,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel(""),
+    ...ZERO_PROPS,
+  }),
+  Preview: TJunctionPreview,
+  zIndex: Z_INDEX_UPPER + 20,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
   tank,
+  tJunction,
   switch: switch_,
   offPageReference,
   light,

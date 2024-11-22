@@ -10,8 +10,10 @@
 import { type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
+export const PREFIX = "opc";
+
 // Reads
-export const READ_TYPE = "opc_read";
+export const READ_TYPE = `${PREFIX}_read`;
 export type ReadType = typeof READ_TYPE;
 
 export type ReadChannelConfig = z.infer<typeof readChanZ>;
@@ -186,7 +188,7 @@ export const nodeIdToString = (nodeId: NodeId): string => {
 };
 
 // Writes
-export const WRITE_TYPE = "opc_write";
+export const WRITE_TYPE = `${PREFIX}_write`;
 export type WriteType = typeof WRITE_TYPE;
 
 export type WriteChannelConfig = z.infer<typeof writeChanZ>;
