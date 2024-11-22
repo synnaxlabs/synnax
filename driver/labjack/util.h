@@ -16,28 +16,29 @@
 namespace labjack {
 // An internal namespace for special labjack methods that cannot be called concurrently.
 namespace locked {
-    // This mutex is reserved for internal use to the namespace only.
-    inline std::mutex _priv_device_mutex;
-    inline int LJM_ListAll_wrapped(int DeviceType, int ConnectionType,
-                    int * NumFound, int * aDeviceTypes, int * aConnectionTypes,
-                                 int * aSerialNumbers, int * aIPAddresses) {
-        std::lock_guard<std::mutex> lock(_priv_device_mutex);
-        return LJM_ListAll(
-                DeviceType,
-                ConnectionType,
-                NumFound,
-                aDeviceTypes,
-                aConnectionTypes,
-                aSerialNumbers,
-                aIPAddresses
-        );
-    }
+// This mutex is reserved for internal use to the namespace only.
+inline std::mutex _priv_device_mutex;
 
-    inline int LJM_Open_wrapped(int DeviceType, int ConnectionType,
-             const char * Identifier, int * Handle) {
-        std::lock_guard<std::mutex> lock(_priv_device_mutex);
-        return LJM_Open(DeviceType, ConnectionType, Identifier, Handle);
-    }
+inline int LJM_ListAll_wrapped(int DeviceType, int ConnectionType,
+                               int *NumFound, int *aDeviceTypes, int *aConnectionTypes,
+                               int *aSerialNumbers, int *aIPAddresses) {
+    std::lock_guard<std::mutex> lock(_priv_device_mutex);
+    return LJM_ListAll(
+        DeviceType,
+        ConnectionType,
+        NumFound,
+        aDeviceTypes,
+        aConnectionTypes,
+        aSerialNumbers,
+        aIPAddresses
+    );
+}
+
+inline int LJM_Open_wrapped(int DeviceType, int ConnectionType,
+                            const char *Identifier, int *Handle) {
+    std::lock_guard<std::mutex> lock(_priv_device_mutex);
+    return LJM_Open(DeviceType, ConnectionType, Identifier, Handle);
+}
 }
 
 inline int check_err_internal(
@@ -55,7 +56,7 @@ inline int check_err_internal(
 
     // Get additional description if available
     std::string description = "";
-    const auto& error_map = GetErrorDescriptions();  // Changed this line
+    const auto &error_map = GetErrorDescriptions(); // Changed this line
     if (auto it = error_map.find(err_msg); it != error_map.end()) {
         description = ": " + it->second;
     }

@@ -48,9 +48,9 @@ std::condition_variable cv;
 bool should_stop = false;
 
 std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
-        const configd::Config &config,
-        breaker::Breaker &breaker,
-        const std::shared_ptr<synnax::Synnax> &client
+    const configd::Config &config,
+    breaker::Breaker &breaker,
+    const std::shared_ptr<synnax::Synnax> &client
 ) {
     std::pair<synnax::Rack, freighter::Error> res;
     if (config.rack_key != 0)
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
     auto cfg_json = configd::read(config_path);
     if (cfg_json.empty())
         LOG(INFO) << "[driver] no configuration found at " << config_path <<
-                  ". We'll just use the default configuration";
+                ". We'll just use the default configuration";
     else {
         LOG(INFO) << "[driver] loaded configuration from " << config_path;
     }
@@ -117,14 +117,14 @@ int main(int argc, char *argv[]) {
     breaker.stop();
     if (rack_err) {
         LOG(FATAL) << "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
-                   << rack_err;
+                << rack_err;
         return 1;
     }
 
     // auto meminfo_factory = std::make_unique<meminfo::Factory>();
     auto heartbeat_factory = std::make_unique<heartbeat::Factory>();
 
-    std::vector<std::shared_ptr<task::Factory>> factories = {
+    std::vector<std::shared_ptr<task::Factory> > factories = {
         // std::move(meminfo_factory),
         std::move(heartbeat_factory)
     };
@@ -187,9 +187,7 @@ int main(int argc, char *argv[]) {
     if (err) {
         LOG(FATAL) << "[driver] failed to start: " << err;
         return 1;
-    }
-
-    {
+    } {
         std::unique_lock<std::mutex> lock(mtx);
         cv.wait(lock, [] { return should_stop; });
     }

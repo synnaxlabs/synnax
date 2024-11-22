@@ -91,7 +91,6 @@ inline std::pair<configd::Config, freighter::Error> parse(
 }
 
 
-
 inline json read(const std::string &path) {
     VLOG(1) << "[driver] reading configuration from " << path;
     std::ifstream file(path);
@@ -107,5 +106,4 @@ inline json read(const std::string &path) {
     }
     return content;
 }
-
 }

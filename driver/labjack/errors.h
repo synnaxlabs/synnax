@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <string>
 
-inline const std::unordered_map<std::string, std::string>& GetErrorDescriptions(){
+inline const std::unordered_map<std::string, std::string> &GetErrorDescriptions() {
     static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
         {"LJ_SUCCESS", ""},
         {"LJME_WARNINGS_BEGIN", "This indicates where the warning codes start is not a real warning code."},

@@ -133,7 +133,7 @@ void labjack::ScannerTask::run() {
     while (this->breaker.running()) {
         i += 1;
         this->breaker.waitFor(this->scan_rate.period().chrono());
-        if (i % this->tcp_scan_multiplier == 0) 
+        if (i % this->tcp_scan_multiplier == 0)
             this->scan_for(LJM_dtANY, LJM_ctTCP);
         this->scan_for(LJM_dtANY, LJM_ctUSB);
         this->create_devices();

@@ -18,8 +18,7 @@ const std::string INTEGRATION_NAME = "labjack";
 
 class Factory final : public task::Factory {
 public:
-
-    Factory() = default; 
+    Factory() = default;
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
