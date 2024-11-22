@@ -14,6 +14,8 @@ import { z } from "zod";
 import type * as v0 from "@/hardware/ni/task/migrations/v0";
 import { thermocoupleTypeZ } from "@/hardware/task/common/thermocouple";
 
+export const PREFIX = "ni";
+
 export const unitsVoltsZ = z.literal("Volts");
 export type UnitsVolts = z.infer<typeof unitsVoltsZ>;
 export const unitsAmpsZ = z.literal("Amps");
@@ -1645,7 +1647,7 @@ export type AnalogReadStateDetails =
   | ErrorAnalogReadStateDetails;
 export type AnalogReadTaskState = task.State<AnalogReadStateDetails>;
 
-export const ANALOG_READ_TYPE = "ni_analog_read";
+export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
 export type AnalogReadType = typeof ANALOG_READ_TYPE;
 
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadTaskConfig = {
@@ -1673,7 +1675,7 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 };
 
 export type DigitalWriteConfig = z.infer<typeof digitalWriteConfigZ>;
-export const DIGITAL_WRITE_TYPE = "ni_digital_write";
+export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
 export type DigitalWriteType = typeof DIGITAL_WRITE_TYPE;
 export const digitalWriteConfigZ = z.object({
   device: deviceKeyZ,
@@ -1718,7 +1720,7 @@ export const digitalReadConfigZ = z.object({
   channels: z.array(digitalReadChannelZ),
 });
 export type DigitalReadConfig = z.infer<typeof digitalReadConfigZ>;
-export const DIGITAL_READ_TYPE = "ni_digital_read";
+export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
 export type DigitalReadType = typeof DIGITAL_READ_TYPE;
 export const digitalReadStateDetailsZ = z.object({
   running: z.boolean(),
@@ -1752,7 +1754,7 @@ export const scanConfigZ = z.object({
   enabled: z.boolean().optional().default(true),
 });
 export type ScanConfig = z.infer<typeof scanConfigZ>;
-export const SCAN_TYPE = "ni_scanner";
+export const SCAN_TYPE = `${PREFIX}_scanner`;
 export type ScanType = typeof SCAN_TYPE;
 export type Scan = task.Task<ScanConfig, task.State, ScanType>;
 
