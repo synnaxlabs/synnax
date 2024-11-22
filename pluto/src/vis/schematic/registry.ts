@@ -1019,7 +1019,7 @@ const tJunction: Spec<TJunctionProps> = {
   Symbol: TJunction,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    ...zeroLabel("T Junction"),
+    ...zeroLabel(""),
     ...ZERO_PROPS,
   }),
   Preview: TJunctionPreview,
