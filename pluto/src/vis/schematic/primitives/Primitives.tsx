@@ -2465,3 +2465,39 @@ export const AngledSpringLoadedReliefValve = ({
     </Div>
   );
 };
+
+export interface TJunctionProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const TJunction = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: TJunctionProps): ReactElement => (
+  <Div className={CSS(CSS.B("t-junction"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1.6667} top={20} id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={98.3333}
+        top={20}
+        id="2"
+      />
+      <Handle location="bottom" orientation={orientation} left={50} top={95} id="3" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 36, height: 18 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path
+        d="M0 4V2C0 0.895431 0.895431 0 2 0H34C35.1046 0 36 0.89543 36 2V4C36 5.10457 35.1046 6 34 6H23C21.8954 6 21 6.89543 21 8V16C21 17.1046 20.1046 18 19 18H17C15.8954 18 15 17.1046 15 16V8C15 6.89543 14.1046 6 13 6H2C0.895431 6 0 5.10457 0 4Z"
+        fill={Color.cssString(color)}
+        stroke="none"
+      />
+    </InternalSVG>
+  </Div>
+);

@@ -1613,3 +1613,22 @@ export const ISOBurstDisc = ({
 export const ISOBurstDiscPreview = (props: ISOBurstDiscProps): ReactElement => (
   <Primitives.ISOBurstDisc {...props} />
 );
+
+export interface TJunctionProps extends Primitives.TJunctionProps {
+  label?: LabelExtensionProps;
+}
+
+export const TJunction = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<TJunctionProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.TJunction {...rest} />
+  </Labeled>
+);
+
+export const TJunctionPreview = (props: TJunctionProps): ReactElement => (
+  <Primitives.TJunction {...props} />
+);
