@@ -2259,8 +2259,8 @@ export const ISOFilter = ({
 }: ISOFilterProps): ReactElement => (
   <Div className={CSS(CSS.B("iso-filter"), className)} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={95} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={5} top={50} id="2" />
+      <Handle location="right" orientation={orientation} left={95} top={50} id="1" />
+      <Handle location="left" orientation={orientation} left={5} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 60, height: 42 }}
@@ -2435,7 +2435,7 @@ export const AngledSpringLoadedReliefValve = ({
           location="bottom"
           orientation={orientation}
           left={31.8182}
-          top={97.1995}
+          top={98}
           id="1"
         />
         <Handle
