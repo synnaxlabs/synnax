@@ -130,8 +130,15 @@ const ConfigureInternal = ({
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const testConnection = useMutation<void, Error, void>({
     mutationKey: [client?.key],
+    onError: (e) =>
+      addStatus({
+        variant: "error",
+        message: "Failed to test connection",
+        description: e.message,
+      }),
     mutationFn: async () => {
-      if (!methods.validate("connection") || client == null) return;
+      if (client == null) throw new Error("Client is not available");
+      if (!methods.validate("connection")) throw new Error("Invalid configuration");
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const task = await rack.retrieveTaskByName("opc Scanner");
       const t = await task.executeCommandSync<TestConnCommandResponse>(
@@ -141,16 +148,21 @@ const ConfigureInternal = ({
       );
       setConnState(t);
     },
-    onError: (e) => addStatus({ variant: "error", message: e.message }),
   });
 
   const confirm = useMutation<void, Error, void>({
     mutationKey: [client?.key],
-    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    onError: (e) =>
+      addStatus({
+        variant: "error",
+        message: "Failed to connect to OPC UA server",
+        description: e.message,
+      }),
     mutationFn: async () => {
-      if (!methods.validate() || client == null) return;
+      if (client == null) throw new Error("Client is not available");
+      if (!methods.validate()) throw new Error("Invalid configuration");
       await testConnection.mutateAsync();
-      if (connState?.variant !== "success") return;
+      if (connState?.variant !== "success") throw new Error("Connection test failed");
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const key = layoutKey === CONFIGURE_LAYOUT_TYPE ? uuid() : layoutKey;
       await client.hardware.devices.create({

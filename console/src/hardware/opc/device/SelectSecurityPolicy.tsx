@@ -19,11 +19,11 @@ interface SecurityPolicyInfo {
 
 const SECURITY_POLICIES: SecurityPolicyInfo[] = [
   { key: "None", name: "None" },
-  { key: "Basic128Rsa15", name: "Basic 128-bit (SHA-1)" },
-  { key: "Basic256", name: "Basic 256-bit (SHA-1)" },
-  { key: "Basic256Sha256", name: "Basic 256-bit (SHA-256)" },
-  { key: "Aes128_Sha256_RsaOaep", name: "AES 128-bit (SHA-256, RSA-OAEP)" },
-  { key: "Aes256_Sha256_RsaPss", name: "AES 256-bit (SHA-256, RSA-PSS)" },
+  { key: "Basic128Rsa15", name: "Basic128Rsa15" },
+  { key: "Basic256", name: "Basic256" },
+  { key: "Basic256Sha256", name: "Basic256Sha256" },
+  { key: "Aes128_Sha256_RsaOaep", name: "Aes128_Sha256_RsaOaep" },
+  { key: "Aes256_Sha256_RsaPss", name: "Aes256_Sha256_RsaPss" },
 ];
 
 export interface SelectSecurityPolicyProps

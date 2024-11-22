@@ -46,6 +46,11 @@ export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   endpoint: "opc.tcp://localhost:4840",
   securityMode: "None",
   securityPolicy: "None",
+  username: "",
+  password: "",
+  clientCertificate: "",
+  clientPrivateKey: "",
+  serverCertificate: "",
 };
 
 export const scannedNodeZ = z.object({
