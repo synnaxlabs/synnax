@@ -97,7 +97,7 @@ public:
     }
 
     void close_device(std::string serial_number) {
-        std::lock_guard<std::mutex> lock(device_mutex);
+        std::lock_guard<std::mutex> lock(mu);
         if (this->device_handles.find(serial_number) != device_handles.end()) {
             int handle = device_handles[serial_number];
             LJM_Close(handle);
