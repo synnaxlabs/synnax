@@ -83,7 +83,7 @@ export class Value
 
   private get fontHeight(): number {
     const { theme } = this.internal;
-    return Math.round(theme.typography[this.state.level].size * theme.sizes.base);
+    return theme.typography[this.state.level].size * theme.sizes.base;
   }
 
   private maybeUpdateWidth(width: number) {
@@ -110,7 +110,6 @@ export class Value
       code: true,
     });
     canvas.font = fontString;
-    console.log(canvas.font, fontString);
     const fontHeight = this.fontHeight;
     const isNegative = value[0] == "-";
     if (isNegative) value = value.slice(1);
@@ -126,15 +125,9 @@ export class Value
       x: 6 + fontHeight * 0.75,
       y: box.height(b) / 2,
     });
-    canvas.strokeStyle = new color.Color("#FFFF00").hex;
-    canvas.rect(
-      ...xy.couple(xy.translate(box.topLeft(b), { x: 1, y: 1 })),
-      ...xy.couple(box.dims(b)),
-    );
 
     canvas.textBaseline = "middle";
     canvas.fillStyle = this.internal.textColor.hex;
-    canvas.textRendering = "optimizeSpeed";
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.
     if (isNegative)
