@@ -834,3 +834,38 @@ export const OffPageReferenceForm = (): ReactElement => (
     <OrientationControl path="" showOuter={false} />
   </FormWrapper>
 );
+
+export const CylinderForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow empty>
+      <LabelControls path="label" />
+      <Align.Space direction="x">
+        <ColorControl path="color" />
+        <ColorControl path="backgroundColor" label="Background Color" />
+        <Form.Field<number> path="dimensions.width" label="Width" grow>
+          {({ value, ...props }) => (
+            <Input.Numeric
+              value={value ?? 200}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
+              {...props}
+            />
+          )}
+        </Form.Field>
+        <Form.Field<number> path="dimensions.height" label="Height" grow>
+          {({ value, ...props }) => (
+            <Input.Numeric
+              value={value ?? 200}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
+              {...props}
+            />
+          )}
+        </Form.Field>
+      </Align.Space>
+    </Align.Space>
+    <OrientationControl path="" showInner={false} />
+  </FormWrapper>
+);
