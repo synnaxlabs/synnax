@@ -10,7 +10,7 @@
 import { ConfigureRead, READ_SELECTABLE } from "@/hardware/labjack/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/hardware/labjack/task/types";
 import { ConfigureWrite, WRITE_SELECTABLE } from "@/hardware/labjack/task/Write";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export * from "@/hardware/labjack/task/common";
 export * from "@/hardware/labjack/task/Read";

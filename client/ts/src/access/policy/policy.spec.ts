@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { policy } from "@/access/policy";
+import { type policy } from "@/access/policy";
 import { channel } from "@/channel";
 import Synnax from "@/client";
 import { AuthError } from "@/errors";
@@ -209,9 +209,7 @@ describe("Policy", () => {
         },
       ]);
       const received = await client.access.policy.retrieveFor(user.ontologyID(key2));
-      const newReceived = received.filter((p) => {
-        return created.some((c) => c.key === p.key);
-      });
+      const newReceived = received.filter((p) => created.some((c) => c.key === p.key));
       expect(created[0]).toMatchObject(newReceived[0]);
       await client.access.policy.delete([created[0].key, created[1].key]);
     });

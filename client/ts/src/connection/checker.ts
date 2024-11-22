@@ -48,7 +48,7 @@ const generateWarning = (
   clientIsNewer: boolean,
 ): string => {
   const toUpgrade = clientIsNewer ? "cluster" : "client";
-  return `Synnax cluster node version ${nodeVersion != null ? nodeVersion + " " : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
+  return `Synnax cluster node version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
   This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see
   https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-${toUpgrade}-version`;
 };

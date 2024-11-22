@@ -261,7 +261,7 @@ export const useCreateFromSelection = (): ((
         },
       });
       nextNodes = Tree.moveNode({
-        tree: nodes,
+        tree: nextNodes,
         destination: newID.toString(),
         keys: resourcesToGroup.map((id) => id.toString()),
       });

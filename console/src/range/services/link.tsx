@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { Link } from "@/link";
+import { type Link } from "@/link";
 import { overviewLayout } from "@/range/external";
 import { add, setActive } from "@/range/slice";
 import { fromClientRange } from "@/range/Toolbar";

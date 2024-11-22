@@ -43,9 +43,13 @@ var _ = Describe("Rename", Ordered, func() {
 			It("Should rename the channel without error", func() {
 				Expect(services[1].Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
 				Eventually(func(g Gomega) {
-					g.Expect(services[1].NewRetrieve().WhereKeys(ch.Key()).Exec(ctx, nil)).To(Succeed())
-					g.Expect(ch.Name).To(Equal("SG03"))
-				})
+					var resCh channel.Channel
+					g.Expect(services[1].NewRetrieve().
+						WhereKeys(ch.Key()).
+						Entry(&resCh).Exec(ctx, nil),
+					).To(Succeed())
+					g.Expect(resCh.Name).To(Equal("SG03"))
+				}).Should(Succeed())
 			})
 		})
 		Context("Node is remote", func() {
@@ -53,10 +57,52 @@ var _ = Describe("Rename", Ordered, func() {
 			It("Should rename the channel without error", func() {
 				Expect(services[2].Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
 				Eventually(func(g Gomega) {
-					g.Expect(services[2].NewRetrieve().WhereKeys(ch.Key()).Exec(ctx, nil)).To(Succeed())
-					g.Expect(ch.Name).To(Equal("SG03"))
-				})
+					var resCh channel.Channel
+					g.Expect(services[2].NewRetrieve().
+						WhereKeys(ch.Key()).
+						Entry(&resCh).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(resCh.Name).To(Equal("SG03"))
+				}).Should(Succeed())
 			})
+		})
+	})
+	Context("Multiple channels", func() {
+		It("Should rename the channels without error", func() {
+			ch1 := channel.Channel{
+				Name:     "fermat",
+				Rate:     2 * telem.Hz,
+				DataType: telem.Int64T,
+			}
+			ch2 := channel.Channel{
+				Name:     "laplace",
+				Rate:     2 * telem.Hz,
+				DataType: telem.Float32T,
+			}
+			ch3 := channel.Channel{
+				Name:        "newton",
+				DataType:    telem.StringT,
+				Leaseholder: core.Free,
+				Virtual:     true,
+			}
+			channels := []channel.Channel{ch1, ch2, ch3}
+			Expect(services[1].CreateMany(ctx, &channels)).To(Succeed())
+			keys := channel.KeysFromChannels(channels)
+			Expect(services[1].RenameMany(
+				ctx,
+				keys,
+				[]string{"fermat1", "laplace1", "newton1"},
+				false,
+			)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				var resChannels []channel.Channel
+				g.Expect(services[1].NewRetrieve().WhereKeys(keys...).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+				Expect(channel.KeysFromChannels(resChannels)).To(Equal(keys))
+				g.Expect(resChannels[0].Name).To(Equal("fermat1"))
+				g.Expect(resChannels[1].Name).To(Equal("laplace1"))
+				g.Expect(resChannels[2].Name).To(Equal("newton1"))
+			}).Should(Succeed())
 		})
 	})
 })

@@ -9,7 +9,7 @@
 
 import "@synnaxlabs/media/dist/style.css";
 
-import { FC, type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";

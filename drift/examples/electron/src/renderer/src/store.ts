@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice, combineReducers } from '@reduxjs/toolkit'
-
-import { reducer as driftReducer, configureStore } from '@synnaxlabs/drift'
+import { combineReducers, createSlice } from '@reduxjs/toolkit'
+import { configureStore, reducer as driftReducer } from '@synnaxlabs/drift'
 import { ElectronRuntime } from '@synnaxlabs/drift/electron'
 
 const counterSlice = createSlice({

@@ -34,12 +34,11 @@ const createConverter = (
     Object.keys(anyObj).forEach((key) => {
       let value = anyObj[key];
       const nkey = f(key);
-      if (opt.recursive) {
+      if (opt.recursive)
         if (isValidObject(value)) {
-          if (!belongToTypes(value, opt.keepTypesOnRecursion)) {
+          if (!belongToTypes(value, opt.keepTypesOnRecursion))
             value = converter(value, opt);
-          }
-        } else if (opt.recursiveInArray && isArrayObject(value)) {
+        } else if (opt.recursiveInArray && isArrayObject(value))
           value = [...value].map((v) => {
             let ret = v;
             if (isValidObject(v)) {
@@ -54,8 +53,6 @@ const createConverter = (
             }
             return ret;
           });
-        }
-      }
       res[nkey] = value;
     });
 
@@ -76,12 +73,10 @@ const createConverter = (
  */
 export const snakeToCamel = createConverter(snakeToCamelStr);
 
-const camelToSnakeStr = (str: string): string => {
+const camelToSnakeStr = (str: string): string =>
   // Don't convert the first character and don't convert a character that is after a
   // non-alphanumeric character
-  return str.replace(/([a-z0-9])([A-Z])/g, (_, p1, p2) => `${p1}_${p2.toLowerCase()}`);
-};
-
+  str.replace(/([a-z0-9])([A-Z])/g, (_, p1, p2) => `${p1}_${p2.toLowerCase()}`);
 export const camelToSnake = createConverter(camelToSnakeStr);
 
 /**
@@ -121,11 +116,8 @@ export const defaultOptions: Options = {
 };
 
 export const validateOptions = (opt: Options = defaultOptions): Options => {
-  if (opt.recursive == null) {
-    opt = defaultOptions;
-  } else if (opt.recursiveInArray == null) {
-    opt.recursiveInArray = false;
-  }
+  if (opt.recursive == null) opt = defaultOptions;
+  else opt.recursiveInArray ??= false;
   return opt;
 };
 

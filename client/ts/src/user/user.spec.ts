@@ -183,9 +183,8 @@ describe("User", () => {
           });
         });
         test("not found", async () => {
-          for (const u of userArray) {
+          for (const u of userArray)
             await expect(client.user.delete(u.key as string)).resolves.toBeUndefined();
-          }
           await expect(
             client.user.retrieve(userArray.map((u) => u.key as string)),
           ).rejects.toThrow(NotFoundError);

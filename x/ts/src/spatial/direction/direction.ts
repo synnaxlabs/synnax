@@ -29,7 +29,7 @@ export type Crude = CrudeDirection;
 export const construct = (c: Crude): Direction => {
   if (DIRECTIONS.includes(c as Direction)) return c as Direction;
   if (Y_LOCATIONS.includes(c as YLocation)) return "y";
-  else return "x";
+  return "x";
 };
 
 export const swap = (direction: CrudeDirection): Direction =>

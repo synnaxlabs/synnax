@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -21,8 +21,8 @@ import {
   useAsyncEffect,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import { change, deep } from "@synnaxlabs/x";
-import { FC, ReactElement, useEffect, useState } from "react";
+import { type change, deep } from "@synnaxlabs/x";
+import { type FC, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -32,7 +32,7 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { overviewLayout } from "@/range/external";
 import { useSelect } from "@/range/selectors";
-import { add, StaticRange } from "@/range/slice";
+import { add, type StaticRange } from "@/range/slice";
 
 interface ParentRangeButtonProps {
   rangeKey: string;

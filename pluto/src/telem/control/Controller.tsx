@@ -51,9 +51,7 @@ export const Controller = Aether.wrap<ControllerProps>(
     useEffect(() => {
       setState((state) => ({ ...state, ...memoProps }));
     }, [memoProps, setState]);
-    useEffect(() => {
-      return () => onStatusChange?.("released");
-    }, []);
+    useEffect(() => () => onStatusChange?.("released"), []);
 
     return (
       <Context.Provider value={{ needsControlOf }}>

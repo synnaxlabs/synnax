@@ -11,7 +11,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import {
-  CrudeDataType,
+  type CrudeDataType,
   DataType,
   Density,
   Rate,
@@ -547,19 +547,13 @@ describe("DataType", () => {
         DataType.FLOAT32,
         DataType.FLOAT64,
       ];
-      for (const from of numericTypes) {
-        for (const to of numericTypes) {
-          expect(from.canCastTo(to)).toBe(true);
-        }
-      }
+      for (const from of numericTypes)
+        for (const to of numericTypes) expect(from.canCastTo(to)).toBe(true);
     });
     it("should return true for non-numeric data types ONLY if they are equal", () => {
       const nonNumericTypes = [DataType.STRING, DataType.BOOLEAN];
-      for (const from of nonNumericTypes) {
-        for (const to of nonNumericTypes) {
-          expect(from.canCastTo(to)).toBe(from === to);
-        }
-      }
+      for (const from of nonNumericTypes)
+        for (const to of nonNumericTypes) expect(from.canCastTo(to)).toBe(from === to);
     });
   });
 

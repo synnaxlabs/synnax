@@ -29,9 +29,6 @@ import {
 
 class MyCustomError extends BaseTypedError {
   type = "MyCustomError";
-  constructor(message: string) {
-    super(message);
-  }
 }
 
 const myCustomErrorEncoder = (error: MyCustomError): ErrorPayload | null => {
@@ -39,9 +36,8 @@ const myCustomErrorEncoder = (error: MyCustomError): ErrorPayload | null => {
   return { type: "MyCustomError", data: error.message };
 };
 
-const myCustomErrorDecoder = (encoded: ErrorPayload): TypedError => {
-  return new MyCustomError(encoded.data);
-};
+const myCustomErrorDecoder = (encoded: ErrorPayload): TypedError =>
+  new MyCustomError(encoded.data);
 
 describe("errors", () => {
   test("isTypedError", () => {

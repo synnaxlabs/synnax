@@ -11,7 +11,7 @@ import { axis } from "@synnaxlabs/pluto";
 import { bounds, migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { X_AXIS_KEYS, XAxisKey } from "@/lineplot/axis";
+import { X_AXIS_KEYS, type XAxisKey } from "@/lineplot/axis";
 import * as v0 from "@/lineplot/migrations/v0";
 import * as v1 from "@/lineplot/migrations/v1";
 

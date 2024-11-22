@@ -7,6 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import synnaxConfig from "eslint-config-synnaxlabs";
+import { includeIgnoreFile } from "@eslint/compat";
+import baseConfig from "eslint-config-synnaxlabs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-export default synnaxConfig
+const filename = fileURLToPath(import.meta.url);
+const dirname = path.dirname(filename);
+const gitignorePaths = [".gitignore", "src-tauri/.gitignore"];
+
+const ignoredFiles = gitignorePaths.map((p) => {
+  const gitignorePath = path.join(dirname, p);
+  return includeIgnoreFile(gitignorePath);
+});
+
+export default [...ignoredFiles, ...baseConfig, { ignores: [".vite/"] }];

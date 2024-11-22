@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { clamp } from "@/clamp/clamp";
-import { numeric } from "@/numeric";
+import { type numeric } from "@/numeric";
 import * as bounds from "@/spatial/bounds/bounds";
 import { type Box, isBox } from "@/spatial/box/box";
 import * as box from "@/spatial/box/box";

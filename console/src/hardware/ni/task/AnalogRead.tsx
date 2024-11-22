@@ -14,26 +14,26 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { binary, deep, id, migrate, primitiveIsZero, unique } from "@synnaxlabs/x";
+import { binary, deep, id, type migrate, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { Properties } from "@/hardware/ni/device/types";
+import { type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons } from "@/hardware/ni/task/common";
 import {
   AI_CHANNEL_TYPE_NAMES,
-  AIChan,
-  AIChanType,
+  type AIChan,
+  type AIChanType,
   ANALOG_READ_TYPE,
-  AnalogRead as AnalogRead,
-  AnalogReadPayload as AnalogReadPayload,
-  AnalogReadStateDetails as AnalogReadStateDetails,
-  AnalogReadTaskConfig as AnalogReadConfig,
+  type AnalogRead,
+  type AnalogReadPayload,
+  type AnalogReadStateDetails,
+  type AnalogReadTaskConfig as AnalogReadConfig,
   analogReadTaskConfigZ,
-  AnalogReadType,
+  type AnalogReadType,
   type Chan,
   migrateAnalogReadTask,
   ZERO_AI_CHANNELS,
@@ -47,14 +47,14 @@ import {
   EnableDisableButton,
   ParentRangeButton,
   TareButton,
-  TaskLayoutArgs,
+  type TaskLayoutArgs,
   useCreate,
   useObserveState,
-  WrappedTaskLayoutProps,
+  type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
 
@@ -134,14 +134,13 @@ const Wrapped = ({
 
         let modified = false;
         let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
-        if (!shouldCreateIndex) {
+        if (!shouldCreateIndex)
           try {
             await client.channels.retrieve(dev.properties.analogInput.index);
           } catch (e) {
             if (NotFoundError.matches(e)) shouldCreateIndex = true;
             else throw e;
           }
-        }
 
         if (shouldCreateIndex) {
           modified = true;
@@ -160,14 +159,13 @@ const Wrapped = ({
           // check if the channel is in properties
           const exKey = dev.properties.analogInput.channels[channel.port.toString()];
           if (primitiveIsZero(exKey)) toCreate.push(channel);
-          else {
+          else
             try {
               await client.channels.retrieve(exKey.toString());
             } catch (e) {
               if (QueryError.matches(e)) toCreate.push(channel);
               else throw e;
             }
-          }
         }
 
         if (toCreate.length > 0) {
@@ -397,7 +395,7 @@ const ChannelList = ({
   const handleAdd = (): void => {
     const key = id.id();
     push({
-      ...deep.copy(ZERO_AI_CHANNELS["ai_voltage"]),
+      ...deep.copy(ZERO_AI_CHANNELS.ai_voltage),
       port: availablePortFinder(value)(),
       key,
     });

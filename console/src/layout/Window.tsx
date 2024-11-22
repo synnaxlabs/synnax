@@ -18,7 +18,7 @@ import {
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
-import { runtime } from "@synnaxlabs/x";
+import { type runtime } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -28,7 +28,7 @@ import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { useSelect } from "@/layout/selectors";
-import { WindowProps } from "@/layout/slice";
+import { type WindowProps } from "@/layout/slice";
 
 export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;

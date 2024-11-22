@@ -59,7 +59,6 @@ inline int check_err_internal(
     if (auto it = error_map.find(err_msg); it != error_map.end()) {
         description = ": " + it->second;
     }
-
     ctx->set_state({
         .task = task_key,
         .variant = "error",
@@ -94,6 +93,15 @@ public:
             device_handles[serial_number] = handle;
         }
         return device_handles[serial_number];
+    }
+
+    void close_device(std::string serial_number) {
+        std::lock_guard<std::mutex> lock(device_mutex);
+        if (this->device_handles.find(serial_number) != device_handles.end()) {
+            int handle = device_handles[serial_number];
+            LJM_Close(handle);
+            device_handles.erase(serial_number);
+        }
     }
 
 private:

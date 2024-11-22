@@ -9,13 +9,14 @@
 
 import {
   type Action as CoreAction,
-  configureStore,
+  type configureStore,
   type Dispatch,
   type Middleware,
   type PayloadAction,
-  Tuple,
+  type Tuple,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { Mutex } from "async-mutex";
 
 import { log } from "@/debug";
 import { type Runtime } from "@/runtime";
@@ -25,6 +26,7 @@ import {
   isDriftAction,
   type LabelPayload,
   type MaybeKeyPayload,
+  reloadWindow,
   setWindowError,
   setWindowProps,
   shouldEmit,
@@ -36,6 +38,15 @@ import { sync } from "@/sync";
 import { validateAction } from "@/validate";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
+
+// Used to ensure two things:
+// 1. Only one set of window update operations is applied at a time, and they are applied
+//    in the correct order.
+// 2. Ensure that we emit actions to other windows in the correct order i.e. after synchronized
+//    window operations have been applied.
+const mu = new Mutex();
+
+const EXCLUDE_SYNC_ACTIONS: string[] = [setWindowProps.type, reloadWindow.type];
 
 /**
  * Redux middleware that conditionally does two things:
@@ -74,7 +85,7 @@ export const middleware =
     const isDrift = isDriftAction(action.type);
 
     // If the runtime is updating its own props, no need to sync.
-    const shouldSync = isDrift && action.type !== setWindowProps.type;
+    const shouldSync = isDrift && !EXCLUDE_SYNC_ACTIONS.includes(action.type);
 
     let prevS: SliceState | null = null;
     if (isDrift) {
@@ -91,9 +102,9 @@ export const middleware =
 
     const shouldEmit_ = shouldEmit(emitted, action.type);
 
-    // Wrap everything in an async closure eto ensure that we synchronize before
-    // before emitting to other windows.
-    void (async (): Promise<void> => {
+    // Run everything within a mutex locked closure to ensure that we correctly sync
+    // and then propagate actions to other windows.
+    mu.runExclusive(async (): Promise<void> => {
       try {
         if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
@@ -107,32 +118,32 @@ export const middleware =
         });
         dispatch(setWindowError({ key: label, message: (err as Error).message }));
       }
-    })();
+    });
 
     return res;
   };
 
 /**
- * Configures the Redux middleware for the curent window's store.
+ * Configures the Redux middleware for the current window's store.
  *
  * @param mw - Middleware provided by the drift user (if any).
  * @param runtime - The runtime of the current window.
  * @returns a middleware function to be passed to `configureStore`.
  */
-export const configureMiddleware = <
-  S extends StoreState,
-  A extends CoreAction = UnknownAction,
-  M extends Middlewares<S> = Middlewares<S>,
->(
-  mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
-  runtime: Runtime<S, A | Action>,
-  debug: boolean = false,
-): ((def: GetDefaultMiddleware<S>) => M) => {
-  return (def) => {
+export const configureMiddleware =
+  <
+    S extends StoreState,
+    A extends CoreAction = UnknownAction,
+    M extends Middlewares<S> = Middlewares<S>,
+  >(
+    mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
+    runtime: Runtime<S, A | Action>,
+    debug: boolean = false,
+  ): ((def: GetDefaultMiddleware<S>) => M) =>
+  (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
     return [middleware<S, A>(runtime, debug), ...base] as unknown as M;
   };
-};
 
 type ConfigureStoreOptions<
   S extends StoreState,

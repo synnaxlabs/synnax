@@ -249,9 +249,8 @@ export const loc = (b: Crude, loc: location.Location): number => {
 };
 
 /** @returns true if the area of the box is 0 and false otherwise. */
-export const areaIsZero = (b: Box): boolean => {
-  return b.one.x === b.two.x && b.one.y === b.two.y;
-};
+export const areaIsZero = (b: Box): boolean =>
+  b.one.x === b.two.x && b.one.y === b.two.y;
 
 /** @returns the width of the box. */
 export const width = (b: Crude): number => dim(b, "x");
@@ -459,7 +458,7 @@ export const constructWithAlternateRoot = (
 ): Box => {
   const first = { x, y };
   const second = { x: x + width, y: y + height };
-  if (currRoot.x !== newRoot.x) {
+  if (currRoot.x !== newRoot.x)
     if (currRoot.x === "center") {
       first.x -= width / 2;
       second.x -= width / 2;
@@ -467,8 +466,7 @@ export const constructWithAlternateRoot = (
       first.x -= width;
       second.x -= width;
     }
-  }
-  if (currRoot.y !== newRoot.y) {
+  if (currRoot.y !== newRoot.y)
     if (currRoot.y === "center") {
       first.y -= height / 2;
       second.y -= height / 2;
@@ -476,6 +474,5 @@ export const constructWithAlternateRoot = (
       first.y -= height;
       second.y -= height;
     }
-  }
   return construct(first, second, undefined, undefined, newRoot);
 };

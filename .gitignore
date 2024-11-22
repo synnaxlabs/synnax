@@ -107,3 +107,6 @@ driver/vendor/mbedtls/mbedtls
 # |||| GENERAL ||||
 **/ignore*
 *.test
+
+# |||| ESLINT ||||
+.eslintcache

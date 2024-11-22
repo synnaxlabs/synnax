@@ -11,7 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
-import { CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
+import { type CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -19,7 +19,7 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createLayout } from "@/range/CreateLayout";
 import { overviewLayout } from "@/range/overview/Overview";
@@ -50,7 +50,7 @@ const handleSelect: Ontology.HandleSelect = async ({
 const handleRename: Ontology.HandleTreeRename = {
   eager: ({ store, id, name }) => {
     store.dispatch(rename({ key: id.key, name }));
-    store.dispatch(Layout.rename({ key: id.key, name: name }));
+    store.dispatch(Layout.rename({ key: id.key, name }));
   },
   execute: async ({ client, id, name }) => await client.ranges.rename(id.key, name),
   rollback: ({ store, id }, prevName) => {

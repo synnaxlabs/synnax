@@ -14,6 +14,7 @@ import { type deep } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -87,7 +88,11 @@ export type RootAction =
 
 export type RootStore = Store<RootState, RootAction>;
 
-const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = { visible: false };
+const DEFAULT_WINDOW_VISIBLE = isDev();
+const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
+  visible: DEFAULT_WINDOW_VISIBLE,
+  minSize: { width: 625, height: 375 },
+};
 
 export const migrateState = (prev: RootState): RootState => {
   console.log("--------------- Migrating State ---------------");
@@ -125,7 +130,8 @@ const newStore = async (): Promise<RootStore> => {
   if (preloadedState != null && Drift.SLICE_NAME in preloadedState) {
     const windows = preloadedState[Drift.SLICE_NAME].windows;
     Object.keys(windows).forEach((key) => {
-      windows[key].visible = false;
+      if (!windows[key].reserved) return;
+      windows[key].visible = DEFAULT_WINDOW_VISIBLE;
       windows[key].focusCount = 0;
       windows[key].centerCount = 0;
     });

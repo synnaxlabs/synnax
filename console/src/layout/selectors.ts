@@ -9,16 +9,15 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
-import { type State } from "@/layout/slice";
 import {
   type NavDrawerEntryState,
   type NavDrawerLocation,
   SLICE_NAME,
   type SliceState,
+  type State,
   type StoreState,
 } from "@/layout/slice";
 
@@ -226,9 +225,8 @@ export const selectActiveMosaicLayout = (
   return select(state, activeTabKey);
 };
 
-export const useSelectActiveMosaicLayout = (): State | undefined => {
-  return useMemoSelect(selectActiveMosaicLayout, []);
-};
+export const useSelectActiveMosaicLayout = (): State | undefined =>
+  useMemoSelect(selectActiveMosaicLayout, []);
 
 export const selectHauling = (state: StoreState): Haul.DraggingState =>
   selectSliceState(state).hauling;

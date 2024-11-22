@@ -21,8 +21,8 @@ import {
   List,
   Text,
 } from "@synnaxlabs/pluto";
-import { change } from "@synnaxlabs/x";
-import { ReactElement } from "react";
+import { type change } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 

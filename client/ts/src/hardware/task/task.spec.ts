@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { task } from "@/hardware/task";
+import { type task } from "@/hardware/task";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
