@@ -26,6 +26,7 @@ import { SelectNotation } from "@/notation/SelectNotation";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
+import { withinBoundsProps } from "@/telem/aether/transformers";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { type Button as CoreButton } from "@/vis/button";
@@ -552,6 +553,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
   );
+  const threshold = telem.withinBoundsProps.parse(sourceP.segments.threshold.props);
 
   const handleSourceChange = (v: channel.Key | null): void => {
     v ??= 0;
@@ -559,7 +561,24 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
       connections: [{ from: "valueStream", to: "threshold" }],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
-        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+        threshold: telem.withinBounds({
+          trueBound: {
+            lower: threshold.trueBound.lower ?? 0.9,
+            upper: threshold.trueBound.upper ?? 1.1,
+          },
+        }),
+      },
+      outlet: "threshold",
+    });
+    onChange({ ...value, source: t });
+  };
+
+  const handleThresholdChange = (bounds: { lower: number; upper: number }): void => {
+    const t = telem.sourcePipeline("boolean", {
+      connections: [{ from: "valueStream", to: "threshold" }],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: source.channel }),
+        threshold: telem.withinBounds({ trueBound: bounds }),
       },
       outlet: "threshold",
     });
@@ -576,6 +595,28 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
+        />
+      </Input.Item>
+      <Input.Item label="Lower Threshold">
+        <Input.Numeric
+          value={threshold.trueBound.lower ?? 0.9}
+          onChange={(v) =>
+            handleThresholdChange({
+              ...threshold.trueBound,
+              lower: v,
+            })
+          }
+        />
+      </Input.Item>
+      <Input.Item label="Upper Threshold">
+        <Input.Numeric
+          value={threshold.trueBound.upper ?? 1.1}
+          onChange={(v) =>
+            handleThresholdChange({
+              ...threshold.trueBound,
+              upper: v,
+            })
+          }
         />
       </Input.Item>
     </FormWrapper>
@@ -832,5 +873,40 @@ export const OffPageReferenceForm = (): ReactElement => (
       <ColorControl path="color" />
     </Align.Space>
     <OrientationControl path="" showOuter={false} />
+  </FormWrapper>
+);
+
+export const CylinderForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow empty>
+      <LabelControls path="label" />
+      <Align.Space direction="x">
+        <ColorControl path="color" />
+        <ColorControl path="backgroundColor" label="Background Color" />
+        <Form.Field<number> path="dimensions.width" label="Width" grow>
+          {({ value, ...props }) => (
+            <Input.Numeric
+              value={value ?? 200}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
+              {...props}
+            />
+          )}
+        </Form.Field>
+        <Form.Field<number> path="dimensions.height" label="Height" grow>
+          {({ value, ...props }) => (
+            <Input.Numeric
+              value={value ?? 200}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
+              {...props}
+            />
+          )}
+        </Form.Field>
+      </Align.Space>
+    </Align.Space>
+    <OrientationControl path="" showInner={false} />
   </FormWrapper>
 );

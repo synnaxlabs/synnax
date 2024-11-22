@@ -143,6 +143,12 @@ export const syncCurrent = async (
       async () => await runtime.setMinimized(nextWin.minimized as boolean),
     ]);
 
+  if (nextWin.resizable != null && nextWin.resizable !== prevWin.resizable)
+    changes.push([
+      "resizable",
+      async () => await runtime.setResizable(nextWin.resizable as boolean),
+    ]);
+
   if (nextWin.minSize != null && !dimensions.equals(nextWin.minSize, prevWin.minSize))
     changes.push([
       "minSize",
@@ -175,12 +181,6 @@ export const syncCurrent = async (
       ["setVisible", async () => await runtime.setVisible(true)],
       ["focus", async () => await runtime.focus()],
     );
-
-  if (nextWin.resizable != null && nextWin.resizable !== prevWin.resizable)
-    changes.push([
-      "resizable",
-      async () => await runtime.setResizable(nextWin.resizable as boolean),
-    ]);
 
   if (nextWin.decorations != null && nextWin.decorations !== prevWin.decorations)
     changes.push([
