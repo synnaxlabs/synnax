@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import {
-  convertRenderV,
   bounds,
+  convertRenderV,
   type direction,
   type Key,
   type Keyed,
 } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 export interface TableColumn<K extends Key, E extends Keyed<K>> {
   key: keyof E;
@@ -41,35 +40,33 @@ export const Table = <K extends Key, E extends Keyed<K>>({
   columns,
   data,
   highlights = [],
-}: TableProps<Key, E>): ReactElement => {
-  return (
-    <div style={{ overflowX: "auto", paddingLeft: 2 }}>
-      <table>
-        <thead>
-          <tr>
-            {columns.map(({ key, name, width }) => (
-              <th key={key as string} style={{ width }}>
-                {name ?? (key as string)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, i) => (
-            <TableRow<K, E>
-              key={i}
-              columns={columns}
-              data={row}
-              highlights={highlights}
-              index={i}
-              dataLength={data.length}
-            />
+}: TableProps<Key, E>): ReactElement => (
+  <div style={{ overflowX: "auto", paddingLeft: 2 }}>
+    <table>
+      <thead>
+        <tr>
+          {columns.map(({ key, name, width }) => (
+            <th key={key as string} style={{ width }}>
+              {name ?? (key as string)}
+            </th>
           ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((row, i) => (
+          <TableRow<K, E>
+            key={i}
+            columns={columns}
+            data={row}
+            highlights={highlights}
+            index={i}
+            dataLength={data.length}
+          />
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
 
 interface TableRowProps<K extends Key, E extends Keyed<K>> {
   index: number;
@@ -85,22 +82,20 @@ const TableRow = <K extends Key, E extends Keyed<K>>({
   columns,
   data,
   highlights,
-}: TableRowProps<K, E>): ReactElement => {
-  return (
-    <tr>
-      {columns.map((col) => (
-        <TableCell<K, E>
-          key={col.key as string}
-          index={index}
-          dataLength={dataLength}
-          highlights={highlights}
-          data={data}
-          column={col}
-        />
-      ))}
-    </tr>
-  );
-};
+}: TableRowProps<K, E>): ReactElement => (
+  <tr>
+    {columns.map((col) => (
+      <TableCell<K, E>
+        key={col.key as string}
+        index={index}
+        dataLength={dataLength}
+        highlights={highlights}
+        data={data}
+        column={col}
+      />
+    ))}
+  </tr>
+);
 
 interface TableCellProps<K extends Key, E extends Keyed<K>> {
   index: number;

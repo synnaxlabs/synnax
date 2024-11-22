@@ -17,6 +17,7 @@ import {
   ButtonForm,
   CommonStyleForm,
   CommonToggleForm,
+  CylinderForm,
   LightForm,
   OffPageReferenceForm,
   SetpointForm,
@@ -30,9 +31,12 @@ import { DEFAULT_BORDER_RADIUS } from "@/vis/schematic/primitives/Primitives";
 import {
   Agitator,
   AgitatorPreview,
-  AgitatorProps,
+  type AgitatorProps,
   AngledReliefValve,
   AngledReliefValvePreview,
+  AngledSpringLoadedReliefValve,
+  AngledSpringLoadedReliefValvePreview,
+  type AngledSpringLoadedReliefValveProps,
   AngledValve,
   AngledValvePreview,
   type AngledValveProps,
@@ -58,6 +62,9 @@ import {
   CrossBeamAgitator,
   CrossBeamAgitatorPreview,
   type CrossBeamAgitatorProps,
+  Cylinder,
+  CylinderPreview,
+  type CylinderProps,
   ElectricRegulator,
   ElectricRegulatorPreview,
   type ElectricRegulatorProps,
@@ -72,6 +79,15 @@ import {
   HelicalAgitator,
   HelicalAgitatorPreview,
   type HelicalAgitatorProps,
+  ISOBurstDisc,
+  ISOBurstDiscPreview,
+  ISOCap,
+  ISOCapPreview,
+  ISOCheckValve,
+  ISOCheckValvePreview,
+  type ISOCheckValveProps,
+  ISOFilter,
+  ISOFilterPreview,
   Light,
   LightPreview,
   type LightProps,
@@ -85,6 +101,9 @@ import {
   OffPageReferencePreview,
   type OffPageReferenceProps,
   Orifice,
+  OrificePlate,
+  OrificePlatePreview,
+  type OrificePlateProps,
   OrificePreview,
   type OrificeProps,
   PaddleAgitator,
@@ -95,7 +114,7 @@ import {
   type PistonPumpProps,
   PropellerAgitator,
   PropellerAgitatorPreview,
-  PropellerAgitatorProps,
+  type PropellerAgitatorProps,
   Pump,
   PumpPreview,
   type PumpProps,
@@ -117,6 +136,9 @@ import {
   SolenoidValve,
   SolenoidValvePreview,
   type SolenoidValveProps,
+  SpringLoadedReliefValve,
+  SpringLoadedReliefValvePreview,
+  type SpringLoadedReliefValveProps,
   StaticMixer,
   StaticMixerPreview,
   type StaticMixerProps,
@@ -133,6 +155,9 @@ import {
   ThreeWayValve,
   ThreeWayValvePreview,
   type ThreeWayValveProps,
+  TJunction,
+  TJunctionPreview,
+  type TJunctionProps,
   VacuumPump,
   VacuumPumpPreview,
   type VacuumPumpProps,
@@ -142,6 +167,9 @@ import {
   Valve,
   ValvePreview,
   type ValveProps,
+  Vent,
+  VentPreview,
+  type VentProps,
 } from "@/vis/schematic/Symbols";
 
 export interface Spec<P extends object> {
@@ -160,14 +188,17 @@ const Z_INDEX_LOWER = 2;
 const VARIANTS = [
   "agitator",
   "angledReliefValve",
+  "angledSpringLoadedReliefValve",
   "angledValve",
   "offPageReference",
   "box",
   "burstDisc",
+  "isoBurstDisc",
   "button",
   "cap",
   "cavityPump",
   "checkValve",
+  "cylinder",
   "compressor",
   "crossBeamAgitator",
   "electricRegulator",
@@ -175,10 +206,14 @@ const VARIANTS = [
   "flatBladeAgitator",
   "fourWayValve",
   "helicalAgitator",
+  "isoCap",
+  "isoCheckValve",
+  "isoFilter",
   "light",
   "manualValve",
   "needleValve",
   "orifice",
+  "orificePlate",
   "paddleAgitator",
   "propellerAgitator",
   "pistonPump",
@@ -189,6 +224,7 @@ const VARIANTS = [
   "screwPump",
   "setpoint",
   "solenoidValve",
+  "springLoadedReliefValve",
   "staticMixer",
   "switch",
   "tank",
@@ -197,6 +233,8 @@ const VARIANTS = [
   "vacuumPump",
   "value",
   "valve",
+  "vent",
+  "tJunction",
 ] as const;
 
 export const typeZ = z.enum(VARIANTS);
@@ -399,6 +437,25 @@ const tank: Spec<TankProps> = {
   zIndex: Z_INDEX_LOWER,
 };
 
+const cylinder: Spec<CylinderProps> = {
+  name: "Cylinder",
+  key: "cylinder",
+  Form: CylinderForm,
+  Symbol: Cylinder,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    ...zeroLabel("cylinder"),
+    dimensions: {
+      width: 66,
+      height: 181,
+    },
+    ...ZERO_PROPS,
+  }),
+  Preview: CylinderPreview,
+  zIndex: Z_INDEX_LOWER,
+};
+
 const box: Spec<BoxProps> = {
   name: "Box",
   key: "box",
@@ -427,6 +484,34 @@ const reliefValve: Spec<ReliefValveProps> = {
     ...ZERO_PROPS,
   }),
   Preview: ReliefValvePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
+  name: "Spring Loaded Relief Valve",
+  key: "springLoadedReliefValve",
+  Form: CommonStyleForm,
+  Symbol: SpringLoadedReliefValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Spring Loaded Relief Valve"),
+    ...ZERO_PROPS,
+  }),
+  Preview: SpringLoadedReliefValvePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = {
+  name: "Angled Spring Loaded Relief Valve",
+  key: "angledSpringLoadedReliefValve",
+  Form: CommonStyleForm,
+  Symbol: AngledSpringLoadedReliefValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Angled Spring Loaded Relief Valve"),
+    ...ZERO_PROPS,
+  }),
+  Preview: AngledSpringLoadedReliefValvePreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -472,6 +557,20 @@ const burstDisc: Spec<ReliefValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const isoBurstDisc: Spec<ReliefValveProps> = {
+  name: "ISO Burst Disc",
+  key: "isoBurstDisc",
+  Form: CommonStyleForm,
+  Symbol: ISOBurstDisc,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Burst Disc"),
+    ...ZERO_PROPS,
+  }),
+  Preview: ISOBurstDiscPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 const cap: Spec<ReliefValveProps> = {
   name: "Cap",
   key: "cap",
@@ -486,6 +585,20 @@ const cap: Spec<ReliefValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const isoCap: Spec<ReliefValveProps> = {
+  name: "ISO Cap",
+  key: "isoCap",
+  Form: CommonStyleForm,
+  Symbol: ISOCap,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Cap"),
+    ...ZERO_PROPS,
+  }),
+  Preview: ISOCapPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 const manualValve: Spec<ManualValveProps> = {
   name: "Manual Valve",
   key: "manualValve",
@@ -497,6 +610,34 @@ const manualValve: Spec<ManualValveProps> = {
     ...ZERO_PROPS,
   }),
   Preview: ManualValvePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const orificePlate: Spec<OrificePlateProps> = {
+  name: "Orifice Plate",
+  key: "orificePlate",
+  Form: CommonStyleForm,
+  Symbol: OrificePlate,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Orifice Plate"),
+    ...ZERO_PROPS,
+  }),
+  Preview: OrificePlatePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const isoFilter: Spec<ManualValveProps> = {
+  name: "ISO Filter",
+  key: "isoFilter",
+  Form: CommonStyleForm,
+  Symbol: ISOFilter,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Filter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: ISOFilterPreview,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -850,10 +991,53 @@ const offPageReference: Spec<OffPageReferenceProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const isoCheckValve: Spec<ISOCheckValveProps> = {
+  name: "ISO Check Valve",
+  key: "isoCheckValve",
+  Form: CommonStyleForm,
+  Symbol: ISOCheckValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Check Valve"),
+    ...ZERO_PROPS,
+  }),
+  Preview: ISOCheckValvePreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const vent: Spec<VentProps> = {
+  name: "Vent",
+  key: "vent",
+  Form: CommonStyleForm,
+  Symbol: Vent,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Vent"),
+    ...ZERO_PROPS,
+  }),
+  Preview: VentPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const tJunction: Spec<TJunctionProps> = {
+  name: "T Junction",
+  key: "tJunction",
+  Form: CommonStyleForm,
+  Symbol: TJunction,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel(""),
+    ...ZERO_PROPS,
+  }),
+  Preview: TJunctionPreview,
+  zIndex: Z_INDEX_UPPER + 20,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
   tank,
+  tJunction,
   switch: switch_,
   offPageReference,
   light,
@@ -880,9 +1064,13 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   staticMixer,
   rotaryMixer,
   burstDisc,
+  isoBurstDisc,
   cap,
+  isoCap,
   filter,
+  isoFilter,
   orifice,
+  orificePlate,
   agitator,
   propellerAgitator,
   flatBladeAgitator,
@@ -890,4 +1078,9 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   crossBeamAgitator,
   helicalAgitator,
   compressor,
+  isoCheckValve,
+  vent,
+  cylinder,
+  springLoadedReliefValve,
+  angledSpringLoadedReliefValve,
 };

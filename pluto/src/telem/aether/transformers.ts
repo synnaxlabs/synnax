@@ -206,9 +206,7 @@ export class RollingAverage extends UnarySourceTransformer<
 
   protected shouldNotify(value: number): boolean {
     if (this.props.windowSize < 2) return true;
-    if (this.values.length > this.props.windowSize) {
-      this.values = [];
-    }
+    if (this.values.length > this.props.windowSize) this.values = [];
     this.values.push(value);
     return this.values.length === this.props.windowSize;
   }

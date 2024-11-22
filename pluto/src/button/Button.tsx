@@ -15,7 +15,7 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import {
   type ComponentPropsWithoutRef,
   type ReactElement,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useRef,
 } from "react";
@@ -23,7 +23,7 @@ import {
 import { type Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { status } from "@/status/aether";
+import { type status } from "@/status/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
@@ -88,6 +88,8 @@ export type ButtonProps = Omit<
  * @param props.onClickDelay - An optional delay to wait before calling the `onClick`
  * handler. This will cause the button to render a progress bar that fills up over the
  * specified time before calling the handler.
+ * @param props.loading - Whether the button is in a loading state. This will cause the
+ * button to render a loading spinner.
  */
 export const Button = Tooltip.wrap(
   ({
@@ -113,15 +115,15 @@ export const Button = Tooltip.wrap(
     ...props
   }: ButtonProps): ReactElement => {
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
-    if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
+    const isDisabled = disabled || loading;
+    iconSpacing ??= size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input
     // component API.
     if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
-      if (disabled || variant === "preview") return;
+      if (isDisabled || variant === "preview") return;
       if (parsedDelay.isZero) return onClick?.(e);
     };
 
@@ -129,7 +131,7 @@ export const Button = Tooltip.wrap(
 
     const handleMouseDown: ButtonProps["onMouseDown"] = (e) => {
       onMouseDown?.(e);
-      if (disabled || variant === "preview" || parsedDelay.isZero) return;
+      if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
       document.addEventListener(
         "mouseup",
         () => toRef.current != null && clearTimeout(toRef.current),
@@ -144,12 +146,12 @@ export const Button = Tooltip.wrap(
       triggers,
       callback: useCallback<(e: Triggers.UseEvent) => void>(
         ({ stage }) => {
-          if (stage !== "end" || disabled || variant === "preview") return;
+          if (stage !== "end" || isDisabled || variant === "preview") return;
           handleClick(
             new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
           );
         },
-        [handleClick, disabled],
+        [handleClick, isDisabled],
       ),
     });
 
@@ -173,7 +175,7 @@ export const Button = Tooltip.wrap(
 
     if (size == null && level != null) size = Text.LevelComponentSizes[level];
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
-    else if (size == null) size = "medium";
+    else size ??= "medium";
 
     return (
       <Text.WithIcon<"button", any>
@@ -182,7 +184,7 @@ export const Button = Tooltip.wrap(
           CSS.B("btn"),
           CSS.size(size),
           CSS.sharp(sharp),
-          variant !== "preview" && CSS.disabled(disabled),
+          variant !== "preview" && CSS.disabled(isDisabled),
           status != null && CSS.M(status),
           CSS.BM("btn", variant),
           hasCustomColor && CSS.BM("btn", "custom-color"),

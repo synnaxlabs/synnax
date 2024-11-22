@@ -11,10 +11,10 @@ import { type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
-  axis,
+  type axis,
   Channel,
   Color,
-  Legend,
+  type Legend,
   Menu as PMenu,
   Synnax,
   useAsyncEffect,
@@ -43,12 +43,12 @@ import { Menu } from "@/components/menu";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
-  AxisKey,
+  type AxisKey,
   axisLocation,
-  MultiXAxisRecord,
+  type MultiXAxisRecord,
   X_AXIS_KEYS,
-  XAxisKey,
-  YAxisKey,
+  type XAxisKey,
+  type YAxisKey,
 } from "@/lineplot/axis";
 import { download } from "@/lineplot/download";
 import {
@@ -61,7 +61,7 @@ import {
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
-  AxesState,
+  type AxesState,
   type AxisState,
   internalCreate,
   type LineState,
@@ -235,7 +235,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
             mode: "add",
           }),
         );
-      if (propsLines.length === 0 && rng != null) {
+      if (propsLines.length === 0 && rng != null)
         syncDispatch(
           setRanges({
             mode: "add",
@@ -244,7 +244,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
             ranges: [rng.key],
           }),
         );
-      }
     },
     [syncDispatch, layoutKey, propsLines.length, rng],
   );
@@ -283,12 +282,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
-  const initialViewport = useMemo(() => {
-    return box.reRoot(
-      box.construct(vis.viewport.pan, vis.viewport.zoom),
-      location.BOTTOM_LEFT,
-    );
-  }, [vis.viewport.renderTrigger]);
+  const initialViewport = useMemo(
+    () =>
+      box.reRoot(
+        box.construct(vis.viewport.pan, vis.viewport.zoom),
+        location.BOTTOM_LEFT,
+      ),
+    [vis.viewport.renderTrigger],
+  );
 
   const handleDoubleClick = useCallback(() => {
     dispatch(
@@ -345,7 +346,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           break;
         case "download":
           if (client == null) return;
-          download({ timeRange, lines, client, name: name + "-data" });
+          download({ timeRange, lines, client, name: `${name}-data` });
           break;
       }
     };
@@ -452,9 +453,12 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
 const buildAxes = (vis: State): Channel.AxisProps[] =>
   getEntries<AxesState["axes"]>(vis.axes.axes)
     .filter(([key]) => shouldDisplayAxis(key, vis))
-    .map(([key, axis]): Channel.AxisProps => {
-      return { location: axisLocation(key as AxisKey), ...axis };
-    });
+    .map(
+      ([key, axis]): Channel.AxisProps => ({
+        location: axisLocation(key as AxisKey),
+        ...axis,
+      }),
+    );
 
 const buildLines = (
   vis: State,
@@ -527,7 +531,7 @@ export const LinePlot: Layout.Renderer = ({
     name: "Line Plot",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect: useSelect,
+    useSelect,
     fetcher: async (client, layoutKey) => {
       const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
       return data as unknown as State;

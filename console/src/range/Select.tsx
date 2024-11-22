@@ -13,7 +13,7 @@ import {
   Button,
   componentRenderProp,
   Input,
-  List,
+  type List,
   Ranger,
   Select,
   Status,

@@ -9,8 +9,14 @@
 
 import "@/text/Editable.css";
 
-import type { KeyboardEvent, ReactElement } from "react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { CSS } from "@/css";
 import { type Input } from "@/input";

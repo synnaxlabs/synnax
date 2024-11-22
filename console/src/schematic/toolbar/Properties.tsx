@@ -102,19 +102,17 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       <Align.Space align="start" direction="x">
         <Input.Item label="Selection Colors" align="start">
           <Align.Space direction="y">
-            {Object.entries(groups).map(([hex, elements]) => {
-              return (
-                <Color.Swatch
-                  key={elements[0].key}
-                  value={hex}
-                  onChange={(color: Color.Color) => {
-                    elements.forEach((e) => {
-                      handleChange(e.key, { color: color.hex });
-                    });
-                  }}
-                />
-              );
-            })}
+            {Object.entries(groups).map(([hex, elements]) => (
+              <Color.Swatch
+                key={elements[0].key}
+                value={hex}
+                onChange={(color: Color.Color) => {
+                  elements.forEach((e) => {
+                    handleChange(e.key, { color: color.hex });
+                  });
+                }}
+              />
+            ))}
           </Align.Space>
         </Input.Item>
         <Input.Item label="Align">

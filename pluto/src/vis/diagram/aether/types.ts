@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, dimensions, xy } from "@synnaxlabs/x";
+import { xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
 import { z } from "zod";
 
@@ -136,7 +136,7 @@ export const nodeZ = z.object({
   zIndex: z.number().optional(),
 
   type: z.string().optional(),
-  data: z.record(z.unknown()),
+  data: z.record(z.unknown()).optional(),
   measured: z
     .object({ width: z.number().optional(), height: z.number().optional() })
     .optional(),
@@ -183,7 +183,7 @@ export const translateEdgesBackward = (
   defaultColor: color.Crude,
 ): Edge[] =>
   edges.map((edge) => {
-    if (edge.data == null) edge.data = { segments: [], color: defaultColor };
+    edge.data ??= { segments: [], color: defaultColor };
     return {
       key: edge.id,
       segments: edge.data?.segments ?? [],

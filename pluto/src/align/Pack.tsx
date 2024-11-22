@@ -13,7 +13,7 @@ import { type ForwardedRef, forwardRef, type ReactElement } from "react";
 
 import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
-import { text } from "@/text/core";
+import { type text } from "@/text/core";
 
 /** Props for the {@link Pack} component. */
 export type PackProps<E extends SpaceElementType = "div"> = Omit<

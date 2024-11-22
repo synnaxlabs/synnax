@@ -21,7 +21,7 @@ import {
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { useResize, type UseResizeHandler, UseResizeOpts } from "@/hooks";
+import { useResize, type UseResizeHandler, type UseResizeOpts } from "@/hooks";
 import { canvas } from "@/vis/canvas/aether";
 
 type HTMLDivProps = DetailedHTMLProps<
@@ -97,8 +97,17 @@ export const Canvas = Aether.wrap<CanvasProps>(
     // We want to trigger a re-render when the window is focused or blurred to ensure
     // that we wake up sleeping render contexts.
     useEffect(() => {
-      window.addEventListener("focus", () => setState((p) => ({ ...p })));
-      window.addEventListener("blur", () => setState((p) => ({ ...p })));
+      const handler = () => {
+        if (!canvases.current.bootstrapped) return;
+        setState((p) => ({
+          ...p,
+          glCanvas: undefined,
+          upper2dCanvas: undefined,
+          lower2dCanvas: undefined,
+        }));
+      };
+      window.addEventListener("focus", handler);
+      window.addEventListener("blur", handler);
     }, [setState]);
 
     const refCallback = useCallback(

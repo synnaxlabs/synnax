@@ -245,7 +245,7 @@ export class Writer {
     value: Record<KeyOrName, control.Authority> | KeyOrName | number,
     authority?: control.Authority,
   ): Promise<boolean> {
-    let config: Config = { keys: [], authorities: [] };
+    let config: Config;
     if (typeof value === "number" && authority == null)
       config = { keys: [], authorities: [value] };
     else {

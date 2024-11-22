@@ -160,7 +160,7 @@ export const Edge = ({
             targetBox: selectNodeBox(flow, target),
           });
         }
-        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments })) {
+        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments }))
           next = connector.buildNew({
             sourcePos,
             targetPos,
@@ -169,7 +169,6 @@ export const Edge = ({
             sourceBox: selectNodeBox(flow, source),
             targetBox: selectNodeBox(flow, target),
           });
-        }
         sourcePosRef.current = sourcePos;
       } else if (!targetPosEq) {
         next = connector.moveTargetNode({ delta: targetDelta, segments: next });
@@ -184,7 +183,7 @@ export const Edge = ({
             targetBox: selectNodeBox(flow, target),
           });
         }
-        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments })) {
+        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments }))
           next = connector.buildNew({
             sourcePos,
             targetPos,
@@ -193,7 +192,6 @@ export const Edge = ({
             sourceBox: selectNodeBox(flow, source),
             targetBox: selectNodeBox(flow, target),
           });
-        }
         targetPosRef.current = targetPos;
       }
       debouncedOnSegmentsChange(next);
@@ -298,9 +296,8 @@ export const calcPath = (coords: xy.XY[]): string => {
   return path;
 };
 
-export const calcMidPoints = (points: xy.XY[]): xy.XY[] => {
-  return points.slice(1).map((p, i) => {
+export const calcMidPoints = (points: xy.XY[]): xy.XY[] =>
+  points.slice(1).map((p, i) => {
     const prev = points[i];
     return xy.construct((p.x + prev.x) / 2, (p.y + prev.y) / 2);
   });
-};

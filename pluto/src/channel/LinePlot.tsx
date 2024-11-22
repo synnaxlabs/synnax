@@ -10,7 +10,7 @@
 import "@/channel/LinePlot.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { box, location as loc, xy } from "@synnaxlabs/x/spatial";
+import { box, location as loc, type xy } from "@synnaxlabs/x/spatial";
 import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useRef } from "react";
 

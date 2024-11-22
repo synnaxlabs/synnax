@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, signals, Synnax } from "@synnaxlabs/client";
-import { bounds, box, clamp, scale, TimeRange, TimeSpan, xy } from "@synnaxlabs/x";
+import { ranger, type signals, type Synnax } from "@synnaxlabs/client";
+import { bounds, box, clamp, type scale, TimeRange, TimeSpan, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { color } from "@/color/core";
@@ -57,7 +57,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.render = render.Context.use(this.ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(this.ctx));
 
-    if (i.ranges == null) i.ranges = new Map();
+    i.ranges ??= new Map();
     const client = synnax.use(this.ctx);
     if (client == null) return;
     i.client = client;

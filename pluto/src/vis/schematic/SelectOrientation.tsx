@@ -10,7 +10,7 @@
 import "@/vis/schematic/OrientationControl.css";
 
 import { type location } from "@synnaxlabs/x";
-import { CSSProperties, type ReactElement } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";

@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useSelector, useDispatch } from "react-redux";
-
-import reactLogo from "./assets/react.svg";
 import "./App.css";
-import { incremented, StoreState } from "./store";
 
 import { createWindow, useSelectWindow } from "@synnaxlabs/drift";
+import { useDispatch, useSelector } from "react-redux";
+
+import reactLogo from "./assets/react.svg";
+import { incremented, StoreState } from "./store";
 
 function App() {
   const count = useSelector((state: StoreState) => state.counter.value);
   const { windows } = useSelector(({ drift }: StoreState) => drift);
   const dispatch = useDispatch();
   const numOpen = Object.values(windows).filter(
-    ({ stage }) => stage === "created"
+    ({ stage }) => stage === "created",
   ).length;
-  const w = useSelectWindow();
+  useSelectWindow();
   return (
     <div className="App">
       <div>
@@ -49,7 +49,7 @@ function App() {
                 key: `window-${numOpen}`,
                 title: `Window ${numOpen}`,
                 url: "/",
-              })
+              }),
             );
           }}
         >

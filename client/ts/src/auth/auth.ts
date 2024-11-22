@@ -72,24 +72,23 @@ export class Client {
   middleware(): Middleware {
     const mw: Middleware = async (reqCtx, next) => {
       if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
-        if (this.authenticating == null)
-          this.authenticating = new Promise((resolve, reject) => {
-            this.client
-              .send(
-                LOGIN_ENDPOINT,
-                this.credentials,
-                insecureCredentialsZ,
-                tokenResponseZ,
-              )
-              .then(([res, err]) => {
-                if (err != null) return resolve(err);
-                this.token = res?.token;
-                this.user = res?.user;
-                this.authenticated = true;
-                resolve(null);
-              })
-              .catch(reject);
-          });
+        this.authenticating ??= new Promise((resolve, reject) => {
+          this.client
+            .send(
+              LOGIN_ENDPOINT,
+              this.credentials,
+              insecureCredentialsZ,
+              tokenResponseZ,
+            )
+            .then(([res, err]) => {
+              if (err != null) return resolve(err);
+              this.token = res?.token;
+              this.user = res?.user;
+              this.authenticated = true;
+              resolve(null);
+            })
+            .catch(reject);
+        });
         const err = await this.authenticating;
         if (err != null) return [reqCtx, err];
       }

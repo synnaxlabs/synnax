@@ -33,4 +33,4 @@ export type Log = z.infer<typeof logZ>;
 export const ONTOLOGY_TYPE: ontology.ResourceType = "log";
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

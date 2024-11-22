@@ -11,7 +11,7 @@ import { Button, Synnax } from "@synnaxlabs/pluto";
 
 import {
   type NotificationAdapter,
-  SugaredNotification,
+  type SugaredNotification,
 } from "@/notifications/Notifications";
 import { Version } from "@/version";
 

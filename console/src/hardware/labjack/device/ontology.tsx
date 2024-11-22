@@ -14,7 +14,7 @@ import { createConfigureLayout } from "@/hardware/labjack/device/Configure";
 import { configureReadLayout } from "@/hardware/labjack/task/Read";
 import { configureWriteLayout } from "@/hardware/labjack/task/Write";
 import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 
 interface InitialArgs {
   create: true;

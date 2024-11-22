@@ -8,20 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { Form, Select, Text } from "@synnaxlabs/pluto";
-import { deep, KeyedNamed } from "@synnaxlabs/x";
+import { deep, type KeyedNamed } from "@synnaxlabs/x";
 
 import {
-  ChannelType,
+  type ChannelType,
   DEVICES,
-  InputChannelType,
-  ModelKey,
-  OutputChannelType,
-  Port,
+  type InputChannelType,
+  type ModelKey,
+  type OutputChannelType,
+  type Port,
 } from "@/hardware/labjack/device/types";
 
 import {
   inputChan,
-  ReadChan,
+  type ReadChan,
   thermocoupleChanZ,
   ZERO_READ_CHAN,
   ZERO_THERMOCOUPLE_CHAN,
@@ -103,7 +103,6 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   fieldProps: {
     label: "Channel Type",
     onChange: (value, { get, set, path }) => {
-      console.log("did this get overwritten");
       const prevType = get<InputChannelType>(path).value;
       if (prevType === value) return;
       const next = deep.copy(value === "TC" ? ZERO_THERMOCOUPLE_CHAN : ZERO_READ_CHAN);

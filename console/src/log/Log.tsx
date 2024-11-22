@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
+import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
-import { deep, primitiveIsZero, TimeSpan, UnknownRecord } from "@synnaxlabs/x";
-import { ReactElement, useCallback, useEffect } from "react";
+import { deep, primitiveIsZero, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect } from "@/log/selectors";
-import { internalCreate, setRemoteCreated, State, ZERO_STATE } from "@/log/slice";
+import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
 import { Workspace } from "@/workspace";
 
 export type LayoutType = "log";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction, type location } from "@synnaxlabs/x";
+import { type location } from "@synnaxlabs/x";
 import { forwardRef, useCallback } from "react";
 
 import { Align } from "@/align";
@@ -20,7 +20,6 @@ export interface LabelExtensionProps {
   orientation?: location.Outer;
   maxInlineSize?: number;
   align?: Align.Alignment;
-  direction?: direction.Direction;
 }
 
 export interface LabeledProps
@@ -37,44 +36,49 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
       level = "p",
       children,
       orientation = "top",
-      direction = "y",
       style,
       className,
       maxInlineSize = 150,
       ...props
     },
     ref,
-  ) => {
-    return (
-      <Align.Space
-        style={style}
-        ref={ref}
-        className={CSS(CSS.B("symbol"), className)}
-        align="center"
-        justify="center"
-        {...props}
-      >
-        {value.length > 0 && (
-          <Text.Editable
-            className={CSS(
-              CSS.BE("symbol", "label"),
-              CSS.loc(orientation),
-              CSS.dir(direction),
-            )}
-            value={value}
-            onChange={useCallback(
-              (label) =>
-                onChange({
-                  label: { label, level, orientation },
-                }),
-              [onChange, level],
-            )}
-            level={level}
-          />
-        )}
-        {children}
-      </Align.Space>
-    );
-  },
+  ) => (
+    <Align.Space
+      style={{
+        // You may be wondering, why do we do this here? Well it's because react flow
+        // uses a ResizeObserver to determine when to re-render edges. When we switch
+        // from 'left' to 'right' or 'top' to 'bottom', the width and height of the
+        // node remains the same, so the ResizeObserver doesn't fire. We need to redraw
+        // the edges, so we add a margin to trigger it.
+        marginRight: orientation === "right" ? 1 : 0,
+        marginTop: orientation === "top" ? 1 : 0,
+        ...style,
+      }}
+      size={2 / 3}
+      direction={orientation}
+      ref={ref}
+      className={CSS(CSS.B("symbol"), className)}
+      align="center"
+      justify="center"
+      {...props}
+    >
+      {value.length > 0 && (
+        <Text.Editable
+          className={CSS.BE("symbol", "label")}
+          value={value}
+          style={{ maxInlineSize }}
+          onChange={useCallback(
+            (label) =>
+              onChange({
+                label: { label, level, orientation },
+              }),
+            [onChange, level],
+          )}
+          level={level}
+        />
+      )}
+      {children}
+    </Align.Space>
+  ),
 );
 Labeled.displayName = "Labeled";

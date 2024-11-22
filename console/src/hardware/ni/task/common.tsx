@@ -12,7 +12,7 @@ import { Align, Button, Device, Form, Synnax, Text } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
 import { Device as NIDevice } from "@/hardware/ni/device";
-import { Properties } from "@/hardware/ni/device/types";
+import { type Properties } from "@/hardware/ni/device/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Link } from "@/link";

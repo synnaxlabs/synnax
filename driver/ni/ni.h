@@ -435,6 +435,8 @@ public:
 
     void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
 
+    void join_scan_thread();
+
     void log_err(std::string err_msg);
 
 private:
@@ -478,7 +480,6 @@ public:
 
     bool ok();
 
-    ~ScannerTask();
 
 private:
     breaker::Breaker breaker;

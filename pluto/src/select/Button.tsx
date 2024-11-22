@@ -81,16 +81,16 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       size={size}
       {...props}
     >
-      {data?.map((e) => {
-        return children({
+      {data?.map((e) =>
+        children({
           key: e.key,
           onClick: () => onSelect(e.key),
           size: size,
           selected: e.key === value,
           entry: e,
           title: e[entryRenderKey],
-        });
-      })}
+        }),
+      )}
     </Align.Pack>
   );
 };

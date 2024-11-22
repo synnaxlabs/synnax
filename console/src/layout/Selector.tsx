@@ -14,8 +14,8 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { PlacerArgs, usePlacer } from "@/layout/hooks";
-import { RendererProps } from "@/layout/slice";
+import { type PlacerArgs, usePlacer } from "@/layout/hooks";
+import { type RendererProps } from "@/layout/slice";
 
 export interface Selectable {
   key: string;
@@ -26,6 +26,7 @@ export interface Selectable {
 
 export interface SelectorProps extends Align.SpaceProps, RendererProps {
   layouts?: Selectable[];
+  text?: string;
 }
 
 const Base = ({
@@ -34,6 +35,7 @@ const Base = ({
   layouts,
   visible: _,
   focused: __,
+  text = "Select a Component Type",
   ...props
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
@@ -47,7 +49,7 @@ const Base = ({
         wrap
       >
         <Text.Text level="h4" shade={6} weight={400}>
-          Select a Component Type
+          {text}
         </Text.Text>
         <Align.Space
           direction="x"

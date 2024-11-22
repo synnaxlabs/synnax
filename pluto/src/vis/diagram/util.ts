@@ -26,9 +26,8 @@ export const selectNodeBox = (flow: ReactFlowInstance, key: string): box.Box => 
   );
 };
 
-export const selectNodeLayout = (key: string, flow: ReactFlowInstance): NodeLayout => {
-  return NodeLayout.fromFlow(key, flow);
-};
+export const selectNodeLayout = (key: string, flow: ReactFlowInstance): NodeLayout =>
+  NodeLayout.fromFlow(key, flow);
 
 export class HandleLayout {
   node_: NodeLayout | null = null;

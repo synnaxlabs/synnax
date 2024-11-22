@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/ReadTask.css";
 
-import { DataType, device, NotFoundError } from "@synnaxlabs/client";
+import { DataType, type device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -38,14 +38,14 @@ import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import {
-  Read,
+  type Read,
   READ_TYPE,
   type ReadChannelConfig,
   type ReadConfig,
   readConfigZ,
-  ReadPayload,
+  type ReadPayload,
   type ReadStateDetails,
-  ReadType,
+  type ReadType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import {
@@ -58,6 +58,10 @@ import {
   type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
+import {
+  checkDesiredStateMatch,
+  useDesiredState,
+} from "@/hardware/task/common/useDesiredState";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
@@ -109,6 +113,10 @@ const Wrapped = ({
     task?.key,
     task?.state,
   );
+  const running = taskState?.details?.running;
+  const initialState =
+    running === true ? "running" : running === false ? "paused" : undefined;
+  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
 
   const configure = useMutation<void>({
@@ -121,14 +129,13 @@ const Wrapped = ({
       );
       let modified = false;
       let shouldCreateIndex = primitiveIsZero(dev.properties.read.index);
-      if (!shouldCreateIndex) {
+      if (!shouldCreateIndex)
         try {
           await client.channels.retrieve(dev.properties.read.index);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateIndex = true;
           else throw e;
         }
-      }
       if (shouldCreateIndex) {
         modified = true;
         const idx = await client.channels.create({
@@ -145,17 +152,15 @@ const Wrapped = ({
         if (ch.useAsIndex) continue;
         const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
         if (primitiveIsZero(exKey)) toCreate.push(ch);
-        else {
+        else
           try {
             const rCh = await client.channels.retrieve(exKey);
-            if (rCh.name !== ch.name) {
+            if (rCh.name !== ch.name)
               await client.channels.rename(Number(exKey), ch.name);
-            }
           } catch (e) {
             if (NotFoundError.matches(e)) toCreate.push(ch);
             else throw e;
           }
-        }
       }
 
       if (toCreate.length > 0) {
@@ -186,6 +191,7 @@ const Wrapped = ({
         });
 
       createTask({ key: task?.key, name, type: READ_TYPE, config });
+      setDesiredState("paused");
     },
     onError: (e) => {
       addStatus({
@@ -200,7 +206,9 @@ const Wrapped = ({
     mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (task == null) return;
-      await task.executeCommand(taskState?.details?.running == true ? "stop" : "start");
+      const isRunning = running === true;
+      setDesiredState(isRunning ? "paused" : "running");
+      await task.executeCommand(running ? "stop" : "start");
     },
   });
 
@@ -300,7 +308,11 @@ const Wrapped = ({
         <Controls
           layoutKey={layoutKey}
           state={taskState}
-          startingOrStopping={start.isPending}
+          startingOrStopping={
+            start.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
+          }
           configuring={configure.isPending}
           onStartStop={start.mutate}
           onConfigure={configure.mutate}
@@ -469,7 +481,7 @@ export const ChannelListItem = ({
   if (childValues == null) return <></>;
   const opcNode =
     childValues.nodeId.length > 0 ? childValues.nodeId : "No Node Selected";
-  let opcNodeColor = undefined;
+  let opcNodeColor;
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
 
   return (

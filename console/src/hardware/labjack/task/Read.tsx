@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, NotFoundError, task } from "@synnaxlabs/client";
+import { type device, NotFoundError, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -22,9 +22,9 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, id, KeyedNamed, primitiveIsZero } from "@synnaxlabs/x";
+import { deep, id, type KeyedNamed, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { FC, ReactElement, useCallback, useState } from "react";
+import { type FC, type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -34,27 +34,27 @@ import {
   SelectPort,
 } from "@/hardware/labjack/device/Select";
 import {
-  ChannelType,
+  type ChannelType,
   DEVICES,
-  InputChannelType,
-  ModelKey,
-  Properties,
+  type InputChannelType,
+  type ModelKey,
+  type Properties,
 } from "@/hardware/labjack/device/types";
 import { SelectDevice } from "@/hardware/labjack/task/common";
 import {
   inputChan,
-  Read,
+  type Read,
   READ_TYPE,
-  ReadChan,
-  ReadPayload,
-  ReadStateDetails,
-  ReadTaskConfig,
+  type ReadChan,
+  type ReadPayload,
+  type ReadStateDetails,
+  type ReadTaskConfig,
   readTaskConfigZ,
-  ReadType,
-  Scale,
+  type ReadType,
+  type Scale,
   SCALE_SCHEMAS,
-  ScaleType,
-  TemperatureUnits,
+  type ScaleType,
+  type TemperatureUnits,
   thermocoupleChanZ,
   ZERO_READ_CHAN,
   ZERO_READ_PAYLOAD,
@@ -68,14 +68,18 @@ import {
   Controls,
   EnableDisableButton,
   TareButton,
-  TaskLayoutArgs,
+  type TaskLayoutArgs,
   useCreate,
   useObserveState,
-  WrappedTaskLayoutProps,
+  type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
 import { LabJackThermocoupleTypeField } from "@/hardware/task/common/thermocouple";
-import { Layout } from "@/layout";
+import {
+  checkDesiredStateMatch,
+  useDesiredState,
+} from "@/hardware/task/common/useDesiredState";
+import { type Layout } from "@/layout";
 
 type LayoutArgs = TaskLayoutArgs<ReadPayload>;
 
@@ -123,6 +127,10 @@ const Wrapped = ({
     task?.key,
     task?.state,
   );
+  const running = taskState?.details?.running;
+  const initialState =
+    running === true ? "running" : running === false ? "paused" : undefined;
+  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<ReadTaskConfig, ReadStateDetails, ReadType>(layoutKey);
   const addStatus = Status.useAggregator();
   const configure = useMutation({
@@ -190,15 +198,16 @@ const Wrapped = ({
         c.channel = dev.properties[type].channels[c.port];
       });
       await createTask({ key: task?.key, name, type: READ_TYPE, config });
+      setDesiredState("paused");
     },
   });
   const start = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) return;
-      await task?.executeCommand(
-        taskState?.details?.running === true ? "stop" : "start",
-      );
+      const isRunning = running === true;
+      setDesiredState(isRunning ? "paused" : "running");
+      await task?.executeCommand(isRunning ? "stop" : "start");
     },
   });
   const handleTare = useMutation({
@@ -276,7 +285,11 @@ const Wrapped = ({
           layoutKey={layoutKey}
           state={taskState}
           snapshot={task?.snapshot}
-          startingOrStopping={start.isPending}
+          startingOrStopping={
+            start.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
+          }
           configuring={configure.isPending}
           onConfigure={configure.mutate}
           onStartStop={start.mutate}

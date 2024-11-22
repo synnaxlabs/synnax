@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/ReadTask.css";
 
-import { device, NotFoundError } from "@synnaxlabs/client";
+import { type device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -58,6 +58,10 @@ import {
   type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
+import {
+  checkDesiredStateMatch,
+  useDesiredState,
+} from "@/hardware/task/common/useDesiredState";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
@@ -138,6 +142,10 @@ const Wrapped = ({
     task?.key,
     task?.state,
   );
+  const running = taskState?.details?.running;
+  const initialState =
+    running === true ? "running" : running === false ? "paused" : undefined;
+  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
 
   const configure = useMutation<void>({
@@ -155,16 +163,14 @@ const Wrapped = ({
       const commandsToCreate: WriteChannelConfig[] = [];
       for (const channel of config.channels) {
         const key = getChannelByNodeID(dev.properties, channel.nodeId);
-        if (primitiveIsZero(key)) {
-          commandsToCreate.push(channel);
-        } else {
+        if (primitiveIsZero(key)) commandsToCreate.push(channel);
+        else
           try {
             await client.channels.retrieve(key);
           } catch (e) {
             if (NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
-        }
       }
 
       if (commandsToCreate.length > 0) {
@@ -211,6 +217,7 @@ const Wrapped = ({
         type: WRITE_TYPE,
         config,
       });
+      setDesiredState("paused");
     },
     onError: (e) =>
       addStatus({
@@ -224,7 +231,9 @@ const Wrapped = ({
     mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (task == null) return;
-      await task.executeCommand(taskState?.details?.running == true ? "stop" : "start");
+      const isRunning = running === true;
+      setDesiredState(isRunning ? "paused" : "running");
+      await task.executeCommand(isRunning ? "stop" : "start");
     },
   });
 
@@ -311,7 +320,11 @@ const Wrapped = ({
         <Controls
           layoutKey={layoutKey}
           state={taskState}
-          startingOrStopping={start.isPending}
+          startingOrStopping={
+            start.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
+          }
           configuring={configure.isPending}
           onStartStop={start.mutate}
           onConfigure={configure.mutate}
@@ -477,7 +490,7 @@ const WriterChannelListItem = ({
   if (childValues == null) return <></>;
   const opcNode =
     childValues.nodeId.length > 0 ? childValues.nodeId : "No Node Selected";
-  let opcNodeColor = undefined;
+  let opcNodeColor;
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
 
   return (
