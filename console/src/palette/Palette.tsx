@@ -9,7 +9,7 @@
 
 import "@/palette/Palette.css";
 
-import { ontology, Synnax } from "@synnaxlabs/client";
+import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -142,7 +142,9 @@ export const Palette = ({
   const dispatch = useDispatch();
 
   const handleDrop = useCallback(
-    ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
+    ({ items }: Haul.OnDropProps, cursor?: xy.XY) => {
+      if (items.length === 0) return [];
+      const item = items[0];
       const windows = Drift.selectWindows(store.getState());
       const boxes = windows
         .filter((w) => w.stage === "created")

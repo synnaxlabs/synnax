@@ -88,7 +88,6 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
         snapshot: undefined,
       } as unknown as UnknownRecord;
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await new Promise((r) => setTimeout(r, 1000));
       const canSave = selectHasPermission(storeState);
       if (!canSave) return;
       await client.workspaces.schematic.create(ws, {

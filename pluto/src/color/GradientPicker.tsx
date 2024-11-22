@@ -15,7 +15,7 @@ import { type ReactElement, useRef } from "react";
 import { Align } from "@/align";
 import { type color } from "@/color/core";
 import { cssString } from "@/color/core/color";
-import { Picker } from "@/color/Picker";
+import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
@@ -184,7 +184,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
           }}
         />
       </Align.Space>
-      <Picker
+      <Swatch
         size="small"
         draggable
         key={stop.key}

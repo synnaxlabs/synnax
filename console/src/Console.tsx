@@ -12,7 +12,13 @@ import "@synnaxlabs/media/dist/style.css";
 
 // import "@synnaxlabs/pluto/dist/style.css";
 import { Provider } from "@synnaxlabs/drift/react";
-import { type Haul, Pluto, type state, type Triggers } from "@synnaxlabs/pluto";
+import {
+  type Color,
+  type Haul,
+  Pluto,
+  type state,
+  type Triggers,
+} from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -93,6 +99,16 @@ const useHaulState: state.PureUse<Haul.DraggingState> = () => {
   return [hauled, onHauledChange];
 };
 
+const useColorContextState: state.PureUse<Color.ContextState> = () => {
+  const colorContext = Layout.useSelectColorContext();
+  const dispatch = useDispatch();
+  const onColorContextChange = useCallback(
+    (state: Color.ContextState) => dispatch(Layout.setColorContext({ state })),
+    [dispatch],
+  );
+  return [colorContext, onColorContextChange];
+};
+
 const useBlockDefaultDropBehavior = (): void =>
   useEffect(() => {
     const doc = document.documentElement;
@@ -123,6 +139,7 @@ const MainUnderContext = (): ReactElement => {
         workerURL={WorkerURL}
         triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}
+        color={{ useState: useColorContextState }}
         alamos={{
           level: "debug",
           include: [],

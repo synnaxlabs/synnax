@@ -25,6 +25,7 @@ import {
   useSelectSelectedCells,
 } from "@/table/selectors";
 import { type CellState, setCellProps, setCellType } from "@/table/slice";
+import { useSyncComponent } from "@/table/Table";
 export interface ToolbarProps {
   layoutKey: string;
 }
@@ -84,7 +85,7 @@ const CellForm = ({ tableKey, cell }: CellFormProps): ReactElement => {
   const tableRef = useSyncedRef(tableKey);
   const cellRef = useSyncedRef(cell?.key);
 
-  const d = useDispatch();
+  const d = useSyncComponent(tableKey);
 
   const handleChange = useCallback(({ values }: Form.OnChangeProps<any>) => {
     d(setCellProps({ key: tableRef.current, cellKey: cellRef.current, props: values }));

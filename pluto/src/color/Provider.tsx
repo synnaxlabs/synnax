@@ -1,4 +1,4 @@
-import {
+import React, {
   createContext,
   type PropsWithChildren,
   type ReactElement,
@@ -6,20 +6,24 @@ import {
   useContext as reactUseContext,
   useMemo,
 } from "react";
+import { z } from "zod";
 
 import { color } from "@/color/core";
 import { useSyncedRef } from "@/hooks";
-import { state } from "@/state";
+import { type state } from "@/state";
 
-export interface ContextValue {
-  palettes: Record<string, color.Palette>;
-  frequent: Record<color.Hex, number>;
+export const contextStateZ = z.object({
+  palettes: z.record(color.paletteZ),
+  frequent: z.record(z.number()),
+});
+
+export type ContextState = z.infer<typeof contextStateZ>;
+
+export interface ContextValue extends ContextState {
   updateFrequent: (color: color.Color) => void;
 }
 
-export type ContextState = Pick<ContextValue, "palettes" | "frequent">;
-
-const ZERO_CONTEXT_STATE: ContextState = {
+export const ZERO_CONTEXT_STATE: ContextState = {
   palettes: {
     frequent: {
       key: "frequent",
@@ -38,8 +42,7 @@ const ZERO_CONTEXT_VALUE: ContextValue = {
 const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
 export interface ProviderProps extends PropsWithChildren<{}> {
-  value?: ContextState;
-  setValue?: (value: ContextState) => void;
+  useState?: state.PureUse<ContextState>;
 }
 
 export const useContext = (): ContextValue => reactUseContext(Context);
@@ -55,15 +58,10 @@ export const purgeFrequent = (
 };
 
 export const Provider = ({
-  value: pValue,
-  setValue: setPValue,
+  useState = React.useState,
   children,
 }: ProviderProps): ReactElement => {
-  const [value, setValue] = state.usePurePassthrough({
-    initial: pValue ?? ZERO_CONTEXT_STATE,
-    value: pValue,
-    onChange: setPValue,
-  });
+  const [value, setValue] = useState(ZERO_CONTEXT_STATE);
 
   const valueRef = useSyncedRef(value);
 

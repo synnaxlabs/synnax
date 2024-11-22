@@ -123,6 +123,10 @@ export interface ClearSelectedPayload {
   key: string;
 }
 
+export interface SetRemoteCreatedPayload {
+  key: string;
+}
+
 const addRowInternal = (
   state: SliceState,
   { payload }: PayloadAction<AddRowPayload>,
@@ -497,6 +501,9 @@ export const { actions, reducer } = createSlice({
         cell.props = { ...ZERO_CELL_PROPS };
       });
     },
+    setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
+      state.tables[payload.key].remoteCreated = true;
+    },
   },
 });
 
@@ -517,6 +524,7 @@ export const {
   setEditable,
   copySelected,
   pasteSelected,
+  setRemoteCreated,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

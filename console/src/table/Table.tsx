@@ -1,5 +1,6 @@
 import "@/table/Table.css";
 
+import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -9,16 +10,27 @@ import {
   Table as Core,
   TableCells,
   Triggers,
+  usePrevious,
 } from "@synnaxlabs/pluto";
-import { box, clamp, dimensions, type location, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useRef } from "react";
+import {
+  box,
+  clamp,
+  dimensions,
+  type location,
+  type UnknownRecord,
+  xy,
+} from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 
 import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
+import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
+  select,
+  useSelect,
   useSelectCell,
   useSelectEditable,
   useSelectLayout,
@@ -42,9 +54,11 @@ import {
   selectRow,
   setCellProps,
   setEditable,
+  setRemoteCreated,
   type State,
   ZERO_STATE,
 } from "@/table/slice";
+import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "table";
 export type LayoutType = typeof LAYOUT_TYPE;
@@ -68,30 +82,69 @@ const parseRowCalArgs = <L extends location.Outer | undefined>(
   return { key: tableKey, cellKey: keys[0], loc: loc as L };
 };
 
-export const Table: Layout.Renderer = ({ layoutKey, visible }) => {
+interface SyncPayload {
+  key?: string;
+}
+
+export const useSyncComponent = (
+  layoutKey: string,
+): Dispatch<PayloadAction<SyncPayload>> =>
+  Workspace.useSyncComponent<SyncPayload>(
+    "Table",
+    layoutKey,
+    async (ws, store, client) => {
+      const storeState = store.getState();
+      const data = select(storeState, layoutKey);
+      if (data == null) return;
+      const layout = Layout.selectRequired(storeState, layoutKey);
+      const setData = {
+        ...data,
+        key: undefined,
+        snapshot: undefined,
+      } as unknown as UnknownRecord;
+      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
+      await client.workspaces.table.create(ws, {
+        key: layoutKey,
+        name: layout.name,
+        data: setData,
+      });
+    },
+  );
+
+export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
+  const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
-  const dispatch = useDispatch();
+  const syncDispatch = useSyncComponent(layoutKey);
   const editable = useSelectEditable(layoutKey);
 
   const handleAddRow = () => {
-    dispatch(addRow({ key: layoutKey }));
+    syncDispatch(addRow({ key: layoutKey }));
   };
 
   const handleAddCol = () => {
-    dispatch(addCol({ key: layoutKey }));
+    syncDispatch(addCol({ key: layoutKey }));
   };
+
+  const prevName = usePrevious(name);
+
+  useEffect(() => {
+    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
+  }, [syncDispatch, name, prevName]);
 
   const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => (
     <Menu.Menu
       onChange={{
         addRowBelow: () => {
-          dispatch(addRow(parseRowCalArgs(layoutKey, keys, "bottom")));
+          syncDispatch(addRow(parseRowCalArgs(layoutKey, keys, "bottom")));
         },
-        addRowAbove: () => dispatch(addRow(parseRowCalArgs(layoutKey, keys, "top"))),
-        addColRight: () => dispatch(addCol(parseRowCalArgs(layoutKey, keys, "right"))),
-        addColLeft: () => dispatch(addCol(parseRowCalArgs(layoutKey, keys, "left"))),
-        deleteRow: () => dispatch(deleteRow(parseRowCalArgs(layoutKey, keys))),
-        deleteCol: () => dispatch(deleteCol(parseRowCalArgs(layoutKey, keys))),
+        addRowAbove: () =>
+          syncDispatch(addRow(parseRowCalArgs(layoutKey, keys, "top"))),
+        addColRight: () =>
+          syncDispatch(addCol(parseRowCalArgs(layoutKey, keys, "right"))),
+        addColLeft: () =>
+          syncDispatch(addCol(parseRowCalArgs(layoutKey, keys, "left"))),
+        deleteRow: () => syncDispatch(deleteRow(parseRowCalArgs(layoutKey, keys))),
+        deleteCol: () => syncDispatch(deleteCol(parseRowCalArgs(layoutKey, keys))),
       }}
       iconSpacing="small"
       level="small"
@@ -124,14 +177,14 @@ export const Table: Layout.Renderer = ({ layoutKey, visible }) => {
   const menuProps = Menu.useContextMenu();
 
   const handleColResize = useCallback((size: number, index: number) => {
-    dispatch(resizeCol({ key: layoutKey, index, size: clamp(size, 32) }));
+    syncDispatch(resizeCol({ key: layoutKey, index, size: clamp(size, 32) }));
   }, []);
 
   const windowKey = useSelectWindowKey() as string;
 
   const handleDoubleClick = useCallback(() => {
     if (!editable) return;
-    dispatch(
+    syncDispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
   }, [editable]);
@@ -153,11 +206,11 @@ export const Table: Layout.Renderer = ({ layoutKey, visible }) => {
           (t) => t.includes("Delete") || t.includes("Backspace"),
         );
         const isPaste = triggers.some((t) => t.includes("V"));
-        if (isCopy) dispatch(copySelected({ key: layoutKey }));
-        if (isDelete) dispatch(clearSelected({ key: layoutKey }));
-        if (isPaste) dispatch(pasteSelected({ key: layoutKey }));
+        if (isCopy) syncDispatch(copySelected({ key: layoutKey }));
+        if (isDelete) syncDispatch(clearSelected({ key: layoutKey }));
+        if (isPaste) syncDispatch(pasteSelected({ key: layoutKey }));
       },
-      [dispatch, layoutKey],
+      [syncDispatch, layoutKey],
     ),
   });
 
@@ -367,3 +420,22 @@ const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement
   );
 });
 Cell.displayName = "Cell";
+
+export const Table: Layout.Renderer = ({
+  layoutKey,
+  ...props
+}): ReactElement | null => {
+  const table = useLoadRemote({
+    name: "Table",
+    targetVersion: ZERO_STATE.version,
+    layoutKey,
+    useSelect,
+    fetcher: async (client, layoutKey) => {
+      const { key, data } = await client.workspaces.table.retrieve(layoutKey);
+      return { key, ...data } as State;
+    },
+    actionCreator: internalCreate,
+  });
+  if (table == null) return null;
+  return <Loaded layoutKey={layoutKey} {...props} />;
+};

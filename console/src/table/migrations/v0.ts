@@ -58,6 +58,7 @@ export const stateZ = z.object({
     columns: colLayout.array(),
   }),
   cells: z.record(z.string(), cellState),
+  remoteCreated: z.boolean(),
 });
 
 export type State = z.infer<typeof stateZ>;
@@ -72,6 +73,7 @@ export const ZERO_STATE: State = {
   version: "0.0.0",
   lastSelected: null,
   editable: true,
+  remoteCreated: false,
   layout: {
     rows: [
       { size: BASE_ROW_SIZE, cells: [{ key: cellOneKey }, { key: cellTwoKey }] },

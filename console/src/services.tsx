@@ -19,6 +19,7 @@ import { type Ontology } from "@/ontology";
 import { Builtin } from "@/ontology/builtin";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
+import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 import { Workspace } from "@/workspace";
 
@@ -55,4 +56,5 @@ export const SERVICES: Ontology.Services = {
   policy: EMPTY_ONTOLOGY_SERVICE,
   allow_all: EMPTY_ONTOLOGY_SERVICE,
   log: LogServices.ONTOLOGY_SERVICE,
+  table: TableServices.ONTOLOGY_SERVICE,
 };

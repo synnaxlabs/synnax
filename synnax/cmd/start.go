@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 
 	"os"
 	"os/signal"
@@ -209,6 +210,10 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		tableSvc, err := table.NewService(table.Config{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+		})
 		hardwareSvc, err := hardware.OpenService(ctx, hardware.Config{
 			DB:           gorpDB,
 			Ontology:     dist.Ontology,
@@ -249,6 +254,7 @@ func start(cmd *cobra.Command) {
 			Storage:         dist.Storage,
 			User:            userSvc,
 			Token:           tokenSvc,
+			Table:           tableSvc,
 			Cluster:         dist.Cluster,
 			Ontology:        dist.Ontology,
 			Group:           dist.Group,
