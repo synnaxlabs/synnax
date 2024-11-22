@@ -10,7 +10,6 @@
 import "@/haul/Haul.css";
 
 import {
-  box,
   type Destructor,
   type Key,
   type Optional,
@@ -25,7 +24,6 @@ import React, {
   type PropsWithChildren,
   useCallback,
   useContext as reactUseContext,
-  useEffect,
   useId,
   useMemo,
   useRef,
@@ -302,40 +300,3 @@ export const filterByType = (type: string, entities: Item[]): Item[] =>
 export interface UseDropOutsideProps extends Omit<UseDropProps, "onDrop"> {
   onDrop: (props: OnDropProps, cursor: xy.XY) => Item[];
 }
-
-export const useDropOutside = ({ type, key, ...rest }: UseDropOutsideProps): void => {
-  const ctx = useContext();
-  if (ctx == null) return;
-  const dragging = useDraggingRef();
-  const { bind } = ctx;
-  const isOutside = useRef(false);
-  const key_ = key ?? useId();
-  const target: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
-  const propsRef = useRef<UseDropOutsideProps>({ ...rest, type, key: key_ });
-  useEffect(() => {
-    const release = bind((state, cursor) => {
-      const { canDrop, onDrop } = propsRef.current;
-      if (!canDrop(state) || !isOutside.current) return null;
-      const dropped = onDrop({ ...state }, cursor);
-      return { target, dropped };
-    });
-    const handleMouseEnter = () => {
-      isOutside.current = false;
-    };
-    const handleMouseLeave = (e: globalThis.DragEvent) => {
-      const { onDragOver, canDrop } = propsRef.current;
-      const windowBox = box.construct(window.document.documentElement);
-      if (box.contains(windowBox, xy.construct(e.clientX, e.clientY))) return;
-      isOutside.current = true;
-      if (!canDrop(dragging.current)) return;
-      onDragOver?.(dragging.current);
-    };
-    document.body.addEventListener("dragleave", handleMouseLeave);
-    document.body.addEventListener("mouseenter", handleMouseEnter);
-    return () => {
-      release();
-      document.body.removeEventListener("dragleave", handleMouseLeave);
-      document.body.removeEventListener("mouseenter", handleMouseEnter);
-    };
-  }, []);
-};

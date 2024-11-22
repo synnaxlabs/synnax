@@ -95,6 +95,7 @@ export type RootStore = Store<RootState, RootAction>;
 const DEFAULT_WINDOW_VISIBLE = isDev();
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   visible: DEFAULT_WINDOW_VISIBLE,
+  minSize: { width: 625, height: 375 },
 };
 
 export const migrateState = (prev: RootState): RootState => {
