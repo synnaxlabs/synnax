@@ -408,6 +408,46 @@ export const ReliefValvePreview = (props: ReliefValveProps): ReactElement => (
   <Primitives.ReliefValve {...props} />
 );
 
+export interface SpringLoadedReliefValveProps
+  extends Primitives.SpringLoadedReliefValveProps {
+  label?: LabelExtensionProps;
+}
+
+export const SpringLoadedReliefValve = ({
+  label,
+  onChange,
+  aetherKey: _,
+  ...rest
+}: SymbolProps<SpringLoadedReliefValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.SpringLoadedReliefValve {...rest} />
+  </Labeled>
+);
+
+export const SpringLoadedReliefValvePreview = (
+  props: SpringLoadedReliefValveProps,
+): ReactElement => <Primitives.SpringLoadedReliefValve {...props} />;
+
+export interface AngledSpringLoadedReliefValveProps
+  extends Primitives.AngledSpringLoadedReliefValveProps {
+  label?: LabelExtensionProps;
+}
+
+export const AngledSpringLoadedReliefValve = ({
+  label,
+  onChange,
+  aetherKey: _,
+  ...rest
+}: SymbolProps<AngledSpringLoadedReliefValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.AngledSpringLoadedReliefValve {...rest} />
+  </Labeled>
+);
+
+export const AngledSpringLoadedReliefValvePreview = (
+  props: AngledSpringLoadedReliefValveProps,
+): ReactElement => <Primitives.AngledSpringLoadedReliefValve {...props} />;
+
 export interface RegulatorProps extends Primitives.RegulatorProps {
   label?: LabelExtensionProps;
 }
@@ -482,6 +522,25 @@ export const Cap = ({
 
 export const CapPreview = (props: CapProps): ReactElement => (
   <Primitives.Cap {...props} />
+);
+
+export interface ISOCapProps extends Primitives.ISOCapProps {
+  label?: LabelExtensionProps;
+}
+
+export const ISOCap = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<ISOCapProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ISOCap {...rest} />
+  </Labeled>
+);
+
+export const ISOCapPreview = (props: ISOCapProps): ReactElement => (
+  <Primitives.ISOCap {...props} />
 );
 
 export interface ManualValveProps extends Primitives.ManualValveProps {
@@ -605,6 +664,25 @@ export const CheckValve = ({
 
 export const CheckValvePreview = (props: CheckValveProps): ReactElement => (
   <Primitives.CheckValve {...props} />
+);
+
+export interface ISOCheckValveProps extends Primitives.ISOCheckValveProps {
+  label?: LabelExtensionProps;
+}
+
+export const ISOCheckValve = ({
+  label,
+  onChange,
+  aetherKey: _,
+  ...rest
+}: SymbolProps<ISOCheckValveProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ISOCheckValve {...rest} />
+  </Labeled>
+);
+
+export const ISOCheckValvePreview = (props: ISOCheckValveProps): ReactElement => (
+  <Primitives.ISOCheckValve {...props} />
 );
 
 export interface OrificeProps extends Primitives.OrificeProps {
@@ -1409,6 +1487,25 @@ export interface OffPageReferenceProps
   label: LabelExtensionProps;
 }
 
+export interface VentProps extends Primitives.VentProps {
+  label?: LabelExtensionProps;
+}
+
+export const Vent = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<VentProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Vent {...rest} />
+  </Labeled>
+);
+
+export const VentPreview = (props: VentProps): ReactElement => (
+  <Primitives.Vent {...props} />
+);
+
 export const OffPageReference = ({
   label: { label, level },
   aetherKey,
@@ -1428,4 +1525,91 @@ export const OffPageReferencePreview = ({
   ...props
 }: OffPageReferenceProps) => (
   <Primitives.OffPageReference label="Off Page" {...props} orientation="right" />
+);
+
+export interface OrificePlateProps extends Primitives.OrificePlateProps {
+  label?: LabelExtensionProps;
+}
+
+export const OrificePlate = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<OrificePlateProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.OrificePlate {...rest} />
+  </Labeled>
+);
+
+export const OrificePlatePreview = (props: OrificePlateProps): ReactElement => (
+  <Primitives.OrificePlate {...props} />
+);
+
+export interface ISOFilterProps extends Primitives.ISOFilterProps {
+  label?: LabelExtensionProps;
+}
+
+export const ISOFilter = ({
+  label,
+  aetherKey,
+  onChange,
+  ...rest
+}: SymbolProps<ISOFilterProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ISOFilter {...rest} />
+  </Labeled>
+);
+
+export const ISOFilterPreview = (props: ISOFilterProps): ReactElement => (
+  <Primitives.ISOFilter {...props} />
+);
+
+export interface CylinderProps
+  extends Omit<Primitives.CylinderProps, "boxBorderRadius"> {
+  label?: LabelExtensionProps;
+}
+
+export const Cylinder = ({
+  backgroundColor,
+  label,
+  onChange,
+  orientation,
+  color,
+  dimensions,
+  borderRadius,
+}: SymbolProps<CylinderProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.Cylinder
+      onResize={(dims) => onChange({ dimensions: dims })}
+      orientation={orientation}
+      color={color}
+      dimensions={dimensions}
+      borderRadius={borderRadius}
+      backgroundColor={backgroundColor}
+    />
+  </Labeled>
+);
+
+export const CylinderPreview = (props: CylinderProps): ReactElement => (
+  <Primitives.Cylinder {...props} dimensions={{ width: 25, height: 50 }} />
+);
+
+export interface ISOBurstDiscProps extends Primitives.ISOBurstDiscProps {
+  label?: LabelExtensionProps;
+}
+
+export const ISOBurstDisc = ({
+  label,
+  onChange,
+  aetherKey: _,
+  ...rest
+}: SymbolProps<ISOBurstDiscProps>): ReactElement => (
+  <Labeled {...label} onChange={onChange}>
+    <Primitives.ISOBurstDisc {...rest} />
+  </Labeled>
+);
+
+export const ISOBurstDiscPreview = (props: ISOBurstDiscProps): ReactElement => (
+  <Primitives.ISOBurstDisc {...props} />
 );
