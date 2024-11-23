@@ -9,7 +9,7 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
+import { box, direction, type location, type UnknownRecord, xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -137,17 +137,14 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
         symbolKey={symbolKey}
         items={gridItems}
         onLocationChange={(key, loc) => {
-          console.log("location change", key, loc);
           if (key === "label")
-            onChange({
-              label: {
-                ...label,
-                orientation: loc,
-                direction: direction.swap(location.direction(loc)),
-              },
-            });
+            onChange({ label: { ...label, orientation: loc } } as Partial<
+              ToggleProps<P>
+            >);
           if (key === "control")
-            onChange({ control: { ...control, orientation: loc } });
+            onChange({ control: { ...control, orientation: loc } } as Partial<
+              ToggleProps<P>
+            >);
         }}
       >
         {/* @ts-expect-error - typescript with HOCs */}
@@ -173,6 +170,8 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
     symbolKey,
     label,
     onChange,
+    selected,
+    draggable,
     ...rest
   }: SymbolProps<LabeledProps<P>>): ReactElement => {
     const gridItems: GridItem[] = [];
@@ -180,7 +179,17 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
     const labelItem = labelGridItem(label, onChange);
     if (labelItem != null) gridItems.push(labelItem);
     return (
-      <Grid items={gridItems}>
+      <Grid
+        items={gridItems}
+        editable={selected && !draggable}
+        symbolKey={symbolKey}
+        onLocationChange={(key, loc) => {
+          if (key === "label")
+            onChange({
+              label: { ...label, orientation: loc },
+            } as Partial<LabeledProps<P>>);
+        }}
+      >
         {/* @ts-expect-error - typescript with HOCs */}
         <BaseSymbol {...rest} />
       </Grid>
@@ -356,6 +365,8 @@ export const Setpoint = ({
   sink,
   color,
   onChange,
+  selected,
+  draggable,
 }: SymbolProps<SetpointProps>): ReactElement => {
   const { value, set } = CoreSetpoint.use({ aetherKey: symbolKey, source, sink });
   const gridItems: GridItem[] = [];
@@ -364,7 +375,15 @@ export const Setpoint = ({
   const labelItem = labelGridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
   return (
-    <Grid items={gridItems}>
+    <Grid
+      symbolKey={symbolKey}
+      editable={selected && !draggable}
+      items={gridItems}
+      onLocationChange={(key, loc) => {
+        if (key !== "label") return;
+        onChange({ label: { ...label, orientation: loc } } as Partial<SetpointProps>);
+      }}
+    >
       <Primitives.Setpoint
         value={value}
         onChange={set}
@@ -403,6 +422,8 @@ export const Value = ({
   units,
   onChange,
   inlineSize,
+  selected,
+  draggable,
   notation,
 }: SymbolProps<ValueProps>): ReactElement => {
   const font = Theming.useTypography(level);
@@ -426,7 +447,17 @@ export const Value = ({
   if (labelItem != null) gridItems.push(labelItem);
 
   return (
-    <Grid items={gridItems}>
+    <Grid
+      editable={selected && !draggable}
+      symbolKey={symbolKey}
+      items={gridItems}
+      onLocationChange={(key, loc) => {
+        if (key !== "label") return;
+        onChange({
+          label: { ...label, orientation: loc },
+        } as Partial<ValueProps>);
+      }}
+    >
       <Primitives.Value
         color={color}
         dimensions={{
@@ -460,6 +491,9 @@ export const Button = ({
   orientation,
   sink,
   control,
+  selected,
+  draggable,
+  onChange,
   ...rest
 }: SymbolProps<ButtonProps>) => {
   const { click } = CoreButton.use({ aetherKey: symbolKey, sink });
@@ -467,7 +501,15 @@ export const Button = ({
   const controlItem = controlStateGridItem(control);
   if (controlItem != null) gridItems.push(controlItem);
   return (
-    <Grid items={gridItems}>
+    <Grid
+      editable={selected && !draggable}
+      symbolKey={symbolKey}
+      items={gridItems}
+      onLocationChange={(key, loc) => {
+        if (key !== "label") return;
+        onChange({ label: { ...label, orientation: loc } } as Partial<ButtonProps>);
+      }}
+    >
       <Primitives.Button {...label} onClick={click} {...rest} />
     </Grid>
   );

@@ -49,6 +49,7 @@ import {
 import {
   addElement,
   calculatePos,
+  clearSelection,
   copySelection,
   internalCreate,
   pasteSelection,
@@ -262,18 +263,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   Triggers.use({
-    triggers: [
-      ["Control", "V"],
-      ["Control", "C"],
-    ],
+    triggers: [["Control", "V"], ["Control", "C"], ["Escape"]],
     region: ref,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
         if (ref.current == null || stage !== "start") return;
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
+        const isClear = triggers.some((t) => t.includes("Escape"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));
+        else if (isClear) dispatch(clearSelection({ key: layoutKey }));
         else dispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [dispatch, layoutKey, viewportRef],

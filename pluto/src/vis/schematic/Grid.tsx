@@ -105,7 +105,6 @@ const EditableGridEl = ({
 
 const GridEl = (props: GridElProps): ReactElement | null => {
   const { editable, items: fItems, loc } = props;
-  console.log(editable);
   if (editable) return <EditableGridEl {...props} />;
   const items = fItems.filter((i) => i.location === loc);
   if (items.length === 0) return null;

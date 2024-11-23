@@ -99,7 +99,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       .filter((el) => el !== null) as Diagram.NodeLayout[];
 
     return (
-      <Align.Space align="start" direction="x">
+      <Align.Space align="start" direction="x" style={{ padding: "2rem" }}>
         <Input.Item label="Selection Colors" align="start">
           <Align.Space direction="y">
             {Object.entries(groups).map(([hex, elements]) => (
@@ -107,9 +107,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
                 key={elements[0].key}
                 value={hex}
                 onChange={(color: Color.Color) => {
-                  elements.forEach((e) => {
-                    handleChange(e.key, { color: color.hex });
-                  });
+                  elements.forEach((e) => handleChange(e.key, { color: color.hex }));
                 }}
               />
             ))}

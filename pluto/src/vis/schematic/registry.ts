@@ -462,7 +462,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
   Symbol: SpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    ...zeroLabel("Spring Loaded Relief Valve"),
+    ...zeroLabel("Relief Valve"),
     ...ZERO_PROPS,
   }),
   Preview: Primitives.SpringLoadedReliefValve,
@@ -476,7 +476,7 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
   Symbol: AngledSpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    ...zeroLabel("Angled Spring Loaded Relief Valve"),
+    ...zeroLabel("Relief Valve"),
     ...ZERO_PROPS,
   }),
   Preview: Primitives.AngledSpringLoadedReliefValve,
