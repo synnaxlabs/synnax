@@ -48,7 +48,7 @@ export const rfEdgeDataZ = z.object({
   /**
    * The type of the edge.
    */
-  type: z.string().optional().default("pipe"),
+  type: z.string().optional(),
 
   /**
    * A list of segments representing the structure of the edge connector.
@@ -84,7 +84,7 @@ export const edgeZ = rfEdgeDataZ.extend({
 
   color: color.crudeZ,
 
-  type: z.string().optional().default("pipe"),
+  type: z.string().optional(),
 
   id: z.string(),
   data: z
