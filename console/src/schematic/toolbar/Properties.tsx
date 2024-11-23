@@ -24,7 +24,6 @@ import { box, deep, location, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { CSS } from "@/css";
 import {
   type ElementInfo,
   type NodeElementInfo,
@@ -210,9 +209,7 @@ const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement =
       <Input.Item label="Type" align="start">
         <Diagram.SelectPathType
           value={edge.edge.type}
-          onChange={(type) => {
-            onChange(edge.key, { type });
-          }}
+          onChange={(type: Diagram.PathType) => onChange(edge.key, { type })}
         />
       </Input.Item>
     </Align.Space>

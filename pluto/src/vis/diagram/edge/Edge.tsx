@@ -229,8 +229,6 @@ export const Edge = ({
 
   const points = connector.segmentsToPoints(sourcePos, segments, flow.getZoom(), true);
 
-  console.log(type);
-
   const P = PATHS[type];
 
   return (

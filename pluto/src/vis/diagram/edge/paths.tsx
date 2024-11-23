@@ -361,7 +361,7 @@ export const PATH_TYPES: KeyedNamed<PathType>[] = [
 export interface SelectPathTypeProps
   extends Omit<Select.DropdownButtonProps<PathType, KeyedNamed<PathType>>, "data"> {}
 
-export const SelectPathType = ({ ...props }: SelectPathTypeProps): ReactElement => (
+export const SelectPathType = (props: SelectPathTypeProps): ReactElement => (
   <Select.DropdownButton
     columns={[
       {
@@ -371,7 +371,7 @@ export const SelectPathType = ({ ...props }: SelectPathTypeProps): ReactElement 
     ]}
     data={PATH_TYPES}
     style={{ width: 200 }}
-    {...props}
     entryRenderKey="name"
+    {...props}
   />
 );
