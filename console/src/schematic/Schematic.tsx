@@ -25,7 +25,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
+import { box, deep, id, type UnknownRecord, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -226,10 +226,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       valid.forEach(({ key, data }) => {
         const spec = Core.SYMBOLS[key as Core.Variant];
         if (spec == null) return;
-        const pos = calculatePos(
-          region,
-          { x: event.clientX, y: event.clientY },
-          viewportRef.current,
+        const pos = xy.truncate(
+          calculatePos(
+            region,
+            { x: event.clientX, y: event.clientY },
+            viewportRef.current,
+          ),
+          0,
         );
         dispatch(
           addElement({

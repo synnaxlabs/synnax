@@ -464,6 +464,7 @@ const Core = Aether.wrap<DiagramProps>(
               isValidConnection={isValidConnection}
               connectionMode={ConnectionMode.Loose}
               snapGrid={[3, 3]}
+              snapToGrid
               fitViewOptions={FIT_VIEW_OPTIONS}
               selectionMode={SelectionMode.Partial}
               proOptions={PRO_OPTIONS}

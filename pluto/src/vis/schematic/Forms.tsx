@@ -106,6 +106,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       hideIfNull
       label="Label Wrap Width"
       inputProps={{ endContent: "px" }}
+      padHelpText={false}
     />
     <Form.Field<Text.Level>
       hideIfNull
@@ -162,7 +163,7 @@ interface CommonStyleFormProps {
 
 export const CommonStyleForm = ({ omit }: CommonStyleFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow empty>
+    <Align.Space direction="y" grow>
       <LabelControls omit={omit} path="label" />
       <Align.Space direction="x" grow>
         <ColorControl path="color" optional />
@@ -289,7 +290,7 @@ export const TankForm = ({
   includeBorderRadius = false,
 }: TankFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow empty>
+    <Align.Space direction="y">
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
@@ -514,7 +515,7 @@ export const ValueForm = (): ReactElement => {
       default:
         return (
           <FormWrapper direction="x">
-            <Align.Space direction="y" grow empty>
+            <Align.Space direction="y" grow>
               <LabelControls path="label" />
               <Align.Space direction="x">
                 <ColorControl path="color" />

@@ -181,6 +181,7 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
     onChange,
     selected,
     draggable,
+    position: _,
     orientation = "left",
     ...rest
   }: SymbolProps<LabeledProps<P>>): ReactElement => {
@@ -441,7 +442,7 @@ export const Value = ({
   telem,
   units,
   onChange,
-  inlineSize,
+  inlineSize = 70,
   selected,
   draggable,
   notation,
@@ -572,14 +573,8 @@ export const Light = ({
 export const TextBoxPreview = ({
   level = "p",
   width = 100,
-  ...rest
 }: SymbolProps<Primitives.TextBoxProps>): ReactElement => (
-  <Primitives.TextBox
-    className={CSS.B("symbol")}
-    level={level}
-    width={width}
-    {...rest}
-  />
+  <Primitives.TextBox level={level} width={width} />
 );
 
 export interface OffPageReferenceProps
@@ -589,14 +584,14 @@ export interface OffPageReferenceProps
 
 export const OffPageReference = ({
   label: { label, level },
-  position: _,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<OffPageReferenceProps>): ReactElement => (
   <Primitives.OffPageReference
     label={label}
     level={level}
-    {...props}
-    className={CSS.B("symbol")}
+    orientation={orientation}
+    color={color}
   />
 );
 
