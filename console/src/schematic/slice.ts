@@ -383,7 +383,10 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       if (schematic == null) return;
       schematic.control = control;
-      if (control === "acquired") schematic.editable = false;
+      if (control === "acquired") {
+        clearSelections(schematic);
+        schematic.editable = false;
+      }
     },
     setViewportMode: (
       state,
