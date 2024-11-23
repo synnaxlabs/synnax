@@ -43,7 +43,7 @@ import {
   FaWindows,
 } from "react-icons/fa";
 import { GiHamburgerMenu } from "react-icons/gi";
-import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
+import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
@@ -402,6 +402,7 @@ export const Icon: IconType = {
   Snooze: wrapIcon(IoNotificationsOff, "snooze"),
   Log: wrapIcon(FaStream, "log"),
   Tare: wrapIcon(FaCreativeCommonsZero, "tare"),
+  Rotate: wrapIcon(GrRotateRight, "rotate"),
 };
 
 export interface IconType {
@@ -550,4 +551,5 @@ export interface IconType {
   Commit: IconFC;
   Log: IconFC;
   Tare: IconFC;
+  Rotate: IconFC;
 }

@@ -9,7 +9,7 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, direction, type location, type UnknownRecord, xy } from "@synnaxlabs/x";
+import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -106,6 +106,7 @@ export type ToggleProps<T> = T &
   Omit<Toggle.UseProps, "aetherKey" | "onChange"> & {
     label?: LabelExtensionProps;
     control?: ControlStateProps;
+    orientation?: location.Outer;
   };
 
 export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>) => {
@@ -118,6 +119,7 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
     onChange,
     draggable,
     selected,
+    orientation = "left",
     ...rest
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({
@@ -136,6 +138,11 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
         editable={selected && !draggable}
         symbolKey={symbolKey}
         items={gridItems}
+        onRotate={() =>
+          onChange({ orientation: location.rotate90(orientation) } as Partial<
+            ToggleProps<P>
+          >)
+        }
         onLocationChange={(key, loc) => {
           if (key === "label")
             onChange({ label: { ...label, orientation: loc } } as Partial<
@@ -152,6 +159,7 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
           enabled={enabled}
           triggered={triggered}
           onClick={toggle}
+          orientation={orientation}
           {...rest}
         />
       </Grid>
@@ -163,6 +171,7 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
 
 type LabeledProps<P extends object = UnknownRecord> = P & {
   label?: LabelExtensionProps;
+  orientation?: location.Outer;
 };
 
 export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P>) => {
@@ -172,6 +181,7 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
     onChange,
     selected,
     draggable,
+    orientation = "left",
     ...rest
   }: SymbolProps<LabeledProps<P>>): ReactElement => {
     const gridItems: GridItem[] = [];
@@ -183,6 +193,11 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
         items={gridItems}
         editable={selected && !draggable}
         symbolKey={symbolKey}
+        onRotate={() =>
+          onChange({ orientation: location.rotate90(orientation) } as Partial<
+            LabeledProps<P>
+          >)
+        }
         onLocationChange={(key, loc) => {
           if (key === "label")
             onChange({
@@ -191,7 +206,7 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
         }}
       >
         {/* @ts-expect-error - typescript with HOCs */}
-        <BaseSymbol {...rest} />
+        <BaseSymbol orientation={orientation} {...rest} />
       </Grid>
     );
   };
@@ -358,7 +373,7 @@ export interface SetpointProps
 export const Setpoint = ({
   label,
   symbolKey,
-  orientation,
+  orientation = "left",
   control,
   units,
   source,
@@ -378,6 +393,11 @@ export const Setpoint = ({
     <Grid
       symbolKey={symbolKey}
       editable={selected && !draggable}
+      onRotate={() =>
+        onChange({
+          orientation: location.rotate90(orientation),
+        } as Partial<SetpointProps>)
+      }
       items={gridItems}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
@@ -488,7 +508,7 @@ export interface ButtonProps
 export const Button = ({
   symbolKey,
   label,
-  orientation,
+  orientation = "left",
   sink,
   control,
   selected,
@@ -502,6 +522,11 @@ export const Button = ({
   if (controlItem != null) gridItems.push(controlItem);
   return (
     <Grid
+      onRotate={() =>
+        onChange({
+          orientation: location.rotate90(orientation),
+        } as Partial<ButtonProps>)
+      }
       editable={selected && !draggable}
       symbolKey={symbolKey}
       items={gridItems}
@@ -510,7 +535,12 @@ export const Button = ({
         onChange({ label: { ...label, orientation: loc } } as Partial<ButtonProps>);
       }}
     >
-      <Primitives.Button {...label} onClick={click} {...rest} />
+      <Primitives.Button
+        {...label}
+        onClick={click}
+        orientation={orientation}
+        {...rest}
+      />
     </Grid>
   );
 };

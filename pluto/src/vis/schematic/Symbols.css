@@ -77,6 +77,17 @@
     }
 }
 
+.react-flow__node {
+    .pluto-grid__rotate {
+        top: -8rem;
+        left: -8rem;
+        position: absolute;
+        z-index: 30;
+        width: 3.5rem;
+        height: 3.5rem;
+    }
+}
+
 .pluto-diagram.pluto--editable {
     .pluto-symbol__label {
         pointer-events: auto;

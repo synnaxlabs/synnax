@@ -2222,28 +2222,19 @@ export const Vent = ({
 }: VentProps): ReactElement => (
   <Div className={CSS(CSS.B("vent"), className)} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="left"
-        orientation={orientation}
-        left={64.5833}
-        top={50}
-        id="1"
-      />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={91.6667}
-        top={50}
-        id="2"
-      />
+      <Handle location="left" orientation={orientation} left={22} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={92} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
       color={color}
-      dimensions={{ width: 48, height: 32 }}
+      dimensions={{ width: 22, height: 32 }}
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M31 3 L43 14 Q 45 16 43 18 L31 29" strokeLinecap="round" />
+      <Path
+        d="M5 3L16.6325 13.8016C17.9107 14.9885 17.9107 17.0115 16.6325 18.1984L5 29"
+        strokeLinecap="round"
+      />
     </InternalSVG>
   </Div>
 );

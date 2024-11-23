@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/media";
 import { location } from "@synnaxlabs/x";
 import {
   cloneElement,
@@ -19,6 +20,7 @@ import {
 } from "react";
 
 import { Align } from "@/align";
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
@@ -34,6 +36,7 @@ export interface GridProps extends PropsWithChildren<{}> {
   symbolKey: string;
   items: GridItem[];
   onLocationChange: (key: string, loc: location.Outer) => void;
+  onRotate?: () => void;
 }
 
 interface GridElProps {
@@ -127,6 +130,7 @@ export const Grid = ({
   children,
   items,
   onLocationChange,
+  onRotate,
 }: GridProps) => (
   <>
     <GridEl
@@ -157,6 +161,16 @@ export const Grid = ({
       onLocationChange={onLocationChange}
       symbolKey={symbolKey}
     />
+    {editable && (
+      <Button.Icon
+        className={CSS.BE("grid", "rotate")}
+        size="small"
+        variant="filled"
+        onClick={onRotate}
+      >
+        <Icon.Rotate />
+      </Button.Icon>
+    )}
     {children}
   </>
 );
