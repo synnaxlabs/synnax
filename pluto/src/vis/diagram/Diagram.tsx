@@ -396,7 +396,7 @@ const Core = Aether.wrap<DiagramProps>(
       [],
     );
 
-    const adjustable = Triggers.useHeld({ triggers: [["Alt"]], loose: true });
+    const adjustable = Triggers.useHeld({ triggers: [["Q"]], loose: true });
 
     const triggerRef = useRef<HTMLElement>(null);
     Triggers.use({

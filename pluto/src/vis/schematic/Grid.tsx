@@ -76,15 +76,13 @@ const EditableGridEl = ({
     [startDrag, haulType],
   );
 
-  const dragging = Haul.useDraggingState();
-
   return (
     <Align.Space
       direction={location.direction(loc)}
       className={CSS(
         CSS.BE("grid", "item"),
         CSS.loc(loc),
-        CSS.dropRegion(canDrop(dragging)),
+        CSS.dropRegion(true),
         draggingOver && CSS.B("dragging-over"),
       )}
       onDragLeave={() => setDraggingOver(false)}

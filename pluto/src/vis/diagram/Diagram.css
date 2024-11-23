@@ -80,7 +80,7 @@
             border-radius: 50%;
             z-index: 1;
         }
-        & .react-flow__node:hover {
+        & .react-flow__node.draggable:hover {
             .react-flow__handle {
                 border-color: var(--pluto-primary-z) !important;
                 background: var(--pluto-text-color) !important;
