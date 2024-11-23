@@ -5,96 +5,9 @@ import { type FC, type ReactElement } from "react";
 import { Color } from "@/color";
 import { Select } from "@/select";
 
-const calculateMiters = (mainPath: xy.XY[], offsetDistance: number): xy.XY[] => {
-  const miters: xy.XY[] = [];
-
-  for (let i = 0; i < mainPath.length; i++) {
-    const currPoint = mainPath[i];
-    let normalPrev: xy.XY;
-    let normalNext: xy.XY;
-    let miterNormal: xy.XY;
-    let miterLength: number;
-
-    if (i === 0) {
-      // First point: only have next segment
-      const nextPoint = mainPath[i + 1];
-      const dirNext = {
-        x: nextPoint.x - currPoint.x,
-        y: nextPoint.y - currPoint.y,
-      };
-      normalNext = getNormalVector(dirNext);
-
-      // Use normalNext as miterNormal
-      miterNormal = normalNext;
-      miterLength = offsetDistance;
-    } else if (i === mainPath.length - 1) {
-      // Last point: only have previous segment
-      const prevPoint = mainPath[i - 1];
-      const dirPrev = {
-        x: currPoint.x - prevPoint.x,
-        y: currPoint.y - prevPoint.y,
-      };
-      normalPrev = getNormalVector(dirPrev);
-
-      // Use normalPrev as miterNormal
-      miterNormal = normalPrev;
-      miterLength = offsetDistance;
-    } else {
-      // Middle points: have both previous and next segments
-      const prevPoint = mainPath[i - 1];
-      const nextPoint = mainPath[i + 1];
-
-      const dirPrev = {
-        x: currPoint.x - prevPoint.x,
-        y: currPoint.y - prevPoint.y,
-      };
-      const dirNext = {
-        x: nextPoint.x - currPoint.x,
-        y: nextPoint.y - currPoint.y,
-      };
-
-      normalPrev = getNormalVector(dirPrev);
-      normalNext = getNormalVector(dirNext);
-
-      // Calculate the angle between dirPrev and dirNext
-      const angle = Math.acos(
-        (dirPrev.x * dirNext.x + dirPrev.y * dirNext.y) /
-          (Math.hypot(dirPrev.x, dirPrev.y) * Math.hypot(dirNext.x, dirNext.y)),
-      );
-
-      const sinHalfAngle = Math.sin(angle / 2);
-      if (sinHalfAngle === 0) miterLength = offsetDistance;
-      else miterLength = offsetDistance / sinHalfAngle;
-
-      miterNormal = {
-        x: (normalPrev.x + normalNext.x) / 2,
-        y: (normalPrev.y + normalNext.y) / 2,
-      };
-
-      // Normalize miter normal
-      const miterNormalLength = Math.hypot(miterNormal.x, miterNormal.y);
-      if (miterNormalLength !== 0) {
-        miterNormal.x /= miterNormalLength;
-        miterNormal.y /= miterNormalLength;
-      }
-    }
-    miters.push(xy.scale(miterNormal, miterLength));
-  }
-
-  return miters;
-};
-
 export const offsetPath = (path: xy.XY[], miters: xy.XY[]): xy.XY[] =>
   path.map((point, i) => xy.translate(point, miters[i]));
 
-/**
- * Returns the normal vector for a given direction vector.
- */
-function getNormalVector(dir: xy.XY): xy.XY {
-  const length = Math.hypot(dir.x, dir.y);
-  if (length === 0) return { x: 0, y: 0 };
-  return { x: -dir.y / length, y: dir.x / length };
-}
 interface PathProps extends Omit<BaseEdgeProps, "path"> {
   points: xy.XY[];
   color?: Color.Crude;
@@ -133,34 +46,16 @@ const SecondaryPipe = ({ points, color, ...props }: PathProps): ReactElement => 
 );
 
 const JackedPipe = ({ points, color, ...props }: PathProps): ReactElement => {
-  const miters = calculateMiters(points, 6);
+  const miters = xy.calculateMiters(points, 6);
   const abovePath = points.map((p, i) => xy.translate(p, miters[i]));
   const belowPath = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
+  const stroke = Color.cssString(color);
+  const opacity = 0.7;
   return (
     <>
-      <BaseEdge
-        path={calcPath(abovePath)}
-        style={{
-          stroke: Color.cssString(color),
-          opacity: 0.7,
-        }}
-        {...props}
-      />
-      <BaseEdge
-        path={calcPath(points)}
-        style={{
-          stroke: Color.cssString(color),
-        }}
-        {...props}
-      />
-      <BaseEdge
-        path={calcPath(belowPath)}
-        style={{
-          stroke: Color.cssString(color),
-          opacity: 0.7,
-        }}
-        {...props}
-      />
+      <BaseEdge path={calcPath(abovePath)} style={{ stroke, opacity }} {...props} />
+      <BaseEdge path={calcPath(points)} style={{ stroke }} {...props} />
+      <BaseEdge path={calcPath(belowPath)} style={{ stroke, opacity }} {...props} />
     </>
   );
 };

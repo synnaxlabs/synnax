@@ -1923,7 +1923,7 @@ export const Agitator = ({
 }: AgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary>
-      <Handle location="bottom" orientation={orientation} left={50} top={100} id="1" />
+      <Handle location="top" orientation={orientation} left={50} top={2} id="1" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
