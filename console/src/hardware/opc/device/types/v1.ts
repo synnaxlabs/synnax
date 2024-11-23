@@ -31,9 +31,15 @@ export type Device = device.Device<Properties>;
 
 export const propertiesMigration = migrate.createMigration<v0.Properties, Properties>({
   name: "hardware.opc.device.properties",
-  migrate: (p) => ({
-    ...p,
-    version: "1.0.0",
-    read: { indexes: [p.read.index], channels: p.read.channels },
-  }),
+  migrate: (p) => {
+    const read = p.read;
+    return {
+      ...p,
+      version: "1.0.0",
+      read: {
+        indexes: read.index === 0 ? [] : [read.index],
+        channels: read.channels,
+      },
+    };
+  },
 });

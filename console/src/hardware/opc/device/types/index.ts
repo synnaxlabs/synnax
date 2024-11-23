@@ -23,6 +23,7 @@ export const scannedNodeZ = v0.scannedNodeZ;
 export type ScannedNode = v0.ScannedNode;
 export const propertiesZ = v1.propertiesZ;
 export type Properties = v1.Properties;
+export const ZERO_PROPERTIES = v1.ZERO_PROPERTIES;
 export type Device = v1.Device;
 export interface TestConnCommandResponse extends v0.TestConnCommandResponse {}
 export type TestConnCommandState = v0.TestConnCommandState;
@@ -32,7 +33,7 @@ export type ScannerScanCommandResult = v0.ScannerScanCommandResult;
 const PROPERTIES_MIGRATIONS: migrate.Migrations = {
   "0.0.0": v1.propertiesMigration,
 };
-type AnyProperties = v0.Properties | v1.Properties;
+export type AnyProperties = v0.Properties | v1.Properties;
 
 export const migrateProperties = migrate.migrator<AnyProperties, v1.Properties>({
   name: "hardware.opc.device.properties",

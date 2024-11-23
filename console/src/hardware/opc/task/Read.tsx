@@ -117,16 +117,6 @@ const Wrapped = ({
   const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      // New template
-      // 1 retrieve the existing device info
-      // 2 retrieve existing index channels on the device
-      // 3 Determine if we need to create a new index channel, either from a useAsIndex
-      // or a new synnax index channel
-      // 4 Create a new index channel if needed
-      // 5 Create other new channels
-      // 6 Update the device properties with the new channels
-      // 7 Configure the task
-
       if (client == null) throw new Error("Client not available");
       const { config, name } = methods.value();
 
@@ -144,70 +134,87 @@ const Wrapped = ({
 
       // getting exiting indexes on the opc device
       let devIndexes: channel.Key[] = [];
-      try {
-        devIndexes = (await client.channels.retrieve(dev.properties.read.indexes)).map(
-          (c) => c.key,
-        );
-      } catch (e) {
-        if (NotFoundError.matches(e)) devIndexes = [];
-        else throw e;
-      }
+      if (!primitiveIsZero(dev.properties.read.indexes))
+        try {
+          devIndexes = (
+            await client.channels.retrieve(dev.properties.read.indexes)
+          ).map((c) => c.key);
+        } catch (e) {
+          if (NotFoundError.matches(e)) devIndexes = [];
+          else throw e;
+        }
 
       // getting the index channels of all opc read tasks channels
       const existingTasks = (await client.hardware.tasks.list()).filter(
         (t) => t.type === READ_TYPE,
       ) as Read[];
-      const existingTasksChannels: channel.Key[] = existingTasks
-        .flatMap((t) => t.config.channels)
-        .flatMap((c) => c.channel);
-      const existingTaskIndexes = (
-        await client.channels.retrieve(existingTasksChannels)
-      ).flatMap((c) => c.index);
-      const unusedDeviceIndexes = devIndexes.filter(
-        (k) => !existingTaskIndexes.includes(k),
-      );
-
-      // if there is a useAsIndex in the config
-      const indexChannelConfig = config.channels.find((c) => c.useAsIndex);
-      if (indexChannelConfig) {
-        const existingIndex = getChannelByNodeID(
-          dev.properties,
-          indexChannelConfig.nodeId,
+      // check if this task already exists
+      const existingTask = existingTasks.find((t) => t.key === task?.key);
+      // if it does exist, grab the index channel of all of the keys in the task
+      if (existingTask) {
+        const existingTaskIndexes = (
+          await client.channels.retrieve(
+            existingTask.config.channels.map((c) => c.channel),
+          )
+        ).map((c) => c.index);
+        const uniqueIndexes = [...new Set(existingTaskIndexes)];
+        if (uniqueIndexes.length === 0)
+          throw new Error(`${name} already exists, but no index channel was found`);
+        indexChannel = uniqueIndexes[0];
+      } else {
+        const existingTasksChannels: channel.Key[] = existingTasks
+          .flatMap((t) => t.config.channels)
+          .flatMap((c) => c.channel);
+        const existingTaskIndexes = (
+          await client.channels.retrieve(existingTasksChannels)
+        ).flatMap((c) => c.index);
+        const unusedDeviceIndexes = devIndexes.filter(
+          (k) => !existingTaskIndexes.includes(k),
         );
-        if (
-          devIndexes.includes(existingIndex) &&
-          !unusedDeviceIndexes.includes(existingIndex)
-        ) {
-          const task = existingTasks.find((t) =>
-            t.config.channels.some((c) => c.channel === existingIndex),
+
+        // if there is a useAsIndex in the config
+        const indexChannelConfig = config.channels.find((c) => c.useAsIndex);
+        if (indexChannelConfig) {
+          const existingIndex = getChannelByNodeID(
+            dev.properties,
+            indexChannelConfig.nodeId,
           );
-          const taskName = task?.name ?? "an OPC UA read task";
-          // this channel is being used as an index on two different tasks
-          throw new Error(
-            `${indexChannelConfig.name} is already being used as an index for ${taskName}. Please add the channels from this read task to the existing read task`,
-          );
-        }
-        if (primitiveIsZero(existingIndex)) {
+          if (
+            devIndexes.includes(existingIndex) &&
+            !unusedDeviceIndexes.includes(existingIndex)
+          ) {
+            const task = existingTasks.find((t) =>
+              t.config.channels.some((c) => c.channel === existingIndex),
+            );
+            const taskName = task?.name ?? "an OPC UA read task";
+            // this channel is being used as an index on two different tasks
+            throw new Error(
+              `${indexChannelConfig.name} is already being used as an index for ${taskName}. Please add the channels from this read task to the existing read task`,
+            );
+          }
+          if (primitiveIsZero(existingIndex)) {
+            const idx = await client.channels.create({
+              name: indexChannelConfig.name,
+              dataType: "timestamp",
+              isIndex: true,
+            });
+            dev.properties.read.indexes.push(idx.key);
+            dev.properties.read.channels[indexChannelConfig.nodeId] = idx.key;
+            modified = true;
+            indexChannel = idx.key;
+          } else indexChannel = existingIndex;
+        } else if (unusedDeviceIndexes.length > 0)
+          indexChannel = unusedDeviceIndexes[0];
+        else {
           const idx = await client.channels.create({
-            name: indexChannelConfig.name,
+            name: `${dev.name} time for ${name}`,
             dataType: "timestamp",
             isIndex: true,
           });
           dev.properties.read.indexes.push(idx.key);
-          dev.properties.read.channels[indexChannelConfig.nodeId] = idx.key;
           modified = true;
           indexChannel = idx.key;
-        } else indexChannel = existingIndex;
-      } else if (unusedDeviceIndexes.length > 0) indexChannel = unusedDeviceIndexes[0];
-      else {
-        const idx = await client.channels.create({
-          name: `${dev.name} time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        dev.properties.read.indexes.push(idx.key);
-        modified = true;
-        indexChannel = idx.key;
+        }
       }
 
       const toCreate: ReadChannelConfig[] = [];
@@ -219,8 +226,9 @@ const Wrapped = ({
             const rCh = await client.channels.retrieve(exKey);
             if (rCh.index !== indexChannel)
               throw new Error(
-                `Channel ${ch.name} already exists on another OPC UA read task with a different index channel`,
-              ); // TODO: determine logic of this error better
+                `Channel ${ch.name} already exists on an existing OPC UA read task with a different index channel`,
+              );
+
             if (rCh.name !== ch.name)
               await client.channels.rename(Number(exKey), ch.name);
           } catch (e) {
@@ -606,7 +614,7 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
     );
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
-    <Align.Space direction="y" grow className={CSS.B("channel-form")} empty>
+    <Align.Space direction="x" grow className={CSS.B("channel-form")} empty>
       <Form.TextField
         path={`${prefix}.name`}
         label="Channel Name"

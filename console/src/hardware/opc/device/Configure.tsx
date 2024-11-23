@@ -32,6 +32,7 @@ import { FS } from "@/fs";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
+  type ConnectionConfig,
   connectionConfigZ,
   migrateProperties,
   type Properties,
@@ -40,6 +41,7 @@ import {
   type TestConnCommandResponse,
   type TestConnCommandState,
   ZERO_CONNECTION_CONFIG,
+  ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
 import { Layout } from "@/layout";
 
@@ -65,11 +67,7 @@ export const createConfigureLayout =
       windowKey: key,
       name,
       icon: "Logo.OPC",
-      window: {
-        navTop: true,
-        resizable: true,
-        size: { height: 710, width: 800 },
-      },
+      window: { navTop: true, resizable: true, size: { height: 710, width: 800 } },
       location,
       ...rest,
     };
@@ -149,7 +147,6 @@ const ConfigureInternal = ({
       setConnState(t);
     },
   });
-
   const confirm = useMutation<void, Error, void>({
     mutationKey: [client?.key],
     onError: (e) =>
@@ -165,7 +162,7 @@ const ConfigureInternal = ({
       if (connState?.variant !== "success") throw new Error("Connection test failed");
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const key = layoutKey === CONFIGURE_LAYOUT_TYPE ? uuid() : layoutKey;
-      await client.hardware.devices.create({
+      await client.hardware.devices.create<Properties>({
         key,
         name: methods.get<string>("name").value,
         model: "opc",
@@ -173,10 +170,9 @@ const ConfigureInternal = ({
         rack: rack.key,
         location: methods.get<string>("connection.endpoint").value,
         properties: {
-          read: { index: [0], channels: {} },
-          write: { index: 0, channels: {} },
+          ...ZERO_PROPERTIES,
           ...properties,
-          connection: methods.get<Properties>("connection").value,
+          connection: methods.get<ConnectionConfig>("connection").value,
         },
         configured: true,
       });
