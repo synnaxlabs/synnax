@@ -198,16 +198,20 @@ interface EdgePropertiesProps {
 const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement => {
   if (edge.type !== "edge") return <></>;
   return (
-    <Align.Space
-      className={CSS.B("schematic-properties-pad")}
-      size="small"
-      align="start"
-    >
+    <Align.Space style={{ padding: "2rem" }} align="start" direction="x">
       <Input.Item label="Color" align="start">
         <Color.Swatch
           value={edge.edge.color ?? Color.ZERO}
           onChange={(color: Color.Color) => {
             onChange(edge.key, { color: color.hex });
+          }}
+        />
+      </Input.Item>
+      <Input.Item label="Type" align="start">
+        <Diagram.SelectPathType
+          value={edge.edge.type}
+          onChange={(type) => {
+            onChange(edge.key, { type });
           }}
         />
       </Input.Item>

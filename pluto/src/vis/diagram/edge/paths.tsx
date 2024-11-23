@@ -1,0 +1,377 @@
+import { type direction, type KeyedNamed, xy } from "@synnaxlabs/x";
+import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
+import { type FC, type ReactElement } from "react";
+
+import { Color } from "@/color";
+import { Select } from "@/select";
+
+const calculateMiters = (mainPath: xy.XY[], offsetDistance: number): xy.XY[] => {
+  const miters: xy.XY[] = [];
+
+  for (let i = 0; i < mainPath.length; i++) {
+    const currPoint = mainPath[i];
+    let normalPrev: xy.XY;
+    let normalNext: xy.XY;
+    let miterNormal: xy.XY;
+    let miterLength: number;
+
+    if (i === 0) {
+      // First point: only have next segment
+      const nextPoint = mainPath[i + 1];
+      const dirNext = {
+        x: nextPoint.x - currPoint.x,
+        y: nextPoint.y - currPoint.y,
+      };
+      normalNext = getNormalVector(dirNext);
+
+      // Use normalNext as miterNormal
+      miterNormal = normalNext;
+      miterLength = offsetDistance;
+    } else if (i === mainPath.length - 1) {
+      // Last point: only have previous segment
+      const prevPoint = mainPath[i - 1];
+      const dirPrev = {
+        x: currPoint.x - prevPoint.x,
+        y: currPoint.y - prevPoint.y,
+      };
+      normalPrev = getNormalVector(dirPrev);
+
+      // Use normalPrev as miterNormal
+      miterNormal = normalPrev;
+      miterLength = offsetDistance;
+    } else {
+      // Middle points: have both previous and next segments
+      const prevPoint = mainPath[i - 1];
+      const nextPoint = mainPath[i + 1];
+
+      const dirPrev = {
+        x: currPoint.x - prevPoint.x,
+        y: currPoint.y - prevPoint.y,
+      };
+      const dirNext = {
+        x: nextPoint.x - currPoint.x,
+        y: nextPoint.y - currPoint.y,
+      };
+
+      normalPrev = getNormalVector(dirPrev);
+      normalNext = getNormalVector(dirNext);
+
+      // Calculate the angle between dirPrev and dirNext
+      const angle = Math.acos(
+        (dirPrev.x * dirNext.x + dirPrev.y * dirNext.y) /
+          (Math.hypot(dirPrev.x, dirPrev.y) * Math.hypot(dirNext.x, dirNext.y)),
+      );
+
+      const sinHalfAngle = Math.sin(angle / 2);
+      if (sinHalfAngle === 0) miterLength = offsetDistance;
+      else miterLength = offsetDistance / sinHalfAngle;
+
+      miterNormal = {
+        x: (normalPrev.x + normalNext.x) / 2,
+        y: (normalPrev.y + normalNext.y) / 2,
+      };
+
+      // Normalize miter normal
+      const miterNormalLength = Math.hypot(miterNormal.x, miterNormal.y);
+      if (miterNormalLength !== 0) {
+        miterNormal.x /= miterNormalLength;
+        miterNormal.y /= miterNormalLength;
+      }
+    }
+    miters.push(xy.scale(miterNormal, miterLength));
+  }
+
+  return miters;
+};
+
+export const offsetPath = (path: xy.XY[], miters: xy.XY[]): xy.XY[] =>
+  path.map((point, i) => xy.translate(point, miters[i]));
+
+/**
+ * Returns the normal vector for a given direction vector.
+ */
+function getNormalVector(dir: xy.XY): xy.XY {
+  const length = Math.hypot(dir.x, dir.y);
+  if (length === 0) return { x: 0, y: 0 };
+  return { x: -dir.y / length, y: dir.x / length };
+}
+interface PathProps extends Omit<BaseEdgeProps, "path"> {
+  points: xy.XY[];
+  color?: Color.Crude;
+}
+
+const Pipe = ({ points, color, ...props }: PathProps): ReactElement => (
+  <BaseEdge
+    path={calcPath(points)}
+    style={{
+      stroke: Color.cssString(color),
+    }}
+    {...props}
+  />
+);
+
+const ElectricSignalPipe = ({ points, color, ...props }: PathProps): ReactElement => (
+  <BaseEdge
+    path={calcPath(points)}
+    style={{
+      stroke: Color.cssString(color),
+      strokeDasharray: "12,4",
+    }}
+    {...props}
+  />
+);
+
+const SecondaryPipe = ({ points, color, ...props }: PathProps): ReactElement => (
+  <BaseEdge
+    path={calcPath(points)}
+    style={{
+      stroke: Color.cssString(color),
+      strokeDasharray: "12,4,4",
+    }}
+    {...props}
+  />
+);
+
+const JackedPipe = ({ points, color, ...props }: PathProps): ReactElement => {
+  const miters = calculateMiters(points, 6);
+  const abovePath = points.map((p, i) => xy.translate(p, miters[i]));
+  const belowPath = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
+  return (
+    <>
+      <BaseEdge
+        path={calcPath(abovePath)}
+        style={{
+          stroke: Color.cssString(color),
+          opacity: 0.7,
+        }}
+        {...props}
+      />
+      <BaseEdge
+        path={calcPath(points)}
+        style={{
+          stroke: Color.cssString(color),
+        }}
+        {...props}
+      />
+      <BaseEdge
+        path={calcPath(belowPath)}
+        style={{
+          stroke: Color.cssString(color),
+          opacity: 0.7,
+        }}
+        {...props}
+      />
+    </>
+  );
+};
+
+const JOINT_REMOVE_THRESHOLD = 15;
+
+const computeSymbolPositions = (points: xy.XY[], interval: number): SymbolProps[] => {
+  const positions: SymbolProps[] = [];
+  const segmentLengths: number[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const length = xy.distance(points[i], points[i + 1]);
+    segmentLengths.push(length);
+  }
+  const spacing = interval;
+  let currentLength = 0;
+  let nextPosition = spacing;
+  for (let i = 0; i < segmentLengths.length; i++) {
+    const length = segmentLengths[i];
+    const start = points[i];
+    const end = points[i + 1];
+    while (currentLength + length >= nextPosition) {
+      const t = (nextPosition - currentLength) / length;
+      const position = {
+        x: start.x + t * (end.x - start.x),
+        y: start.y + t * (end.y - start.y),
+      };
+      let direction: direction.Direction = "x";
+      if (Math.abs(end.x - start.x) < 1) direction = "y";
+      nextPosition += spacing;
+      if (
+        xy.distance(position, end) < JOINT_REMOVE_THRESHOLD ||
+        xy.distance(position, start) < JOINT_REMOVE_THRESHOLD
+      )
+        continue;
+      positions.push({ position, direction });
+    }
+    currentLength += length;
+  }
+  return positions;
+};
+
+interface SymbolProps {
+  color?: Color.Crude;
+  position: xy.XY;
+  direction: direction.Direction;
+}
+
+const HydraulicLSymbol = ({
+  color,
+  position,
+  direction,
+}: SymbolProps): ReactElement => {
+  const size = 10;
+  const pathData = `M0,0 L0,-${size} L${size},-${size}`;
+  const rotationAngle = 270;
+  if (direction === "x") position.y += size / 2;
+  else position.x += size / 2;
+  return (
+    <path
+      d={pathData}
+      stroke={Color.cssString(color)}
+      fill="none"
+      strokeWidth={2}
+      transform={`translate(${position.x},${position.y}) rotate(${rotationAngle})`}
+      strokeLinecap="round"
+    />
+  );
+};
+
+const ContinuousPneumaticSignalSymbol = ({
+  color,
+  position,
+  direction,
+}: SymbolProps): ReactElement => {
+  const size = 10;
+  const pathData = `M0,0 L0,-${size}`;
+  if (direction === "x") position.y += size / 3;
+  else position.x -= size / 3;
+  let pointTwo: xy.XY = xy.translateX(position, -10);
+  let rotate: number = 45;
+  if (direction === "y") {
+    pointTwo = xy.translateY(position, -10);
+    rotate += 90;
+  }
+  return (
+    <>
+      <path
+        d={pathData}
+        stroke={Color.cssString(color)}
+        fill="none"
+        strokeWidth={2}
+        transform={`translate(${position.x},${position.y}) rotate(${rotate})`}
+        strokeLinecap="round"
+      />
+      <path
+        d={pathData}
+        stroke={Color.cssString(color)}
+        fill="none"
+        strokeWidth={2}
+        transform={`translate(${pointTwo.x},${pointTwo.y}) rotate(${rotate})`}
+        strokeLinecap="round"
+      />
+    </>
+  );
+};
+
+const DataLinkSymbol = ({ color, position }: SymbolProps): ReactElement => (
+  <circle
+    cx={position.x}
+    cy={position.y}
+    r={3}
+    fill="var(--pluto-gray-l0)"
+    stroke={Color.cssString(color)}
+    strokeWidth={2}
+  />
+);
+
+const createSymbolLine = (C: FC<SymbolProps>, overrides: Partial<PathProps> = {}) => {
+  const O = ({ points, color, ...props }: PathProps): ReactElement => {
+    const path = calcPath(points);
+    const positions = computeSymbolPositions(points, 40); // Adjust the interval as needed
+    return (
+      <>
+        <BaseEdge
+          path={path}
+          style={{
+            stroke: Color.cssString(color),
+          }}
+          {...props}
+          {...overrides}
+        />
+        {positions.map(({ position, direction }, index) => (
+          <C key={index} position={position} direction={direction} color={color} />
+        ))}
+      </>
+    );
+  };
+  O.displayName = `SymbolLine(${C.displayName})`;
+  return O;
+};
+
+const Hydraulic = createSymbolLine(HydraulicLSymbol);
+const ContinuousPneumaticSignal = createSymbolLine(ContinuousPneumaticSignalSymbol);
+const DataLink = createSymbolLine(DataLinkSymbol);
+
+export const calcPath = (coords: xy.XY[]): string => {
+  let path = "";
+  const close = false;
+  const radius = 6;
+  const length = coords.length + (close ? 1 : -1);
+  for (let i = 0; i < length; i++) {
+    const a = coords[i % coords.length];
+    const b = coords[(i + 1) % coords.length];
+    const t = Math.min(radius / Math.hypot(b.x - a.x, b.y - a.y), 0.5);
+    if (i > 0)
+      path += `Q${a.x},${a.y} ${a.x * (1 - t) + b.x * t},${a.y * (1 - t) + b.y * t}`;
+    if (!close && i === 0) path += `M${a.x},${a.y}`;
+    else if (i === 0) path += `M${a.x * (1 - t) + b.x * t},${a.y * (1 - t) + b.y * t}`;
+    if (!close && i === length - 1) path += `L${b.x},${b.y}`;
+    else if (i < length - 1)
+      path += `L${a.x * t + b.x * (1 - t)},${a.y * t + b.y * (1 - t)}`;
+  }
+  if (close) path += "Z";
+  return path;
+};
+
+export type PathType =
+  | "pipe"
+  | "electric"
+  | "secondary"
+  | "jacketed"
+  | "hydraulic"
+  | "pneumatic"
+  | "data";
+
+export const PATHS: Record<PathType, FC<PathProps>> = {
+  pipe: Pipe,
+  electric: ElectricSignalPipe,
+  secondary: SecondaryPipe,
+  jacketed: JackedPipe,
+  hydraulic: Hydraulic,
+  pneumatic: ContinuousPneumaticSignal,
+  data: DataLink,
+};
+
+export const DefaultPath = Pipe;
+
+export const PATH_TYPES: KeyedNamed<PathType>[] = [
+  { key: "pipe", name: "Pipe" },
+  { key: "electric", name: "Electric Signal" },
+  { key: "secondary", name: "Secondary" },
+  { key: "jacketed", name: "Jacketed" },
+  { key: "hydraulic", name: "Hydraulic" },
+  { key: "pneumatic", name: "Pneumatic" },
+  { key: "data", name: "Data" },
+];
+
+export interface SelectPathTypeProps
+  extends Omit<Select.DropdownButtonProps<PathType, KeyedNamed<PathType>>, "data"> {}
+
+export const SelectPathType = ({ ...props }: SelectPathTypeProps): ReactElement => (
+  <Select.DropdownButton
+    columns={[
+      {
+        key: "name",
+        name: "Type",
+      },
+    ]}
+    data={PATH_TYPES}
+    style={{ width: 200 }}
+    {...props}
+    entryRenderKey="name"
+  />
+);

@@ -79,6 +79,7 @@ import {
 import { Edge as EdgeComponent } from "@/vis/diagram/edge";
 import { type connector } from "@/vis/diagram/edge/connector";
 import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
+import { type PathType } from "@/vis/diagram/external";
 
 export interface SymbolProps {
   symbolKey: string;
@@ -386,6 +387,7 @@ const Core = Aether.wrap<DiagramProps>(
             {...props}
             segments={props.data?.segments ?? []}
             color={props.data?.color}
+            type={props.data?.type as PathType}
             onSegmentsChange={useCallback(
               (segment) => handleEdgeSegmentsChangeRef.current(props.id, segment),
               [props.id],

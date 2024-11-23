@@ -55,6 +55,9 @@
 .react-flow__edge {
     & .react-flow__edge-path {
         stroke-width: 2px !important;
+        &.pluto--thin {
+            stroke-width: 1px !important;
+        }
     }
 }
 
