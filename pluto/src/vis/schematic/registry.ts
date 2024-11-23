@@ -31,6 +31,7 @@ import {
   type CylinderProps,
   DEFAULT_BORDER_RADIUS,
   TextBox,
+  type TextBoxProps,
 } from "@/vis/schematic/primitives/Primitives";
 import {
   Agitator,

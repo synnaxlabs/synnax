@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
+import { useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { type text } from "@/text/core";
@@ -31,6 +32,7 @@ export type EditableProps<L extends text.Level = "h1"> = Omit<
   Input.Control<string> & {
     useEditableState?: state.PureUse<boolean>;
     allowDoubleClick?: boolean;
+    allowEmpty?: boolean;
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
@@ -79,10 +81,16 @@ export const Editable = <L extends text.Level = text.Level>({
   useEditableState = useState,
   allowDoubleClick = true,
   onDoubleClick,
+  allowEmpty = false,
   ...props
 }: EditableProps<L>): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
+  // Sometimes the onBlur event fires right after the user hits
+  // the enter key (since we trigger it artificially). We track
+  // this value as an optimistic update to make sure we don't
+  // call onChange twice in quick succession.
+  const optimisticValueRef = useSyncedRef(value);
 
   const handleDoubleClick = (
     e: React.MouseEvent<HTMLParagraphElement, MouseEvent>,
@@ -93,11 +101,13 @@ export const Editable = <L extends text.Level = text.Level>({
 
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
     const innerText = getInnerText(el);
-    if (forceEscape || innerText.length === 0) {
+    if (optimisticValueRef.current === innerText) return;
+    if (forceEscape || (innerText.length === 0 && !allowEmpty)) {
       el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
     } else {
       onChange?.(innerText);
+      optimisticValueRef.current = innerText;
       el.dispatchEvent(new Event(RENAMED_EVENT_NAME));
     }
   };

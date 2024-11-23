@@ -31,6 +31,7 @@ import {
   type UseSelectProps,
 } from "@/list/useSelect";
 import { Core } from "@/select/List";
+import { type ComponentSize } from "@/util/component";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export interface ButtonOptionProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
@@ -49,7 +50,7 @@ export type ButtonProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Om
     data?: E[];
     children?: RenderProp<ButtonOptionProps<K, E>>;
     entryRenderKey?: keyof E;
-    size?: Pick<CoreButton.ButtonProps, "size">;
+    size?: ComponentSize;
   };
 
 export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
@@ -85,7 +86,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         children({
           key: e.key,
           onClick: () => onSelect(e.key),
-          size: size,
+          size,
           selected: e.key === value,
           entry: e,
           title: e[entryRenderKey],
@@ -97,11 +98,9 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
 const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   key,
-  entry,
   onClick,
   selected,
   title,
-  ...props
 }: ButtonOptionProps<K, E>): JSX.Element => (
   <CoreButton.Button
     key={key}

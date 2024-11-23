@@ -9,7 +9,7 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, direction, type location, type UnknownRecord, xy } from "@synnaxlabs/x";
+import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -20,7 +20,7 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Button as CoreButton } from "@/vis/button";
 import { Light as CoreLight } from "@/vis/light";
-import { BaseGrid, type GridItem } from "@/vis/schematic/Grid";
+import { Grid, type GridItem } from "@/vis/schematic/Grid";
 import { Primitives } from "@/vis/schematic/primitives";
 import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
@@ -58,7 +58,8 @@ const labelGridItem = (
         className={CSS(CSS.BE("symbol", "label"), CSS.dir(direction))}
         level={level}
         value={label}
-        onChange={(value) => onChange?.({ label: { label: value, level } })}
+        onChange={(value) => onChange?.({ label: { ...props, label: value } })}
+        allowEmpty
       />
     ),
     location: orientation,
@@ -70,7 +71,8 @@ export type SymbolProps<P extends object = UnknownRecord> = P & {
   position: xy.XY;
   aetherKey: string;
   selected: boolean;
-  onChange: (value: P) => void;
+  draggable: boolean;
+  onChange: (value: Partial<P>) => void;
 };
 
 const controlStateGridItem = (props?: ControlStateProps): GridItem | null => {
@@ -114,6 +116,8 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
     sink,
     label,
     onChange,
+    draggable,
+    selected,
     ...rest
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({
@@ -122,20 +126,38 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
       sink,
     });
     const gridItems: GridItem[] = [];
+    /* @ts-expect-error - typescript with HOCs */
     const labelItem = labelGridItem(label, onChange);
     if (labelItem != null) gridItems.push(labelItem);
     const controlItem = controlStateGridItem(control);
     if (controlItem != null) gridItems.push(controlItem);
     return (
-      <BaseGrid items={gridItems}>
-        {/* @ts-expect-error - abcasdfjasdhf */}
+      <Grid
+        editable={selected && !draggable}
+        symbolKey={symbolKey}
+        items={gridItems}
+        onLocationChange={(key, loc) => {
+          console.log("location change", key, loc);
+          if (key === "label")
+            onChange({
+              label: {
+                ...label,
+                orientation: loc,
+                direction: direction.swap(location.direction(loc)),
+              },
+            });
+          if (key === "control")
+            onChange({ control: { ...control, orientation: loc } });
+        }}
+      >
+        {/* @ts-expect-error - typescript with HOCs */}
         <BaseSymbol
           enabled={enabled}
           triggered={triggered}
           onClick={toggle}
           {...rest}
         />
-      </BaseGrid>
+      </Grid>
     );
   };
   C.displayName = BaseSymbol.displayName;
@@ -154,13 +176,14 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
     ...rest
   }: SymbolProps<LabeledProps<P>>): ReactElement => {
     const gridItems: GridItem[] = [];
-    const labelItem = labelGridItem(label);
+    /* @ts-expect-error - typescript with HOCs */
+    const labelItem = labelGridItem(label, onChange);
     if (labelItem != null) gridItems.push(labelItem);
     return (
-      <BaseGrid items={gridItems}>
-        {/* @ts-expect-error - abcasdfjasdhf */}
+      <Grid items={gridItems}>
+        {/* @ts-expect-error - typescript with HOCs */}
         <BaseSymbol {...rest} />
-      </BaseGrid>
+      </Grid>
     );
   };
   C.displayName = BaseSymbol.displayName;
@@ -341,7 +364,7 @@ export const Setpoint = ({
   const labelItem = labelGridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
   return (
-    <BaseGrid items={gridItems}>
+    <Grid items={gridItems}>
       <Primitives.Setpoint
         value={value}
         onChange={set}
@@ -349,7 +372,7 @@ export const Setpoint = ({
         color={color}
         orientation={orientation}
       />
-    </BaseGrid>
+    </Grid>
   );
 };
 
@@ -403,7 +426,7 @@ export const Value = ({
   if (labelItem != null) gridItems.push(labelItem);
 
   return (
-    <BaseGrid items={gridItems}>
+    <Grid items={gridItems}>
       <Primitives.Value
         color={color}
         dimensions={{
@@ -414,7 +437,7 @@ export const Value = ({
         units={units}
         unitsLevel={Text.downLevel(level)}
       />
-    </BaseGrid>
+    </Grid>
   );
 };
 
@@ -444,9 +467,9 @@ export const Button = ({
   const controlItem = controlStateGridItem(control);
   if (controlItem != null) gridItems.push(controlItem);
   return (
-    <BaseGrid items={gridItems}>
+    <Grid items={gridItems}>
       <Primitives.Button {...label} onClick={click} {...rest} />
-    </BaseGrid>
+    </Grid>
   );
 };
 
@@ -511,7 +534,9 @@ export const OffPageReferencePreview = ({
 }: OffPageReferenceProps) => (
   <Primitives.OffPageReference label="Off Page" {...props} orientation="right" />
 );
-export const Cylinder = createLabeled<Omit<Primitives.CylinderProps, "onChange">>(
+export const Cylinder = createLabeled<
+  SymbolProps<Omit<Primitives.CylinderProps, "onChange">>
+>(
   ({
     backgroundColor,
     onChange,

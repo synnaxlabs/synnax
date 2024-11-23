@@ -11,7 +11,7 @@ import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type bounds, type location, type xy } from "@synnaxlabs/x";
+import { type bounds, type direction, type location, type xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
 import { Align } from "@/align";
@@ -29,9 +29,11 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { type Button as CoreButton } from "@/vis/button";
-import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
-import { type ControlStateProps } from "@/vis/schematic/Symbols";
+import {
+  type ControlStateProps,
+  type LabelExtensionProps,
+} from "@/vis/schematic/Symbols";
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 
@@ -122,6 +124,15 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       hideIfNull
     >
       {(p) => <Select.TextAlignment {...p} />}
+    </Form.Field>
+    <Form.Field<direction.Direction>
+      visible={!omit.includes("direction")}
+      path={`${path}.direction`}
+      label="Label Direction"
+      padHelpText={false}
+      hideIfNull
+    >
+      {(p) => <Select.Direction {...p} />}
     </Form.Field>
   </Align.Space>
 );

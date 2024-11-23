@@ -84,6 +84,7 @@ export interface SymbolProps {
   symbolKey: string;
   position: xy.XY;
   selected: boolean;
+  draggable: boolean;
 }
 
 export interface UseProps {
@@ -139,6 +140,9 @@ const EDITABLE_PROPS: ReactFlowProps = {
   nodesConnectable: true,
   elementsSelectable: true,
   zoomOnDoubleClick: false,
+  nodeClickDistance: 5,
+  reconnectRadius: 15,
+  connectionRadius: 30,
 };
 
 const NOT_EDITABLE_PROPS: ReactFlowProps = {
@@ -299,7 +303,9 @@ const Core = Aether.wrap<DiagramProps>(
           positionAbsoluteX: x,
           positionAbsoluteY: y,
           selected = false,
-        }: RFNodeProps) => renderer({ symbolKey: id, position: { x, y }, selected }),
+          draggable = true,
+        }: RFNodeProps) =>
+          renderer({ symbolKey: id, position: { x, y }, selected, draggable }),
       }),
       [renderer],
     );
@@ -390,6 +396,8 @@ const Core = Aether.wrap<DiagramProps>(
       [],
     );
 
+    const adjustable = Triggers.useHeld({ triggers: [["Alt"]], loose: true });
+
     const triggerRef = useRef<HTMLElement>(null);
     Triggers.use({
       triggers: triggers.zoomReset,
@@ -464,6 +472,7 @@ const Core = Aether.wrap<DiagramProps>(
                 ...props.style,
               }}
               {...editableProps}
+              nodesDraggable={editable && !adjustable.held}
             >
               {children}
             </ReactFlow>

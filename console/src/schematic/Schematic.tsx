@@ -104,6 +104,7 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
+  draggable,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement => {
   const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
   const dispatch = useSyncComponent(layoutKey);
@@ -127,9 +128,10 @@ const SymbolRenderer = ({
   return (
     <C.Symbol
       id={symbolKey}
-      aetherKey={symbolKey}
+      symbolKey={symbolKey}
       position={position}
       selected={selected}
+      draggable={draggable}
       onChange={handleChange}
       {...props}
     />
