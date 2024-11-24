@@ -12,7 +12,11 @@ import * as path from "path";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-const isDev = process.env.TAURI_ENV_DEBUG === "true";
+// const isDev = process.env.TAURI_ENV_DEBUG === "true";
+
+// console.log(isDev);
+
+const isDev = false;
 
 export default defineConfig({
   clearScreen: false,
@@ -21,18 +25,18 @@ export default defineConfig({
     strictPort: true,
   },
   resolve: {
-    alias: isDev
-      ? {
-          "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
-          "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
-          "@synnaxlabs/x/dist": path.resolve(__dirname, "../x/ts/dist"),
-          "@synnaxlabs/x": path.resolve(__dirname, "../x/ts/src"),
-          "@synnaxlabs/drift/dist": path.resolve(__dirname, "../drift/dist"),
-          "@synnaxlabs/drift": path.resolve(__dirname, "../drift/src"),
-          "@synnaxlabs/media/dist": path.resolve(__dirname, "../x/media/dist"),
-          "@synnaxlabs/media": path.resolve(__dirname, "../x/media/src"),
-        }
-      : {},
+    // alias: isDev
+    //   ? {
+    //       "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
+    //       "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
+    //       "@synnaxlabs/x/dist": path.resolve(__dirname, "../x/ts/dist"),
+    //       "@synnaxlabs/x": path.resolve(__dirname, "../x/ts/src"),
+    //       "@synnaxlabs/drift/dist": path.resolve(__dirname, "../drift/dist"),
+    //       "@synnaxlabs/drift": path.resolve(__dirname, "../drift/src"),
+    //       "@synnaxlabs/media/dist": path.resolve(__dirname, "../x/media/dist"),
+    //       "@synnaxlabs/media": path.resolve(__dirname, "../x/media/src"),
+    //     }
+    //   : {},
   },
   envPrefix: ["VITE_", "TAURI_"],
   plugins: [react(), tsconfigPaths()],
@@ -44,7 +48,7 @@ export default defineConfig({
     // is loaded directly from disc instead of OTN
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: {
-    IS_DEV: isDev,
-  },
+  // define: {
+  //   IS_DEV: isDev,
+  // },
 });

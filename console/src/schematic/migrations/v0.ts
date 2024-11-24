@@ -29,7 +29,7 @@ export type NodeProps = object & {
 export const nodePropsZ = z.object({}).and(
   z
     .object({
-      key: Schematic.typeZ,
+      key: Schematic.variantZ,
       color: Color.crudeZ.optional(),
     })
     .passthrough(),

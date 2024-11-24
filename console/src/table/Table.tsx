@@ -405,7 +405,7 @@ const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement
     if (ctrlKey || metaKey) mode = "add";
     dispatch(selectCells({ key: tableKey, mode, cells: [cellKey] }));
   };
-  const handleChange = (props: object) =>
+  const handleChange = (props: UnknownRecord) =>
     dispatch(setCellProps({ key: tableKey, cellKey, props }));
   const C = TableCells.CELLS[state.variant];
   return (

@@ -98,60 +98,60 @@ export const PropertiesControls = memo(
         })
         .filter((el) => el !== null) as Diagram.NodeLayout[];
 
-    return (
-      <Align.Space align="start" direction="x" style={{ padding: "2rem" }}>
-        <Input.Item label="Selection Colors" align="start">
-          <Align.Space direction="y">
-            {Object.entries(groups).map(([hex, elements]) => (
-              <Color.Swatch
-                key={elements[0].key}
-                value={hex}
-                onChange={(color: Color.Color) => {
-                  elements.forEach((e) => handleChange(e.key, { color: color.hex }));
+      return (
+        <Align.Space align="start" direction="x" style={{ padding: "2rem" }}>
+          <Input.Item label="Selection Colors" align="start">
+            <Align.Space direction="y">
+              {Object.entries(groups).map(([hex, elements]) => (
+                <Color.Swatch
+                  key={elements[0].key}
+                  value={hex}
+                  onChange={(color: Color.Color) => {
+                    elements.forEach((e) => handleChange(e.key, { color: color.hex }));
+                  }}
+                />
+              ))}
+            </Align.Space>
+          </Input.Item>
+          <Input.Item label="Align">
+            <Align.Space direction="x">
+              <Button.Icon
+                tooltip="Align nodes vertically"
+                onClick={() => {
+                  const newPositions = Diagram.alignNodes(layouts, "x");
+                  dispatch(
+                    setNodePositions({
+                      key: layoutKey,
+                      positions: Object.fromEntries(
+                        newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                      ),
+                    }),
+                  );
                 }}
-              />
-            ))}
-          </Align.Space>
-        </Input.Item>
-        <Input.Item label="Align">
-          <Align.Space direction="x">
-            <Button.Icon
-              tooltip="Align nodes vertically"
-              onClick={() => {
-                const newPositions = Diagram.alignNodes(layouts, "x");
-                dispatch(
-                  setNodePositions({
-                    key: layoutKey,
-                    positions: Object.fromEntries(
-                      newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                    ),
-                  }),
-                );
-              }}
-            >
-              <Icon.Align.YCenter />
-            </Button.Icon>
-            <Button.Icon
-              tooltip="Align nodes horizontally"
-              onClick={() => {
-                const newPositions = Diagram.alignNodes(layouts, "y");
-                dispatch(
-                  setNodePositions({
-                    key: layoutKey,
-                    positions: Object.fromEntries(
-                      newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                    ),
-                  }),
-                );
-              }}
-            >
-              <Icon.Align.XCenter />
-            </Button.Icon>
-          </Align.Space>
-        </Input.Item>
-      </Align.Space>
-    );
-  }
+              >
+                <Icon.Align.YCenter />
+              </Button.Icon>
+              <Button.Icon
+                tooltip="Align nodes horizontally"
+                onClick={() => {
+                  const newPositions = Diagram.alignNodes(layouts, "y");
+                  dispatch(
+                    setNodePositions({
+                      key: layoutKey,
+                      positions: Object.fromEntries(
+                        newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                      ),
+                    }),
+                  );
+                }}
+              >
+                <Icon.Align.XCenter />
+              </Button.Icon>
+            </Align.Space>
+          </Input.Item>
+        </Align.Space>
+      );
+    }
 
     const selected = elements[0];
 
@@ -211,8 +211,8 @@ const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement =
       </Input.Item>
       <Input.Item label="Type" align="start">
         <Diagram.SelectPathType
-          value={edge.edge.type}
-          onChange={(type: Diagram.PathType) => onChange(edge.key, { type })}
+          value={edge.edge.variant}
+          onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
         />
       </Input.Item>
     </Align.Space>

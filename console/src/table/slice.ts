@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type TableCells } from "@synnaxlabs/pluto";
-import { id, type location, mapValues, xy } from "@synnaxlabs/x";
+import { id, type location, mapValues, type UnknownRecord, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/table/migrations";
 import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/migrations/v0";
@@ -20,7 +20,7 @@ export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
 export type CellState<
   T extends TableCells.Variant = TableCells.Variant,
-  P = unknown,
+  P extends object = UnknownRecord,
 > = latest.CellState<T, P>;
 export const ZERO_CELL_STATE: CellState = latest.ZERO_CELL_STATE;
 export type RowLayout = latest.RowLayout;

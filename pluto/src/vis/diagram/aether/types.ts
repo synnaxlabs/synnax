@@ -48,7 +48,7 @@ export const rfEdgeDataZ = z.object({
   /**
    * The type of the edge.
    */
-  type: z.string().optional(),
+  variant: z.string(),
 
   /**
    * A list of segments representing the structure of the edge connector.
@@ -84,13 +84,12 @@ export const edgeZ = rfEdgeDataZ.extend({
 
   color: color.crudeZ,
 
-  type: z.string().optional(),
-
   id: z.string(),
   data: z
     .object({
       segments: z.array(connector.segmentZ),
       color: color.crudeZ,
+      variant: z.string().optional(),
     })
     .optional(),
 
@@ -170,10 +169,10 @@ export const translateNodesForward = (nodes: Node[]): rf.Node[] =>
 
 /** Translates edges from their pluto representation to their react-flow representation. */
 export const translateEdgesForward = (edges: Edge[]): Array<rf.Edge<RFEdgeData>> =>
-  edges.map(({ segments, color, type, ...edge }) => ({
+  edges.map(({ segments, color, variant, ...edge }) => ({
     ...edge,
     id: edge.key,
-    data: { segments, color, type },
+    data: { segments, color, variant },
   }));
 
 /** Translates nodes from their react-flow representation to their pluto representation. */
@@ -190,13 +189,13 @@ export const translateEdgesBackward = (
   defaultColor: color.Crude,
 ): Edge[] =>
   edges.map((edge) => {
-    edge.data ??= { segments: [], color: defaultColor, type: "pipe" };
+    edge.data ??= { segments: [], color: defaultColor, variant: "pipe" };
     return {
       key: edge.id,
       segments: edge.data?.segments ?? [],
       selected: edge.selected ?? false,
       color: edge.data?.color ?? defaultColor,
-      type: edge.data?.type ?? "pipe",
+      variant: edge.data?.variant ?? "pipe",
       ...edge,
     };
   });

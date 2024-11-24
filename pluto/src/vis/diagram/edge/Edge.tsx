@@ -41,7 +41,7 @@ interface CurrentlyDragging {
 export interface EdgeProps extends RFEdgeProps {
   segments: connector.Segment[];
   onSegmentsChange: (segments: connector.Segment[]) => void;
-  type?: PathType;
+  variant?: PathType;
   color?: Color.Crude;
 }
 
@@ -108,7 +108,7 @@ export const Edge = ({
   onSegmentsChange,
   color = "var(--pluto-gray-l9)",
   selected = false,
-  type = "pipe",
+  variant = "pipe",
   ...props
 }: EdgeProps): ReactElement => {
   const sourcePos = xy.construct(props.sourceX, props.sourceY);
@@ -229,7 +229,7 @@ export const Edge = ({
 
   const points = connector.segmentsToPoints(sourcePos, segments, flow.getZoom(), true);
 
-  const P = PATHS[type];
+  const P = PATHS[variant];
 
   return (
     <>

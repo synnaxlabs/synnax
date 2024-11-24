@@ -9,7 +9,7 @@
 
 import "@/table/Table.css";
 
-import { box, direction, location } from "@synnaxlabs/x";
+import { box, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   forwardRef,

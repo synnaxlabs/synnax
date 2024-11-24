@@ -387,7 +387,7 @@ const Core = Aether.wrap<DiagramProps>(
             {...props}
             segments={props.data?.segments ?? []}
             color={props.data?.color}
-            type={props.data?.type as PathType}
+            variant={props.data?.variant as PathType}
             onSegmentsChange={useCallback(
               (segment) => handleEdgeSegmentsChangeRef.current(props.id, segment),
               [props.id],

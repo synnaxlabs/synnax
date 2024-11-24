@@ -26,6 +26,7 @@ import {
 } from "@/table/selectors";
 import { type CellState, setCellProps, setCellType } from "@/table/slice";
 import { useSyncComponent } from "@/table/Table";
+
 export interface ToolbarProps {
   layoutKey: string;
 }
