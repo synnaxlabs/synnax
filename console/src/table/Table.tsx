@@ -197,7 +197,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   Triggers.use({
     triggers: [["Control", "V"], ["Control", "C"], ["Delete"], ["Backspace"]],
-    // region: ref,
+    region: ref,
     callback: useCallback(
       ({ triggers, stage }: Triggers.UseEvent) => {
         if (ref.current == null || stage !== "start") return;

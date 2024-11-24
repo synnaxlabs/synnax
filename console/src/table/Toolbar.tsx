@@ -57,7 +57,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const firstCell = selectedCells[0];
 
   return (
-    <Align.Space empty>
+    <Align.Space empty style={{ width: "100%", height: "100%" }}>
       <ToolbarHeader>
         <Align.Space direction="x" align="center">
           <Breadcrumb.Breadcrumb level="p">{breadCrumbs}</Breadcrumb.Breadcrumb>
@@ -66,7 +66,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           )}
         </Align.Space>
       </ToolbarHeader>
-      <Align.Space>
+      <Align.Space style={{ width: "100%", height: "100%" }}>
         {selectedCells.length === 0 ? (
           <EmptyContent />
         ) : (
@@ -184,7 +184,7 @@ export const SelectCellTypeField = ({
 };
 
 export const EmptyContent = () => (
-  <Align.Center direction="x" size="small">
+  <Align.Center direction="x" size="small" style={{ width: "100%", height: "100%" }}>
     <Status.Text variant="disabled" hideIcon>
       No cell selected. Select a cell to view its properties.
     </Status.Text>

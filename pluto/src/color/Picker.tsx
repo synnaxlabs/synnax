@@ -97,7 +97,7 @@ interface FrequentProps extends Omit<ComponentPropsWithoutRef<"div">, "onChange"
 const Frequent = ({ onChange }: FrequentProps) => {
   const frequent = useFrequent();
   return (
-    <Align.Space direction="x" wrap empty>
+    <Align.Space direction="x" wrap size={0.5}>
       {frequent.map((c, i) => (
         <Swatch key={i} value={c} size="tiny" onClick={() => onChange?.(c)} />
       ))}

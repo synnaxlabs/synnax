@@ -85,6 +85,7 @@ export const Swatch = ({
         className,
       )}
       disabled={!canPick && onClick == null}
+      size={size as Button.ButtonProps["size"]}
       draggable={draggable}
       onDragStart={() => startDrag([{ type: HAUL_TYPE, key: d.hex }])}
       style={{ backgroundColor: color.cssString(value) }}

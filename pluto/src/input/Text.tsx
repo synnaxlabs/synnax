@@ -114,7 +114,6 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
 
     const combinedRef = useCombinedRefs(ref, internalRef);
 
-    const disabledCSS = disabled && CSS.BM("input", "disabled");
     if (variant === "preview") disabled = true;
     if (color != null)
       style = { ...style, [CSS.var("input-color")]: Color.cssString(color) };
@@ -126,7 +125,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
         style={style}
         className={CSS(
           CSS.B("input"),
-          disabledCSS,
+          CSS.disabled(disabled),
           level == null && CSS.size(size),
           shade != null && CSS.shade(shade),
           CSS.BM("input", variant),

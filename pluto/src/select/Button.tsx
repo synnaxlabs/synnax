@@ -204,6 +204,7 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
     renderKey: entryRenderKey,
     toggle,
     visible,
+    disabled,
   };
   if (variant != null) childrenProps.variant = variant;
 
