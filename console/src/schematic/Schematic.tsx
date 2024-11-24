@@ -18,6 +18,7 @@ import {
   type Legend,
   Menu as PMenu,
   Schematic as Core,
+  Status,
   Text,
   Theming,
   Triggers,
@@ -34,6 +35,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -63,6 +65,7 @@ import {
   setViewport,
   type State,
   toggleControl,
+  undo,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { Workspace } from "@/workspace";
@@ -104,7 +107,9 @@ const SymbolRenderer = ({
   selected,
   layoutKey,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement => {
-  const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
+  let nodeProps = useSelectNodeProps(layoutKey, symbolKey);
+  nodeProps ??= { key: "NONDE" };
+  const { key, ...props } = nodeProps;
   const dispatch = useSyncComponent(layoutKey);
 
   const handleChange = useCallback(
@@ -118,6 +123,8 @@ const SymbolRenderer = ({
       ),
     [dispatch, symbolKey, layoutKey, key],
   );
+
+  if (key === "NONDE") return null;
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
@@ -146,6 +153,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const schematic = useSelect(layoutKey);
 
   const dispatch = useSyncComponent(layoutKey);
+  const pureDispatch = useDispatch();
   const theme = Theming.use();
   const viewportRef = useSyncedRef(schematic.viewport);
 
@@ -257,11 +265,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
+  const addStatus = Status.useAggregator();
 
   Triggers.use({
     triggers: [
       ["Control", "V"],
       ["Control", "C"],
+      ["Control", "Z"],
+      ["Control", "R"],
     ],
     region: ref,
     callback: useCallback(
@@ -269,8 +280,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         if (ref.current == null || stage !== "start") return;
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
+        const undo_ = triggers.some((t) => t.includes("Z"));
+        const redo_ = triggers.some((t) => t.includes("R"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));
+        else if (undo_) {
+          pureDispatch(undo());
+          addStatus({
+            variant: "success",
+            message: "Undo",
+          });
+        } else if (redo_) dispatch(redo());
         else dispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [dispatch, layoutKey, viewportRef],

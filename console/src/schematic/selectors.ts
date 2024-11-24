@@ -14,13 +14,15 @@ import { useMemoSelect } from "@/hooks";
 import { Permissions } from "@/permissions";
 import {
   type NodeProps,
+  SLICE_NAME,
   type SliceState,
   type State,
   type StoreState,
   type ToolbarState,
 } from "@/schematic/slice";
 
-export const selectSliceState = (state: StoreState): SliceState => state.schematic;
+export const selectSliceState = (state: StoreState): SliceState =>
+  state[SLICE_NAME].present;
 
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
@@ -54,6 +56,7 @@ export const selectSelectedElementsProps = (
   layoutKey: string,
 ): ElementInfo[] => {
   const schematic = select(state, layoutKey);
+  if (schematic == null) return [];
   const nodes: ElementInfo[] = schematic.nodes
     .filter((node) => node.selected)
     .map((node) => ({

@@ -69,7 +69,7 @@ export interface RootState {
   [Range.SLICE_NAME]: Range.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
-  [Schematic.SLICE_NAME]: Schematic.SliceState;
+  [Schematic.SLICE_NAME]: Schematic.HistorySliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Permissions.SLICE_NAME]: Permissions.SliceState;

@@ -14,7 +14,9 @@ import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/migrations";
+import { undoer } from "@/undo";
 
+export type HistorySliceState = undoer.History<latest.SliceState>;
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
 export type State = latest.State;
@@ -31,7 +33,7 @@ export const parser = latest.parser;
 export const SLICE_NAME = "schematic";
 
 export interface StoreState {
-  [SLICE_NAME]: SliceState;
+  [SLICE_NAME]: HistorySliceState;
 }
 
 /** Purges fields in schematic state that should not be persisted. */
@@ -43,7 +45,7 @@ export const purgeState = (state: State): State => {
 };
 
 export const purgeSliceState = (state: StoreState): StoreState => {
-  Object.values(state[SLICE_NAME].schematics).forEach(purgeState);
+  Object.values(state[SLICE_NAME].present.schematics).forEach(purgeState);
   return state;
 };
 
@@ -158,7 +160,7 @@ export const calculatePos = (
   return s.pos(cursor);
 };
 
-export const { actions, reducer } = createSlice({
+export const { actions, reducer } = undoer.createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
@@ -467,6 +469,8 @@ export const {
   setViewportMode,
   setRemoteCreated,
   fixThemeContrast,
+  redo,
+  undo,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
