@@ -31,6 +31,7 @@ import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { Task } from "@/hardware/task";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
@@ -67,6 +68,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...User.LAYOUTS,
   ...Permissions.LAYOUTS,
   ...Log.LAYOUTS,
+  ...Task.LAYOUTS,
   ...Table.LAYOUTS,
 };
 

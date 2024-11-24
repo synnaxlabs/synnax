@@ -79,11 +79,13 @@ import {
 import { Edge as EdgeComponent } from "@/vis/diagram/edge";
 import { type connector } from "@/vis/diagram/edge/connector";
 import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
+import { type PathType } from "@/vis/diagram/external";
 
 export interface SymbolProps {
   symbolKey: string;
   position: xy.XY;
   selected: boolean;
+  draggable: boolean;
 }
 
 export interface UseProps {
@@ -139,6 +141,9 @@ const EDITABLE_PROPS: ReactFlowProps = {
   nodesConnectable: true,
   elementsSelectable: true,
   zoomOnDoubleClick: false,
+  nodeClickDistance: 5,
+  reconnectRadius: 15,
+  connectionRadius: 30,
 };
 
 const NOT_EDITABLE_PROPS: ReactFlowProps = {
@@ -299,7 +304,9 @@ const Core = Aether.wrap<DiagramProps>(
           positionAbsoluteX: x,
           positionAbsoluteY: y,
           selected = false,
-        }: RFNodeProps) => renderer({ symbolKey: id, position: { x, y }, selected }),
+          draggable = true,
+        }: RFNodeProps) =>
+          renderer({ symbolKey: id, position: { x, y }, selected, draggable }),
       }),
       [renderer],
     );
@@ -380,6 +387,7 @@ const Core = Aether.wrap<DiagramProps>(
             {...props}
             segments={props.data?.segments ?? []}
             color={props.data?.color}
+            type={props.data?.type as PathType}
             onSegmentsChange={useCallback(
               (segment) => handleEdgeSegmentsChangeRef.current(props.id, segment),
               [props.id],
@@ -389,6 +397,8 @@ const Core = Aether.wrap<DiagramProps>(
       }),
       [],
     );
+
+    const adjustable = Triggers.useHeld({ triggers: [["Q"]], loose: true });
 
     const triggerRef = useRef<HTMLElement>(null);
     Triggers.use({
@@ -454,6 +464,7 @@ const Core = Aether.wrap<DiagramProps>(
               isValidConnection={isValidConnection}
               connectionMode={ConnectionMode.Loose}
               snapGrid={[3, 3]}
+              snapToGrid
               fitViewOptions={FIT_VIEW_OPTIONS}
               selectionMode={SelectionMode.Partial}
               proOptions={PRO_OPTIONS}
@@ -464,6 +475,7 @@ const Core = Aether.wrap<DiagramProps>(
                 ...props.style,
               }}
               {...editableProps}
+              nodesDraggable={editable && !adjustable.held}
             >
               {children}
             </ReactFlow>

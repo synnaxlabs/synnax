@@ -25,7 +25,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
+import { box, deep, id, type UnknownRecord, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -49,6 +49,7 @@ import {
 import {
   addElement,
   calculatePos,
+  clearSelection,
   copySelection,
   internalCreate,
   pasteSelection,
@@ -103,6 +104,7 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
+  draggable,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement => {
   const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
   const dispatch = useSyncComponent(layoutKey);
@@ -126,9 +128,10 @@ const SymbolRenderer = ({
   return (
     <C.Symbol
       id={symbolKey}
-      aetherKey={symbolKey}
+      symbolKey={symbolKey}
       position={position}
       selected={selected}
+      draggable={draggable}
       onChange={handleChange}
       {...props}
     />
@@ -222,10 +225,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       valid.forEach(({ key, data }) => {
         const spec = Core.SYMBOLS[key as Core.Variant];
         if (spec == null) return;
-        const pos = calculatePos(
-          region,
-          { x: event.clientX, y: event.clientY },
-          viewportRef.current,
+        const pos = xy.truncate(
+          calculatePos(
+            region,
+            { x: event.clientX, y: event.clientY },
+            viewportRef.current,
+          ),
+          0,
         );
         dispatch(
           addElement({
@@ -259,18 +265,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   Triggers.use({
-    triggers: [
-      ["Control", "V"],
-      ["Control", "C"],
-    ],
+    triggers: [["Control", "V"], ["Control", "C"], ["Escape"]],
     region: ref,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
         if (ref.current == null || stage !== "start") return;
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
+        const isClear = triggers.some((t) => t.includes("Escape"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));
+        else if (isClear) dispatch(clearSelection({ key: layoutKey }));
         else dispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [dispatch, layoutKey, viewportRef],

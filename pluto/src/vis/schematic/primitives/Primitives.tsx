@@ -128,7 +128,8 @@ interface OrientableProps {
   orientation?: location.Outer;
 }
 
-interface SmartHandlesProps extends PropsWithChildren<{}>, OrientableProps {
+interface SmartHandlesProps extends PropsWithChildren<{}> {
+  orientation: location.Outer;
   refreshDeps?: unknown;
 }
 
@@ -301,7 +302,7 @@ export interface FourWayValveProps extends ToggleProps, SVGBasedPrimitiveProps {
 
 export const FourWayValve = ({
   className,
-  orientation,
+  orientation = "left",
   scale,
   color,
   ...props
@@ -1012,7 +1013,7 @@ export const Tank = ({
       }}
       {...props}
     >
-      <HandleBoundary refreshDeps={refreshDeps}>
+      <HandleBoundary refreshDeps={refreshDeps} orientation="left">
         <Handle location="top" orientation="left" left={50} top={0} id="1" />
         {hasCornerBoundaries && (
           <>
@@ -1192,7 +1193,7 @@ export const AngledReliefValve = ({
     className={CSS(CSS.B("angled-relief-valve"), className)}
     {...props}
   >
-    <HandleBoundary>
+    <HandleBoundary orientation={orientation}>
       <Handle
         location="bottom"
         orientation={orientation}
@@ -1236,7 +1237,7 @@ export const Value = ({
   className,
   color,
   dimensions,
-  orientation,
+  orientation = "left",
   units = "psi",
   unitsLevel = "small",
   children,
@@ -1922,8 +1923,8 @@ export const Agitator = ({
   ...props
 }: AgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
-      <Handle location="bottom" orientation={orientation} left={50} top={100} id="1" />
+    <HandleBoundary orientation={orientation}>
+      <Handle location="top" orientation={orientation} left={50} top={2} id="1" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -1950,7 +1951,7 @@ export const PropellerAgitator = ({
   ...props
 }: PropellerAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
+    <HandleBoundary orientation={orientation}>
       <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
@@ -1975,7 +1976,7 @@ export const FlatBladeAgitator = ({
   ...props
 }: FlatBladeAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
+    <HandleBoundary orientation={orientation}>
       <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
@@ -2001,7 +2002,7 @@ export const PaddleAgitator = ({
   ...props
 }: PaddleAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
+    <HandleBoundary orientation={orientation}>
       <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
@@ -2052,7 +2053,7 @@ export const CrossBeamAgitator = ({
   ...props
 }: CrossBeamAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
+    <HandleBoundary orientation={orientation}>
       <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
@@ -2081,7 +2082,7 @@ export const HelicalAgitator = ({
   ...props
 }: HelicalAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
+    <HandleBoundary orientation={orientation}>
       <Handle location="top" left={50} top={2} id="4" orientation={orientation} />
     </HandleBoundary>
     <InternalSVG
@@ -2222,28 +2223,19 @@ export const Vent = ({
 }: VentProps): ReactElement => (
   <Div className={CSS(CSS.B("vent"), className)} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="left"
-        orientation={orientation}
-        left={64.5833}
-        top={50}
-        id="1"
-      />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={91.6667}
-        top={50}
-        id="2"
-      />
+      <Handle location="left" orientation={orientation} left={22} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={92} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
       color={color}
-      dimensions={{ width: 48, height: 32 }}
+      dimensions={{ width: 22, height: 32 }}
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M31 3 L43 14 Q 45 16 43 18 L31 29" strokeLinecap="round" />
+      <Path
+        d="M5 3L16.6325 13.8016C17.9107 14.9885 17.9107 17.0115 16.6325 18.1984L5 29"
+        strokeLinecap="round"
+      />
     </InternalSVG>
   </Div>
 );
@@ -2339,7 +2331,7 @@ export const Cylinder = ({
           fill={bgColor}
         />
       </svg>
-      <HandleBoundary refreshDeps={refreshDeps}>
+      <HandleBoundary refreshDeps={refreshDeps} orientation="left">
         <Handle location="top" orientation="left" left={50} top={2} id="1" />
         <Handle location="bottom" orientation="left" left={50} top={98.3333} id="2" />
       </HandleBoundary>
@@ -2465,3 +2457,39 @@ export const AngledSpringLoadedReliefValve = ({
     </Div>
   );
 };
+
+export interface TJunctionProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const TJunction = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: TJunctionProps): ReactElement => (
+  <Div className={CSS(CSS.B("t-junction"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1.6667} top={20} id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={98.3333}
+        top={20}
+        id="2"
+      />
+      <Handle location="bottom" orientation={orientation} left={50} top={95} id="3" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 36, height: 18 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path
+        d="M0 4V2C0 0.895431 0.895431 0 2 0H34C35.1046 0 36 0.89543 36 2V4C36 5.10457 35.1046 6 34 6H23C21.8954 6 21 6.89543 21 8V16C21 17.1046 20.1046 18 19 18H17C15.8954 18 15 17.1046 15 16V8C15 6.89543 14.1046 6 13 6H2C0.895431 6 0 5.10457 0 4Z"
+        fill={Color.cssString(color)}
+        stroke="none"
+      />
+    </InternalSVG>
+  </Div>
+);

@@ -103,7 +103,6 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   fieldProps: {
     label: "Channel Type",
     onChange: (value, { get, set, path }) => {
-      console.log("did this get overwritten");
       const prevType = get<InputChannelType>(path).value;
       if (prevType === value) return;
       const next = deep.copy(value === "TC" ? ZERO_THERMOCOUPLE_CHAN : ZERO_READ_CHAN);

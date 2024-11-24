@@ -28,6 +28,14 @@ export type Canvas2DVariant = "upper2d" | "lower2d";
 export type CanvasGLVariant = "gl";
 export type CanvasVariant = Canvas2DVariant | CanvasGLVariant;
 
+const applyDefaultCanvasOpts = <T extends OffscreenCanvasRenderingContext2D>(
+  canvas: T,
+): T => {
+  canvas.textRendering = "optimizeSpeed";
+  canvas.imageSmoothingEnabled = false;
+  return canvas;
+};
+
 /**
  * A hybrid rendering context containing both 2D and WebGL canvases and contexts.
  * Implements several utility methods for correctly scaling the canvas, restricting
@@ -93,11 +101,15 @@ export class Context {
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");
-    this.lower2d = new SugaredOffscreenCanvasRenderingContext2D(lowerCtx);
+    this.lower2d = applyDefaultCanvasOpts(
+      new SugaredOffscreenCanvasRenderingContext2D(lowerCtx),
+    );
 
     const upperCtx = this.upper2dCanvas.getContext("2d");
     if (upperCtx == null) throw new Error("Could not get 2D context");
-    this.upper2d = new SugaredOffscreenCanvasRenderingContext2D(upperCtx);
+    this.upper2d = applyDefaultCanvasOpts(
+      new SugaredOffscreenCanvasRenderingContext2D(upperCtx),
+    );
 
     const webGlOpts: WebGLContextAttributes = {
       preserveDrawingBuffer: true,

@@ -10,9 +10,7 @@
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
-import { LabJack } from "@/hardware/labjack";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -24,9 +22,7 @@ const SELECTABLES: Layout.Selectable[] = [
   Schematic.SELECTABLE,
   Table.SELECTABLE,
   ...Log.SELECTABLES,
-  ...LabJack.SELECTABLES,
-  ...NI.SELECTABLES,
-  ...OPC.SELECTABLES,
+  ...Task.SELECTABLES,
 ];
 
 export const SELECTOR_TYPE = "visLayoutSelector";

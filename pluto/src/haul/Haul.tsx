@@ -244,14 +244,16 @@ export const useDrop = ({
   const key_ = key ?? useId();
   const target: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
 
+  const prevDragOver = useRef<xy.XY>({ x: -1, y: -1 });
+
   const handleDragOver = useCallback(
     (event: DragEvent) => {
-      if (!canDrop(ref.current)) return;
       event.preventDefault();
-      onDragOver?.({
-        event,
-        ...ref.current,
-      });
+      const cursor = xy.construct({ x: event.screenX, y: event.screenY });
+      if (xy.equals(cursor, prevDragOver.current)) return;
+      prevDragOver.current = cursor;
+      if (!canDrop(ref.current)) return;
+      onDragOver?.({ event, ...ref.current });
     },
     [ref, canDrop],
   );

@@ -40,6 +40,7 @@
     border: var(--pluto-border) !important;
     border-color: transparent !important;
     pointer-events: none !important;
+    border-radius: 50%;
 }
 
 .react-flow__background circle {
@@ -54,6 +55,9 @@
 .react-flow__edge {
     & .react-flow__edge-path {
         stroke-width: 2px !important;
+        &.pluto--thin {
+            stroke-width: 1px !important;
+        }
     }
 }
 
@@ -85,14 +89,15 @@
             border-radius: 50%;
             z-index: 1;
         }
-        & .pluto-symbol {
-            &:hover {
-                .react-flow__handle {
-                    border-color: var(--pluto-primary-z) !important;
-                    background: var(--pluto-text-color) !important;
-                    &:hover {
-                        background: var(--pluto-primary-z) !important;
-                    }
+        .react-flow__node:focus {
+            outline: none;
+        }
+        & .react-flow__node.draggable:hover {
+            .react-flow__handle {
+                border-color: var(--pluto-primary-z) !important;
+                background: var(--pluto-text-color) !important;
+                &:hover {
+                    background: var(--pluto-primary-z) !important;
                 }
             }
         }
