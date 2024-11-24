@@ -24,6 +24,7 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
+import { withinBoundsProps } from "@/telem/aether/transformers";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { type Button as CoreButton } from "@/vis/button";
@@ -437,6 +438,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
   );
+  const threshold = telem.withinBoundsProps.parse(sourceP.segments.threshold.props);
 
   const handleSourceChange = (v: channel.Key | null): void => {
     v ??= 0;
@@ -444,7 +446,24 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
       connections: [{ from: "valueStream", to: "threshold" }],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
-        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+        threshold: telem.withinBounds({
+          trueBound: {
+            lower: threshold.trueBound.lower ?? 0.9,
+            upper: threshold.trueBound.upper ?? 1.1,
+          },
+        }),
+      },
+      outlet: "threshold",
+    });
+    onChange({ ...value, source: t });
+  };
+
+  const handleThresholdChange = (bounds: { lower: number; upper: number }): void => {
+    const t = telem.sourcePipeline("boolean", {
+      connections: [{ from: "valueStream", to: "threshold" }],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: source.channel }),
+        threshold: telem.withinBounds({ trueBound: bounds }),
       },
       outlet: "threshold",
     });
@@ -461,6 +480,28 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
+        />
+      </Input.Item>
+      <Input.Item label="Lower Threshold">
+        <Input.Numeric
+          value={threshold.trueBound.lower ?? 0.9}
+          onChange={(v) =>
+            handleThresholdChange({
+              ...threshold.trueBound,
+              lower: v,
+            })
+          }
+        />
+      </Input.Item>
+      <Input.Item label="Upper Threshold">
+        <Input.Numeric
+          value={threshold.trueBound.upper ?? 1.1}
+          onChange={(v) =>
+            handleThresholdChange({
+              ...threshold.trueBound,
+              upper: v,
+            })
+          }
         />
       </Input.Item>
     </FormWrapper>

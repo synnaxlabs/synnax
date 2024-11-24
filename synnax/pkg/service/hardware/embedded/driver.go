@@ -103,8 +103,9 @@ func (c Config) Validate() error {
 }
 
 type Driver struct {
-	cfg      Config
-	mu       sync.Mutex
-	cmd      *exec.Cmd
-	shutdown io.Closer
+	cfg       Config
+	mu        sync.Mutex
+	cmd       *exec.Cmd
+	shutdown  io.Closer
+	stdInPipe io.WriteCloser
 }
