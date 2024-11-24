@@ -15,64 +15,64 @@ const client = newClient();
 
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 
-describe("Log", () => {
+describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
       const ws = await client.workspaces.create({
-        name: "Log",
+        name: "Table",
         layout: { one: 1 },
       });
-      const log = await client.workspaces.log.create(ws.key, {
-        name: "Log",
+      const table = await client.workspaces.table.create(ws.key, {
+        name: "Table",
         data: { one: 1 },
       });
-      expect(log.name).toEqual("Log");
-      expect(log.key).not.toEqual(ZERO_UUID);
-      expect(log.data.one).toEqual(1);
+      expect(table.name).toEqual("Table");
+      expect(table.key).not.toEqual(ZERO_UUID);
+      expect(table.data.one).toEqual(1);
     });
   });
   describe("rename", () => {
     test("rename one", async () => {
       const ws = await client.workspaces.create({
-        name: "Log",
+        name: "Table",
         layout: { one: 1 },
       });
-      const log = await client.workspaces.log.create(ws.key, {
-        name: "Log",
+      const table = await client.workspaces.table.create(ws.key, {
+        name: "Table",
         data: { one: 1 },
       });
-      await client.workspaces.log.rename(log.key, "Log2");
-      const res = await client.workspaces.log.retrieve(log.key);
-      expect(res.name).toEqual("Log2");
+      await client.workspaces.table.rename(table.key, "Table2");
+      const res = await client.workspaces.table.retrieve(table.key);
+      expect(res.name).toEqual("Table2");
     });
   });
   describe("setData", () => {
     test("set data", async () => {
       const ws = await client.workspaces.create({
-        name: "Log",
+        name: "Table",
         layout: { one: 1 },
       });
-      const log = await client.workspaces.log.create(ws.key, {
-        name: "Log",
+      const table = await client.workspaces.table.create(ws.key, {
+        name: "Table",
         data: { one: 1 },
       });
-      await client.workspaces.log.setData(log.key, { two: 2 });
-      const res = await client.workspaces.log.retrieve(log.key);
+      await client.workspaces.table.setData(table.key, { two: 2 });
+      const res = await client.workspaces.table.retrieve(table.key);
       expect(res.data.two).toEqual(2);
     });
   });
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({
-        name: "Log",
+        name: "Table",
         layout: { one: 1 },
       });
-      const log = await client.workspaces.log.create(ws.key, {
-        name: "Log",
+      const table = await client.workspaces.table.create(ws.key, {
+        name: "Table",
         data: { one: 1 },
       });
-      await client.workspaces.log.delete(log.key);
-      await expect(client.workspaces.log.retrieve(log.key)).rejects.toThrow();
+      await client.workspaces.table.delete(table.key);
+      await expect(client.workspaces.table.retrieve(table.key)).rejects.toThrow();
     });
   });
 });
