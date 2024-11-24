@@ -42,6 +42,16 @@ export const connectionConfigZ = z.object({
 });
 
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
+export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
+  endpoint: "opc.tcp://localhost:4840",
+  securityMode: "None",
+  securityPolicy: "None",
+  username: "",
+  password: "",
+  clientCertificate: "",
+  clientPrivateKey: "",
+  serverCertificate: "",
+};
 
 export const scannedNodeZ = z.object({
   nodeId: z.string(),
@@ -54,14 +64,10 @@ export const scannedNodeZ = z.object({
 export type ScannedNode = z.infer<typeof scannedNodeZ>;
 
 export const propertiesZ = z.object({
+  version: z.literal("0.0.0").optional().default("0.0.0"),
   connection: connectionConfigZ,
-  read: z.object({
-    index: z.number(),
-    channels: z.record(z.string(), z.number()),
-  }),
-  write: z.object({
-    channels: z.record(z.string(), z.number()),
-  }),
+  read: z.object({ index: z.number(), channels: z.record(z.string(), z.number()) }),
+  write: z.object({ channels: z.record(z.string(), z.number()) }),
 });
 
 export type Properties = z.infer<typeof propertiesZ>;
@@ -74,8 +80,6 @@ export interface TestConnCommandResponse extends UnknownRecord {
 
 export type TestConnCommandState = task.State<TestConnCommandResponse>;
 
-export const scannerScanCommandResult = z.object({
-  channels: scannedNodeZ.array(),
-});
+export const scannerScanCommandResult = z.object({ channels: scannedNodeZ.array() });
 
 export type ScannerScanCommandResult = z.infer<typeof scannerScanCommandResult>;

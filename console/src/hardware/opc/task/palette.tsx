@@ -8,40 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon } from "@synnaxlabs/pluto";
 
-import { createConfigureLayout } from "@/hardware/opc/device/Configure";
-import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
-import { configureWriteLayout } from "@/hardware/opc/task/WriteTask";
+import { configureReadLayout } from "@/hardware/opc/task/Read";
+import { configureWriteLayout } from "@/hardware/opc/task/Write";
 import { type Command } from "@/palette/Palette";
 
-export const connectServerCommand: Command = {
-  key: "opc-connect-server",
-  name: "Connect an OPC UA Server",
-  icon: (
-    <PIcon.Create>
-      <Icon.Logo.OPC />
-    </PIcon.Create>
-  ),
-  onSelect: ({ placeLayout }) => placeLayout(createConfigureLayout()),
-};
-
-export const createReadTaskCommand: Command = {
+const createReadTaskCommand: Command = {
   key: "opc-create-read-task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(configureReadLayout({ create: true })),
 };
 
-export const createWriteTaskCommand: Command = {
+const createWriteTaskCommand: Command = {
   key: "opc-create-write-task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(configureWriteLayout({ create: true })),
 };
 
-export const COMMANDS = [
-  connectServerCommand,
-  createReadTaskCommand,
-  createWriteTaskCommand,
-];
+export const COMMANDS = [createReadTaskCommand, createWriteTaskCommand];

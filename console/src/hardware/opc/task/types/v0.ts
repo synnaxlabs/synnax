@@ -72,10 +72,7 @@ export const readConfigZ = z
       if (cfg.arrayMode) return true;
       return cfg.streamRate > 0;
     },
-    {
-      message: "Stream rate must be greater than or equal to 1",
-      path: ["streamRate"],
-    },
+    { message: "Stream rate must be greater than or equal to 1", path: ["streamRate"] },
   )
   // Error if channel ahs been duplicated
   .superRefine((cfg, ctx) => {
@@ -104,9 +101,7 @@ export const readConfigZ = z
         code: z.ZodIssueCode.custom,
         path: ["channels", i, "nodeId"],
         message: "This node ID has already been used elsewhere in the configuration",
-        params: {
-          variant: "warning",
-        },
+        params: { variant: "warning" },
       });
     });
   })
@@ -258,11 +253,7 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: WRITE_TYPE,
   type: WRITE_TYPE,
   name: "OPC Write Task",
-  config: {
-    device: "",
-    channels: [],
-    dataSaving: true,
-  },
+  config: { device: "", channels: [], dataSaving: true },
 };
 
 type NodeIdType = "Numeric" | "String" | "GUID" | "ByteString";
