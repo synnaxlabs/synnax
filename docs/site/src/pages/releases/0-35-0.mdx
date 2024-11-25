@@ -1,0 +1,37 @@
+import Release from "@/components/releases/Release.astro";
+import { Image } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+import LabJack from "@/pages/releases/LabJack.astro";
+
+<Release
+    version="0.35.0"
+    date="Nov 25, 2024"
+    title="Table Component"
+>
+
+<LabJack />
+
+Synnax version 0.35.0 introduces the table component. 
+
+You can use the table component to display data in a tabular format and can be configured to highlight specific cells based on their values.
+A suitable use case for the table component is to display data that should be flagged for exceeding certain thresholds and to provide a visual state representation of the data.
+
+Synnax currently only supports LabJack devices on Windows, although we plan to add
+support for other operating systems soon.
+
+### New Schematic Symbols
+
+This release also introduces 8 new schematic symbols.
+
+### Other Minor Improvements and Bug Fixes
+
+- Reduced response times for configuring [LabJack](/reference/device-drivers/labjack) tasks.
+- Enable support for multiple [OPC UA read tasks](/reference/device-drivers/opc-ua/read-task) on a single OPC UA Server
+- Improved shutdown procedure for the Synnax server and embedded driver.
+- The light schematic symbol can now accept telemetry types beyond just boolean sources, and includes a threshold setting to trigger state changes
+
+### Breaking Changes
+
+This release does **not** introduce any breaking changes.
+
+</Release>
