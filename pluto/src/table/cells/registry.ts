@@ -8,7 +8,7 @@ import {
   Value,
   valuePropsZ,
 } from "@/table/cells/Cells";
-import { TextForm, ValueForm } from "@/table/cells/Forms";
+import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
 import { telem } from "@/telem/aether";
 import { type Theming } from "@/theming";
 
@@ -20,7 +20,7 @@ export type Variant = z.infer<typeof variantZ>;
 export interface Spec<Z extends z.ZodSchema> {
   key: Variant;
   name: string;
-  Form: FC<{}>;
+  Form: FC<FormProps>;
   Cell: FC<CellProps<z.infer<Z>>>;
   schema: Z;
   defaultProps: (t: Theming.Theme) => z.infer<Z>;
@@ -44,10 +44,7 @@ const value: Spec<typeof valuePropsZ> = {
       },
       outlet: "stringifier",
     }),
-    redline: {
-      bounds: { lower: 0, upper: 1 },
-      gradient: [],
-    },
+    redline: { bounds: { lower: 0, upper: 1 }, gradient: [] },
     color: t.colors.gray.l8.hex,
     level: "h5",
     units: "",
@@ -60,7 +57,7 @@ const text: Spec<typeof textPropsZ> = {
   name: "Text",
   Form: TextForm,
   Cell: Text,
-  defaultProps: (t) => ({
+  defaultProps: () => ({
     value: "",
     level: "h5",
     units: "",
@@ -71,7 +68,4 @@ const text: Spec<typeof textPropsZ> = {
   schema: textPropsZ,
 };
 
-export const CELLS: Record<Variant, Spec<any>> = {
-  text,
-  value,
-};
+export const CELLS: Record<Variant, Spec<any>> = { text, value };
