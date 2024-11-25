@@ -7,21 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { NIL as ZERO_UUID } from "uuid";
 import { describe, expect, test } from "vitest";
 
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
 
-const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
-
 describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({
-        name: "Table",
-        layout: { one: 1 },
-      });
+      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
       const table = await client.workspaces.table.create(ws.key, {
         name: "Table",
         data: { one: 1 },
@@ -33,10 +29,7 @@ describe("Table", () => {
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({
-        name: "Table",
-        layout: { one: 1 },
-      });
+      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
       const table = await client.workspaces.table.create(ws.key, {
         name: "Table",
         data: { one: 1 },
@@ -48,10 +41,7 @@ describe("Table", () => {
   });
   describe("setData", () => {
     test("set data", async () => {
-      const ws = await client.workspaces.create({
-        name: "Table",
-        layout: { one: 1 },
-      });
+      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
       const table = await client.workspaces.table.create(ws.key, {
         name: "Table",
         data: { one: 1 },
@@ -63,10 +53,7 @@ describe("Table", () => {
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({
-        name: "Table",
-        layout: { one: 1 },
-      });
+      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
       const table = await client.workspaces.table.create(ws.key, {
         name: "Table",
         data: { one: 1 },
