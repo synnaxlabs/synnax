@@ -1,5 +1,5 @@
 import Release from "@/components/releases/Release.astro";
-import { Image } from "@/components/Media";
+import { Image, Video } from "@/components/Media";
 import Diagram from "@/components/Diagram.astro";
 import LabJack from "@/pages/releases/LabJack.astro";
 
@@ -7,31 +7,112 @@ import LabJack from "@/pages/releases/LabJack.astro";
     version="0.35.0"
     date="Nov 25, 2024"
     title="Table Component"
+    breakingChanges
 >
 
-<LabJack />
+<Diagram style="height: 300px" preview>
+  <Image
+    client:only="react"
+    id="console/tables/thumbnailc"
+    themed={false}
+    style={{
+      width: "500px",
+      position: "absolute",
+      left: "50%",
+      transform: "translateX(-50%)",
+      borderRadius: "1.5rem",
+      boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-10)",
+    }}
+  />
+</Diagram>
 
-Synnax version 0.35.0 introduces the table component. 
+Synnax version 0.35.0 introduces a new table component, fixes a few issues with the
+recently released LabJack driver, makes several improvements to schematic editing,
+and fixes a number of performance related bugs.
 
-You can use the table component to display data in a tabular format and can be configured to highlight specific cells based on their values.
-A suitable use case for the table component is to display data that should be flagged for exceeding certain thresholds and to provide a visual state representation of the data.
+### Table Component
 
-Synnax currently only supports LabJack devices on Windows, although we plan to add
-support for other operating systems soon.
+The new console table component is a powerful tool for displaying and interacting with tabular
+data. Tables are particularly useful for displaying data from many different channels,
+and for displaying data that should be flagged for exceeding certain thresholds.
 
-### New Schematic Symbols
+### Schematic Improvements
 
-This release also introduces 8 new schematic symbols.
+#### New Symbols
+
+10 new ISO compliant schematic symbols have been added to the symbol library: an ISO Check Valve,
+Cylinder, ISO Relief Valve, Angled ISO Relief Valve, ISO Burst Disk, ISO Cap, Vent,
+ISO Filter, Orifice Plate, and a T-Junction.
+
+<Image
+  client:only="react"
+  id="releases/0-35-0/new-schematic-symbols"
+  themed={false}
+  style={{ padding: "5rem", backgroundColor: "var(--pluto-dark-gray-l0)" }}
+/>
+
+#### New Edge Types
+
+To allow for greater clarity on complex schematics, edges can now have specific styles
+associated with their corresponding type. The currently available options are: Pipe (default),
+Electric Signal, Secondary, Jacketed, Hydraulic, Pneumatic, and Data Signal.
+
+#### Label Improvements
+
+Labels no longer cause elements to shift when their text is edited, and label alignment
+has been fixed to correctly justify the _text_ of the label instead of the label
+itself around it's symbol.
+
+You can also now **double click** on a label to edit it's text. Hit `esc` to cancel
+label editing.
+
+#### The `Q` Command
+
+When a symbol is selected, hitting the `Q` key will open a quick layout menu for the
+symbol. The rotation controls let you rotate the symbol, and the gray boxes allow you to
+drag the label or control chip of a symbol to a new location.
+
+<Video
+  client:only="react"
+  id="releases/0-35-0/schematic-q-cmd"
+  themed={false}
+  style={{
+    maxWidth: 400,
+    position: "relative",
+    left: "50%",
+    transform: "translateX(-50%)",
+  }}
+/>
+
+#### Color Picker now has Recent Colors
+
+The console color picker now has a section that displays a hybrid of the ten most
+recently/frequently used colors. This makes it easier to pick consistent colors across
+your schematic.
+
+<Image
+  client:only="react"
+  id="releases/0-35-0/updated-picker"
+  themed={false}
+  style={{
+    maxWidth: 200,
+    position: "relative",
+    left: "50%",
+    transform: "translateX(-50%)",
+  }}
+/>
 
 ### Other Minor Improvements and Bug Fixes
 
 - Reduced response times for configuring [LabJack](/reference/device-drivers/labjack) tasks.
 - Enable support for multiple [OPC UA read tasks](/reference/device-drivers/opc-ua/read-task) on a single OPC UA Server
 - Improved shutdown procedure for the Synnax server and embedded driver.
-- The light schematic symbol can now accept telemetry types beyond just boolean sources, and includes a threshold setting to trigger state changes
+- The light schematic symbol can now accept telemetry types beyond just boolean sources,
+  and includes a threshold setting to trigger state changes
 
 ### Breaking Changes
 
-This release does **not** introduce any breaking changes.
+While this release does **not** introduce any backwards incompatible changes, the updated
+label alignment system may cause the edges of existing schematics to shift.
 
 </Release>
