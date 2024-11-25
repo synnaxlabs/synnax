@@ -48,7 +48,7 @@ export const rfEdgeDataZ = z.object({
   /**
    * The type of the edge.
    */
-  variant: z.string(),
+  variant: z.string().optional(),
 
   /**
    * A list of segments representing the structure of the edge connector.

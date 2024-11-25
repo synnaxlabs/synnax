@@ -463,7 +463,7 @@ const Core = Aether.wrap<DiagramProps>(
               maxZoom={1.2}
               isValidConnection={isValidConnection}
               connectionMode={ConnectionMode.Loose}
-              snapGrid={[3, 3]}
+              snapGrid={[2, 2]}
               snapToGrid
               fitViewOptions={FIT_VIEW_OPTIONS}
               selectionMode={SelectionMode.Partial}

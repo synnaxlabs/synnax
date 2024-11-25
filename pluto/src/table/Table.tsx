@@ -180,6 +180,7 @@ const Indicator = ({
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
       <button
+        onClick={(e) => e.stopPropagation()}
         style={{ [direction.location(dir)]: position + value }}
         onDragStart={onDragStart}
         draggable

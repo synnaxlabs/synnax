@@ -279,9 +279,3 @@ export const calculateMiters = (path: XY[], offset: number): XY[] => {
   }
   return miters;
 };
-
-export const sortFunc = (a: Crude, b: Crude): number => {
-  const x = construct(a);
-  const y = construct(b);
-  return x.x === y.x ? x.y - y.y : x.x - y.x;
-};

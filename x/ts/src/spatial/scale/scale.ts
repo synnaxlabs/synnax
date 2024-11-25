@@ -22,7 +22,10 @@ export const crudeXYTransform = z.object({ offset: xy.crudeZ, scale: xy.crudeZ }
 export type XYTransformT = z.infer<typeof crudeXYTransform>;
 
 export const transform = z.object({ offset: z.number(), scale: z.number() });
-export type TransformT = z.infer<typeof transform>;
+export type TransformT<T extends numeric.Value = number> = {
+  offset: T;
+  scale: T;
+};
 
 export type BoundVariant = "domain" | "range";
 
@@ -404,24 +407,12 @@ export class Scale<T extends numeric.Value = number> {
     return scale;
   }
 
+  get transform(): TransformT<T> {
+    return { scale: this.dim(1 as T), offset: this.pos(0 as T) };
+  }
+
   static readonly IDENTITY = new Scale();
 }
-
-export const xyScaleToTransform = (scale: XY): XYTransformT => ({
-  scale: {
-    x: scale.x.dim(1),
-    y: scale.y.dim(1),
-  },
-  offset: {
-    x: scale.x.pos(0),
-    y: scale.y.pos(0),
-  },
-});
-
-export const scaleToTransform = (scale: Scale<number>): TransformT => ({
-  scale: scale.dim(1),
-  offset: scale.pos(0),
-});
 
 export class XY {
   x: Scale<number>;
@@ -544,6 +535,10 @@ export class XY {
     return { x: this.x.pos(xy.x), y: this.y.pos(xy.y) };
   }
 
+  dim(xy: xy.XY): xy.XY {
+    return { x: this.x.dim(xy.x), y: this.y.dim(xy.y) };
+  }
+
   box(b: Box): Box {
     return box.construct(
       this.pos(b.one),
@@ -552,6 +547,13 @@ export class XY {
       0,
       this.currRoot ?? b.root,
     );
+  }
+
+  get transform(): XYTransformT {
+    return {
+      scale: this.dim({ x: 1, y: 1 }),
+      offset: this.pos({ x: 0, y: 0 }),
+    };
   }
 
   static readonly IDENTITY = new XY();
