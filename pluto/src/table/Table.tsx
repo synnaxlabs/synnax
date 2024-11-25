@@ -63,7 +63,7 @@ export const Table = Aether.wrap<TableProps>(
             top: 6,
             left: 6,
           }}
-        ></div>
+        />
         <table className={CSS(CSS.B("table"), className)} {...props}>
           <tbody>
             <Aether.Composite path={path}>{children}</Aether.Composite>

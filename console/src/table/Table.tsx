@@ -131,7 +131,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [syncDispatch, name, prevName]);
 
-  const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => (
+  const contextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => (
     <Menu.Menu
       onChange={{
         addRowBelow: () => {
@@ -145,29 +145,41 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           syncDispatch(addCol(parseRowCalArgs(layoutKey, keys, "left"))),
         deleteRow: () => syncDispatch(deleteRow(parseRowCalArgs(layoutKey, keys))),
         deleteCol: () => syncDispatch(deleteCol(parseRowCalArgs(layoutKey, keys))),
+        toggleEdit: () => syncDispatch(setEditable({ key: layoutKey })),
       }}
       iconSpacing="small"
       level="small"
     >
-      <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addRowBelow">
-        Add Row Below
-      </Menu.Item>
-      <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addRowAbove">
-        Add Row Above
-      </Menu.Item>
-      <Menu.Divider />
-      <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addColRight">
-        Add Column Right
-      </Menu.Item>
-      <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addColLeft">
-        Add Column Left
-      </Menu.Item>
-      <Menu.Divider />
-      <Menu.Item size="small" startIcon={<Icon.Delete />} itemKey="deleteRow">
-        Delete Row
-      </Menu.Item>
-      <Menu.Item size="small" startIcon={<Icon.Delete />} itemKey="deleteCol">
-        Delete Column
+      {keys.length === 0 && (
+        <>
+          <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addRowBelow">
+            Add Row Below
+          </Menu.Item>
+          <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addRowAbove">
+            Add Row Above
+          </Menu.Item>
+          <Menu.Divider />
+          <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addColRight">
+            Add Column Right
+          </Menu.Item>
+          <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addColLeft">
+            Add Column Left
+          </Menu.Item>
+          <Menu.Divider />
+          <Menu.Item size="small" startIcon={<Icon.Delete />} itemKey="deleteRow">
+            Delete Row
+          </Menu.Item>
+          <Menu.Item size="small" startIcon={<Icon.Delete />} itemKey="deleteCol">
+            Delete Column
+          </Menu.Item>
+          <Menu.Divider />
+        </>
+      )}
+      <Menu.Item
+        itemKey="toggleEdit"
+        startIcon={editable ? <Icon.EditOff /> : <Icon.Edit />}
+      >
+        {editable ? "Disable Edit Mode" : "Enable Edit Mode"}
       </Menu.Item>
       <Menu.Divider />
       <CMenu.HardReloadItem />
