@@ -150,7 +150,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       iconSpacing="small"
       level="small"
     >
-      {keys.length === 0 && (
+      {keys.length > 0 && (
         <>
           <Menu.Item size="small" startIcon={<Icon.Add />} itemKey="addRowBelow">
             Add Row Below

@@ -1,3 +1,4 @@
+import { TimeStamp } from "@synnaxlabs/x";
 import React, {
   createContext,
   type PropsWithChildren,
@@ -12,9 +13,19 @@ import { color } from "@/color/core";
 import { useSyncedRef } from "@/hooks";
 import { type state } from "@/state";
 
+export const relevancyZ = z.object({
+  lastUsed: z.number(),
+  count: z.number(),
+  relevance: z.number(),
+});
+
+export const frequentZ = z.record(z.string(), relevancyZ);
+
+export type Frequent = z.infer<typeof frequentZ>;
+
 export const contextStateZ = z.object({
   palettes: z.record(color.paletteZ),
-  frequent: z.record(z.number()),
+  frequent: z.record(relevancyZ),
 });
 
 export type ContextState = z.infer<typeof contextStateZ>;
@@ -47,13 +58,29 @@ export interface ProviderProps extends PropsWithChildren<{}> {
 
 export const useContext = (): ContextValue => reactUseContext(Context);
 
-export const purgeFrequent = (
-  limit: number,
-  frequent: Record<color.Hex, number>,
-): Record<color.Hex, number> => {
+const RECENCY_WEIGHT = 0.6;
+const FREQUENCY_WEIGHT = 0.4;
+
+export const recalculate = (limit: number, frequent: Frequent): Frequent => {
+  const now = Number(TimeStamp.now().valueOf());
+  const maxFrequency = Object.values(frequent).reduce(
+    (acc, { count }) => Math.max(acc, count),
+    0,
+  );
+  const maxRecency = Object.values(frequent).reduce(
+    (acc, { lastUsed }) => Math.max(acc, lastUsed),
+    0,
+  );
+  Object.entries(frequent).forEach(([hex, { lastUsed, count }]) => {
+    const normalizedRecency = 1 - (now - lastUsed) / maxRecency;
+    const normalizedFrequency = count / maxFrequency;
+    const relevance =
+      normalizedRecency * RECENCY_WEIGHT + normalizedFrequency * FREQUENCY_WEIGHT;
+    frequent[hex] = { lastUsed, count, relevance };
+  });
   const entries = Object.entries(frequent);
   if (entries.length <= limit) return frequent;
-  entries.sort((a, b) => b[1] - a[1]);
+  entries.sort((a, b) => b[1].relevance - a[1].relevance);
   return Object.fromEntries(entries.slice(0, limit));
 };
 
@@ -69,11 +96,16 @@ export const Provider = ({
     (color: color.Color) => {
       const prev = valueRef.current;
       const hex = color.hex;
-      const count = prev.frequent[hex] ?? 0;
-      const nextFreq = purgeFrequent(10, {
+      const count = prev.frequent[hex]?.count ?? 0;
+      const next: Frequent = {
         ...prev.frequent,
-        [hex]: count + 1,
-      });
+        [hex]: {
+          lastUsed: Number(TimeStamp.now().valueOf()),
+          count: count + 1,
+          relevance: 0,
+        },
+      };
+      const nextFreq = recalculate(10, next);
       setValue({ ...prev, frequent: nextFreq });
     },
     [setValue],
