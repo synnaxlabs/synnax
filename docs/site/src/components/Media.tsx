@@ -53,8 +53,7 @@ const useLiveTheme = (): string => {
 
 export const Video = ({ id, themed = true, ...props }: VideoProps): ReactElement => {
   const theme = useLiveTheme();
-  let url = `${CDN_ROOT}/${id}.mp4`;
-  if (themed) url += `-${theme}`;
+  const url = `${CDN_ROOT}/${id}${themed ? `-${theme}` : ""}.mp4`;
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
