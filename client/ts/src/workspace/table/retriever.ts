@@ -16,8 +16,9 @@ import { type Params, type Table, tableRemoteZ } from "@/workspace/table/payload
 const reqZ = z.object({ keys: z.string().array() });
 const resZ = z.object({ tables: tableRemoteZ.array() });
 
+const ENDPOINT = "/workspace/table/retrieve";
+
 export class Retriever {
-  private readonly ENDPOINT = "/workspace/table/retrieve";
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
@@ -26,13 +27,7 @@ export class Retriever {
 
   async retrieve(tables: Params): Promise<Table[]> {
     return (
-      await sendRequired(
-        this.client,
-        this.ENDPOINT,
-        { keys: toArray(tables) },
-        reqZ,
-        resZ,
-      )
+      await sendRequired(this.client, ENDPOINT, { keys: toArray(tables) }, reqZ, resZ)
     ).tables;
   }
 }

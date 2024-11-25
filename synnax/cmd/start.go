@@ -13,8 +13,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
-
 	"os"
 	"os/signal"
 	"time"
@@ -48,6 +46,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
@@ -477,6 +476,7 @@ func maybeSetBasePermission(
 			"rack":        access.All,
 			"device":      access.All,
 			"task":        access.All,
+			"table":       access.All,
 			"user":        access.Retrieve,
 			"schematic":   access.Retrieve,
 			"policy":      access.Retrieve,
