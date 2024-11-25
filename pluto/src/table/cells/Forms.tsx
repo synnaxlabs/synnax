@@ -7,18 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, deep, scale } from "@synnaxlabs/x";
+import { type bounds, deep, type KeyedNamed, scale } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
 import { Form } from "@/form";
+import { Input } from "@/input";
 import { Select } from "@/select";
+import { type ButtonProps } from "@/select/Button";
+import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
 import { Text } from "@/text";
 import { Value } from "@/vis/value";
 
-export const ValueForm = () => {
+export interface FormProps {
+  onVariantChange: (variant: Variant) => void;
+}
+
+export const ValueForm = ({ onVariantChange }: FormProps) => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "telem":
@@ -37,6 +44,9 @@ export const ValueForm = () => {
         return (
           <Align.Space direction="y" grow empty style={{ padding: "2rem" }}>
             <Align.Space direction="x">
+              <Input.Item label="Variant" padHelpText={false}>
+                <SelectVariant onChange={onVariantChange} value="value" />
+              </Input.Item>
               <Form.Field<Color.Crude>
                 hideIfNull
                 label="Color"
@@ -140,8 +150,11 @@ const RedlineForm = (): ReactElement => {
   );
 };
 
-export const TextForm = () => (
+export const TextForm = ({ onVariantChange }: FormProps) => (
   <Align.Space direction="x" grow style={{ padding: "2rem" }}>
+    <Input.Item label="Variant" padHelpText={false}>
+      <SelectVariant onChange={onVariantChange} value="text" />
+    </Input.Item>
     <Form.TextField path="value" label="Text" />
     <Form.Field<Text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
       {(p) => <Text.SelectLevel {...p} />}
@@ -161,4 +174,27 @@ export const TextForm = () => (
       {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
     </Form.Field>
   </Align.Space>
+);
+
+type VariantEntry = KeyedNamed<Variant>;
+
+const VARIANT_DATA: VariantEntry[] = [
+  { key: "text", name: "Text" },
+  { key: "value", name: "Value" },
+];
+
+interface SelectVariantProps
+  extends Omit<
+    ButtonProps<Variant, VariantEntry>,
+    "data" | "entryRenderKey" | "allowMultiple"
+  > {}
+
+const SelectVariant = ({ onChange, value }: SelectVariantProps) => (
+  <Select.Button<Variant, VariantEntry>
+    value={value}
+    onChange={onChange}
+    data={VARIANT_DATA}
+    allowMultiple={false}
+    entryRenderKey="name"
+  />
 );
