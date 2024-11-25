@@ -11,7 +11,7 @@ import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type bounds, type location, type xy } from "@synnaxlabs/x";
+import { type bounds, type direction, type location, type xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
 import { Align } from "@/align";
@@ -21,19 +21,20 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Form } from "@/form";
 import { Input } from "@/input";
-import { type Notation } from "@/notation/notation";
-import { SelectNotation } from "@/notation/SelectNotation";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { type Button as CoreButton } from "@/vis/button";
-import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
-import { type ControlStateProps } from "@/vis/schematic/Symbols";
+import {
+  type ControlStateProps,
+  type LabelExtensionProps,
+} from "@/vis/schematic/Symbols";
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
+import { Value } from "@/vis/value";
 
 export interface SymbolFormProps {}
 
@@ -93,7 +94,7 @@ interface LabelControlsProps {
 }
 
 const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement => (
-  <Align.Space direction="x" align="stretch" grow>
+  <Align.Space direction="x" align="stretch">
     <Form.Field<string> path={`${path}.label`} label="Label" padHelpText={false} grow>
       {(p) => <Input.Text selectOnFocus {...p} />}
     </Form.Field>
@@ -104,6 +105,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       hideIfNull
       label="Label Wrap Width"
       inputProps={{ endContent: "px" }}
+      padHelpText={false}
     />
     <Form.Field<Text.Level>
       hideIfNull
@@ -122,6 +124,15 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       hideIfNull
     >
       {(p) => <Select.TextAlignment {...p} />}
+    </Form.Field>
+    <Form.Field<direction.Direction>
+      visible={!omit.includes("direction")}
+      path={`${path}.direction`}
+      label="Label Direction"
+      padHelpText={false}
+      hideIfNull
+    >
+      {(p) => <Select.Direction {...p} yDirection="down" />}
     </Form.Field>
   </Align.Space>
 );
@@ -151,7 +162,7 @@ interface CommonStyleFormProps {
 
 export const CommonStyleForm = ({ omit }: CommonStyleFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow empty>
+    <Align.Space direction="y" grow>
       <LabelControls omit={omit} path="label" />
       <Align.Space direction="x" grow>
         <ColorControl path="color" optional />
@@ -278,7 +289,7 @@ export const TankForm = ({
   includeBorderRadius = false,
 }: TankFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow empty>
+    <Align.Space direction="y">
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
@@ -369,141 +380,20 @@ const VALUE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "telemetry", name: "Telemetry" },
 ];
 
-interface ValueTelemFormT {
-  telem: telem.StringSourceSpec;
-  tooltip: string[];
-}
-
-const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<ValueTelemFormT>({ path });
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
-    sourceP.segments.valueStream.props,
-  );
-  const stringifier = telem.stringifyNumberProps.parse(
-    sourceP.segments.stringifier.props,
-  );
-  const rollingAverage = telem.rollingAverageProps.parse(
-    sourceP.segments.rollingAverage.props,
-  );
-  const handleSourceChange = (v: channel.Key | null): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: [
-        { from: "valueStream", to: "rollingAverage" },
-        { from: "rollingAverage", to: "stringifier" },
-      ],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: v ?? 0 }),
-        stringifier: telem.stringifyNumber({
-          precision: stringifier.precision ?? 2,
-          notation: stringifier.notation,
-        }),
-        rollingAverage: telem.rollingAverage({
-          windowSize: rollingAverage.windowSize ?? 1,
-        }),
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
-
-  const handleNotationChange = (notation: Notation): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: [
-        { from: "valueStream", to: "rollingAverage" },
-        { from: "rollingAverage", to: "stringifier" },
-      ],
-      segments: {
-        valueStream: telem.streamChannelValue(source),
-        stringifier: telem.stringifyNumber({ ...stringifier, notation }),
-        rollingAverage: telem.rollingAverage(rollingAverage),
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
-
-  const handlePrecisionChange = (precision: number): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: [
-        { from: "valueStream", to: "rollingAverage" },
-        { from: "rollingAverage", to: "stringifier" },
-      ],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: source.channel }),
-        stringifier: telem.stringifyNumber({ ...stringifier, precision }),
-        rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
-
-  const handleRollingAverageChange = (windowSize: number): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: [
-        { from: "valueStream", to: "rollingAverage" },
-        { from: "rollingAverage", to: "stringifier" },
-      ],
-      segments: {
-        stringifier: telem.stringifyNumber({
-          ...stringifier,
-          precision: stringifier.precision ?? 2,
-        }),
-        valueStream: telem.streamChannelValue({ channel: source.channel }),
-        rollingAverage: telem.rollingAverage({ windowSize }),
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
-
-  const c = Channel.useName(source.channel as number);
-  useEffect(() => onChange({ ...value, tooltip: [c] }), [c]);
-
-  return (
-    <FormWrapper direction="y" align="stretch">
-      <Input.Item label="Input Channel" grow>
-        <Channel.SelectSingle
-          value={source.channel as number}
-          onChange={handleSourceChange}
-        />
-      </Input.Item>
-      <Align.Space direction="x">
-        <Input.Item label="Notation">
-          <SelectNotation
-            value={stringifier.notation}
-            onChange={handleNotationChange}
-          />
-        </Input.Item>
-        <Input.Item label="Precision" align="start">
-          <Input.Numeric
-            value={stringifier.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
-            onChange={handlePrecisionChange}
-          />
-        </Input.Item>
-        <Input.Item label="Averaging Window" align="start">
-          <Input.Numeric
-            value={rollingAverage.windowSize ?? 1}
-            bounds={{ lower: 1, upper: 100 }}
-            onChange={handleRollingAverageChange}
-          />
-        </Input.Item>
-      </Align.Space>
-    </FormWrapper>
-  );
-};
-
 export const ValueForm = (): ReactElement => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "telemetry":
-        return <ValueTelemForm path="" />;
+        return (
+          <FormWrapper direction="y" empty>
+            <Value.TelemForm path="" />;
+          </FormWrapper>
+        );
+
       default:
         return (
           <FormWrapper direction="x">
-            <Align.Space direction="y" grow empty>
+            <Align.Space direction="y" grow>
               <LabelControls path="label" />
               <Align.Space direction="x">
                 <ColorControl path="color" />
@@ -527,7 +417,7 @@ export const ValueForm = (): ReactElement => {
                 />
                 <Form.Field<Text.Level>
                   path="level"
-                  label="Value Size"
+                  label="Size"
                   hideIfNull
                   padHelpText={false}
                 >
@@ -552,6 +442,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
   );
+  const threshold = telem.withinBoundsProps.parse(sourceP.segments.threshold.props);
 
   const handleSourceChange = (v: channel.Key | null): void => {
     v ??= 0;
@@ -559,7 +450,24 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
       connections: [{ from: "valueStream", to: "threshold" }],
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
-        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+        threshold: telem.withinBounds({
+          trueBound: {
+            lower: threshold.trueBound.lower ?? 0.9,
+            upper: threshold.trueBound.upper ?? 1.1,
+          },
+        }),
+      },
+      outlet: "threshold",
+    });
+    onChange({ ...value, source: t });
+  };
+
+  const handleThresholdChange = (bounds: { lower: number; upper: number }): void => {
+    const t = telem.sourcePipeline("boolean", {
+      connections: [{ from: "valueStream", to: "threshold" }],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: source.channel }),
+        threshold: telem.withinBounds({ trueBound: bounds }),
       },
       outlet: "threshold",
     });
@@ -576,6 +484,28 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
+        />
+      </Input.Item>
+      <Input.Item label="Lower Threshold">
+        <Input.Numeric
+          value={threshold.trueBound.lower ?? 0.9}
+          onChange={(v) =>
+            handleThresholdChange({
+              ...threshold.trueBound,
+              lower: v,
+            })
+          }
+        />
+      </Input.Item>
+      <Input.Item label="Upper Threshold">
+        <Input.Numeric
+          value={threshold.trueBound.upper ?? 1.1}
+          onChange={(v) =>
+            handleThresholdChange({
+              ...threshold.trueBound,
+              upper: v,
+            })
+          }
         />
       </Input.Item>
     </FormWrapper>

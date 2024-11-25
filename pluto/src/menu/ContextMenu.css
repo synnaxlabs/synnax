@@ -13,12 +13,12 @@
     position: fixed;
     z-index: 8;
     border: var(--pluto-border-l4) !important;
-    background-color: var(--pluto-gray-l1-20);
-    -webkit-backdrop-filter: saturate(100%) blur(5rem);
-    backdrop-filter: saturate(100%) blur(5rem);
+    background-color: var(--pluto-gray-l1-80);
+    -webkit-backdrop-filter: saturate(100%) blur(10rem);
+    backdrop-filter: saturate(100%) blur(10rem);
 
     @media (prefers-color-scheme: light) {
-        background-color: var(--pluto-gray-l1-50);
+        background-color: var(--pluto-gray-l1-80);
         -webkit-backdrop-filter: saturate(100%) blur(6rem);
         backdrop-filter: saturate(100%) blur(6rem);
     }

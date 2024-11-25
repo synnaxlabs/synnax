@@ -41,6 +41,7 @@ export {
 
 export const x = xLocation;
 export const y = yLocation;
+export const center = centerLocation;
 
 export type X = XLocation;
 export type Y = YLocation;

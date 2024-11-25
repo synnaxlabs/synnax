@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it,test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import * as xy from "@/spatial/xy/xy";
 
@@ -120,6 +120,27 @@ describe("XY", () => {
   describe("scale", () => {
     it("should scale the point by the given factor", () => {
       expect(xy.scale([1, 2], 2)).toEqual({ x: 2, y: 4 });
+    });
+  });
+  describe("sub", () => {
+    it("should subtract the second point from the first point", () => {
+      expect(xy.sub([1, 2], [2, 1])).toEqual({ x: -1, y: 1 });
+    });
+  });
+
+  describe("calculateMiters", () => {
+    it("should calculate the miters of the given points", () => {
+      const points: xy.XY[] = [
+        { x: 0, y: 0 },
+        { x: 0, y: 1 },
+        { x: 1, y: 1 },
+      ];
+      const miters = xy.calculateMiters(points, 1);
+      expect(miters).toEqual([
+        { x: -1, y: 0 },
+        { x: -1, y: 1 },
+        { x: -0, y: 1 },
+      ]);
     });
   });
 });

@@ -55,6 +55,10 @@ import {
   type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
+import {
+  checkDesiredStateMatch,
+  useDesiredState,
+} from "@/hardware/task/common/useDesiredState";
 import { type Layout } from "@/layout";
 
 type LayoutArgs = TaskLayoutArgs<DigitalReadPayload>;
@@ -104,6 +108,10 @@ const Wrapped = ({
     task?.key,
     task?.state,
   );
+  const running = taskState?.details?.running;
+  const initialState =
+    running === true ? "running" : running === false ? "paused" : undefined;
+  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
 
   const createTask = useCreate<
     DigitalReadConfig,
@@ -194,6 +202,7 @@ const Wrapped = ({
         type: DIGITAL_READ_TYPE,
         config,
       });
+      setDesiredState("paused");
     },
   });
 
@@ -201,9 +210,9 @@ const Wrapped = ({
     mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (client == null) return;
-      await task?.executeCommand(
-        taskState?.details?.running === true ? "stop" : "start",
-      );
+      const isRunning = running === true;
+      setDesiredState(isRunning ? "paused" : "running");
+      await task?.executeCommand(isRunning ? "stop" : "start");
     },
   });
 
@@ -274,7 +283,11 @@ const Wrapped = ({
           layoutKey={layoutKey}
           state={taskState}
           snapshot={task?.snapshot}
-          startingOrStopping={start.isPending}
+          startingOrStopping={
+            start.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
+          }
           configuring={configure.isPending}
           onConfigure={configure.mutate}
           onStartStop={start.mutate}

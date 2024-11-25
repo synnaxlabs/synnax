@@ -26,146 +26,117 @@ import {
   TextBoxForm,
   ValueForm,
 } from "@/vis/schematic/Forms";
-import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
-import { DEFAULT_BORDER_RADIUS } from "@/vis/schematic/primitives/Primitives";
+import { Primitives } from "@/vis/schematic/primitives";
+import {
+  type CylinderProps,
+  DEFAULT_BORDER_RADIUS,
+  TextBox,
+  type TextBoxProps,
+} from "@/vis/schematic/primitives/Primitives";
 import {
   Agitator,
-  AgitatorPreview,
   type AgitatorProps,
   AngledReliefValve,
-  AngledReliefValvePreview,
   AngledSpringLoadedReliefValve,
-  AngledSpringLoadedReliefValvePreview,
   type AngledSpringLoadedReliefValveProps,
   AngledValve,
-  AngledValvePreview,
   type AngledValveProps,
   Box,
   BoxPreview,
   type BoxProps,
   BurstDisc,
-  BurstDiscPreview,
+  type BurstDiscProps,
   Button,
   ButtonPreview,
   type ButtonProps,
   Cap,
-  CapPreview,
+  type CapProps,
   CavityPump,
-  CavityPumpPreview,
   type CavityPumpProps,
   CheckValve,
-  CheckValvePreview,
   type CheckValveProps,
   Compressor,
-  CompressorPreview,
   type CompressorProps,
   CrossBeamAgitator,
-  CrossBeamAgitatorPreview,
   type CrossBeamAgitatorProps,
   Cylinder,
   CylinderPreview,
-  type CylinderProps,
   ElectricRegulator,
-  ElectricRegulatorPreview,
   type ElectricRegulatorProps,
   Filter,
-  FilterPreview,
   type FilterProps,
   FlatBladeAgitator,
-  FlatBladeAgitatorPreview,
   type FlatBladeAgitatorProps,
   FourWayValve,
-  FourWayValvePreview,
+  type FourWayValveProps,
   HelicalAgitator,
-  HelicalAgitatorPreview,
   type HelicalAgitatorProps,
   ISOBurstDisc,
-  ISOBurstDiscPreview,
+  type ISOBurstDiscProps,
   ISOCap,
-  ISOCapPreview,
+  type ISOCapProps,
   ISOCheckValve,
-  ISOCheckValvePreview,
   type ISOCheckValveProps,
   ISOFilter,
-  ISOFilterPreview,
+  type ISOFilterProps,
+  type LabelExtensionProps,
   Light,
-  LightPreview,
   type LightProps,
   ManualValve,
-  ManualValvePreview,
   type ManualValveProps,
   NeedleValve,
-  NeedleValvePreview,
   type NeedleValveProps,
   OffPageReference,
   OffPageReferencePreview,
   type OffPageReferenceProps,
   Orifice,
   OrificePlate,
-  OrificePlatePreview,
   type OrificePlateProps,
-  OrificePreview,
   type OrificeProps,
   PaddleAgitator,
-  PaddleAgitatorPreview,
   type PaddleAgitatorProps,
   PistonPump,
-  PistonPumpPreview,
   type PistonPumpProps,
   PropellerAgitator,
-  PropellerAgitatorPreview,
   type PropellerAgitatorProps,
   Pump,
-  PumpPreview,
   type PumpProps,
   Regulator,
-  RegulatorPreview,
   type RegulatorProps,
   ReliefValve,
-  ReliefValvePreview,
   type ReliefValveProps,
   RotaryMixer,
-  RotaryMixerPreview,
   type RotaryMixerProps,
   ScrewPump,
-  ScrewPumpPreview,
   type ScrewPumpProps,
   Setpoint,
   SetpointPreview,
   type SetpointProps,
   SolenoidValve,
-  SolenoidValvePreview,
   type SolenoidValveProps,
   SpringLoadedReliefValve,
-  SpringLoadedReliefValvePreview,
   type SpringLoadedReliefValveProps,
   StaticMixer,
-  StaticMixerPreview,
   type StaticMixerProps,
   Switch,
-  SwitchPreview,
   type SwitchProps,
   type SymbolProps,
   Tank,
   TankPreview,
   type TankProps,
-  TextBox,
   TextBoxPreview,
-  type TextBoxProps,
   ThreeWayValve,
-  ThreeWayValvePreview,
   type ThreeWayValveProps,
+  TJunction,
+  type TJunctionProps,
   VacuumPump,
-  VacuumPumpPreview,
   type VacuumPumpProps,
   Value,
   ValuePreview,
   type ValueProps,
   Valve,
-  ValvePreview,
   type ValveProps,
   Vent,
-  VentPreview,
   type VentProps,
 } from "@/vis/schematic/Symbols";
 
@@ -231,10 +202,11 @@ const VARIANTS = [
   "value",
   "valve",
   "vent",
+  "tJunction",
 ] as const;
 
-export const typeZ = z.enum(VARIANTS);
-export type Variant = z.infer<typeof typeZ>;
+export const variantZ = z.enum(VARIANTS);
+export type Variant = z.infer<typeof variantZ>;
 
 const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
 const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
@@ -301,7 +273,14 @@ const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_P
 type zeroLabelReturn = { label: LabelExtensionProps };
 
 const zeroLabel = (label: string): zeroLabelReturn => ({
-  label: { label, level: "p", orientation: "top", maxInlineSize: 150, align: "center" },
+  label: {
+    label,
+    level: "p",
+    orientation: "top",
+    maxInlineSize: 150,
+    align: "center",
+    direction: "x",
+  },
 });
 
 const ZERO_DIMENSIONS = { width: 125, height: 200 };
@@ -320,7 +299,7 @@ const threeWayValve: Spec<ThreeWayValveProps> = {
     ...zeroLabel("Three Way Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: ThreeWayValvePreview,
+  Preview: Primitives.ThreeWayValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -334,7 +313,7 @@ const valve: Spec<ValveProps> = {
     ...zeroLabel("Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: ValvePreview,
+  Preview: Primitives.Valve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -349,11 +328,11 @@ const solenoidValve: Spec<SolenoidValveProps> = {
     normallyOpen: false,
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: SolenoidValvePreview,
+  Preview: Primitives.SolenoidValve,
   zIndex: Z_INDEX_UPPER,
 };
 
-const fourWayValve: Spec<ValveProps> = {
+const fourWayValve: Spec<FourWayValveProps> = {
   name: "Four Way Valve",
   key: "fourWayValve",
   Form: CommonToggleForm,
@@ -363,7 +342,7 @@ const fourWayValve: Spec<ValveProps> = {
     ...zeroLabel("Four Way Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: FourWayValvePreview,
+  Preview: Primitives.FourWayValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -377,7 +356,7 @@ const angledValve: Spec<AngledValveProps> = {
     ...zeroLabel("Angled Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: AngledValvePreview,
+  Preview: Primitives.AngledValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -391,7 +370,7 @@ const pump: Spec<PumpProps> = {
     ...zeroLabel("Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: PumpPreview,
+  Preview: Primitives.Pump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -405,7 +384,7 @@ const screwPump: Spec<ScrewPumpProps> = {
     ...zeroLabel("Screw Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: ScrewPumpPreview,
+  Preview: Primitives.ScrewPump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -472,7 +451,7 @@ const reliefValve: Spec<ReliefValveProps> = {
     ...zeroLabel("Relief Valve"),
     ...ZERO_PROPS,
   }),
-  Preview: ReliefValvePreview,
+  Preview: Primitives.ReliefValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -486,7 +465,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
     ...zeroLabel("Spring Loaded Relief Valve"),
     ...ZERO_PROPS,
   }),
-  Preview: SpringLoadedReliefValvePreview,
+  Preview: Primitives.SpringLoadedReliefValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -500,7 +479,7 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
     ...ZERO_PROPS,
   }),
-  Preview: AngledSpringLoadedReliefValvePreview,
+  Preview: Primitives.AngledSpringLoadedReliefValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -514,7 +493,7 @@ const regulator: Spec<RegulatorProps> = {
     ...zeroLabel("Regulator"),
     ...ZERO_PROPS,
   }),
-  Preview: RegulatorPreview,
+  Preview: Primitives.Regulator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -528,11 +507,11 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
     ...zeroLabel("Electric Regulator"),
     ...ZERO_PROPS,
   }),
-  Preview: ElectricRegulatorPreview,
+  Preview: Primitives.ElectricRegulator,
   zIndex: Z_INDEX_UPPER,
 };
 
-const burstDisc: Spec<ReliefValveProps> = {
+const burstDisc: Spec<BurstDiscProps> = {
   name: "Burst Disc",
   key: "burstDisc",
   Form: CommonStyleForm,
@@ -542,11 +521,11 @@ const burstDisc: Spec<ReliefValveProps> = {
     ...zeroLabel("Burst Disc"),
     ...ZERO_PROPS,
   }),
-  Preview: BurstDiscPreview,
+  Preview: Primitives.BurstDisc,
   zIndex: Z_INDEX_UPPER,
 };
 
-const isoBurstDisc: Spec<ReliefValveProps> = {
+const isoBurstDisc: Spec<ISOBurstDiscProps> = {
   name: "ISO Burst Disc",
   key: "isoBurstDisc",
   Form: CommonStyleForm,
@@ -556,11 +535,11 @@ const isoBurstDisc: Spec<ReliefValveProps> = {
     ...zeroLabel("ISO Burst Disc"),
     ...ZERO_PROPS,
   }),
-  Preview: ISOBurstDiscPreview,
+  Preview: Primitives.ISOBurstDisc,
   zIndex: Z_INDEX_UPPER,
 };
 
-const cap: Spec<ReliefValveProps> = {
+const cap: Spec<CapProps> = {
   name: "Cap",
   key: "cap",
   Form: CommonStyleForm,
@@ -570,11 +549,11 @@ const cap: Spec<ReliefValveProps> = {
     ...zeroLabel("Cap"),
     ...ZERO_PROPS,
   }),
-  Preview: CapPreview,
+  Preview: Primitives.Cap,
   zIndex: Z_INDEX_UPPER,
 };
 
-const isoCap: Spec<ReliefValveProps> = {
+const isoCap: Spec<ISOCapProps> = {
   name: "ISO Cap",
   key: "isoCap",
   Form: CommonStyleForm,
@@ -584,7 +563,7 @@ const isoCap: Spec<ReliefValveProps> = {
     ...zeroLabel("ISO Cap"),
     ...ZERO_PROPS,
   }),
-  Preview: ISOCapPreview,
+  Preview: Primitives.ISOCap,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -598,7 +577,7 @@ const manualValve: Spec<ManualValveProps> = {
     ...zeroLabel("Manual Valve"),
     ...ZERO_PROPS,
   }),
-  Preview: ManualValvePreview,
+  Preview: Primitives.ManualValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -612,11 +591,11 @@ const orificePlate: Spec<OrificePlateProps> = {
     ...zeroLabel("Orifice Plate"),
     ...ZERO_PROPS,
   }),
-  Preview: OrificePlatePreview,
+  Preview: Primitives.OrificePlate,
   zIndex: Z_INDEX_UPPER,
 };
 
-const isoFilter: Spec<ManualValveProps> = {
+const isoFilter: Spec<ISOFilterProps> = {
   name: "ISO Filter",
   key: "isoFilter",
   Form: CommonStyleForm,
@@ -626,7 +605,7 @@ const isoFilter: Spec<ManualValveProps> = {
     ...zeroLabel("ISO Filter"),
     ...ZERO_PROPS,
   }),
-  Preview: ISOFilterPreview,
+  Preview: Primitives.ISOFilter,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -640,7 +619,7 @@ const filter: Spec<FilterProps> = {
     ...zeroLabel("Filter"),
     ...ZERO_PROPS,
   }),
-  Preview: FilterPreview,
+  Preview: Primitives.Filter,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -654,7 +633,7 @@ const needleValve: Spec<NeedleValveProps> = {
     ...zeroLabel("Needle Valve"),
     ...ZERO_PROPS,
   }),
-  Preview: NeedleValvePreview,
+  Preview: Primitives.NeedleValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -668,7 +647,7 @@ const checkValve: Spec<CheckValveProps> = {
     ...zeroLabel("Check Valve"),
     ...ZERO_PROPS,
   }),
-  Preview: CheckValvePreview,
+  Preview: Primitives.CheckValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -682,7 +661,7 @@ const orifice: Spec<OrificeProps> = {
     ...zeroLabel("Orifice"),
     ...ZERO_PROPS,
   }),
-  Preview: OrificePreview,
+  Preview: Primitives.Orifice,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -696,7 +675,7 @@ const angledReliefValve: Spec<ReliefValveProps> = {
     ...zeroLabel("Angled Relief Valve"),
     ...ZERO_PROPS,
   }),
-  Preview: AngledReliefValvePreview,
+  Preview: Primitives.AngledReliefValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -738,13 +717,13 @@ const switch_: Spec<SwitchProps> = {
   name: "Switch",
   key: "switch",
   Symbol: Switch,
-  Preview: SwitchPreview,
   Form: CommonToggleForm,
   defaultProps: () => ({
     ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,
     scale: null,
   }),
+  Preview: Primitives.Switch,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -758,7 +737,7 @@ const vacuumPump: Spec<VacuumPumpProps> = {
     ...zeroLabel("Vacuum Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: VacuumPumpPreview,
+  Preview: Primitives.VacuumPump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -772,7 +751,7 @@ const cavityPump: Spec<CavityPumpProps> = {
     ...zeroLabel("Cavity Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: CavityPumpPreview,
+  Preview: Primitives.CavityPump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -786,7 +765,7 @@ const pistonPump: Spec<PistonPumpProps> = {
     ...zeroLabel("Piston Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: PistonPumpPreview,
+  Preview: Primitives.PistonPump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -800,7 +779,7 @@ const staticMixer: Spec<StaticMixerProps> = {
     ...zeroLabel("Static Mixer"),
     ...ZERO_PROPS,
   }),
-  Preview: StaticMixerPreview,
+  Preview: Primitives.StaticMixer,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -814,7 +793,7 @@ const rotaryMixer: Spec<RotaryMixerProps> = {
     ...zeroLabel("Rotary Mixer"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: RotaryMixerPreview,
+  Preview: Primitives.RotaryMixer,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -828,7 +807,7 @@ const light: Spec<LightProps> = {
     ...zeroLabel("Light"),
     ...ZERO_BOOLEAN_SOURCE_PROPS,
   }),
-  Preview: LightPreview,
+  Preview: Primitives.Light,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -858,7 +837,7 @@ const agitator: Spec<AgitatorProps> = {
     ...zeroLabel("Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: AgitatorPreview,
+  Preview: Primitives.Agitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -872,7 +851,7 @@ const propellerAgitator: Spec<PropellerAgitatorProps> = {
     ...zeroLabel("Propeller Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: PropellerAgitatorPreview,
+  Preview: Primitives.PropellerAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -886,7 +865,7 @@ const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
     ...zeroLabel("Flat Blade Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: FlatBladeAgitatorPreview,
+  Preview: Primitives.FlatBladeAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -900,7 +879,7 @@ const paddleAgitator: Spec<PaddleAgitatorProps> = {
     ...zeroLabel("Paddle Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: PaddleAgitatorPreview,
+  Preview: Primitives.PaddleAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -914,7 +893,7 @@ const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
     ...zeroLabel("Cross Beam Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: CrossBeamAgitatorPreview,
+  Preview: Primitives.CrossBeamAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -928,7 +907,7 @@ const helicalAgitator: Spec<HelicalAgitatorProps> = {
     ...zeroLabel("Helical Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: HelicalAgitatorPreview,
+  Preview: Primitives.HelicalAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -942,7 +921,7 @@ const compressor: Spec<CompressorProps> = {
     ...zeroLabel("Compressor"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: CompressorPreview,
+  Preview: Primitives.Compressor,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -990,7 +969,7 @@ const isoCheckValve: Spec<ISOCheckValveProps> = {
     ...zeroLabel("ISO Check Valve"),
     ...ZERO_PROPS,
   }),
-  Preview: ISOCheckValvePreview,
+  Preview: Primitives.ISOCheckValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -1004,14 +983,29 @@ const vent: Spec<VentProps> = {
     ...zeroLabel("Vent"),
     ...ZERO_PROPS,
   }),
-  Preview: VentPreview,
+  Preview: Primitives.Vent,
   zIndex: Z_INDEX_UPPER,
+};
+
+const tJunction: Spec<TJunctionProps> = {
+  name: "T Junction",
+  key: "tJunction",
+  Form: CommonStyleForm,
+  Symbol: TJunction,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel(""),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.TJunction,
+  zIndex: Z_INDEX_UPPER + 20,
 };
 
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
   tank,
+  tJunction,
   switch: switch_,
   offPageReference,
   light,

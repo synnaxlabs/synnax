@@ -13,7 +13,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-
 	"os"
 	"os/signal"
 	"time"
@@ -47,6 +46,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
@@ -209,6 +209,10 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		tableSvc, err := table.NewService(table.Config{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+		})
 		hardwareSvc, err := hardware.OpenService(ctx, hardware.Config{
 			DB:           gorpDB,
 			Ontology:     dist.Ontology,
@@ -249,6 +253,7 @@ func start(cmd *cobra.Command) {
 			Storage:         dist.Storage,
 			User:            userSvc,
 			Token:           tokenSvc,
+			Table:           tableSvc,
 			Cluster:         dist.Cluster,
 			Ontology:        dist.Ontology,
 			Group:           dist.Group,
@@ -471,6 +476,7 @@ func maybeSetBasePermission(
 			"rack":        access.All,
 			"device":      access.All,
 			"task":        access.All,
+			"table":       access.All,
 			"user":        access.Retrieve,
 			"schematic":   access.Retrieve,
 			"policy":      access.Retrieve,

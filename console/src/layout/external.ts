@@ -18,4 +18,5 @@ export * from "@/layout/Selector";
 export * from "@/layout/selectors";
 export * from "@/layout/slice";
 export * from "@/layout/slice";
+export * from "@/layout/useDropOutside";
 export * from "@/layout/Window";

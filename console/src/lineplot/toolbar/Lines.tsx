@@ -148,7 +148,11 @@ const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
           upper: 51,
         }}
       />
-      <Color.Swatch value={new Color.Color(entry.color)} onChange={handleColorChange} />
+      <Color.Swatch
+        value={new Color.Color(entry.color)}
+        onChange={handleColorChange}
+        size="small"
+      />
     </Align.Space>
   );
 };

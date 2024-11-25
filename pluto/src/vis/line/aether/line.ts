@@ -16,7 +16,7 @@ import {
   DataType,
   type Destructor,
   type direction,
-  scale,
+  type scale,
   type Series,
   type SeriesDigest,
   TimeSpan,
@@ -313,19 +313,15 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,
-      scale: scale.xyScaleToTransform(dataToDecimalScale),
+      scale: dataToDecimalScale.transform,
       props: props.region,
       ops: digests(ops),
     }));
     const clearProg = prog.setAsActive();
     const instances = prog.bindState(this.state);
-    const regionTransform = scale.xyScaleToTransform(
-      prog.ctx.scaleRegion(props.region),
-    );
+    const regionTransform = prog.ctx.scaleRegion(props.region).transform;
     ops.forEach((op) => {
-      const scaleTransform = scale.xyScaleToTransform(
-        offsetScale(dataToDecimalScale, op),
-      );
+      const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
       prog.bindScale(scaleTransform, regionTransform);
       prog.draw(op, instances);
     });

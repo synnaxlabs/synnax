@@ -53,7 +53,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
     Pick<CoreList.SearchProps<K, E>, "filter"> {
   entryRenderKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
-  inputProps?: Omit<Input.TextProps, "onChange">;
+  inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
   searcher?: AsyncTermSearcher<string, K, E>;
   hideColumnHeader?: boolean;
   omit?: Array<K>;
@@ -149,6 +149,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     <InputWrapper<K, E> searcher={searcher} filter={filter}>
       {({ onChange: handleChange }) => (
         <SingleInput<K, E>
+          {...inputProps}
           autoFocus={dropdownVariant === "modal"}
           variant={variant}
           onChange={handleChange}
