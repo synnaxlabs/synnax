@@ -13,7 +13,7 @@ import LabJack from "@/pages/releases/LabJack.astro";
 <Diagram style="height: 300px" preview>
   <Image
     client:only="react"
-    id="console/tables/thumbnailc"
+    id="console/tables/thumbnail"
     themed={false}
     style={{
       width: "500px",
@@ -27,22 +27,23 @@ import LabJack from "@/pages/releases/LabJack.astro";
 </Diagram>
 
 Synnax version 0.35.0 introduces a new table component, fixes a few issues with the
-recently released LabJack driver, makes several improvements to schematic editing,
-and fixes a number of performance related bugs.
+recently released LabJack driver, makes several improvements to schematic editing, and
+fixes a number of performance related bugs.
 
 ### Table Component
 
-The new console table component is a powerful tool for displaying and interacting with tabular
-data. Tables are particularly useful for displaying data from many different channels,
-and for displaying data that should be flagged for exceeding certain thresholds.
+The new console table component is a powerful tool for displaying and interacting with
+tabular data. Tables are particularly useful for displaying data from many different
+channels, and for displaying data that should be flagged for exceeding certain
+thresholds.
 
 ### Schematic Improvements
 
 #### New Symbols
 
-10 new ISO compliant schematic symbols have been added to the symbol library: an ISO Check Valve,
-Cylinder, ISO Relief Valve, Angled ISO Relief Valve, ISO Burst Disk, ISO Cap, Vent,
-ISO Filter, Orifice Plate, and a T-Junction.
+10 new ISO compliant schematic symbols have been added to the symbol library: an ISO
+Check Valve, Cylinder, ISO Relief Valve, Angled ISO Relief Valve, ISO Burst Disk, ISO
+Cap, Vent, ISO Filter, Orifice Plate, and a T-Junction.
 
 <Image
   client:only="react"
@@ -54,14 +55,14 @@ ISO Filter, Orifice Plate, and a T-Junction.
 #### New Edge Types
 
 To allow for greater clarity on complex schematics, edges can now have specific styles
-associated with their corresponding type. The currently available options are: Pipe (default),
-Electric Signal, Secondary, Jacketed, Hydraulic, Pneumatic, and Data Signal.
+associated with their corresponding type. The currently available options are: Pipe
+(default), Electric Signal, Secondary, Jacketed, Hydraulic, Pneumatic, and Data Signal.
 
 #### Label Improvements
 
 Labels no longer cause elements to shift when their text is edited, and label alignment
-has been fixed to correctly justify the _text_ of the label instead of the label
-itself around it's symbol.
+has been fixed to correctly justify the _text_ of the label instead of the label itself
+around it's symbol.
 
 You can also now **double click** on a label to edit it's text. Hit `esc` to cancel
 label editing.
@@ -112,7 +113,7 @@ your schematic.
 
 ### Breaking Changes
 
-While this release does **not** introduce any backwards incompatible changes, the updated
-label alignment system may cause the edges of existing schematics to shift.
+While this release does **not** introduce any backwards incompatible changes, the
+updated label alignment system may cause the edges of existing schematics to shift.
 
 </Release>
