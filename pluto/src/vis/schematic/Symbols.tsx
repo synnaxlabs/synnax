@@ -10,7 +10,7 @@
 import "@/vis/schematic/Symbols.css";
 
 import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type CSSProperties, type FC, type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { type Color } from "@/color";
@@ -49,7 +49,14 @@ const labelGridItem = (
   onChange?: ({ label }: { label: LabelExtensionProps }) => void,
 ): GridItem | null => {
   if (props == null) return null;
-  const { label, level = "p", orientation = "top", direction } = props;
+  const {
+    label,
+    level = "p",
+    orientation = "top",
+    direction,
+    align,
+    maxInlineSize,
+  } = props;
   if (label == null || label.length === 0) return null;
   return {
     key: "label",
@@ -60,6 +67,7 @@ const labelGridItem = (
         value={label}
         onChange={(value) => onChange?.({ label: { ...props, label: value } })}
         allowEmpty
+        style={{ maxInlineSize, textAlign: align as CSSProperties["textAlign"] }}
       />
     ),
     location: orientation,

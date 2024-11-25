@@ -71,7 +71,7 @@
     --offset: 0.666rem;
     user-select: none;
     pointer-events: none;
-    text-wrap: nowrap;
+    overflow-wrap: break-word;
     &.pluto--y {
         writing-mode: vertical-rl;
     }
