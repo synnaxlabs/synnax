@@ -54,6 +54,7 @@ export const selectSelectedElementsProps = (
   layoutKey: string,
 ): ElementInfo[] => {
   const schematic = select(state, layoutKey);
+  if (schematic == null) return [];
   const nodes: ElementInfo[] = schematic.nodes
     .filter((node) => node.selected)
     .map((node) => ({

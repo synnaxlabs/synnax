@@ -421,7 +421,7 @@ export const create =
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     const newTab = canEditSchematic ? tab : { ...tab, editable: false };
     const key = initial.key ?? uuidv4();
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,
       location,
