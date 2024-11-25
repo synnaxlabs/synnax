@@ -42,7 +42,11 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     const { internal: i } = this;
     i.renderCtx = render.Context.use(this.ctx);
     render.Controller.control(this.ctx, () => this.requestRender("low"));
-    void this.render();
+    this.requestRender("high");
+  }
+
+  async afterDelete(): Promise<void> {
+    this.requestRender("high");
   }
 
   async render(): Promise<render.Cleanup | undefined> {
@@ -64,6 +68,8 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
 
     try {
       for (const child of this.children) await child.render({ viewportScale });
+    } catch (e) {
+      console.error(e);
     } finally {
       clearScissor();
     }
