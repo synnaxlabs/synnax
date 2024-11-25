@@ -1924,7 +1924,13 @@ export const Agitator = ({
 }: AgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="top" orientation={orientation} left={50} top={2} id="1" />
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={100 / height}
+        id="1"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -1952,7 +1958,13 @@ export const PropellerAgitator = ({
 }: PropellerAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50.5814}
+        top={200 / height}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -1977,7 +1989,13 @@ export const FlatBladeAgitator = ({
 }: FlatBladeAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={100 / height}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -2003,7 +2021,13 @@ export const PaddleAgitator = ({
 }: PaddleAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={100 / height}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -2054,7 +2078,13 @@ export const CrossBeamAgitator = ({
 }: CrossBeamAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={100 / height}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -2083,7 +2113,13 @@ export const HelicalAgitator = ({
 }: HelicalAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="top" left={50} top={2} id="4" orientation={orientation} />
+      <Handle
+        location="top"
+        left={50}
+        top={100 / height}
+        id="4"
+        orientation={orientation}
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -2223,8 +2259,14 @@ export const Vent = ({
 }: VentProps): ReactElement => (
   <Div className={CSS(CSS.B("vent"), className)} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={22} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={92} top={50} id="2" />
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={22.7273}
+        top={50}
+        id="1"
+      />
+      <Handle location="right" orientation={orientation} left={80} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
       color={color}

@@ -133,7 +133,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       padHelpText={false}
       hideIfNull
     >
-      {(p) => <Select.Direction {...p} />}
+      {(p) => <Select.Direction {...p} yDirection="down" />}
     </Form.Field>
   </Align.Space>
 );
