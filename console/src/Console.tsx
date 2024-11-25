@@ -9,8 +9,8 @@
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
+import "@synnaxlabs/pluto/dist/style.css";
 
-// import "@synnaxlabs/pluto/dist/style.css";
 import { Provider } from "@synnaxlabs/drift/react";
 import {
   type Color,

@@ -24,7 +24,6 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
-import { withinBoundsProps } from "@/telem/aether/transformers";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { type Button as CoreButton } from "@/vis/button";
@@ -385,7 +384,12 @@ export const ValueForm = (): ReactElement => {
   const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
     switch (tabKey) {
       case "telemetry":
-        return <Value.TelemForm path="" />;
+        return (
+          <FormWrapper direction="y" empty>
+            <Value.TelemForm path="" />;
+          </FormWrapper>
+        );
+
       default:
         return (
           <FormWrapper direction="x">

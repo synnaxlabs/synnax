@@ -116,8 +116,8 @@
 }
 
 .pluto-text-box {
+    justify-content: center;
     pointer-events: all !important;
-    text-align: center;
     padding: 2px;
     width: "fit-content";
     white-space: nowrap;

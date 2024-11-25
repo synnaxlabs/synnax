@@ -561,20 +561,34 @@ export const Light = ({
   label,
   source,
   onChange,
+  selected,
+  draggable,
   ...rest
 }: SymbolProps<LightProps>): ReactElement => {
   const { enabled } = CoreLight.use({ aetherKey: symbolKey, source });
   const gridItems: GridItem[] = [];
   const labelItem = labelGridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
-  return <Primitives.Light enabled={enabled} {...rest} />;
+  return (
+    <Grid
+      items={gridItems}
+      editable={selected && !draggable}
+      symbolKey={symbolKey}
+      onLocationChange={(key, loc) => {
+        if (key !== "label") return;
+        onChange({ label: { ...label, orientation: loc } } as Partial<LightProps>);
+      }}
+    >
+      <Primitives.Light enabled={enabled} {...rest} />
+    </Grid>
+  );
 };
 
 export const TextBoxPreview = ({
   level = "p",
   width = 100,
 }: SymbolProps<Primitives.TextBoxProps>): ReactElement => (
-  <Primitives.TextBox level={level} width={width} />
+  <Primitives.TextBox level={level} width={width} text="Text Box" />
 );
 
 export interface OffPageReferenceProps
@@ -586,8 +600,10 @@ export const OffPageReference = ({
   label: { label, level },
   orientation,
   color,
+  onChange,
 }: SymbolProps<OffPageReferenceProps>): ReactElement => (
   <Primitives.OffPageReference
+    onLabelChange={(label) => onChange({ label: { label, level } })}
     label={label}
     level={level}
     orientation={orientation}

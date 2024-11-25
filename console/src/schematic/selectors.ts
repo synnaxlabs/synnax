@@ -78,8 +78,11 @@ export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[]
     [layoutKey],
   );
 
-export const selectSelectedElementNames = (layoutKey: string): (string | null)[] => {
-  const elements = useSelectSelectedElementsProps(layoutKey);
+export const selectSelectedElementNames = (
+  state: StoreState,
+  layoutKey: string,
+): (string | null)[] => {
+  const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
     if (element.type === "node") return element.props.label?.label ?? null;
     return null;
@@ -87,7 +90,10 @@ export const selectSelectedElementNames = (layoutKey: string): (string | null)[]
 };
 
 export const useSelectSelectedElementNames = (layoutKey: string): (string | null)[] =>
-  useMemoSelect(() => selectSelectedElementNames(layoutKey), [layoutKey]);
+  useMemoSelect(
+    (s: StoreState) => selectSelectedElementNames(s, layoutKey),
+    [layoutKey],
+  );
 
 export const selectNodeProps = (
   state: StoreState,

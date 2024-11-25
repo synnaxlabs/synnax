@@ -1363,29 +1363,25 @@ export const TextBox = ({
   orientation = "left",
   text = "",
   width,
-  color,
+  color = "var(--pluto-gray-l9)",
   level,
   autoFit,
   align = "center",
 }: TextBoxProps): ReactElement => {
-  const theme = Theming.use();
-  const newcolor = Color.cssString(color ?? theme.colors.gray.l0);
-
-  const style: CSSProperties = {
-    borderColor: newcolor,
+  const divStyle: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
   };
   if (direction.construct(orientation) === "y")
-    style.height = autoFit ? "fit-content" : width;
-  else style.width = autoFit ? "fit-content" : width;
+    divStyle.height = autoFit ? "fit-content" : width;
+  else divStyle.width = autoFit ? "fit-content" : width;
 
   return (
     <Div
-      style={style}
+      style={divStyle}
       orientation={orientation}
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
     >
-      <Text.Text color={newcolor} level={level}>
+      <Text.Text color={Color.cssString(color)} level={level}>
         {text}
       </Text.Text>
     </Div>
@@ -2136,6 +2132,7 @@ export interface OffPageReferenceProps extends DivProps {
   label?: string;
   level?: Text.TextProps["level"];
   color?: Color.Crude;
+  onLabelChange?: (label: string) => void;
 }
 
 export const OffPageReference: React.FC<OffPageReferenceProps> = ({
@@ -2145,6 +2142,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
   label = "text",
   color = "black",
   level = "p",
+  onLabelChange,
   ...props
 }) => {
   const element = document.querySelector(`[data-id="${id}"]`);
@@ -2162,9 +2160,12 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
       <div className="wrapper">
         <div className="outline" style={{ backgroundColor: Color.cssString(color) }}>
           <div className="bg">
-            <Text.Text level={level} className={CSS.BE("symbol", "label")}>
-              {label}
-            </Text.Text>
+            <Text.MaybeEditable
+              value={label}
+              onChange={onLabelChange}
+              level={level}
+              className={CSS.BE("symbol", "label")}
+            />
           </div>
         </div>
       </div>
