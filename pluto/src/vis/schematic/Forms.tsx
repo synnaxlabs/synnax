@@ -289,7 +289,7 @@ export const TankForm = ({
   includeBorderRadius = false,
 }: TankFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y">
+    <Align.Space direction="y" grow>
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
