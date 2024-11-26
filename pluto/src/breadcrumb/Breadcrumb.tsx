@@ -68,6 +68,7 @@ interface GetContentArgs {
   level: Text.Level;
   weight?: Text.Weight;
   separator: string;
+  capitalized?: boolean;
 }
 
 const getContent = ({
@@ -76,6 +77,7 @@ const getContent = ({
   level,
   weight,
   separator,
+  capitalized = false,
 }: GetContentArgs): (ReactElement | string)[] => {
   const normalized = normalizeSegments(segments, separator);
   const content: (ReactElement | string)[] = normalized
@@ -102,7 +104,7 @@ const getContent = ({
           level={level}
           {...el}
         >
-          {el.label}
+          {capitalized ? caseconv.capitalize(el.label) : el.label}
         </Text.Text>,
       );
       return base;
@@ -165,23 +167,17 @@ export const URL = ({
   className,
   level = "p",
   separator = ".",
+  weight,
   shade = 7,
 }: URLProps) => {
-  const split = toArray(url)
-    .map((el) => el.split(separator))
-    .flat();
-  const content: (ReactElement | string)[] = split
-    .map((el, index) => [
-      <Icon.Caret.Right
-        key={`${el}-${index}`}
-        style={{
-          transform: "scale(0.8) translateY(1px)",
-          color: CSS.shade(shade),
-        }}
-      />,
-      el,
-    ])
-    .flat();
+  const content = getContent({
+    segments: url,
+    separator,
+    shade,
+    level,
+    weight,
+    capitalized: true,
+  });
   return (
     <Align.Space
       className={CSS(className, CSS.B("breadcrumb"))}
