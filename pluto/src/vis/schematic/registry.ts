@@ -448,6 +448,7 @@ const reliefValve: Spec<ReliefValveProps> = {
   Symbol: ReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    enabled: false,
     ...zeroLabel("Relief Valve"),
     ...ZERO_PROPS,
   }),

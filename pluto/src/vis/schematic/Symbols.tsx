@@ -10,7 +10,7 @@
 import "@/vis/schematic/Symbols.css";
 
 import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, type ReactElement } from "react";
+import { type CSSProperties, type FC, type ReactElement, useState } from "react";
 
 import { Align } from "@/align";
 import { type Color } from "@/color";
@@ -264,7 +264,22 @@ export type CompressorProps = ToggleProps<Primitives.CompressorProps>;
 
 // |||||||| STATIC + LABELED ||||||||
 
-export const ReliefValve = createLabeled(Primitives.ReliefValve);
+export const ReliefValve = createLabeled(
+  ({ onChange, ...props }: SymbolProps<ReliefValveProps>): ReactElement => {
+    const [enabled, setEnabled] = useState(props.enabled ?? false);
+
+    const handleClick = () => {
+      const newEnabled = !enabled;
+      setEnabled(newEnabled);
+      onChange?.({ enabled: newEnabled });
+    };
+
+    return (
+      <Primitives.ReliefValve {...props} enabled={enabled} onClick={handleClick} />
+    );
+  },
+);
+
 export type ReliefValveProps = LabeledProps<Primitives.ReliefValveProps>;
 export const SpringLoadedReliefValve = createLabeled(
   Primitives.SpringLoadedReliefValve,
@@ -300,7 +315,25 @@ export const Orifice = createLabeled(Primitives.Orifice);
 export type OrificeProps = LabeledProps<Primitives.OrificeProps>;
 export const Switch = createToggle(Primitives.Switch);
 export type SwitchProps = ToggleProps<Primitives.SwitchProps>;
-export const AngledReliefValve = createLabeled(Primitives.AngledReliefValve);
+export const AngledReliefValve = createLabeled(
+  ({ onChange, ...props }: SymbolProps<AngledReliefValveProps>): ReactElement => {
+    const [enabled, setEnabled] = useState(props.enabled ?? false);
+
+    const handleClick = () => {
+      const newEnabled = !enabled;
+      setEnabled(newEnabled);
+      onChange?.({ enabled: newEnabled });
+    };
+
+    return (
+      <Primitives.AngledReliefValve
+        {...props}
+        enabled={enabled}
+        onClick={handleClick}
+      />
+    );
+  },
+);
 export type AngledReliefValveProps = LabeledProps<Primitives.AngledReliefValveProps>;
 export const Vent = createLabeled(Primitives.Vent);
 export type VentProps = LabeledProps<Primitives.VentProps>;
