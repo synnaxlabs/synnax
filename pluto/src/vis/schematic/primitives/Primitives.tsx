@@ -847,16 +847,27 @@ export const ISOCap = ({
   </Div>
 );
 
-export interface ManualValveProps extends SVGBasedPrimitiveProps, DivProps {}
+export interface ManualValveProps extends ToggleProps, SVGBasedPrimitiveProps {
+  enabled?: boolean;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+}
 
 export const ManualValve = ({
   className,
   orientation = "left",
   color,
   scale,
+  enabled = false,
+  onClick,
   ...props
 }: ManualValveProps): ReactElement => (
-  <Div className={CSS(CSS.B("manual-valve"), className)} {...props}>
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("manual-valve"), className)}
+    enabled={enabled}
+    onClick={onClick}
+  >
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -883,7 +894,7 @@ export const ManualValve = ({
       <Path d="M19.64 1 L66.68 1" strokeLinecap="round" />
       <Path d="M43.5 27L6.35453 8.20349C4.35901 7.19372 2 8.64384 2 10.8803V43.1197C2 45.3562 4.35901 46.8063 6.35453 45.7965L43.5 27ZM43.5 27L80.6455 8.20349C82.641 7.19372 85 8.64384 85 10.8803V43.1197C85 45.3562 82.641 46.8063 80.6455 45.7965L43.5 27Z" />
     </InternalSVG>
-  </Div>
+  </Toggle>
 );
 
 export interface OrificePlateProps extends SVGBasedPrimitiveProps, DivProps {}
@@ -1166,16 +1177,27 @@ export const Orifice = ({
   </Div>
 );
 
-export interface NeedleValveProps extends DivProps, SVGBasedPrimitiveProps {}
+export interface NeedleValveProps extends ToggleProps, SVGBasedPrimitiveProps {
+  enabled?: boolean;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+}
 
 export const NeedleValve = ({
   className,
   orientation = "left",
   color,
   scale,
+  enabled = false,
+  onClick,
   ...props
 }: NeedleValveProps): ReactElement => (
-  <Div className={CSS(CSS.B("needle-valve"), className)} {...props}>
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("needle-valve"), className)}
+    enabled={enabled}
+    onClick={onClick}
+  >
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -1204,7 +1226,7 @@ export const NeedleValve = ({
       />
       <Path d="M43.5 21.5L6.35453 2.70349C4.35901 1.69372 2 3.14384 2 5.38029V37.6197C2 39.8562 4.35901 41.3063 6.35453 40.2965L43.5 21.5ZM43.5 21.5L80.6455 2.70349C82.641 1.69372 85 3.14384 85 5.3803V37.6197C85 39.8562 82.641 41.3063 80.6455 40.2965L43.5 21.5Z" />
     </InternalSVG>
-  </Div>
+  </Toggle>
 );
 
 export interface AngledReliefValveProps extends ToggleProps, SVGBasedPrimitiveProps {
@@ -2413,9 +2435,10 @@ export const Cylinder = ({
   );
 };
 
-export interface SpringLoadedReliefValveProps
-  extends DivProps,
-    SVGBasedPrimitiveProps {}
+export interface SpringLoadedReliefValveProps extends DivProps, SVGBasedPrimitiveProps {
+  enabled: boolean;
+  onClick?: MouseEventHandler<HTMLDivElement>;
+}
 
 export const SpringLoadedReliefValve = ({
   className,
@@ -2480,7 +2503,10 @@ export const SpringLoadedReliefValve = ({
 
 export interface AngledSpringLoadedReliefValveProps
   extends DivProps,
-    SVGBasedPrimitiveProps {}
+    SVGBasedPrimitiveProps {
+  enabled: boolean;
+  onClick?: MouseEventHandler<HTMLDivElement>;
+}
 
 export const AngledSpringLoadedReliefValve = ({
   className,

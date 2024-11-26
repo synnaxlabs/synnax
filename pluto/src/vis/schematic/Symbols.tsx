@@ -282,12 +282,47 @@ export const ReliefValve = createLabeled(
 
 export type ReliefValveProps = LabeledProps<Primitives.ReliefValveProps>;
 export const SpringLoadedReliefValve = createLabeled(
-  Primitives.SpringLoadedReliefValve,
+  ({ onChange, ...props }: SymbolProps<SpringLoadedReliefValveProps>): ReactElement => {
+    const [enabled, setEnabled] = useState(props.enabled ?? false);
+
+    const handleClick = () => {
+      const newEnabled = !enabled;
+      setEnabled(newEnabled);
+      onChange?.({ enabled: newEnabled });
+    };
+
+    return (
+      <Primitives.SpringLoadedReliefValve
+        {...props}
+        enabled={enabled}
+        onClick={handleClick}
+      />
+    );
+  },
 );
 export type SpringLoadedReliefValveProps =
   LabeledProps<Primitives.SpringLoadedReliefValveProps>;
 export const AngledSpringLoadedReliefValve = createLabeled(
-  Primitives.AngledSpringLoadedReliefValve,
+  ({
+    onChange,
+    ...props
+  }: SymbolProps<AngledSpringLoadedReliefValveProps>): ReactElement => {
+    const [enabled, setEnabled] = useState(props.enabled ?? false);
+
+    const handleClick = () => {
+      const newEnabled = !enabled;
+      setEnabled(newEnabled);
+      onChange?.({ enabled: newEnabled });
+    };
+
+    return (
+      <Primitives.AngledSpringLoadedReliefValve
+        {...props}
+        enabled={enabled}
+        onClick={handleClick}
+      />
+    );
+  },
 );
 export type AngledSpringLoadedReliefValveProps =
   LabeledProps<Primitives.AngledSpringLoadedReliefValveProps>;
@@ -301,11 +336,39 @@ export const Cap = createLabeled(Primitives.Cap);
 export type CapProps = LabeledProps<Primitives.CapProps>;
 export const ISOCap = createLabeled(Primitives.ISOCap);
 export type ISOCapProps = LabeledProps<Primitives.ISOCapProps>;
-export const ManualValve = createLabeled(Primitives.ManualValve);
+export const ManualValve = createLabeled(
+  ({ onChange, ...props }: SymbolProps<ManualValveProps>): ReactElement => {
+    const [enabled, setEnabled] = useState(props.enabled ?? false);
+
+    const handleClick = () => {
+      const newEnabled = !enabled;
+      setEnabled(newEnabled);
+      onChange?.({ enabled: newEnabled });
+    };
+
+    return (
+      <Primitives.ManualValve {...props} enabled={enabled} onClick={handleClick} />
+    );
+  },
+);
 export type ManualValveProps = LabeledProps<Primitives.ManualValveProps>;
 export const Filter = createLabeled(Primitives.Filter);
 export type FilterProps = LabeledProps<Primitives.FilterProps>;
-export const NeedleValve = createLabeled(Primitives.NeedleValve);
+export const NeedleValve = createLabeled(
+  ({ onChange, ...props }: SymbolProps<NeedleValveProps>): ReactElement => {
+    const [enabled, setEnabled] = useState(props.enabled ?? false);
+
+    const handleClick = () => {
+      const newEnabled = !enabled;
+      setEnabled(newEnabled);
+      onChange?.({ enabled: newEnabled });
+    };
+
+    return (
+      <Primitives.NeedleValve {...props} enabled={enabled} onClick={handleClick} />
+    );
+  },
+);
 export type NeedleValveProps = LabeledProps<Primitives.NeedleValveProps>;
 export const CheckValve = createLabeled(Primitives.CheckValve);
 export type CheckValveProps = LabeledProps<Primitives.CheckValveProps>;

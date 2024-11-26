@@ -463,6 +463,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
   Symbol: SpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    enabled: false,
     ...zeroLabel("Spring Loaded Relief Valve"),
     ...ZERO_PROPS,
   }),
@@ -477,6 +478,7 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
   Symbol: AngledSpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    enabled: false,
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
     ...ZERO_PROPS,
   }),
@@ -575,6 +577,7 @@ const manualValve: Spec<ManualValveProps> = {
   Symbol: ManualValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    enabled: false,
     ...zeroLabel("Manual Valve"),
     ...ZERO_PROPS,
   }),
@@ -631,6 +634,7 @@ const needleValve: Spec<NeedleValveProps> = {
   Symbol: NeedleValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    enabled: false,
     ...zeroLabel("Needle Valve"),
     ...ZERO_PROPS,
   }),
