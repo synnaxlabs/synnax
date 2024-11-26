@@ -67,7 +67,7 @@ const labelGridItem = (
         value={label}
         onChange={(value) => onChange?.({ label: { ...props, label: value } })}
         allowEmpty
-        style={{ maxInlineSize, textAlign: align as CSSProperties["textAlign"] }}
+        style={{ textAlign: align as CSSProperties["textAlign"], width: maxInlineSize }}
       />
     ),
     location: orientation,
