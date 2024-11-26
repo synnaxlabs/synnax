@@ -72,12 +72,20 @@ guide](/reference/python-client/channels).
 
 Writing data to Synnax is done the typical way using a
 [writer](/reference/python-client/writers). 
-A common workflow is:
-1. Create a writer for the data channel.
-2. Poll the external system for data.
-3. Write the data to Synnax using the writer.
-4. Repeat.
+A common workflow is to have a single thread/program that:
 
+1. Creates a writer for the data channels.
+2. Poll the external system for data.
+3. Generate timestamps for the data, if the device does not provide timestamps directly.
+4. Write the data to Synnax using the writer.
+5. Repeat.
+
+How frequently you poll the external system and how much data you write at one time is
+up to you. We recommend writing in larger batches if possible to improve efficiency.
+
+We recommend you read the sections on [writing via the python
+client](/reference/python-client/writing)
+and the [general writing overview](/reference/concepts/writing) for more information.
 ### Data Channel Conventions
 - Data channels cannot store variable length values, such as strings or JSON objects.
 - Every data channel must have an associated index channel that stores the timestamps of
