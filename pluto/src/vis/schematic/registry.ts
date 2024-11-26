@@ -450,6 +450,7 @@ const reliefValve: Spec<ReliefValveProps> = {
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     enabled: false,
+    clickanble: false,
     ...zeroLabel("Relief Valve"),
     ...ZERO_PROPS,
   }),
@@ -480,6 +481,7 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     enabled: false,
+    clickable: false,
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
     ...ZERO_PROPS,
   }),
@@ -579,6 +581,7 @@ const manualValve: Spec<ManualValveProps> = {
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     enabled: false,
+    clickable: false,
     ...zeroLabel("Manual Valve"),
     ...ZERO_PROPS,
   }),
@@ -675,9 +678,10 @@ const orifice: Spec<OrificeProps> = {
 const angledReliefValve: Spec<ReliefValveProps> = {
   name: "Angled Relief Valve",
   key: "angledReliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: AngledReliefValve,
   defaultProps: (t) => ({
+    clickable: false,
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Angled Relief Valve"),
     ...ZERO_PROPS,
