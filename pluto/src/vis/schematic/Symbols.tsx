@@ -185,6 +185,7 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
 
 export interface DummyToggleProps {
   enabled?: boolean;
+  clickable?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement> | (() => void);
 }
 
@@ -197,14 +198,22 @@ export const createDummyToggle = <P extends DummyToggleProps>(BaseComponent: FC<
     ...props
   }: SymbolProps<P>): ReactElement => {
     const [enabled, setEnabled] = useState(props.enabled ?? false);
+    const clickable = props.clickable ?? true;
 
     const handleClick = () => {
+      if (!clickable) return;
       const newEnabled = !enabled;
       setEnabled(newEnabled);
       onChange?.({ enabled: newEnabled } as Partial<P>);
     };
 
-    return <BaseComponent {...(props as P)} enabled={enabled} onClick={handleClick} />;
+    return (
+      <BaseComponent
+        {...(props as P)}
+        enabled={enabled}
+        onClick={clickable ? handleClick : undefined}
+      />
+    );
   };
 
   DummyToggleComponent.displayName = `DummyToggle${BaseComponent.displayName || BaseComponent.name}`;

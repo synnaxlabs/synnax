@@ -15,6 +15,7 @@ import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import {
   ButtonForm,
+  CommonDummyToggleForm,
   CommonStyleForm,
   CommonToggleForm,
   CylinderForm,
@@ -444,7 +445,7 @@ const box: Spec<BoxProps> = {
 const reliefValve: Spec<ReliefValveProps> = {
   name: "Relief Valve",
   key: "reliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: ReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -459,7 +460,7 @@ const reliefValve: Spec<ReliefValveProps> = {
 const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
   name: "Spring Loaded Relief Valve",
   key: "springLoadedReliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: SpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -474,7 +475,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
 const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = {
   name: "Angled Spring Loaded Relief Valve",
   key: "angledSpringLoadedReliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: AngledSpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -573,7 +574,7 @@ const isoCap: Spec<ISOCapProps> = {
 const manualValve: Spec<ManualValveProps> = {
   name: "Manual Valve",
   key: "manualValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: ManualValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -630,11 +631,12 @@ const filter: Spec<FilterProps> = {
 const needleValve: Spec<NeedleValveProps> = {
   name: "Needle Valve",
   key: "needleValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: NeedleValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     enabled: false,
+    clickable: false,
     ...zeroLabel("Needle Valve"),
     ...ZERO_PROPS,
   }),
