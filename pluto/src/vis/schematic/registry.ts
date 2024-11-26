@@ -450,7 +450,7 @@ const reliefValve: Spec<ReliefValveProps> = {
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     enabled: false,
-    clickanble: false,
+    clickable: false,
     ...zeroLabel("Relief Valve"),
     ...ZERO_PROPS,
   }),
@@ -466,6 +466,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     enabled: false,
+    clickable: false,
     ...zeroLabel("Spring Loaded Relief Valve"),
     ...ZERO_PROPS,
   }),
