@@ -165,10 +165,23 @@ export const URL = ({
   className,
   level = "p",
   separator = ".",
-  weight,
   shade = 7,
 }: URLProps) => {
-  const content = getContent({ segments: url, separator, shade, level, weight });
+  const split = toArray(url)
+    .map((el) => el.split(separator))
+    .flat();
+  const content: (ReactElement | string)[] = split
+    .map((el, index) => [
+      <Icon.Caret.Right
+        key={`${el}-${index}`}
+        style={{
+          transform: "scale(0.8) translateY(1px)",
+          color: CSS.shade(shade),
+        }}
+      />,
+      el,
+    ])
+    .flat();
   return (
     <Align.Space
       className={CSS(className, CSS.B("breadcrumb"))}
