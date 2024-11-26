@@ -2435,9 +2435,11 @@ export const Cylinder = ({
   );
 };
 
-export interface SpringLoadedReliefValveProps extends DivProps, SVGBasedPrimitiveProps {
+export interface SpringLoadedReliefValveProps
+  extends ToggleProps,
+    SVGBasedPrimitiveProps {
   enabled: boolean;
-  onClick?: MouseEventHandler<HTMLDivElement>;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
 }
 
 export const SpringLoadedReliefValve = ({
@@ -2445,14 +2447,18 @@ export const SpringLoadedReliefValve = ({
   orientation = "left",
   color,
   scale,
+  enabled = false,
+  onClick,
   ...props
 }: SpringLoadedReliefValveProps): ReactElement => {
   const colorStr = Color.cssString(color);
   return (
-    <Div
+    <Toggle
+      {...props}
       orientation={orientation}
       className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
-      {...props}
+      enabled={enabled}
+      onClick={onClick}
     >
       <HandleBoundary orientation={orientation}>
         <Handle
@@ -2497,15 +2503,15 @@ export const SpringLoadedReliefValve = ({
           strokeWidth={1}
         />
       </InternalSVG>
-    </Div>
+    </Toggle>
   );
 };
 
 export interface AngledSpringLoadedReliefValveProps
-  extends DivProps,
+  extends ToggleProps,
     SVGBasedPrimitiveProps {
   enabled: boolean;
-  onClick?: MouseEventHandler<HTMLDivElement>;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
 }
 
 export const AngledSpringLoadedReliefValve = ({
@@ -2513,14 +2519,18 @@ export const AngledSpringLoadedReliefValve = ({
   orientation = "left",
   color,
   scale,
+  enabled = false,
+  onClick,
   ...props
 }: AngledSpringLoadedReliefValveProps): ReactElement => {
   const colorStr = Color.cssString(color);
   return (
-    <Div
+    <Toggle
+      {...props}
       orientation={orientation}
       className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
-      {...props}
+      enabled={enabled}
+      onClick={onClick}
     >
       <HandleBoundary orientation={orientation}>
         <Handle
@@ -2554,7 +2564,7 @@ export const AngledSpringLoadedReliefValve = ({
           strokeLinecap="round"
         />
       </InternalSVG>
-    </Div>
+    </Toggle>
   );
 };
 
