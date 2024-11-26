@@ -10,7 +10,13 @@
 import "@/vis/schematic/Symbols.css";
 
 import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, type ReactElement, useState } from "react";
+import {
+  type CSSProperties,
+  type FC,
+  type MouseEventHandler,
+  type ReactElement,
+  useState,
+} from "react";
 
 import { Align } from "@/align";
 import { type Color } from "@/color";
@@ -177,6 +183,35 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
   return C;
 };
 
+export interface DummyToggleProps {
+  enabled?: boolean; // Change this line to make enabled optional
+  onClick?: MouseEventHandler<HTMLButtonElement> | (() => void);
+}
+
+// Props that will be passed to the wrapped component
+export type DummyToggleComponentProps<P> = Omit<P, keyof DummyToggleProps> &
+  DummyToggleProps;
+
+export const createDummyToggle = <P extends DummyToggleProps>(BaseComponent: FC<P>) => {
+  const DummyToggleComponent = ({
+    onChange,
+    ...props
+  }: SymbolProps<P>): ReactElement => {
+    const [enabled, setEnabled] = useState(props.enabled ?? false);
+
+    const handleClick = () => {
+      const newEnabled = !enabled;
+      setEnabled(newEnabled);
+      onChange?.({ enabled: newEnabled } as Partial<P>);
+    };
+
+    return <BaseComponent {...(props as P)} enabled={enabled} onClick={handleClick} />;
+  };
+
+  DummyToggleComponent.displayName = `DummyToggle${BaseComponent.displayName || BaseComponent.name}`;
+  return DummyToggleComponent;
+};
+
 type LabeledProps<P extends object = UnknownRecord> = P & {
   label?: LabelExtensionProps;
   orientation?: location.Outer;
@@ -264,68 +299,6 @@ export type CompressorProps = ToggleProps<Primitives.CompressorProps>;
 
 // |||||||| STATIC + LABELED ||||||||
 
-export const ReliefValve = createLabeled(
-  ({ onChange, ...props }: SymbolProps<ReliefValveProps>): ReactElement => {
-    const [enabled, setEnabled] = useState(props.enabled ?? false);
-
-    const handleClick = () => {
-      const newEnabled = !enabled;
-      setEnabled(newEnabled);
-      onChange?.({ enabled: newEnabled });
-    };
-
-    return (
-      <Primitives.ReliefValve {...props} enabled={enabled} onClick={handleClick} />
-    );
-  },
-);
-
-export type ReliefValveProps = LabeledProps<Primitives.ReliefValveProps>;
-export const SpringLoadedReliefValve = createLabeled(
-  ({ onChange, ...props }: SymbolProps<SpringLoadedReliefValveProps>): ReactElement => {
-    const [enabled, setEnabled] = useState(props.enabled ?? false);
-
-    const handleClick = () => {
-      const newEnabled = !enabled;
-      setEnabled(newEnabled);
-      onChange?.({ enabled: newEnabled });
-    };
-
-    return (
-      <Primitives.SpringLoadedReliefValve
-        {...props}
-        enabled={enabled}
-        onClick={handleClick}
-      />
-    );
-  },
-);
-export type SpringLoadedReliefValveProps =
-  LabeledProps<Primitives.SpringLoadedReliefValveProps>;
-export const AngledSpringLoadedReliefValve = createLabeled(
-  ({
-    onChange,
-    ...props
-  }: SymbolProps<AngledSpringLoadedReliefValveProps>): ReactElement => {
-    const [enabled, setEnabled] = useState(props.enabled ?? false);
-
-    const handleClick = () => {
-      const newEnabled = !enabled;
-      setEnabled(newEnabled);
-      onChange?.({ enabled: newEnabled });
-    };
-
-    return (
-      <Primitives.AngledSpringLoadedReliefValve
-        {...props}
-        enabled={enabled}
-        onClick={handleClick}
-      />
-    );
-  },
-);
-export type AngledSpringLoadedReliefValveProps =
-  LabeledProps<Primitives.AngledSpringLoadedReliefValveProps>;
 export const Regulator = createLabeled(Primitives.Regulator);
 export type RegulatorProps = LabeledProps<Primitives.RegulatorProps>;
 export const ElectricRegulator = createLabeled(Primitives.ElectricRegulator);
@@ -336,40 +309,8 @@ export const Cap = createLabeled(Primitives.Cap);
 export type CapProps = LabeledProps<Primitives.CapProps>;
 export const ISOCap = createLabeled(Primitives.ISOCap);
 export type ISOCapProps = LabeledProps<Primitives.ISOCapProps>;
-export const ManualValve = createLabeled(
-  ({ onChange, ...props }: SymbolProps<ManualValveProps>): ReactElement => {
-    const [enabled, setEnabled] = useState(props.enabled ?? false);
-
-    const handleClick = () => {
-      const newEnabled = !enabled;
-      setEnabled(newEnabled);
-      onChange?.({ enabled: newEnabled });
-    };
-
-    return (
-      <Primitives.ManualValve {...props} enabled={enabled} onClick={handleClick} />
-    );
-  },
-);
-export type ManualValveProps = LabeledProps<Primitives.ManualValveProps>;
 export const Filter = createLabeled(Primitives.Filter);
 export type FilterProps = LabeledProps<Primitives.FilterProps>;
-export const NeedleValve = createLabeled(
-  ({ onChange, ...props }: SymbolProps<NeedleValveProps>): ReactElement => {
-    const [enabled, setEnabled] = useState(props.enabled ?? false);
-
-    const handleClick = () => {
-      const newEnabled = !enabled;
-      setEnabled(newEnabled);
-      onChange?.({ enabled: newEnabled });
-    };
-
-    return (
-      <Primitives.NeedleValve {...props} enabled={enabled} onClick={handleClick} />
-    );
-  },
-);
-export type NeedleValveProps = LabeledProps<Primitives.NeedleValveProps>;
 export const CheckValve = createLabeled(Primitives.CheckValve);
 export type CheckValveProps = LabeledProps<Primitives.CheckValveProps>;
 export const ISOCheckValve = createLabeled(Primitives.ISOCheckValve);
@@ -378,26 +319,6 @@ export const Orifice = createLabeled(Primitives.Orifice);
 export type OrificeProps = LabeledProps<Primitives.OrificeProps>;
 export const Switch = createToggle(Primitives.Switch);
 export type SwitchProps = ToggleProps<Primitives.SwitchProps>;
-export const AngledReliefValve = createLabeled(
-  ({ onChange, ...props }: SymbolProps<AngledReliefValveProps>): ReactElement => {
-    const [enabled, setEnabled] = useState(props.enabled ?? false);
-
-    const handleClick = () => {
-      const newEnabled = !enabled;
-      setEnabled(newEnabled);
-      onChange?.({ enabled: newEnabled });
-    };
-
-    return (
-      <Primitives.AngledReliefValve
-        {...props}
-        enabled={enabled}
-        onClick={handleClick}
-      />
-    );
-  },
-);
-export type AngledReliefValveProps = LabeledProps<Primitives.AngledReliefValveProps>;
 export const Vent = createLabeled(Primitives.Vent);
 export type VentProps = LabeledProps<Primitives.VentProps>;
 export const OrificePlate = createLabeled(Primitives.OrificePlate);
@@ -747,3 +668,31 @@ export type CylinderProps = LabeledProps<Omit<Primitives.CylinderProps, "onChang
 export const CylinderPreview = (props: CylinderProps): ReactElement => (
   <Primitives.Cylinder {...props} dimensions={{ width: 25, height: 50 }} />
 );
+
+// ||||||||| TOGGLE DUMMY ||||||||
+
+export const NeedleValve = createLabeled(createDummyToggle(Primitives.NeedleValve));
+export type NeedleValveProps = LabeledProps<Primitives.NeedleValveProps>;
+
+export const ReliefValve = createLabeled(createDummyToggle(Primitives.ReliefValve));
+export type ReliefValveProps = LabeledProps<Primitives.ReliefValveProps>;
+
+export const SpringLoadedReliefValve = createLabeled(
+  createDummyToggle(Primitives.SpringLoadedReliefValve),
+);
+export type SpringLoadedReliefValveProps =
+  LabeledProps<Primitives.SpringLoadedReliefValveProps>;
+
+export const AngledSpringLoadedReliefValve = createLabeled(
+  createDummyToggle(Primitives.AngledSpringLoadedReliefValve),
+);
+export type AngledSpringLoadedReliefValveProps =
+  LabeledProps<Primitives.AngledSpringLoadedReliefValveProps>;
+
+export const ManualValve = createLabeled(createDummyToggle(Primitives.ManualValve));
+export type ManualValveProps = LabeledProps<Primitives.ManualValveProps>;
+
+export const AngledReliefValve = createLabeled(
+  createDummyToggle(Primitives.AngledReliefValve),
+);
+export type AngledReliefValveProps = LabeledProps<Primitives.AngledReliefValveProps>;
