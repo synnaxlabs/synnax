@@ -184,11 +184,10 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
 };
 
 export interface DummyToggleProps {
-  enabled?: boolean; // Change this line to make enabled optional
+  enabled?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement> | (() => void);
 }
 
-// Props that will be passed to the wrapped component
 export type DummyToggleComponentProps<P> = Omit<P, keyof DummyToggleProps> &
   DummyToggleProps;
 
@@ -670,7 +669,6 @@ export const CylinderPreview = (props: CylinderProps): ReactElement => (
 );
 
 // ||||||||| TOGGLE DUMMY ||||||||
-
 export const NeedleValve = createLabeled(createDummyToggle(Primitives.NeedleValve));
 export type NeedleValveProps = LabeledProps<Primitives.NeedleValveProps>;
 
