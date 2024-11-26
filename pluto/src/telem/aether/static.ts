@@ -10,7 +10,7 @@
 import { bounds, DataType, Rate, Series, TimeRange, typedArrayZ } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { color } from "@/ether";
+import { color } from "@/color/core";
 import { type Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,

@@ -10,7 +10,7 @@
 import { bounds, scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { color } from "@/ether";
+import { color } from "@/color/core";
 import { notationZ, stringifyNumber as stringify } from "@/notation/notation";
 import { status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
@@ -81,7 +81,7 @@ export class SetPoint
   }
 }
 
-const withinBoundsProps = z.object({ trueBound: bounds.bounds });
+export const withinBoundsProps = z.object({ trueBound: bounds.bounds });
 
 export type WithinBoundsProps = z.infer<typeof withinBoundsProps>;
 

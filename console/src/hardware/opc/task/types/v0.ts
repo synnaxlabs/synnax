@@ -10,8 +10,10 @@
 import { type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
+export const PREFIX = "opc";
+
 // Reads
-export const READ_TYPE = "opc_read";
+export const READ_TYPE = `${PREFIX}_read`;
 export type ReadType = typeof READ_TYPE;
 
 export type ReadChannelConfig = z.infer<typeof readChanZ>;
@@ -70,10 +72,7 @@ export const readConfigZ = z
       if (cfg.arrayMode) return true;
       return cfg.streamRate > 0;
     },
-    {
-      message: "Stream rate must be greater than or equal to 1",
-      path: ["streamRate"],
-    },
+    { message: "Stream rate must be greater than or equal to 1", path: ["streamRate"] },
   )
   // Error if channel ahs been duplicated
   .superRefine((cfg, ctx) => {
@@ -102,9 +101,7 @@ export const readConfigZ = z
         code: z.ZodIssueCode.custom,
         path: ["channels", i, "nodeId"],
         message: "This node ID has already been used elsewhere in the configuration",
-        params: {
-          variant: "warning",
-        },
+        params: { variant: "warning" },
       });
     });
   })
@@ -186,7 +183,7 @@ export const nodeIdToString = (nodeId: NodeId): string => {
 };
 
 // Writes
-export const WRITE_TYPE = "opc_write";
+export const WRITE_TYPE = `${PREFIX}_write`;
 export type WriteType = typeof WRITE_TYPE;
 
 export type WriteChannelConfig = z.infer<typeof writeChanZ>;
@@ -256,11 +253,7 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: WRITE_TYPE,
   type: WRITE_TYPE,
   name: "OPC Write Task",
-  config: {
-    device: "",
-    channels: [],
-    dataSaving: true,
-  },
+  config: { device: "", channels: [], dataSaving: true },
 };
 
 type NodeIdType = "Numeric" | "String" | "GUID" | "ByteString";

@@ -53,23 +53,6 @@ func (w Writer) Create(
 	)
 }
 
-func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UUID, bool, error) {
-	var res []ontology.Resource
-	if err := w.otg.NewRetrieve().
-		WhereIDs(OntologyID(key)).
-		TraverseTo(ontology.Parents).
-		WhereTypes(workspace.OntologyType).
-		Entries(&res).
-		Exec(ctx, w.tx); err != nil {
-		return uuid.Nil, false, err
-	}
-	if len(res) == 0 {
-		return uuid.Nil, false, nil
-	}
-	k, err := uuid.Parse(res[0].ID.Key)
-	return k, true, err
-}
-
 // Rename renames the table with the given key to the provided name.
 func (w Writer) Rename(
 	ctx context.Context,

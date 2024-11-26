@@ -11,8 +11,6 @@
 
 .pluto-color-swatch {
     border-radius: 1rem;
-    aspect-ratio: 1.5;
-    transform: scale(0.8);
     border: var(--pluto-border);
 
     border-color: var(--pluto-gray-l4) !important;
@@ -28,7 +26,20 @@
     }
 
     &.pluto--tiny {
-        width: 3rem;
-        height: 3rem;
+        width: 3.5rem;
+        height: 2.5rem;
+        padding: 0;
+    }
+    &.pluto--small {
+        width: 5rem;
+        height: 3.5rem;
+    }
+    &.pluto--medium {
+        width: 6rem;
+        height: 4rem;
+    }
+    &.pluto--large {
+        width: 7rem;
+        height: 5rem;
     }
 }

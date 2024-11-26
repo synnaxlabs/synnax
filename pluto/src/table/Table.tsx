@@ -9,7 +9,7 @@
 
 import "@/table/Table.css";
 
-import { box, direction, location } from "@synnaxlabs/x";
+import { box, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   forwardRef,
@@ -63,7 +63,7 @@ export const Table = Aether.wrap<TableProps>(
             top: 6,
             left: 6,
           }}
-        ></div>
+        />
         <table className={CSS(CSS.B("table"), className)} {...props}>
           <tbody>
             <Aether.Composite path={path}>{children}</Aether.Composite>
@@ -180,6 +180,7 @@ const Indicator = ({
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
       <button
+        onClick={(e) => e.stopPropagation()}
         style={{ [direction.location(dir)]: position + value }}
         onDragStart={onDragStart}
         draggable

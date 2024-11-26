@@ -27,7 +27,7 @@
 
 .pluto-select__input {
     flex-grow: 1;
-    &:not(:focus-within) input {
+    &:not(:focus-within):not(.pluto--disabled) input {
         cursor: pointer !important;
     }
 }

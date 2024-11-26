@@ -105,6 +105,7 @@ export const useDropOutside = () => {
   const dispatch = useDispatch();
   const handleDrop = useCallback(
     ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
+      if (item == null) return [];
       const { key } = placer(
         createMosaicWindow({
           position: cursor ? xy.translate(cursor, { x: -80, y: -45 }) : undefined,

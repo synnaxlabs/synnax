@@ -885,7 +885,6 @@ describe("MultiSeries", () => {
         data: new Float32Array([6, 7, 8, 9, 10]),
         alignment: 8n,
       });
-      console.log(a.alignmentBounds.upper);
       const multi = new MultiSeries([a, b]);
       const iter = multi.subAlignmentIterator(7n, 10n);
       expect(iter.next().value).toEqual(6);

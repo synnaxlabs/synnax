@@ -51,14 +51,14 @@ const useLiveTheme = (): string => {
   return theme;
 };
 
-export const Video = ({ id, ...props }: VideoProps): ReactElement => {
+export const Video = ({ id, themed = true, ...props }: VideoProps): ReactElement => {
   const theme = useLiveTheme();
-  const href = `${CDN_ROOT}/${id}-${theme}.mp4`;
+  const url = `${CDN_ROOT}/${id}${themed ? `-${theme}` : ""}.mp4`;
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (ref.current) ref.current.load();
-  }, [href]);
+  }, [url]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -75,7 +75,7 @@ export const Video = ({ id, ...props }: VideoProps): ReactElement => {
     };
   }, []);
 
-  return <Core.Video ref={ref} href={href} loop muted {...props} />;
+  return <Core.Video ref={ref} href={url} loop muted {...props} />;
 };
 
 export interface ImageProps extends VideoProps {
@@ -83,12 +83,12 @@ export interface ImageProps extends VideoProps {
 }
 
 export const Image = ({
-                        id,
-                        themed = true,
-                        className,
-                        extension = "png",
-                        ...props
-                      }: ImageProps): ReactElement => {
+  id,
+  themed = true,
+  className,
+  extension = "png",
+  ...props
+}: ImageProps): ReactElement => {
   const theme = useLiveTheme();
   let url = `${CDN_ROOT}/${id}`;
   if (themed) url += `-${theme}`;
@@ -99,4 +99,3 @@ export const Image = ({
   }, []);
   return <img src={url} {...props} />;
 };
-

@@ -1,0 +1,69 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Tables"
+description: "View live telemetry in tables."
+prev: "Schematics"
+prevURL: "/reference/console/schematics"
+next: "Users"
+nextURL: "/reference/console/tables"
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+
+import { Video, Image } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+
+<Diagram style="height: 300px" preview>
+  <Image
+    client:only="react"
+    id="console/tables/thumbnail"
+    themed={false}
+    style={{
+      width: "500px",
+      position: "absolute",
+      left: "50%",
+      transform: "translateX(-50%)",
+      borderRadius: "1.5rem",
+      boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-15)",
+    }}
+  />
+</Diagram>
+
+Tables are used to view live telemetry in a tabular format. They can be used for
+creating dashboards, viewing data from many different channels, and conditionally
+coloring data that exceeds certain thresholds.
+
+<Divider.Divider direction="x" />
+
+## Creating a Table
+
+To create a table, add a new tab and select the table visualization:
+
+<Video client:only="react" id="console/tables/create" />
+
+You can also create a table by opening the command palette at the top (`Ctrl+Shift+P`
+(Windows/Linux) or `Cmd+Shift+P` (macOS)) and searching for the "Create a Table"
+command.
+
+<Divider.Divider direction="x" />
+
+## Text Cells
+
+In a table, a text cell can be used to display a line of text. You can also change
+the text alignment, text weight, and and text size.
+
+<Divider.Divider direction="x" />
+
+## Value Cells
+
+Value cells functions like values on a schematic. These can be used to display live
+data, and automatically update as new data comes in.
+
+### Redlining a Value
+
+You can "redline" a value to change the value's color when the number exceeds a certain
+threshold. This is done by clicking the "Redline" tab in the cell's properties. The
+lower and upper represent the lower and upper bounds on the value. Selecting a color
+determines which color appears when the value passes the threshold.
+
+<Image client:only="react" id="console/tables/redline" />

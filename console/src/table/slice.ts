@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type TableCells } from "@synnaxlabs/pluto";
-import { id, type location, mapValues, xy } from "@synnaxlabs/x";
+import { id, type location, mapValues, type UnknownRecord, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/table/migrations";
 import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/migrations/v0";
@@ -20,7 +20,7 @@ export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
 export type CellState<
   T extends TableCells.Variant = TableCells.Variant,
-  P = unknown,
+  P extends object = UnknownRecord,
 > = latest.CellState<T, P>;
 export const ZERO_CELL_STATE: CellState = latest.ZERO_CELL_STATE;
 export type RowLayout = latest.RowLayout;
@@ -240,30 +240,28 @@ export const { actions, reducer } = createSlice({
         return;
       }
 
-      table.lastSelected = cells[cells.length - 1];
-
-      if (mode === "replace")
-        return Object.values(table.cells).forEach((cell) => {
-          if (cells.includes(cell.key)) cell.selected = true;
-          else cell.selected &&= false;
-        });
-
-      if (mode === "add") {
+      if (mode === "region") {
+        if (table.lastSelected == null) return;
+        const startPos = findCellPosition(table, table.lastSelected);
+        const endPos = findCellPosition(table, cells[0]);
+        if (startPos == null || endPos == null) return;
+        const selected = allCellsInRegion(table, startPos, endPos);
+        table.cells = mapValues(table.cells, (cell) => ({
+          ...cell,
+          selected: selected.includes(cell.key),
+        }));
+      } else if (mode === "add")
         table.cells = mapValues(table.cells, (cell) => ({
           ...cell,
           selected: cell.selected || cells.includes(cell.key),
         }));
-        return;
-      }
+      else
+        Object.values(table.cells).forEach((cell) => {
+          if (cells.includes(cell.key)) cell.selected = true;
+          else cell.selected &&= false;
+        });
 
-      const startPos = findCellPosition(table, table.lastSelected);
-      const endPos = findCellPosition(table, cells[0]);
-      if (startPos == null || endPos == null) return;
-      const selected = allCellsInRegion(table, startPos, endPos);
-      table.cells = mapValues(table.cells, (cell) => ({
-        ...cell,
-        selected: selected.includes(cell.key),
-      }));
+      table.lastSelected = cells[cells.length - 1];
     },
     addRow: addRowInternal,
     addCol: addColInternal,
@@ -555,9 +553,17 @@ export const getCellAt = (state: State, pos: xy.XY): CellState | null => {
 
 export const allCellsInRegion = (state: State, start: xy.XY, end: xy.XY): string[] => {
   const cells: string[] = [];
-  for (let i = start.x; i <= end.x; i++)
-    for (let j = start.y; j <= end.y; j++)
-      cells.push(state.layout.rows[i].cells[j].key);
+  const minX = Math.min(start.x, end.x);
+  const maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y);
+  const maxY = Math.max(start.y, end.y);
+
+  for (let y = minY; y <= maxY; y++)
+    for (let x = minX; x <= maxX; x++) {
+      const row = state.layout.rows[y];
+      if (row?.cells[x]) cells.push(row.cells[x].key);
+    }
+
   return cells;
 };
 

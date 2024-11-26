@@ -128,7 +128,8 @@ interface OrientableProps {
   orientation?: location.Outer;
 }
 
-interface SmartHandlesProps extends PropsWithChildren<{}>, OrientableProps {
+interface SmartHandlesProps extends PropsWithChildren<{}> {
+  orientation: location.Outer;
   refreshDeps?: unknown;
 }
 
@@ -301,7 +302,7 @@ export interface FourWayValveProps extends ToggleProps, SVGBasedPrimitiveProps {
 
 export const FourWayValve = ({
   className,
-  orientation,
+  orientation = "left",
   scale,
   color,
   ...props
@@ -1012,7 +1013,7 @@ export const Tank = ({
       }}
       {...props}
     >
-      <HandleBoundary refreshDeps={refreshDeps}>
+      <HandleBoundary refreshDeps={refreshDeps} orientation="left">
         <Handle location="top" orientation="left" left={50} top={0} id="1" />
         {hasCornerBoundaries && (
           <>
@@ -1192,7 +1193,7 @@ export const AngledReliefValve = ({
     className={CSS(CSS.B("angled-relief-valve"), className)}
     {...props}
   >
-    <HandleBoundary>
+    <HandleBoundary orientation={orientation}>
       <Handle
         location="bottom"
         orientation={orientation}
@@ -1236,7 +1237,7 @@ export const Value = ({
   className,
   color,
   dimensions,
-  orientation,
+  orientation = "left",
   units = "psi",
   unitsLevel = "small",
   children,
@@ -1362,29 +1363,25 @@ export const TextBox = ({
   orientation = "left",
   text = "",
   width,
-  color,
+  color = "var(--pluto-gray-l9)",
   level,
   autoFit,
   align = "center",
 }: TextBoxProps): ReactElement => {
-  const theme = Theming.use();
-  const newcolor = Color.cssString(color ?? theme.colors.gray.l0);
-
-  const style: CSSProperties = {
-    borderColor: newcolor,
+  const divStyle: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
   };
   if (direction.construct(orientation) === "y")
-    style.height = autoFit ? "fit-content" : width;
-  else style.width = autoFit ? "fit-content" : width;
+    divStyle.height = autoFit ? "fit-content" : width;
+  else divStyle.width = autoFit ? "fit-content" : width;
 
   return (
     <Div
-      style={style}
+      style={divStyle}
       orientation={orientation}
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
     >
-      <Text.Text color={newcolor} level={level}>
+      <Text.Text color={Color.cssString(color)} level={level}>
         {text}
       </Text.Text>
     </Div>
@@ -1922,8 +1919,14 @@ export const Agitator = ({
   ...props
 }: AgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
-      <Handle location="bottom" orientation={orientation} left={50} top={100} id="1" />
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={100 / height}
+        id="1"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -1950,8 +1953,14 @@ export const PropellerAgitator = ({
   ...props
 }: PropellerAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
-      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50.5814}
+        top={200 / height}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -1975,8 +1984,14 @@ export const FlatBladeAgitator = ({
   ...props
 }: FlatBladeAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
-      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={100 / height}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -2001,8 +2016,14 @@ export const PaddleAgitator = ({
   ...props
 }: PaddleAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
-      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={100 / height}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -2052,8 +2073,14 @@ export const CrossBeamAgitator = ({
   ...props
 }: CrossBeamAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
-      <Handle location="top" orientation={orientation} left={50} top={2} id="4" />
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={100 / height}
+        id="4"
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -2081,8 +2108,14 @@ export const HelicalAgitator = ({
   ...props
 }: HelicalAgitatorProps): ReactElement => (
   <Toggle {...props} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary>
-      <Handle location="top" left={50} top={2} id="4" orientation={orientation} />
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="top"
+        left={50}
+        top={100 / height}
+        id="4"
+        orientation={orientation}
+      />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 86, height }}
@@ -2135,6 +2168,7 @@ export interface OffPageReferenceProps extends DivProps {
   label?: string;
   level?: Text.TextProps["level"];
   color?: Color.Crude;
+  onLabelChange?: (label: string) => void;
 }
 
 export const OffPageReference: React.FC<OffPageReferenceProps> = ({
@@ -2144,6 +2178,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
   label = "text",
   color = "black",
   level = "p",
+  onLabelChange,
   ...props
 }) => {
   const element = document.querySelector(`[data-id="${id}"]`);
@@ -2161,9 +2196,12 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
       <div className="wrapper">
         <div className="outline" style={{ backgroundColor: Color.cssString(color) }}>
           <div className="bg">
-            <Text.Text level={level} className={CSS.BE("symbol", "label")}>
-              {label}
-            </Text.Text>
+            <Text.MaybeEditable
+              value={label}
+              onChange={onLabelChange}
+              level={level}
+              className={CSS.BE("symbol", "label")}
+            />
           </div>
         </div>
       </div>
@@ -2225,25 +2263,22 @@ export const Vent = ({
       <Handle
         location="left"
         orientation={orientation}
-        left={64.5833}
+        left={22.7273}
         top={50}
         id="1"
       />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={91.6667}
-        top={50}
-        id="2"
-      />
+      <Handle location="right" orientation={orientation} left={80} top={50} id="2" />
     </HandleBoundary>
     <InternalSVG
       color={color}
-      dimensions={{ width: 48, height: 32 }}
+      dimensions={{ width: 22, height: 32 }}
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M31 3 L43 14 Q 45 16 43 18 L31 29" strokeLinecap="round" />
+      <Path
+        d="M5 3L16.6325 13.8016C17.9107 14.9885 17.9107 17.0115 16.6325 18.1984L5 29"
+        strokeLinecap="round"
+      />
     </InternalSVG>
   </Div>
 );
@@ -2339,7 +2374,7 @@ export const Cylinder = ({
           fill={bgColor}
         />
       </svg>
-      <HandleBoundary refreshDeps={refreshDeps}>
+      <HandleBoundary refreshDeps={refreshDeps} orientation="left">
         <Handle location="top" orientation="left" left={50} top={2} id="1" />
         <Handle location="bottom" orientation="left" left={50} top={98.3333} id="2" />
       </HandleBoundary>
@@ -2459,9 +2494,45 @@ export const AngledSpringLoadedReliefValve = ({
         <Path
           d="M21 53.0105V50.0225C21 49.3397 20.6516 48.704 20.0759 48.3366L15.6419 45.507C14.4098 44.7207 14.4098 42.9214 15.6419 42.1351L26.3581 35.2965C27.5902 34.5102 27.5902 32.7109 26.3581 31.9246L15.6419 25.0859C14.4098 24.2997 14.4098 22.5003 15.6419 21.714L26.3581 14.8754C27.5902 14.0891 27.5902 12.2898 26.3581 11.5035L21.9241 8.67393C21.3484 8.30656 21 7.67087 21 6.98798V4"
           stroke={colorStr}
-          stroke-linecap="round"
+          strokeLinecap="round"
         />
       </InternalSVG>
     </Div>
   );
 };
+
+export interface TJunctionProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const TJunction = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: TJunctionProps): ReactElement => (
+  <Div className={CSS(CSS.B("t-junction"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1.6667} top={20} id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={98.3333}
+        top={20}
+        id="2"
+      />
+      <Handle location="bottom" orientation={orientation} left={50} top={95} id="3" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 36, height: 18 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path
+        d="M0 4V2C0 0.895431 0.895431 0 2 0H34C35.1046 0 36 0.89543 36 2V4C36 5.10457 35.1046 6 34 6H23C21.8954 6 21 6.89543 21 8V16C21 17.1046 20.1046 18 19 18H17C15.8954 18 15 17.1046 15 16V8C15 6.89543 14.1046 6 13 6H2C0.895431 6 0 5.10457 0 4Z"
+        fill={Color.cssString(color)}
+        stroke="none"
+      />
+    </InternalSVG>
+  </Div>
+);

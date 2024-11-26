@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/task/ReadTask.css";
+import "@/hardware/opc/task/Task.css";
 
-import { DataType, type device, NotFoundError } from "@synnaxlabs/client";
+import { type channel, DataType, type device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -34,7 +34,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useDevice } from "@/hardware/device/useDevice";
-import { type Device } from "@/hardware/opc/device";
+import { Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import {
@@ -58,6 +58,10 @@ import {
   type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
+import {
+  checkDesiredStateMatch,
+  useDesiredState,
+} from "@/hardware/task/common/useDesiredState";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
@@ -85,10 +89,7 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (layoutKey) => ({ ...configureReadLayout({ create: true }), key: layoutKey }),
 };
 
-const schema = z.object({
-  name: z.string(),
-  config: readConfigZ,
-});
+const schema = z.object({ name: z.string(), config: readConfigZ });
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.read.channels[nodeId] ?? props.read.channels[caseconv.snakeToCamel(nodeId)];
@@ -102,51 +103,132 @@ const Wrapped = ({
   const addStatus = Status.useAggregator();
   const methods = Form.use({ schema, values: initialValues });
   const dev = useDevice<Device.Properties>(methods);
-
   const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
     task?.state,
   );
+  const running = taskState?.details?.running;
+  const initialState =
+    running === true ? "running" : running === false ? "paused" : undefined;
+  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
-
   const configure = useMutation<void>({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (client == null) return;
+      if (client == null) throw new Error("Client not available");
       const { config, name } = methods.value();
+
+      // Retrieving the device and updating its properties if needed
       const dev = await client.hardware.devices.retrieve<Device.Properties>(
         config.device,
       );
+      dev.properties = Device.migrateProperties(dev.properties);
+      await client.hardware.devices.create(dev);
+
+      // modified determines if we have to configure a device. indexChannel is the key
+      // that will be used as an index for the read task.
       let modified = false;
-      let shouldCreateIndex = primitiveIsZero(dev.properties.read.index);
-      if (!shouldCreateIndex)
+      let indexChannel: channel.Key = 0;
+
+      // getting exiting indexes on the opc device
+      let devIndexes: channel.Key[] = [];
+      if (!primitiveIsZero(dev.properties.read.indexes))
         try {
-          await client.channels.retrieve(dev.properties.read.index);
+          devIndexes = (
+            await client.channels.retrieve(dev.properties.read.indexes)
+          ).map((c) => c.key);
         } catch (e) {
-          if (NotFoundError.matches(e)) shouldCreateIndex = true;
+          if (NotFoundError.matches(e)) devIndexes = [];
           else throw e;
         }
-      if (shouldCreateIndex) {
-        modified = true;
-        const idx = await client.channels.create({
-          name: `${dev.name} time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        dev.properties.read.index = idx.key;
-        dev.properties.read.channels = {};
+
+      // getting the index channels of all opc read tasks channels
+      const existingTasks = (await client.hardware.tasks.list()).filter(
+        (t) => t.type === READ_TYPE,
+      ) as Read[];
+      // check if this task already exists
+      const existingTask = existingTasks.find((t) => t.key === task?.key);
+      // if it does exist, grab the index channel of all of the keys in the task
+      if (existingTask) {
+        const existingTaskIndexes = (
+          await client.channels.retrieve(
+            existingTask.config.channels.map((c) => c.channel),
+          )
+        ).map((c) => c.index);
+        const uniqueIndexes = [...new Set(existingTaskIndexes)];
+        if (uniqueIndexes.length === 0)
+          throw new Error(`${name} already exists, but no index channel was found`);
+        indexChannel = uniqueIndexes[0];
+      } else {
+        const existingTasksChannels: channel.Key[] = existingTasks
+          .flatMap((t) => t.config.channels)
+          .flatMap((c) => c.channel);
+        const existingTaskIndexes = (
+          await client.channels.retrieve(existingTasksChannels)
+        ).flatMap((c) => c.index);
+        const unusedDeviceIndexes = devIndexes.filter(
+          (k) => !existingTaskIndexes.includes(k),
+        );
+
+        // if there is a useAsIndex in the config
+        const indexChannelConfig = config.channels.find((c) => c.useAsIndex);
+        if (indexChannelConfig) {
+          const existingIndex = getChannelByNodeID(
+            dev.properties,
+            indexChannelConfig.nodeId,
+          );
+          if (
+            devIndexes.includes(existingIndex) &&
+            !unusedDeviceIndexes.includes(existingIndex)
+          ) {
+            const task = existingTasks.find((t) =>
+              t.config.channels.some((c) => c.channel === existingIndex),
+            );
+            const taskName = task?.name ?? "an OPC UA read task";
+            // this channel is being used as an index on two different tasks
+            throw new Error(
+              `${indexChannelConfig.name} is already being used as an index for ${taskName}. Please add the channels from this read task to the existing read task`,
+            );
+          }
+          if (primitiveIsZero(existingIndex)) {
+            const idx = await client.channels.create({
+              name: indexChannelConfig.name,
+              dataType: "timestamp",
+              isIndex: true,
+            });
+            dev.properties.read.indexes.push(idx.key);
+            dev.properties.read.channels[indexChannelConfig.nodeId] = idx.key;
+            modified = true;
+            indexChannel = idx.key;
+          } else indexChannel = existingIndex;
+        } else if (unusedDeviceIndexes.length > 0)
+          indexChannel = unusedDeviceIndexes[0];
+        else {
+          const idx = await client.channels.create({
+            name: `${dev.name} time for ${name}`,
+            dataType: "timestamp",
+            isIndex: true,
+          });
+          dev.properties.read.indexes.push(idx.key);
+          modified = true;
+          indexChannel = idx.key;
+        }
       }
 
       const toCreate: ReadChannelConfig[] = [];
       for (const ch of config.channels) {
-        if (ch.useAsIndex) continue;
         const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
         if (primitiveIsZero(exKey)) toCreate.push(ch);
         else
           try {
             const rCh = await client.channels.retrieve(exKey);
+            if (rCh.index !== indexChannel)
+              throw new Error(
+                `Channel ${ch.name} already exists on an existing OPC UA read task with a different index channel`,
+              );
+
             if (rCh.name !== ch.name)
               await client.channels.rename(Number(exKey), ch.name);
           } catch (e) {
@@ -161,19 +243,17 @@ const Wrapped = ({
           toCreate.map((c) => ({
             name: c.name,
             dataType: c.dataType,
-            index: dev.properties.read.index,
+            index: indexChannel,
           })),
         );
-        channels.forEach((c, i) => {
-          dev.properties.read.channels[toCreate[i].nodeId] = c.key;
-        });
+        channels.forEach(
+          (c, i) => (dev.properties.read.channels[toCreate[i].nodeId] = c.key),
+        );
       }
 
       config.channels = config.channels.map((c) => ({
         ...c,
-        channel: c.useAsIndex
-          ? dev.properties.read.index
-          : getChannelByNodeID(dev.properties, c.nodeId),
+        channel: getChannelByNodeID(dev.properties, c.nodeId),
       }));
 
       if (modified)
@@ -181,23 +261,24 @@ const Wrapped = ({
           ...dev,
           properties: dev.properties,
         });
-
       createTask({ key: task?.key, name, type: READ_TYPE, config });
+      setDesiredState("paused");
     },
-    onError: (e) => {
+    onError: (e) =>
       addStatus({
         variant: "error",
         message: "Failed to configure task",
         description: e.message,
-      });
-    },
+      }),
   });
 
   const start = useMutation({
     mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (task == null) return;
-      await task.executeCommand(taskState?.details?.running == true ? "stop" : "start");
+      const isRunning = running === true;
+      setDesiredState(isRunning ? "paused" : "running");
+      await task.executeCommand(running ? "stop" : "start");
     },
   });
 
@@ -297,7 +378,11 @@ const Wrapped = ({
         <Controls
           layoutKey={layoutKey}
           state={taskState}
-          startingOrStopping={start.isPending}
+          startingOrStopping={
+            start.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
+          }
           configuring={configure.isPending}
           onStartStop={start.mutate}
           onConfigure={configure.mutate}
@@ -307,12 +392,12 @@ const Wrapped = ({
   );
 };
 
-export interface ChannelListProps {
+interface ChannelListProps {
   path: string;
   device?: device.Device<Device.Properties>;
 }
 
-export const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
+const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 
@@ -529,7 +614,7 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
     );
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
-    <Align.Space direction="y" grow className={CSS.B("channel-form")} empty>
+    <Align.Space direction="x" grow className={CSS.B("channel-form")} empty>
       <Form.TextField
         path={`${prefix}.name`}
         label="Channel Name"

@@ -22,39 +22,25 @@ import {
   tableZ,
 } from "@/workspace/table/payload";
 
-export const newTableZ = tableZ.partial({ key: true }).transform((p) => ({
-  ...p,
-  data: JSON.stringify(p.data),
-}));
+export const newTableZ = tableZ
+  .partial({ key: true })
+  .transform((p) => ({ ...p, data: JSON.stringify(p.data) }));
 
 export type NewTable = z.input<typeof newTableZ>;
 
-const createReqZ = z.object({
-  workspace: workspaceKeyZ,
-  tables: newTableZ.array(),
-});
+const createReqZ = z.object({ workspace: workspaceKeyZ, tables: newTableZ.array() });
 
-const createResZ = z.object({
-  tables: tableRemoteZ.array(),
-});
+const createResZ = z.object({ tables: tableRemoteZ.array() });
 
-const deleteReqZ = z.object({
-  keys: keyZ.array(),
-});
+const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const deleteResZ = z.object({});
 
-const renameReqZ = z.object({
-  key: keyZ,
-  name: z.string(),
-});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const renameResZ = z.object({});
 
-const setDataReqZ = z.object({
-  key: keyZ,
-  data: z.string(),
-});
+const setDataReqZ = z.object({ key: keyZ, data: z.string() });
 
 const setDataResZ = z.object({});
 

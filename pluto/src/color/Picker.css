@@ -19,6 +19,8 @@
     .pluto-color-picker {
         width: 100% !important;
         background: none !important;
+        border: none !important;
+        box-shadow: none !important;
         padding: 0 !important;
         display: flex;
         flex-direction: column;

@@ -18,7 +18,6 @@ import {
   type Legend,
   Menu as PMenu,
   Schematic as Core,
-  Status,
   Text,
   Theming,
   Triggers,
@@ -26,7 +25,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
+import { box, deep, id, type UnknownRecord, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -35,7 +34,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -51,6 +49,7 @@ import {
 import {
   addElement,
   calculatePos,
+  clearSelection,
   copySelection,
   internalCreate,
   pasteSelection,
@@ -65,7 +64,6 @@ import {
   setViewport,
   type State,
   toggleControl,
-  undo,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { Workspace } from "@/workspace";
@@ -106,10 +104,9 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
+  draggable,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement => {
-  let nodeProps = useSelectNodeProps(layoutKey, symbolKey);
-  nodeProps ??= { key: "NONDE" };
-  const { key, ...props } = nodeProps;
+  const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
   const dispatch = useSyncComponent(layoutKey);
 
   const handleChange = useCallback(
@@ -124,8 +121,6 @@ const SymbolRenderer = ({
     [dispatch, symbolKey, layoutKey, key],
   );
 
-  if (key === "NONDE") return null;
-
   const C = Core.SYMBOLS[key as Core.Variant];
 
   if (C == null) throw new Error(`Symbol ${key} not found`);
@@ -133,9 +128,10 @@ const SymbolRenderer = ({
   return (
     <C.Symbol
       id={symbolKey}
-      aetherKey={symbolKey}
+      symbolKey={symbolKey}
       position={position}
       selected={selected}
+      draggable={draggable}
       onChange={handleChange}
       {...props}
     />
@@ -153,7 +149,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const schematic = useSelect(layoutKey);
 
   const dispatch = useSyncComponent(layoutKey);
-  const pureDispatch = useDispatch();
   const theme = Theming.use();
   const viewportRef = useSyncedRef(schematic.viewport);
 
@@ -230,10 +225,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       valid.forEach(({ key, data }) => {
         const spec = Core.SYMBOLS[key as Core.Variant];
         if (spec == null) return;
-        const pos = calculatePos(
-          region,
-          { x: event.clientX, y: event.clientY },
-          viewportRef.current,
+        const pos = xy.truncate(
+          calculatePos(
+            region,
+            { x: event.clientX, y: event.clientY },
+            viewportRef.current,
+          ),
+          0,
         );
         dispatch(
           addElement({
@@ -265,32 +263,19 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
-  const addStatus = Status.useAggregator();
 
   Triggers.use({
-    triggers: [
-      ["Control", "V"],
-      ["Control", "C"],
-      ["Control", "Z"],
-      ["Control", "R"],
-    ],
+    triggers: [["Control", "V"], ["Control", "C"], ["Escape"]],
     region: ref,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
         if (ref.current == null || stage !== "start") return;
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
-        const undo_ = triggers.some((t) => t.includes("Z"));
-        const redo_ = triggers.some((t) => t.includes("R"));
+        const isClear = triggers.some((t) => t.includes("Escape"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));
-        else if (undo_) {
-          pureDispatch(undo());
-          addStatus({
-            variant: "success",
-            message: "Undo",
-          });
-        } else if (redo_) dispatch(redo());
+        else if (isClear) dispatch(clearSelection({ key: layoutKey }));
         else dispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [dispatch, layoutKey, viewportRef],
@@ -436,7 +421,7 @@ export const create =
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     const newTab = canEditSchematic ? tab : { ...tab, editable: false };
     const key = initial.key ?? uuidv4();
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,
       location,

@@ -42,11 +42,22 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     const { internal: i } = this;
     i.renderCtx = render.Context.use(this.ctx);
     render.Controller.control(this.ctx, () => this.requestRender("low"));
-    void this.render();
+    this.requestRender("high");
+  }
+
+  async afterDelete(): Promise<void> {
+    this.requestRender("high");
   }
 
   async render(): Promise<render.Cleanup | undefined> {
-    if (!this.state.visible) return;
+    const eraseRegion = box.copy(this.state.region);
+    if (!this.state.visible)
+      return async () =>
+        this.internal.renderCtx.erase(
+          this.state.region,
+          this.state.clearOverScan,
+          ...CANVASES,
+        );
     const { renderCtx } = this.internal;
     const viewportScale = scale.XY.translate(box.topLeft(this.state.region));
     const clearScissor = renderCtx.scissor(
@@ -57,10 +68,11 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
 
     try {
       for (const child of this.children) await child.render({ viewportScale });
+    } catch (e) {
+      console.error(e);
     } finally {
       clearScissor();
     }
-    const eraseRegion = box.copy(this.state.region);
     return async () => {
       this.internal.renderCtx.erase(eraseRegion, this.state.clearOverScan);
     };

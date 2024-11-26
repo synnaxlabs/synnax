@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/schematic/toolbar/Properties.css";
-
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -24,7 +22,6 @@ import { box, deep, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { CSS } from "@/css";
 import {
   type ElementInfo,
   type NodeElementInfo,
@@ -100,11 +97,7 @@ export const PropertiesControls = memo(
         .filter((el) => el !== null) as Diagram.NodeLayout[];
 
       return (
-        <Align.Space
-          className={CSS.B("schematic-properties-pad")}
-          align="start"
-          direction="x"
-        >
+        <Align.Space align="start" direction="x" style={{ padding: "2rem" }}>
           <Input.Item label="Selection Colors" align="start">
             <Align.Space direction="y">
               {Object.entries(groups).map(([hex, elements]) => (
@@ -112,9 +105,7 @@ export const PropertiesControls = memo(
                   key={elements[0].key}
                   value={hex}
                   onChange={(color: Color.Color) => {
-                    elements.forEach((e) => {
-                      handleChange(e.key, { color: color.hex });
-                    });
+                    elements.forEach((e) => handleChange(e.key, { color: color.hex }));
                   }}
                 />
               ))}
@@ -191,7 +182,7 @@ const IndividualProperties = ({
   });
 
   return (
-    <Align.Space className={CSS.B("schematic-properties")} size="small">
+    <Align.Space style={{ height: "100%" }} direction="y">
       <Form.Form {...formMethods}>
         <C.Form {...formMethods} key={selected.key} />
       </Form.Form>
@@ -207,17 +198,19 @@ interface EdgePropertiesProps {
 const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement => {
   if (edge.type !== "edge") return <></>;
   return (
-    <Align.Space
-      className={CSS.B("schematic-properties-pad")}
-      size="small"
-      align="start"
-    >
+    <Align.Space style={{ padding: "2rem" }} align="start" direction="x">
       <Input.Item label="Color" align="start">
         <Color.Swatch
           value={edge.edge.color ?? Color.ZERO}
           onChange={(color: Color.Color) => {
             onChange(edge.key, { color: color.hex });
           }}
+        />
+      </Input.Item>
+      <Input.Item label="Type" align="start">
+        <Diagram.SelectPathType
+          value={edge.edge.variant}
+          onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
         />
       </Input.Item>
     </Align.Space>

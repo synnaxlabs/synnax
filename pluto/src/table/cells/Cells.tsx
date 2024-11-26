@@ -118,7 +118,7 @@ export const Value = ({
       segments: {
         source: t,
         scale: telem.scaleNumber({
-          scale: scale.scaleToTransform(scale.Scale.scale<number>(bounds).scale(0, 1)),
+          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
         }),
         gradient: telem.colorGradient({ gradient }),
       },

@@ -99,7 +99,7 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 };
 
 export const migrateState = (prev: RootState): RootState => {
-  console.log("--------------- Migrating State ---------------");
+  console.group("Migrating State");
   console.log(`Previous Console Version: ${prev[Version.SLICE_NAME].version}`);
   const layout = Layout.migrateSlice(prev.layout);
   const schematic = Schematic.migrateSlice(prev.schematic);
@@ -110,7 +110,8 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
-  console.log("--------------- Migrated State ---------------");
+  console.log("Migrated State");
+  console.groupEnd();
   return {
     ...prev,
     layout,
@@ -152,7 +153,7 @@ const newStore = async (): Promise<RootStore> => {
         persistMiddleware,
       ),
     reducer,
-    enablePrerender: false,
+    enablePrerender: true,
     debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });

@@ -107,7 +107,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   if (state == null) return null;
   const breadCrumbSegments: Breadcrumb.Segments = [
     {
-      label: "Schematic",
+      label: name,
       weight: 500,
       shade: 8,
       level: "h5",
