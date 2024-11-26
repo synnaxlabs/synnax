@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { type PayloadAction } from "@reduxjs/toolkit";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
@@ -15,6 +15,7 @@ import { box, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/migrations";
 import { undoer } from "@/undo";
+import { groupByActionTypes } from "@/undo/helpers";
 
 export type HistorySliceState = undoer.History<latest.SliceState>;
 export type SliceState = latest.SliceState;
@@ -163,6 +164,7 @@ export const calculatePos = (
 export const { actions, reducer } = undoer.createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
+  exclude: ["create"],
   reducers: {
     copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
       // for each schematic, find the keys of the selected nodes and edges

@@ -44,6 +44,7 @@ import {
   useSelect,
   useSelectHasPermission,
   useSelectNodeProps,
+  useSelectVersion,
   useSelectViewportMode,
 } from "@/schematic/selectors";
 import {
@@ -53,6 +54,7 @@ import {
   copySelection,
   internalCreate,
   pasteSelection,
+  redo,
   setControlStatus,
   setEdges,
   setEditable,
@@ -64,6 +66,7 @@ import {
   setViewport,
   type State,
   toggleControl,
+  undo,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { Workspace } from "@/workspace";
@@ -105,35 +108,44 @@ const SymbolRenderer = ({
   selected,
   layoutKey,
   draggable,
-}: Diagram.SymbolProps & { layoutKey: string }): ReactElement => {
-  const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
+}: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
+  const props = useSelectNodeProps(layoutKey, symbolKey);
   const dispatch = useSyncComponent(layoutKey);
+  const key = props?.key;
 
   const handleChange = useCallback(
-    (props: object) =>
+    (props: object) => {
+      if (key == null) return;
       dispatch(
         setElementProps({
           layoutKey,
           key: symbolKey,
           props: { key, ...props },
         }),
-      ),
+      );
+    },
     [dispatch, symbolKey, layoutKey, key],
   );
+
+  if (props == null) return null;
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
+  // Just here to make sure we don't spread the key into the symbol.
+  const { key: _, ...rest } = props;
+
   return (
     <C.Symbol
+      key={key}
       id={symbolKey}
       symbolKey={symbolKey}
       position={position}
       selected={selected}
       draggable={draggable}
       onChange={handleChange}
-      {...props}
+      {...rest}
     />
   );
 };
@@ -265,7 +277,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   Triggers.use({
-    triggers: [["Control", "V"], ["Control", "C"], ["Escape"]],
+    triggers: [
+      ["Control", "V"],
+      ["Control", "C"],
+      ["Escape"],
+      ["Control", "Z"],
+      ["Control", "U"],
+    ],
+    loose: true,
     region: ref,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
@@ -273,9 +292,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
         const isClear = triggers.some((t) => t.includes("Escape"));
+        const isUndo = triggers.some((t) => t.includes("Z"));
+        const isRedo = triggers.some((t) => t.includes("U"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));
         else if (isClear) dispatch(clearSelection({ key: layoutKey }));
+        else if (isUndo) dispatch(undo({ key: layoutKey }));
+        else if (isRedo) dispatch(redo({ key: layoutKey }));
         else dispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [dispatch, layoutKey, viewportRef],
@@ -389,18 +412,18 @@ export const Schematic: Layout.Renderer = ({
   layoutKey,
   ...props
 }): ReactElement | null => {
-  const schematic = useLoadRemote({
+  const loaded = useLoadRemote({
     name: "Schematic",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect,
+    useSelectVersion,
     fetcher: async (client, layoutKey) => {
       const { key, data } = await client.workspaces.schematic.retrieve(layoutKey);
       return { key, ...data } as unknown as State;
     },
     actionCreator: internalCreate,
   });
-  if (schematic == null) return null;
+  if (!loaded) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
 };
 

@@ -1,3 +1,5 @@
+// @ts-nocheck - no check
+
 let __DEBUG__;
 let displayBuffer;
 

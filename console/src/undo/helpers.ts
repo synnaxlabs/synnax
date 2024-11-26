@@ -1,20 +1,7 @@
-interface History<T> {
-  past: T[];
-  present: T;
-  future: T[];
-  group: string | null;
-  _latestUnfiltered: T;
-  index: number;
-  limit: number;
-}
+import { type Action } from "@reduxjs/toolkit";
 
-interface Action {
-  type: string;
-  [key: string]: any;
-}
+import { type History } from "@/undo/types";
 
-// parseActions helper: takes a string (or array)
-//                      and makes it an array if it isn't yet
 export const parseActions = (
   rawActions: string | string[] | undefined,
   defaultValue: string[] = [],

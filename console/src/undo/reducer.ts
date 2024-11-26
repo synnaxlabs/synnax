@@ -1,127 +1,105 @@
 import {
+  type CaseReducerActions,
   createSlice as baseCreateSlice,
   type CreateSliceOptions,
   type Reducer,
-  type Slice,
   type SliceCaseReducers,
   type SliceSelectors,
+  type UnknownAction,
 } from "@reduxjs/toolkit";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
-import { type ActionCreators, actionCreators, TYPES } from "@/undo/actions";
+import { type ActionCreators, newActionCreators } from "@/undo/actions";
 import * as debug from "@/undo/debug";
 import { isHistory, newHistory, parseActions } from "@/undo/helpers";
-import { type Action, type History, type UndoableConfig as Config } from "@/undo/types";
+import {
+  type Action,
+  type CreateSliceConfig as Config,
+  type History,
+} from "@/undo/types";
 
-// createHistory
-export const createHistory = <T>(state: T, ignoreInitialState: boolean): History<T> => {
-  const history = newHistory<T>([], state, []);
-  if (ignoreInitialState) history._latestUnfiltered = null;
-  return history;
-};
+const emptyHistory = <T>(present: T): History<T> => newHistory<T>([], present, []);
 
-// insert: insert `state` into history
-export const insert = <T>(
+const insert = <T>(
   history: History<T>,
   state: T,
   limit?: number,
   group: string | null = null,
 ): History<T> => {
   const lengthWithoutFuture = history.past.length + 1;
-
   debug.log("inserting", state);
-  debug.log("new free: ", limit - lengthWithoutFuture);
-
+  debug.log("new free: ", limit ?? 0 - lengthWithoutFuture);
   const { past, _latestUnfiltered } = history;
   const isHistoryOverflow = limit && limit <= lengthWithoutFuture;
-
   const pastSliced = past.slice(isHistoryOverflow ? 1 : 0);
   const newPast =
     _latestUnfiltered != null ? [...pastSliced, _latestUnfiltered] : pastSliced;
-
   return newHistory(newPast, state, [], group);
 };
 
-// jumpToFuture: jump to requested index in future history
-export const jumpToFuture = <T>(history: History<T>, index: number): History<T> => {
+const jumpToFuture = <T>(history: History<T>, index: number): History<T> => {
   if (index < 0 || index >= history.future.length) return history;
-
   const { past, future, _latestUnfiltered } = history;
-
-  const newPast = [...past, _latestUnfiltered, ...future.slice(0, index)];
+  const newPast = [...past, _latestUnfiltered, ...future.slice(0, index)].filter(
+    (s) => s != null,
+  );
   const newPresent = future[index];
   const newFuture = future.slice(index + 1);
-
-  return newHistory(newPast, newPresent, newFuture);
+  return newHistory<T>(newPast, newPresent, newFuture);
 };
 
-// jumpToPast: jump to requested index in past history
-export const jumpToPast = <T>(history: History<T>, index: number): History<T> => {
+const jumpToPast = <T>(history: History<T>, index: number): History<T> => {
   if (index < 0 || index >= history.past.length) return history;
 
   const { past, future, _latestUnfiltered } = history;
-
   const newPast = past.slice(0, index);
-  const newFuture = [...past.slice(index + 1), _latestUnfiltered, ...future];
+  const newFuture = [...past.slice(index + 1), _latestUnfiltered, ...future].filter(
+    (s) => s != null,
+  );
   const newPresent = past[index];
-
-  return newHistory(newPast, newPresent, newFuture);
+  return newHistory<T>(newPast, newPresent, newFuture);
 };
 
-// jump: jump n steps in the past or forward
-export const jump = <T>(history: History<T>, n: number): History<T> => {
+const jump = <T>(history: History<T>, n: number): History<T> => {
   if (n > 0) return jumpToFuture(history, n - 1);
   if (n < 0) return jumpToPast(history, history.past.length + n);
   return history;
 };
 
-// helper to dynamically match in the reducer's switch-case
-export const actionTypeAmongClearHistoryType = (
+const actionTypeAmongClearHistoryType = (
   actionType: string,
   clearHistoryType: string[],
 ): boolean | string =>
   clearHistoryType.indexOf(actionType) > -1 ? actionType : !actionType;
 
-// redux-undo higher order reducer
-export const wrapReducer = <T>(
-  reducer: Reducer<T>,
+export const wrapReducer = <
+  S = any,
+  A extends Action = UnknownAction,
+  PreloadedState = S,
+>(
+  reducer: Reducer<S, A, PreloadedState>,
   name: string = "",
   rawConfig: Config = {},
-): Reducer<T> => {
+): Reducer<History<S>> => {
   const config: Required<Config> = {
-    limit: undefined,
+    limit: 20,
+    debug: false,
     filter: () => true,
     groupBy: () => null,
     undoType: `${name}/undo`,
     redoType: `${name}/redo`,
-    jumpToPastType: `${name}/jumpToPast`,
-    jumpToFutureType: `${name}/jumpToFuture`,
-    jumpType: `${name}/jumpType`,
-    neverSkipReducer: false,
-    ignoreInitialState: false,
     syncFilter: false,
     ...rawConfig,
     initTypes: parseActions(rawConfig.initTypes, ["@@redux-undo/INIT"]),
-    clearHistoryType: parseActions(rawConfig.clearHistoryType, [TYPES.CLEAR_HISTORY]),
+    clearHistoryType: parseActions(rawConfig.clearHistoryType, []),
   };
 
   let last = TimeStamp.now();
 
-  // Allows the user to call the reducer with redux-undo specific actions
-  const skipReducer = config.neverSkipReducer
-    ? (res: History<T>, action: Action, ...slices: any[]): History<T> => ({
-        ...res,
-        present: reducer(res.present, action, ...slices),
-      })
-    : (res: History<T>): History<T> => res;
+  let initialState: History<S>;
 
-  let initialState: History<T>;
-
-  return (
-    state: History<T> = initialState,
-    action: Action,
-    ...slices: any[]
-  ): History<T> => {
+  debug.set(true);
+  return (state: History<S> = initialState, action: Action): History<S> => {
     debug.start(action, state);
 
     let history = state;
@@ -130,24 +108,22 @@ export const wrapReducer = <T>(
 
       if (state === undefined) {
         const createHistoryAction: Action = { type: "@@redux-undo/CREATE_HISTORY" };
-        const start = reducer(state, createHistoryAction, ...slices);
+        const start = reducer(state, createHistoryAction as A);
 
-        history = createHistory(start, config.ignoreInitialState);
+        history = emptyHistory(start);
 
         debug.log("do not set initialState on probe actions");
         debug.end(history);
         return history;
       }
       if (isHistory(state)) {
-        history = initialState = config.ignoreInitialState
-          ? state
-          : newHistory(state.past, state.present, state.future);
+        history = initialState = newHistory(state.past, state.present, state.future);
         debug.log(
           "initialHistory initialized: initialState is a history",
           initialState,
         );
       } else {
-        history = initialState = createHistory(state, config.ignoreInitialState);
+        history = initialState = emptyHistory(state);
         debug.log(
           "initialHistory initialized: initialState is not a history",
           initialState,
@@ -155,7 +131,7 @@ export const wrapReducer = <T>(
       }
     }
 
-    let res: History<T>;
+    let res: History<S>;
     switch (action.type) {
       case undefined:
         return history;
@@ -164,40 +140,16 @@ export const wrapReducer = <T>(
         res = jump(history, -1);
         debug.log("perform undo");
         debug.end(res);
-        return skipReducer(res, action, ...slices);
+        return res;
 
       case config.redoType:
         res = jump(history, 1);
         debug.log("perform redo");
         debug.end(res);
-        return skipReducer(res, action, ...slices);
-
-      case config.jumpToPastType:
-        res = jumpToPast(history, action.index!);
-        debug.log(`perform jumpToPast to ${action.index}`);
-        debug.end(res);
-        return skipReducer(res, action, ...slices);
-
-      case config.jumpToFutureType:
-        res = jumpToFuture(history, action.index!);
-        debug.log(`perform jumpToFuture to ${action.index}`);
-        debug.end(res);
-        return skipReducer(res, action, ...slices);
-
-      case config.jumpType:
-        res = jump(history, action.index!);
-        debug.log(`perform jump to ${action.index}`);
-        debug.end(res);
-        return skipReducer(res, action, ...slices);
-
-      case actionTypeAmongClearHistoryType(action.type, config.clearHistoryType):
-        res = createHistory(history.present, config.ignoreInitialState);
-        debug.log("perform clearHistory");
-        debug.end(res);
-        return skipReducer(res, action, ...slices);
+        return res;
 
       default: {
-        const newPresent = reducer(history.present, action, ...slices);
+        const newPresent = reducer(history.present, action as A);
 
         if (config.initTypes.some((actionType) => actionType === action.type)) {
           debug.log("reset history due to init action");
@@ -205,17 +157,16 @@ export const wrapReducer = <T>(
           return initialState;
         }
 
-        if (history._latestUnfiltered === newPresent)
-          // Don't handle this action. Do not call debug.end here,
-          // because this action should not produce side effects to the console
-          return history;
+        if (actionTypeAmongClearHistoryType(action.type, config.clearHistoryType))
+          return emptyHistory(newPresent);
+
+        if (history._latestUnfiltered === newPresent) return history;
 
         const filtered =
           typeof config.filter === "function" &&
           !config.filter(action, newPresent, history);
-        const throttle = TimeStamp.since(last).lessThan(TimeSpan.fromSeconds(1));
+        const throttle = TimeStamp.since(last).lessThan(TimeSpan.fromMilliseconds(500));
         if (filtered || throttle) {
-          // if filtering an action, merely update the present
           const filteredState = newHistory(
             history.past,
             newPresent,
@@ -233,7 +184,6 @@ export const wrapReducer = <T>(
 
         const group = config.groupBy(action, newPresent, history);
         if (group != null && group === history.group) {
-          // if grouping with the previous action, only update the present
           const groupedState = newHistory(
             history.past,
             newPresent,
@@ -245,7 +195,6 @@ export const wrapReducer = <T>(
           return groupedState;
         }
 
-        // If the action wasn't filtered or grouped, insert normally
         history = insert(history, newPresent, config.limit, group);
 
         debug.log("inserted new state into history");
@@ -256,24 +205,62 @@ export const wrapReducer = <T>(
   };
 };
 
+interface HistorySlice<
+  State,
+  CaseReducers extends SliceCaseReducers<State>,
+  Name extends string = string,
+  ReducerPath extends string = Name,
+  Selectors extends SliceSelectors<State> = {},
+> {
+  name: Name;
+  reducer: Reducer<History<State>>;
+  actions: CaseReducerActions<CaseReducers, Name> & ActionCreators<Name>;
+  caseReducers: CaseReducers;
+  getInitialState: () => History<State>;
+  selectors: Selectors;
+}
+
+// Adjust the UndoCreateSliceOptions type
+type UndoCreateSliceOptions<
+  State,
+  CaseReducers extends SliceCaseReducers<State>,
+  Name extends string = string,
+  Selectors extends SliceSelectors<State> = {},
+  ReducerPath extends string = Name,
+> = CreateSliceOptions<State, CaseReducers, Name, ReducerPath, Selectors> & {
+  exclude: (keyof CaseReducers)[];
+};
+
+// Update the createSlice function
 export const createSlice = <
   State,
   CaseReducers extends SliceCaseReducers<State>,
-  Name extends string,
-  Selectors extends SliceSelectors<State>,
+  Name extends string = string,
+  Selectors extends SliceSelectors<State> = {},
   ReducerPath extends string = Name,
->(
-  options: CreateSliceOptions<State, CaseReducers, Name, ReducerPath, Selectors>,
-): Slice<State, CaseReducers & ActionCreators, Name, ReducerPath, Selectors> => {
-  const base = baseCreateSlice(options);
-  const historic = wrapReducer(base.reducer, options.name);
-  const r = {
+>({
+  exclude,
+  ...options
+}: UndoCreateSliceOptions<
+  State,
+  CaseReducers,
+  Name,
+  Selectors,
+  ReducerPath
+>): HistorySlice<State, CaseReducers, Name, ReducerPath, Selectors> => {
+  const base = baseCreateSlice<State, CaseReducers, Name, Selectors, ReducerPath>(
+    options,
+  );
+  const historic = wrapReducer(base.reducer, options.name, {
+    clearHistoryType: exclude.map((key) => `${options.name}/${key.toString()}`),
+  });
+
+  return {
     ...base,
+    reducer: historic,
     actions: {
       ...base.actions,
-      ...actionCreators(options.name),
+      ...newActionCreators(options.name),
     },
-    reducer: historic,
-  };
-  return r;
+  } as unknown as HistorySlice<State, CaseReducers, Name, ReducerPath, Selectors>;
 };
