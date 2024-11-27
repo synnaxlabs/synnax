@@ -216,7 +216,6 @@ const Toggle = ({
   triggered = false,
   orientation = "left",
   color,
-  onClick,
   ...props
 }: ToggleValveButtonProps): ReactElement => (
   <button
@@ -229,7 +228,6 @@ const Toggle = ({
       className,
     )}
     color={Color.cssString(color)}
-    onClick={onClick}
     {...props}
   />
 );

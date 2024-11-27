@@ -359,27 +359,21 @@ export type StaticMixerProps = LabeledProps<Primitives.StaticMixerProps>;
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);
 export type NeedleValveProps = DummyToggleProps<Primitives.NeedleValveProps>;
-
 export const ReliefValve = createDummyToggle(Primitives.ReliefValve);
 export type ReliefValveProps = DummyToggleProps<Primitives.ReliefValveProps>;
-
 export const SpringLoadedReliefValve = createDummyToggle(
   Primitives.SpringLoadedReliefValve,
 );
 export type SpringLoadedReliefValveProps =
   DummyToggleProps<Primitives.SpringLoadedReliefValveProps>;
-
 export const AngledSpringLoadedReliefValve = createDummyToggle(
   Primitives.AngledSpringLoadedReliefValve,
 );
 export type AngledSpringLoadedReliefValveProps =
   DummyToggleProps<Primitives.AngledSpringLoadedReliefValveProps>;
-
 export const ManualValve = createDummyToggle(Primitives.ManualValve);
 export type ManualValveProps = DummyToggleProps<Primitives.ManualValveProps>;
-
 export const AngledReliefValve = createDummyToggle(Primitives.AngledReliefValve);
-
 export type AngledReliefValveProps =
   DummyToggleProps<Primitives.AngledReliefValveProps>;
 
