@@ -836,9 +836,9 @@ class AnalogReadTaskConfig(BaseModel):
 
     @validator("channels")
     def validate_channel_ports(cls, v, values):
-        ports = {c.ARDUINO_PORT for c in v}
+        ports = {c.port for c in v}
         if len(ports) < len(v):
-            used_ports = [c.ARDUINO_PORT for c in v]
+            used_ports = [c.port for c in v]
             duplicate_ports = [port for port in ports if used_ports.count(port) > 1]
             raise ValueError(f"Port {duplicate_ports[0]} has already been used")
         return v
