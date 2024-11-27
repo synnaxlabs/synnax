@@ -67,7 +67,7 @@ const labelGridItem = (
         value={label}
         onChange={(value) => onChange?.({ label: { ...props, label: value } })}
         allowEmpty
-        style={{ maxInlineSize, textAlign: align as CSSProperties["textAlign"] }}
+        style={{ textAlign: align as CSSProperties["textAlign"], width: maxInlineSize }}
       />
     ),
     location: orientation,
@@ -223,6 +223,65 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
   return C;
 };
 
+type DummyToggleProps<P extends object = UnknownRecord> = LabeledProps<P> & {
+  enabled?: boolean;
+  clickable?: boolean;
+};
+
+export const createDummyToggle = <P extends object = UnknownRecord>(
+  Primitive: FC<P>,
+) => {
+  const DummyToggle = ({
+    symbolKey,
+    label,
+    onChange,
+    selected,
+    draggable,
+    position: _,
+    orientation = "left",
+    enabled = false,
+    clickable = false,
+    ...rest
+  }: SymbolProps<DummyToggleProps<P>>): ReactElement => {
+    const gridItems: GridItem[] = [];
+    /* @ts-expect-error - typescript with HOCs */
+    const labelItem = labelGridItem(label, onChange);
+    if (labelItem != null) gridItems.push(labelItem);
+    const handleToggleChange = () => {
+      if (!clickable) return;
+      onChange({ enabled: !enabled } as Partial<DummyToggleProps<P>>);
+    };
+    return (
+      <Grid
+        items={gridItems}
+        editable={selected && !draggable}
+        symbolKey={symbolKey}
+        onRotate={() =>
+          onChange({ orientation: location.rotate90(orientation) } as Partial<
+            LabeledProps<P>
+          >)
+        }
+        onLocationChange={(key, loc) => {
+          if (key === "label")
+            onChange({
+              label: { ...label, orientation: loc },
+            } as Partial<LabeledProps<P>>);
+        }}
+      >
+        {/* @ts-expect-error - typescript with HOCs */}
+        <Primitive
+          orientation={orientation}
+          enabled={enabled}
+          onClick={handleToggleChange}
+          {...rest}
+        />
+      </Grid>
+    );
+  };
+  DummyToggle.displayName = Primitive.displayName;
+  return DummyToggle;
+};
+
 // ||||||||| TOGGLE ||||||||
 
 export const ThreeWayValve = createToggle(Primitives.ThreeWayValve);
@@ -264,18 +323,6 @@ export type CompressorProps = ToggleProps<Primitives.CompressorProps>;
 
 // |||||||| STATIC + LABELED ||||||||
 
-export const ReliefValve = createLabeled(Primitives.ReliefValve);
-export type ReliefValveProps = LabeledProps<Primitives.ReliefValveProps>;
-export const SpringLoadedReliefValve = createLabeled(
-  Primitives.SpringLoadedReliefValve,
-);
-export type SpringLoadedReliefValveProps =
-  LabeledProps<Primitives.SpringLoadedReliefValveProps>;
-export const AngledSpringLoadedReliefValve = createLabeled(
-  Primitives.AngledSpringLoadedReliefValve,
-);
-export type AngledSpringLoadedReliefValveProps =
-  LabeledProps<Primitives.AngledSpringLoadedReliefValveProps>;
 export const Regulator = createLabeled(Primitives.Regulator);
 export type RegulatorProps = LabeledProps<Primitives.RegulatorProps>;
 export const ElectricRegulator = createLabeled(Primitives.ElectricRegulator);
@@ -286,12 +333,8 @@ export const Cap = createLabeled(Primitives.Cap);
 export type CapProps = LabeledProps<Primitives.CapProps>;
 export const ISOCap = createLabeled(Primitives.ISOCap);
 export type ISOCapProps = LabeledProps<Primitives.ISOCapProps>;
-export const ManualValve = createLabeled(Primitives.ManualValve);
-export type ManualValveProps = LabeledProps<Primitives.ManualValveProps>;
 export const Filter = createLabeled(Primitives.Filter);
 export type FilterProps = LabeledProps<Primitives.FilterProps>;
-export const NeedleValve = createLabeled(Primitives.NeedleValve);
-export type NeedleValveProps = LabeledProps<Primitives.NeedleValveProps>;
 export const CheckValve = createLabeled(Primitives.CheckValve);
 export type CheckValveProps = LabeledProps<Primitives.CheckValveProps>;
 export const ISOCheckValve = createLabeled(Primitives.ISOCheckValve);
@@ -300,8 +343,6 @@ export const Orifice = createLabeled(Primitives.Orifice);
 export type OrificeProps = LabeledProps<Primitives.OrificeProps>;
 export const Switch = createToggle(Primitives.Switch);
 export type SwitchProps = ToggleProps<Primitives.SwitchProps>;
-export const AngledReliefValve = createLabeled(Primitives.AngledReliefValve);
-export type AngledReliefValveProps = LabeledProps<Primitives.AngledReliefValveProps>;
 export const Vent = createLabeled(Primitives.Vent);
 export type VentProps = LabeledProps<Primitives.VentProps>;
 export const OrificePlate = createLabeled(Primitives.OrificePlate);
@@ -314,6 +355,27 @@ export const TJunction = createLabeled(Primitives.TJunction);
 export type TJunctionProps = LabeledProps<Primitives.TJunctionProps>;
 export const StaticMixer = createLabeled(Primitives.StaticMixer);
 export type StaticMixerProps = LabeledProps<Primitives.StaticMixerProps>;
+
+// ||||||||| TOGGLE DUMMY ||||||||
+export const NeedleValve = createDummyToggle(Primitives.NeedleValve);
+export type NeedleValveProps = DummyToggleProps<Primitives.NeedleValveProps>;
+export const ReliefValve = createDummyToggle(Primitives.ReliefValve);
+export type ReliefValveProps = DummyToggleProps<Primitives.ReliefValveProps>;
+export const SpringLoadedReliefValve = createDummyToggle(
+  Primitives.SpringLoadedReliefValve,
+);
+export type SpringLoadedReliefValveProps =
+  DummyToggleProps<Primitives.SpringLoadedReliefValveProps>;
+export const AngledSpringLoadedReliefValve = createDummyToggle(
+  Primitives.AngledSpringLoadedReliefValve,
+);
+export type AngledSpringLoadedReliefValveProps =
+  DummyToggleProps<Primitives.AngledSpringLoadedReliefValveProps>;
+export const ManualValve = createDummyToggle(Primitives.ManualValve);
+export type ManualValveProps = DummyToggleProps<Primitives.ManualValveProps>;
+export const AngledReliefValve = createDummyToggle(Primitives.AngledReliefValve);
+export type AngledReliefValveProps =
+  DummyToggleProps<Primitives.AngledReliefValveProps>;
 
 // ||||||||| CUSTOM ||||||||
 
