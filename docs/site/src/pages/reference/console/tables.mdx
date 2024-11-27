@@ -8,7 +8,7 @@ next: "Users"
 nextURL: "/reference/console/tables"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 
 import { Video, Image } from "@/components/Media";
 import Diagram from "@/components/Diagram.astro";
@@ -44,6 +44,12 @@ To create a table, add a new tab and select the table visualization:
 You can also create a table by opening the command palette at the top (`Ctrl+Shift+P`
 (Windows/Linux) or `Cmd+Shift+P` (macOS)) and searching for the "Create a Table"
 command.
+
+<Note.Note variant="warning">
+  Make sure that you are working in an active
+  [workspace](/reference/console/workspaces)! If your table is not created in a
+  workspace, it will not be saved permanently to Synnax.
+</Note.Note>
 
 <Divider.Divider direction="x" />
 
