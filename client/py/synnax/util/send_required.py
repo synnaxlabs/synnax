@@ -24,5 +24,5 @@ def send_required(client: UnaryClient, target: str, req: RQ, res_t: Type[RS]) ->
         url = URL.parse(exc.target)
         raise Unreachable(
             target=url.stringify(),
-            message=f"Failed to reach cluster at {url.host}:{url.port}",
+            message=f"Failed to reach cluster at {url.host}:{url.ARDUINO_PORT}",
         ) from exc

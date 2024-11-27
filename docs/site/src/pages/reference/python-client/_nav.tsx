@@ -64,8 +64,8 @@ export const pythonClientNav: PageNavNode = {
       name: "Troubleshooting",
     },
     {
-      key: "/reference/python-client/building-a-custom-driver",
-      href: "/reference/python-client/building-a-custom-driver",
+      key: "/reference/python-client/device-driver",
+      href: "/reference/python-client/device-driver",
       name: "Building a Custom Driver",
     },
   ],
