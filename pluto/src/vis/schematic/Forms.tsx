@@ -807,12 +807,7 @@ export const CommonDummyToggleForm = (): ReactElement => (
       <Align.Space direction="x" grow>
         <ColorControl path="color" />
         <ScaleControl path="scale" />
-        <Form.SwitchField
-          path="clickable"
-          label="Enable Toggling"
-          hideIfNull
-          optional
-        />
+        <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />
       </Align.Space>
     </Align.Space>
     <OrientationControl path="" />

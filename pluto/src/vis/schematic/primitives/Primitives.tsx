@@ -218,28 +218,21 @@ const Toggle = ({
   color,
   onClick,
   ...props
-}: ToggleValveButtonProps): ReactElement => {
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    console.log("Toggle clicked", { enabled });
-    onClick?.(e);
-  };
-
-  return (
-    <button
-      className={CSS(
-        CSS.B("symbol-primitive"),
-        CSS.B("symbol-primitive-toggle"),
-        orientation != null && CSS.loc(orientation),
-        enabled && CSS.M("enabled"),
-        triggered && CSS.M("triggered"),
-        className,
-      )}
-      color={Color.cssString(color)}
-      onClick={handleClick}
-      {...props}
-    />
-  );
-};
+}: ToggleValveButtonProps): ReactElement => (
+  <button
+    className={CSS(
+      CSS.B("symbol-primitive"),
+      CSS.B("symbol-primitive-toggle"),
+      orientation != null && CSS.loc(orientation),
+      enabled && CSS.M("enabled"),
+      triggered && CSS.M("triggered"),
+      className,
+    )}
+    color={Color.cssString(color)}
+    onClick={onClick}
+    {...props}
+  />
+);
 
 interface DivProps
   extends Omit<ComponentPropsWithoutRef<"div">, "color" | "onResize">,
@@ -479,10 +472,7 @@ export const SolenoidValve = ({
   </Toggle>
 );
 
-export interface ReliefValveProps extends ToggleProps, SVGBasedPrimitiveProps {
-  enabled?: boolean;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
-}
+export interface ReliefValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ReliefValve = ({
   className,
@@ -490,58 +480,43 @@ export const ReliefValve = ({
   color,
   scale,
   enabled = false,
-  onClick,
   ...props
-}: ReliefValveProps): ReactElement => {
-  const colorStr = Color.cssString(color);
-  return (
-    <Toggle
-      className={CSS(CSS.B("relief-valve"), className)}
-      enabled={enabled}
-      onClick={onClick}
-      {...props}
-    >
-      <HandleBoundary orientation={orientation}>
-        <Handle
-          location="left"
-          orientation={orientation}
-          left={2.1373}
-          top={69.0785}
-          id="1"
-        />
-        <Handle
-          location="right"
-          orientation={orientation}
-          left={96.7416}
-          top={72.368}
-          id="2"
-        />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 89, height: 76 }}
-        color={color}
+}: ReliefValveProps): ReactElement => (
+  <Toggle
+    className={CSS(CSS.B("relief-valve"), className)}
+    enabled={enabled}
+    {...props}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="left"
         orientation={orientation}
-        scale={scale}
-      >
-        <Path
-          d="M46.3625 54.1079C45.6312 54.4779 45.6311 55.5223 46.3624 55.8924L81.7435 73.7989C83.7389 74.8088 86.098 73.3588 86.0982 71.1224L86.1002 38.883C86.1003 36.6465 83.7414 35.1962 81.7458 36.2059L46.3625 54.1079Z"
-          stroke={colorStr}
-        />
-        <Path
-          d="M71 38.0014V72.0014"
-          stroke={colorStr}
-          strokeWidth={4}
-          strokeLinecap="round"
-        />
-        <Path
-          d="M41.6389 55.8923C42.3702 55.5222 42.3702 54.4778 41.6389 54.1077L6.2567 36.2035C4.26118 35.1937 1.90217 36.6438 1.90217 38.8803L1.90217 71.1197C1.90217 73.3562 4.26119 74.8063 6.2567 73.7965L41.6389 55.8923Z"
-          stroke={colorStr}
-        />
-        <Circle cx="44" cy="55" r="4" fill={colorStr} />
-      </InternalSVG>
-    </Toggle>
-  );
-};
+        left={2.2989}
+        top={63.7931}
+        id="1"
+      />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={63.7931}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 58 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path d="M43.5 37L6.35453 18.2035C4.35901 17.1937 2 18.6438 2 20.8803V53.1197C2 55.3562 4.35901 56.8063 6.35453 55.7965L43.5 37ZM43.5 37L80.6455 18.2035C82.641 17.1937 85 18.6438 85 20.8803V53.1197C85 55.3562 82.641 56.8063 80.6455 55.7965L43.5 37Z" />
+      <Path d="M43.5 2 L43.5 37" strokeLinecap="round" />
+      <Path d="M31.8011 14.0802L55.1773 4.29611" strokeLinecap="round" />
+      <Path d="M31.8011 20.0802L55.1773 10.2961" strokeLinecap="round" />
+      <Path d="M31.8011 26.0802L55.1773 16.2961" strokeLinecap="round" />
+    </InternalSVG>
+  </Toggle>
+);
 
 export interface CheckValveProps extends DivProps, SVGBasedPrimitiveProps {}
 
@@ -847,10 +822,7 @@ export const ISOCap = ({
   </Div>
 );
 
-export interface ManualValveProps extends ToggleProps, SVGBasedPrimitiveProps {
-  enabled?: boolean;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
-}
+export interface ManualValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ManualValve = ({
   className,
@@ -858,7 +830,6 @@ export const ManualValve = ({
   color,
   scale,
   enabled = false,
-  onClick,
   ...props
 }: ManualValveProps): ReactElement => (
   <Toggle
@@ -866,7 +837,6 @@ export const ManualValve = ({
     orientation={orientation}
     className={CSS(CSS.B("manual-valve"), className)}
     enabled={enabled}
-    onClick={onClick}
   >
     <HandleBoundary orientation={orientation}>
       <Handle
@@ -1177,10 +1147,7 @@ export const Orifice = ({
   </Div>
 );
 
-export interface NeedleValveProps extends ToggleProps, SVGBasedPrimitiveProps {
-  enabled?: boolean;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
-}
+export interface NeedleValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const NeedleValve = ({
   className,
@@ -1188,7 +1155,6 @@ export const NeedleValve = ({
   color,
   scale,
   enabled = false,
-  onClick,
   ...props
 }: NeedleValveProps): ReactElement => (
   <Toggle
@@ -1196,7 +1162,6 @@ export const NeedleValve = ({
     orientation={orientation}
     className={CSS(CSS.B("needle-valve"), className)}
     enabled={enabled}
-    onClick={onClick}
   >
     <HandleBoundary orientation={orientation}>
       <Handle
@@ -1229,10 +1194,7 @@ export const NeedleValve = ({
   </Toggle>
 );
 
-export interface AngledReliefValveProps extends ToggleProps, SVGBasedPrimitiveProps {
-  enabled?: boolean;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
-}
+export interface AngledReliefValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const AngledReliefValve = ({
   color,
@@ -1240,7 +1202,6 @@ export const AngledReliefValve = ({
   orientation = "left",
   scale,
   enabled = false,
-  onClick,
   ...props
 }: AngledReliefValveProps): ReactElement => (
   <Toggle
@@ -1248,32 +1209,35 @@ export const AngledReliefValve = ({
     orientation={orientation}
     className={CSS(CSS.B("angled-relief-valve"), className)}
     enabled={enabled}
-    onClick={onClick}
   >
     <HandleBoundary orientation={orientation}>
       <Handle
         location="bottom"
         orientation={orientation}
         left={32.8125}
-        top={97.0278}
+        top={97.5922}
         id="1"
       />
       <Handle
         location="right"
         orientation={orientation}
         left={97.0278}
-        top={32.8125}
+        top={45.5639}
         id="2"
       />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 64, height: 64 }}
-      color={color}
+      dimensions={{ width: 64, height: 79 }}
       orientation={orientation}
+      color={color}
       scale={scale}
     >
-      <Path d="M22.3611 20.1077C21.6298 20.4778 21.6298 21.5222 22.3611 21.8923L57.7433 39.7965C59.7388 40.8063 62.0978 39.3562 62.0978 37.1197L62.0978 4.88029C62.0978 2.64384 59.7388 1.19372 57.7433 2.2035L22.3611 20.1077Z" />
-      <Path d="M21.8923 22.3611C21.5222 21.6298 20.4778 21.6298 20.1077 22.3611L2.20349 57.7433C1.19372 59.7388 2.64384 62.0978 4.8803 62.0978L37.1197 62.0978C39.3562 62.0978 40.8063 59.7388 39.7965 57.7433L21.8923 22.3611Z" />
+      <Line x1={21} y1={2} x2={21} y2={36.7} strokeLinecap="round" />
+      <Path d="M9.05106 14.0802L32.4273 4.29611" strokeLinecap="round" />
+      <Path d="M9.05106 20.0802L32.4273 10.2961" strokeLinecap="round" />
+      <Path d="M9.05106 26.0802L32.4273 16.2961" strokeLinecap="round" />
+      <Path d="M22.3611 35.1077C21.6298 35.4778 21.6298 36.5222 22.3611 36.8923L57.7433 54.7965C59.7388 55.8063 62.0978 54.3562 62.0978 52.1197L62.0978 19.8803C62.0978 17.6438 59.7388 16.1937 57.7433 17.2035L22.3611 35.1077Z" />
+      <Path d="M21.8923 37.3611C21.5222 36.6298 20.4778 36.6298 20.1077 37.3611L2.20349 72.7433C1.19372 74.7388 2.64384 77.0978 4.8803 77.0978H37.1197C39.3562 77.0978 40.8063 74.7388 39.7965 72.7433L21.8923 37.3611Z" />
     </InternalSVG>
   </Toggle>
 );
@@ -2437,10 +2401,7 @@ export const Cylinder = ({
 
 export interface SpringLoadedReliefValveProps
   extends ToggleProps,
-    SVGBasedPrimitiveProps {
-  enabled: boolean;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
-}
+    SVGBasedPrimitiveProps {}
 
 export const SpringLoadedReliefValve = ({
   className,
@@ -2448,7 +2409,6 @@ export const SpringLoadedReliefValve = ({
   color,
   scale,
   enabled = false,
-  onClick,
   ...props
 }: SpringLoadedReliefValveProps): ReactElement => {
   const colorStr = Color.cssString(color);
@@ -2458,7 +2418,6 @@ export const SpringLoadedReliefValve = ({
       orientation={orientation}
       className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
       enabled={enabled}
-      onClick={onClick}
     >
       <HandleBoundary orientation={orientation}>
         <Handle
@@ -2509,10 +2468,7 @@ export const SpringLoadedReliefValve = ({
 
 export interface AngledSpringLoadedReliefValveProps
   extends ToggleProps,
-    SVGBasedPrimitiveProps {
-  enabled: boolean;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
-}
+    SVGBasedPrimitiveProps {}
 
 export const AngledSpringLoadedReliefValve = ({
   className,
@@ -2520,7 +2476,6 @@ export const AngledSpringLoadedReliefValve = ({
   color,
   scale,
   enabled = false,
-  onClick,
   ...props
 }: AngledSpringLoadedReliefValveProps): ReactElement => {
   const colorStr = Color.cssString(color);
@@ -2530,7 +2485,6 @@ export const AngledSpringLoadedReliefValve = ({
       orientation={orientation}
       className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
       enabled={enabled}
-      onClick={onClick}
     >
       <HandleBoundary orientation={orientation}>
         <Handle

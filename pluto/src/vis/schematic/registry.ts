@@ -271,6 +271,8 @@ const ZERO_BOOLEAN_SINK_PROPS = {
 
 const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_PROPS };
 
+const ZERO_DUMMY_TOGGLE_PROPS = { ...ZERO_PROPS, enabled: false, clickable: false };
+
 type zeroLabelReturn = { label: LabelExtensionProps };
 
 const zeroLabel = (label: string): zeroLabelReturn => ({
@@ -449,10 +451,8 @@ const reliefValve: Spec<ReliefValveProps> = {
   Symbol: ReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    enabled: false,
-    clickable: false,
     ...zeroLabel("Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.ReliefValve,
   zIndex: Z_INDEX_UPPER,
@@ -465,10 +465,8 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
   Symbol: SpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    enabled: false,
-    clickable: false,
     ...zeroLabel("Spring Loaded Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.SpringLoadedReliefValve,
   zIndex: Z_INDEX_UPPER,
@@ -481,10 +479,8 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
   Symbol: AngledSpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    enabled: false,
-    clickable: false,
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.AngledSpringLoadedReliefValve,
   zIndex: Z_INDEX_UPPER,
@@ -581,10 +577,8 @@ const manualValve: Spec<ManualValveProps> = {
   Symbol: ManualValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    enabled: false,
-    clickable: false,
     ...zeroLabel("Manual Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.ManualValve,
   zIndex: Z_INDEX_UPPER,
@@ -639,10 +633,8 @@ const needleValve: Spec<NeedleValveProps> = {
   Symbol: NeedleValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    enabled: false,
-    clickable: false,
     ...zeroLabel("Needle Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.NeedleValve,
   zIndex: Z_INDEX_UPPER,
@@ -682,10 +674,9 @@ const angledReliefValve: Spec<ReliefValveProps> = {
   Form: CommonDummyToggleForm,
   Symbol: AngledReliefValve,
   defaultProps: (t) => ({
-    clickable: false,
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Angled Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.AngledReliefValve,
   zIndex: Z_INDEX_UPPER,
