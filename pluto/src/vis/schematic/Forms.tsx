@@ -799,3 +799,17 @@ export const CylinderForm = (): ReactElement => (
     <OrientationControl path="" showInner={false} />
   </FormWrapper>
 );
+
+export const CommonDummyToggleForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <LabelControls path="label" />
+      <Align.Space direction="x" grow>
+        <ColorControl path="color" />
+        <ScaleControl path="scale" />
+        <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />
+      </Align.Space>
+    </Align.Space>
+    <OrientationControl path="" />
+  </FormWrapper>
+);
