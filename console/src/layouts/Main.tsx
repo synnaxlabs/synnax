@@ -87,9 +87,7 @@ export const Main = (): ReactElement => (
       >
         <Align.Space className="console-main--driven" direction="x" empty>
           <NavDrawer location="left" />
-          <main className="console-main--driven" style={{ position: "relative" }}>
-            <Mosaic />
-          </main>
+          <Mosaic />
           <NavDrawer location="right" />
         </Align.Space>
         <NavDrawer location="bottom" />

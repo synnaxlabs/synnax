@@ -30,13 +30,7 @@ import { Triggers } from "@/triggers";
 import { type ComponentSize } from "@/util/component";
 
 /** The variant of button */
-export type Variant =
-  | "filled"
-  | "outlined"
-  | "text"
-  | "suggestion"
-  | "preview"
-  | "shadow";
+export type Variant = "filled" | "outlined" | "text" | "preview" | "shadow";
 
 export interface ButtonExtensionProps {
   variant?: Variant;
@@ -184,6 +178,7 @@ export const Button = Tooltip.wrap(
           CSS.B("btn"),
           CSS.size(size),
           CSS.sharp(sharp),
+          !parsedDelay.isZero && CSS.M("delayed"),
           variant !== "preview" && CSS.disabled(isDisabled),
           status != null && CSS.M(status),
           CSS.BM("btn", variant),

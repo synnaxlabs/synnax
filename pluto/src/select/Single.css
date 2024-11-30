@@ -9,11 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-select {
-    .pluto-list__container.pluto-list--empty {
-        height: 1px;
-        min-height: 150px;
-    }
+.pluto-select .pluto-list__container.pluto-list--empty {
+    height: 1px;
+    min-height: 150px;
 }
 
 .pluto-select-dialog-content {
@@ -30,9 +28,8 @@
     &:not(:focus-within):not(.pluto--disabled) input {
         cursor: pointer !important;
     }
-}
-
-.pluto-select__input.pluto-haul-drop-region > * {
-    background: var(--haul-background) !important;
-    border-color: var(--haul-border-color) !important;
+    &.pluto-haul-drop-region > * {
+        background: var(--haul-background) !important;
+        border-color: var(--haul-border-color) !important;
+    }
 }

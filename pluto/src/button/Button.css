@@ -9,19 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-space.pluto--y {
-    > .pluto-btn {
-        flex-shrink: 0;
-    }
+.pluto-space.pluto--y > .pluto-btn {
+    flex-shrink: 0;
 }
 
 .pluto-btn {
     position: relative;
-    margin: 0;
     cursor: pointer;
     border-radius: var(--pluto-border-radius);
     padding: 0 2rem;
-    font-family: var(--pluto-font-family);
     text-decoration: none;
 
     &.pluto--small {
@@ -75,84 +71,78 @@
         color: var(--pluto-btn-text-color, var(--pluto-text-on-primary)) !important;
     }
 
-    &:hover:not(.pluto--disabled) {
-        --pluto-bg: var(--pluto-primary-p1);
-        background: var(--pluto-bg);
-        border-color: var(--pluto-bg) !important;
-    }
-
-    &:active:not(.pluto--disabled) {
-        --pluto-bg: var(--pluto-primary-m1);
-        background: var(--pluto-bg);
-        border-color: var(--pluto-bg) !important;
+    &:not(.pluto--disabled) {
+        &:hover {
+            --pluto-bg: var(--pluto-primary-p1);
+            border-color: var(--pluto-bg) !important;
+        }
+        &:active {
+            --pluto-bg: var(--pluto-primary-m1);
+            border-color: var(--pluto-bg) !important;
+        }
     }
 
     &.pluto-btn--custom-color {
         --pluto-bg: rgba(var(--pluto-btn-color), 1);
-        background: var(--pluto-bg);
         border-color: transparent !important;
 
-        &:hover:not(.pluto--disabled) {
-            --pluto-bg: rgba(var(--pluto-btn-color), 0.85);
-            background: var(--pluto-bg);
-            border-color: transparent !important;
-        }
-
-        &:active:not(.pluto--disabled) {
-            --pluto-bg: rgba(var(--pluto-btn-color), 0.7);
-            background: var(--pluto-bg);
-            border-color: transparent !important;
+        &:not(.pluto--disabled) {
+            &:hover {
+                --pluto-bg: rgba(var(--pluto-btn-color), 0.85);
+                border-color: transparent !important;
+            }
+            &:active {
+                --pluto-bg: rgba(var(--pluto-btn-color), 0.7);
+                border-color: transparent !important;
+            }
         }
     }
 
     &.pluto--warning {
         --pluto-bg: var(--pluto-warning-z);
-        background: var(--pluto-bg);
         border-color: var(--pluto-bg) !important;
-
+        & * {
+            color: var(--pluto-black) !important;
+        }
         &:hover:not(.pluto--disabled) {
             --pluto-bg: var(--pluto-warning-p1);
-            background: var(--pluto-bg);
-            border-color: var(--pluto-bg) !important;
         }
 
         &:active:not(.pluto--disabled) {
             --pluto-bg: var(--pluto-warning-m1);
-            background: var(--pluto-bg);
-            border-color: var(--pluto-bg) !important;
         }
     }
 
     &.pluto--error {
         --pluto-bg: var(--pluto-error-z);
-        background: var(--pluto-bg);
         border-color: var(--pluto-bg) !important;
-
-        &:hover:not(.pluto--disabled) {
-            --pluto-bg: var(--pluto-error-p1);
-            background: var(--pluto-bg);
-            border-color: var(--pluto-bg) !important;
+        & * {
+            color: var(--pluto-black) !important;
         }
-
-        &:active:not(.pluto--disabled) {
-            --pluto-bg: var(--pluto-error-m1);
-            background: var(--pluto-bg);
-            border-color: var(--pluto-bg) !important;
+        &:not(.pluto--disabled) {
+            &:hover {
+                --pluto-bg: var(--pluto-error-p1);
+            }
+            &:active {
+                --pluto-bg: var(--pluto-error-m1);
+            }
         }
     }
-    &::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        height: 100%;
-        width: 0%;
-        z-index: 1;
-        border-radius: var(--pluto-border-radius);
-    }
-    &:active::after {
-        animation: delay var(--pluto-btn-delay) linear;
-        width: 100%;
+    &.pluto--delayed {
+        &::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            z-index: 1;
+            border-radius: var(--pluto-border-radius);
+        }
+        &:active::after {
+            animation: delay var(--pluto-btn-delay) linear;
+            width: 100%;
+        }
     }
 }
 
@@ -188,16 +178,15 @@
         color: var(--pluto-error-z);
     }
 
-    &:hover:not(.pluto--disabled) {
-        --pluto-bg: var(--pluto-gray-l3);
-        background: var(--pluto-bg);
-        border-color: var(--pluto-gray-l4) !important;
-    }
-
-    &:active:not(.pluto--disabled) {
-        --pluto-bg: var(--pluto-gray-l3);
-        background: var(--pluto-bg);
-        border-color: var(--pluto-gray-l5) !important;
+    &:not(.pluto--disabled) {
+        &:hover {
+            --pluto-bg: var(--pluto-gray-l3);
+            border-color: var(--pluto-gray-l4) !important;
+        }
+        &:active {
+            --pluto-bg: var(--pluto-gray-l3);
+            border-color: var(--pluto-gray-l5) !important;
+        }
     }
 }
 
@@ -213,7 +202,6 @@
 .pluto-btn--outlined {
     &.pluto--disabled {
         --pluto-bg: var(--pluto-gray-l2);
-        background: var(--pluto-bg);
         color: var(--pluto-gray-l5);
         border-color: var(--pluto-gray-l3) !important;
     }
@@ -222,17 +210,16 @@
 /* |||| TEXT |||| */
 
 .pluto-btn--text {
-    background: none;
+    --pluto-bg: none;
+    background: var(--pluto-bg);
     border: none;
-
-    &:hover:not(.pluto--disabled) {
-        --pluto-bg: var(--pluto-gray-l2);
-        background: var(--pluto-bg);
-    }
-
-    &:active:not(.pluto--disabled) {
-        --pluto-bg: var(--pluto-gray-l3);
-        background: var(--pluto-bg);
+    &:not(.pluto--disabled) {
+        &:hover {
+            --pluto-bg: var(--pluto-gray-l2);
+        }
+        &:active {
+            --pluto-bg: var(--pluto-gray-l3);
+        }
     }
 }
 
@@ -245,14 +232,15 @@
     border-style: dashed;
     filter: opacity(0.85);
 
-    &:hover:not(.pluto--disabled) {
-        background: var(--pluto-gray-l2);
-        border-color: var(--pluto-gray-l5-90);
-    }
-
-    &:active:not(.pluto--disabled) {
-        background: var(--pluto-gray-l3);
-        border-color: var(--pluto-gray-l6);
+    &:not(.pluto--disabled) {
+        &:hover {
+            background: var(--pluto-gray-l2);
+            border-color: var(--pluto-gray-l5-90);
+        }
+        &:active {
+            background: var(--pluto-gray-l3);
+            border-color: var(--pluto-gray-l6);
+        }
     }
 
     &.pluto--disabled {
@@ -276,7 +264,6 @@
     justify-content: center;
     align-items: center;
     aspect-ratio: 1;
-    color: var(--pluto-gray-l9);
     font-weight: 600;
 }
 

@@ -209,38 +209,36 @@ const TabLeaf = memo(
     const handleTabCreate = useCallback((): void => onCreate?.(key, "center"), [key]);
 
     return (
-      <div id={`mosaic-${key}`} className={CSS.BE("mosaic", "leaf")}>
-        <Tabs.Tabs
-          id={`tab-${key}`}
-          tabs={tabs}
-          onDragLeave={handleDragLeave}
-          selected={node.selected}
-          selectedAltColor={activeTab === node.selected}
-          onDragStart={handleDragStart}
-          onCreate={handleTabCreate}
-          {...props}
-          {...haulProps}
-        >
-          {node.selected != null &&
-            children(tabs.find((t) => t.tabKey === node.selected) as Tabs.Spec)}
-          {dragging && (
-            <div
-              style={{
-                zIndex: 1000,
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-              }}
-            />
-          )}
-        </Tabs.Tabs>
-
+      <Tabs.Tabs
+        id={`tab-${key}`}
+        className={CSS.BE("mosaic", "tabs")}
+        tabs={tabs}
+        onDragLeave={handleDragLeave}
+        selected={node.selected}
+        selectedAltColor={activeTab === node.selected}
+        onDragStart={handleDragStart}
+        onCreate={handleTabCreate}
+        {...props}
+        {...haulProps}
+      >
+        {node.selected != null &&
+          children(tabs.find((t) => t.tabKey === node.selected) as Tabs.Spec)}
+        {dragging && (
+          <div
+            style={{
+              zIndex: 1000,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+            }}
+          />
+        )}
         {dragMask != null && (
           <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
         )}
-      </div>
+      </Tabs.Tabs>
     );
   },
 );

@@ -1,0 +1,25 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { createRoot } from "react-dom/client";
+
+import { Button } from "@/button";
+import { Pluto } from "@/pluto";
+
+const Main = () => (
+  <Pluto.Provider>
+    <Button.Button variant="filled" onClickDelay={250}>
+      Dog
+    </Button.Button>
+  </Pluto.Provider>
+);
+
+const rootEl = document.getElementById("root") as HTMLElement;
+
+createRoot(rootEl).render(<Main />);

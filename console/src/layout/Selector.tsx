@@ -40,38 +40,39 @@ const Base = ({
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
 
+  const eraserRef = Eraser.useRegion({ aetherKey: layoutKey });
+
   return (
-    <Eraser.Eraser>
-      <Align.Center
-        className={CSS.B("vis-layout-selector")}
-        size="large"
-        {...props}
+    <Align.Center
+      ref={eraserRef}
+      className={CSS.B("vis-layout-selector")}
+      size="large"
+      {...props}
+      wrap
+    >
+      <Text.Text level="h4" shade={6} weight={400}>
+        {text}
+      </Text.Text>
+      <Align.Space
+        direction="x"
         wrap
+        style={{ maxWidth: "500px", width: "100%" }}
+        justify="center"
+        size={2.5}
       >
-        <Text.Text level="h4" shade={6} weight={400}>
-          {text}
-        </Text.Text>
-        <Align.Space
-          direction="x"
-          wrap
-          style={{ maxWidth: "500px", width: "100%" }}
-          justify="center"
-          size={2.5}
-        >
-          {layouts?.map(({ key, title, icon, create }) => (
-            <Button.Button
-              key={key}
-              variant="outlined"
-              onClick={() => place(create(layoutKey))}
-              startIcon={icon}
-              style={{ flexBasis: "185px" }}
-            >
-              {title}
-            </Button.Button>
-          ))}
-        </Align.Space>
-      </Align.Center>
-    </Eraser.Eraser>
+        {layouts?.map(({ key, title, icon, create }) => (
+          <Button.Button
+            key={key}
+            variant="outlined"
+            onClick={() => place(create(layoutKey))}
+            startIcon={icon}
+            style={{ flexBasis: "185px" }}
+          >
+            {title}
+          </Button.Button>
+        ))}
+      </Align.Space>
+    </Align.Center>
   );
 };
 
