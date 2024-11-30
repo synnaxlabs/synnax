@@ -16,7 +16,7 @@ import {
 } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Haul, Mosaic } from "@synnaxlabs/pluto";
+import { type Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
@@ -147,6 +147,10 @@ interface SetNavDrawerVisiblePayload {
 interface SetArgsPayload<T = unknown> {
   key: string;
   args: T;
+}
+
+export interface SetColorContextPayload {
+  state: Color.ContextState;
 }
 
 export const GET_STARTED_LAYOUT_TYPE = "getStarted";
@@ -475,6 +479,9 @@ export const { actions, reducer } = createSlice({
       const mosaic = state.mosaics[layout.windowKey];
       mosaic.focused = key;
     },
+    setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
+      state.colorContext = payload.state;
+    },
   },
 });
 
@@ -496,6 +503,7 @@ export const {
   maybeCreateGetStartedTab,
   setHauled,
   setWorkspace,
+  setColorContext,
   clearWorkspace,
 } = actions;
 

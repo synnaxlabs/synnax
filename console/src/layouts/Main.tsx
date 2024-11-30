@@ -31,6 +31,7 @@ import { Notifications } from "@/notifications";
 import { Permissions } from "@/permissions";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
+import { TableServices } from "@/table/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -48,6 +49,7 @@ const LINK_HANDLERS: Link.Handler[] = [
   Task.linkHandler,
   Workspace.linkHandler,
   LogServices.linkHandler,
+  TableServices.linkHandler,
 ];
 
 const SideEffect = (): null => {
@@ -61,6 +63,7 @@ const SideEffect = (): null => {
   Link.useDeep({ handlers: LINK_HANDLERS });
   Layout.useTriggers();
   Permissions.useFetchPermissions();
+  Layout.useDropOutside();
   Embedded.use();
   return null;
 };

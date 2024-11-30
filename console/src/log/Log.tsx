@@ -28,7 +28,9 @@ interface SyncPayload {
   key?: string;
 }
 
-const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
+export const useSyncComponent = (
+  layoutKey: string,
+): Dispatch<PayloadAction<SyncPayload>> =>
   Workspace.useSyncComponent<SyncPayload>(
     "Log",
     layoutKey,
@@ -43,7 +45,6 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
         snapshot: undefined,
       } as unknown as UnknownRecord;
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await new Promise((r) => setTimeout(r, 1000));
       await client.workspaces.log.create(ws, {
         key: layoutKey,
         name: layout.name,

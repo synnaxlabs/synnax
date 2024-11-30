@@ -69,6 +69,7 @@ export const themeZ = z
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
+      palettes: z.record(color.paletteZ),
       visualization: z
         .object({
           palettes: z.record(z.array(color.Color.z)),
@@ -181,6 +182,13 @@ const SYNNAX_BASE: ThemeSpec = {
       z: color.fromHSLA(WARNING_HSLA),
       p1: color.fromHSLA(setLightness(WARNING_HSLA, 65)),
       p2: color.fromHSLA(setLightness(WARNING_HSLA, 75)),
+    },
+    palettes: {
+      recent: {
+        key: "recent",
+        name: "Recent",
+        swatches: [],
+      },
     },
     visualization: {
       palettes: {

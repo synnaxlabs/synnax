@@ -13,6 +13,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
+import { table } from "@/table/aether";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { theming } from "@/theming/aether";
@@ -59,6 +60,7 @@ export const render = (): void => {
     ...tooltip.REGISTRY,
     ...value.REGISTRY,
     ...log.REGISTRY,
+    ...table.REGISTRY,
   };
 
   aether.render({

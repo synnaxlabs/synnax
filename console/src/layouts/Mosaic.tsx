@@ -111,23 +111,31 @@ const ModalContent = ({ node, tabKey }: ContentCProps) => {
   return (
     <Modal.Dialog visible close={handleClose} centered enabled={focused}>
       <Nav.Bar
-        style={{ display: focused ? "flex" : "none" }}
         location="top"
         size="5rem"
+        style={{ display: focused ? "flex" : "none" }}
       >
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          <Breadcrumb.Breadcrumb icon={layout.icon}>
-            {layout.name}
-          </Breadcrumb.Breadcrumb>
-        </Nav.Bar.Start>
-        <Nav.Bar.End style={{ paddingRight: "1rem" }} empty>
-          <Button.Icon onClick={handleOpenInNewWindow} size="small">
-            <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l8)" }} />
-          </Button.Icon>
-          <Button.Icon onClick={handleClose} size="small">
-            <Icon.Subtract style={{ color: "var(--pluto-gray-l8)" }} />
-          </Button.Icon>
-        </Nav.Bar.End>
+        {/*
+         * We do this to reduce the number of mounted DOM nodes. For some reason removing
+         * the entire bar causes react to crash, so we just hide its children.
+         */}
+        {focused && (
+          <>
+            <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+              <Breadcrumb.Breadcrumb icon={layout.icon}>
+                {layout.name}
+              </Breadcrumb.Breadcrumb>
+            </Nav.Bar.Start>
+            <Nav.Bar.End style={{ paddingRight: "1rem" }} empty>
+              <Button.Icon onClick={handleOpenInNewWindow} size="small">
+                <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l8)" }} />
+              </Button.Icon>
+              <Button.Icon onClick={handleClose} size="small">
+                <Icon.Subtract style={{ color: "var(--pluto-gray-l8)" }} />
+              </Button.Icon>
+            </Nav.Bar.End>
+          </>
+        )}
       </Nav.Bar>
       <Portal.Out node={node} />
     </Modal.Dialog>

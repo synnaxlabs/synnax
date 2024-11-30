@@ -12,7 +12,4 @@ export interface Flags {
   community: boolean;
 }
 
-export const getFlags = (): Flags => {
-  const win = window as unknown as Flags;
-  return { dev: false, community: true };
-};
+export const getFlags = (): Flags => ({ dev: IS_DEV, community: IS_COMMUNITY });

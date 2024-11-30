@@ -12,7 +12,8 @@ import * as path from "path";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-const isDev = process.env.TAURI_ENV_DEBUG === "true";
+const IS_DEV = process.env.TAURI_ENV_DEBUG === "true";
+const IS_COMMUNITY = true;
 
 export default defineConfig({
   clearScreen: false,
@@ -21,7 +22,7 @@ export default defineConfig({
     strictPort: true,
   },
   resolve: {
-    alias: isDev
+    alias: IS_DEV
       ? {
           "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
           "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
@@ -38,14 +39,14 @@ export default defineConfig({
   plugins: [react(), tsconfigPaths()],
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome105" : "safari16",
-    minify: !isDev,
-    sourcemap: isDev,
+    minify: !IS_DEV,
+    sourcemap: IS_DEV,
     // We don't really care about maintaining a small bundle size right now, as this file
     // is loaded directly from disc instead of OTN
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
   define: {
-    isDev,
-    community: true,
+    IS_DEV,
+    IS_COMMUNITY,
   },
 });

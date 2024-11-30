@@ -43,8 +43,10 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
+import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
-import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
+import { GoNumber } from "react-icons/go";
+import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
 import { HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh, IoMdReturnRight } from "react-icons/io";
@@ -106,6 +108,7 @@ import {
   MdSensors,
   MdShield,
   MdSquareFoot,
+  MdTextFields,
   MdTypeSpecimen,
   MdWorkspacesFilled,
 } from "react-icons/md";
@@ -358,7 +361,7 @@ export const Icon: IconType = {
   Sync: wrapIcon(AiOutlineSync, "sync"),
   Search: wrapIcon(PiMagnifyingGlassBold, "search"),
   Auto: wrapIcon(MdAutoAwesome, "auto"),
-  Table: wrapIcon(MdOutlineTableRows, "table"),
+  Table: wrapIcon(FiTable, "table"),
   Align: {
     Right: wrapIcon(MdAlignHorizontalRight, "align-right"),
     Left: wrapIcon(MdAlignHorizontalLeft, "align-left"),
@@ -406,6 +409,9 @@ export const Icon: IconType = {
   Log: wrapIcon(FaStream, "log"),
   Tare: wrapIcon(FaCreativeCommonsZero, "tare"),
   Stop: wrapIcon(FaStop, "stop"),
+  Rotate: wrapIcon(GrRotateRight, "rotate"),
+  Text: wrapIcon(MdTextFields, "text"),
+  Value: wrapIcon(GoNumber, "value"),
 };
 
 export interface IconType {
@@ -555,5 +561,8 @@ export interface IconType {
   Commit: IconFC;
   Log: IconFC;
   Tare: IconFC;
+  Rotate: IconFC;
+  Text: IconFC;
+  Value: IconFC;
   Stop: IconFC;
 }

@@ -86,6 +86,13 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.LogRename = fnoop.UnaryServer[api.LogRenameRequest, types.Nil]{}
 	a.LogSetData = fnoop.UnaryServer[api.LogSetDataRequest, types.Nil]{}
 
+	// TABLE
+	a.TableCreate = fnoop.UnaryServer[api.TableCreateRequest, api.TableCreateResponse]{}
+	a.TableRetrieve = fnoop.UnaryServer[api.TableRetrieveRequest, api.TableRetrieveResponse]{}
+	a.TableDelete = fnoop.UnaryServer[api.TableDeleteRequest, types.Nil]{}
+	a.TableRename = fnoop.UnaryServer[api.TableRenameRequest, types.Nil]{}
+	a.TableSetData = fnoop.UnaryServer[api.TableSetDataRequest, types.Nil]{}
+
 	// LABEL
 	a.LabelCreate = fnoop.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse]{}
 	a.LabelRetrieve = fnoop.UnaryServer[api.LabelRetrieveRequest, api.LabelRetrieveResponse]{}

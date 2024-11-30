@@ -39,6 +39,7 @@ export { workspace } from "@/workspace";
 export { linePlot } from "@/workspace/lineplot";
 export { log } from "@/workspace/log";
 export { schematic } from "@/workspace/schematic";
+export { table } from "@/workspace/table";
 export {
   type CrudeDataType,
   type CrudeDensity,

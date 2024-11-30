@@ -184,8 +184,6 @@ I can successfully:
 I can successfully:
 
 - [ ] Drag and drop a mosaic leaf into a new window.
-- [ ] Split a mosaic horizontally.
-- [ ] Split a mosaic vertically.
 - [ ] Rename a tab by double-clicking its name.
 - [ ] Close layout tabs by clicking the close icon.
 - **Context Menu**
@@ -217,7 +215,7 @@ I can successfully:
   - [ ] Use the measuring tool on the line plot.
   - [ ] Rename a line plot from its tab title.
   - [ ] Export a line plot.
-  - [ ] Copy a link to a line plot.
+  - [ ] Copy a link to a line plot - copy links to local plots.
 - **Resources Toolbar**
   - [ ] Open a plot by selecting it.
   - [ ] Drag a plot onto the mosaic.

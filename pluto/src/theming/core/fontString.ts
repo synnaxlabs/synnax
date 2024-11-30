@@ -27,7 +27,7 @@ export const fontString = (
   } = theme;
   const size =
     typography[isComponentSize(level) ? text.ComponentSizeLevels[level] : level].size;
-  const sizePx = base * size;
+  const sizePx = (base * size).toFixed(1);
   const fmly = code ? typography.codeFamily : typography.family;
   const [family, serif] = fmly.split(", ");
   if (weight != null) return ` ${weight} ${sizePx}px ${family}, ${serif}`;

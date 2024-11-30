@@ -19,6 +19,9 @@ import { framer } from "@/framer";
 import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
 import {
+  type Command,
+  type CommandObservable,
+  commandZ,
   type NewTask,
   newTaskZ,
   type Payload,
@@ -46,7 +49,7 @@ export class Task<
   T extends string = string,
 > {
   readonly key: TaskKey;
-  readonly name: string;
+  name: string;
   readonly internal: boolean;
   readonly type: T;
   config: C;
@@ -139,10 +142,34 @@ export class Task<
         const s = frame.get(TASK_STATE_CHANNEL);
         if (s.length === 0) return [null, false];
         const parse = stateZ.safeParse(s.at(-1));
-        if (!parse.success) return [null, false];
+        if (!parse.success) {
+          console.error(parse.error);
+          return [null, false];
+        }
         const state = parse.data as State<D>;
         if (state.task !== this.key) return [null, false];
         return [state, true];
+      },
+    );
+  }
+
+  async openCommandObserver<A extends UnknownRecord = UnknownRecord>(): Promise<
+    CommandObservable<A>
+  > {
+    if (this.frameClient == null) throw TASK_NOT_CREATED;
+    return new framer.ObservableStreamer<Command<A>>(
+      await this.frameClient.openStreamer(TASK_CMD_CHANNEL),
+      (frame) => {
+        const s = frame.get(TASK_CMD_CHANNEL);
+        if (s.length === 0) return [null, false];
+        const parse = commandZ.safeParse(s.at(-1));
+        if (!parse.success) {
+          console.error(parse.error);
+          return [null, false];
+        }
+        const cmd = parse.data as Command<A>;
+        if (cmd.task !== this.key) return [null, false];
+        return [cmd, true];
       },
     );
   }
@@ -376,8 +403,29 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
         const s = frame.get(TASK_STATE_CHANNEL);
         if (s.length === 0) return [null, false];
         const parse = stateZ.safeParse(s.at(-1));
-        if (!parse.success) return [null, false];
+        if (!parse.success) {
+          console.error(parse.error);
+          return [null, false];
+        }
         return [parse.data as State<D>, true];
+      },
+    );
+  }
+
+  async openCommandObserver<A extends UnknownRecord = UnknownRecord>(): Promise<
+    CommandObservable<A>
+  > {
+    return new framer.ObservableStreamer<Command<A>>(
+      await this.frameClient.openStreamer(TASK_CMD_CHANNEL),
+      (frame) => {
+        const s = frame.get(TASK_CMD_CHANNEL);
+        if (s.length === 0) return [null, false];
+        const parse = commandZ.safeParse(s.at(-1));
+        if (!parse.success) {
+          console.error(parse.error);
+          return [null, false];
+        }
+        return [parse.data as Command<A>, true];
       },
     );
   }
