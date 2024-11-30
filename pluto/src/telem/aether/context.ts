@@ -98,7 +98,6 @@ export const useSource = async <V>(
     if (!prev.shouldUpdate(prov, spec)) return prev;
     await prev.cleanup?.();
   }
-  console.log("CREATING NEW SOURCE");
   return new MemoizedSource<V>(prov.create(spec), prov, spec);
 };
 

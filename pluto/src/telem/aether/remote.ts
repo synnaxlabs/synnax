@@ -209,7 +209,6 @@ export class StreamChannelData
   constructor(client: client.Client, props: unknown) {
     super(props);
     this.client = client;
-    console.log("KEY", this.client.key);
   }
 
   async value(): Promise<[bounds.Bounds, Series[]]> {

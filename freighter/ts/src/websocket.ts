@@ -190,11 +190,16 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     resSchema: RS,
   ): Promise<WebSocketStream<RQ, RS> | Error> {
     return await new Promise((resolve) => {
+      ws.onclose = (data) => {
+        console.log("CLOSEEE", data);
+      };
       ws.onopen = () => {
+        console.log("MADE IT HERE");
         resolve(new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema));
       };
       ws.onerror = (ev: Event) => {
         const ev_ = ev as ErrorEvent;
+        console.log(ev);
         resolve(new Error(ev_.message));
       };
     });
