@@ -39,7 +39,7 @@ type streamImplementation interface {
 
 var streamImplementations = []streamImplementation{
 	&httpStreamImplementation{},
-	//&mockStreamImplementation{},
+	&mockStreamImplementation{},
 }
 
 var _ = Describe("Stream", Ordered, Serial, func() {
