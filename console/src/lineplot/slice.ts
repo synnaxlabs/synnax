@@ -316,7 +316,7 @@ export const { actions, reducer } = createSlice({
         else
           plot.rules.push({
             ...latest.ZERO_RULE_STATE,
-            label: `Rule ${plot.rules.length}`,
+            label: `Rule ${plot.rules.length + 1}`,
             ...r,
           });
       });

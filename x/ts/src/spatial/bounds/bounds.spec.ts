@@ -387,4 +387,10 @@ describe("Bounds", () => {
       expect(bounds.clamp(b, 4)).toEqual(2);
     });
   });
+  describe("median", () => {
+    it("should return the median of the bounds", () => {
+      const b = bounds.construct([1, 3]);
+      expect(bounds.median(b)).toEqual(2);
+    });
+  });
 });
