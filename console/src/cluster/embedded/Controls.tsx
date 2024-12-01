@@ -22,7 +22,7 @@ import { type Layout } from "@/layout";
 const logElement = (v: LogMessage): ReactElement => {
   const { level, msg, ts, error } = v;
   return (
-    <Align.Space direction="x" size="small">
+    <Align.Space direction="x" size="small" key={msg}>
       <Text.Text level="p" noWrap shade={7} style={{ width: 90, flexShrink: 0 }}>
         {TimeStamp.seconds(ts).fString("preciseTime")}{" "}
       </Text.Text>
@@ -120,6 +120,7 @@ export const Controls: Layout.Renderer = () => {
           <Header.Actions>
             {[
               {
+                key: "copy",
                 children: <Icon.Copy />,
                 onClick: () => {
                   navigator.clipboard.writeText(
