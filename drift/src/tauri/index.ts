@@ -172,6 +172,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);
     if (maxSize?.width != null) maxSize.width = Math.max(maxSize.width, MIN_DIM);
     if (maxSize?.height != null) maxSize.height = Math.max(maxSize.height, MIN_DIM);
+    if (position?.x != null && position.x < 0) position.x = 0;
+    if (position?.y != null && position.y < 0) position.y = 0;
     try {
       const w = new WebviewWindow(label, {
         x: position?.x,
@@ -243,7 +245,10 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async setPosition(xy: xy.XY): Promise<void> {
-    await this.win.setPosition(new LogicalPosition(xy.x, xy.y));
+    const logicalPos = new LogicalPosition(xy.x, xy.y);
+    if (logicalPos.x < 0) logicalPos.x = 0;
+    if (logicalPos.y < 0) logicalPos.y = 0;
+    await this.win.setPosition(logicalPos);
   }
 
   async setSize(dims: dimensions.Dimensions): Promise<void> {
