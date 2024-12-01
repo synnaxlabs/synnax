@@ -280,7 +280,6 @@ export const { actions, reducer } = createSlice({
     setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
       const { layoutKey, key, props } = payload;
       const schematic = state.schematics[layoutKey];
-      if (!schematic.editable) return;
       if (key in schematic.props)
         schematic.props[key] = { ...schematic.props[key], ...props };
       else {

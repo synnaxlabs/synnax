@@ -15,6 +15,7 @@ import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import {
   ButtonForm,
+  CommonDummyToggleForm,
   CommonStyleForm,
   CommonToggleForm,
   CylinderForm,
@@ -270,6 +271,8 @@ const ZERO_BOOLEAN_SINK_PROPS = {
 
 const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_PROPS };
 
+const ZERO_DUMMY_TOGGLE_PROPS = { ...ZERO_PROPS, enabled: false, clickable: false };
+
 type zeroLabelReturn = { label: LabelExtensionProps };
 
 const zeroLabel = (label: string): zeroLabelReturn => ({
@@ -444,12 +447,12 @@ const box: Spec<BoxProps> = {
 const reliefValve: Spec<ReliefValveProps> = {
   name: "Relief Valve",
   key: "reliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: ReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.ReliefValve,
   zIndex: Z_INDEX_UPPER,
@@ -458,12 +461,12 @@ const reliefValve: Spec<ReliefValveProps> = {
 const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
   name: "Spring Loaded Relief Valve",
   key: "springLoadedReliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: SpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Spring Loaded Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.SpringLoadedReliefValve,
   zIndex: Z_INDEX_UPPER,
@@ -472,12 +475,12 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
 const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = {
   name: "Angled Spring Loaded Relief Valve",
   key: "angledSpringLoadedReliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: AngledSpringLoadedReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.AngledSpringLoadedReliefValve,
   zIndex: Z_INDEX_UPPER,
@@ -570,12 +573,12 @@ const isoCap: Spec<ISOCapProps> = {
 const manualValve: Spec<ManualValveProps> = {
   name: "Manual Valve",
   key: "manualValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: ManualValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Manual Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.ManualValve,
   zIndex: Z_INDEX_UPPER,
@@ -626,12 +629,12 @@ const filter: Spec<FilterProps> = {
 const needleValve: Spec<NeedleValveProps> = {
   name: "Needle Valve",
   key: "needleValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: NeedleValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Needle Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.NeedleValve,
   zIndex: Z_INDEX_UPPER,
@@ -668,12 +671,12 @@ const orifice: Spec<OrificeProps> = {
 const angledReliefValve: Spec<ReliefValveProps> = {
   name: "Angled Relief Valve",
   key: "angledReliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: AngledReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Angled Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
   Preview: Primitives.AngledReliefValve,
   zIndex: Z_INDEX_UPPER,
