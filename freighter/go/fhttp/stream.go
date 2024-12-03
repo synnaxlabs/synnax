@@ -103,19 +103,16 @@ type streamCore[I, O freighter.Payload] struct {
 }
 
 func (c *streamCore[I, O]) send(msg message[O]) error {
-	if c.writeDeadline > 0 {
-		if err := c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {
-			return err
-		}
-	}
-	w, err := c.conn.NextWriter(ws.BinaryMessage)
+	b, err := c.codec.Encode(nil, msg)
 	if err != nil {
 		return err
 	}
-	if err = c.codec.EncodeStream(nil, w, msg); err != nil {
-		return err
+	if c.writeDeadline > 0 {
+		if err = c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {
+			return err
+		}
 	}
-	return w.Close()
+	return c.conn.WriteMessage(ws.BinaryMessage, b)
 }
 
 func (c *streamCore[I, O]) receive() (msg message[I], err error) {
@@ -330,12 +327,17 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 			}()
 			oCtx, err := s.MiddlewareCollector.Exec(
 				iCtx,
-				freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
+				freighter.FinalizerFunc(func(iCtx freighter.Context) (oCtx freighter.Context, err error) {
 					// Send a confirmation message to the client that the stream is open.
 					if err = stream.send(message[RS]{Type: msgTypeOpen}); err != nil {
 						return
 					}
-					err = s.handler(ctx, stream)
+					err = s.handler(iCtx, stream)
+					oCtx = freighter.Context{
+						Target:   iCtx.Target,
+						Protocol: s.Protocol,
+						Params:   make(freighter.Params),
+					}
 					return
 				}),
 			)
