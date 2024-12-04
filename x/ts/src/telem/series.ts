@@ -49,7 +49,10 @@ export interface SeriesDigest {
   key: string;
   dataType: string;
   sampleOffset: math.Numeric;
-  alignment: bounds.Bounds<bigint>;
+  alignment: {
+    lower: AlignmentDigest;
+    upper: AlignmentDigest;
+  };
   timeRange?: string;
   length: number;
   capacity: number;
@@ -703,7 +706,10 @@ export class Series<T extends TelemValue = TelemValue> {
       key: this.key,
       dataType: this.dataType.toString(),
       sampleOffset: this.sampleOffset,
-      alignment: this.alignmentBounds,
+      alignment: {
+        lower: alignmentDigest(this.alignmentBounds.lower),
+        upper: alignmentDigest(this.alignmentBounds.upper),
+      },
       timeRange: this._timeRange?.toString(),
       length: this.length,
       capacity: this.capacity,
@@ -1136,3 +1142,14 @@ class MultiSubIterator<T extends TelemValue = TelemValue>
 }
 
 export type SeriesPayload = z.infer<typeof Series.crudeZ>;
+
+interface AlignmentDigest {
+  domain: bigint;
+  sample: bigint;
+}
+
+const alignmentDigest = (alignment: bigint): AlignmentDigest => {
+  const domain = alignment >> 32n;
+  const sample = alignment & 0xffffffffn;
+  return { domain, sample };
+};

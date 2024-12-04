@@ -258,7 +258,7 @@ func compile(code string) (*C.PyObject, error) {
 }
 
 // Run executes Python code and returns a telem.Series
-func (c *Calculation) Run(ctx map[string]interface{}) (telem.Series, error) {
+func (c *Calculation) Run(vars map[string]interface{}) (telem.Series, error) {
 	var s telem.Series
 
 	unlock := lockThreadAndGIL()
@@ -270,16 +270,16 @@ func (c *Calculation) Run(ctx map[string]interface{}) (telem.Series, error) {
 	}
 	defer C.py_decref(localsC)
 
-	// Set ctx variables in locals
-	if len(ctx) > 0 {
+	// Set vars variables in locals
+	if len(vars) > 0 {
 		// Prepare arrays of keys and values
 		var (
-			count  = len(ctx)
+			count  = len(vars)
 			keys   = make([]*C.char, count)
 			values = make([]*C.PyObject, count)
 			i      = 0
 		)
-		for k, v := range ctx {
+		for k, v := range vars {
 			ck := C.CString(k)
 			keys[i] = ck
 			pyObj, ok := v.(*C.PyObject)
@@ -314,7 +314,7 @@ func (c *Calculation) Run(ctx map[string]interface{}) (telem.Series, error) {
 		// If 'result' not in locals, check in globals (in case code modifies globals)
 		r = C.PyDict_GetItemString(c.globals, cr)
 		if r == nil {
-			return s, errors.New("no 'result' variable in ctx or locals")
+			return s, errors.New("no 'result' variable in vars or locals")
 		}
 	}
 	// Increase reference count since we are going to use r
@@ -357,9 +357,9 @@ func NewSeries(s telem.Series) (*C.PyObject, error) {
 	unlock := lockThreadAndGIL()
 	defer unlock()
 
-	v, ok := toNP[s.DataType]
+	dataType, ok := toNP[s.DataType]
 	if !ok {
-		return nil, fmt.Errorf("unsupported data type: %v", s.DataType)
+		return nil, fmt.Errorf("unsupported data type: %dataType", s.DataType)
 	}
 	if len(s.Data) == 0 {
 		return nil, fmt.Errorf("empty data")
@@ -367,7 +367,7 @@ func NewSeries(s telem.Series) (*C.PyObject, error) {
 	length := C.npy_intp(s.Len())
 
 	// Create a new NumPy array
-	arr := C.wrapped_PyArray_SimpleNew(1, &length, C.int(v))
+	arr := C.wrapped_PyArray_SimpleNew(1, &length, C.int(dataType))
 	if arr == nil {
 		return nil, fmt.Errorf("failed to create numpy array")
 	}
