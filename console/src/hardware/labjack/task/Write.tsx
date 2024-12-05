@@ -340,7 +340,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space grow empty direction="y">
-      <ChannelListHeader onAdd={handleAdd} />
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Align.Space grow empty style={{ height: "100%" }}>
         <Menu.ContextMenu
           menu={({ keys }: Menu.ContextMenuMenuProps) => (
