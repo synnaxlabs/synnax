@@ -15,7 +15,6 @@
   "scripts": {
     "build": "vite build",
     "watch": "vite build --watch",
-    "test": "vitest",
     "lint": "eslint --cache",
     "fix": "eslint --cache --fix"
   },
