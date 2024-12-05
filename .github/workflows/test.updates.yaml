@@ -1,30 +1,24 @@
 name: Check Versions
+
 on:
-  pull_request:
-    branches:
-      - rc
-      - main
   push:
     branches:
-      - rc
       - main
+      - rc
+  pull_request:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
+
 jobs:
   check-versions:
+    name: Check Versions
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Navigate to scripts directory
-      run: cd ./scripts
-
-    - name: Grant execute permissions for check_version.sh
-      run: chmod +x check_version.sh
-      working-directory: ./scripts
-
-    - name: Run version check script
-      run: ./check_version.sh
-      working-directory: ./scripts
-
+      - name: Check Versions
+        run: ./check_version.sh
+        working-directory: scripts

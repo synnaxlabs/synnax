@@ -1,29 +1,29 @@
-name: "Docs Search Update"
+name: Deploy - Docs
+
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+
 jobs:
   update:
-    name: "Update Docs Search Index"
+    name: Update Docs Search Index
     runs-on: ubuntu-latest
     env:
       DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
       DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up PNPM
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
 
-      - name: Set up Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: package.json
           cache: pnpm
 
       - name: Install Dependencies

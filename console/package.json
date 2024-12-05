@@ -8,7 +8,7 @@
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
     "build": "tsc --noEmit && tauri build",
     "dev-vite": "vite --force",
-    "build-vite": "vite build",
+    "build-vite": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint --cache",
     "fix": "eslint --cache --fix",

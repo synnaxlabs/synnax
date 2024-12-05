@@ -1,4 +1,4 @@
-name: Test - Cesium
+name: Test - Media
 
 on:
   push:
@@ -28,10 +28,13 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/test.cesium.yaml
-              - alamos/go/**
-              - cesium/**
-              - x/go/**
+              - .github/workflows/test.media.yaml
+              - configs/eslint/**
+              - configs/stylelint/**
+              - configs/ts/**
+              - configs/vite/**
+              - x/media/**
+              - x/ts/**
 
   test:
     name: Test (${{ matrix.os }})
@@ -43,22 +46,27 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            format: true
+            lint: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          node-version-file: package.json
+          cache: pnpm
 
-      - name: Test
-        run: go test -v -shuffle=on ./...
-        working-directory: cesium
+      - name: Install Dependencies
+        run: pnpm install
 
-      - name: Format
-        if: matrix.format
-        run: scripts/gofmt-check.sh cesium
+      - name: Build
+        run: pnpm build:media
+
+      - name: Lint
+        if: matrix.lint
+        run: pnpm lint:media
