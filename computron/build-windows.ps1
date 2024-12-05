@@ -6,7 +6,6 @@ $ErrorActionPreference = "Stop"
 # Configuration
 $PYTHON_VERSION = "3.11.7"
 $PYTHON_VERSION_MAJOR_MINOR = $PYTHON_VERSION -replace '^(\d+\.\d+).*','$1'
-$PYTHON_A_FILE = "python$($PYTHON_VERSION_MAJOR_MINOR.Replace('.',''))_d.lib"
 $PYTHON_INSTALL_DIR = Join-Path $PWD "python_install"
 $BUILD_DIR = Join-Path $PWD "Python-$PYTHON_VERSION"
 
@@ -95,14 +94,30 @@ endlocal
 function Install-Dependencies {
     Write-Host "Setting up directory structure..."
 
-    # Create directories
-    New-Item -ItemType Directory -Path "$PYTHON_INSTALL_DIR\include" -Force | Out-Null
-    New-Item -ItemType Directory -Path "$PYTHON_INSTALL_DIR\lib" -Force | Out-Null
+    # Create Mac-like directory structure
+    $includePath = "$PYTHON_INSTALL_DIR\include\python$PYTHON_VERSION_MAJOR_MINOR"
+    $libPath = "$PYTHON_INSTALL_DIR\lib\python$PYTHON_VERSION_MAJOR_MINOR"
+    $libCombinedPath = "$PYTHON_INSTALL_DIR\lib\combined"
 
-    # Copy header files
+    New-Item -ItemType Directory -Force -Path @(
+        $includePath,
+        "$includePath\cpython",
+        "$includePath\internal",
+        $libPath,
+        $libCombinedPath,
+        "$PYTHON_INSTALL_DIR\bin"
+    ) | Out-Null
+
+    # Copy header files maintaining structure
     Write-Host "Copying headers..."
-    Copy-Item "$BUILD_DIR\Include\*" "$PYTHON_INSTALL_DIR\include" -Recurse -Force
-    Copy-Item "$BUILD_DIR\PC\pyconfig.h" "$PYTHON_INSTALL_DIR\include"
+    Copy-Item "$BUILD_DIR\Include\*" $includePath -Recurse -Force
+    Copy-Item "$BUILD_DIR\PC\pyconfig.h" $includePath
+
+    # Copy internal headers
+    Get-ChildItem "$BUILD_DIR\Include\internal" -Filter "*.h" -Recurse |
+        ForEach-Object {
+            Copy-Item $_.FullName "$includePath\internal" -Force
+        }
 
     # Copy library files
     Write-Host "Copying libraries..."
@@ -112,6 +127,12 @@ function Install-Dependencies {
     }
 
     if (Test-Path $buildPath) {
+        # Copy to lib/combined
+        Get-ChildItem -Path $buildPath -Filter "*.lib" | ForEach-Object {
+            Copy-Item $_.FullName $libCombinedPath -Force
+        }
+
+        # Also copy to main lib directory
         Get-ChildItem -Path $buildPath -Filter "*.lib" | ForEach-Object {
             Copy-Item $_.FullName "$PYTHON_INSTALL_DIR\lib" -Force
         }
@@ -119,8 +140,21 @@ function Install-Dependencies {
         throw "Build directory not found: $buildPath"
     }
 
+    # Copy Python standard library
+    Write-Host "Copying Python standard library..."
+    Copy-Item "$BUILD_DIR\Lib\*" $libPath -Recurse -Force
+
     # Save version info
     $PYTHON_VERSION | Out-File -FilePath (Join-Path $PYTHON_INSTALL_DIR "VERSION")
+}
+
+# Cleanup temporary files and extracted source
+function Cleanup {
+    Write-Host "Cleaning up..."
+    if (Test-Path $BUILD_DIR) {
+        Remove-Item -Path $BUILD_DIR -Recurse -Force
+    }
+    Remove-Item "Python-$PYTHON_VERSION.tgz" -Force -ErrorAction SilentlyContinue
 }
 
 # Main execution
@@ -129,9 +163,7 @@ try {
     Get-PythonSource
     Build-Python
     Install-Dependencies
-
-    # Cleanup
-    Remove-Item "Python-$PYTHON_VERSION.tgz" -Force -ErrorAction SilentlyContinue
+    Cleanup
     Write-Host "Build completed successfully!"
 } catch {
     Write-Error "Build failed: $_"
