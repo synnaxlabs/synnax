@@ -294,6 +294,8 @@ private:
 
     void open_device();
 
+    void log_err(std::string err_msg);
+
     int handle;
     ReaderConfig reader_config;
     std::shared_ptr<task::Context> ctx;
@@ -315,6 +317,7 @@ private:
     bool ok_state = true;
     std::mutex mutex;
     std::shared_ptr<labjack::DeviceManager> device_manager;
+    std::string last_err;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
