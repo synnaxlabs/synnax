@@ -11,9 +11,9 @@ import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
 
 import { createConfigureLayout } from "@/hardware/ni/device/Configure";
-import { configureAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
-import { configureDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
-import { configureDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
+import { createAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
+import { createDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
+import { createDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
@@ -38,15 +38,15 @@ export const ContextMenuItems = ({
   };
   const handleCreateDigitalReadTask = () => {
     maybeConfigure();
-    place(configureDigitalReadLayout(args));
+    place(createDigitalReadLayout(args));
   };
   const handleCreateAnalogReadTask = () => {
     maybeConfigure();
-    place(configureAnalogReadLayout({ create: true }));
+    place(createAnalogReadLayout({ create: true }));
   };
   const handleCreateDigitalWriteTask = () => {
     maybeConfigure();
-    place(configureDigitalWriteLayout(args));
+    place(createDigitalWriteLayout(args));
   };
   if (!isSingle) return null;
   return (

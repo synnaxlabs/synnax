@@ -29,7 +29,6 @@ import {
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
-import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -37,6 +36,7 @@ import { useDevice } from "@/hardware/device/useDevice";
 import { Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
+import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Read,
   READ_TYPE,
@@ -52,7 +52,6 @@ import {
   ChannelListContextMenu,
   Controls,
   EnableDisableButton,
-  type TaskLayoutArgs,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -65,22 +64,10 @@ import {
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
-export const configureReadLayout = (
-  args: TaskLayoutArgs<ReadPayload> = { create: false },
-): Layout.State<TaskLayoutArgs<ReadPayload>> => ({
-  name: "Configure OPC UA Read Task",
-  key: uuid(),
-  type: READ_TYPE,
-  windowKey: READ_TYPE,
-  icon: "Logo.OPC",
-  location: "mosaic",
-  window: {
-    resizable: true,
-    size: { width: 1200, height: 900 },
-    navTop: true,
-  },
-  args,
-});
+export const configureReadLayout = createLayoutCreator<ReadPayload>(
+  READ_TYPE,
+  "New OPC UA Read Task",
+);
 
 export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,

@@ -171,7 +171,7 @@ export const writeTaskConfigZ = z.object({
   device: deviceKeyZ,
   channels: z.array(writeChan),
   dataSaving: z.boolean(),
-  stateRate: z.number().int(),
+  stateRate: z.number().int().min(1).max(50000),
 });
 export type WriteTaskConfig = z.infer<typeof writeTaskConfigZ>;
 
