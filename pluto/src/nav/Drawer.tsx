@@ -10,7 +10,7 @@
 import "@/nav/Drawer.css";
 
 import { type box, location } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useLayoutEffect,useState } from "react";
+import { type ReactElement, useCallback, useLayoutEffect, useState } from "react";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -79,7 +79,7 @@ export const Drawer = Aether.wrap<DrawerProps>(
       setEnabled(activeItem != null);
     }, [activeItem, setEnabled]);
     if (activeItem == null) return null;
-    const { content, key, ...rest } = activeItem;
+    const { content, key, minSize, maxSize, initialSize } = activeItem;
     return (
       <Resize.Single
         key={key}
@@ -88,10 +88,12 @@ export const Drawer = Aether.wrap<DrawerProps>(
         onCollapse={handleCollapse}
         location={loc_}
         onResize={handleResize}
-        {...rest}
+        minSize={minSize}
+        maxSize={maxSize}
+        initialSize={initialSize}
         {...props}
       >
-        {activeItem.content}
+        {content}
       </Resize.Single>
     );
   },

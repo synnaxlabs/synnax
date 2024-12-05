@@ -215,8 +215,7 @@
         --pluto-bg: var(--pluto-gray-l2);
         background: var(--pluto-bg);
         color: var(--pluto-gray-l5);
-        border: var(--pluto-border);
-        border-color: var(--pluto-gray-l3);
+        border-color: var(--pluto-gray-l3) !important;
     }
 }
 

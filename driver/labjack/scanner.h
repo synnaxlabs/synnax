@@ -61,6 +61,8 @@ public:
 
     void scan();
 
+    void scan_for(int device_type, int connection_type);
+
     void run();
 
     void create_devices();
@@ -78,7 +80,8 @@ private:
     std::shared_ptr<task::Context> ctx;
     std::shared_ptr<std::thread> thread = nullptr;
     breaker::Breaker breaker;
-    synnax::Rate scan_rate = synnax::Rate(1);
+    synnax::Rate scan_rate = synnax::Rate(0.5);
+    int tcp_scan_multiplier = 10;
     bool ok_state = true;
     std::shared_ptr<labjack::DeviceManager> device_manager;
 };

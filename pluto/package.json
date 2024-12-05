@@ -1,11 +1,12 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.34.0",
+  "version": "0.35.1",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "watch": "vite build --watch",
     "test": "vitest",
+    "dev": "vite",
     "lint": "eslint --cache",
     "fix": "eslint --cache --fix",
     "preview": "vite preview"

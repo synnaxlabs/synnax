@@ -10,5 +10,8 @@
  */
 
 .pluto-symbol-form {
-    padding: 2rem 3rem;
+    height: 100%;
+    & > div {
+        padding: 1rem 2rem;
+    }
 }

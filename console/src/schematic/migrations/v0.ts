@@ -21,12 +21,15 @@ import { z } from "zod";
 export type NodeProps = object & {
   key: Schematic.Variant;
   color?: Color.Crude;
+  label?: {
+    label?: string;
+  };
 };
 
 export const nodePropsZ = z.object({}).and(
   z
     .object({
-      key: Schematic.typeZ,
+      key: Schematic.variantZ,
       color: Color.crudeZ.optional(),
     })
     .passthrough(),

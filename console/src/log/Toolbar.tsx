@@ -11,11 +11,11 @@ import { type channel, log } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
-import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
+import { useSyncComponent } from "@/log/Log";
 import { useSelect } from "@/log/selectors";
 import { setChannels } from "@/log/slice";
 
@@ -24,7 +24,7 @@ export interface ToolbarProps {
 }
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
-  const d = useDispatch();
+  const d = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelect(layoutKey);
   const handleChannelChange = (v: channel.Key) =>

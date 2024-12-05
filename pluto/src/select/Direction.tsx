@@ -23,17 +23,18 @@ export interface DirectionProps
   extends Omit<
     ButtonProps<direction.Direction, Entry>,
     "data" | "entryRenderKey" | "allowMultiple"
-  > {}
+  > {
+  yDirection?: "up" | "down";
+}
 
 const DATA: Entry[] = [
-  {
-    key: "x",
-    icon: <Icon.Arrow.Right />,
-  },
-  {
-    key: "y",
-    icon: <Icon.Arrow.Up />,
-  },
+  { key: "x", icon: <Icon.Arrow.Right /> },
+  { key: "y", icon: <Icon.Arrow.Up /> },
+];
+
+const ALTERNATE_DATA: Entry[] = [
+  { key: "x", icon: <Icon.Arrow.Right /> },
+  { key: "y", icon: <Icon.Arrow.Down /> },
 ];
 
 const defaultSelectDirectionButton = ({
@@ -53,9 +54,14 @@ const defaultSelectDirectionButton = ({
 
 export const Direction = ({
   children = defaultSelectDirectionButton,
+  yDirection = "up",
   ...props
 }: DirectionProps): ReactElement => (
-  <Button {...props} allowMultiple={false} data={DATA}>
+  <Button
+    {...props}
+    allowMultiple={false}
+    data={yDirection === "up" ? DATA : ALTERNATE_DATA}
+  >
     {children}
   </Button>
 );

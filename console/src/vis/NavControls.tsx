@@ -20,6 +20,7 @@ const REGISTRY: Record<LayoutType, FC> = {
   schematic: SchematicNavControls,
   lineplot: LineNavControls,
   log: () => null,
+  table: () => null,
 };
 
 export const NavControls = (): ReactElement | null => {

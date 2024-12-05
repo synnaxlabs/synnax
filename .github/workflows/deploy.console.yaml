@@ -293,6 +293,10 @@ jobs:
                   signature: ecd.decode(darwinSig.data),
                   url: darwinURL,
                 },
+                "darwin-aarch64": {
+                  signature: ecd.decode(darwinSig.data),
+                  url: darwinURL,
+                },
                 "linux-x86_64": {
                   signature: "not_supported_and_tauri_requires_an_entry",
                   url: darwinURL,

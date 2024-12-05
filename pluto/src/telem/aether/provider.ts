@@ -14,8 +14,13 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { synnax } from "@/synnax/aether";
-import { telem } from "@/telem/aether";
-import { type CompoundTelemFactory } from "@/telem/aether/factory";
+import { type Provider, setProvider } from "@/telem/aether/context";
+import {
+  type CompoundTelemFactory,
+  type Factory,
+  factory,
+} from "@/telem/aether/factory";
+import { type Spec } from "@/telem/aether/telem";
 import { client } from "@/telem/client";
 
 export type ProviderState = z.input<typeof providerStateZ>;
@@ -27,17 +32,17 @@ interface InternalState {
 
 export class BaseProvider
   extends aether.Composite<typeof providerStateZ, InternalState>
-  implements telem.Provider
+  implements Provider
 {
   client: client.Proxy = new client.Proxy();
-  factory: CompoundTelemFactory = telem.factory(this.client);
+  factory: CompoundTelemFactory = factory(this.client);
 
   static readonly TYPE = "TelemProvider";
   static readonly stateZ = providerStateZ;
   schema = BaseProvider.stateZ;
   prevClient: Synnax | null = null;
 
-  create<T>(spec: telem.Spec): T {
+  create<T>(spec: Spec): T {
     const { instrumentation: I } = this.internal;
     I.L.debug("creating telem", { spec });
     const telem = this.factory.create(spec);
@@ -52,11 +57,11 @@ export class BaseProvider
     return this.client.key;
   }
 
-  registerFactory(f: telem.Factory): void {
+  registerFactory(f: Factory): void {
     this.factory.add(f);
   }
 
-  equals(other: telem.Provider): boolean {
+  equals(other: Provider): boolean {
     if (!(other instanceof BaseProvider)) return false;
     return this.client._client === other.client._client;
   }
@@ -71,7 +76,7 @@ export class BaseProvider
     if (core == null) await this.client.swap(null);
     else await this.client.swap(new client.Core({ core, instrumentation: I }));
     this.prevClient = core;
-    telem.setProvider(this.ctx, this);
+    setProvider(this.ctx, this);
   }
 }
 

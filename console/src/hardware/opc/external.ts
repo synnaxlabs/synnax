@@ -10,9 +10,9 @@
 import { Device } from "@/hardware/opc/device";
 import { Task } from "@/hardware/opc/task";
 import { type Layout } from "@/layout";
+import { type Palette } from "@/palette";
 
 export * from "@/hardware/opc/device";
-export * from "@/hardware/opc/palette";
 export * from "@/hardware/opc/task";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
@@ -21,6 +21,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const SELECTABLES: Layout.Selectable[] = Task.SELECTABLES;
+export const COMMANDS: Palette.Command[] = [...Device.COMMANDS, ...Task.COMMANDS];
 
 export const MAKE = "opc";
 export type Make = typeof MAKE;
