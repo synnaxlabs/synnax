@@ -252,13 +252,11 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   const handleCreateRule = (): void => {
     const visColors = theme?.colors.visualization.palettes.default ?? [];
     const color = visColors[vis.rules.length % visColors.length]?.hex;
-    const ruleKey = id.id();
+    const key = id.id();
     const axis = Y1;
-    const position = bounds.median(vis.axes.axes[axis].bounds);
-    dispatch(
-      setRule({ key: linePlotKey, rule: { key: ruleKey, color, axis, position } }),
-    );
-    setSelected([ruleKey]);
+    const position = bounds.mean(vis.axes.axes[axis].bounds);
+    dispatch(setRule({ key: linePlotKey, rule: { key, color, axis, position } }));
+    setSelected([key]);
   };
   const handleRemoveRules = (keys: string[]): void => {
     dispatch(removeRule({ key: linePlotKey, ruleKeys: keys }));

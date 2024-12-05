@@ -192,17 +192,17 @@ export const isFinite = (a: Crude): boolean => {
 };
 
 /**
- * Returns the median value between the lower and upper bounds.
+ * Returns the mean value between the lower and upper bounds.
  *
- * @param a - The bounds to find the median of. Can be either a strict bounds object
+ * @param a - The bounds to find the mean of. Can be either a strict bounds object
  * with 'lower' and 'upper' properties or an array of length 2.
- * @returns The median value between the lower and upper bounds.
+ * @returns The mean value between the lower and upper bounds.
  *
  * @example
- * bounds.median([0, 10]) // => 5
- * bounds.median({ lower: 0, upper: 10 }) // => 5
+ * bounds.mean([0, 10]) // => 5
+ * bounds.mean({ lower: 0, upper: 10 }) // => 5
  */
-export const median = (a: Crude): number => {
+export const mean = (a: Crude): number => {
   const _a = construct(a);
   return (_a.upper + _a.lower) / 2;
 };
