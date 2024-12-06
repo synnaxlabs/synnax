@@ -40,17 +40,27 @@ function Install-Dependencies {
     $sitePackagesDir = Join-Path $PYTHON_INSTALL_DIR "lib\python$PYTHON_VERSION_MAJOR_MINOR\site-packages"
     New-Item -ItemType Directory -Path $sitePackagesDir -Force | Out-Null
 
-    # Install pip
+    # Use Python from build directory
     $pythonExe = Join-Path $BUILD_DIR "PCbuild\amd64\python.exe"
+    Write-Host "Using Python executable: $pythonExe"
+
+    # Set PYTHONPATH for pip installation
+    $env:PYTHONPATH = $sitePackagesDir
+    $env:PYTHONHOME = $BUILD_DIR
+
+    # Install pip
     & $pythonExe $pipInstaller
 
-    # Set up pip environment
-    $env:PYTHONPATH = $sitePackagesDir
+    # Get pip path from build directory
+    $pipExe = Join-Path $BUILD_DIR "PCbuild\amd64\Scripts\pip.exe"
+    if (-not (Test-Path $pipExe)) {
+        $pipExe = Join-Path $BUILD_DIR "PCbuild\amd64\pip.exe"
+    }
+    Write-Host "Using pip executable: $pipExe"
 
     # Install numpy
     Write-Host "Installing NumPy $NUMPY_VERSION..."
-    $pipExe = Join-Path $BUILD_DIR "Scripts\pip.exe"
-    & $pipExe install --upgrade "numpy==$NUMPY_VERSION" --target=$sitePackagesDir
+    & $pythonExe -m pip install --upgrade "numpy==$NUMPY_VERSION" --target=$sitePackagesDir
 
     # Create numpy include directory
     $numpyIncludeDir = Join-Path $PYTHON_INSTALL_DIR "include\python$PYTHON_VERSION_MAJOR_MINOR\numpy"
@@ -147,16 +157,13 @@ function Setup-Installation {
     $includePath = "$PYTHON_INSTALL_DIR\include\python$PYTHON_VERSION_MAJOR_MINOR"
     $libPath = "$PYTHON_INSTALL_DIR\lib\python$PYTHON_VERSION_MAJOR_MINOR"
     $libCombinedPath = "$PYTHON_INSTALL_DIR\lib\combined"
-    $numpyIncludePath = "$PYTHON_INSTALL_DIR\lib\python$PYTHON_VERSION_MAJOR_MINOR\site-packages\numpy\core\include\numpy"
 
     New-Item -ItemType Directory -Force -Path @(
         $includePath,
         "$includePath\cpython",
         "$includePath\internal",
         $libPath,
-        $libCombinedPath,
-        "$PYTHON_INSTALL_DIR\bin",
-        (Split-Path $numpyIncludePath -Parent)
+        $libCombinedPath
     ) | Out-Null
 
     # Copy Python header files
@@ -170,17 +177,31 @@ function Setup-Installation {
             Copy-Item $_.FullName "$includePath\internal" -Force
         }
 
-    # Copy library files
-    Write-Host "Copying libraries..."
+    # Copy library files and DLLs
+    Write-Host "Copying libraries and DLLs..."
     $buildPath = "$BUILD_DIR\PCbuild\amd64\Release"
     if (-not (Test-Path $buildPath)) {
         $buildPath = "$BUILD_DIR\PCbuild\amd64"
     }
 
     if (Test-Path $buildPath) {
+        # Copy .lib files
         Get-ChildItem -Path $buildPath -Filter "*.lib" | ForEach-Object {
             Copy-Item $_.FullName $libCombinedPath -Force
             Copy-Item $_.FullName "$PYTHON_INSTALL_DIR\lib" -Force
+        }
+
+        # Copy DLLs directly to installation root for immediate path access
+        Get-ChildItem -Path $buildPath -Filter "*.dll" | ForEach-Object {
+            Copy-Item $_.FullName $PYTHON_INSTALL_DIR -Force
+        }
+
+        # Also copy all external DLLs that Python depends on
+        $externalsPath = "$BUILD_DIR\externals\*"
+        if (Test-Path $externalsPath) {
+            Get-ChildItem -Path $externalsPath -Filter "*.dll" -Recurse | ForEach-Object {
+                Copy-Item $_.FullName $PYTHON_INSTALL_DIR -Force
+            }
         }
     } else {
         throw "Build directory not found: $buildPath"
@@ -192,6 +213,10 @@ function Setup-Installation {
 
     # Save version info
     $PYTHON_VERSION | Out-File -FilePath (Join-Path $PYTHON_INSTALL_DIR "VERSION")
+
+    # Set environment variables
+    Write-Host "Setting environment variables..."
+    [Environment]::SetEnvironmentVariable("PATH", "$PYTHON_INSTALL_DIR;$env:PATH", [EnvironmentVariableTarget]::Process)
 }
 
 # Cleanup temporary files and extracted source
