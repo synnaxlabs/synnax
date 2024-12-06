@@ -30,16 +30,36 @@ import { AXIS_KEYS, type AxisKey, Y1 } from "@/lineplot/axis";
 import { useSelect } from "@/lineplot/selectors";
 import { removeRule, type RuleState, setRule } from "@/lineplot/slice";
 
+interface EmptyContentProps {
+  onCreateRule: () => void;
+}
+
+const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
+  <Align.Center direction="x" size="small">
+    <Status.Text level="p" variant="disabled" hideIcon>
+      No annotations added.
+    </Status.Text>
+    <Text.Link level="p" onClick={onCreateRule}>
+      Create a new one.
+    </Text.Link>
+  </Align.Center>
+);
+
 interface ListItemProps extends PList.ItemProps<string, RuleState> {
   onChangeLabel: (label: string) => void;
 }
 
 const ListItem = ({ entry, onChangeLabel, ...props }: ListItemProps): ReactElement => (
-  <PList.ItemFrame entry={entry} {...props} style={{ padding: "1rem 0rem 1rem 2rem" }}>
+  <PList.ItemFrame
+    entry={entry}
+    {...props}
+    style={{ paddingTop: "0.75rem", paddingBottom: "0.9rem" }}
+  >
     <Text.Editable
       value={entry.label}
       level="p"
-      style={{ padding: 0 }}
+      noWrap
+      style={{ overflow: "hidden", textOverflow: "ellipsis" }}
       onChange={onChangeLabel}
     />
   </PList.ItemFrame>
@@ -64,113 +84,96 @@ const List = ({
 }: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   return (
-    <PList.List<string, RuleState> data={rules}>
-      <Button.Icon
-        onClick={(e) => {
-          e.stopPropagation();
-          onCreate();
-        }}
-        tooltip="Add Annotation"
-        style={{ zIndex: 1, position: "absolute", right: 5 }}
-      >
+    <Align.Space direction="x" empty>
+      <Button.Icon tooltip="Add Rule" size="large" onClick={onCreate}>
         <Icon.Add />
       </Button.Icon>
-      <PMenu.ContextMenu
-        menu={({ keys }) => {
-          const onChange = (key: string): void => {
-            switch (key) {
-              case "remove":
-                onRemoveAnnotations(keys);
-            }
-          };
-          const length = keys.length;
-          return (
-            <PMenu.Menu level="small" onChange={onChange}>
-              <PMenu.Item itemKey="remove" size="small" startIcon={<Icon.Delete />}>
-                {`Remove ${length === 1 ? "Annotation" : `${length} Annotations`}`}
-              </PMenu.Item>
-              <Menu.HardReloadItem />
-            </PMenu.Menu>
-          );
-        }}
-        {...menuProps}
-      >
+      <Divider.Divider direction="y" />
+      <PList.List<string, RuleState> data={rules}>
         <PList.Selector
           value={selected}
           allowNone={false}
           replaceOnSingle
           onChange={onChange}
         >
-          <PList.Core<string, RuleState>>
-            {({ key, ...props }) => (
-              <ListItem
-                key={key}
-                {...props}
-                onChangeLabel={(v) => onLabelChange(v, key)}
-              />
-            )}
-          </PList.Core>
+          <PMenu.ContextMenu
+            menu={({ keys }) => {
+              const onChange = (key: string): void => {
+                if (key === "remove") onRemoveAnnotations(keys);
+              };
+              const length = keys.length;
+              return (
+                <PMenu.Menu onChange={onChange}>
+                  <PMenu.Item itemKey="remove" size="small" startIcon={<Icon.Delete />}>
+                    {`Remove ${length === 1 ? "Annotation" : `${length} Annotations`}`}
+                  </PMenu.Item>
+                  <Divider.Divider direction="x" />
+                  <Menu.HardReloadItem />
+                </PMenu.Menu>
+              );
+            }}
+            {...menuProps}
+          >
+            <PList.Core<string, RuleState>
+              direction="y"
+              empty
+              style={{ width: "40rem" }}
+            >
+              {({ key, ...props }) => (
+                <ListItem
+                  key={key}
+                  {...props}
+                  onChangeLabel={(v) => onLabelChange(v, key)}
+                />
+              )}
+            </PList.Core>
+          </PMenu.ContextMenu>
         </PList.Selector>
-      </PMenu.ContextMenu>
-    </PList.List>
+      </PList.List>
+    </Align.Space>
   );
 };
 
-interface EmptyContentProps {
-  onCreateRule: () => void;
-}
-
-const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
-  <Align.Center direction="x" size="small">
-    <Status.Text variant="disabled" hideIcon>
-      No annotations added.
-    </Status.Text>
-    <Text.Link level="p" onClick={onCreateRule}>
-      Create a new one.
-    </Text.Link>
-  </Align.Center>
-);
-
+const COLUMN_DATA = [{ key: "name", name: "Axis" }];
 const AXIS_DATA = AXIS_KEYS.map((key) => ({ name: key.toUpperCase(), key }));
 
 interface RuleContentProps {
-  linePlotKey: string;
   rule: RuleState;
-  onLabelChange: (label: string) => void;
-  onUnitsChange: (units: string) => void;
-  onPositionChange: (position: number) => void;
-  onColorChange: (color: Color.Color) => void;
-  onAxisChange: (axis: AxisKey) => void;
-  onLineWidthChange: (lineWidth: number) => void;
-  onLineDashChange: (lineDash: number) => void;
+  onChangeLabel: (label: string) => void;
+  onChangeUnits: (units: string) => void;
+  onChangePosition: (position: number) => void;
+  onChangeColor: (color: Color.Color) => void;
+  onChangeAxis: (axis: AxisKey) => void;
+  onChangeLineWidth: (lineWidth: number) => void;
+  onChangeLineDash: (lineDash: number) => void;
 }
 
 const RuleContent = ({
   rule: { label, units, position, color, axis, lineWidth, lineDash },
-  onLabelChange,
-  onUnitsChange,
-  onPositionChange,
-  onColorChange,
-  onAxisChange,
-  onLineWidthChange,
-  onLineDashChange,
+  onChangeLabel,
+  onChangeUnits,
+  onChangePosition,
+  onChangeColor,
+  onChangeAxis,
+  onChangeLineWidth,
+  onChangeLineDash,
 }: RuleContentProps): ReactElement => (
   <Align.Space direction="y" grow style={{ padding: "2rem" }}>
     <Align.Space direction="x" wrap>
       <Input.Item label="Label" grow>
-        <Input.Text onChange={onLabelChange} value={label} />
+        <Input.Text onChange={onChangeLabel} value={label} />
       </Input.Item>
       <Input.Item label="Units">
-        <Input.Text onChange={onUnitsChange} value={units} />
+        <Input.Text onChange={onChangeUnits} value={units} />
       </Input.Item>
       <Input.Item label="Position">
-        <Input.Numeric onChange={onPositionChange} value={position} />
+        <Input.Numeric onChange={onChangePosition} value={position} />
       </Input.Item>
       <Input.Item label="Axis">
         <Select.Single
-          onChange={onAxisChange}
+          onChange={onChangeAxis}
           value={axis}
-          columns={[{ key: "name", name: "Axis" }]}
+          columns={COLUMN_DATA}
           data={AXIS_DATA}
           entryRenderKey="name"
           allowNone={false}
@@ -179,19 +182,19 @@ const RuleContent = ({
     </Align.Space>
     <Align.Space direction="x" wrap>
       <Input.Item label="Color">
-        <Color.Swatch value={color} onChange={onColorChange} />
+        <Color.Swatch value={color} onChange={onChangeColor} />
       </Input.Item>
       <Input.Item label="Line Width">
         <Input.Numeric
           bounds={{ lower: 1, upper: 10 }}
-          onChange={onLineWidthChange}
+          onChange={onChangeLineWidth}
           value={lineWidth}
         />
       </Input.Item>
       <Input.Item label="Line Dash">
         <Input.Numeric
           bounds={{ lower: 0, upper: 50 }}
-          onChange={onLineDashChange}
+          onChange={onChangeLineDash}
           value={lineDash}
         />
       </Input.Item>
@@ -205,82 +208,76 @@ export interface AnnotationsProps {
 
 export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => {
   const vis = useSelect(linePlotKey);
+  const rules = vis.rules;
   const theme = Layout.useSelectTheme();
+  const [selectedRuleKeys, setSelectedRuleKeys] = useState<string[]>(
+    rules.length > 0 ? [rules[0].key] : [],
+  );
   const dispatch = useDispatch();
-  const initialSelected = vis.rules.length > 0 ? [vis.rules[0].key] : [];
-  const [selected, setSelected] = useState(initialSelected);
-  const firstSelected = selected[0] ?? "";
-  const handleLabelChange = (label: string, key: string = firstSelected): void => {
-    dispatch(setRule({ key: linePlotKey, rule: { key, label } }));
-  };
-  const handleUnitsChange = (units: string): void => {
-    dispatch(setRule({ key: linePlotKey, rule: { key: firstSelected, units } }));
-  };
-  const handlePositionChange = (position: number): void => {
-    dispatch(setRule({ key: linePlotKey, rule: { key: firstSelected, position } }));
-  };
-  const handleColorChange = (color: Color.Color): void => {
-    dispatch(
-      setRule({ key: linePlotKey, rule: { key: firstSelected, color: color.hex } }),
-    );
-  };
-  const handleAxisChange = (axis: AxisKey): void => {
-    dispatch(setRule({ key: linePlotKey, rule: { key: firstSelected, axis } }));
-  };
-  const handleLineWidthChange = (lineWidth: number): void => {
-    dispatch(setRule({ key: linePlotKey, rule: { key: firstSelected, lineWidth } }));
-  };
-  const handleLineDashChange = (lineDash: number): void => {
-    dispatch(setRule({ key: linePlotKey, rule: { key: firstSelected, lineDash } }));
-  };
+  const shownRuleKey = selectedRuleKeys[selectedRuleKeys.length - 1];
+  const shownRule = rules.find((rule) => rule.key === shownRuleKey);
   const handleCreateRule = (): void => {
     const visColors = theme?.colors.visualization.palettes.default ?? [];
-    const color = visColors[vis.rules.length % visColors.length]?.hex;
+    const color = visColors[rules.length % visColors.length]?.hex;
     const key = id.id();
     const axis = Y1;
     const position = bounds.mean(vis.axes.axes[axis].bounds);
     dispatch(setRule({ key: linePlotKey, rule: { key, color, axis, position } }));
-    setSelected([key]);
+    setSelectedRuleKeys([key]);
+  };
+  const handleChangeLabel = (label: string, key: string = shownRuleKey): void => {
+    dispatch(setRule({ key: linePlotKey, rule: { key, label } }));
+  };
+  const handleChangeUnits = (units: string): void => {
+    dispatch(setRule({ key: linePlotKey, rule: { key: shownRuleKey, units } }));
+  };
+  const handleChangePosition = (position: number): void => {
+    dispatch(setRule({ key: linePlotKey, rule: { key: shownRuleKey, position } }));
+  };
+  const handleChangeColor = (color: Color.Color): void => {
+    dispatch(
+      setRule({ key: linePlotKey, rule: { key: shownRuleKey, color: color.hex } }),
+    );
+  };
+  const handleChangeAxis = (axis: AxisKey): void => {
+    const position = bounds.mean(vis.axes.axes[axis].bounds);
+    dispatch(
+      setRule({ key: linePlotKey, rule: { key: shownRuleKey, axis, position } }),
+    );
+  };
+  const handleChangeLineWidth = (lineWidth: number): void => {
+    dispatch(setRule({ key: linePlotKey, rule: { key: shownRuleKey, lineWidth } }));
+  };
+  const handleChangeLineDash = (lineDash: number): void => {
+    dispatch(setRule({ key: linePlotKey, rule: { key: shownRuleKey, lineDash } }));
   };
   const handleRemoveRules = (keys: string[]): void => {
     dispatch(removeRule({ key: linePlotKey, ruleKeys: keys }));
-    setSelected(selected.filter((k) => !keys.includes(k)));
+    const newSelectedRuleKey = rules.find((rule) => !keys.includes(rule.key))?.key;
+    setSelectedRuleKeys(newSelectedRuleKey == null ? [] : [newSelectedRuleKey]);
   };
-  const selectedRule = vis.rules.find((rule) => rule.key === firstSelected);
-  const content: ReactElement =
-    selectedRule == null ? (
-      <EmptyContent onCreateRule={handleCreateRule} />
-    ) : (
-      <RuleContent
-        linePlotKey={linePlotKey}
-        rule={selectedRule}
-        onLabelChange={handleLabelChange}
-        onUnitsChange={handleUnitsChange}
-        onPositionChange={handlePositionChange}
-        onColorChange={handleColorChange}
-        onAxisChange={handleAxisChange}
-        onLineWidthChange={handleLineWidthChange}
-        onLineDashChange={handleLineDashChange}
-      />
-    );
+  if (shownRule == null) return <EmptyContent onCreateRule={handleCreateRule} />;
   return (
-    <Align.Space direction="x" style={{ height: "100%", width: "100%" }} empty>
-      <Align.Space
-        direction="y"
-        empty
-        style={{ minWidth: "230px", height: "100%", position: "relative" }}
-      >
-        <List
-          selected={selected}
-          onChange={setSelected}
-          rules={vis.rules}
-          onCreate={handleCreateRule}
-          onRemoveAnnotations={handleRemoveRules}
-          onLabelChange={handleLabelChange}
-        />
-      </Align.Space>
+    <Align.Space direction="x" style={{ height: "100%" }} empty>
+      <List
+        selected={selectedRuleKeys}
+        onChange={setSelectedRuleKeys}
+        rules={rules}
+        onCreate={handleCreateRule}
+        onRemoveAnnotations={handleRemoveRules}
+        onLabelChange={handleChangeLabel}
+      />
       <Divider.Divider direction="y" />
-      {content}
+      <RuleContent
+        rule={shownRule}
+        onChangeLabel={handleChangeLabel}
+        onChangeUnits={handleChangeUnits}
+        onChangePosition={handleChangePosition}
+        onChangeColor={handleChangeColor}
+        onChangeAxis={handleChangeAxis}
+        onChangeLineWidth={handleChangeLineWidth}
+        onChangeLineDash={handleChangeLineDash}
+      />
     </Align.Space>
   );
 };
