@@ -12,10 +12,7 @@ from typing import Any, Generic, Literal, Type, MutableMapping
 from warnings import warn
 
 from pydantic import BaseModel
-from websockets.asyncio.client import (
-    ClientProtocol as AsyncClientProtocol,
-    connect
-)
+from websockets.asyncio.client import ClientProtocol as AsyncClientProtocol, connect
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from websockets.sync.client import (
     ClientConnection as SyncClientProtocol,

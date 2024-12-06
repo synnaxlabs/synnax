@@ -45,7 +45,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["arduino_time", "arduino_state", "arduino_value"],
-        enable_auto_commit=True
+        enable_auto_commit=True,
     ) as writer:
         while True:
             fr = streamer.read(timeout=0)
@@ -55,8 +55,10 @@ with client.open_streamer(["arduino_command"]) as streamer:
             data = ser.readline().decode("utf-8").rstrip()
             if data:
                 split = data.split(",")
-                writer.write({
-                    "arduino_time": sy.TimeStamp.now(),
-                    "arduino_state": int(split[0]),
-                    "arduino_value": float(split[1]),
-                })
+                writer.write(
+                    {
+                        "arduino_time": sy.TimeStamp.now(),
+                        "arduino_state": int(split[0]),
+                        "arduino_value": float(split[1]),
+                    }
+                )

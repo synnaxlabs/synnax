@@ -55,13 +55,15 @@ class Frame:
 
     def __init__(
         self,
-        channels: ChannelKeys
-        | ChannelNames
-        | DataFrame
-        | Frame
-        | FramePayload
-        | dict[ChannelKey, TypedCrudeSeries]
-        | None = None,
+        channels: (
+            ChannelKeys
+            | ChannelNames
+            | DataFrame
+            | Frame
+            | FramePayload
+            | dict[ChannelKey, TypedCrudeSeries]
+            | None
+        ) = None,
         series: list[TypedCrudeSeries] | None = None,
     ):
         if isinstance(channels, Frame):

@@ -455,9 +455,9 @@ class AIPressureBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetwopointlinchan.html>
     """
 
-    type: Literal[
+    type: Literal["ai_pressure_bridge_two_point_lin"] = (
         "ai_pressure_bridge_two_point_lin"
-    ] = "ai_pressure_bridge_two_point_lin"
+    )
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["PoundsPerSquareInch", "Pascals", "Bar"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
