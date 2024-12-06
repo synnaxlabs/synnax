@@ -11,8 +11,6 @@ package fhttp
 
 import (
 	"context"
-	"github.com/gofiber/fiber/v2"
-	"github.com/synnaxlabs/x/errors"
 	"go/types"
 	"io"
 	"net/http"
@@ -20,13 +18,14 @@ import (
 	"time"
 
 	ws "github.com/fasthttp/websocket"
+	"github.com/gofiber/fiber/v2"
 	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
-	roacherrors "github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	"go.uber.org/zap"
 )
@@ -143,7 +142,7 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 			ws.CloseMessage,
 			ws.FormatCloseMessage(ws.CloseGoingAway, ""),
 			time.Now().Add(time.Second),
-		); err != nil && !roacherrors.Is(err, ws.ErrCloseSent) {
+		); err != nil && !errors.Is(err, ws.ErrCloseSent) {
 			c.L.Error("error sending close message: %v \n", zap.Error(err))
 		}
 	}
@@ -182,7 +181,7 @@ func (s *streamClient[RQ, RS]) Stream(
 				return oCtx, err
 			}
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
-				return oCtx, roacherrors.New("[ws] - unable to upgrade connection")
+				return oCtx, errors.New("[ws] - unable to upgrade connection")
 			}
 			core := newStreamCore[RS, RQ](
 				ctx,

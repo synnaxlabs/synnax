@@ -11,6 +11,9 @@ package freighter_test
 
 import (
 	"context"
+	"net/http"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,8 +25,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
-	"net/http"
-	"time"
 )
 
 type (
@@ -217,7 +218,6 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					})
 
 				})
-
 				Describe("StreamClient attempts to send a message after the server closes", func() {
 					It("Should return a EOF error", func() {
 						serverClosed := make(chan struct{})
@@ -244,9 +244,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					})
 				})
 			})
-
 			Describe("Middleware", func() {
-
 				It("Should correctly execute a middleware in the chain", func() {
 					serverClosed := make(chan struct{})
 					server.BindHandler(func(ctx context.Context, server serverStream) error {
@@ -276,7 +274,6 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					Eventually(serverClosed).Should(BeClosed())
 					Expect(c).To(Equal(2))
 				})
-
 				It("Should correctly propagate an error that arises in a middleware", func() {
 					serverClosed := make(chan struct{})
 					server.BindHandler(func(ctx context.Context, server serverStream) error {
