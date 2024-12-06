@@ -5,6 +5,7 @@ $ErrorActionPreference = "Stop"
 
 # Configuration
 $PYTHON_VERSION = "3.11.7"
+$NUMPY_VERSION = "1.24.3"
 $PYTHON_VERSION_MAJOR_MINOR = $PYTHON_VERSION -replace '^(\d+\.\d+).*','$1'
 $PYTHON_INSTALL_DIR = Join-Path $PWD "python_install"
 $BUILD_DIR = Join-Path $PWD "Python-$PYTHON_VERSION"
@@ -12,7 +13,6 @@ $BUILD_DIR = Join-Path $PWD "Python-$PYTHON_VERSION"
 # Ensure required tools are available
 function Check-Requirements {
     Write-Host "Checking requirements..."
-
     if (-not (Test-Path "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat")) {
         throw "Visual Studio Build Tools not found. Please install Visual Studio 2022 with C++ build tools."
     }
@@ -26,6 +26,55 @@ function Get-PythonSource {
 
     Invoke-WebRequest -Uri $url -OutFile $output
     tar -xf $output
+}
+
+# Install pip and numpy
+function Install-Dependencies {
+    Write-Host "Installing pip and NumPy..."
+
+    # Get pip
+    $pipInstaller = "get-pip.py"
+    Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile $pipInstaller
+
+    # Set up directory structure
+    $sitePackagesDir = Join-Path $PYTHON_INSTALL_DIR "lib\python$PYTHON_VERSION_MAJOR_MINOR\site-packages"
+    New-Item -ItemType Directory -Path $sitePackagesDir -Force | Out-Null
+
+    # Install pip
+    $pythonExe = Join-Path $BUILD_DIR "PCbuild\amd64\python.exe"
+    & $pythonExe $pipInstaller
+
+    # Set up pip environment
+    $env:PYTHONPATH = $sitePackagesDir
+
+    # Install numpy
+    Write-Host "Installing NumPy $NUMPY_VERSION..."
+    $pipExe = Join-Path $BUILD_DIR "Scripts\pip.exe"
+    & $pipExe install --upgrade "numpy==$NUMPY_VERSION" --target=$sitePackagesDir
+
+    # Create numpy include directory
+    $numpyIncludeDir = Join-Path $PYTHON_INSTALL_DIR "include\python$PYTHON_VERSION_MAJOR_MINOR\numpy"
+    New-Item -ItemType Directory -Path $numpyIncludeDir -Force | Out-Null
+
+    # Copy all numpy header files
+    $numpyInstallDir = Join-Path $sitePackagesDir "numpy"
+    $numpyHeaderSource = Get-ChildItem -Path $numpyInstallDir -Recurse -Filter "*.h"
+
+    foreach ($header in $numpyHeaderSource) {
+        $relativePath = $header.FullName.Replace($numpyInstallDir, "")
+        $targetPath = Join-Path $numpyIncludeDir $relativePath
+        $targetDir = Split-Path $targetPath -Parent
+
+        if (-not (Test-Path $targetDir)) {
+            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        }
+
+        Copy-Item $header.FullName $targetPath -Force
+    }
+
+    Remove-Item $pipInstaller -Force
+
+    Write-Host "NumPy installation and header setup completed"
 }
 
 # Configure and build Python
@@ -90,14 +139,15 @@ endlocal
     Pop-Location
 }
 
-# Install Dependencies and Set Up Directory Structure
-function Install-Dependencies {
+# Set up directory structure and copy files
+function Setup-Installation {
     Write-Host "Setting up directory structure..."
 
-    # Create Mac-like directory structure
+    # Create directories
     $includePath = "$PYTHON_INSTALL_DIR\include\python$PYTHON_VERSION_MAJOR_MINOR"
     $libPath = "$PYTHON_INSTALL_DIR\lib\python$PYTHON_VERSION_MAJOR_MINOR"
     $libCombinedPath = "$PYTHON_INSTALL_DIR\lib\combined"
+    $numpyIncludePath = "$PYTHON_INSTALL_DIR\lib\python$PYTHON_VERSION_MAJOR_MINOR\site-packages\numpy\core\include\numpy"
 
     New-Item -ItemType Directory -Force -Path @(
         $includePath,
@@ -105,10 +155,11 @@ function Install-Dependencies {
         "$includePath\internal",
         $libPath,
         $libCombinedPath,
-        "$PYTHON_INSTALL_DIR\bin"
+        "$PYTHON_INSTALL_DIR\bin",
+        (Split-Path $numpyIncludePath -Parent)
     ) | Out-Null
 
-    # Copy header files maintaining structure
+    # Copy Python header files
     Write-Host "Copying headers..."
     Copy-Item "$BUILD_DIR\Include\*" $includePath -Recurse -Force
     Copy-Item "$BUILD_DIR\PC\pyconfig.h" $includePath
@@ -127,13 +178,8 @@ function Install-Dependencies {
     }
 
     if (Test-Path $buildPath) {
-        # Copy to lib/combined
         Get-ChildItem -Path $buildPath -Filter "*.lib" | ForEach-Object {
             Copy-Item $_.FullName $libCombinedPath -Force
-        }
-
-        # Also copy to main lib directory
-        Get-ChildItem -Path $buildPath -Filter "*.lib" | ForEach-Object {
             Copy-Item $_.FullName "$PYTHON_INSTALL_DIR\lib" -Force
         }
     } else {
@@ -162,6 +208,7 @@ try {
     Check-Requirements
     Get-PythonSource
     Build-Python
+    Setup-Installation
     Install-Dependencies
     Cleanup
     Write-Host "Build completed successfully!"
