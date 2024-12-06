@@ -153,70 +153,55 @@ endlocal
 function Setup-Installation {
     Write-Host "Setting up directory structure..."
 
-    # Create directories
+    # Create directories following Mac structure
     $includePath = "$PYTHON_INSTALL_DIR\include\python$PYTHON_VERSION_MAJOR_MINOR"
     $libPath = "$PYTHON_INSTALL_DIR\lib\python$PYTHON_VERSION_MAJOR_MINOR"
     $libCombinedPath = "$PYTHON_INSTALL_DIR\lib\combined"
+    $binPath = "$PYTHON_INSTALL_DIR\bin"
+    $sitePackagesPath = "$libPath\site-packages"
 
     New-Item -ItemType Directory -Force -Path @(
         $includePath,
         "$includePath\cpython",
         "$includePath\internal",
         $libPath,
-        $libCombinedPath
+        $libCombinedPath,
+        $binPath,
+        $sitePackagesPath
     ) | Out-Null
 
-    # Copy Python header files
-    Write-Host "Copying headers..."
-    Copy-Item "$BUILD_DIR\Include\*" $includePath -Recurse -Force
-    Copy-Item "$BUILD_DIR\PC\pyconfig.h" $includePath
-
-    # Copy internal headers
-    Get-ChildItem "$BUILD_DIR\Include\internal" -Filter "*.h" -Recurse |
-        ForEach-Object {
-            Copy-Item $_.FullName "$includePath\internal" -Force
-        }
-
-    # Copy library files and DLLs
-    Write-Host "Copying libraries and DLLs..."
+    # Copy build outputs
+    Write-Host "Copying build outputs..."
     $buildPath = "$BUILD_DIR\PCbuild\amd64\Release"
     if (-not (Test-Path $buildPath)) {
         $buildPath = "$BUILD_DIR\PCbuild\amd64"
     }
 
     if (Test-Path $buildPath) {
-        # Copy .lib files
+        # Copy DLLs to bin directory
+        Get-ChildItem -Path $buildPath -Filter "*.dll" | ForEach-Object {
+            Copy-Item $_.FullName $binPath -Force
+        }
+
+        # Copy .lib files to combined
         Get-ChildItem -Path $buildPath -Filter "*.lib" | ForEach-Object {
             Copy-Item $_.FullName $libCombinedPath -Force
-            Copy-Item $_.FullName "$PYTHON_INSTALL_DIR\lib" -Force
-        }
-
-        # Copy DLLs directly to installation root for immediate path access
-        Get-ChildItem -Path $buildPath -Filter "*.dll" | ForEach-Object {
-            Copy-Item $_.FullName $PYTHON_INSTALL_DIR -Force
-        }
-
-        # Also copy all external DLLs that Python depends on
-        $externalsPath = "$BUILD_DIR\externals\*"
-        if (Test-Path $externalsPath) {
-            Get-ChildItem -Path $externalsPath -Filter "*.dll" -Recurse | ForEach-Object {
-                Copy-Item $_.FullName $PYTHON_INSTALL_DIR -Force
-            }
         }
     } else {
         throw "Build directory not found: $buildPath"
     }
 
-    # Copy Python standard library
+    # Copy headers
+    Write-Host "Copying headers..."
+    Copy-Item "$BUILD_DIR\Include\*" $includePath -Recurse -Force
+    Copy-Item "$BUILD_DIR\PC\pyconfig.h" $includePath
+
+    # Copy standard library
     Write-Host "Copying Python standard library..."
     Copy-Item "$BUILD_DIR\Lib\*" $libPath -Recurse -Force
 
     # Save version info
     $PYTHON_VERSION | Out-File -FilePath (Join-Path $PYTHON_INSTALL_DIR "VERSION")
-
-    # Set environment variables
-    Write-Host "Setting environment variables..."
-    [Environment]::SetEnvironmentVariable("PATH", "$PYTHON_INSTALL_DIR;$env:PATH", [EnvironmentVariableTarget]::Process)
 }
 
 # Cleanup temporary files and extracted source

@@ -1,8 +1,6 @@
 package computron
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/python_install/include/python3.9 -I${SRCDIR}/python_install/lib/python3.9/site-packages/numpy/core/include
-#cgo LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.9-combined -ldl
 #define PY_SSIZE_T_CLEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <Python.h>
@@ -63,7 +61,7 @@ import (
 )
 
 const (
-	targetPythonVersion             = "3.9.13"
+	targetPythonVersion             = "3.11.7"
 	dirPerm             os.FileMode = 0755
 	filePerm            os.FileMode = 0644
 )
