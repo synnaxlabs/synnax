@@ -238,30 +238,35 @@ class ChannelClient:
         virtual: bool = False,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
-        """Creates a new channel or set of channels in the cluster. Possible arguments
-        are as follows:
+        """Creates new channel(s) in the Synnax cluster.
 
         Overload 1:
-        :param data_type: The data type of the samples in the channel e.g np.int64
+        :param data_type: The data type of the samples in the channel. For example, `"float32"`.
         :param rate: Rate sets the rate at which the channels values are written. If this
         parameter is non-zero, is_index must be false and index must be an empty string or
         unspecified.
-        :param name: A human-readable name for the channel.
+        :param name: A name for the channel.
         :param is_index: Boolean indicating whether the channel is an index. Index
-        channels should have ax data type of synnax.TIMESTAMP.
-        :param index: The key or channel that indexes this channel.
+        channels should have a data type of synnax.TIMESTAMP.
+        :param index: The key of the channel that indexes this channel.
         :param leaseholder: The node that holds the lease for this channel. If you don't know
         what this is, leave it at the default value of 0.
+        :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
+        with the same name if they already exist in the cluster.
         :returns: The created channel.
 
         Overload 2:
 
         :param channels: A single channel to create.
+        :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
+        with the same name if they already exist in the cluster.
         :returns: The created channel.
 
         Overload 3:
 
         :param channels: A list of channels to create.
+        :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
+        with the same name if they already exist in the cluster.
         :returns: The created channels.
         """
 
