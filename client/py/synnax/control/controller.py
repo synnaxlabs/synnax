@@ -31,8 +31,7 @@ from synnax.timing import sleep
 
 
 class Processor(Protocol):
-    def process(self, state: Controller) -> Any:
-        ...
+    def process(self, state: Controller) -> Any: ...
 
 
 class WaitUntil(Processor):
@@ -146,12 +145,10 @@ class Controller:
         return self._receiver_opt
 
     @overload
-    def set(self, ch: ChannelKey | ChannelName, value: SampleValue):
-        ...
+    def set(self, ch: ChannelKey | ChannelName, value: SampleValue): ...
 
     @overload
-    def set(self, ch: dict[ChannelKey | ChannelName, SampleValue]):
-        ...
+    def set(self, ch: dict[ChannelKey | ChannelName, SampleValue]): ...
 
     def set(
         self,
@@ -194,23 +191,20 @@ class Controller:
     def set_authority(
         self,
         value: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName, CrudeAuthority],
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         ch: ChannelKey | ChannelName,
         value: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def set_authority(
         self,
@@ -397,12 +391,12 @@ class Controller:
             self.set(key, value)
 
     @overload
-    def get(self, ch: ChannelKey | ChannelName) -> int | float | None:
-        ...
+    def get(self, ch: ChannelKey | ChannelName) -> int | float | None: ...
 
     @overload
-    def get(self, ch: ChannelKey | ChannelName, default: int | float) -> int | float:
-        ...
+    def get(
+        self, ch: ChannelKey | ChannelName, default: int | float
+    ) -> int | float: ...
 
     def get(
         self, ch: ChannelKey | ChannelName, default: int | float = None

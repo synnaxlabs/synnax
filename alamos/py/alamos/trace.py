@@ -25,8 +25,7 @@ from alamos.noop import noop as noopd, Noop
 
 
 class Carrier(Protocol):
-    def set(self, key: str, value: str) -> None:
-        ...
+    def set(self, key: str, value: str) -> None: ...
 
 
 class Span(Protocol):
@@ -76,8 +75,7 @@ class NoopSpan:
     def _(self) -> Span:
         return self
 
-    def record_exception(self, exc: Exception | None) -> None:
-        ...
+    def record_exception(self, exc: Exception | None) -> None: ...
 
 
 _NOOP_SPAN = NoopSpan()
