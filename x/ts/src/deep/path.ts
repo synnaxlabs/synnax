@@ -163,7 +163,12 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
     result[part] ??= {};
     result = result[part] as UnknownRecord;
   }
-  result[parts[parts.length - 1]] = value;
+  try {
+    result[parts[parts.length - 1]] = value;
+  } catch (e) {
+    console.error("failed to set value", value, "at path", path, "on object", obj);
+    throw e;
+  }
 };
 
 /**

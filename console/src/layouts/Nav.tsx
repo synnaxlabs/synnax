@@ -37,6 +37,7 @@ import { Persist } from "@/persist";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
+import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
@@ -64,6 +65,7 @@ const COMMANDS = [
   ...LabelServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...LogServices.COMMANDS,
+  ...TableServices.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => (

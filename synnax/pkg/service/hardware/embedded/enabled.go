@@ -18,7 +18,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -95,6 +94,10 @@ func (d *Driver) start() error {
 		if err != nil {
 			return err
 		}
+		d.stdInPipe, err = d.cmd.StdinPipe()
+		if err != nil {
+			return err
+		}
 
 		if err := d.cmd.Start(); err != nil {
 			return err
@@ -139,6 +142,21 @@ func (d *Driver) start() error {
 		return err
 	}
 	sCtx.Go(mf)
+	return nil
+}
+
+const stopKeyword = "STOP\n"
+
+func (d *Driver) Stop() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.shutdown != nil && d.cmd != nil && d.cmd.Process != nil {
+		if _, err := d.stdInPipe.Write([]byte(stopKeyword)); err != nil {
+			return err
+		}
+		err := d.shutdown.Close()
+		return err
+	}
 	return nil
 }
 
@@ -190,15 +208,4 @@ func pipeOutputToLogger(reader io.ReadCloser, logger *alamos.Logger) {
 	if err := scanner.Err(); err != nil {
 		logger.Error("Error reading from std pipe", zap.Error(err))
 	}
-}
-
-func (d *Driver) Stop() error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.shutdown != nil && d.cmd != nil && d.cmd.Process != nil {
-		d.cmd.Process.Signal(syscall.SIGINT)
-		err := d.shutdown.Close()
-		return err
-	}
-	return nil
 }

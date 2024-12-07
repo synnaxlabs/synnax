@@ -40,11 +40,9 @@ class _Response(Payload):
 class ChannelRetriever(Protocol):
     """Protocol for retrieving channel payloads from the cluster."""
 
-    def retrieve(self, channels: ChannelParams) -> list[ChannelPayload]:
-        ...
+    def retrieve(self, channels: ChannelParams) -> list[ChannelPayload]: ...
 
-    def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload:
-        ...
+    def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload: ...
 
 
 _ENDPOINT = "/channel/retrieve"

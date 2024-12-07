@@ -69,7 +69,7 @@ export const NavDrawer = ({ location: l, ...props }: NavDrawerProps): ReactEleme
       activeItem={activeItem}
       onResize={onResize}
       onSelect={onSelect}
-      {...props}
+      // {...props}
     />
   );
 };

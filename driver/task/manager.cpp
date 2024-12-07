@@ -34,18 +34,17 @@ const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
-freighter::Error task::Manager::start(std::atomic<bool> &done) {
+freighter::Error task::Manager::start() {
     if (breaker.running()) return freighter::NIL;
     VLOG(1) << "[driver] starting up";
     const auto err = startGuarded();
     breaker.start();
     if (err) {
-        if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
-        done = true;
+        if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start();
         return err;
     }
     breaker.reset();
-    run_thread = std::thread(&Manager::run, this, std::ref(done));
+    run_thread = std::thread(&Manager::run, this);
     return freighter::NIL;
 }
 
@@ -88,11 +87,9 @@ freighter::Error task::Manager::startGuarded() {
 }
 
 
-void task::Manager::run(std::atomic<bool> &done) {
+void task::Manager::run() {
     const auto err = runGuarded();
-    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) return run(done);
-    done = true;
-    done.notify_all();
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) return run();
     run_err = err;
     VLOG(1) << "[driver] run thread exiting";
 }
@@ -102,6 +99,7 @@ freighter::Error task::Manager::stop() {
     if (!run_thread.joinable()) return freighter::NIL;
     streamer->closeSend();
     breaker.stop();
+    run_thread.join();
     for (auto &[key, task]: tasks) {
         LOG(INFO) << "[driver] stopping task " << task->name();
         task->stop();
@@ -118,7 +116,7 @@ freighter::Error task::Manager::runGuarded() {
         .channels = stream_channels
     });
     if (open_err) return open_err;
-    streamer = std::make_unique<Streamer>(std::move(s));
+    this->streamer = std::make_unique<Streamer>(std::move(s));
 
     LOG(INFO) << "[driver] operational";
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.

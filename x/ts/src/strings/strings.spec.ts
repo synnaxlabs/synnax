@@ -62,7 +62,3 @@ describe("generateShortIdentifiers", () => {
       expect.arrayContaining(["ab", "a_b", "alibob", "ali_bob"]),
     ));
 });
-
-console.log(generateShortIdentifiers("John Doe")); // ["jd", "j_d", "johdoe", "joh_doe"]
-console.log(generateShortIdentifiers("Alice 123")); // ["a1", "a_1", "ali123", "ali_123"]
-console.log(generateShortIdentifiers("Bob")); // ["bob"]

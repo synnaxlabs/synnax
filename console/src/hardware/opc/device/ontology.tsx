@@ -12,18 +12,14 @@ import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
-import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
-import { configureWriteLayout } from "@/hardware/opc/task/WriteTask";
+import { configureReadLayout } from "@/hardware/opc/task/Read";
+import { configureWriteLayout } from "@/hardware/opc/task/Write";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
 interface Args {
   create: boolean;
-  initialValues: {
-    config: {
-      device: string;
-    };
-  };
+  initialValues: { config: { device: string } };
 }
 
 export const ContextMenuItems = ({

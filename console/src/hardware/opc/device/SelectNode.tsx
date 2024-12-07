@@ -21,22 +21,10 @@ interface NodeEntry extends NodeId {
 }
 
 const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
-  {
-    name: "Name",
-    key: "name",
-  },
-  {
-    name: "Identifier",
-    key: "identifier",
-  },
-  {
-    name: "Namespace",
-    key: "namespaceIndex",
-  },
-  {
-    name: "Data Type",
-    key: "dataType",
-  },
+  { name: "Name", key: "name" },
+  { name: "Identifier", key: "identifier" },
+  { name: "Namespace", key: "namespaceIndex" },
+  { name: "Data Type", key: "dataType" },
   {
     name: "Is Array",
     key: "isArray",

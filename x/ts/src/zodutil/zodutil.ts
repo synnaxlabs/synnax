@@ -63,7 +63,10 @@ export const transformer =
     schemas: ZodSchema<Input>[],
   ): ((value: unknown) => Output | null) =>
   (value) => {
-    const matchingSchema = schemas.find((schema) => schema.safeParse(value).success);
+    const matchingSchema = schemas.find((schema) => {
+      const res = schema.safeParse(value);
+      return res.success;
+    });
     if (matchingSchema == null) return null;
     return transform(matchingSchema.parse(value));
   };

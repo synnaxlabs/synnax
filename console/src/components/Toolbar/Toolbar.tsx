@@ -17,7 +17,12 @@ import { CSS } from "@/css";
 export const ToolbarHeader = (
   props: Omit<Header.HeaderProps, "level" | "divided">,
 ): ReactElement => (
-  <Header.Header className={CSS.B("toolbar-header")} level="h5" {...props} />
+  <Header.Header
+    className={CSS.B("toolbar-header")}
+    level="h5"
+    shrink={false}
+    {...props}
+  />
 );
 
 export interface ToolbarTitleProps extends Pick<Header.TitleProps, "children"> {

@@ -530,7 +530,7 @@ export const Tree = (): ReactElement => {
 
   const item = useCallback(
     (props: Core.ItemProps): ReactElement => (
-      <AdapterItem {...props} key={props.entry.key} services={services} />
+      <AdapterItem {...props} key={props.entry.path} services={services} />
     ),
     [services],
   );
@@ -564,7 +564,7 @@ const AdapterItem = memo<AdapterItemProps>(
   ({ loading, services, ...props }): ReactElement => {
     const id = new ontology.ID(props.entry.key);
     const Item = useMemo(() => services[id.type]?.Item ?? Core.DefaultItem, [id.type]);
-    return <Item key={props.entry.key} loading={loading} {...props} />;
+    return <Item loading={loading} {...props} />;
   },
 );
 AdapterItem.displayName = "AdapterItem";
