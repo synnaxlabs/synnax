@@ -192,11 +192,14 @@ func (s *streamClient[RQ, RS]) Stream(
 				},
 			)
 			msg, err := core.receive()
+			if err != nil {
+				return
+			}
 			if msg.Type != msgTypeOpen {
 				return oCtx, errors.Decode(ctx, msg.Err)
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
-			return oCtx, nil
+			return
 		}),
 	)
 	return stream, err
