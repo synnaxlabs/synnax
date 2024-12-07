@@ -28,28 +28,22 @@ import { Lines } from "@/lineplot/toolbar/Lines";
 import { Properties } from "@/lineplot/toolbar/Properties";
 import { Link } from "@/link";
 
+interface Tab {
+  tabKey: ToolbarTab;
+  name: string;
+}
+
+const TABS: Tab[] = [
+  { tabKey: "data", name: "Data" },
+  { tabKey: "lines", name: "Lines" },
+  { tabKey: "axes", name: "Axes" },
+  { tabKey: "properties", name: "Properties" },
+  { tabKey: "annotations", name: "Annotations" },
+];
+
 export interface ToolbarProps {
   layoutKey: string;
 }
-
-const TABS = [
-  {
-    tabKey: "data",
-    name: "Data",
-  },
-  {
-    tabKey: "lines",
-    name: "Lines",
-  },
-  {
-    tabKey: "axes",
-    name: "Axes",
-  },
-  {
-    tabKey: "properties",
-    name: "Properties",
-  },
-];
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
@@ -57,7 +51,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const toolbar = useSelectToolbar();
   const state = useSelect(layoutKey);
   const handleExport = useExport(name);
-
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       switch (tabKey) {
@@ -68,23 +61,20 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         case "properties":
           return <Properties layoutKey={layoutKey} />;
         case "annotations":
-          return <Annotations layoutKey={layoutKey} />;
+          return <Annotations linePlotKey={layoutKey} />;
         default:
           return <Data layoutKey={layoutKey} />;
       }
     },
     [layoutKey],
   );
-
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
     },
     [dispatch],
   );
-
   if (state == null) return null;
-
   return (
     <Align.Space empty className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider

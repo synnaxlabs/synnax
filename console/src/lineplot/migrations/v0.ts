@@ -21,17 +21,11 @@ import {
 
 // |||||| TITLE ||||||
 
-export const titleStateZ = z.object({
-  level: Text.levelZ,
-  visible: z.boolean(),
-});
+export const titleStateZ = z.object({ level: Text.levelZ, visible: z.boolean() });
 
 export type TitleState = z.infer<typeof titleStateZ>;
 
-export const ZERO_TITLE_STATE: TitleState = {
-  level: "h4",
-  visible: false,
-};
+export const ZERO_TITLE_STATE: TitleState = { level: "h4", visible: false };
 
 // |||||| LEGEND ||||||
 
@@ -39,9 +33,7 @@ export const legendStateZ = z.object({ visible: z.boolean() });
 
 export type LegendState = z.infer<typeof legendStateZ>;
 
-const ZERO_LEGEND_STATE = {
-  visible: true,
-};
+const ZERO_LEGEND_STATE = { visible: true };
 
 // |||||| VIEWPORT ||||||
 
@@ -61,15 +53,11 @@ export const ZERO_VIEWPORT_STATE: ViewportState = {
 
 // ||||||| SELECTION |||||||
 
-export const selectionStateZ = z.object({
-  box: box.box,
-});
+export const selectionStateZ = z.object({ box: box.box });
 
 export type SelectionState = z.infer<typeof selectionStateZ>;
 
-export const ZERO_SELECTION_STATE: SelectionState = {
-  box: box.ZERO,
-};
+export const ZERO_SELECTION_STATE: SelectionState = { box: box.ZERO };
 
 // |||||| AXES ||||||
 
@@ -145,7 +133,7 @@ export const rulesStateZ = z.array(ruleStateZ);
 export type RulesState = z.infer<typeof rulesStateZ>;
 
 export const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
-  color: "#ffffff",
+  color: "#3774D0",
   label: "",
   axis: "y1",
   lineWidth: 2,
@@ -172,10 +160,10 @@ export type ChannelsState = MultiYAxisRecord<number[]> & XAxisRecord<number>;
 export const ZERO_CHANNELS_STATE: z.infer<typeof channelsStateZ> = {
   x1: 0,
   x2: 0,
-  y1: [] as number[],
-  y2: [] as number[],
-  y3: [] as number[],
-  y4: [] as number[],
+  y1: [],
+  y2: [],
+  y3: [],
+  y4: [],
 };
 
 export const shouldDisplayAxis = (key: AxisKey, state: State): boolean => {
@@ -194,10 +182,7 @@ export const rangesStateZ = z.object({
 
 export type RangesState = z.infer<typeof rangesStateZ>;
 
-export const ZERO_RANGES_STATE: RangesState = {
-  x1: [] as string[],
-  x2: [] as string[],
-};
+export const ZERO_RANGES_STATE: RangesState = { x1: [], x2: [] };
 
 export type SugaredRangesState = MultiXAxisRecord<Range>;
 
@@ -268,13 +253,9 @@ const LINE_TOOLBAR_TABS = [
 export const toolbarTabZ = z.enum(LINE_TOOLBAR_TABS);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
-export const toolbarStateZ = z.object({
-  activeTab: toolbarTabZ,
-});
+export const toolbarStateZ = z.object({ activeTab: toolbarTabZ });
 export type ToolbarState = z.infer<typeof toolbarStateZ>;
-export const ZERO_TOOLBAR_STATE: ToolbarState = {
-  activeTab: "data",
-};
+export const ZERO_TOOLBAR_STATE: ToolbarState = { activeTab: "data" };
 
 export const CLICK_MODES = ["annotate", "measure"] as const;
 export const clickModeZ = z.enum(CLICK_MODES);
