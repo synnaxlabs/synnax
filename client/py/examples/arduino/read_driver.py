@@ -39,13 +39,15 @@ else:
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_value"],
-    enable_auto_commit=True
+    enable_auto_commit=True,
 ) as writer:
     while True:
         # Read from the serial connection
         value = float(ser.readline().decode("utf-8").rstrip())
         print(value)
-        writer.write({
-            "arduino_time": sy.TimeStamp.now(),
-            "arduino_value": value,
-        })
+        writer.write(
+            {
+                "arduino_time": sy.TimeStamp.now(),
+                "arduino_value": value,
+            }
+        )

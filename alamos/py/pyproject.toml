@@ -16,7 +16,7 @@ uptrace = "^1.28.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
-black = "^23.3.0"
+black = "^24.10.0"
 pytest-asyncio = "^0.23.7"
 pytest-cov = "^4.0.0"
 isort = "^5.12.0"

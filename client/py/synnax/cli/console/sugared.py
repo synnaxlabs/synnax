@@ -64,8 +64,7 @@ class SugaredConsole:
         choices: list[R] | None = None,
         password: bool = False,
         **kwargs: Unpack[AskKwargs[R]],
-    ) -> R:
-        ...
+    ) -> R: ...
 
     @overload
     def ask(
@@ -75,8 +74,7 @@ class SugaredConsole:
         choices: list[str] | None = None,
         password: bool = False,
         **kwargs: Unpack[DefaultAskKwargs[R]],
-    ) -> R:
-        ...
+    ) -> R: ...
 
     @overload
     def ask(
@@ -134,8 +132,7 @@ class SugaredConsole:
     @overload
     def select(
         self, rows: list[R], type_: type[R] = str, **kwargs: Unpack[DefaultAskKwargs[R]]
-    ) -> tuple[R, int]:
-        ...
+    ) -> tuple[R, int]: ...
 
     @overload
     def select(
@@ -145,8 +142,7 @@ class SugaredConsole:
         columns: list[str] | None = None,
         key: str | None = None,
         **kwargs: Unpack[DefaultAskKwargs[R]],
-    ) -> tuple[R, int]:
-        ...
+    ) -> tuple[R, int]: ...
 
     @overload
     def select(
@@ -155,8 +151,7 @@ class SugaredConsole:
         type_: type[R],
         columns: list[str] | None = None,
         **kwargs: Unpack[AskKwargs[R]],
-    ) -> tuple[R, int]:
-        ...
+    ) -> tuple[R, int]: ...
 
     @overload
     def select(
@@ -165,8 +160,7 @@ class SugaredConsole:
         type_: type[R],
         columns: list[str] | None = None,
         **kwargs: Unpack[NoneDefaultAskKwargs[R]],
-    ) -> tuple[R | None, int | None]:
-        ...
+    ) -> tuple[R | None, int | None]: ...
 
     def select(
         self,

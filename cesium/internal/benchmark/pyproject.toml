@@ -11,7 +11,7 @@ packages = [
 ]
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.0.7"
-
+black = "^24.10.0"
 
 [tool.isort]
 profile = "black"
