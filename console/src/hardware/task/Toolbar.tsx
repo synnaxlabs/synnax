@@ -34,7 +34,7 @@ import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { checkDesiredStateMatch } from "@/hardware/task/common/useDesiredState";
-import { createTaskLayout } from "@/hardware/task/ontology";
+import { createLayout } from "@/hardware/task/ontology";
 import { createSelector } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
@@ -241,14 +241,14 @@ const Content = (): ReactElement => {
         const someSelected = selected.length > 0;
         const isSingle = selected.length === 1;
         const handleEdit = (key: string): void => {
-          const type = tasks.find((t) => t.key === key)?.type;
-          if (type == null)
+          const task = tasks.find((t) => t.key === key);
+          if (task == null)
             return addStatus({
               variant: "error",
               message: "Failed to open task details",
               description: `Task with key ${key} not found`,
             });
-          const layout = createTaskLayout(key, type);
+          const layout = createLayout(task);
           place(layout);
         };
         return (

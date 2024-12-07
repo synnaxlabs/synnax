@@ -41,6 +41,7 @@ import {
   type Properties,
 } from "@/hardware/labjack/device/types";
 import { SelectDevice } from "@/hardware/labjack/task/common";
+import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
 import {
   inputChan,
   type Read,
@@ -68,7 +69,6 @@ import {
   Controls,
   EnableDisableButton,
   TareButton,
-  type TaskLayoutArgs,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -81,26 +81,17 @@ import {
 } from "@/hardware/task/common/useDesiredState";
 import { type Layout } from "@/layout";
 
-type LayoutArgs = TaskLayoutArgs<ReadPayload>;
-
-export const configureReadLayout = (
-  args: LayoutArgs = { create: false },
-): Layout.State<TaskLayoutArgs<ReadPayload>> => ({
-  name: "Configure LabJack Read Task",
-  type: READ_TYPE,
-  key: id.id(),
-  icon: "Logo.LabJack",
-  windowKey: READ_TYPE,
-  location: "mosaic",
-  args,
-});
+export const createReadLayout = createLayoutCreator<ReadPayload>(
+  READ_TYPE,
+  "New LabJack Read Task",
+);
 
 export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
   create: (layoutKey) => ({
-    ...configureReadLayout({ create: true }),
+    ...createReadLayout({ create: true }),
     key: layoutKey,
   }),
 };

@@ -9,7 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 
-import { createTaskLayout } from "@/hardware/task/ontology";
+import { retrieveAndPlaceLayout } from "@/hardware/task/ontology";
 import { type Link } from "@/link";
 
 export const linkHandler: Link.Handler = async ({
@@ -21,9 +21,7 @@ export const linkHandler: Link.Handler = async ({
 }): Promise<boolean> => {
   if (resource !== task.ONTOLOGY_TYPE) return false;
   try {
-    const task_ = await client.hardware.tasks.retrieve(resourceKey);
-    const layout = createTaskLayout(resourceKey, task_.type);
-    placer(layout);
+    await retrieveAndPlaceLayout(client, resourceKey, placer);
   } catch (e) {
     if (!(e instanceof Error)) throw e;
     addStatus({

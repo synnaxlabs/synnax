@@ -58,7 +58,7 @@ export const useName = (key: channel.Key, def: string = ""): string => {
   const [name, setName] = useState<string | undefined>(def);
   useAsyncEffect(async () => {
     const n = await getName(key);
-    if (n != null) setName(n);
+    setName(n);
   }, [key, getName]);
   return name ?? def;
 };

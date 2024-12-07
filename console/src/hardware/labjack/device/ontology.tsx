@@ -11,8 +11,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
 
 import { createConfigureLayout } from "@/hardware/labjack/device/Configure";
-import { configureReadLayout } from "@/hardware/labjack/task/Read";
-import { configureWriteLayout } from "@/hardware/labjack/task/Write";
+import { createReadLayout } from "@/hardware/labjack/task/Read";
+import { createWriteLayout } from "@/hardware/labjack/task/Write";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
@@ -37,11 +37,11 @@ export const ContextMenuItems = ({
   };
   const handleCreateReadTask = () => {
     maybeConfigure();
-    placer(configureReadLayout(args));
+    placer(createReadLayout(args));
   };
   const handleCreateWriteTask = () => {
     maybeConfigure();
-    placer(configureWriteLayout(args));
+    placer(createWriteLayout(args));
   };
   if (!isSingle) return null;
   return (

@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { configureReadLayout } from "@/hardware/opc/task/Read";
-import { configureWriteLayout } from "@/hardware/opc/task/Write";
+import { createWriteLayout } from "@/hardware/opc/task/Write";
 import { type Command } from "@/palette/Palette";
 
 const createReadTaskCommand: Command = {
@@ -24,7 +24,7 @@ const createWriteTaskCommand: Command = {
   key: "opc-create-write-task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  onSelect: ({ placeLayout }) => placeLayout(configureWriteLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(createWriteLayout({ create: true })),
 };
 
 export const COMMANDS = [createReadTaskCommand, createWriteTaskCommand];

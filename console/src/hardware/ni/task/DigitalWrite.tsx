@@ -21,6 +21,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
+import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   type Chan,
   DIGITAL_WRITE_TYPE,
@@ -40,7 +41,6 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
-  type TaskLayoutArgs,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -52,24 +52,17 @@ import {
 } from "@/hardware/task/common/useDesiredState";
 import { type Layout } from "@/layout";
 
-export const configureDigitalWriteLayout = (
-  args: TaskLayoutArgs<DigitalWritePayload> = { create: true },
-): Layout.State<TaskLayoutArgs<DigitalWritePayload>> => ({
-  name: "Configure NI Digital Write Task",
-  key: id.id(),
-  icon: "Logo.NI",
-  type: DIGITAL_WRITE_TYPE,
-  windowKey: DIGITAL_WRITE_TYPE,
-  location: "mosaic",
-  args,
-});
+export const createDigitalWriteLayout = createLayoutCreator<DigitalWritePayload>(
+  DIGITAL_WRITE_TYPE,
+  "New NI Digital Write Task",
+);
 
 export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
   create: (layoutKey) => ({
-    ...configureDigitalWriteLayout({ create: true }),
+    ...createDigitalWriteLayout({ create: true }),
     key: layoutKey,
   }),
 };

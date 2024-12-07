@@ -10,8 +10,8 @@
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon } from "@synnaxlabs/pluto";
 
-import { configureReadLayout } from "@/hardware/labjack/task/Read";
-import { configureWriteLayout } from "@/hardware/labjack/task/Write";
+import { createReadLayout } from "@/hardware/labjack/task/Read";
+import { createWriteLayout } from "@/hardware/labjack/task/Write";
 import { type Command } from "@/palette/Palette";
 
 const createReadTaskCommand: Command = {
@@ -22,8 +22,7 @@ const createReadTaskCommand: Command = {
       <Icon.Logo.LabJack />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) =>
-    placeLayout(() => configureReadLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(() => createReadLayout({ create: true })),
 };
 
 const createWriteTaskCommand: Command = {
@@ -34,7 +33,7 @@ const createWriteTaskCommand: Command = {
       <Icon.Logo.LabJack />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) => placeLayout(configureWriteLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(createWriteLayout({ create: true })),
 };
 
 export const COMMANDS = [createReadTaskCommand, createWriteTaskCommand];

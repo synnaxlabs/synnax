@@ -42,6 +42,7 @@ import { z } from "zod";
 
 import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
+import { type LayoutArgs } from "@/hardware/task/common/createLayoutCreator";
 import { Layout } from "@/layout";
 import { overviewLayout } from "@/range/external";
 
@@ -66,16 +67,14 @@ export const ChannelListEmptyContent = ({
   onAdd,
   snapshot = false,
 }: ChannelListEmptyContentProps) => (
-  <Align.Space direction="y" style={{ height: "100%" }}>
-    <Align.Center direction="y">
-      <Text.Text level="p">No channels in task.</Text.Text>
-      {!snapshot && (
-        <Text.Link level="p" onClick={onAdd}>
-          Add a channel
-        </Text.Link>
-      )}
-    </Align.Center>
-  </Align.Space>
+  <Align.Center direction="y" justify="center">
+    <Text.Text level="p">No channels in task.</Text.Text>
+    {!snapshot && (
+      <Text.Link level="p" onClick={onAdd}>
+        Add a channel
+      </Text.Link>
+    )}
+  </Align.Center>
 );
 
 interface ChannelListContextMenuProps<T> {
@@ -326,19 +325,20 @@ export const EnableDisableButton = ({
   snapshot = false,
 }: EnableDisableButtonProps) => (
   <Button.ToggleIcon
-    checkedVariant={snapshot ? "preview" : "outlined"}
+    checkedVariant={snapshot ? "preview" : undefined}
     uncheckedVariant={snapshot ? "preview" : "outlined"}
     className={CSS.B("enable-disable-button")}
     disabled={disabled}
     value={value}
     size="small"
     onClick={(e) => e.stopPropagation()}
-    onChange={(v) => onChange(v)}
+    onChange={onChange}
     tooltip={
-      <Text.Text level="small" style={{ maxWidth: 300 }}>
-        Data acquisition for this channel is {value ? "enabled" : "info"}. Click to
-        {value ? " disable" : " enable"} it.
-      </Text.Text>
+      snapshot ? undefined : (
+        <Text.Text level="small" style={{ maxWidth: 300 }}>
+          {value ? "Disable" : "Enable"} data acquisition
+        </Text.Text>
+      )
     }
   >
     <Status.Circle variant={value ? "success" : "disabled"} />
@@ -391,11 +391,6 @@ export interface WrappedTaskLayoutProps<T extends task.Task, P extends task.Payl
   initialValues: P;
 }
 
-export interface TaskLayoutArgs<P extends task.Payload> {
-  create: boolean;
-  initialValues?: deep.Partial<P>;
-}
-
 export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
   Wrapped: FC<WrappedTaskLayoutProps<T, P>>,
   zeroPayload: P,
@@ -403,7 +398,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const client = Synnax.use();
-    const args = Layout.useSelectArgs<TaskLayoutArgs<P>>(layoutKey);
+    const args = Layout.useSelectArgs<LayoutArgs<P>>(layoutKey);
     const altKey = Layout.useSelectAltKey(layoutKey);
     const id = useId();
     // The query can't take into account state changes, so we need to use a unique

@@ -10,11 +10,11 @@
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon } from "@synnaxlabs/pluto";
 
-import { configureAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
-import { configureDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
-import { configureDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
-import { SCAN_TYPE, ScanConfig } from "@/hardware/ni/task/migrations";
-import { Command } from "@/palette/Palette";
+import { createAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
+import { createDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
+import { createDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
+import { type ScanConfig } from "@/hardware/ni/task/migrations";
+import { type Command } from "@/palette/Palette";
 
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",
@@ -25,7 +25,7 @@ export const createAnalogReadTaskCommand: Command = {
     </PIcon.Create>
   ),
   onSelect: ({ placeLayout }) =>
-    placeLayout(() => configureAnalogReadLayout({ create: true })),
+    placeLayout(() => createAnalogReadLayout({ create: true })),
 };
 
 export const createDigitalWriteTaskCommand: Command = {
@@ -37,7 +37,7 @@ export const createDigitalWriteTaskCommand: Command = {
     </PIcon.Create>
   ),
   onSelect: ({ placeLayout }) =>
-    placeLayout(configureDigitalWriteLayout({ create: true })),
+    placeLayout(createDigitalWriteLayout({ create: true })),
 };
 
 export const createDigitalReadTaskCommand: Command = {
@@ -48,8 +48,7 @@ export const createDigitalReadTaskCommand: Command = {
       <Icon.Logo.NI />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) =>
-    placeLayout(configureDigitalReadLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(createDigitalReadLayout({ create: true })),
 };
 
 export const toggleNIScanner: Command = {
@@ -64,11 +63,12 @@ export const toggleNIScanner: Command = {
     if (client == null) return;
     void (async () => {
       try {
-        const tsk = await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
+        const tsk =
+          await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
         const enabled = tsk.config.enabled ?? true;
         client.hardware.tasks.create<ScanConfig>({
           ...tsk.payload,
-          config: { enabled  : !enabled },
+          config: { enabled: !enabled },
         });
         addStatus({
           variant: "success",
