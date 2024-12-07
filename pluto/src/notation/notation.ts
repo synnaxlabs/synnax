@@ -13,8 +13,6 @@ export const NOTATIONS = ["standard", "scientific", "engineering"] as const;
 export const notationZ = z.enum(NOTATIONS);
 export type Notation = z.infer<typeof notationZ>;
 
-// precision must be between 0 and 20
-
 /**
  * Converts a number to a string representation with a specified precision and notation.
  *

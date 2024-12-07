@@ -42,22 +42,8 @@ const handleSelect: Ontology.HandleSelect = ({
   const layout = Layout.selectActiveMosaicLayout(state);
   if (selection.length === 0) return;
 
-  // If no layout is selected, create a new line plot and add the selected channels
-  // to it.
-  if (layout == null) {
-    placeLayout(
-      LinePlot.create({
-        channels: {
-          ...LinePlot.ZERO_CHANNELS_STATE,
-          y1: selection.map((s) => Number(s.id.key)),
-        },
-      }),
-    );
-    return;
-  }
-
   // Otherwise, update the layout with the selected channels.
-  switch (layout.type) {
+  switch (layout?.type) {
     case LinePlot.LAYOUT_TYPE:
       store.dispatch(
         LinePlot.setYChannels({
@@ -65,6 +51,16 @@ const handleSelect: Ontology.HandleSelect = ({
           mode: "add",
           axisKey: "y1",
           channels: selection.map((s) => Number(s.id.key)),
+        }),
+      );
+      break;
+    default:
+      placeLayout(
+        LinePlot.create({
+          channels: {
+            ...LinePlot.ZERO_CHANNELS_STATE,
+            y1: selection.map((s) => Number(s.id.key)),
+          },
         }),
       );
   }

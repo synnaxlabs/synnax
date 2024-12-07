@@ -227,12 +227,13 @@ const slice = createSlice({
     },
     setWindowLabel: (s: SliceState, a: PayloadAction<SetWindowLabelPayload>) => {
       s.label = a.payload.label;
-      if (s.label !== MAIN_WINDOW && !s.config.enablePrerender) return;
-      const prerenderLabel = id.id();
-      s.windows[prerenderLabel] = {
-        ...s.config.defaultWindowProps,
-        ...INITIAL_PRERENDER_WINDOW_STATE,
-      };
+      if (s.label === MAIN_WINDOW && s.config.enablePrerender) {
+        const prerenderLabel = id.id();
+        s.windows[prerenderLabel] = {
+          ...s.config.defaultWindowProps,
+          ...INITIAL_PRERENDER_WINDOW_STATE,
+        };
+      }
     },
     createWindow: (s: SliceState, { payload }: PayloadAction<CreateWindowPayload>) => {
       if (payload.key === PRERENDER_WINDOW) return;

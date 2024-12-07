@@ -14,6 +14,7 @@
 package api
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 	"go/types"
 
 	"github.com/samber/lo"
@@ -59,6 +60,7 @@ type Config struct {
 	Schematic     *schematic.Service
 	LinePlot      *lineplot.Service
 	Log           *log.Service
+	Table         *table.Service
 	Token         *token.Service
 	Label         *label.Service
 	Hardware      *hardware.Service
@@ -94,6 +96,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "insecure", c.Insecure)
 	validate.NotNil(v, "label", c.Label)
 	validate.NotNil(v, "log", c.Log)
+	validate.NotNil(v, "table", c.Table)
 	return v.Error()
 }
 
@@ -120,6 +123,7 @@ func (c Config) Override(other Config) Config {
 	c.Label = override.Nil(c.Label, other.Label)
 	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
 	c.Hardware = override.Nil(c.Hardware, other.Hardware)
+	c.Table = override.Nil(c.Table, other.Table)
 	return c
 }
 
@@ -186,6 +190,12 @@ type Transport struct {
 	LogDelete   freighter.UnaryServer[LogDeleteRequest, types.Nil]
 	LogRename   freighter.UnaryServer[LogRenameRequest, types.Nil]
 	LogSetData  freighter.UnaryServer[LogSetDataRequest, types.Nil]
+	// TABLE
+	TableCreate   freighter.UnaryServer[TableCreateRequest, TableCreateResponse]
+	TableRetrieve freighter.UnaryServer[TableRetrieveRequest, TableRetrieveResponse]
+	TableDelete   freighter.UnaryServer[TableDeleteRequest, types.Nil]
+	TableRename   freighter.UnaryServer[TableRenameRequest, types.Nil]
+	TableSetData  freighter.UnaryServer[TableSetDataRequest, types.Nil]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
@@ -231,6 +241,7 @@ type API struct {
 	Schematic    *SchematicService
 	LinePlot     *LinePlotService
 	Log          *LogService
+	Table        *TableService
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
@@ -331,6 +342,13 @@ func (a *API) BindTo(t Transport) {
 		t.LogDelete,
 		t.LogRename,
 		t.LogSetData,
+
+		// TABLE
+		t.TableCreate,
+		t.TableRetrieve,
+		t.TableDelete,
+		t.TableRename,
+		t.TableSetData,
 
 		// LABEL
 		t.LabelCreate,
@@ -436,6 +454,13 @@ func (a *API) BindTo(t Transport) {
 	t.LogRename.BindHandler(a.Log.Rename)
 	t.LogSetData.BindHandler(a.Log.SetData)
 
+	// TABLE
+	t.TableCreate.BindHandler(a.Table.Create)
+	t.TableRetrieve.BindHandler(a.Table.Retrieve)
+	t.TableDelete.BindHandler(a.Table.Delete)
+	t.TableRename.BindHandler(a.Table.Rename)
+	t.TableSetData.BindHandler(a.Table.SetData)
+
 	// LABEL
 	t.LabelCreate.BindHandler(a.Label.Create)
 	t.LabelRetrieve.BindHandler(a.Label.Retrieve)
@@ -483,5 +508,6 @@ func New(configs ...Config) (API, error) {
 	api.Label = NewLabelService(api.provider)
 	api.Hardware = NewHardwareService(api.provider)
 	api.Log = NewLogService(api.provider)
+	api.Table = NewTableService(api.provider)
 	return api, nil
 }

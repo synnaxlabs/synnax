@@ -21,7 +21,7 @@ import {
   xy,
 } from "@/spatial/base";
 
-export { type ClientXY as Client, clientXY, type XY,xy };
+export { type ClientXY as Client, clientXY, type XY, xy };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
@@ -143,10 +143,10 @@ export const distance = (ca: Crude, cb: Crude): number => {
  * @returns the translation that would need to be applied to move the first coordinate
  * to the second coordinate.
  */
-export const translation = (ca: Crude, cb: Crude): XY => {
-  const a = construct(ca);
-  const b = construct(cb);
-  return { x: b.x - a.x, y: b.y - a.y };
+export const translation = (to: Crude, from: Crude): XY => {
+  const to_ = construct(to);
+  const from_ = construct(from);
+  return { x: from_.x - to_.x, y: from_.y - to_.y };
 };
 
 /** @returns true if both the x and y coordinates of the given coordinate are NaN. */
@@ -182,4 +182,100 @@ export const css = (a: Crude): { left: number; top: number } => {
 export const truncate = (a: Crude, precision: number = 0): XY => {
   const xy = construct(a);
   return { x: Number(xy.x.toFixed(precision)), y: Number(xy.y.toFixed(precision)) };
+};
+
+/**
+ * Subtracts the second coordinate from the first coordinate.
+ * @param a - The first coordinate.
+ * @param b - The second coordinate.
+ * @returns The difference between the two coordinates.
+ */
+export const sub = (a: Crude, b: Crude): XY => {
+  const xy = construct(a);
+  const xy_ = construct(b);
+  return { x: xy.x - xy_.x, y: xy.y - xy_.y };
+};
+
+/**
+ * Interprets the given coordinates as a vector and returns the normal of the given
+ * vector.
+ * @param a - The coordinates to get the normal of.
+ * @returns The normal of the given coordinates.
+ */
+export const normal = (a: Crude): XY => {
+  const xy = construct(a);
+  const length = Math.hypot(xy.x, xy.y);
+  if (length === 0) return { x: 0, y: 0 };
+  return { x: -xy.y / length, y: xy.x / length };
+};
+
+/**
+ * Interprets the given coordinates as a vector and returns the unit vector of the given
+ * vector.
+ * @param a - The coordinates to get the unit vector of.
+ * @returns The unit vector of the given coordinates.
+ */
+export const normalize = (a: Crude): XY => {
+  const xy = construct(a);
+  const length = Math.hypot(xy.x, xy.y);
+  if (length === 0) return { x: 0, y: 0 };
+  return { x: xy.x / length, y: xy.y / length };
+};
+
+/**
+ * @returns the average of the given coordinates.
+ * @param coordinates - The coordinates to average.
+ */
+export const average = (...coordinates: Crude[]): XY => {
+  const sum = coordinates.reduce((p, c) => translate(p, c), ZERO);
+  return scale(sum, 1 / coordinates.length);
+};
+
+/**
+ * Calculates the miter vectors for the given path and offset. This function is useful
+ * for calculate the translations need to create an offset and parallel path to the
+ * given path.
+ * @param path - The path to calculate the miters for.
+ * @param offset - The magnitude of the miter vectors.
+ * @returns The miter vectors for the given path.
+ */
+export const calculateMiters = (path: XY[], offset: number): XY[] => {
+  const miters: XY[] = [];
+  for (let i = 0; i < path.length; i++) {
+    const currPoint = path[i];
+    let normalPrev: XY;
+    let normalNext: XY;
+    let miterNormal: XY;
+    let miterLength: number;
+    if (i === 0) {
+      const nextPoint = path[i + 1];
+      const dirNext = sub(nextPoint, currPoint);
+      normalNext = normal(dirNext);
+      miterNormal = normalNext;
+      miterLength = offset;
+    } else if (i === path.length - 1) {
+      const prevPoint = path[i - 1];
+      const dirPrev = sub(currPoint, prevPoint);
+      normalPrev = normal(dirPrev);
+      miterNormal = normalPrev;
+      miterLength = offset;
+    } else {
+      const prevPoint = path[i - 1];
+      const nextPoint = path[i + 1];
+      const dirPrev = sub(currPoint, prevPoint);
+      const dirNext = sub(nextPoint, currPoint);
+      normalPrev = normal(dirPrev);
+      normalNext = normal(dirNext);
+      const angle = Math.acos(
+        (dirPrev.x * dirNext.x + dirPrev.y * dirNext.y) /
+          (Math.hypot(dirPrev.x, dirPrev.y) * Math.hypot(dirNext.x, dirNext.y)),
+      );
+      const sinHalfAngle = Math.sin(angle / 2);
+      if (sinHalfAngle === 0) miterLength = offset;
+      else miterLength = offset / sinHalfAngle;
+      miterNormal = normalize(average(normalPrev, normalNext));
+    }
+    miters.push(scale(miterNormal, miterLength));
+  }
+  return miters;
 };

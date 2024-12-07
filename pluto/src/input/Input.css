@@ -33,13 +33,13 @@
         flex-grow: 1;
     }
 
-    &.pluto-input--disabled {
-        & .pluto-input__placeholder * {
+    &.pluto--disabled {
+        * {
+            cursor: not-allowed !important;
             color: var(--pluto-gray-l5) !important;
         }
         & .pluto-input__internal {
             background-color: var(--pluto-gray-l2);
-            opacity: 0.8;
             border-color: var(--pluto-gray-l3);
         }
     }
@@ -200,16 +200,16 @@
     }
 }
 
-.pluto-input--button {
+.pluto-input--button:not(.pluto--disabled) {
     & .pluto-input__internal {
         transition:
             background 0.15s ease-in-out,
             border-color 0.15s ease-in-out;
-        &:hover:not(.pluto--disabled):not(:focus-within) {
+        &:hover:not(:focus-within) {
             --pluto-bg: var(--pluto-gray-l3);
             background: var(--pluto-bg) !important;
         }
-        &:active:not(.pluto--disabled):not(:focus-within) {
+        &:active:not(:focus-within) {
             --pluto-bg: var(--pluto-gray-l3);
             background: var(--pluto-bg) !important;
         }

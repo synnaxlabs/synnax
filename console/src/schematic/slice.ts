@@ -280,7 +280,6 @@ export const { actions, reducer } = createSlice({
     setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
       const { layoutKey, key, props } = payload;
       const schematic = state.schematics[layoutKey];
-      if (!schematic.editable) return;
       if (key in schematic.props)
         schematic.props[key] = { ...schematic.props[key], ...props };
       else {
@@ -383,7 +382,10 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       if (schematic == null) return;
       schematic.control = control;
-      if (control === "acquired") schematic.editable = false;
+      if (control === "acquired") {
+        clearSelections(schematic);
+        schematic.editable = false;
+      }
     },
     setViewportMode: (
       state,

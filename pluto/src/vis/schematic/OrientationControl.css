@@ -11,9 +11,6 @@
 
 .pluto-orientation-control {
     position: relative;
-    &:not(.pluto-value) {
-        width: 100px;
-    }
     aspect-ratio: 1;
 
     .symbol {

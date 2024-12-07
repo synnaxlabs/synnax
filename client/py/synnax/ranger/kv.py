@@ -26,10 +26,12 @@ class KVPair(Payload):
         value = kwargs.get("value")
         if not isinstance(value, str):
             if not is_primitive(value) and type(value).__str__ == object.__str__:
-                raise ValidationError(f"""
+                raise ValidationError(
+                    f"""
                 Synnax has no way of casting {value} to a string when setting meta-data
                 on a range. Please convert the value to a string before setting it.
-                """)
+                """
+                )
         kwargs["value"] = str(value)
         super().__init__(**kwargs)
 
@@ -53,8 +55,7 @@ class _DeleteRequest(Payload):
     keys: list[str]
 
 
-class _EmptyResponse(Payload):
-    ...
+class _EmptyResponse(Payload): ...
 
 
 _SET_ENDPOINT = "/range/kv/set"
@@ -71,8 +72,7 @@ class KV:
         self._rng_key = rng
 
     @overload
-    def get(self, keys: str) -> str:
-        ...
+    def get(self, keys: str) -> str: ...
 
     def get(self, keys: str | list[str]) -> dict[str, str] | str:
         req = _GetRequest(range=self._rng_key, keys=normalize(keys))
@@ -82,15 +82,12 @@ class KV:
         return {pair.key: pair.value for pair in res.pairs}
 
     @overload
-    def set(self, key: str, value: any):
-        ...
+    def set(self, key: str, value: any): ...
 
     @overload
-    def set(self, key: dict[str, any]):
-        ...
+    def set(self, key: dict[str, any]): ...
 
-    def set(self, key: str | dict[str, any],
-            value: any = None) -> None:
+    def set(self, key: str | dict[str, any], value: any = None) -> None:
         pairs = list()
         if isinstance(key, str):
             pairs.append(KVPair(range=self._rng_key, key=key, value=value))

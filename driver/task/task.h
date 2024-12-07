@@ -244,7 +244,7 @@ public:
 
     ~Manager();
 
-    freighter::Error start(std::atomic<bool> &done);
+    freighter::Error start();
 
     freighter::Error stop();
 
@@ -266,7 +266,7 @@ private:
     std::thread run_thread;
     freighter::Error run_err;
 
-    void run(std::atomic<bool> &done);
+    void run();
 
     freighter::Error runGuarded();
 

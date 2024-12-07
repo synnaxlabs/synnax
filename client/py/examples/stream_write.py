@@ -66,9 +66,8 @@ with client.open_writer(
         writer.write(
             {
                 time_ch.key: np.int64(sy.TimeStamp.now()),
-                data_ch_1.key: np.float32(np.sin(i / 10)),
+                data_ch_1.key: np.float32(np.sin(i / 10)) * 25 + 12.5,
                 data_ch_2.key: i % 2,
             }
         )
         i += 1
-        print(sy.TimeSpan.since(start))

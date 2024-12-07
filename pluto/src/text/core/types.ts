@@ -44,8 +44,12 @@ export type Level = z.infer<typeof levelZ>;
 
 export type Shade = theming.Shade;
 
+const STRING_WEIGHTS = ["normal", "bold", "bolder", "lighter"] as const;
+
+export const weightZ = z.union([z.number(), z.enum(STRING_WEIGHTS)]);
+
 /* Weight sets the weight of the text */
-export type Weight = "normal" | "bold" | "bolder" | "lighter" | number;
+export type Weight = z.infer<typeof weightZ>;
 
 export const specZ = z.object({
   size: z.number(),

@@ -9,12 +9,12 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Status, Tabs } from "@synnaxlabs/pluto";
+import { Align, Breadcrumb, Button, Status, Tabs } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { ToolbarHeader } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { useExport } from "@/schematic/file";
@@ -22,15 +22,12 @@ import {
   useSelect,
   useSelectControlStatus,
   useSelectHasPermission,
+  useSelectSelectedElementNames,
   useSelectToolbar,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
-
-export interface ToolbarProps {
-  layoutKey: string;
-}
 
 const TABS = [
   {
@@ -74,12 +71,17 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   );
 };
 
+export interface ToolbarProps {
+  layoutKey: string;
+}
+
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const state = useSelect(layoutKey);
   const handleExport = useExport(name);
+  const selectedNames = useSelectSelectedElementNames(layoutKey);
 
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
@@ -103,6 +105,22 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 
   const canEdit = useSelectHasPermission();
   if (state == null) return null;
+  const breadCrumbSegments: Breadcrumb.Segments = [
+    {
+      label: name,
+      weight: 500,
+      shade: 8,
+      level: "h5",
+      icon: <Icon.Schematic />,
+    },
+  ];
+  if (selectedNames.length === 1 && selectedNames[0] !== null)
+    breadCrumbSegments.push({
+      label: selectedNames[0],
+      weight: 400,
+      shade: 7,
+      level: "p",
+    });
 
   return (
     <Tabs.Provider
@@ -114,7 +132,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       }}
     >
       <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Schematic />}>{name}</ToolbarTitle>
+        <Align.Space direction="x" empty>
+          <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
+        </Align.Space>
+
         <Align.Space direction="x" align="center" empty>
           <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
             <Button.Icon

@@ -63,22 +63,19 @@ class PolicyClient:
         subjects: list[ID] = None,
         objects: list[ID] = None,
         actions: list[str] = None,
-    ) -> Policy:
-        ...
+    ) -> Policy: ...
 
     @overload
     def create(
         self,
         policies: Policy,
-    ) -> Policy:
-        ...
+    ) -> Policy: ...
 
     @overload
     def create(
         self,
         policies: list[Policy],
-    ) -> list[Policy]:
-        ...
+    ) -> list[Policy]: ...
 
     def create(
         self,

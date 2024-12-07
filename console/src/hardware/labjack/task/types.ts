@@ -13,6 +13,8 @@ import { z } from "zod";
 import { outputChannelTypeZ } from "@/hardware/labjack/device/types";
 import { thermocoupleTypeZ } from "@/hardware/task/common/thermocouple";
 
+export const PREFIX = "labjack";
+
 export const linearScaleZ = z.object({
   type: z.literal("linear"),
   slope: z.number(),
@@ -194,7 +196,7 @@ export type ReadStateDetails = baseReadStateDetails | ErrorReadStateDetails;
 export const writeStateDetailsZ = z.object({ running: z.boolean() });
 export type WriteStateDetails = z.infer<typeof writeStateDetailsZ>;
 
-export const READ_TYPE = "labjack_read";
+export const READ_TYPE = `${PREFIX}_read`;
 export type ReadType = typeof READ_TYPE;
 
 export const ZERO_READ_CONFIG: ReadTaskConfig = {
@@ -213,7 +215,7 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
   type: READ_TYPE,
 };
 
-export const WRITE_TYPE = "labjack_write";
+export const WRITE_TYPE = `${PREFIX}_write`;
 export type WriteType = typeof WRITE_TYPE;
 
 export const ZERO_WRITE_CONFIG: WriteTaskConfig = {

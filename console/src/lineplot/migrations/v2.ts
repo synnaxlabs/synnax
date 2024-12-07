@@ -50,10 +50,10 @@ export const ZERO_AXES_STATE: AxesState = {
   renderTrigger: 0,
   hasHadChannelSet: false,
   axes: {
-    y1: { ...ZERO_AXIS_STATE, key: "y1" },
-    y2: { ...ZERO_AXIS_STATE, key: "y2" },
-    y3: { ...ZERO_AXIS_STATE, key: "y3" },
-    y4: { ...ZERO_AXIS_STATE, key: "y4" },
+    y1: { ...ZERO_AXIS_STATE, key: "y1", labelDirection: "y" },
+    y2: { ...ZERO_AXIS_STATE, key: "y2", labelDirection: "y" },
+    y3: { ...ZERO_AXIS_STATE, key: "y3", labelDirection: "y" },
+    y4: { ...ZERO_AXIS_STATE, key: "y4", labelDirection: "y" },
     x1: { ...ZERO_AXIS_STATE, key: "x1", type: "time" },
     x2: { ...ZERO_AXIS_STATE, key: "x2", type: "time" },
   },
@@ -104,7 +104,8 @@ export const stateMigration = migrate.createMigration<v1.State, State>({
       ...s.axes,
       axes: Object.fromEntries(
         Object.entries(s.axes.axes).map(([key, value]) => {
-          if (!X_AXIS_KEYS.includes(key as XAxisKey)) return [key, value];
+          if (!X_AXIS_KEYS.includes(key as XAxisKey))
+            return [key, { ...value, labelDirection: "y" }];
           return [key, { ...value, type: "time" }];
         }),
       ) as AxesState["axes"],

@@ -35,7 +35,9 @@ export const use = ({
   precision,
   minWidth,
   level = "small",
+  backgroundTelem,
   notation,
+  location,
 }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqualProps({
     box,
@@ -45,6 +47,8 @@ export const use = ({
     level,
     minWidth,
     notation,
+    backgroundTelem,
+    location,
   });
   const [, state, setState] = Aether.use({
     aetherKey,

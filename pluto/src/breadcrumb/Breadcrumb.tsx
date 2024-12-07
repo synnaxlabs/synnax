@@ -15,7 +15,16 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
-import { isValidElement } from "@/util/children";
+
+export interface Segment {
+  label: string;
+  shade?: Text.Shade;
+  icon?: string | ReactElement;
+  weight?: Text.Weight;
+  level?: Text.Level;
+}
+
+export type Segments = string | Segment | (string | Segment)[];
 
 /**
  * Props for the Breadcrumb component.
@@ -30,7 +39,7 @@ export type BreadcrumbProps<
   /** Icon to display in the breadcrumb. */
   icon?: string | ReactElement;
   /** The breadcrumb items, either a single string or an array of strings. */
-  children: string | string[];
+  children: Segments;
   url?: string | string[];
   /** Separator to use between breadcrumb items. Defaults to ".". */
   separator?: string;
@@ -38,23 +47,70 @@ export type BreadcrumbProps<
   hideFirst?: boolean;
 };
 
-const getContent = (children: string | string[], separator: string, shade: number) => {
-  const split = toArray(children)
-    .map((el) => el.split(separator))
+const normalizeSegments = (
+  segments: string | Segment | (string | Segment)[],
+  separator: string,
+): Segment[] => {
+  const arr = toArray(segments)
+    .map((segment) => {
+      if (typeof segment === "string")
+        return segment.split(separator).map((label) => ({ label }));
+      return segment;
+    })
     .flat();
-  const content: (ReactElement | string)[] = split
-    .map((el, index) => [
-      <Icon.Caret.Right
-        key={`${el}-${index}`}
-        style={{
-          transform: "scale(0.8) translateY(1px)",
-          color: CSS.shade(shade),
-        }}
-      />,
-      el,
-    ])
+  return arr;
+};
+
+interface GetContentArgs {
+  segments: Segments;
+  shade: Text.Shade;
+  level: Text.Level;
+  weight?: Text.Weight;
+  separator: string;
+  transform?: (segment: Segment) => Segment;
+}
+
+const getContent = ({
+  segments,
+  shade,
+  level,
+  weight,
+  separator,
+  transform,
+}: GetContentArgs): (ReactElement | string)[] => {
+  const normalized = normalizeSegments(segments, separator);
+  let content: Segment[] = normalized;
+  if (transform != null) content = content.map(transform);
+  return content
+    .map((el, index) => {
+      const base: ReactElement[] = [
+        <Icon.Caret.Right
+          key={`${el}-${index}`}
+          style={{
+            transform: "scale(0.8) translateY(1px)",
+            color: CSS.shade(shade),
+          }}
+        />,
+      ];
+      if (el.icon != null) {
+        const icon = PIcon.resolve(el.icon);
+        if (icon != null) base.push(icon);
+      }
+      base.push(
+        <Text.Text
+          style={{ marginLeft: el.icon != null ? "0.5rem" : "0" }}
+          key={el.label}
+          weight={weight}
+          shade={shade}
+          level={level}
+          {...el}
+        >
+          {el.label}
+        </Text.Text>,
+      );
+      return base;
+    })
     .flat();
-  return content;
 };
 
 /**
@@ -73,17 +129,17 @@ export const Breadcrumb = <
   children,
   icon,
   shade = 7,
-  weight = 450,
+  weight,
   size = 0.5,
   url,
   level = "p",
   separator = ".",
   className,
-  hideFirst = false,
+  hideFirst = true,
   ...props
 }: BreadcrumbProps<E, L>): ReactElement => {
   if (url != null) children = url;
-  const content = getContent(children, separator, shade);
+  const content = getContent({ segments: children, separator, shade, level, weight });
   if (hideFirst) content.shift();
   return (
     <Text.WithIcon
@@ -92,6 +148,7 @@ export const Breadcrumb = <
       shade={shade}
       weight={weight}
       size={size}
+      direction="x"
       {...props}
     >
       {PIcon.resolve(icon)}
@@ -108,10 +165,24 @@ export const URL = ({
   url,
   className,
   level = "p",
-  separator = ".",
+  separator = "/",
+  weight,
   shade = 7,
 }: URLProps) => {
-  const content = getContent(url, separator, shade);
+  const content = getContent({
+    segments: url,
+    separator,
+    shade,
+    level,
+    weight,
+    transform: (el) => ({
+      ...el,
+      label: el.label
+        .split("-")
+        .map((el) => caseconv.capitalize(el))
+        .join(" "),
+    }),
+  });
   return (
     <Align.Space
       className={CSS(className, CSS.B("breadcrumb"))}
@@ -119,25 +190,7 @@ export const URL = ({
       size="small"
       align="center"
     >
-      {content.map((el, index) => {
-        if (isValidElement(el)) return el;
-        if (el == null) return null;
-        const split = url.split(separator);
-        const idx = split.indexOf(el);
-        let href = url
-          .split(separator)
-          .slice(0, idx + 1)
-          .join("/");
-        href = `/${href}`;
-        return (
-          <Text.Link level={level} key={index} href={href}>
-            {el
-              .split("-")
-              .map((el) => caseconv.capitalize(el))
-              .join(" ")}
-          </Text.Link>
-        );
-      })}
+      {content}
     </Align.Space>
   );
 };

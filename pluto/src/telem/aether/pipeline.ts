@@ -27,10 +27,12 @@ import {
   type Telem,
 } from "@/telem/aether/telem";
 
-const connectionZ = z.object({
+export const connectionZ = z.object({
   from: z.string(),
   to: z.string(),
 });
+
+export type Connection = z.infer<typeof connectionZ>;
 
 export const sourcePipelinePropsZ = z.object({
   connections: z.array(connectionZ),

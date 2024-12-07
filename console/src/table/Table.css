@@ -1,0 +1,46 @@
+.console-table {
+    display: grid;
+    width: fit-content;
+    padding: 1rem;
+    grid-template-rows: auto 3.5rem;
+    grid-template-columns: auto 3.5rem;
+    gap: 0;
+
+    & .pluto-table {
+        grid-column-start: 1;
+        grid-column-end: 1;
+        grid-row-start: 1;
+        grid-row-end: 1;
+    }
+
+    & .console-table__add-col {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-bottom-left-radius: 0;
+        border-top-left-radius: 0;
+        grid-column-start: 2;
+        grid-column-end: 2;
+        grid-row-start: 1;
+        grid-row-end: 1;
+        padding: 0;
+        align-items: center;
+        justify-content: center;
+    }
+
+    & .console-table__add-row {
+        width: 3.5rem;
+        height: 3.5rem;
+        grid-column-start: 1;
+        grid-column-end: 1;
+        grid-row-start: 2;
+        grid-row-end: 2;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+
+    .console-table__edit {
+        position: absolute;
+        bottom: 2rem;
+        left: 2rem;
+    }
+}

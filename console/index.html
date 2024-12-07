@@ -17,6 +17,16 @@
         <script src="http://localhost:8097"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Synnax</title>
+        <style>
+            body {
+                background-color: var(--pluto-gray-l0, rgb(255, 255, 255));
+            }
+            @media (prefers-color-scheme: dark) {
+                body {
+                    background-color: var(--pluto-gray-l0, rgb(0, 0, 0));
+                }
+            }
+        </style>
     </head>
     <body>
         <div id="root"></div>
