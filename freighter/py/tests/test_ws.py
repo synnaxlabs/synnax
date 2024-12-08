@@ -167,6 +167,12 @@ class TestSyncWebsocket:
         assert isinstance(err, freighter.EOF)
         assert dct["called"]
 
+    def test_middleware_error_on_server(self, sync_client: WebsocketClient):
+        """Should correctly decode and throw an error when the server middleware chain
+        fails"""
+        with pytest.raises(Error):
+            sync_client.stream("/middlewareCheck", Message, Message)
+
     def test_client_timeout(self, sync_client: WebsocketClient):
         """Should correctly timeout if the server exceeds a write deadline"""
         stream = sync_client.stream("/echo", Message, Message)

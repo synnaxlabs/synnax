@@ -51,9 +51,9 @@ export const use = (): void => {
 
     const command = Command.sidecar(BINARY_NAME, [
       "start",
-      "-vmi",
-      // "-d",
-      // "/Users/emilianobonilla/Desktop/synnaxlabs/synnax/synnax-data",
+      "-vi",
+      "-d",
+      "/Users/emilianobonilla/Desktop/synnaxlabs/synnax/synnax-data",
     ]);
     commandRef.current = command;
 

@@ -42,6 +42,7 @@ type messageType string
 const (
 	msgTypeData  messageType = "data"
 	msgTypeClose messageType = "close"
+	msgTypeOpen  messageType = "open"
 )
 
 // message wraps a user payload with additional information needed for the websocket
@@ -168,15 +169,19 @@ func (s *streamClient[RQ, RS]) Stream(
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
 				return oCtx, roacherrors.New("[ws] - unable to upgrade connection")
 			}
-			stream = &clientStream[RQ, RS]{
-				streamCore: newStreamCore[RS, RQ](
-					ctx,
-					coreConfig{
-						conn:            conn,
-						codec:           s.codec,
-						Instrumentation: s.Instrumentation,
-					}),
+			core := newStreamCore[RS, RQ](
+				ctx,
+				coreConfig{
+					conn:            conn,
+					codec:           s.codec,
+					Instrumentation: s.Instrumentation,
+				},
+			)
+			msg, err := core.receive()
+			if msg.Type != msgTypeOpen {
+				return oCtx, errors.Decode(ctx, msg.Err)
 			}
+			stream = &clientStream[RQ, RS]{streamCore: core}
 			return oCtx, nil
 		}),
 	)
@@ -275,81 +280,77 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 	if !fiberws.IsWebSocketUpgrade(fiberCtx) {
 		return fiber.ErrUpgradeRequired
 	}
-	iMD := parseRequestCtx(fiberCtx, address.Address(s.path))
-	headerContentType := iMD.Params.GetDefault(fiber.HeaderContentType, "").(string)
+	iCtx := parseRequestCtx(fiberCtx, address.Address(s.path))
+	headerContentType := iCtx.Params.GetDefault(fiber.HeaderContentType, "").(string)
 	codec, err := httputil.DetermineCodec(headerContentType)
 	if err != nil {
 		// If we can't determine the encoder/decoder, we can't continue, so we sent the
 		// best effort string.
 		return fiberCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	oCtx, err := s.MiddlewareCollector.Exec(
-		iMD,
-		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
-			oCtx := freighter.Context{
-				Target:   iMD.Target,
-				Protocol: s.Reporter.Protocol,
-				Params:   make(freighter.Params),
-			}
-			return oCtx, fiberws.New(func(c *fiberws.Conn) {
-				if err := func() error {
+	return fiberws.New(func(c *fiberws.Conn) {
+		err := func() error {
+			stream := newServerStream[RQ, RS](s.serverCtx, coreConfig{
+				writeDeadline: s.writeDeadline,
+				conn:          c.Conn,
+				codec:         codec,
+			})
+			defer func() {
+				if err := stream.conn.Close(); err != nil {
+					s.L.Error("error closing connection", zap.Error(err))
+				}
+			}()
+			oCtx, err := s.MiddlewareCollector.Exec(
+				iCtx,
+				freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
 					s.wg.Add(1)
 					defer s.wg.Done()
-					stream := newServerStream[RQ, RS](s.serverCtx, coreConfig{
-						writeDeadline: s.writeDeadline,
-						conn:          c.Conn,
-						codec:         codec,
-					})
-					defer func() {
-						if err := stream.conn.Close(); err != nil {
-							s.L.Error("error closing connection", zap.Error(err))
-						}
-					}()
-					errPld := errors.Encode(ctx, s.handler(ctx, stream), s.internal)
-					if errPld.Type == errors.TypeNil {
-						errPld = errors.Encode(ctx, freighter.EOF, s.internal)
-					}
-					if stream.ctx.Err() != nil {
-						return stream.ctx.Err()
-					}
 					if err = stream.send(message[RS]{
-						Type: msgTypeClose,
-						Err:  errPld,
+						Type: msgTypeOpen,
 					}); err != nil {
-						return err
+						return
 					}
-					stream.peerClosed = freighter.StreamClosed
-					if err = stream.conn.WriteControl(
-						ws.CloseMessage,
-						ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
-						time.Now().Add(500*time.Millisecond),
-					); err != nil {
-						return err
-					}
-					if err = stream.conn.SetReadDeadline(
-						time.Now().Add(closeReadDeadline),
-					); err != nil {
-						return err
-					}
-					if _, err = stream.receive(); err != nil &&
-						!ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
-						s.L.Error("expected normal closure, received error instead", zap.Error(err))
-					}
-					close(stream.contextC)
-					stream.cancel()
-					return nil
-				}(); err != nil && !errors.Is(err, context.Canceled) {
-					s.L.Error("stream server handler error", zap.Error(err))
-				}
-			})(fiberCtx)
-		}))
-	setResponseCtx(fiberCtx, oCtx)
-	fErr := errors.Encode(oCtx, err, s.internal)
-	if fErr.Type == errors.TypeNil {
-		return nil
-	}
-	fiberCtx.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(fiberCtx, codec, fErr)
+					err = s.handler(ctx, stream)
+					return
+				}))
+			errPld := errors.Encode(oCtx, err, s.internal)
+			if errPld.Type == errors.TypeNil {
+				errPld = errors.Encode(oCtx, freighter.EOF, s.internal)
+			}
+			if stream.ctx.Err() != nil {
+				return stream.ctx.Err()
+			}
+			if err = stream.send(message[RS]{
+				Type: msgTypeClose,
+				Err:  errPld,
+			}); err != nil {
+				return err
+			}
+			stream.peerClosed = freighter.StreamClosed
+			if err = stream.conn.WriteControl(
+				ws.CloseMessage,
+				ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
+				time.Now().Add(500*time.Millisecond),
+			); err != nil {
+				return err
+			}
+			if err = stream.conn.SetReadDeadline(
+				time.Now().Add(closeReadDeadline),
+			); err != nil {
+				return err
+			}
+			if _, err = stream.receive(); err != nil &&
+				!ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
+				s.L.Error("expected normal closure, received error instead", zap.Error(err))
+			}
+			close(stream.contextC)
+			stream.cancel()
+			return nil
+		}()
+		if err != nil {
+			s.L.Error("error handling websocket connection", zap.Error(err))
+		}
+	})(fiberCtx)
 }
 
 type serverStream[RQ, RS freighter.Payload] struct{ streamCore[RQ, RS] }

@@ -55,7 +55,6 @@ export const useAsyncWindowLifecycle = (
   const destructor = useRef<AsyncDestructor | null>(null);
   const promiseOut = useRef<boolean>(false);
   useEffect(() => {
-    console.log("EFFECT", win, win?.stage);
     if (win == null) return;
     const { stage } = win;
     if (stage === "created" && destructor.current == null) {
@@ -74,14 +73,12 @@ export const useAsyncWindowLifecycle = (
       destructor.current != null
     ) {
       const f = destructor.current;
-      console.log("CALLING D");
       destructor.current = null;
       f()
         .then(() => {
           destructor.current = null;
         })
         .finally(() => {
-          console.log("HERE");
           dispatch(completeProcess({ key: win.key }));
         });
     }

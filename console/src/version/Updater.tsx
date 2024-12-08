@@ -14,6 +14,7 @@ import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 
+import { getFlags } from "@/getFlags";
 import { Layout } from "@/layout";
 import { type NotificationAdapter } from "@/notifications/Notifications";
 import { infoLayout } from "@/version/Info";
@@ -27,6 +28,7 @@ export const useCheckForUpdates = (): boolean => {
 
   const checkForUpdates = async (addNotifications: boolean) => {
     const update = await check();
+    if (getFlags().dev) return;
     if (update?.available !== true || available) return;
     setAvailable(true);
     if (addNotifications)

@@ -57,8 +57,6 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
     )
       return;
 
-    console.log("RECONNECT");
-
     this.internal.synnax = new Synnax(this.state.props);
     this.internal.synnax.connectivity.onChange((state) =>
       this.setState((p) => ({ ...p, state })),

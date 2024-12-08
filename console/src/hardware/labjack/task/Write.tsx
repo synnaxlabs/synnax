@@ -364,7 +364,7 @@ const ChannelForm = ({
   const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ?? "DO";
   const model = (device?.model ?? "LJM_dtT4") as ModelKey;
   return (
-    <Align.Space direction="y" grow>
+    <Align.Space direction="y">
       <SelectOutputChannelTypeField
         path={prefix}
         onChange={(value, ctx) => {

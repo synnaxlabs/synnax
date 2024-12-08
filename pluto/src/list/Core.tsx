@@ -166,8 +166,6 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   const { selected } = useSelectionContext();
   const { onSelect } = useSelectionUtils();
 
-  console.log("TDATA", data);
-
   // let's assume the itemHeight is a 'rough item height', but is still useful for
   // detecting when the user hovers over a particular element. If the current `hover`
   // value multiplied by the itemHeight is greater than the total height of the list,
