@@ -74,7 +74,7 @@ export const Controls: Layout.Renderer = () => {
   return (
     <Align.Space direction="y" style={{ padding: "3rem" }} size="large" grow>
       <Text.Text level="h3" weight={450}>
-        Embedded Cluster
+        Embedded
       </Text.Text>
       <Align.Space direction="x" justify="spaceBetween" style={{ padding: "0 1rem" }}>
         <Align.Space direction="x" size="large">
@@ -88,12 +88,7 @@ export const Controls: Layout.Renderer = () => {
           </Input.Item>
         </Align.Space>
         <Align.Space direction="x">
-          <Button.Button
-            status="error"
-            disabled={status == "starting" || status == "stopping"}
-            startIcon={<Icon.Stop />}
-            onClick={handleKill}
-          >
+          <Button.Button status="error" startIcon={<Icon.Stop />} onClick={handleKill}>
             Kill
           </Button.Button>
           <Button.Button

@@ -1,24 +1,17 @@
-{  
+{
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Front-end App Debug",
       "type": "msedge",
-      "port": 9222,
-      "request": "launch",
-      "runtimeExecutable": "${workspaceFolder}/console/src-tauri/target/debug/Synnax.exe", // Remember to edit the right path to your app.
-      "useWebView": true,
+      "request": "attach",
+      "name": "Attach to Edge",
+      "port": 1422,
       "webRoot": "${workspaceFolder}",
-      "preLaunchTask": "dev:console-vite",          
+      "sourceMaps": true,
       "sourceMapPathOverrides": {
-          "/src/*": "${workspaceFolder}/console/src/*",
-          "./src/*": "${workspaceFolder}/console/src/*",
+        "/src/*": "${workspaceFolder}/console/src/*",
+        "./src/*": "${workspaceFolder}/console/src/*"
       }
-    },   
-    {
-      "name": "Pluto Debug",
-      "type": "chrome",
-      "request": "launch",
     }
-  ],
+  ]
 }

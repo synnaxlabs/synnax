@@ -194,6 +194,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
         resolve(new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema));
       };
       ws.onerror = (ev: Event) => {
+        console.log(ev);
         const ev_ = ev as ErrorEvent;
         resolve(new Error(ev_.message));
       };

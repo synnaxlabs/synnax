@@ -12,7 +12,8 @@ import * as path from "path";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-const IS_DEV = process.env.TAURI_ENV_DEBUG === "true";
+// const IS_DEV = process.env.TAURI_ENV_DEBUG === "true";
+const IS_DEV = true;
 const IS_COMMUNITY = true;
 
 export default defineConfig({
