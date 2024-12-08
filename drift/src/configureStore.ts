@@ -23,9 +23,8 @@ import { type Runtime } from "@/runtime";
 import {
   type Action,
   closeWindow,
-  setConfig,
-  setWindowLabel,
-  setWindowStage,
+  internalSetInitial,
+  SLICE_NAME,
   type StoreState,
 } from "@/state";
 import { syncInitial } from "@/sync";
@@ -71,14 +70,24 @@ const configureStoreInternal = async <
   // eslint-disable-next-line prefer-const
   store = base<S, A, M, E>({
     ...opts,
-    preloadedState: await receivePreloadedState(runtime, () => store, preloadedState),
+    preloadedState: await receivePreloadedState(
+      runtime,
+      () => store,
+      defaultWindowProps,
+      preloadedState,
+    ),
     middleware: configureMiddleware(middleware, runtime, debug),
   });
 
   await syncInitial(store.getState().drift, store.dispatch, runtime, debug);
-  store.dispatch(setConfig({ enablePrerender, defaultWindowProps }));
-  store.dispatch(setWindowLabel({ label: runtime.label() }));
-  store.dispatch(setWindowStage({ stage: "created" }));
+  store.dispatch(
+    internalSetInitial({
+      enablePrerender,
+      defaultWindowProps,
+      label: runtime.label(),
+      stage: "created",
+    }),
+  );
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
   return store;
 };
@@ -89,14 +98,17 @@ const receivePreloadedState = async <
 >(
   runtime: Runtime<S, A>,
   store: () => EnhancedStore<S, A | Action> | undefined,
+  defaultWindowProps: Omit<WindowProps, "key"> | undefined,
   preloadedState: (() => Promise<S | undefined>) | S | undefined,
 ): Promise<S | undefined> =>
   await new Promise<S | undefined>((resolve) => {
     void listen(runtime, store, resolve);
     if (runtime.isMain())
       if (typeof preloadedState === "function")
-        preloadedState().then(resolve).catch(console.error);
-      else resolve(preloadedState);
+        preloadedState()
+          .then((s) => resolve(resetInitialState<S>(defaultWindowProps, s)))
+          .catch(console.error);
+      else resolve(resetInitialState<S>(defaultWindowProps, preloadedState));
     else void runtime.emit({ sendState: true }, MAIN_WINDOW);
   });
 
@@ -131,3 +143,20 @@ export const configureStore: <
 >(
   options: ConfigureStoreOptions<S, A, M, E>,
 ) => Promise<EnhancedStore<S, A | Action>> = configureStoreInternal;
+
+export const resetInitialState = <S extends StoreState>(
+  defaultWindowProps?: Omit<WindowProps, "key">,
+  state?: S,
+): S | undefined => {
+  if (state == null) return state;
+  const drift = state[SLICE_NAME];
+  Object.keys(drift.windows).forEach((key) => {
+    const window = drift.windows[key];
+    if (defaultWindowProps?.visible != null)
+      window.visible = defaultWindowProps.visible;
+    window.focusCount = 0;
+    window.centerCount = 0;
+    window.processCount = 0;
+  });
+  return state;
+};

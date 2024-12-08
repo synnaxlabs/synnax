@@ -1,12 +1,3 @@
-// Copyright 2023 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 import { createSlice, type PayloadAction, type Reducer } from "@reduxjs/toolkit";
 import { box, deep, type dimensions, id, TimeSpan, xy } from "@synnaxlabs/x";
 
@@ -84,8 +75,9 @@ export type SetWindowSkipTaskbarPayload = MaybeKeyPayload & MaybeBooleanPayload;
 export type SetWindowAlwaysOnTopPayload = MaybeKeyPayload & MaybeBooleanPayload;
 export type SetWindowTitlePayload = MaybeKeyPayload & { title: string };
 export type SetWindowLabelPayload = LabelPayload;
-export type SetWindowStatePayload = MaybeKeyPayload & { stage: WindowStage };
-export type SetWindowPropsPayload = LabelPayload & Partial<WindowProps>;
+export type SetWindowStagePayload = MaybeKeyPayload & { stage: WindowStage };
+export type RuntimeSetWindowProsPayload = LabelPayload & Partial<WindowProps>;
+export type SetWindowPropsPayload = MaybeKeyPayload & Partial<WindowProps>;
 export type SetWindowErrorPayload = KeyPayload & { message: string };
 export type SetWindowDecorationsPayload = KeyPayload & BooleanPayload;
 export type SetConfigPayload = Partial<Config>;
@@ -95,9 +87,9 @@ export type Payload =
   | LabelPayload
   | CreateWindowPayload
   | CloseWindowPayload
-  | SetWindowStatePayload
+  | SetWindowStagePayload
   | MaybeKeyPayload
-  | SetWindowPropsPayload
+  | RuntimeSetWindowProsPayload
   | SetWindowErrorPayload
   | SetWindowLabelPayload
   | SetWindowClosedPayload
@@ -210,169 +202,267 @@ const alreadyHasPreRender = (s: SliceState): boolean =>
 
 export const SLICE_NAME = "drift";
 
+const maybePositionInCenter = (
+  mainWin: WindowState,
+  position?: xy.XY,
+  size?: dimensions.Dimensions,
+): xy.XY | undefined => {
+  if (mainWin.position != null && mainWin.size != null && position == null)
+    return box.topLeft(
+      box.positionInCenter(
+        box.construct(xy.ZERO, size ?? xy.ZERO),
+        box.construct(mainWin.position, mainWin.size),
+      ),
+    );
+  return position;
+};
+
+const reduceSetConfig = (s: SliceState, a: PayloadAction<SetConfigPayload>): void => {
+  s.config = { ...s.config, ...a.payload };
+  const firstPreRender = Object.entries(s.windows).find(
+    ([, w]) => w.key === PRERENDER_WINDOW && !w.reserved,
+  );
+  s.windows = Object.fromEntries(
+    Object.entries(s.windows).filter(([, v]) => v.reserved),
+  );
+  if (s.config.enablePrerender && firstPreRender != null)
+    s.windows[firstPreRender[0]] = firstPreRender[1];
+};
+
+const reduceSetWindowLabel = (
+  s: SliceState,
+  a: PayloadAction<SetWindowLabelPayload>,
+): void => {
+  s.label = a.payload.label;
+  if (s.label === MAIN_WINDOW && s.config.enablePrerender) {
+    const prerenderLabel = id.id();
+    s.windows[prerenderLabel] = {
+      ...s.config.defaultWindowProps,
+      ...INITIAL_PRERENDER_WINDOW_STATE,
+    };
+  }
+};
+
+const reduceCreateWindow = (
+  s: SliceState,
+  { payload }: PayloadAction<CreateWindowPayload>,
+): void => {
+  if (payload.key === PRERENDER_WINDOW) return;
+  const { key, label, prerenderLabel } = payload;
+  if (label == null || prerenderLabel == null)
+    throw new Error("[drift] - bug - missing label and prerender label");
+
+  const mainWin = s.windows.main;
+  payload.position = maybePositionInCenter(mainWin, payload.position, payload.size);
+
+  // If the window already exists, un-minimize and focus it
+  if (key in s.keyLabels) {
+    const existingLabel = s.keyLabels[payload.key];
+    s.windows[existingLabel].visible = true;
+    s.windows[existingLabel].focusCount += 1;
+    s.windows[existingLabel].minimized = false;
+    s.windows[existingLabel].position = payload.position;
+    return;
+  }
+
+  const [availableLabel, available] = Object.entries(s.windows).find(
+    ([, w]) => !w.reserved,
+  ) ?? [null, null];
+
+  // If we have an available pre-rendered window, use it.
+  if (availableLabel != null) {
+    s.windows[availableLabel] = {
+      ...available,
+      visible: true,
+      reserved: true,
+      focusCount: 1,
+      focus: true,
+      ...payload,
+    };
+    s.labelKeys[availableLabel] = payload.key;
+    s.keyLabels[payload.key] = availableLabel;
+  } else {
+    // If we don't, just create the window directly.
+    s.windows[label] = {
+      ...s.config.defaultWindowProps,
+      ...INITIAL_WINDOW_STATE,
+      ...payload,
+      reserved: true,
+    };
+    s.labelKeys[label] = key;
+    s.keyLabels[key] = label;
+  }
+
+  if (s.config.enablePrerender && !alreadyHasPreRender(s))
+    s.windows[prerenderLabel] = deep.copy({
+      ...s.config.defaultWindowProps,
+      ...INITIAL_PRERENDER_WINDOW_STATE,
+    });
+};
+
+const reduceSetWindowStage = assertLabel<SetWindowStagePayload>((s, a) => {
+  const win = s.windows[a.payload.label];
+  if (win == null) return;
+  win.stage = a.payload.stage;
+});
+
+const reduceCloseWindow = assertLabel<CloseWindowPayload>(
+  (s, { payload: { label } }) => {
+    const win = s.windows[label];
+    if (win == null || win.processCount > 0) return;
+    win.stage = "closing";
+    delete s.windows[label];
+    delete s.labelKeys[label];
+    delete s.keyLabels[win.key];
+  },
+);
+
+const reduceReloadWindow = assertLabel<ReloadWindowPayload>((s, a) => {
+  const win = s.windows[a.payload.label];
+  if (win == null || win.processCount > 0) return;
+  win.stage = "reloading";
+  delayedReload();
+});
+
+const reduceRegisterProcess = assertLabel<MaybeKeyPayload>(
+  incrementCounter("processCount"),
+);
+
+const reduceCompleteProcess = assertLabel<MaybeKeyPayload>((s, a) => {
+  incrementCounter("processCount", true)(s, a);
+  const win = s.windows[a.payload.label];
+  if (win == null) return;
+  if (win.processCount === 0)
+    if (win.stage === "reloading") delayedReload();
+    else {
+      s.windows[a.payload.label].visible = false;
+      delete s.windows[a.payload.label];
+      delete s.labelKeys[a.payload.label];
+      delete s.keyLabels[win.key];
+    }
+});
+
+const reduceSetWindowError = (
+  s: SliceState,
+  a: PayloadAction<SetWindowErrorPayload>,
+): void => {
+  const win = s.windows[a.payload.key];
+  if (win == null) return;
+  win.error = a.payload.message;
+};
+
+const reduceFocusWindow = assertLabel<FocusWindowPayload>((s, a) => {
+  const win = s.windows[a.payload.label];
+  if (win == null) return;
+  if (win.visible !== true) s.windows[a.payload.label].visible = true;
+  incrementCounter("focusCount")(s, a);
+});
+
+const reduceSetWindowMinimized = assignBool("minimized");
+const reduceSetWindowMaximized = assignBool("maximized");
+const reduceSetWindowVisible = assignBool("visible", true);
+const reduceSetWindowFullscreen = assignBool("fullscreen", true);
+const reduceCenterWindow = assertLabel<CenterWindowPayload>(
+  incrementCounter("centerCount"),
+);
+
+const reduceSetWindowPosition = assertLabel<SetWindowPositionPayload>((s, a) => {
+  s.windows[a.payload.label].position = a.payload.position;
+});
+
+const reduceSetWindowSize = assertLabel<SetWindowSizePayload>((s, a) => {
+  s.windows[a.payload.label].size = a.payload.size;
+});
+
+const reduceSetWindowMinSize = assertLabel<SetWindowMinSizePayload>((s, a) => {
+  s.windows[a.payload.label].minSize = a.payload.size;
+});
+
+const reduceSetWindowMaxSize = assertLabel<SetWindowMaxSizePayload>((s, a) => {
+  s.windows[a.payload.label].maxSize = a.payload.size;
+});
+
+const reduceSetWindowResizable = assignBool("resizable");
+const reduceSetWindowSkipTaskbar = assignBool("skipTaskbar");
+const reduceSetWindowAlwaysOnTop = assignBool("alwaysOnTop");
+
+const reduceSetWindowTitle = assertLabel<SetWindowTitlePayload>((s, a) => {
+  s.windows[a.payload.label].title = a.payload.title;
+});
+
+const reduceSetWindowDecorations = assignBool("decorations");
+
+const reduceSetWindowProps = (
+  s: SliceState,
+  a: PayloadAction<RuntimeSetWindowProsPayload>,
+): void => {
+  const prev = s.windows[a.payload.label];
+  const deepPartialEqual = deep.partialEqual(prev, a.payload);
+  if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
+};
+
+interface InternalSetInitialPayload
+  extends SetConfigPayload,
+    SetWindowLabelPayload,
+    SetWindowStagePayload {}
+
+export const reduceInternalSetInitial = (
+  s: SliceState,
+  a: PayloadAction<InternalSetInitialPayload>,
+): void => {
+  reduceSetConfig(s, a);
+  reduceSetWindowLabel(s, a);
+  reduceSetWindowStage(s, a);
+};
+
+/**
+ * The slice definition now references the extracted reducer functions.
+ */
 const slice = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    setConfig: (s: SliceState, a: PayloadAction<SetConfigPayload>) => {
-      s.config = { ...s.config, ...a.payload };
-      const firstPreRender = Object.entries(s.windows).find(
-        ([, w]) => w.key === PRERENDER_WINDOW && !w.reserved,
-      );
-      s.windows = Object.fromEntries(
-        Object.entries(s.windows).filter(([, v]) => v.reserved),
-      );
-      if (s.config.enablePrerender && firstPreRender != null)
-        s.windows[firstPreRender[0]] = firstPreRender[1];
-    },
-    setWindowLabel: (s: SliceState, a: PayloadAction<SetWindowLabelPayload>) => {
-      s.label = a.payload.label;
-      if (s.label === MAIN_WINDOW && s.config.enablePrerender) {
-        const prerenderLabel = id.id();
-        s.windows[prerenderLabel] = {
-          ...s.config.defaultWindowProps,
-          ...INITIAL_PRERENDER_WINDOW_STATE,
-        };
-      }
-    },
-    createWindow: (s: SliceState, { payload }: PayloadAction<CreateWindowPayload>) => {
-      if (payload.key === PRERENDER_WINDOW) return;
-      const { key, label, prerenderLabel } = payload;
-      if (label == null || prerenderLabel == null)
-        throw new Error("[drift] - bug - missing label and prerender label");
-
-      const mainWin = s.windows.main;
-      // If the user hasn't explicitly specified a position, we'll center it in the main
-      // window for the nicest experience.
-      payload.position = maybePositionInCenter(mainWin, payload.position, payload.size);
-
-      // If the window already exists, un-minimize and focus it
-      if (key in s.keyLabels) {
-        const label = s.keyLabels[payload.key];
-        s.windows[label].visible = true;
-        s.windows[label].focusCount += 1;
-        s.windows[label].minimized = false;
-        s.windows[label].position = payload.position;
-        return;
-      }
-
-      const [availableLabel, available] = Object.entries(s.windows).find(
-        ([, w]) => !w.reserved,
-      ) ?? [null, null];
-
-      // If we have an available pre-rendered window,
-      // use it.
-      if (availableLabel != null) {
-        s.windows[availableLabel] = {
-          ...available,
-          visible: true,
-          reserved: true,
-          focusCount: 1,
-          focus: true,
-          ...payload,
-        };
-        s.labelKeys[availableLabel] = payload.key;
-        s.keyLabels[payload.key] = availableLabel;
-      } else {
-        // If we don't, just create the window directly.
-        s.windows[label] = {
-          ...s.config.defaultWindowProps,
-          ...INITIAL_WINDOW_STATE,
-          ...payload,
-          reserved: true,
-        };
-        s.labelKeys[label] = key;
-        s.keyLabels[key] = label;
-      }
-
-      if (s.config.enablePrerender && !alreadyHasPreRender(s))
-        s.windows[prerenderLabel] = deep.copy({
-          ...s.config.defaultWindowProps,
-          ...INITIAL_PRERENDER_WINDOW_STATE,
-        });
-    },
-    setWindowStage: assertLabel<SetWindowStatePayload>((s, a) => {
-      const win = s.windows[a.payload.label];
-      if (win == null) return;
-      win.stage = a.payload.stage;
-    }),
-    closeWindow: assertLabel<CloseWindowPayload>((s, { payload: { label } }) => {
-      const win = s.windows[label];
-      if (win == null || win.processCount > 0) return;
-      win.stage = "closing";
-      delete s.windows[label];
-      delete s.labelKeys[label];
-      delete s.keyLabels[win.key];
-    }),
-    reloadWindow: assertLabel<ReloadWindowPayload>((s, a) => {
-      const win = s.windows[a.payload.label];
-      if (win == null || win.processCount > 0) return;
-      win.stage = "reloading";
-      delayedReload();
-    }),
-    registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
-    completeProcess: assertLabel<MaybeKeyPayload>((s, a) => {
-      incrementCounter("processCount", true)(s, a);
-      const win = s.windows[a.payload.label];
-      if (win == null) return;
-      if (win.processCount === 0)
-        if (win.stage === "reloading") delayedReload();
-        else {
-          s.windows[a.payload.label].visible = false;
-          delete s.windows[a.payload.label];
-          delete s.labelKeys[a.payload.label];
-          delete s.keyLabels[win.key];
-        }
-    }),
-    setWindowError: (s: SliceState, a: PayloadAction<SetWindowErrorPayload>) => {
-      const win = s.windows[a.payload.key];
-      if (win == null) return;
-      win.error = a.payload.message;
-    },
-    focusWindow: assertLabel<FocusWindowPayload>((s, a) => {
-      const win = s.windows[a.payload.label];
-      if (win == null) return;
-      if (win?.visible !== true) s.windows[a.payload.label].visible = true;
-      incrementCounter("focusCount")(s, a);
-    }),
-    setWindowMinimized: assignBool("minimized"),
-    setWindowMaximized: assignBool("maximized"),
-    setWindowVisible: assignBool("visible", true),
-    setWindowFullscreen: assignBool("fullscreen", true),
-    centerWindow: assertLabel<CenterWindowPayload>(incrementCounter("centerCount")),
-    setWindowPosition: assertLabel<SetWindowPositionPayload>((s, a) => {
-      s.windows[a.payload.label].position = a.payload.position;
-    }),
-    setWindowSize: assertLabel<SetWindowSizePayload>((s, a) => {
-      s.windows[a.payload.label].size = a.payload.size;
-    }),
-    setWindowMinSize: assertLabel<SetWindowMinSizePayload>((s, a) => {
-      s.windows[a.payload.label].minSize = a.payload.size;
-    }),
-    setWindowMaxSize: assertLabel<SetWindowMaxSizePayload>((s, a) => {
-      s.windows[a.payload.label].maxSize = a.payload.size;
-    }),
-    setWindowResizable: assignBool("resizable"),
-    setWindowSkipTaskbar: assignBool("skipTaskbar"),
-    setWindowAlwaysOnTop: assignBool("alwaysOnTop"),
-    setWindowTitle: assertLabel<SetWindowTitlePayload>((s, a) => {
-      s.windows[a.payload.label].title = a.payload.title;
-    }),
-    setWindowDecorations: assignBool("decorations"),
-    setWindowProps: (s: SliceState, a: PayloadAction<SetWindowPropsPayload>) => {
-      const prev = s.windows[a.payload.label];
-      const deepPartialEqual = deep.partialEqual(prev, a.payload);
-      if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
-    },
+    setConfig: reduceSetConfig,
+    internalSetInitial: reduceInternalSetInitial,
+    setWindowLabel: reduceSetWindowLabel,
+    createWindow: reduceCreateWindow,
+    setWindowStage: reduceSetWindowStage,
+    closeWindow: reduceCloseWindow,
+    registerProcess: reduceRegisterProcess,
+    completeProcess: reduceCompleteProcess,
+    setWindowError: reduceSetWindowError,
+    focusWindow: reduceFocusWindow,
+    reloadWindow: reduceReloadWindow,
+    setWindowMinimized: reduceSetWindowMinimized,
+    setWindowMaximized: reduceSetWindowMaximized,
+    setWindowVisible: reduceSetWindowVisible,
+    setWindowFullscreen: reduceSetWindowFullscreen,
+    centerWindow: reduceCenterWindow,
+    setWindowPosition: reduceSetWindowPosition,
+    setWindowSize: reduceSetWindowSize,
+    setWindowMinSize: reduceSetWindowMinSize,
+    setWindowMaxSize: reduceSetWindowMaxSize,
+    setWindowResizable: reduceSetWindowResizable,
+    setWindowSkipTaskbar: reduceSetWindowSkipTaskbar,
+    setWindowAlwaysOnTop: reduceSetWindowAlwaysOnTop,
+    setWindowTitle: reduceSetWindowTitle,
+    setWindowDecorations: reduceSetWindowDecorations,
+    runtimeSetWindowProps: reduceSetWindowProps,
+    setWindowProps: reduceSetWindowProps as (
+      s: SliceState,
+      a: PayloadAction<SetWindowPropsPayload>,
+    ) => void,
   },
 });
 
 export const {
   actions: {
     setConfig,
+    runtimeSetWindowProps,
     setWindowProps,
     setWindowLabel,
     createWindow,
+    internalSetInitial,
     setWindowStage,
     closeWindow,
     registerProcess,
@@ -406,29 +496,13 @@ export const reducer: Reducer<SliceState, Action> = slice.reducer;
 export const isDriftAction = (type: string): boolean => type.startsWith(SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
-const EXCLUDED_ACTIONS: string[] = [setWindowLabel.type];
+const EXCLUDED_ACTIONS: string[] = [setWindowLabel.type, internalSetInitial.type];
 
 /**
  * @returns true if the action with the given type should be emitted to other
  * windows.
  * @param emitted - Boolean indicating if the action was emitted by another window.
  * @param type - The action type to check.
- *
  */
 export const shouldEmit = (emitted: boolean, type: string): boolean =>
   !emitted && !EXCLUDED_ACTIONS.includes(type);
-
-const maybePositionInCenter = (
-  mainWin: WindowState,
-  position?: xy.XY,
-  size?: dimensions.Dimensions,
-): xy.XY | undefined => {
-  if (mainWin.position != null && mainWin.size != null && position == null)
-    return box.topLeft(
-      box.positionInCenter(
-        box.construct(xy.ZERO, size ?? xy.ZERO),
-        box.construct(mainWin.position, mainWin.size),
-      ),
-    );
-  return position;
-};

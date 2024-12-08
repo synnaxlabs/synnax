@@ -132,15 +132,6 @@ const newStore = async (): Promise<RootStore> => {
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });
-  if (preloadedState != null && Drift.SLICE_NAME in preloadedState) {
-    const windows = preloadedState[Drift.SLICE_NAME].windows;
-    Object.keys(windows).forEach((key) => {
-      if (!windows[key].reserved) return;
-      windows[key].visible = DEFAULT_WINDOW_VISIBLE;
-      windows[key].focusCount = 0;
-      windows[key].centerCount = 0;
-    });
-  }
   return await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(),
     preloadedState,
