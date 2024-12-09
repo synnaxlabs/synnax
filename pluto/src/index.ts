@@ -18,7 +18,6 @@ export { Color } from "@/color";
 export * from "@/css";
 export { Dialog } from "@/dialog";
 export { Divider } from "@/divider";
-export { Doodle } from "@/doodle";
 export { Dropdown } from "@/dropdown";
 export { Form } from "@/form";
 export { Generic } from "@/generic";

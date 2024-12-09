@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, Rate } from "@synnaxlabs/client";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
   Align,
   Button,
@@ -38,10 +39,14 @@ const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 export const createCalculatedLayout: Layout.State = {
   key: CREATE_CALCULATED_LAYOUT_TYPE,
   type: CREATE_CALCULATED_LAYOUT_TYPE,
-  windowKey: CREATE_CALCULATED_LAYOUT_TYPE,
+  windowKey: MAIN_WINDOW,
   name: "Channel.Create.Calculated",
   icon: "Channel",
-  location: "modal",
+  location: "mosaic",
+  tab: {
+    closable: true,
+    editable: false,
+  },
   window: {
     resizable: false,
     size: { height: 600, width: 1000 },
@@ -155,7 +160,7 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
               />
             )}
           </Form.Field>
-          <Form.Field<channel.Key[]> path="requires" label="Requires" grow>
+          <Form.Field<channel.Key[]> path="requires" label="Required Channels" grow>
             {(p) => <Channel.SelectMultiple zIndex={100} {...p} />}
           </Form.Field>
         </Form.Form>
