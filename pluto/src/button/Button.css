@@ -52,14 +52,17 @@
 @keyframes delay {
     0% {
         width: 0%;
+        -webkit-backdrop-filter: brightness(0.6);
         backdrop-filter: brightness(0.6);
     }
     99% {
         width: 100%;
+        -webkit-backdrop-filter: brightness(0.6);
         backdrop-filter: brightness(0.6);
     }
     100% {
         width: 100%;
+        -webkit-backdrop-filter: brightness(1);
         backdrop-filter: brightness(1);
     }
 }
@@ -223,7 +226,8 @@
 
 .pluto-btn--text {
     background: none;
-    border: none;
+    border: var(--pluto-border);
+    border-color: transparent;
 
     &:hover:not(.pluto--disabled) {
         --pluto-bg: var(--pluto-gray-l2);

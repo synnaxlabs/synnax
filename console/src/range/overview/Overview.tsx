@@ -10,6 +10,8 @@
 import "@/range/overview/Overview.css";
 
 import { Align, Divider } from "@synnaxlabs/pluto";
+import nlp from "compromise";
+import nlpDates from "compromise-dates";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -49,5 +51,15 @@ export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => (
     <ChildRanges rangeKey={layoutKey} />
     <Divider.Divider direction="x" />
     <Snapshots rangeKey={layoutKey} />
+    <DateParse />
   </Align.Space>
 );
+
+const nlpx = nlp.extend(nlpDates);
+
+const DateParse = () => {
+  const doc = nlpx("December 15 at noon");
+  console.log(doc.dates().json());
+
+  return <></>;
+};

@@ -73,16 +73,18 @@ export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children">
 }
 
 const AutoBoundButton = ({ enabled, ...props }: AutoBoundButtonProps): ReactElement => (
-  <Button.Icon
+  <Button.Button
     {...props}
     variant="outlined"
-    disabled={enabled}
     tooltip={
       enabled ? "Manually enter value to disable auto bounding" : "Enable auto bounding"
     }
+    level="small"
+    size="medium"
+    startIcon={<Icon.Auto />}
   >
-    <Icon.Auto />
-  </Button.Icon>
+    Click to disable auto-bounding.
+  </Button.Button>
 );
 
 export const LinePlotAxisControls = ({
@@ -149,17 +151,25 @@ export const LinePlotAxisControls = ({
     <Align.Space direction="y" style={{ padding: "2rem" }} size="small">
       <Align.Space direction="x">
         <Input.Item label="Lower Bound" direction="y" grow>
-          <Input.Numeric
-            value={axis.bounds.lower}
-            onChange={handleLowerBoundChange}
-            resetValue={0}
-            dragScale={AXES_BOUNDS_DRAG_SCALE}
-          >
+          {axis.autoBounds.lower ? (
             <AutoBoundButton
               enabled={axis.autoBounds.lower}
               onClick={handleLowerAutoBoundEnable}
             />
-          </Input.Numeric>
+          ) : (
+            <Input.Numeric
+              value={axis.bounds.lower}
+              onChange={handleLowerBoundChange}
+              resetValue={0}
+              dragScale={AXES_BOUNDS_DRAG_SCALE}
+              disabled
+              disabledOverlay={
+                <Text.Text level="small">
+                  Auto bounding enabled. Click to disable.
+                </Text.Text>
+              }
+            />
+          )}
         </Input.Item>
         <Input.Item label="Upper Bound" grow>
           <Input.Numeric
@@ -168,10 +178,10 @@ export const LinePlotAxisControls = ({
             resetValue={0}
             dragScale={AXES_BOUNDS_DRAG_SCALE}
           >
-            <AutoBoundButton
+            {/* <AutoBoundButton
               enabled={axis.autoBounds.upper}
               onClick={handleUpperAutoBoundEnable}
-            />
+            /> */}
           </Input.Numeric>
         </Input.Item>
         <Input.Item label="Tick Spacing" grow>

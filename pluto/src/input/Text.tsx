@@ -42,6 +42,8 @@ export interface TextProps extends Omit<BaseProps<string>, "color">, TextExtraPr
  * @param props.centerPlaceholder - Whether the placeholder should be centered.
  * @param props.resetOnBlurIfEmpty - Whether the input should reset to its previous value if
  * blurred while empty.
+ * @param props.onlyChangeOnBlur - If true, the input will only call `onChange` when the
+ * user blurs the input or the user presses 'Enter'.
  */
 export const Text = forwardRef<HTMLInputElement, TextProps>(
   (
@@ -70,6 +72,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       endContent,
       borderWidth,
       borderShade = 4,
+      disabledOverlay,
       ...props
     },
     ref,
@@ -120,8 +123,12 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
 
     const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
+    const C = variant === "natural" ? Align.Space : Align.Pack;
+
     return (
-      <Align.Pack
+      <C
+        direction="x"
+        empty
         style={style}
         className={CSS(
           CSS.B("input"),
@@ -160,6 +167,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
               )}
             </div>
           )}
+
           <input
             ref={combinedRef}
             value={tempValue ?? value}
@@ -175,12 +183,12 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
             disabled={disabled}
             placeholder={typeof placeholder === "string" ? placeholder : undefined}
-            style={{ fontWeight: weight, textAlign: "inherit" }}
+            style={{ fontWeight: weight }}
             {...props}
           />
         </div>
         {children}
-      </Align.Pack>
+      </C>
     );
   },
 );

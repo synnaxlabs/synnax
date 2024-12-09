@@ -38,11 +38,14 @@
     background: var(--pluto-gray-l3-35);
 
     .pluto-dropdown__dialog {
+        /* contain: layout size style; */
         top: 30%;
         transform: translateY(-25%);
         --pluto-pack-br: 1rem;
         border-radius: 1rem;
-        background: var(--pluto-gray-l0);
+        background: var(--pluto-gray-l0-90);
+        backdrop-filter: blur(3rem);
+        -webkit-backdrop-filter: blur(3rem);
         overflow: hidden;
         max-width: calc(100vw - 5rem);
     }

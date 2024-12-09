@@ -9,10 +9,88 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-input__datetime {
+    width: min-content;
+    & input {
+        padding-right: 0 !important;
+    }
+}
 
-.pluto-input-date-time {
-    & .pluto-input-date {
-        width: min-content;
+input::-webkit-calendar-picker-indicator {
+    display: none;
+}
+
+@media (max-width: 800px) {
+    .pluto-datetime-modal {
+        width: 100%;
+        .pluto-content {
+            flex-direction: column !important;
+        }
+
+        .pluto-ai-selector {
+            min-height: 250px;
+        }
+        max-width: 440px !important;
+    }
+}
+
+.pluto-datetime-modal {
+    border-radius: 1rem;
+    border: var(--pluto-border-l4);
+    padding: 2rem;
+    width: calc(98vw - 6rem);
+    max-width: 800px;
+
+    .pluto-header {
+        padding-left: 1rem;
     }
 
+    .pluto-calendar {
+        width: 39rem;
+        height: 37rem;
+    }
+
+    .pluto-time-list {
+        width: 10rem;
+        height: 33rem !important;
+        border-top-left-radius: 0 !important;
+    }
+
+    .pluto-close-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+
+    .pluto-datetime-picker {
+        border-top-left-radius: 0 !important;
+
+        ::-webkit-scrollbar {
+            width: 0.5rem;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--pluto-gray-l3);
+            border-radius: var(--pluto-border-radius);
+        }
+
+        .pluto-input__internal {
+            width: min-content;
+            border-bottom-left-radius: 0 !important;
+            border-color: var(--pluto-gray-l3) !important;
+            border-top: none !important;
+            background: none !important;
+        }
+
+        .pluto-time-selector {
+            .pluto-btn {
+                border-color: var(--pluto-gray-l3) !important;
+                border-top: none !important;
+            }
+        }
+    }
 }
