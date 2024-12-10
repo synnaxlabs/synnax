@@ -109,13 +109,16 @@ export const Editable = <L extends text.Level = text.Level>({
   const optimisticValueRef = useSyncedRef(value);
 
   const stylesToTriggerReflow = useRef<StylesToTriggerReflow | undefined>(style);
+  const valueRef = useRef(value);
 
   if (
-    stylesToTriggerReflow.current != null &&
-    !compareStylesToTriggerReflow(style, stylesToTriggerReflow.current)
+    (stylesToTriggerReflow.current != null &&
+      !compareStylesToTriggerReflow(style, stylesToTriggerReflow.current)) ||
+    value !== valueRef.current
   ) {
     triggerReflow(ref.current as HTMLElement);
     stylesToTriggerReflow.current = style;
+    valueRef.current = value;
   }
 
   const handleDoubleClick = (
