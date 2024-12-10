@@ -57,7 +57,7 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key);
         if (err != freighter::NIL) {
             this->log_err("Error retrieving channel: " + err.message());
-            return keys;
+            continue;
         }
         channel.data_type = channel_info.data_type;
         this->reader_config.index_keys.insert(channel_info.index);
@@ -68,7 +68,7 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.key);
         if (err != freighter::NIL) {
             this->log_err("Error retrieving channel: " + err.message());
-            return keys;
+            continue;
         }
         channel.data_type = channel_info.data_type;
         this->reader_config.index_keys.insert(channel_info.index);
