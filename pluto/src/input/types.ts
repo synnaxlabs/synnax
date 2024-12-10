@@ -42,6 +42,7 @@ export interface ExtensionProps<I extends Value = Value, O extends Value = I>
   weight?: Text.Weight;
   endContent?: ReactNode;
   disabledOverlay?: ReactNode;
+  onlyChangeOnBlur?: boolean;
 }
 
 export interface BaseProps<I extends Value = Value, O extends Value = I>

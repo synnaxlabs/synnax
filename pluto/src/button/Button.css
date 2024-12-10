@@ -226,7 +226,7 @@
 
 .pluto-btn--text {
     background: none;
-    border: var(--pluto-border);
+    border: none;
     border-color: transparent;
 
     &:hover:not(.pluto--disabled) {

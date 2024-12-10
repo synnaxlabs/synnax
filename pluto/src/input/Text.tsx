@@ -24,7 +24,6 @@ export interface TextExtraProps {
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: Status.Variant;
-  onlyChangeOnBlur?: boolean;
   color?: Color.Crude;
 }
 

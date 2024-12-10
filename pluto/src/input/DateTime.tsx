@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { type KeyedNamed, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
-import { type ReactElement, useState } from "react";
+import { type FC, type ReactElement, useState } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
@@ -32,23 +32,7 @@ const applyTimezoneOffset = (ts: TimeStamp): TimeStamp =>
       TimeSpan.MINUTE.valueOf(),
   );
 
-export interface DateTimeProps extends BaseProps<number> {
-  onlyChangeOnBlur?: boolean;
-}
-
-interface Entry {
-  key: string;
-  name: string;
-  onClick: () => void;
-}
-
-const ListItem = (props: List.ItemProps<string, Entry>): ReactElement => (
-  <List.ItemFrame {...props}>
-    <Text.Text level="p">{props.entry.name}</Text.Text>
-  </List.ItemFrame>
-);
-
-const listItem = componentRenderProp(ListItem);
+export interface DateTimeProps extends BaseProps<number> {}
 
 export const DateTime = ({
   value,
@@ -112,7 +96,7 @@ export const DateTime = ({
         onKeyDown={handleKeyDown}
         value={tempValue ?? parsedValue}
         onChange={handleChange}
-        step={0.0001}
+        step={0.00001}
         {...props}
       >
         <Button.Icon
@@ -139,7 +123,7 @@ interface DateTimeModalProps {
   close: () => void;
 }
 
-export const DateTimeModal = ({
+const DateTimeModal = ({
   value,
   onChange,
   close,
@@ -154,52 +138,77 @@ export const DateTimeModal = ({
       <Icon.Close />
     </Button.Icon>
     <Align.Space direction="x" className={CSS.B("content")}>
-      <AISelector value={value} onChange={onChange} close={close} />
+      <AISelector value={value} onChange={onChange} />
       <Calendar value={value} onChange={onChange} />
     </Align.Space>
   </Align.Space>
 );
 
+interface AISuggestion {
+  key: string;
+  name: string;
+  onSelect: () => void;
+}
+
+const AIListItem = (props: List.ItemProps<string, AISuggestion>): ReactElement => (
+  <List.ItemFrame {...props}>
+    <Text.Text level="p">{props.entry.name}</Text.Text>
+  </List.ItemFrame>
+);
+
+const aiListItem = componentRenderProp(AIListItem);
+
 interface AISelectorProps {
   value: TimeStamp;
   onChange: (next: TimeStamp) => void;
-  close: () => void;
 }
 
-const AISelector = ({ value: _, onChange, close }: AISelectorProps): ReactElement => {
+const AISelector = ({ value: pValue, onChange }: AISelectorProps): ReactElement => {
   const [value, setValue] = useState<string>("");
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const [entries, setEntries] = useState<AISuggestion[]>([]);
 
   const handleChange = (next: string): void => {
     const processed = nlp(next) as DatesMethods;
     const dates = processed.dates().get() as DateInfo[];
-    const entries: Entry[] = [];
+    const entries: AISuggestion[] = [];
     entries.push(
       ...dates.map((d) => {
         const nextTS = applyTimezoneOffset(new TimeStamp(d.start, "UTC"));
         return {
           key: d.start,
           name: nextTS.fString("preciseDate", "local"),
-          onClick: () => {
-            onChange(nextTS);
-          },
+          onSelect: () => onChange(nextTS),
         };
       }),
     );
     setEntries(entries);
+    const durations = (processed.durations() as any).get() as DurationInfo[];
+    entries.push(
+      ...durations.map((d) => {
+        let span = new TimeSpan(0);
+        if (d.hour != null) span = span.add(TimeSpan.hours(d.hour));
+        if (d.minute != null) span = span.add(TimeSpan.minutes(d.minute));
+        if (d.second != null) span = span.add(TimeSpan.seconds(d.second));
+        if (d.millisecond != null)
+          span = span.add(TimeSpan.milliseconds(d.millisecond));
+        const next = applyTimezoneOffset(pValue.add(span));
+        return {
+          key: next.valueOf().toString(),
+          name: next.fString("preciseDate", "local"),
+          onSelect: () => onChange(next),
+        };
+      }),
+    );
     setValue(next);
   };
   const handleSelect = (key: string | null): void => {
     const entry = entries.find((e) => e.key === key);
-    if (entry) entry.onClick();
-    close();
+    if (entry) entry.onSelect();
+    setValue("");
+    setEntries([]);
   };
   return (
-    <Align.Pack
-      direction="y"
-      className={CSS.B("ai-selector")}
-      style={{ width: "100%" }}
-    >
+    <Align.Pack direction="y" className={CSS.B("ai-selector")}>
       <Input.Text
         value={value}
         onChange={handleChange}
@@ -224,14 +233,14 @@ const AISelector = ({ value: _, onChange, close }: AISelectorProps): ReactElemen
           </Align.Center>
         }
       >
-        <List.Selector<string, Entry>
+        <List.Selector<string, AISuggestion>
           value={null}
           allowMultiple={false}
           allowNone
           onChange={handleSelect}
         >
           <List.Hover initialHover={0}>
-            <List.Core grow>{listItem}</List.Core>
+            <List.Core grow>{aiListItem}</List.Core>
           </List.Hover>
         </List.Selector>
       </List.List>
@@ -261,6 +270,13 @@ const MONTHS: Month[] = [
 
 interface DateInfo {
   start: string;
+}
+
+interface DurationInfo {
+  hour?: number;
+  minute?: number;
+  second?: number;
+  millisecond?: number;
 }
 
 interface CalendarProps {
@@ -345,32 +361,38 @@ const TimeListItem = (props: List.ItemProps<string, KeyedNamed>): ReactElement =
 };
 
 interface TimeListProps {
-  count: number;
   value: number;
   onChange: (next: number) => void;
 }
 
-const TimeList = ({ count, value, onChange }: TimeListProps): ReactElement => (
-  <List.List<string, KeyedNamed>
-    data={Array.from({ length: count }, (_, i) => ({
-      key: i.toString(),
-      name: i.toString(),
-    }))}
-  >
-    <List.Selector<string, KeyedNamed>
-      value={value.toString()}
-      onChange={(next: string) => onChange(Number(next))}
-      allowMultiple={false}
-      allowNone={false}
-    >
-      <List.Core<string, KeyedNamed> className={CSS.B("time-list")}>
-        {timeListItem}
-      </List.Core>
-    </List.Selector>
-  </List.List>
-);
-
 const timeListItem = componentRenderProp(TimeListItem);
+
+export const createTimeList = (count: number): FC<TimeListProps> => {
+  const data = Array.from({ length: count }, (_, i) => ({
+    key: i.toString(),
+    name: i.toString(),
+  }));
+  const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
+    <List.List<string, KeyedNamed> data={data}>
+      <List.Selector<string, KeyedNamed>
+        value={value.toString()}
+        onChange={(next: string) => onChange(Number(next))}
+        allowMultiple={false}
+        allowNone={false}
+      >
+        <List.Core<string, KeyedNamed> className={CSS.B("time-list")}>
+          {timeListItem}
+        </List.Core>
+      </List.Selector>
+    </List.List>
+  );
+  TimeList.displayName = "TimeList";
+  return TimeList;
+};
+
+const HoursList = createTimeList(24);
+const MinutesList = createTimeList(60);
+const SecondsList = createTimeList(60);
 
 interface TimeSelectorProps {
   value: TimeStamp;
@@ -384,18 +406,15 @@ export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactEleme
     style={{ height: "37rem" }}
   >
     <Align.Pack direction="x" grow>
-      <TimeList
-        count={24}
+      <HoursList
         value={value.hour}
         onChange={(next) => onChange(value.setHour(next))}
       />
-      <TimeList
-        count={60}
+      <MinutesList
         value={value.minute}
         onChange={(next) => onChange(value.setMinute(next))}
       />
-      <TimeList
-        count={60}
+      <SecondsList
         value={value.second}
         onChange={(next) => onChange(value.setSecond(next))}
       />
@@ -405,6 +424,7 @@ export const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactEleme
       value={value.millisecond}
       onChange={(next) => onChange(value.setMillisecond(next))}
       endContent="ms"
+      showDragHandle={false}
     />
   </Align.Pack>
 );

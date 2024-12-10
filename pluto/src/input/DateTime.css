@@ -26,11 +26,10 @@ input::-webkit-calendar-picker-indicator {
         .pluto-content {
             flex-direction: column !important;
         }
-
         .pluto-ai-selector {
-            min-height: 250px;
+            min-height: 200px;
         }
-        max-width: 440px !important;
+        max-width: 445px !important;
     }
 }
 
@@ -45,13 +44,17 @@ input::-webkit-calendar-picker-indicator {
         padding-left: 1rem;
     }
 
+    .pluto-ai-selector {
+        width: 100%;
+    }
+
     .pluto-calendar {
         width: 39rem;
         height: 37rem;
     }
 
     .pluto-time-list {
-        width: 10rem;
+        width: 11rem;
         height: 33rem !important;
         border-top-left-radius: 0 !important;
     }
@@ -86,11 +89,9 @@ input::-webkit-calendar-picker-indicator {
             background: none !important;
         }
 
-        .pluto-time-selector {
-            .pluto-btn {
-                border-color: var(--pluto-gray-l3) !important;
-                border-top: none !important;
-            }
+        .pluto-time-selector .pluto-btn {
+            border-color: var(--pluto-gray-l3) !important;
+            border-top: none !important;
         }
     }
 }
