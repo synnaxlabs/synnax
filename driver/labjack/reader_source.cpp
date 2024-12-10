@@ -214,10 +214,9 @@ void labjack::ReaderSource::init_stream() {
 };
 
 freighter::Error labjack::ReaderSource::start(const std::string &cmd_key) {
-    if(!this->ok()) {
-        this->log_err("Read task failed to start. " + this->last_err);
+    if(!this->ok())
         return freighter::Error("Device disconnected or is in error. Please reconfigure task and try again");
-    }
+
     if (this->breaker.running()) {
         LOG(INFO) << "[labjack.reader] breaker already running";
         return freighter::NIL;
@@ -529,7 +528,6 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_ai_channel_keys() {
 void labjack::ReaderSource::log_err(std::string msg){
     LOG(ERROR) << "[labjack.reader] " << msg;
     this->ok_state = false;
-    this->last_err = msg;
     ctx->set_state({
                        .task = this->task.key,
                        .variant = "error",

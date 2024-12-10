@@ -135,7 +135,8 @@ struct WriterConfig {
                 return;
             }
             channel.data_type = channel_info.data_type;
-            channels.emplace_back(channel);
+
+            if(channel.enabled) channels.emplace_back(channel);
 
             /// digital outputs start active high
             double initial_val = 0.0;
@@ -187,6 +188,9 @@ public:
     void open_device();
 
 private:
+
+    void log_err(std::string err_msg);
+
     int handle;
     std::shared_ptr<task::Context> ctx;
     WriterConfig writer_config;

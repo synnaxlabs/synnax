@@ -151,6 +151,9 @@ labjack::WriteSink::WriteSink(
     );
 
     this->handle = this->device_manager->get_device_handle(this->writer_config.serial_number);
+
+    if(this->writer_config.channels.empty())
+        this->log_err("No channels enabled/set");
 }
 
 labjack::WriteSink::~WriteSink() {
@@ -164,7 +167,7 @@ void labjack::WriteSink::init() {
             this->writer_config.device_key
         );
         if (err != freighter::NIL) {
-            LOG(ERROR) << "[labjack.writer] Error retrieving device: " << err.message();
+            this->log_err("Error retrieving device.");
             return;
         }
         this->writer_config.device_type = dev.model;
@@ -203,6 +206,8 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame) {
 
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key) {
+    if(!this->ok())
+        return freighter::Error("Device disconnected or is in error. Please reconfigure task and try again");
     ctx->set_state({
         .task = task.key,
         .key = cmd_key,
@@ -251,7 +256,6 @@ std::vector<synnax::ChannelKey> labjack::WriteSink::get_state_channel_keys() {
 
 std::vector<synnax::ChannelKey> labjack::WriteSink::get_index_keys() {
     if (this->writer_config.channels.empty()) {
-        LOG(ERROR) << "[labjack.writer] No channels configured";
         return {};
     }
 
@@ -259,7 +263,7 @@ std::vector<synnax::ChannelKey> labjack::WriteSink::get_index_keys() {
     for (auto &channel: this->writer_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.state_key);
         if (err) {
-            LOG(ERROR) << "[labjack.writer] Failed to retrieve channel: " << channel.state_key;
+            this->log_err("Failed to retrieve channel.");
             return {};
         }
         unique_keys.insert(channel_info.index);
@@ -286,4 +290,17 @@ int labjack::WriteSink::check_err(int err, std::string caller) {
 
 bool labjack::WriteSink::ok() {
     return this->ok_state;
+}
+
+void labjack::WriteSink::log_err(std::string msg){
+    LOG(ERROR) << "[labjack.writer] " << msg;
+    this->ok_state = false;
+    ctx->set_state({
+                       .task = this->task.key,
+                       .variant = "error",
+                       .details = {
+                               {"running", false},
+                               {"message", msg}
+                       }
+               });
 }

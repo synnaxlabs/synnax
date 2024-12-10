@@ -317,7 +317,6 @@ private:
     bool ok_state = true;
     std::mutex mutex;
     std::shared_ptr<labjack::DeviceManager> device_manager;
-    std::string last_err;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
