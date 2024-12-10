@@ -104,7 +104,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       path={`${path}.maxInlineSize`}
       hideIfNull
       label="Label Wrap Width"
-      inputProps={{ endContent: "px" }}
+      inputProps={{ endContent: "px", dragScale: { x: 1, y: 0.5 } }}
       padHelpText={false}
     />
     <Form.Field<Text.Level>
