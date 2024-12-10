@@ -11,10 +11,9 @@
 
 .pluto-text--editable {
     cursor: pointer;
-    user-select: text;
     -webkit-user-select: text;
+    user-select: text;
     padding: 0.25rem 0;
-    box-sizing: content-box;
 
     &:focus {
         border: var(--pluto-border-width) solid var(--pluto-primary-z);

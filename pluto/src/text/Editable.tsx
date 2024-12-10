@@ -108,9 +108,12 @@ export const Editable = <L extends text.Level = text.Level>({
   // call onChange twice in quick succession.
   const optimisticValueRef = useSyncedRef(value);
 
+  // Turns out the writing modes like vertical-rl cause all sorts of problems with
+  // elements whose values change. The following section of code forces the browser
+  // to reflow the element when the value changes or the styles that affect the
+  // layout change.
   const stylesToTriggerReflow = useRef<StylesToTriggerReflow | undefined>(style);
   const valueRef = useRef(value);
-
   if (
     (stylesToTriggerReflow.current != null &&
       !compareStylesToTriggerReflow(style, stylesToTriggerReflow.current)) ||
@@ -183,11 +186,7 @@ export const Editable = <L extends text.Level = text.Level>({
     // @ts-expect-error - TODO: generic element behavior is funky
     <Text<L>
       ref={ref}
-      className={CSS(
-        className,
-        CSS.BM("text", "editable"),
-        editable && CSS.M("editing"),
-      )}
+      className={CSS(className, CSS.BM("text", "editable"))}
       onBlur={() => {
         setEditable(false);
         const el = ref.current;
