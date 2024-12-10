@@ -93,6 +93,10 @@ std::unique_ptr<task::Task> labjack::WriterTask::configure(
         breaker_config
     );
 
+    if(!sink->ok())
+        return nullptr;
+
+
     ctx->set_state({
         .task = task.key,
         .variant = "success",

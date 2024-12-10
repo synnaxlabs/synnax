@@ -152,7 +152,7 @@ json labjack::ScannerTask::get_devices() {
 int labjack::ScannerTask::check_err(const int err) {
     // First check if it is LJME_AUTO_IPS_FILE_NOT_FOUND as this is a known
     // bug on the LJM Library when no devices are connected
-    if (err == LJME_AUTO_IPS_FILE_NOT_FOUND) return 0;
+    if (err == LJME_AUTO_IPS_FILE_NOT_FOUND || err == LJME_AUTO_IPS_FILE_INVALID) return 0;
     return labjack::check_err_internal(
         err,
         "",

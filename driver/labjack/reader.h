@@ -294,6 +294,8 @@ private:
 
     void open_device();
 
+    void log_err(std::string err_msg);
+
     int handle;
     ReaderConfig reader_config;
     std::shared_ptr<task::Context> ctx;
