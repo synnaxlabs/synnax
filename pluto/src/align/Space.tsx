@@ -110,7 +110,7 @@ const CoreSpace = <E extends SpaceElementType>(
   else if (typeof size === "number") gap = `${size}rem`;
 
   style = {
-    gap,
+    gap: `${gap} ${gap}`,
     flexDirection: flexDirection(dir, reverse),
     justifyContent: justifications[justify],
     alignItems: align,

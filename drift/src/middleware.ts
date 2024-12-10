@@ -27,8 +27,8 @@ import {
   type LabelPayload,
   type MaybeKeyPayload,
   reloadWindow,
+  runtimeSetWindowProps,
   setWindowError,
-  setWindowProps,
   shouldEmit,
   type SliceState,
   type StoreState,
@@ -46,7 +46,7 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 //    window operations have been applied.
 const mu = new Mutex();
 
-const EXCLUDE_SYNC_ACTIONS: string[] = [setWindowProps.type, reloadWindow.type];
+const EXCLUDE_SYNC_ACTIONS: string[] = [runtimeSetWindowProps.type, reloadWindow.type];
 
 /**
  * Redux middleware that conditionally does two things:

@@ -18,7 +18,3 @@
 .pluto-text-link:hover {
     text-decoration: underline;
 }
-
-.pluto-text-link__text {
-    color: var(--pluto-primary-p1);
-}

@@ -13,6 +13,7 @@ import {
   MAIN_WINDOW,
   setWindowDecorations,
   setWindowMinimized,
+  setWindowProps,
   setWindowVisible,
 } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
@@ -99,10 +100,15 @@ const WindowInternal = (): ReactElement | null => {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (layout?.key != null) {
-      dispatch(setWindowVisible({ key: layout.key, value: true }));
-      dispatch(setWindowMinimized({ key: layout.key, value: false }));
-    }
+    if (layout?.key != null)
+      dispatch(
+        setWindowProps({
+          key: layout.key,
+          visible: true,
+          minimized: false,
+        }),
+      );
+
     if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
   }, [os, layout?.key]);
 
