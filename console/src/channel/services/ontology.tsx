@@ -231,25 +231,25 @@ export const useOpenCalculated =
     console.log("Opening calculated channel", resource);
 
     const tabKey = `editCalculated-${resource.id.key}`;
-
-    return store.dispatch(
-      Layout.place({
-        ...createCalculatedLayout,
-        key: tabKey,
-        windowKey: MAIN_WINDOW,
-        name: `Edit ${resource.name}`,
-        location: "mosaic",
-        tab: {
-          closable: true,
-          editable: false,
-        },
-        args: {
-          channelKey: Number(resource.id.key),
-          channelName: resource.name,
-          expression: resource.data?.expression || "",
-        },
-      }),
-    );
+    console.log("Tab key from hook", tabKey);
+    const layout = {
+      ...createCalculatedLayout,
+      key: tabKey,
+      windowKey: MAIN_WINDOW,
+      name: `Edit ${resource.name}`,
+      location: "mosaic" as const,
+      tab: {
+        closable: true,
+        editable: false,
+      },
+      args: {
+        channelKey: Number(resource.id.key),
+        channelName: resource.name,
+        expression: resource.data?.expression || "",
+      },
+    };
+    console.log("Dispatching layout:", layout);
+    return store.dispatch(Layout.place(layout));
   };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {

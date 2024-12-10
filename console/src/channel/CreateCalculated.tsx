@@ -31,6 +31,17 @@ import { z } from "zod";
 import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import type { RendererProps } from "@/layout/slice";
+
+export interface CalculatedChannelArgs {
+  channelKey?: number;
+  channelName?: string;
+  expression?: string;
+}
+
+interface CalculatedModalRendererProps extends RendererProps {
+  args?: CalculatedChannelArgs;
+}
 
 export const CREATE_CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
 
@@ -68,14 +79,22 @@ const schema = channel.newPayload
     message: "Data channel must have an index",
     path: ["index"],
   });
+export const CreateCalculatedModal = (({
+  onClose,
+  args,
+}: CalculatedModalRendererProps): ReactElement => {
+  console.log("CreateCalculatedModal Args:", args);
+  // console.log("CreateCalculatedModal LayoutKey:", layoutKey);
 
-export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElement => {
   const client = Synnax.use();
+
+  const [initialLoading, setInitialLoading] = useState(!!args?.channelKey);
+
   const methods = Form.use<typeof schema>({
     schema,
     values: {
-      key: 0,
-      name: "",
+      key: args?.channelKey ?? 0,
+      name: args?.channelName ?? "",
       index: 0,
       dataType: "float32",
       internal: false,
@@ -83,10 +102,29 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
       leaseholder: 0,
       rate: Rate.hz(0),
       virtual: true,
-      expression: "result = np.array([])",
+      expression: args?.expression ?? "result = np.array([])",
       requires: [],
     },
   });
+
+  useEffect(() => {
+    const loadChannel = async () => {
+      if (!args?.channelKey || !client) return;
+      try {
+        const channel = await client.channels.retrieve(args.channelKey);
+        methods.reset({
+          ...channel,
+          dataType: channel.dataType.toString(),
+        });
+      } catch (err) {
+        console.error("Error loading channel", err);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    void loadChannel();
+  }, [args?.channelKey, client]);
+
   const [createMore, setCreateMore] = useState(false);
 
   const { mutate, isPending } = useMutation({
@@ -95,7 +133,12 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
       if (!methods.validate() || client == null) return;
       const d = methods.value();
       d.dataType = d.dataType.toString();
-      await client.channels.create(methods.value());
+
+      if (args?.channelKey)
+        console.log("Updating channel", args.channelKey); // TODO: add update once impl
+      // await client.channels.update(args.channelKey, d);
+      else await client.channels.create(methods.value());
+
       if (!createMore) onClose();
       else
         methods.reset({
@@ -119,6 +162,8 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
     false,
     methods,
   );
+
+  if (initialLoading) console.log("InitialLoading");
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
@@ -173,25 +218,27 @@ export const CreateCalculatedModal: Layout.Renderer = ({ onClose }): ReactElemen
           </Text.Text>
         </Nav.Bar.Start>
         <Nav.Bar.End align="center" size="large">
-          <Align.Space direction="x" align="center" size="small">
-            <Input.Switch value={createMore} onChange={setCreateMore} />
-            <Text.Text level="p" shade={7}>
-              Create More
-            </Text.Text>
-          </Align.Space>
+          {!args?.channelKey && (
+            <Align.Space direction="x" align="center" size="small">
+              <Input.Switch value={createMore} onChange={setCreateMore} />
+              <Text.Text level="p" shade={7}>
+                Create More
+              </Text.Text>
+            </Align.Space>
+          )}
           <Button.Button
             disabled={isPending}
             loading={isPending}
             onClick={() => mutate(createMore)}
             triggers={[SAVE_TRIGGER]}
           >
-            Create Channel
+            {args?.channelKey ? "Update Channel" : "Create Channel"}
           </Button.Button>
         </Nav.Bar.End>
       </Layout.BottomNavBar>
     </Align.Space>
   );
-};
+}) as Layout.Renderer;
 
 const Editor = (props: Code.EditorProps): ReactElement => {
   const client = Synnax.use();

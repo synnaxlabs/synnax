@@ -191,12 +191,15 @@ export const { actions, reducer } = createSlice({
       const { location, name, tab } = layout;
       let key = layout.key;
 
+      console.log("Layout from slice: ", layout)
+
       // Handle modal layouts separately
       if (location === "modal") {
         // Directly assign the layout for modals without touching mosaics
         state.layouts[key] = layout;
         return;
       }
+      // console.log("layout3", layout);
       // Continue with mosaic logic for non-modal layouts
 
       const prev = select(state, key);
@@ -559,6 +562,7 @@ export interface RendererProps {
    * layout is in the mosaic, onClose will remove the layout from the mosaic.
    */
   onClose: () => void;
+  args?: unknown;
 }
 
 export interface OnCloseProps {
