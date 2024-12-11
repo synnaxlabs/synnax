@@ -6,43 +6,14 @@
     "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
   ],
   "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".vercel/**"]
-    },
-    "build-vite": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
-    },
+    "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".vercel/**"] },
+    "build-vite": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "lint": {},
-    "dev-vite": {
-      "cache": false
-    },
-    "dev": {
-      "cache": false
-    },
-    "watch": {
-      "cache": false
-    },
-    "fix": {
-      "cache": false
-    },
-    "test": {
-      "dependsOn": ["^build"],
-      "cache": false
-    },
-    "cov": {
-      "dependsOn": ["^build"],
-      "cache": false
-    },
-    "devtools": {
-      "cache": false
-    },
-    "genApi": {
-      "cache": false
-    },
-    "checkApi": {
-      "cache": false
-    }
+    "dev-vite": { "cache": false },
+    "dev": { "cache": false },
+    "watch": { "cache": false },
+    "fix": { "cache": false },
+    "test": { "dependsOn": ["^build"], "cache": false },
+    "devtools": { "cache": false }
   }
 }
