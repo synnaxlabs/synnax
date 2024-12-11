@@ -11,8 +11,6 @@ package fhttp
 
 import (
 	"context"
-	"github.com/gofiber/fiber/v2"
-	"github.com/synnaxlabs/x/errors"
 	"go/types"
 	"io"
 	"net/http"
@@ -20,13 +18,14 @@ import (
 	"time"
 
 	ws "github.com/fasthttp/websocket"
+	"github.com/gofiber/fiber/v2"
 	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
-	roacherrors "github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	"go.uber.org/zap"
 )
@@ -37,11 +36,24 @@ var (
 	_ config.Config[ClientFactoryConfig]     = ClientFactoryConfig{}
 )
 
+// messageType is used to differentiate between the different types of messages
+// use to implement the websocket stream transport.
 type messageType string
 
 const (
-	msgTypeData  messageType = "data"
+	// msgTypeData is used for normal data movement between the ClientStream and
+	// ServerStream implementations.
+	msgTypeData messageType = "data"
+	// msgTypeClose is used to signal the end of the stream. We need to use this
+	// instead of the regular websocket Close message because the 'reason' can't
+	// have more than 123 bytes.
 	msgTypeClose messageType = "close"
+	// msgTypeOpen is used to acknowledge the successful opening of the stream.
+	// We need to do this in order to correctly handle the case where middleware
+	// returns an error early. We can't just use the regular HTTP request/response
+	// cycle because JavaScript implementations of the WebSocket's don't allow for
+	// accessing the response body.
+	msgTypeOpen messageType = "open"
 )
 
 // message wraps a user payload with additional information needed for the websocket
@@ -64,10 +76,10 @@ func newStreamCore[RQ, RS freighter.Payload](
 ) streamCore[RQ, RS] {
 	ctx, cancel := context.WithCancel(ctx)
 	b := streamCore[RQ, RS]{
-		ctx:        ctx,
-		cancel:     cancel,
-		contextC:   make(chan struct{}),
-		coreConfig: cfg,
+		ctx:             ctx,
+		cancel:          cancel,
+		contextListener: make(chan struct{}),
+		coreConfig:      cfg,
 	}
 	go b.listenForContextCancellation()
 	return b
@@ -83,10 +95,10 @@ type coreConfig struct {
 // streamCore is the common functionality implemented by both the client and server streams.
 type streamCore[I, O freighter.Payload] struct {
 	coreConfig
-	ctx        context.Context
-	cancel     context.CancelFunc
-	contextC   chan struct{}
-	peerClosed error
+	ctx             context.Context
+	cancel          context.CancelFunc
+	contextListener chan struct{}
+	peerClosed      error
 }
 
 func (c *streamCore[I, O]) send(msg message[O]) error {
@@ -112,22 +124,25 @@ func (c *streamCore[I, O]) receive() (msg message[I], err error) {
 }
 
 func (c *streamCore[I, O]) cancelStream() error {
-	close(c.contextC)
+	close(c.contextListener)
 	c.peerClosed = context.Canceled
 	c.cancel()
 	return c.peerClosed
 }
 
+// listenForContextCancellation is a goroutine that listens for the context to be
+// canceled and shuts down the stream forcefully if it is. We need this as
+// the websocket implementation itself doesn't support context cancellation.
 func (c *streamCore[I, O]) listenForContextCancellation() {
 	select {
-	case <-c.contextC:
+	case <-c.contextListener:
 		return
 	case <-c.ctx.Done():
 		if err := c.conn.WriteControl(
 			ws.CloseMessage,
 			ws.FormatCloseMessage(ws.CloseGoingAway, ""),
 			time.Now().Add(time.Second),
-		); err != nil && !roacherrors.Is(err, ws.ErrCloseSent) {
+		); err != nil && !errors.Is(err, ws.ErrCloseSent) {
 			c.L.Error("error sending close message: %v \n", zap.Error(err))
 		}
 	}
@@ -166,18 +181,25 @@ func (s *streamClient[RQ, RS]) Stream(
 				return oCtx, err
 			}
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
-				return oCtx, roacherrors.New("[ws] - unable to upgrade connection")
+				return oCtx, errors.New("[ws] - unable to upgrade connection")
 			}
-			stream = &clientStream[RQ, RS]{
-				streamCore: newStreamCore[RS, RQ](
-					ctx,
-					coreConfig{
-						conn:            conn,
-						codec:           s.codec,
-						Instrumentation: s.Instrumentation,
-					}),
+			core := newStreamCore[RS, RQ](
+				ctx,
+				coreConfig{
+					conn:            conn,
+					codec:           s.codec,
+					Instrumentation: s.Instrumentation,
+				},
+			)
+			msg, err := core.receive()
+			if err != nil {
+				return
 			}
-			return oCtx, nil
+			if msg.Type != msgTypeOpen {
+				return oCtx, errors.Decode(ctx, msg.Err)
+			}
+			stream = &clientStream[RQ, RS]{streamCore: core}
+			return
 		}),
 	)
 	return stream, err
@@ -200,7 +222,7 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 		return s.ctx.Err()
 	}
 	if err := s.streamCore.send(message[RQ]{Type: msgTypeData, Payload: req}); err != nil {
-		close(s.contextC)
+		close(s.contextListener)
 		return freighter.EOF
 	}
 	return nil
@@ -225,7 +247,7 @@ func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
 	}
 	// A close message means the server handler exited.
 	if msg.Type == msgTypeClose {
-		close(s.contextC)
+		close(s.contextListener)
 		s.peerClosed = errors.Decode(s.ctx, msg.Err)
 		return res, s.peerClosed
 	}
@@ -269,87 +291,99 @@ func (s *streamServer[RQ, RS]) BindHandler(
 	s.handler = handler
 }
 
-const closeReadDeadline = 500 * time.Millisecond
+const closeReadWriteDeadline = 500 * time.Millisecond
 
 func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
+	// If the caller is hitting this endpoint with a standard HTTP request, tell them
+	// they can only use websockets.
 	if !fiberws.IsWebSocketUpgrade(fiberCtx) {
 		return fiber.ErrUpgradeRequired
 	}
-	iMD := parseRequestCtx(fiberCtx, address.Address(s.path))
-	headerContentType := iMD.Params.GetDefault(fiber.HeaderContentType, "").(string)
+	// Parse the incoming request context. Used to pull various headers and parameters
+	// from the request (e.g. content-type or authorization).
+	iCtx := parseRequestCtx(fiberCtx, address.Address(s.path))
+	headerContentType := iCtx.Params.GetDefault(fiber.HeaderContentType, "").(string)
 	codec, err := httputil.DetermineCodec(headerContentType)
 	if err != nil {
-		// If we can't determine the encoder/decoder, we can't continue, so we sent the
-		// best effort string.
+		// If we can't determine the encoder/decoder, we can't continue, so we send
+		// a best effort string.
 		return fiberCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	oCtx, err := s.MiddlewareCollector.Exec(
-		iMD,
-		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
-			oCtx := freighter.Context{
-				Target:   iMD.Target,
-				Protocol: s.Reporter.Protocol,
-				Params:   make(freighter.Params),
-			}
-			return oCtx, fiberws.New(func(c *fiberws.Conn) {
-				if err := func() error {
-					s.wg.Add(1)
-					defer s.wg.Done()
-					stream := newServerStream[RQ, RS](s.serverCtx, coreConfig{
-						writeDeadline: s.writeDeadline,
-						conn:          c.Conn,
-						codec:         codec,
-					})
-					defer func() {
-						if err := stream.conn.Close(); err != nil {
-							s.L.Error("error closing connection", zap.Error(err))
-						}
-					}()
-					errPld := errors.Encode(ctx, s.handler(ctx, stream), s.internal)
-					if errPld.Type == errors.TypeNil {
-						errPld = errors.Encode(ctx, freighter.EOF, s.internal)
-					}
-					if stream.ctx.Err() != nil {
-						return stream.ctx.Err()
-					}
-					if err = stream.send(message[RS]{
-						Type: msgTypeClose,
-						Err:  errPld,
-					}); err != nil {
-						return err
-					}
-					stream.peerClosed = freighter.StreamClosed
-					if err = stream.conn.WriteControl(
-						ws.CloseMessage,
-						ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
-						time.Now().Add(500*time.Millisecond),
-					); err != nil {
-						return err
-					}
-					if err = stream.conn.SetReadDeadline(
-						time.Now().Add(closeReadDeadline),
-					); err != nil {
-						return err
-					}
-					if _, err = stream.receive(); err != nil &&
-						!ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
-						s.L.Error("expected normal closure, received error instead", zap.Error(err))
-					}
-					close(stream.contextC)
-					stream.cancel()
-					return nil
-				}(); err != nil && !errors.Is(err, context.Canceled) {
-					s.L.Error("stream server handler error", zap.Error(err))
+	// Upgrade the connection to a websocket connection.
+	return fiberws.New(func(c *fiberws.Conn) {
+		// Wrap everything in an error closure so we can log any errors that occur.
+		if err = func() error {
+			stream := newServerStream[RQ, RS](
+				// We use s.serverCtx here so we can correctly cancel the stream if
+				// the server is shutting down.
+				s.serverCtx,
+				coreConfig{writeDeadline: s.writeDeadline, conn: c.Conn, codec: codec},
+			)
+			// Register the stream with the server so it gets gracefully shut down.
+			s.wg.Add(1)
+			defer s.wg.Done()
+			defer func() {
+				if err := stream.conn.Close(); err != nil {
+					s.L.Error("error closing connection", zap.Error(err))
 				}
-			})(fiberCtx)
-		}))
-	setResponseCtx(fiberCtx, oCtx)
-	fErr := errors.Encode(oCtx, err, s.internal)
-	if fErr.Type == errors.TypeNil {
-		return nil
-	}
-	fiberCtx.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(fiberCtx, codec, fErr)
+			}()
+			oCtx, err := s.MiddlewareCollector.Exec(
+				iCtx,
+				freighter.FinalizerFunc(func(iCtx freighter.Context) (oCtx freighter.Context, err error) {
+					// Send a confirmation message to the client that the stream is open.
+					if err = stream.send(message[RS]{Type: msgTypeOpen}); err != nil {
+						return
+					}
+					err = s.handler(iCtx, stream)
+					oCtx = freighter.Context{
+						Target:   iCtx.Target,
+						Protocol: s.Protocol,
+						Params:   make(freighter.Params),
+					}
+					return
+				}),
+			)
+			errPld := errors.Encode(oCtx, err, s.internal)
+			if errPld.Type == errors.TypeNil {
+				// If everything went well, we use an EOF to signal smooth closure of
+				// the stream.
+				errPld = errors.Encode(oCtx, freighter.EOF, s.internal)
+			}
+			if stream.ctx.Err() != nil {
+				return stream.ctx.Err()
+			}
+			if err = stream.send(message[RS]{Type: msgTypeClose, Err: errPld}); err != nil {
+				return err
+			}
+			stream.peerClosed = freighter.StreamClosed
+			// Tell the client we're closing the connection. Make sure to include
+			// a write deadline here in-case the client is stuck.
+			if err = stream.conn.WriteControl(
+				ws.CloseMessage,
+				ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
+				time.Now().Add(closeReadWriteDeadline),
+			); err != nil {
+				return err
+			}
+			// Again, make sure a stuck client doesn't cause problems with shutdown.
+			if err = stream.conn.SetReadDeadline(
+				time.Now().Add(closeReadWriteDeadline),
+			); err != nil {
+				return err
+			}
+			if _, err = stream.receive(); err != nil &&
+				!ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
+				s.L.Error("expected normal closure, received error instead", zap.Error(err))
+			}
+			// Shut down the routine that listens for context cancellation, as we don't
+			// want to leak
+			close(stream.contextListener)
+			stream.cancel()
+			return nil
+		}(); err != nil {
+			s.L.Error("error handling websocket connection", zap.Error(err))
+		}
+	})(fiberCtx)
 }
 
 type serverStream[RQ, RS freighter.Payload] struct{ streamCore[RQ, RS] }
