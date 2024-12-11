@@ -42,8 +42,14 @@ export const stateZ = z.object({
   snapshot: z.boolean(),
   remoteCreated: z.boolean(),
   viewport: Diagram.viewportZ,
-  nodes: z.array(Diagram.nodeZ),
-  edges: z.array(Diagram.edgeZ),
+  nodes: z
+    .array(z.any())
+    .transform((nodes) => nodes.filter((node) => Diagram.nodeZ.safeParse(node).success))
+    .pipe(z.array(Diagram.nodeZ)),
+  edges: z
+    .array(z.any())
+    .transform((edges) => edges.filter((edge) => Diagram.edgeZ.safeParse(edge).success))
+    .pipe(z.array(Diagram.edgeZ)),
   props: z.record(z.string(), nodePropsZ),
   control: control.statusZ,
   controlAcquireTrigger: z.number(),
