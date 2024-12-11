@@ -192,6 +192,14 @@ export class Range {
   }
 }
 
+export const sort = (a: Range, b: Range): -1 | 0 | 1 => {
+  if (a.timeRange.start.before(b.timeRange.start)) return -1;
+  if (a.timeRange.start.after(b.timeRange.start)) return 1;
+  if (a.timeRange.end.before(b.timeRange.end)) return -1;
+  if (a.timeRange.end.after(b.timeRange.end)) return 1;
+  return 0;
+};
+
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.array(z.string()).optional(),
