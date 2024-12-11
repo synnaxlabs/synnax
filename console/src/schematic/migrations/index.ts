@@ -32,15 +32,15 @@ export const ZERO_STATE = v3.ZERO_STATE;
 export const ZERO_SLICE_STATE = v3.ZERO_SLICE_STATE;
 
 const STATE_MIGRATIONS: migrate.Migrations = {
-  "0.0.0": v1.stateMigration,
-  "1.0.0": v2.stateMigration,
-  "2.0.0": v3.stateMigration,
+  [v0.VERSION]: v1.stateMigration,
+  [v1.VERSION]: v2.stateMigration,
+  [v2.VERSION]: v3.stateMigration,
 };
 
 const SLICE_MIGRATIONS: migrate.Migrations = {
-  "0.0.0": v1.sliceMigration,
-  "1.0.0": v2.sliceMigration,
-  "2.0.0": v3.sliceMigration,
+  [v0.VERSION]: v1.sliceMigration,
+  [v1.VERSION]: v2.sliceMigration,
+  [v2.VERSION]: v3.sliceMigration,
 };
 
 export const migrateState = migrate.migrator<AnyState, State>({
