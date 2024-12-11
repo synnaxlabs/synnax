@@ -443,8 +443,8 @@ describe("remote", () => {
         data: new Float32Array([4, 5, 6]),
         timeRange: tr2,
       });
-      // wait for 2 milliseconds
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // wait for 20 milliseconds
+      await new Promise((resolve) => setTimeout(resolve, 20));
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [series2]),
       });
