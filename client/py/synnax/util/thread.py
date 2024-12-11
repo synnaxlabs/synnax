@@ -54,5 +54,4 @@ class AsyncThread(Thread):
                 events.set_event_loop(None)
                 self.loop.close()
 
-    async def run_async(self):
-        ...
+    async def run_async(self): ...
