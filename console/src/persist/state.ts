@@ -99,15 +99,6 @@ export const open = async <S extends RequiredState>({
       else deepCopy = deep.deleteD(deepCopy, key);
     });
 
-    Object.keys(deepCopy).forEach((key) => {
-      const v = deepCopy[key as keyof S];
-      if (typeof v === "object" && "present" in (v as object)) {
-        console.log("present", key, v);
-        // @ts-expect-error - we know this is a key
-        deepCopy[key as keyof S] = v.present;
-      }
-    });
-
     void (async () => {
       await db.set(persistedStateKey(version), deepCopy).catch(console.error);
       await db.set(DB_VERSION_KEY, { version }).catch(console.error);

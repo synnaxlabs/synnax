@@ -32,22 +32,7 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   ...Schematic.PERSIST_EXCLUDE,
 ];
 
-export interface InitialState {
-  [Drift.SLICE_NAME]: Drift.SliceState;
-  [Cluster.SLICE_NAME]: Cluster.SliceState;
-  [Layout.SLICE_NAME]: Layout.SliceState;
-  [Range.SLICE_NAME]: Range.SliceState;
-  [Version.SLICE_NAME]: Version.SliceState;
-  [Docs.SLICE_NAME]: Docs.SliceState;
-  [Schematic.SLICE_NAME]: Schematic.SliceState;
-  [LinePlot.SLICE_NAME]: LinePlot.SliceState;
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
-  [Permissions.SLICE_NAME]: Permissions.SliceState;
-  [Log.SLICE_NAME]: Log.SliceState;
-  [Table.SLICE_NAME]: Table.SliceState;
-}
-
-const ZERO_STATE: InitialState = {
+const ZERO_STATE: RootState = {
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
@@ -84,7 +69,7 @@ export interface RootState {
   [Range.SLICE_NAME]: Range.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
-  [Schematic.SLICE_NAME]: Schematic.HistorySliceState;
+  [Schematic.SLICE_NAME]: Schematic.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Permissions.SLICE_NAME]: Permissions.SliceState;
@@ -113,7 +98,7 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   minSize: { width: 625, height: 375 },
 };
 
-export const migrateState = (prev: InitialState): InitialState => {
+export const migrateState = (prev: RootState): RootState => {
   console.group("Migrating State");
   console.log(`Previous Console Version: ${prev[Version.SLICE_NAME].version}`);
   const layout = Layout.migrateSlice(prev.layout);
@@ -142,7 +127,7 @@ export const migrateState = (prev: InitialState): InitialState => {
 };
 
 const newStore = async (): Promise<RootStore> => {
-  const [preloadedState, persistMiddleware] = await Persist.open<InitialState>({
+  const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
     initial: ZERO_STATE,
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
@@ -158,14 +143,14 @@ const newStore = async (): Promise<RootStore> => {
   }
   return await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(),
-    preloadedState: preloadedState as unknown as RootState,
+    preloadedState,
     middleware: (def) =>
       new Tuple(
         ...def(),
         ...LinePlot.MIDDLEWARE,
         ...Layout.MIDDLEWARE,
         ...Schematic.MIDDLEWARE,
-        persistMiddleware as unknown as any,
+        persistMiddleware,
       ),
     reducer,
     enablePrerender: true,

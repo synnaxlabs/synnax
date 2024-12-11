@@ -10,7 +10,7 @@
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v2 from "@/schematic/migrations/v1";
+import * as v2 from "@/schematic/migrations/v2";
 
 const VERSION = "3.0.0";
 type Version = typeof VERSION;
@@ -34,9 +34,9 @@ export const ZERO_STATE: State = {
   type: "schematic",
 };
 
-export const sliceStateZ = v2.sliceStateZ.omit({ version: true }).extend({
-  version: z.literal(VERSION),
-});
+export const sliceStateZ = v2.sliceStateZ
+  .omit({ version: true })
+  .extend({ version: z.literal(VERSION) });
 
 export interface SliceState extends Omit<v2.SliceState, "version" | "schematics"> {
   schematics: Record<string, State>;
@@ -47,10 +47,7 @@ export const stateMigration = migrate.createMigration<v2.State, State>({
   name: "schematic.state",
   migrate: (state) => ({
     ...state,
-    edges: state.edges.map((edge) => ({
-      ...edge,
-      segments: [],
-    })),
+    edges: state.edges.map((edge) => ({ ...edge, segments: [] })),
     version: VERSION,
     key: "",
     type: "schematic",
@@ -64,10 +61,7 @@ export const sliceMigration = migrate.createMigration<v2.SliceState, SliceState>
     schematics: Object.fromEntries(
       Object.entries(sliceState.schematics).map(([key, state]) => [
         key,
-        {
-          ...stateMigration(state),
-          key,
-        },
+        { ...stateMigration(state), key },
       ]),
     ),
     version: VERSION,

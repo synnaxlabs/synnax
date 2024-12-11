@@ -22,17 +22,12 @@ export type LegendState = z.infer<typeof legendStateZ>;
 
 const ZERO_LEGEND_STATE: LegendState = {
   visible: false,
-  position: {
-    x: 50,
-    y: 50,
-    units: { x: "px", y: "px" },
-  },
+  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
 };
 
-export const stateZ = v0.stateZ.omit({ version: true }).extend({
-  version: z.literal("1.0.0"),
-  legend: legendStateZ,
-});
+export const stateZ = v0.stateZ
+  .omit({ version: true })
+  .extend({ version: z.literal("1.0.0"), legend: legendStateZ });
 
 export interface State extends Omit<v0.State, "version"> {
   version: "1.0.0";
@@ -47,10 +42,7 @@ export const ZERO_STATE: State = {
 
 export const sliceStateZ = v0.sliceStateZ
   .omit({ version: true, schematics: true })
-  .extend({
-    version: z.literal("1.0.0"),
-    schematics: z.record(z.string(), stateZ),
-  });
+  .extend({ version: z.literal("1.0.0"), schematics: z.record(z.string(), stateZ) });
 
 export interface SliceState extends Omit<v0.SliceState, "version" | "schematics"> {
   version: "1.0.0";
@@ -59,11 +51,7 @@ export interface SliceState extends Omit<v0.SliceState, "version" | "schematics"
 
 export const stateMigration = migrate.createMigration<v0.State, State>({
   name: "schematic.state",
-  migrate: (input) => ({
-    ...input,
-    legend: ZERO_LEGEND_STATE,
-    version: "1.0.0",
-  }),
+  migrate: (input) => ({ ...input, legend: ZERO_LEGEND_STATE, version: "1.0.0" }),
 });
 
 export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({

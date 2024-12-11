@@ -21,19 +21,14 @@ import { z } from "zod";
 export type NodeProps = object & {
   key: Schematic.Variant;
   color?: Color.Crude;
-  label?: {
-    label?: string;
-  };
+  label?: { label?: string };
 };
 
-export const nodePropsZ = z.object({}).and(
-  z
-    .object({
-      key: Schematic.variantZ,
-      color: Color.crudeZ.optional(),
-    })
-    .passthrough(),
-);
+export const nodePropsZ = z
+  .object({})
+  .and(
+    z.object({ key: Schematic.variantZ, color: Color.crudeZ.optional() }).passthrough(),
+  );
 
 export const stateZ = z.object({
   version: z.literal("0.0.0"),
@@ -76,12 +71,7 @@ export interface CopyBuffer {
   props: Record<string, NodeProps>;
 }
 
-const ZERO_COPY_BUFFER: CopyBuffer = {
-  pos: xy.ZERO,
-  nodes: [],
-  edges: [],
-  props: {},
-};
+const ZERO_COPY_BUFFER: CopyBuffer = { pos: xy.ZERO, nodes: [], edges: [], props: {} };
 
 // ||||| TOOLBAR |||||
 
@@ -89,9 +79,7 @@ const TOOLBAR_TABS = ["symbols", "properties"] as const;
 export const toolbarTabZ = z.enum(TOOLBAR_TABS);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
-export const toolbarStateZ = z.object({
-  activeTab: toolbarTabZ,
-});
+export const toolbarStateZ = z.object({ activeTab: toolbarTabZ });
 export type ToolbarState = z.infer<typeof toolbarStateZ>;
 
 export const sliceStateZ = z.object({

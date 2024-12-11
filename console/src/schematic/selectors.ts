@@ -21,20 +21,13 @@ import {
   type ToolbarState,
 } from "@/schematic/slice";
 
-export const selectSliceState = (state: StoreState): SliceState =>
-  state[SLICE_NAME].present;
+export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
 
 export const useSelect = (key: string): State =>
-  useMemoSelect(
-    (state: StoreState) => {
-      console.log(state);
-      return select(state, key);
-    },
-    [key],
-  );
+  useMemoSelect((state: StoreState) => select(state, key), [key]);
 
 export const selectMany = (state: StoreState, keys: string[]): State[] =>
   keys.map((key) => select(state, key));

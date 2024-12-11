@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/migrations";
-import { undoer } from "@/undo";
-import { groupByActionTypes } from "@/undo/helpers";
 
-export type HistorySliceState = undoer.History<latest.SliceState>;
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
 export type State = latest.State;
@@ -34,7 +31,7 @@ export const parser = latest.parser;
 export const SLICE_NAME = "schematic";
 
 export interface StoreState {
-  [SLICE_NAME]: HistorySliceState;
+  [SLICE_NAME]: SliceState;
 }
 
 /** Purges fields in schematic state that should not be persisted. */
@@ -46,7 +43,7 @@ export const purgeState = (state: State): State => {
 };
 
 export const purgeSliceState = (state: StoreState): StoreState => {
-  Object.values(state[SLICE_NAME].present.schematics).forEach(purgeState);
+  Object.values(state[SLICE_NAME].schematics).forEach(purgeState);
   return state;
 };
 
@@ -161,10 +158,9 @@ export const calculatePos = (
   return s.pos(cursor);
 };
 
-export const { actions, reducer } = undoer.createSlice({
+export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
-  exclude: ["create"],
   reducers: {
     copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
       // for each schematic, find the keys of the selected nodes and edges
@@ -474,10 +470,6 @@ export const {
   setViewportMode,
   setRemoteCreated,
   fixThemeContrast,
-  redo,
-  undo,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-
-export type Payload = Action["payload"];
