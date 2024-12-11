@@ -15,12 +15,7 @@ from freighter import Payload
 from pandas import DataFrame
 from pydantic import Field
 
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-)
+from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
 from synnax.exceptions import ValidationError
 from synnax.telem import Series, MultiSeries, TypedCrudeSeries, CrudeSeries
 
@@ -30,9 +25,7 @@ class FramePayload(Payload):
     series: list[Series]
 
     def __init__(
-        self,
-        keys: list[int] | None = None,
-        series: list[Series] | None = None,
+        self, keys: list[int] | None = None, series: list[Series] | None = None
     ):
         # This is a workaround to allow for a None value to be
         # passed to the arrays field, but still have required
@@ -129,9 +122,7 @@ class Frame:
             self.series.append(series)
             self.channels.append(col_or_frame)  # type: ignore
 
-    def items(
-        self,
-    ) -> Iterator[tuple[ChannelKey | ChannelName, Series]]:
+    def items(self) -> Iterator[tuple[ChannelKey | ChannelName, Series]]:
         """
         Returns a generator of tuples containing the channel and series for each channel
         in the frame.

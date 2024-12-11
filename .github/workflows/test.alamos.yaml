@@ -84,6 +84,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -105,6 +108,13 @@ jobs:
       - name: Test
         run: poetry run pytest
         working-directory: alamos/py
+
+      - name: Format
+        if: matrix.format
+        uses: psf/black@stable
+        with:
+          src: alamos/py
+          use_pyproject: true
 
   ts:
     name: TypeScript (${{ matrix.os }})

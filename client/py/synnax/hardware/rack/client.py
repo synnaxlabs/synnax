@@ -45,9 +45,7 @@ class Client:
     instrumentation: Instrumentation = NOOP
 
     def __init__(
-        self,
-        client: UnaryClient,
-        instrumentation: Instrumentation = NOOP,
+        self, client: UnaryClient, instrumentation: Instrumentation = NOOP
     ) -> None:
         self._client = client
         self.instrumentation = instrumentation
@@ -83,11 +81,7 @@ class Client:
         send_required(self._client, _DELETE_ENDPOINT, req, Empty)
 
     @overload
-    def retrieve(
-        self,
-        key: int | None = None,
-        name: str | None = None,
-    ) -> Rack: ...
+    def retrieve(self, key: int | None = None, name: str | None = None) -> Rack: ...
 
     def retrieve(
         self,

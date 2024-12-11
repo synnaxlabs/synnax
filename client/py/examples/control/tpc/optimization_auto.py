@@ -113,14 +113,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 time_range=sy.TimeRange(sy.TimeStamp.now(), sy.TimeStamp.now()),
             )
             log(ctrl, "Starting TPC Test. Setting initial system state.")
-            ctrl.set(
-                {
-                    TPC_CMD: 0,
-                    MPV_CMD: 0,
-                    SUPPLY_CMD: 0,
-                    VENT_CMD: 1,
-                }
-            )
+            ctrl.set({TPC_CMD: 0, MPV_CMD: 0, SUPPLY_CMD: 0, VENT_CMD: 1})
 
             ctrl.sleep(2)
 
@@ -230,14 +223,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
         except KeyboardInterrupt:
             log(ctrl, "Test interrupted. Safeing System")
-            ctrl.set(
-                {
-                    TPC_CMD: 1,
-                    SUPPLY_CMD: 0,
-                    VENT_CMD: 0,
-                    MPV_CMD: 1,
-                }
-            )
+            ctrl.set({TPC_CMD: 1, SUPPLY_CMD: 0, VENT_CMD: 0, MPV_CMD: 1})
 
 
 def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:

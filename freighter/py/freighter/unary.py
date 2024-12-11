@@ -18,10 +18,7 @@ class UnaryClient(Transport, Protocol):
     """
 
     def send(
-        self,
-        target: str,
-        req: RQ,
-        res_t: Type[RS],
+        self, target: str, req: RQ, res_t: Type[RS]
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """
         Sends a request to the target server and waits until a response is
@@ -51,10 +48,7 @@ class AsyncUnaryClient(AsyncTransport, Protocol):
     """
 
     async def send(
-        self,
-        target: str,
-        req: RQ,
-        res_t: Type[RS],
+        self, target: str, req: RQ, res_t: Type[RS]
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """
         Sends a request to the target server and waits until a response is

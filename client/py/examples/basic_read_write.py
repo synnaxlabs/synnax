@@ -26,9 +26,7 @@ client = sy.Synnax()
 
 # Create an index channel that will be used to store our timestamps.
 time_channel = client.channels.create(
-    name="basic_read_write_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
+    name="basic_read_write_time", is_index=True, data_type=sy.DataType.TIMESTAMP
 )
 
 # Create a data channel that will be used to store our data.

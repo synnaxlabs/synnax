@@ -44,9 +44,5 @@ def try_load_options_if_none_provided(
             raise ValidationError(NO_OPTIONS_MSG)
         return opts
     return SynnaxOptions(
-        host=host,
-        port=port,
-        username=username,
-        password=password,
-        secure=secure,
+        host=host, port=port, username=username, password=password, secure=secure
     )

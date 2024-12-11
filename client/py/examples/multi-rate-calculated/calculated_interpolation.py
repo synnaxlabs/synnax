@@ -98,9 +98,4 @@ with client.open_writer(
                 continue
             # Calculate the average of the two sensors
             avg = (sensor_1 + sensor_2) / 2
-            writer.write(
-                {
-                    "derived_time": time,
-                    "average_example_data_1": avg,
-                }
-            )
+            writer.write({"derived_time": time, "average_example_data_1": avg})

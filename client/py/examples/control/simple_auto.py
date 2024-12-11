@@ -18,12 +18,7 @@ with client.control.acquire(
     write=["valve_1_cmd", "valve_2_cmd", "valve_3_cmd", "valve_4_cmd"],
 ) as ctrl:
     # Set initial valve states
-    ctrl.set(
-        {
-            "valve_1_cmd": False,
-            "valve_2_cmd": True,
-        }
-    )
+    ctrl.set({"valve_1_cmd": False, "valve_2_cmd": True})
 
     # Wait until pressure_1 is less than 100 psi
     ctrl.wait_until(lambda auto: auto["pressure_1"] < 100)

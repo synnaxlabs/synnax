@@ -54,15 +54,9 @@ tsk = opcua.ReadTask(
     data_saving=True,
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs.
-        opcua.Channel(
-            channel=node_0.key,
-            node_id="NS=2;I=8",
-        ),
+        opcua.Channel(channel=node_0.key, node_id="NS=2;I=8"),
         # Bind the Synnax channels to the OPC UA node IDs.
-        opcua.Channel(
-            channel=node_1.key,
-            node_id="NS=2;I=10",
-        ),
+        opcua.Channel(channel=node_1.key, node_id="NS=2;I=10"),
     ],
 )
 

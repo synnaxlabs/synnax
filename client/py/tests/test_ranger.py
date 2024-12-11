@@ -237,14 +237,10 @@ class TestRangeData:
         """It should correctly read data from a channel on a range"""
         name = str(uuid4())
         idx_ch = client.channels.create(
-            name=f"{name}_idx",
-            data_type="timestamp",
-            is_index=True,
+            name=f"{name}_idx", data_type="timestamp", is_index=True
         )
         data_ch = client.channels.create(
-            name=f"{name}_data",
-            data_type="float32",
-            index=idx_ch.key,
+            name=f"{name}_data", data_type="float32", index=idx_ch.key
         )
         start = sy.TimeStamp.now()
         end = start + 3 * sy.TimeSpan.SECOND
@@ -259,8 +255,7 @@ class TestRangeData:
         )
         data_ch.write(start, [1.0, 2.0, 3.0, 4.0])
         rng = client.ranges.create(
-            name=name,
-            time_range=start.span_range(4 * sy.TimeSpan.SECOND),
+            name=name, time_range=start.span_range(4 * sy.TimeSpan.SECOND)
         )
         assert len(rng[data_ch.name]) == 4
         assert rng[data_ch.name][0] == 1.0
@@ -272,20 +267,15 @@ class TestRangeData:
         """It should correctly write data to the range"""
         name = str(uuid4())
         idx_ch = client.channels.create(
-            name=f"{name}_idx",
-            data_type="timestamp",
-            is_index=True,
+            name=f"{name}_idx", data_type="timestamp", is_index=True
         )
         data_ch = client.channels.create(
-            name=f"{name}_data",
-            data_type="float32",
-            index=idx_ch.key,
+            name=f"{name}_data", data_type="float32", index=idx_ch.key
         )
         start = sy.TimeStamp.now()
         end = start + 3 * sy.TimeSpan.SECOND
         rng = client.ranges.create(
-            name=name,
-            time_range=start.span_range(4 * sy.TimeSpan.SECOND),
+            name=name, time_range=start.span_range(4 * sy.TimeSpan.SECOND)
         )
         rng.write(
             {

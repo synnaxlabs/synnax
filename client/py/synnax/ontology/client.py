@@ -108,10 +108,7 @@ class Client:
             return res.resources[0]
         return res.resources
 
-    def retrieve_children(
-        self,
-        id: CrudeID | list[CrudeID],
-    ) -> list[Resource]:
+    def retrieve_children(self, id: CrudeID | list[CrudeID]) -> list[Resource]:
         return send_required(
             self._client,
             _RETRIEVE_ENDPOINT,
@@ -119,10 +116,7 @@ class Client:
             RetrieveRes,
         ).resources
 
-    def retrieve_parents(
-        self,
-        id: CrudeID | list[CrudeID],
-    ):
+    def retrieve_parents(self, id: CrudeID | list[CrudeID]):
         return send_required(
             self._client,
             _RETRIEVE_ENDPOINT,

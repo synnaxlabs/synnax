@@ -16,13 +16,7 @@ from numpy import can_cast as np_can_cast
 from pandas import DataFrame
 from pandas import concat as pd_concat
 
-from freighter import (
-    EOF,
-    Payload,
-    Stream,
-    StreamClient,
-    decode_exception,
-)
+from freighter import EOF, Payload, Stream, StreamClient, decode_exception
 from synnax import io
 from synnax.channel.payload import (
     ChannelKey,
@@ -196,10 +190,7 @@ class Writer:
     ): ...
 
     @overload
-    def write(
-        self,
-        channels_or_data: CrudeFrame,
-    ): ...
+    def write(self, channels_or_data: CrudeFrame): ...
 
     def write(
         self,
@@ -264,15 +255,12 @@ class Writer:
 
     @overload
     def set_authority(
-        self,
-        value: ChannelKey | ChannelName,
-        authority: CrudeAuthority,
+        self, value: ChannelKey | ChannelName, authority: CrudeAuthority
     ) -> bool: ...
 
     @overload
     def set_authority(
-        self,
-        value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
+        self, value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
     ) -> bool: ...
 
     def set_authority(
@@ -295,10 +283,7 @@ class Writer:
                     )
                 value = {value: authority}
             value = self.__adapter.adapt_dict_keys(value)
-            cfg = _Config(
-                keys=list(value.keys()),
-                authorities=list(value.values()),
-            )
+            cfg = _Config(keys=list(value.keys()), authorities=list(value.values()))
         exc = self.__stream.send(_Request(command=_Command.SET_AUTHORITY, config=cfg))
         if exc is not None:
             raise exc

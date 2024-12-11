@@ -98,12 +98,7 @@ class TestAccessAuthClient:
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
         client.user.create(username=username, password="pwd2")
-        client2 = sy.Synnax(
-            host=host,
-            port=port,
-            username=username,
-            password="pwd2",
-        )
+        client2 = sy.Synnax(host=host, port=port, username=username, password="pwd2")
 
         with pytest.raises(sy.AuthError):
             client2.user.create(username=str(uuid.uuid4()), password="pwd3")
@@ -114,12 +109,7 @@ class TestAccessAuthClient:
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
         usr = client.user.create(username=username, password="pwd3")
-        client2 = sy.Synnax(
-            host=host,
-            port=port,
-            username=username,
-            password="pwd3",
-        )
+        client2 = sy.Synnax(host=host, port=port, username=username, password="pwd3")
 
         with pytest.raises(sy.AuthError):
             client2.user.create(username=str(uuid.uuid4()), password="pwd3")

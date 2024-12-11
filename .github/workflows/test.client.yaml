@@ -167,6 +167,13 @@ jobs:
         run: poetry run pytest
         working-directory: client/py
 
+      - name: Format
+        if: matrix.format
+        uses: psf/black@stable
+        with:
+          src: client/py
+          use_pyproject: true
+
   ts:
     name: TypeScript
     needs: [changes, server]

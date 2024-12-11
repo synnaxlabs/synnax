@@ -27,9 +27,7 @@ client = sy.Synnax()
 # These will store the same timestamps as the raw time channel, but will be used to
 # index the calculated values.
 derived_time_ch = client.channels.create(
-    name="derived_time",
-    is_index=True,
-    retrieve_if_name_exists=True,
+    name="derived_time", is_index=True, retrieve_if_name_exists=True
 )
 
 # We'll store the squared value of "stream_write_example_data_1" in this channel.
@@ -59,7 +57,7 @@ with client.open_writer(
             "stream_write_example_time",
             "stream_write_example_data_1",
             "stream_write_example_data_2",
-        ],
+        ]
     ) as s:
         for fr in s:
             time = fr["stream_write_example_time"]

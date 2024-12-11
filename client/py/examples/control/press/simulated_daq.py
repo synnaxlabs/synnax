@@ -23,11 +23,7 @@ daq_time_ch = client.channels.create(
 )
 
 sensor_channels = [
-    sy.Channel(
-        name=f"sensor_{i}",
-        index=daq_time_ch.key,
-        data_type=sy.DataType.FLOAT32,
-    )
+    sy.Channel(name=f"sensor_{i}", index=daq_time_ch.key, data_type=sy.DataType.FLOAT32)
     for i in NUM_SENSOR_CHANNELS
 ]
 sensor_channels = client.channels.create(sensor_channels, retrieve_if_name_exists=True)
@@ -48,9 +44,7 @@ valve_response_channels = client.channels.create(
 
 valve_command_time_channels = [
     sy.Channel(
-        name=f"valve_command_{i}_time",
-        data_type=sy.DataType.TIMESTAMP,
-        is_index=True,
+        name=f"valve_command_{i}_time", data_type=sy.DataType.TIMESTAMP, is_index=True
     )
     for i in NUM_VALVE_CHANNELS
 ]
@@ -69,8 +63,7 @@ valve_command_channels = [
 ]
 
 valve_command_channels = client.channels.create(
-    valve_command_channels,
-    retrieve_if_name_exists=True,
+    valve_command_channels, retrieve_if_name_exists=True
 )
 
 loop = sy.Loop(sy.Rate.HZ * 40)

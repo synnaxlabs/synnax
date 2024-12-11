@@ -119,11 +119,7 @@ class Synnax(Client):
             instrumentation,
         )
         deleter = Deleter(self._transport.unary, instrumentation)
-        ch_creator = ChannelWriter(
-            self._transport.unary,
-            instrumentation,
-            ch_retriever,
-        )
+        ch_creator = ChannelWriter(self._transport.unary, instrumentation, ch_retriever)
         super().__init__(
             stream_client=self._transport.stream,
             async_client=self._transport.stream_async,

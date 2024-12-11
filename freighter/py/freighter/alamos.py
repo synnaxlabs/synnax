@@ -53,11 +53,7 @@ def async_instrumentation_middleware(
     return _middleware
 
 
-def _log(
-    context: Context,
-    instrumentation: Instrumentation,
-    exc: Exception = None,
-):
+def _log(context: Context, instrumentation: Instrumentation, exc: Exception = None):
     if exc:
         instrumentation.L.error(f"{context.target} {exc}")
     else:

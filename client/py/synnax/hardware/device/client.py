@@ -48,9 +48,7 @@ class Client:
     instrumentation: Instrumentation = NOOP
 
     def __init__(
-        self,
-        client: UnaryClient,
-        instrumentation: Instrumentation = NOOP,
+        self, client: UnaryClient, instrumentation: Instrumentation = NOOP
     ) -> None:
         self._client = client
         self.instrumentation = instrumentation
@@ -100,12 +98,7 @@ class Client:
                 )
             ]
         req = _CreateRequest(devices=normalize(devices))
-        res = send_required(
-            self._client,
-            _CREATE_ENDPOINT,
-            req,
-            _CreateResponse,
-        )
+        res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
         return res.devices[0] if is_single else res.devices
 
     def delete(self, keys: list[str]) -> None:

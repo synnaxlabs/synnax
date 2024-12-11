@@ -58,14 +58,7 @@ try:
     ) as ctrl:
         try:
             print("Starting TPC Test. Setting initial system state.")
-            ctrl.set(
-                {
-                    TPC_CMD: 0,
-                    MPV_CMD: 0,
-                    PRESS_ISO_CMD: 0,
-                    VENT_CMD: 1,
-                }
-            )
+            ctrl.set({TPC_CMD: 0, MPV_CMD: 0, PRESS_ISO_CMD: 0, VENT_CMD: 1})
 
             ctrl.sleep(2)
 
@@ -152,13 +145,6 @@ try:
             )
         except KeyboardInterrupt:
             print("Test interrupted. Safeing System")
-            ctrl.set(
-                {
-                    TPC_CMD: 1,
-                    PRESS_ISO_CMD: 0,
-                    VENT_CMD: 0,
-                    MPV_CMD: 1,
-                }
-            )
+            ctrl.set({TPC_CMD: 1, PRESS_ISO_CMD: 0, VENT_CMD: 0, MPV_CMD: 1})
 finally:
     ctrl.sleep(100)

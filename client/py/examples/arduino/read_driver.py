@@ -5,12 +5,7 @@ PORT = "/dev/cu.usbmodem21401"
 BAUD_RATE = 9600
 
 # Create the Synnax client
-client = sy.Synnax(
-    host="localhost",
-    port=9090,
-    username="synnax",
-    password="seldon",
-)
+client = sy.Synnax(host="localhost", port=9090, username="synnax", password="seldon")
 
 # Create the index channel
 index_channel = client.channels.create(
@@ -45,9 +40,4 @@ with client.open_writer(
         # Read from the serial connection
         value = float(ser.readline().decode("utf-8").rstrip())
         print(value)
-        writer.write(
-            {
-                "arduino_time": sy.TimeStamp.now(),
-                "arduino_value": value,
-            }
-        )
+        writer.write({"arduino_time": sy.TimeStamp.now(), "arduino_value": value})

@@ -53,9 +53,7 @@ class ClusterChannelRetriever:
     instrumentation: Instrumentation
 
     def __init__(
-        self,
-        client: UnaryClient,
-        instrumentation: Instrumentation = NOOP,
+        self, client: UnaryClient, instrumentation: Instrumentation = NOOP
     ) -> None:
         self._client = client
         self.instrumentation = instrumentation
@@ -91,9 +89,7 @@ class CacheChannelRetriever:
     instrumentation: Instrumentation
 
     def __init__(
-        self,
-        retriever: ChannelRetriever,
-        instrumentation: Instrumentation,
+        self, retriever: ChannelRetriever, instrumentation: Instrumentation
     ) -> None:
         self._channels = dict()
         self._names_to_keys = dict()

@@ -40,10 +40,7 @@ OUTPUT_PRECISION_ARG_SHORT = "-op"
 
 
 @click.command()
-@click.argument(
-    "input_path",
-    required=False,
-)
+@click.argument("input_path", required=False)
 @click.option(
     OUTPUT_PATH_ARG,
     OUTPUT_PATH_ARG_SHORT,

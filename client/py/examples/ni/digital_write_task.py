@@ -70,7 +70,7 @@ tsk = ni.DigitalWriteTask(
             # The port and line on the device that the digital output is connected to.
             port=0,
             line=0,
-        ),
+        )
     ],
 )
 

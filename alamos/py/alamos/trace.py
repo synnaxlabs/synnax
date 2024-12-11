@@ -184,8 +184,7 @@ class Tracer:
 
     def child_(self, meta: InstrumentationMeta) -> "Tracer":
         t = Tracer(
-            otel_provider=self._otel_provider,
-            otel_propagator=self._otel_propagator,
+            otel_provider=self._otel_provider, otel_propagator=self._otel_propagator
         )
         t._meta = meta
         return t

@@ -14,26 +14,17 @@ from synnax.cli.console.sugared import AskKwargs
 from synnax.cli.flow import Context
 
 
-def channel_name_table(
-    ctx: Context,
-    names: list[str],
-):
+def channel_name_table(ctx: Context, names: list[str]):
     """Creates a table containing names of the channels.
 
     :param ctx: The current flow context.
     :param names: The names of the channels.
     """
-    ctx.console.table(
-        columns=["name"],
-        rows=[{"name": name} for name in names],
-    )
+    ctx.console.table(columns=["name"], rows=[{"name": name} for name in names])
 
 
 def maybe_select_channel(
-    ctx: Context,
-    channels: list[Channel],
-    param: str,
-    **kwargs: AskKwargs[str],
+    ctx: Context, channels: list[Channel], param: str, **kwargs: AskKwargs[str]
 ) -> Channel | None:
     """Asks the user to select a channel if there are multiple channels available.
 
@@ -50,9 +41,7 @@ def maybe_select_channel(
 
 
 def select_channel(
-    ctx: Context,
-    channels: list[Channel],
-    **kwargs: AskKwargs[str],
+    ctx: Context, channels: list[Channel], **kwargs: AskKwargs[str]
 ) -> Channel | None:
     """Prompts the user to select a channel from a list of channels.
 
@@ -91,11 +80,7 @@ def prompt_group_channel_names(
     return group_channel_names(ctx, options, ctx.console.ask("channels").split(","))
 
 
-def group_channel_names(
-    ctx: Context,
-    options: list[str],
-    matchers: list[str],
-):
+def group_channel_names(ctx: Context, options: list[str], matchers: list[str]):
     """Groups channel names by matching them against a list of matchers.
 
     :param ctx: The current flow Context.
