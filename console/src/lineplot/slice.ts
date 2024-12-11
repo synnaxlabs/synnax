@@ -369,4 +369,3 @@ export const {
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-export type LinePayload = Action["payload"];

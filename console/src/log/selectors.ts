@@ -17,3 +17,9 @@ export const select = (state: StoreState, key: string): State =>
 
 export const useSelect = (key: string): State =>
   useMemoSelect((s: StoreState) => select(s, key), [key]);
+
+export const selectVersion = (state: StoreState, key: string): string | undefined =>
+  select(state, key).version;
+
+export const useSelectVersion = (key: string): string | undefined =>
+  useMemoSelect((s: StoreState) => selectVersion(s, key), [key]);

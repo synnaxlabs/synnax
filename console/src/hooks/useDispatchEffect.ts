@@ -12,18 +12,20 @@ import { useDebouncedCallback } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-export const useDispatchEffect = <T>(
+export const useDispatchEffect = <P>(
   f: () => void,
   debounce: number = 0,
-): Dispatch<PayloadAction<T>> => {
-  const dispatch = useDispatch();
+  dispatch?: Dispatch<PayloadAction<P>>,
+): Dispatch<PayloadAction<P>> => {
+  const coreDispatch = useDispatch();
+  const dispatch_ = dispatch ?? coreDispatch;
   const update = useDebouncedCallback(f, debounce, [f]);
   return useCallback(
     (a) => {
-      const r = dispatch(a);
+      const r = dispatch_(a);
       update();
       return r;
     },
-    [update],
+    [update, dispatch_],
   );
 };

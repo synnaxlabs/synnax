@@ -126,7 +126,7 @@ const isValidConnection: IsValidConnection = (): boolean => true;
 export interface UseReturn {
   edges: Edge[];
   nodes: Node[];
-  onNodesChange: (nodes: Node[]) => void;
+  onNodesChange: (nodes: Node[], changes: RFNodeChange[]) => void;
   onEdgesChange: (edges: Edge[]) => void;
   editable: boolean;
   onEditableChange: (v: boolean) => void;
@@ -326,6 +326,7 @@ const Core = Aether.wrap<DiagramProps>(
       (changes: RFNodeChange[]) =>
         onNodesChange(
           nodeConverter(nodesRef.current, (n) => rfApplyNodeChanges(changes, n)),
+          changes,
         ),
       [onNodesChange],
     );
@@ -355,11 +356,10 @@ const Core = Aether.wrap<DiagramProps>(
     );
 
     const handleConnect = useCallback(
-      (conn: RFConnection) => {
+      (conn: RFConnection) =>
         onEdgesChange(
           edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e), defaultEdgeColor),
-        );
-      },
+        ),
       [onEdgesChange, defaultEdgeColor],
     );
 
@@ -470,10 +470,7 @@ const Core = Aether.wrap<DiagramProps>(
               proOptions={PRO_OPTIONS}
               deleteKeyCode={DELETE_KEY_CODES}
               {...props}
-              style={{
-                [CSS.var("diagram-zoom")]: viewport.zoom,
-                ...props.style,
-              }}
+              style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...props.style }}
               {...editableProps}
               nodesDraggable={editable && !adjustable.held}
             >

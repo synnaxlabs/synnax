@@ -177,11 +177,7 @@ export const translateEdgesForward = (edges: Edge[]): Array<rf.Edge<RFEdgeData>>
 
 /** Translates nodes from their react-flow representation to their pluto representation. */
 export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
-  nodes.map((node) => ({
-    key: node.id,
-    selected: node.selected,
-    ...node,
-  }));
+  nodes.map((node) => ({ key: node.id, ...node }));
 
 /** Translates edges from their react-flow representation to their pluto representation */
 export const translateEdgesBackward = (

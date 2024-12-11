@@ -88,3 +88,9 @@ export const useSelectAxisBounds = (key: string, axisKey: AxisKey): bounds.Bound
     (state: StoreState) => selectAxisBounds(state, key, axisKey),
     [key, axisKey],
   );
+
+export const selectVersion = (state: StoreState, key: string): string | undefined =>
+  select(state, key).version;
+
+export const useSelectVersion = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);

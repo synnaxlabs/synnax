@@ -17,7 +17,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { select, useSelect } from "@/log/selectors";
+import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
 import { Workspace } from "@/workspace";
 
@@ -118,7 +118,7 @@ export const Log: Layout.Renderer = ({ layoutKey, ...props }): ReactElement | nu
     name: "Log",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect,
+    useSelectVersion,
     fetcher: async (client, layoutKey) => {
       const { key, data } = await client.workspaces.log.retrieve(layoutKey);
       return { key, ...data } as State;
