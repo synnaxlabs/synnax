@@ -33,6 +33,9 @@ importers:
       turbo:
         specifier: ^2.3.1
         version: 2.3.1
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.4(@types/node@22.9.0)(jsdom@25.0.1)
 
   alamos/ts:
     dependencies:
@@ -209,7 +212,7 @@ importers:
         version: 5.1.0
       '@reduxjs/toolkit':
         specifier: ^2.3.0
-        version: 2.3.0(react-redux@9.1.2(@types/react@18.3.12)(react@18.3.1))(react@18.3.1)
+        version: 2.3.0(react-redux@9.1.2(@types/react@18.3.12)(react@18.3.1)(redux@5.0.1))(react@18.3.1)
       '@synnaxlabs/client':
         specifier: workspace:*
         version: link:../client/ts
@@ -412,7 +415,7 @@ importers:
     dependencies:
       '@reduxjs/toolkit':
         specifier: ^2.3.0
-        version: 2.3.0(react-redux@9.1.2(@types/react@18.3.12)(react@18.3.1))(react@18.3.1)
+        version: 2.3.0(react-redux@9.1.2(@types/react@18.3.12)(react@18.3.1)(redux@5.0.1))(react@18.3.1)
       '@synnaxlabs/x':
         specifier: workspace:*
         version: link:../x/ts
@@ -467,7 +470,7 @@ importers:
     dependencies:
       '@reduxjs/toolkit':
         specifier: ^2.3.0
-        version: 2.3.0(react-redux@9.1.2(@types/react@18.3.12)(react@18.3.1))(react@18.3.1)
+        version: 2.3.0(react-redux@9.1.2(@types/react@18.3.12)(react@18.3.1)(redux@5.0.1))(react@18.3.1)
       '@synnaxlabs/drift':
         specifier: workspace:*
         version: link:../..
@@ -8125,7 +8128,7 @@ snapshots:
 
   '@protobufjs/utf8@1.1.0': {}
 
-  '@reduxjs/toolkit@2.3.0(react-redux@9.1.2(@types/react@18.3.12)(react@18.3.1))(react@18.3.1)':
+  '@reduxjs/toolkit@2.3.0(react-redux@9.1.2(@types/react@18.3.12)(react@18.3.1)(redux@5.0.1))(react@18.3.1)':
     dependencies:
       immer: 10.1.1
       redux: 5.0.1

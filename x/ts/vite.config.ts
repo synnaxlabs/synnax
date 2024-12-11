@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// <reference types="vitest" />
+
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
 import { defineConfig } from "vite";
@@ -48,12 +50,7 @@ export default defineConfig({
         zodutil: path.resolve(".", "src/zodutil/index.ts"),
       },
     },
-    rollupOptions: {
-      external: ["zod"],
-    },
+    rollupOptions: { external: ["zod"] },
   },
-  test: {
-    globals: true,
-    environment: "jsdom",
-  },
+  test: { globals: true, environment: "jsdom" },
 });
