@@ -111,10 +111,8 @@ jobs:
 
       - name: Format
         if: matrix.format
-        uses: psf/black@stable
-        with:
-          src: alamos/py
-          use_pyproject: true
+        run: poetry run black --check --diff --color .
+        working-directory: alamos/py
 
   ts:
     name: TypeScript (${{ matrix.os }})

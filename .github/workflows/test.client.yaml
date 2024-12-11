@@ -168,11 +168,8 @@ jobs:
         working-directory: client/py
 
       - name: Format
-        if: matrix.format
-        uses: psf/black@stable
-        with:
-          src: client/py
-          use_pyproject: true
+        run: poetry run black --check --diff --color .
+        working-directory: client/py
 
   ts:
     name: TypeScript
