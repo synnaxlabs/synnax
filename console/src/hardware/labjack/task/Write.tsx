@@ -22,7 +22,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -82,7 +82,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   }),
 };
 
-const formSchema = z.object({ name: z.string(), config: writeTaskConfigZ });
+const formSchema = z.object({ name: z.string().min(1), config: writeTaskConfigZ });
 
 const Wrapped = ({
   task,
@@ -249,21 +249,23 @@ const Wrapped = ({
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
-          <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name">
-              {(p) => <Input.Text variant="natural" level="h2" {...p} />}
-            </Form.Field>
-          </Align.Space>
-          <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <SelectDevice />
-            <Align.Space direction="x">
-              <Form.NumericField
-                label="State Update Rate"
-                path="config.stateRate"
-                inputProps={{ endContent: "Hz" }}
-                grow
-              />
-              <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
+          <Align.Space direction="y" empty>
+            <Align.Space direction="x" justify="spaceBetween">
+              <Form.Field<string> path="name">
+                {(p) => <Input.Text variant="natural" level="h2" {...p} />}
+              </Form.Field>
+            </Align.Space>
+            <Align.Space direction="x" className={CSS.B("task-properties")}>
+              <SelectDevice />
+              <Align.Space direction="x">
+                <Form.NumericField
+                  label="State Update Rate"
+                  path="config.stateRate"
+                  inputProps={{ endContent: "Hz" }}
+                  grow
+                />
+                <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
+              </Align.Space>
             </Align.Space>
           </Align.Space>
           <Align.Space
@@ -334,9 +336,17 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
     path,
     updateOnChildren: true,
   });
-  const handleAdd = (): void => {
-    push({ ...deep.copy(ZERO_WRITE_CHAN), key: id.id() });
-  };
+  const handleAdd = useCallback(() => {
+    const existingCommandStatePair =
+      device.properties[ZERO_WRITE_CHAN.type].channels[ZERO_WRITE_CHAN.port] ??
+      ZERO_COMMAND_STATE_PAIR;
+    push({
+      ...deep.copy(ZERO_WRITE_CHAN),
+      key: id.id(),
+      cmdKey: existingCommandStatePair.command,
+      stateKey: existingCommandStatePair.state,
+    });
+  }, [push, device]);
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space grow empty direction="y">
@@ -411,7 +421,64 @@ const ChannelListItem = ({
       align="center"
       direction="x"
     >
-      <Align.Space grow direction="x" wrap align="center" justify="spaceEvenly">
+      <Align.Space direction="x" wrap align="center" size="small">
+        <Form.Field<OutputChannelType>
+          path={`${path}.type`}
+          showLabel={false}
+          hideIfNull
+          onChange={(value, { path, get, set }) => {
+            const channelPath = path.slice(0, path.lastIndexOf("."));
+            const previousChannel = get<WriteChan>(channelPath).value;
+            if (previousChannel.type === value) return;
+            const port = DEVICES[device.model].ports[value][0].key;
+            const existingCommandStatePair =
+              device.properties[value].channels[port] ?? ZERO_COMMAND_STATE_PAIR;
+            set(channelPath, {
+              ...previousChannel,
+              cmdKey: existingCommandStatePair.command,
+              stateKey: existingCommandStatePair.state,
+              type: value,
+            });
+            set(`${channelPath}.port`, port);
+          }}
+          empty
+        >
+          {(p) => (
+            <SelectOutputChannelType {...p} onClick={(e) => e.stopPropagation()} />
+          )}
+        </Form.Field>
+        <Form.Field<string>
+          path={`${path}.port`}
+          showLabel={false}
+          hideIfNull
+          empty
+          onChange={(value, { path, get, set }) => {
+            const channelPath = path.slice(0, path.lastIndexOf("."));
+            const previousChannel = get<WriteChan>(channelPath).value;
+            if (previousChannel.port === value) return;
+            const existingCommandStatePair =
+              device.properties[previousChannel.type].channels[value] ??
+              ZERO_COMMAND_STATE_PAIR;
+            set(channelPath, {
+              ...previousChannel,
+              cmdKey: existingCommandStatePair.command,
+              stateKey: existingCommandStatePair.state,
+              port: value,
+            });
+          }}
+        >
+          {(p) => (
+            <SelectPort
+              {...p}
+              model={device.model}
+              channelType={entry.type}
+              allowNone={false}
+              onClick={(e: MouseEvent) => e.stopPropagation()}
+            />
+          )}
+        </Form.Field>
+      </Align.Space>
+      <Align.Space direction="x" align="center" justify="spaceEvenly">
         <Text.Text
           level="p"
           shade={9}
@@ -434,64 +501,12 @@ const ChannelListItem = ({
         >
           {stateChannelName}
         </Text.Text>
-        <Form.Field<OutputChannelType>
-          path={`${path}.type`}
-          label="Channel Type"
-          hideIfNull
-          onChange={(value, { path, get, set }) => {
-            const channelPath = path.slice(0, path.lastIndexOf("."));
-            const previousChannel = get<WriteChan>(channelPath).value;
-            if (previousChannel.type === value) return;
-            const port = DEVICES[device.model].ports[value][0].key;
-            const existingCommandStatePair =
-              device.properties[value].channels[port] ?? ZERO_COMMAND_STATE_PAIR;
-            set(channelPath, {
-              ...previousChannel,
-              cmdKey: existingCommandStatePair.command,
-              stateKey: existingCommandStatePair.state,
-              type: value,
-            });
-            set(`${channelPath}.port`, port);
-          }}
-        >
-          {(p) => (
-            <SelectOutputChannelType {...p} onClick={(e) => e.stopPropagation()} />
-          )}
-        </Form.Field>
-        <Form.Field<string>
-          path={`${path}.port`}
-          label="Port"
-          hideIfNull
-          onChange={(value, { path, get, set }) => {
-            const channelPath = path.slice(0, path.lastIndexOf("."));
-            const previousChannel = get<WriteChan>(channelPath).value;
-            if (previousChannel.port === value) return;
-            const existingCommandStatePair =
-              device.properties[previousChannel.type].channels[value] ??
-              ZERO_COMMAND_STATE_PAIR;
-            set(channelPath, {
-              ...previousChannel,
-              cmdKey: existingCommandStatePair.command,
-              stateKey: existingCommandStatePair.state,
-              port: value,
-            });
-          }}
-        >
-          {(p) => (
-            <SelectPort
-              {...p}
-              model={device.model}
-              channelType={entry.type}
-              allowNone={false}
-            />
-          )}
-        </Form.Field>
+        <EnableDisableButton
+          value={entry.enabled}
+          onChange={(v) => ctx.set(`${path}.enabled`, v)}
+          snapshot={snapshot}
+        />
       </Align.Space>
-      <EnableDisableButton
-        value={entry.enabled}
-        onChange={(v) => ctx.set(`${path}.enabled`, v)}
-        snapshot={snapshot}
-      />
     </List.ItemFrame>
   );
 };

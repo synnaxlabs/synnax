@@ -60,7 +60,7 @@ export const useDevice = <P extends UnknownRecord>(
     ),
   });
   Observe.useListener({
-    key: [client, setDevice],
+    key: [client, setDevice, device?.key],
     open: async () => await client?.hardware.devices.openDeviceTracker(),
     onChange: (changes) => {
       for (const change of changes) {

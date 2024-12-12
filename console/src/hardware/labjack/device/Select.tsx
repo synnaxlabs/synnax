@@ -80,7 +80,7 @@ export interface SelectOutputChannelTypeProps
     "data" | "entryRenderKey"
   > {}
 
-export const SelectOutputChannelType = ({ ...props }: SelectOutputChannelTypeProps) => (
+export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
   <Select.Button<OutputChannelType, OutputChannelTypeEntry>
     data={OUTPUT_CHANNEL_TYPES}
     entryRenderKey="name"
