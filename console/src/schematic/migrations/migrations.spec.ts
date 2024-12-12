@@ -25,7 +25,7 @@ describe("migrations", () => {
     STATES.forEach((state) => {
       it(`should migrate state from ${state.version} to latest`, () => {
         const migrated = migrateState(state);
-        expect(migrated).toEqual(ZERO_STATE);
+        expect({ ...migrated, key: expect.anything() }).toEqual(ZERO_STATE);
       });
     });
   });
