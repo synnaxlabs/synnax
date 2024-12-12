@@ -12,27 +12,22 @@ import { z } from "zod";
 
 import * as v2 from "@/schematic/migrations/v2";
 
-const VERSION = "3.0.0";
-type Version = typeof VERSION;
+// This file is mostly pointless, as the state is exactly the same as the previous
+// version. But, customers have existing schematics and slices with the 'version' key
+// being 3.0.0, so we need to keep this file around for compatibility.
 
-export const stateZ = v2.stateZ.omit({ version: true }).extend({
-  version: z.literal(VERSION),
-  key: z.string(),
-  type: z.literal("schematic"),
-});
+export const VERSION = "3.0.0";
+export type Version = typeof VERSION;
+
+export const stateZ = v2.stateZ
+  .omit({ version: true })
+  .extend({ version: z.literal(VERSION) });
 
 export interface State extends Omit<v2.State, "version"> {
   version: Version;
-  key: string;
-  type: "schematic";
 }
 
-export const ZERO_STATE: State = {
-  ...v2.ZERO_STATE,
-  version: VERSION,
-  key: "",
-  type: "schematic",
-};
+export const ZERO_STATE: State = { ...v2.ZERO_STATE, version: VERSION };
 
 export const sliceStateZ = v2.sliceStateZ
   .omit({ version: true })
@@ -49,8 +44,6 @@ export const stateMigration = migrate.createMigration<v2.State, State>({
     ...state,
     edges: state.edges.map((edge) => ({ ...edge, segments: [] })),
     version: VERSION,
-    key: "",
-    type: "schematic",
   }),
 });
 
@@ -61,7 +54,7 @@ export const sliceMigration = migrate.createMigration<v2.SliceState, SliceState>
     schematics: Object.fromEntries(
       Object.entries(sliceState.schematics).map(([key, state]) => [
         key,
-        { ...stateMigration(state), key },
+        { ...stateMigration(state) },
       ]),
     ),
     version: VERSION,

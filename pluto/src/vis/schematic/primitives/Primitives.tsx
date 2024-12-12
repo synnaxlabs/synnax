@@ -470,18 +470,19 @@ export const SolenoidValve = ({
   </Toggle>
 );
 
-export interface ReliefValveProps extends DivProps, SVGBasedPrimitiveProps {}
+export interface ReliefValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ReliefValve = ({
   className,
   orientation = "left",
   color,
   scale,
+  enabled = false,
   ...props
 }: ReliefValveProps): ReactElement => (
-  <Div
-    orientation={orientation}
+  <Toggle
     className={CSS(CSS.B("relief-valve"), className)}
+    enabled={enabled}
     {...props}
   >
     <HandleBoundary orientation={orientation}>
@@ -512,7 +513,7 @@ export const ReliefValve = ({
       <Path d="M31.8011 20.0802L55.1773 10.2961" strokeLinecap="round" />
       <Path d="M31.8011 26.0802L55.1773 16.2961" strokeLinecap="round" />
     </InternalSVG>
-  </Div>
+  </Toggle>
 );
 
 export interface CheckValveProps extends DivProps, SVGBasedPrimitiveProps {}
@@ -819,16 +820,22 @@ export const ISOCap = ({
   </Div>
 );
 
-export interface ManualValveProps extends SVGBasedPrimitiveProps, DivProps {}
+export interface ManualValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ManualValve = ({
   className,
   orientation = "left",
   color,
   scale,
+  enabled = false,
   ...props
 }: ManualValveProps): ReactElement => (
-  <Div className={CSS(CSS.B("manual-valve"), className)} {...props}>
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("manual-valve"), className)}
+    enabled={enabled}
+  >
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -855,7 +862,7 @@ export const ManualValve = ({
       <Path d="M19.64 1 L66.68 1" strokeLinecap="round" />
       <Path d="M43.5 27L6.35453 8.20349C4.35901 7.19372 2 8.64384 2 10.8803V43.1197C2 45.3562 4.35901 46.8063 6.35453 45.7965L43.5 27ZM43.5 27L80.6455 8.20349C82.641 7.19372 85 8.64384 85 10.8803V43.1197C85 45.3562 82.641 46.8063 80.6455 45.7965L43.5 27Z" />
     </InternalSVG>
-  </Div>
+  </Toggle>
 );
 
 export interface OrificePlateProps extends SVGBasedPrimitiveProps, DivProps {}
@@ -1138,16 +1145,22 @@ export const Orifice = ({
   </Div>
 );
 
-export interface NeedleValveProps extends DivProps, SVGBasedPrimitiveProps {}
+export interface NeedleValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const NeedleValve = ({
   className,
   orientation = "left",
   color,
   scale,
+  enabled = false,
   ...props
 }: NeedleValveProps): ReactElement => (
-  <Div className={CSS(CSS.B("needle-valve"), className)} {...props}>
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("needle-valve"), className)}
+    enabled={enabled}
+  >
     <HandleBoundary orientation={orientation}>
       <Handle
         location="left"
@@ -1176,22 +1189,24 @@ export const NeedleValve = ({
       />
       <Path d="M43.5 21.5L6.35453 2.70349C4.35901 1.69372 2 3.14384 2 5.38029V37.6197C2 39.8562 4.35901 41.3063 6.35453 40.2965L43.5 21.5ZM43.5 21.5L80.6455 2.70349C82.641 1.69372 85 3.14384 85 5.3803V37.6197C85 39.8562 82.641 41.3063 80.6455 40.2965L43.5 21.5Z" />
     </InternalSVG>
-  </Div>
+  </Toggle>
 );
 
-export interface AngledReliefValveProps extends DivProps, SVGBasedPrimitiveProps {}
+export interface AngledReliefValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const AngledReliefValve = ({
+  color,
   className,
   orientation = "left",
-  color,
   scale,
+  enabled = false,
   ...props
 }: AngledReliefValveProps): ReactElement => (
-  <Div
+  <Toggle
+    {...props}
     orientation={orientation}
     className={CSS(CSS.B("angled-relief-valve"), className)}
-    {...props}
+    enabled={enabled}
   >
     <HandleBoundary orientation={orientation}>
       <Handle
@@ -1222,7 +1237,7 @@ export const AngledReliefValve = ({
       <Path d="M22.3611 35.1077C21.6298 35.4778 21.6298 36.5222 22.3611 36.8923L57.7433 54.7965C59.7388 55.8063 62.0978 54.3562 62.0978 52.1197L62.0978 19.8803C62.0978 17.6438 59.7388 16.1937 57.7433 17.2035L22.3611 35.1077Z" />
       <Path d="M21.8923 37.3611C21.5222 36.6298 20.4778 36.6298 20.1077 37.3611L2.20349 72.7433C1.19372 74.7388 2.64384 77.0978 4.8803 77.0978H37.1197C39.3562 77.0978 40.8063 74.7388 39.7965 72.7433L21.8923 37.3611Z" />
     </InternalSVG>
-  </Div>
+  </Toggle>
 );
 
 export interface ValueProps extends DivProps {
@@ -2383,7 +2398,7 @@ export const Cylinder = ({
 };
 
 export interface SpringLoadedReliefValveProps
-  extends DivProps,
+  extends ToggleProps,
     SVGBasedPrimitiveProps {}
 
 export const SpringLoadedReliefValve = ({
@@ -2391,14 +2406,16 @@ export const SpringLoadedReliefValve = ({
   orientation = "left",
   color,
   scale,
+  enabled = false,
   ...props
 }: SpringLoadedReliefValveProps): ReactElement => {
   const colorStr = Color.cssString(color);
   return (
-    <Div
+    <Toggle
+      {...props}
       orientation={orientation}
       className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
-      {...props}
+      enabled={enabled}
     >
       <HandleBoundary orientation={orientation}>
         <Handle
@@ -2443,12 +2460,12 @@ export const SpringLoadedReliefValve = ({
           strokeWidth={1}
         />
       </InternalSVG>
-    </Div>
+    </Toggle>
   );
 };
 
 export interface AngledSpringLoadedReliefValveProps
-  extends DivProps,
+  extends ToggleProps,
     SVGBasedPrimitiveProps {}
 
 export const AngledSpringLoadedReliefValve = ({
@@ -2456,14 +2473,16 @@ export const AngledSpringLoadedReliefValve = ({
   orientation = "left",
   color,
   scale,
+  enabled = false,
   ...props
 }: AngledSpringLoadedReliefValveProps): ReactElement => {
   const colorStr = Color.cssString(color);
   return (
-    <Div
+    <Toggle
+      {...props}
       orientation={orientation}
       className={CSS(CSS.B("spring-loaded-relief-valve"), className)}
-      {...props}
+      enabled={enabled}
     >
       <HandleBoundary orientation={orientation}>
         <Handle
@@ -2497,7 +2516,7 @@ export const AngledSpringLoadedReliefValve = ({
           strokeLinecap="round"
         />
       </InternalSVG>
-    </Div>
+    </Toggle>
   );
 };
 

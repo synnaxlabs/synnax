@@ -15,7 +15,6 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
-import { isValidElement } from "@/util/children";
 
 export interface Segment {
   label: string;
@@ -68,6 +67,7 @@ interface GetContentArgs {
   level: Text.Level;
   weight?: Text.Weight;
   separator: string;
+  transform?: (segment: Segment) => Segment;
 }
 
 const getContent = ({
@@ -76,9 +76,12 @@ const getContent = ({
   level,
   weight,
   separator,
+  transform,
 }: GetContentArgs): (ReactElement | string)[] => {
   const normalized = normalizeSegments(segments, separator);
-  const content: (ReactElement | string)[] = normalized
+  let content: Segment[] = normalized;
+  if (transform != null) content = content.map(transform);
+  return content
     .map((el, index) => {
       const base: ReactElement[] = [
         <Icon.Caret.Right
@@ -107,9 +110,7 @@ const getContent = ({
       );
       return base;
     })
-
     .flat();
-  return content;
 };
 
 /**
@@ -164,11 +165,24 @@ export const URL = ({
   url,
   className,
   level = "p",
-  separator = ".",
+  separator = "/",
   weight,
   shade = 7,
 }: URLProps) => {
-  const content = getContent({ segments: url, separator, shade, level, weight });
+  const content = getContent({
+    segments: url,
+    separator,
+    shade,
+    level,
+    weight,
+    transform: (el) => ({
+      ...el,
+      label: el.label
+        .split("-")
+        .map((el) => caseconv.capitalize(el))
+        .join(" "),
+    }),
+  });
   return (
     <Align.Space
       className={CSS(className, CSS.B("breadcrumb"))}
@@ -176,25 +190,7 @@ export const URL = ({
       size="small"
       align="center"
     >
-      {content.map((el, index) => {
-        if (isValidElement(el)) return el;
-        if (el == null) return null;
-        const split = url.split(separator);
-        const idx = split.indexOf(el);
-        let href = url
-          .split(separator)
-          .slice(0, idx + 1)
-          .join("/");
-        href = `/${href}`;
-        return (
-          <Text.Link level={level} key={index} href={href}>
-            {el
-              .split("-")
-              .map((el) => caseconv.capitalize(el))
-              .join(" ")}
-          </Text.Link>
-        );
-      })}
+      {content}
     </Align.Space>
   );
 };

@@ -104,7 +104,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       path={`${path}.maxInlineSize`}
       hideIfNull
       label="Label Wrap Width"
-      inputProps={{ endContent: "px" }}
+      inputProps={{ endContent: "px", dragScale: { x: 1, y: 0.5 } }}
       padHelpText={false}
     />
     <Form.Field<Text.Level>
@@ -289,7 +289,7 @@ export const TankForm = ({
   includeBorderRadius = false,
 }: TankFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y">
+    <Align.Space direction="y" grow>
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
@@ -797,5 +797,19 @@ export const CylinderForm = (): ReactElement => (
       </Align.Space>
     </Align.Space>
     <OrientationControl path="" showInner={false} />
+  </FormWrapper>
+);
+
+export const CommonDummyToggleForm = (): ReactElement => (
+  <FormWrapper direction="x" align="stretch">
+    <Align.Space direction="y" grow>
+      <LabelControls path="label" />
+      <Align.Space direction="x" grow>
+        <ColorControl path="color" />
+        <ScaleControl path="scale" />
+        <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />
+      </Align.Space>
+    </Align.Space>
+    <OrientationControl path="" />
   </FormWrapper>
 );

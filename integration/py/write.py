@@ -195,9 +195,9 @@ Configuration:
                     for j in range(len(self._tc.channels[i].index_channels)):
                         channel_series[j] = timestamps
                     for j in range(len(self._tc.channels[i].data_channels)):
-                        channel_series[
-                            len(self._tc.channels[i].index_channels) + j
-                        ] = data
+                        channel_series[len(self._tc.channels[i].index_channels) + j] = (
+                            data
+                        )
 
                     writer.write(self._tc.channels[i].together(), channel_series)
 

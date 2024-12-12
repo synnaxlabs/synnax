@@ -107,10 +107,9 @@ class WriteFrameAdapter:
 
     def adapt(
         self,
-        channels_or_data: ChannelPayload
-        | list[ChannelPayload]
-        | ChannelParams
-        | CrudeFrame,
+        channels_or_data: (
+            ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
+        ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(channels_or_data, (ChannelName, ChannelKey, ChannelPayload)):
