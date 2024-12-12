@@ -482,7 +482,7 @@ describe("remote", () => {
       expect(data).toHaveLength(1);
       const tr2 = new TimeRange(
         now.add(TimeSpan.milliseconds(1)),
-        now.add(TimeSpan.milliseconds(20)),
+        now.add(TimeSpan.milliseconds(40)),
       );
       expect(series.refCount).toBe(1);
       // write the new series
@@ -495,7 +495,7 @@ describe("remote", () => {
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [series2]),
       });
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 20));
       const [b2, data2] = await cd.value();
       expect(series2.refCount).toBe(1);
       expect(series.refCount).toBe(1);
