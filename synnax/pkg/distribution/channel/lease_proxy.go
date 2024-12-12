@@ -88,15 +88,16 @@ func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMess
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, retrieveIfNameExists bool) error {
 	channels := *_channels
 	for i, ch := range channels {
-		if ch.LocalKey != 0 {
-			channels[i].LocalKey = 0
-		}
 		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
 		}
 		if ch.Expression != "" {
 			channels[i].Leaseholder = core.Free
 			channels[i].Virtual = true
+		} else {
+			if ch.LocalKey != 0 {
+				channels[i].LocalKey = 0
+			}
 		}
 	}
 	batch := lp.createRouter.Batch(channels)
@@ -132,6 +133,26 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	return lp.maybeSetResources(ctx, tx, oChannels)
 }
 
+//
+//func (lp *leaseProxy) createFreeVirtual(
+//	ctx context.Context,
+//	tx gorp.Tx,
+//	channels *[]Channel,
+//	retrieveIfNameExists bool,
+//) error {
+//	if lp.freeCounter == nil {
+//		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
+//	}
+//	toCreate, err := lp.maybeRetrieveExisting(ctx, tx, channels, lp.freeCounter, retrieveIfNameExists)
+//	if err != nil {
+//		return err
+//	}
+//	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
+//		return err
+//	}
+//	return lp.maybeSetResources(ctx, tx, toCreate)
+//}
+
 func (lp *leaseProxy) createFreeVirtual(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -145,7 +166,43 @@ func (lp *leaseProxy) createFreeVirtual(
 	if err != nil {
 		return err
 	}
-	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
+
+	// If existing channels are passed in, update as necessary (for calc channels)
+	err = gorp.NewUpdate[Key, Channel]().
+		Where(func(c *Channel) bool {
+			if !c.Virtual || c.LocalKey == 0 || c.IsIndex || c.Expression == "" {
+				return false
+			}
+			for _, ch := range *channels {
+				if ch.Name == c.Name {
+					return true
+				}
+			}
+			return false
+		}).
+		ChangeErr(
+			func(c Channel) (Channel, error) {
+				if !c.Virtual {
+					return c, errors.New("can only update virtual channels")
+				}
+				for _, ch := range *channels {
+					if ch.Name == c.Name {
+						c.Requires = ch.Requires
+						c.Expression = ch.Expression
+						break
+					}
+				}
+				return c, nil
+			}).
+		Exec(ctx, tx)
+
+	if err != nil {
+		return err
+	}
+
+	// only call new create of new channels isnt empty
+	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
+		tx); err != nil {
 		return err
 	}
 	return lp.maybeSetResources(ctx, tx, toCreate)
