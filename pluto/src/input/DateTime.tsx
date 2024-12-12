@@ -23,7 +23,9 @@ import { Input } from "@/input";
 import { Text as InputText } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 import { List } from "@/list";
+import { Nav } from "@/nav";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 import { componentRenderProp } from "@/util/renderProp";
 
 const applyTimezoneOffset = (ts: TimeStamp): TimeStamp =>
@@ -123,24 +125,41 @@ interface DateTimeModalProps {
   close: () => void;
 }
 
+const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+
 const DateTimeModal = ({
   value,
   onChange,
   close,
 }: DateTimeModalProps): ReactElement => (
-  <Align.Space direction="y" className={CSS.B("datetime-modal")}>
-    <Align.Space direction="x" className={CSS.B("header")}>
-      <Text.DateTime level="h3" format="preciseDate">
-        {value}
-      </Text.DateTime>
+  <Align.Space className={CSS.B("datetime-modal")} empty>
+    <Align.Space className={CSS.B("content")}>
+      <Align.Space direction="x" className={CSS.B("header")}>
+        <Text.DateTime level="h3" format="preciseDate">
+          {value}
+        </Text.DateTime>
+      </Align.Space>
+      <Button.Icon variant="text" className={CSS.B("close-btn")} onClick={close}>
+        <Icon.Close />
+      </Button.Icon>
+      <Align.Space direction="x" className={CSS.B("content")}>
+        <AISelector value={value} onChange={onChange} close={close} />
+        <Calendar value={value} onChange={onChange} />
+      </Align.Space>
     </Align.Space>
-    <Button.Icon variant="text" className={CSS.B("close-btn")} onClick={close}>
-      <Icon.Close />
-    </Button.Icon>
-    <Align.Space direction="x" className={CSS.B("content")}>
-      <AISelector value={value} onChange={onChange} />
-      <Calendar value={value} onChange={onChange} />
-    </Align.Space>
+    <Nav.Bar location="bottom" size="7rem">
+      <Nav.Bar.Start size="small">
+        <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
+        <Text.Text shade={7} level="small">
+          To Finish
+        </Text.Text>
+      </Nav.Bar.Start>
+      <Nav.Bar.End>
+        <Button.Button onClick={close} variant="outlined">
+          Done
+        </Button.Button>
+      </Nav.Bar.End>
+    </Nav.Bar>
   </Align.Space>
 );
 
@@ -160,10 +179,15 @@ const aiListItem = componentRenderProp(AIListItem);
 
 interface AISelectorProps {
   value: TimeStamp;
+  close: () => void;
   onChange: (next: TimeStamp) => void;
 }
 
-const AISelector = ({ value: pValue, onChange }: AISelectorProps): ReactElement => {
+const AISelector = ({
+  value: pValue,
+  onChange,
+  close,
+}: AISelectorProps): ReactElement => {
   const [value, setValue] = useState<string>("");
   const [entries, setEntries] = useState<AISuggestion[]>([]);
 
@@ -177,7 +201,10 @@ const AISelector = ({ value: pValue, onChange }: AISelectorProps): ReactElement 
         return {
           key: d.start,
           name: nextTS.fString("preciseDate", "local"),
-          onSelect: () => onChange(nextTS),
+          onSelect: () => {
+            onChange(nextTS);
+            close();
+          },
         };
       }),
     );
@@ -195,7 +222,10 @@ const AISelector = ({ value: pValue, onChange }: AISelectorProps): ReactElement 
         return {
           key: next.valueOf().toString(),
           name: next.fString("preciseDate", "local"),
-          onSelect: () => onChange(next),
+          onSelect: () => {
+            onChange(next);
+            close();
+          },
         };
       }),
     );

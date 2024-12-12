@@ -36,9 +36,21 @@ input::-webkit-calendar-picker-indicator {
 .pluto-datetime-modal {
     border-radius: 1rem;
     border: var(--pluto-border-l4);
-    padding: 2rem;
     width: calc(98vw - 6rem);
     max-width: 800px;
+
+    .pluto-content {
+        padding: 2rem;
+    }
+
+    .pluto-navbar__content {
+        &.pluto--end {
+            padding-right: 2rem;
+        }
+        &.pluto--start {
+            padding-left: 2rem;
+        }
+    }
 
     .pluto-header {
         padding-left: 1rem;
