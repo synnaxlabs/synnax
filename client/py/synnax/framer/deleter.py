@@ -28,8 +28,7 @@ class _Request(Payload):
     bounds: TimeRange
 
 
-class _Response(Payload):
-    ...
+class _Response(Payload): ...
 
 
 _ENDPOINT = "/frame/delete"

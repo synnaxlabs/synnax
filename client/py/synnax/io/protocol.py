@@ -66,8 +66,7 @@ class BaseReader(File, Protocol):
         path: Path,
         keys: list[str] | None = None,
         chunk_size: int | None = None,
-    ):
-        ...
+    ): ...
 
     def channels(self) -> list[ChannelMeta]:
         """:returns : a list of channel metadata for the file."""

@@ -11,8 +11,8 @@
 
 .pluto-text--editable {
     cursor: pointer;
-    user-select: text;
     -webkit-user-select: text;
+    user-select: text;
     padding: 0.25rem 0;
 
     &:focus {
