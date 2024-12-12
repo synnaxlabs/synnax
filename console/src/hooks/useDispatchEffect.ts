@@ -18,14 +18,14 @@ export const useDispatchEffect = <P>(
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
   const coreDispatch = useDispatch();
-  const dispatch_ = dispatch ?? coreDispatch;
+  dispatch ??= coreDispatch;
   const update = useDebouncedCallback(f, debounce, [f]);
   return useCallback(
     (a) => {
-      const r = dispatch_(a);
+      const r = dispatch(a);
       update();
       return r;
     },
-    [update, dispatch_],
+    [update, dispatch],
   );
 };

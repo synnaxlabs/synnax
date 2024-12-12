@@ -265,7 +265,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       });
       return valid;
     },
-    [theme, undoableDispatch, layoutKey, ref.current, viewportRef.current],
+    [theme, undoableDispatch, layoutKey],
   );
 
   const dropProps = Haul.useDrop({

@@ -101,7 +101,7 @@ export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): NodeProps => select(state, layoutKey).props[key];
+): NodeProps | undefined => select(state, layoutKey).props[key];
 
 export const useSelectNodeProps = (
   layoutKey: string,

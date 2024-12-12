@@ -23,8 +23,9 @@ export const useUndoableDispatch = <
   SelectedType = StoreType,
 >(
   selector: Selector<StoreType, SelectedType>,
-  actionCreator: (state: SelectedType) => UnknownAction,
+  stateUpdateActionCreator: (state: SelectedType) => UnknownAction,
   waitFor: number = 0,
+  size: number = 20,
 ) => {
   const store = useStore<StoreType>();
 
@@ -39,19 +40,20 @@ export const useUndoableDispatch = <
     if (deep.equal(history.current.present, currentState)) return;
     if (history.current.present != null)
       history.current.past.push(history.current.present);
+    if (history.current.past.length > size) history.current.past.shift();
     history.current.present = currentState;
     history.current.future = [];
   }, [store, selector]);
 
-  let timeoutID: NodeJS.Timeout;
+  const timeoutID = useRef<NodeJS.Timeout | null>(null);
 
   const undoableDispatch = useCallback(
     (action: UnknownAction) => {
       history.current.present ??= selector(store.getState());
 
       if (waitFor > 0) {
-        clearTimeout(timeoutID);
-        timeoutID = setTimeout(updateState, waitFor);
+        clearTimeout(timeoutID.current);
+        timeoutID.current = setTimeout(updateState, waitFor);
       } else updateState();
 
       store.dispatch(action);
@@ -65,8 +67,8 @@ export const useUndoableDispatch = <
     if (history.current.present != null)
       history.current.future.unshift(history.current.present);
     history.current.present = lastState;
-    store.dispatch(actionCreator(lastState));
-  }, [store, actionCreator]);
+    store.dispatch(stateUpdateActionCreator(lastState));
+  }, [store, stateUpdateActionCreator]);
 
   const redo = useCallback(() => {
     const nextState = history.current.future.shift();
@@ -74,8 +76,8 @@ export const useUndoableDispatch = <
     if (history.current.present != null)
       history.current.past.push(history.current.present);
     history.current.present = nextState;
-    store.dispatch(actionCreator(nextState));
-  }, [store, actionCreator]);
+    store.dispatch(stateUpdateActionCreator(nextState));
+  }, [store, stateUpdateActionCreator]);
 
   return [undoableDispatch as Dispatch, undo, redo] as const;
 };
