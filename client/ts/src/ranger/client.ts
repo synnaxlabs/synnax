@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
+import { type CrudeTimeRange, observe, sortTimeRange, TimeRange } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type Series } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
@@ -192,13 +192,8 @@ export class Range {
   }
 }
 
-export const sort = (a: Range, b: Range): -1 | 0 | 1 => {
-  if (a.timeRange.start.before(b.timeRange.start)) return -1;
-  if (a.timeRange.start.after(b.timeRange.start)) return 1;
-  if (a.timeRange.end.before(b.timeRange.end)) return -1;
-  if (a.timeRange.end.after(b.timeRange.end)) return 1;
-  return 0;
-};
+export const sort = (a: Range, b: Range): -1 | 0 | 1 =>
+  sortTimeRange(a.timeRange, b.timeRange);
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),

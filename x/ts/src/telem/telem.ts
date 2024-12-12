@@ -1054,6 +1054,14 @@ export class TimeRange implements Stringer {
   ]);
 }
 
+export const sortTimeRange = (a: TimeRange, b: TimeRange): -1 | 0 | 1 => {
+  if (a.start.before(b.start)) return -1;
+  if (a.start.after(b.start)) return 1;
+  if (a.end.before(b.end)) return -1;
+  if (a.end.after(b.end)) return 1;
+  return 0;
+};
+
 /** DataType is a string that represents a data type. */
 export class DataType extends String implements Stringer {
   constructor(value: CrudeDataType) {

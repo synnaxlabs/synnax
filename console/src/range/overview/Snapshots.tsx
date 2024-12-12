@@ -79,7 +79,7 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
 
 const snapshotsListItem = componentRenderProp(SnapshotsListItem);
 
-const EmptyListContent = (
+const EMPTY_LIST_CONTENT = (
   <Text.Text level="p" weight={400} shade={6}>
     No Snapshots.
   </Text.Text>
@@ -116,7 +116,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
       <Text.Text level="h4" shade={8} weight={500}>
         Snapshots
       </Text.Text>
-      <List.List data={snapshots} emptyContent={EmptyListContent}>
+      <List.List data={snapshots} emptyContent={EMPTY_LIST_CONTENT}>
         <List.Core empty>{snapshotsListItem}</List.Core>
       </List.List>
     </Align.Space>
