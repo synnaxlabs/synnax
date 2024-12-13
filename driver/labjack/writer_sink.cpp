@@ -152,7 +152,7 @@ labjack::WriteSink::WriteSink(
 
     this->handle = this->device_manager->get_device_handle(this->writer_config.serial_number);
 
-    if(this->writer_config.channels.empty())
+    if (this->writer_config.channels.empty())
         this->log_err("No channels enabled/set");
 }
 
@@ -206,7 +206,7 @@ freighter::Error labjack::WriteSink::write(synnax::Frame frame) {
 
 
 freighter::Error labjack::WriteSink::stop(const std::string &cmd_key) {
-    if(!this->ok())
+    if (!this->ok())
         return freighter::Error("Device disconnected or is in error. Please reconfigure task and try again");
     ctx->set_state({
         .task = task.key,
@@ -292,15 +292,15 @@ bool labjack::WriteSink::ok() {
     return this->ok_state;
 }
 
-void labjack::WriteSink::log_err(std::string msg){
+void labjack::WriteSink::log_err(std::string msg) {
     LOG(ERROR) << "[labjack.writer] " << msg;
     this->ok_state = false;
     ctx->set_state({
-                       .task = this->task.key,
-                       .variant = "error",
-                       .details = {
-                               {"running", false},
-                               {"message", msg}
-                       }
-               });
+        .task = this->task.key,
+        .variant = "error",
+        .details = {
+            {"running", false},
+            {"message", msg}
+        }
+    });
 }

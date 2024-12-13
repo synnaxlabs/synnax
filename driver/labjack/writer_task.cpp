@@ -93,7 +93,7 @@ std::unique_ptr<task::Task> labjack::WriterTask::configure(
         breaker_config
     );
 
-    if(!sink->ok())
+    if (!sink->ok())
         return nullptr;
 
 

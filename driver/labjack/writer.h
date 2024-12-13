@@ -129,7 +129,7 @@ struct WriterConfig {
         parser.iter("channels", [this, ctx](config::Parser &channel_parser) {
             auto channel = WriterChannelConfig(channel_parser);
 
-            if(channel.enabled) channels.emplace_back(channel);
+            if (channel.enabled) channels.emplace_back(channel);
             else return;
 
             auto [channel_info, err] = ctx->client->channels.retrieve(channel.cmd_key);
@@ -190,7 +190,6 @@ public:
     void open_device();
 
 private:
-
     void log_err(std::string err_msg);
 
     int handle;

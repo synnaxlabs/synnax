@@ -33,7 +33,6 @@ labjack::ReaderSource::ReaderSource(
 
     if (this->reader_config.channels.empty() && this->reader_config.tc_channels.empty())
         this->log_err("No channels enabled/set.");
-
 }
 
 void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
@@ -81,7 +80,7 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
 
 
 void labjack::ReaderSource::init() {
-    if(!this->ok()) return;
+    if (!this->ok()) return;
     if (this->reader_config.device_type != "") {
         this->init_stream();
         this->init_tcs();
@@ -110,7 +109,7 @@ void labjack::ReaderSource::init() {
 
 void labjack::ReaderSource::init_tcs() {
     if (this->reader_config.tc_channels.empty()) return;
-    if(this->reader_config.device_type == "T4")
+    if (this->reader_config.device_type == "T4")
         return this->log_err("Thermocouple channels not currently supported for T4 devices");
 
     for (auto &channel: this->reader_config.channels) {
@@ -190,31 +189,31 @@ void labjack::ReaderSource::init_stream() {
         phys_channel_names.push_back(channel.c_str());
 
     check_err(
-            LJM_NamesToAddresses(
-                    this->reader_config.phys_channels.size(),
-                    phys_channel_names.data(),
-                    this->port_addresses.data(),
-                    NULL
-                ),
+        LJM_NamesToAddresses(
+            this->reader_config.phys_channels.size(),
+            phys_channel_names.data(),
+            this->port_addresses.data(),
+            NULL
+        ),
         "init_stream.LJM_NamesToAddresses"
     );
 
     LJM_eStreamStop(handle); // in case it was running
 
     check_err(
-            LJM_eStreamStart(
-                    handle,
-                    SCANS_PER_READ,
-                    this->reader_config.phys_channels.size(),
-                    this->port_addresses.data(),
-                    &scanRate
-                ),
+        LJM_eStreamStart(
+            handle,
+            SCANS_PER_READ,
+            this->reader_config.phys_channels.size(),
+            this->port_addresses.data(),
+            &scanRate
+        ),
         "init_stream.LJM_eStreamStart"
     );
 };
 
 freighter::Error labjack::ReaderSource::start(const std::string &cmd_key) {
-    if(!this->ok())
+    if (!this->ok())
         return freighter::Error("Device disconnected or is in error. Please reconfigure task and try again");
 
     if (this->breaker.running()) {
@@ -525,15 +524,15 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_ai_channel_keys() {
     return keys;
 }
 
-void labjack::ReaderSource::log_err(std::string msg){
+void labjack::ReaderSource::log_err(std::string msg) {
     LOG(ERROR) << "[labjack.reader] " << msg;
     this->ok_state = false;
     ctx->set_state({
-                       .task = this->task.key,
-                       .variant = "error",
-                       .details = {
-                               {"running", false},
-                               {"message", msg}
-                       }
-               });
+        .task = this->task.key,
+        .variant = "error",
+        .details = {
+            {"running", false},
+            {"message", msg}
+        }
+    });
 }
