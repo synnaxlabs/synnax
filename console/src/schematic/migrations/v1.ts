@@ -27,10 +27,9 @@ const ZERO_LEGEND_STATE: LegendState = {
   position: { x: 50, y: 50, units: { x: "px", y: "px" } },
 };
 
-export const stateZ = v0.stateZ.omit({ version: true }).extend({
-  version: z.literal(VERSION),
-  legend: legendStateZ,
-});
+export const stateZ = v0.stateZ
+  .omit({ version: true })
+  .extend({ version: z.literal(VERSION), legend: legendStateZ });
 
 export interface State extends Omit<v0.State, "version"> {
   version: Version;

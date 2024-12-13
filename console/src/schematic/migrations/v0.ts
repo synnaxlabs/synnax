@@ -80,12 +80,7 @@ export interface CopyBuffer {
   props: Record<string, NodeProps>;
 }
 
-const ZERO_COPY_BUFFER: CopyBuffer = {
-  pos: xy.ZERO,
-  nodes: [],
-  edges: [],
-  props: {},
-};
+const ZERO_COPY_BUFFER: CopyBuffer = { pos: xy.ZERO, nodes: [], edges: [], props: {} };
 
 // ||||| TOOLBAR |||||
 

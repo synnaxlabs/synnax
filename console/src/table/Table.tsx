@@ -30,11 +30,11 @@ import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
   select,
-  useSelect,
   useSelectCell,
   useSelectEditable,
   useSelectLayout,
   useSelectSelectedColumns,
+  useSelectVersion,
 } from "@/table/selectors";
 import {
   addCol,
@@ -111,7 +111,7 @@ export const useSyncComponent = (
     },
   );
 
-export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
+const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
@@ -441,7 +441,7 @@ export const Table: Layout.Renderer = ({
     name: "Table",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect,
+    useSelectVersion,
     fetcher: async (client, layoutKey) => {
       const { key, data } = await client.workspaces.table.retrieve(layoutKey);
       return { key, ...data } as State;

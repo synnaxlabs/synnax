@@ -39,8 +39,8 @@ export const ZERO_STATE: State = {
 };
 
 export const sliceStateZ = v1.sliceStateZ
-  .omit({ version: true })
-  .extend({ version: z.literal(VERSION) });
+  .omit({ version: true, schematics: true })
+  .extend({ version: z.literal(VERSION), schematics: z.record(z.string(), stateZ) });
 
 export interface SliceState extends Omit<v1.SliceState, "version" | "schematics"> {
   schematics: Record<string, State>;
@@ -49,12 +49,7 @@ export interface SliceState extends Omit<v1.SliceState, "version" | "schematics"
 
 export const stateMigration = migrate.createMigration<v1.State, State>({
   name: "schematic.state",
-  migrate: (state) => ({
-    ...state,
-    version: VERSION,
-    key: uuid(),
-    type: TYPE,
-  }),
+  migrate: (state) => ({ ...state, version: VERSION, key: uuid(), type: TYPE }),
 });
 
 export const sliceMigration = migrate.createMigration<v1.SliceState, SliceState>({
