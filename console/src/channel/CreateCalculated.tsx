@@ -79,11 +79,12 @@ const schema = channel.newPayload
     message: "Data channel must have an index",
     path: ["index"],
   });
+
 export const CreateCalculatedModal = (({
   onClose,
   args,
 }: CalculatedModalRendererProps): ReactElement => {
-  console.log("CreateCalculatedModal Args:", args);
+  // console.log("CreateCalculatedModal Args:", args);
   // console.log("CreateCalculatedModal LayoutKey:", layoutKey);
 
   const client = Synnax.use();
@@ -135,8 +136,7 @@ export const CreateCalculatedModal = (({
       d.dataType = d.dataType.toString();
 
       if (args?.channelKey)
-        console.log("Updating channel", args.channelKey); // TODO: add update once impl
-      // await client.channels.update(args.channelKey, d);
+        await client.channels.update(methods.value());
       else await client.channels.create(methods.value());
 
       if (!createMore) onClose();

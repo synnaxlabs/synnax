@@ -23,7 +23,6 @@ import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
 import {
-  CREATE_CALCULATED_LAYOUT_TYPE,
   createCalculatedLayout,
 } from "@/channel/CreateCalculated";
 import { Menu } from "@/components/menu";
@@ -228,10 +227,9 @@ export const useOpenCalculated =
   ({ selection: { resources }, store }: Ontology.TreeContextMenuProps) => {
     if (resources.length !== 1) return;
     const resource = resources[0];
-    console.log("Opening calculated channel", resource);
+    // console.log("Opening calculated channel", resource);
 
     const tabKey = `editCalculated-${resource.id.key}`;
-    console.log("Tab key from hook", tabKey);
     const layout = {
       ...createCalculatedLayout,
       key: tabKey,
@@ -248,10 +246,8 @@ export const useOpenCalculated =
         expression: resource.data?.expression || "",
       },
     };
-    console.log("Dispatching layout:", layout);
     return store.dispatch(Layout.place(layout));
   };
-
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,

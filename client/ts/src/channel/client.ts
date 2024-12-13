@@ -167,6 +167,7 @@ export class Channel {
       index: this.index,
       isIndex: this.isIndex,
       internal: this.internal,
+      virtual: this.virtual,
       expression: this.expression,
       requires: this.requires,
     });
@@ -392,6 +393,17 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
 
   async rename(keys: Key | Key[], names: string | string[]): Promise<void> {
     return await this.writer.rename(toArray(keys), toArray(names));
+  }
+
+  async update(channel: NewPayload): Promise<Channel>{
+    if (!channel.virtual)
+      throw new ValidationError("Updates are only currently supported for virtual channels");
+    if(!channel.key)
+      throw new ValidationError("Cannot update a channel without a key");
+
+    await this.create(channel);
+    const res = await this.retrieve(channel.key);
+    return res;
   }
 
   newSearcherWithOptions(

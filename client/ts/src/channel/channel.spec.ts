@@ -11,7 +11,7 @@ import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { NotFoundError, QueryError } from "@/errors";
+import { NotFoundError, QueryError, ValidationError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -39,7 +39,7 @@ describe("Channel", () => {
       });
       client.channels.create(chOne);
       let calculatedCH = new Channel({
-        name: "test",
+        name: "test2",
         virtual: true,
         dataType: DataType.FLOAT32,
         expression: "test * 2",
@@ -297,6 +297,107 @@ describe("Channel", () => {
       const renamed = await client.channels.retrieve(channels.map((c) => c.key));
       expect(renamed[0].name).toEqual("test3");
       expect(renamed[1].name).toEqual("test4");
+    });
+  });
+
+  describe("update", () => {
+    test("update virtual channel expression", async () => {
+      const channel = await client.channels.create({
+        name: "virtual-calc",
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: "result = np.array([])"
+      });
+
+      const updated = await client.channels.update({
+        key: channel.key,
+        name: channel.name,
+        dataType: channel.dataType,
+        virtual: true,
+        expression: "result = np.array([1, 2, 3])"
+      });
+
+      const channelsWithName = await client.channels.retrieve(["virtual-calc"]);
+      expect(channelsWithName.length).toEqual(1);
+
+      expect(updated.expression).toEqual("result = np.array([1, 2, 3])");
+
+      const retrieved = await client.channels.retrieve(channel.key);
+      expect(retrieved.expression).toEqual("result = np.array([1, 2, 3])");
+    });
+
+
+    test("should reject updates to non-virtual channels", async () => {
+      const channel = await client.channels.create({
+        name: "regular-channel",
+        dataType: DataType.FLOAT32,
+        leaseholder: 1,
+        rate: Rate.hz(1)
+      });
+
+      await expect(
+        client.channels.update({
+          key: channel.key,
+          name: "new-name",
+          dataType: DataType.FLOAT32,
+          leaseholder: 1,
+          rate: Rate.hz(1)
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test("should reject updates without a key", async () => {
+      await expect(
+        client.channels.update({
+          name: "no-key-channel",
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          expression: "result = np.array([])"
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test("should reject updates that try to make virtual channel non-virtual", async () => {
+      const channel = await client.channels.create({
+        name: "virtual-channel",
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: "result = np.array([])"
+      });
+
+      await expect(
+        client.channels.update({
+          key: channel.key,
+          name: channel.name,
+          dataType: DataType.FLOAT32,
+          virtual: false,  // Trying to make it non-virtual
+          leaseholder: 1,
+          rate: Rate.hz(1)
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    test("update virtual channel name", async () => {
+      const channel = await client.channels.create({
+        name: "virtual-calc",
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: "result = np.array([])"
+      });
+
+      const updated = await client.channels.update({
+        key: channel.key,
+        name: "new-name",
+        dataType: channel.dataType,
+        virtual: true,
+        expression: channel.expression
+      });
+      expect(updated.name).toEqual("new-name");
+
+      const retrieved = await client.channels.retrieve(channel.key);
+      expect(retrieved.name).toEqual("new-name");
+      console.log("retrieved name ", retrieved.name);
+
     });
   });
 });

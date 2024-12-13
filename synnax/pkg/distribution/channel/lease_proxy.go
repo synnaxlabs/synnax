@@ -133,26 +133,6 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	return lp.maybeSetResources(ctx, tx, oChannels)
 }
 
-//
-//func (lp *leaseProxy) createFreeVirtual(
-//	ctx context.Context,
-//	tx gorp.Tx,
-//	channels *[]Channel,
-//	retrieveIfNameExists bool,
-//) error {
-//	if lp.freeCounter == nil {
-//		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
-//	}
-//	toCreate, err := lp.maybeRetrieveExisting(ctx, tx, channels, lp.freeCounter, retrieveIfNameExists)
-//	if err != nil {
-//		return err
-//	}
-//	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
-//		return err
-//	}
-//	return lp.maybeSetResources(ctx, tx, toCreate)
-//}
-
 func (lp *leaseProxy) createFreeVirtual(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -186,7 +166,8 @@ func (lp *leaseProxy) createFreeVirtual(
 					return c, errors.New("can only update virtual channels")
 				}
 				for _, ch := range *channels {
-					if ch.Name == c.Name {
+					if ch.Key() == c.Key() {
+						c.Name = ch.Name
 						c.Requires = ch.Requires
 						c.Expression = ch.Expression
 						break
