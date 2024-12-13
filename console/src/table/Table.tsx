@@ -112,7 +112,6 @@ export const useSyncComponent = (
   );
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  console.log("DOG", layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
