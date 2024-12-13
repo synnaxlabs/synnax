@@ -28,7 +28,7 @@ from freighter.url import URL
 
 
 class _Message(Generic[P], BaseModel):
-    type: Literal["data", "close"]
+    type: Literal["data", "close", "open"]
     payload: P | None
     error: ExceptionPayload | None
 
@@ -104,6 +104,13 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
             return EOF()
         return None
 
+    async def receive_open_ack(self) -> Exception | None:
+        msg = await self.__internal.recv()
+        msg = self.__encoder.decode(msg, _Message[None])
+        if msg.type == "open":
+            return None
+        return decode_exception(msg.error)
+
     async def close_send(self) -> Exception | None:
         """Implements the AsyncStream protocol."""
         if self.__send_closed or self.__server_closed is not None:
@@ -163,6 +170,13 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             return None, self.__server_closed
 
         return msg.payload, None
+
+    def receive_open_ack(self) -> Exception | None:
+        msg = self.__internal.recv()
+        msg = self.__encoder.decode(msg, _Message[None])
+        if msg.type == "open":
+            return None
+        return decode_exception(msg.error)
 
     def send(self, payload: RQ) -> Exception | None:
         if self.__server_closed is not None:
@@ -266,9 +280,10 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
                     **self._kwargs,
                 )
                 socket = AsyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
+                e = await socket.receive_open_ack()
+                return out_ctx, e
             except Exception as e:
                 return out_ctx, e
-            return out_ctx, None
 
         _, exc = await self.exec(Context(target, "websocket", "client"), finalizer)
         if exc is not None:
@@ -305,9 +320,10 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
                     **self._kwargs,
                 )
                 socket = SyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
+                e = socket.receive_open_ack()
+                return out_ctx, e
             except Exception as e:
                 return out_ctx, e
-            return out_ctx, None
 
         _, exc = self.exec(Context(target, "websocket", "client"), finalizer)
         if exc is not None:
