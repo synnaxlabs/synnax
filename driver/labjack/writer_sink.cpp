@@ -263,7 +263,7 @@ std::vector<synnax::ChannelKey> labjack::WriteSink::get_index_keys() {
     for (auto &channel: this->writer_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.state_key);
         if (err) {
-            this->log_err("Failed to retrieve channel.");
+            this->log_err("Failed to retrieve channel for port: " + channel.location);
             return {};
         }
         unique_keys.insert(channel_info.index);

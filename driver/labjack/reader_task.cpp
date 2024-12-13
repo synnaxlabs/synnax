@@ -114,8 +114,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
         breaker_config
     );
 
-    if (!source->ok())
-        return nullptr;
+    if (!source->ok()) return nullptr;
 
     ctx->set_state({
         .task = task.key,

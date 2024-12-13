@@ -129,6 +129,9 @@ struct WriterConfig {
         parser.iter("channels", [this, ctx](config::Parser &channel_parser) {
             auto channel = WriterChannelConfig(channel_parser);
 
+            if(channel.enabled) channels.emplace_back(channel);
+            else return;
+
             auto [channel_info, err] = ctx->client->channels.retrieve(channel.cmd_key);
             if (err) {
                 LOG(ERROR) << "Failed to retrieve channel info for key " << channel.cmd_key;
@@ -136,7 +139,6 @@ struct WriterConfig {
             }
             channel.data_type = channel_info.data_type;
 
-            if(channel.enabled) channels.emplace_back(channel);
 
             /// digital outputs start active high
             double initial_val = 0.0;
