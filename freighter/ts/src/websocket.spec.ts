@@ -118,9 +118,9 @@ describe("websocket", () => {
       expect(c).toEqual(1);
     });
 
-    test("middleware error on server", () => {
+    test("middleware error on server", async () => {
       const myClient = new WebSocketClient(url, new binary.JSONCodec());
-      expect(
+      await expect(
         myClient.stream("stream/middlewareCheck", MessageSchema, MessageSchema),
       ).rejects.toThrow("test param not found");
     });

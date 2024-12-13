@@ -25,6 +25,7 @@ import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
+import { type Icon as PIcon } from "@/icon";
 import { List } from "@/list";
 import {
   type UseSelectMultipleProps,
@@ -212,13 +213,13 @@ export const DefaultItem = memo(
       hasChildren || (children != null && children.length > 0);
 
     // Expand, contract, and loading items.
-    const startIcons: ReactElement[] = [];
+    const startIcons: ReactElement<PIcon.BaseProps>[] = [];
     if (actuallyHasChildren)
       startIcons.push(
         <Caret.Animated enabled={expanded} enabledLoc="bottom" disabledLoc="right" />,
       );
     if (icon != null) startIcons.push(icon);
-    const endIcons: ReactElement[] = [];
+    const endIcons: ReactElement<PIcon.BaseProps>[] = [];
     if (loading) endIcons.push(<Icon.Loading className={CSS.B("loading-indicator")} />);
 
     const [draggingOver, setDraggingOver] = useState(false);

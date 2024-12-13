@@ -37,11 +37,18 @@ import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
 import { isRenderProp, type RenderProp } from "@/util/renderProp";
 
+interface ChildProps {
+  id?: string;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onMouseEnter?: (e: React.MouseEvent) => void;
+  onMouseLeave?: (e: React.MouseEvent) => void;
+}
+
 export interface DialogProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   delay?: CrudeTimeSpan;
   location?: location.Outer | Partial<location.XY>;
   hide?: boolean;
-  children: [ReactNode | RenderProp<ContentProps>, ReactElement];
+  children: [ReactNode | RenderProp<ContentProps>, ReactElement<ChildProps>];
 }
 
 interface State {

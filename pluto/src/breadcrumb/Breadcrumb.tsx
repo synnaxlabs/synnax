@@ -19,7 +19,7 @@ import { Text } from "@/text";
 export interface Segment {
   label: string;
   shade?: Text.Shade;
-  icon?: string | ReactElement;
+  icon?: string | ReactElement<PIcon.BaseProps>;
   weight?: Text.Weight;
   level?: Text.Level;
 }
@@ -37,7 +37,7 @@ export type BreadcrumbProps<
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
   /** Icon to display in the breadcrumb. */
-  icon?: string | ReactElement;
+  icon?: string | ReactElement<PIcon.BaseProps>;
   /** The breadcrumb items, either a single string or an array of strings. */
   children: Segments;
   url?: string | string[];

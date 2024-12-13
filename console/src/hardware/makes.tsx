@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.import { type LabJack } from "./labjack";
 
 import { Icon } from "@synnaxlabs/media";
+import { type Icon as PIcon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -19,7 +20,7 @@ export const MAKES = [NI.MAKE, LabJack.MAKE, OPC.MAKE] as const;
 export const makeZ = z.enum(MAKES);
 export type Make = z.infer<typeof makeZ>;
 
-export const MAKE_ICONS: Record<Make, ReactElement> = {
+export const MAKE_ICONS: Record<Make, ReactElement<PIcon.BaseProps>> = {
   [LabJack.MAKE]: <Icon.Logo.LabJack />,
   [NI.MAKE]: <Icon.Logo.NI />,
   [OPC.MAKE]: <Icon.Logo.OPC />,
