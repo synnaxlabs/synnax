@@ -135,9 +135,7 @@ export const CreateCalculatedModal = (({
       const d = methods.value();
       d.dataType = d.dataType.toString();
 
-      if (args?.channelKey)
-        await client.channels.update(methods.value());
-      else await client.channels.create(methods.value());
+      await client.channels.create(methods.value());
 
       if (!createMore) onClose();
       else
