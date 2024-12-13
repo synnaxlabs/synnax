@@ -25,7 +25,7 @@ import {
   type FitViewOptions,
   type IsValidConnection,
   type Node as RFNode,
-  type NodeChange as RFNodeChange,
+  type NodeChange,
   type NodeProps as RFNodeProps,
   type ProOptions,
   ReactFlow,
@@ -126,7 +126,7 @@ const isValidConnection: IsValidConnection = (): boolean => true;
 export interface UseReturn {
   edges: Edge[];
   nodes: Node[];
-  onNodesChange: (nodes: Node[], changes: RFNodeChange[]) => void;
+  onNodesChange: (nodes: Node[], changes: NodeChange[]) => void;
   onEdgesChange: (edges: Edge[]) => void;
   editable: boolean;
   onEditableChange: (v: boolean) => void;
@@ -323,7 +323,7 @@ const Core = Aether.wrap<DiagramProps>(
     }, [nodes]);
 
     const handleNodesChange = useCallback(
-      (changes: RFNodeChange[]) =>
+      (changes: NodeChange[]) =>
         onNodesChange(
           nodeConverter(nodesRef.current, (n) => rfApplyNodeChanges(changes, n)),
           changes,

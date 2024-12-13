@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type Selector, type UnknownAction } from "@reduxjs/toolkit";
+import { useDebouncedCallback } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
@@ -35,30 +36,27 @@ export const useUndoableDispatch = <
     future: [],
   });
 
-  const updateState = useCallback(() => {
-    const currentState = selector(store.getState());
-    if (deep.equal(history.current.present, currentState)) return;
-    if (history.current.present != null)
-      history.current.past.push(history.current.present);
-    if (history.current.past.length > size) history.current.past.shift();
-    history.current.present = currentState;
-    history.current.future = [];
-  }, [store, selector]);
-
-  const timeoutID = useRef<NodeJS.Timeout | null>(null);
+  const updateState = useDebouncedCallback(
+    () => {
+      const currentState = selector(store.getState());
+      if (deep.equal(history.current.present, currentState)) return;
+      if (history.current.present != null)
+        history.current.past.push(history.current.present);
+      if (history.current.past.length > size) history.current.past.shift();
+      history.current.present = currentState;
+      history.current.future = [];
+    },
+    waitFor,
+    [selector, store, history, size],
+  );
 
   const undoableDispatch = useCallback(
     (action: UnknownAction) => {
       history.current.present ??= selector(store.getState());
-
-      if (waitFor > 0) {
-        clearTimeout(timeoutID.current);
-        timeoutID.current = setTimeout(updateState, waitFor);
-      } else updateState();
-
+      updateState();
       store.dispatch(action);
     },
-    [store, selector, waitFor, updateState],
+    [history, selector, store, updateState],
   );
 
   const undo = useCallback(() => {
@@ -68,7 +66,7 @@ export const useUndoableDispatch = <
       history.current.future.unshift(history.current.present);
     history.current.present = lastState;
     store.dispatch(stateUpdateActionCreator(lastState));
-  }, [store, stateUpdateActionCreator]);
+  }, [history, store, stateUpdateActionCreator]);
 
   const redo = useCallback(() => {
     const nextState = history.current.future.shift();
@@ -77,7 +75,7 @@ export const useUndoableDispatch = <
       history.current.past.push(history.current.present);
     history.current.present = nextState;
     store.dispatch(stateUpdateActionCreator(nextState));
-  }, [store, stateUpdateActionCreator]);
+  }, [history, store, stateUpdateActionCreator]);
 
   return [undoableDispatch as Dispatch, undo, redo] as const;
 };
