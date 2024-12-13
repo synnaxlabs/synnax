@@ -375,8 +375,9 @@ export class Series<T extends TelemValue = TelemValue> {
 
   /** @returns the underlying buffer backing this array. */
   get buffer(): ArrayBuffer {
-    if (this._data instanceof ArrayBuffer) return this._data;
-    return (this._data as TypedArray).buffer;
+    if (typeof this._data === "object" && "buffer" in this._data)
+      return (this._data as unknown as Uint8Array).buffer as ArrayBuffer;
+    return this._data;
   }
 
   private get underlyingData(): TypedArray {
