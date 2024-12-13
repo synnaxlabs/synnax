@@ -1095,5 +1095,91 @@ const {
         li {
             font-size: var(--pluto-p-size);
         }
+
+        summary {
+            width: max-content;
+
+            &::marker {
+                color: var(--pluto-text-color);
+                font-family: var(--pluto-font-family);
+                font-size: var(--pluto-p-size);
+            }
+
+            &:hover {
+                cursor: pointer;
+            }
+        }
+
+        table > :not(caption) > * {
+            border-width: 1px 0;
+            border-color: var(--pluto-border-color);
+            border-style: solid;
+        }
+
+        table > :not(caption) > * > * {
+            position: relative;
+            border-width: 0 1px;
+            padding: 1.25rem 1.5rem;
+        }
+
+        table td {
+            font-size: var(--pluto-small-size);
+            line-height: var(--pluto-small-line-height);
+            vertical-align: baseline;
+        }
+
+        table tr {
+            border-bottom: var(--pluto-border);
+        }
+
+        table thead th {
+            padding: 1.5rem 1.5rem;
+            font-weight: 600;
+        }
+
+        table thead tr {
+            border: none;
+            border-width: 2px;
+        }
+
+        table th {
+            border-bottom: var(--pluto-border);
+            text-align: start;
+        }
+
+        table {
+            table-layout: auto;
+            width: calc(100% - 4px);
+            border-spacing: 0;
+            background: transparent;
+            border-collapse: collapse;
+            overflow-x: auto;
+            border-style: hidden;
+        }
+
+        article {
+            h1,
+            h3,
+            h4,
+            h5,
+            h6,
+            p,
+            table {
+                margin: 3rem 0;
+            }
+
+            video,
+            img {
+                margin: 5rem 0;
+            }
+
+            ul {
+                padding-left: 5rem;
+            }
+
+            h2 {
+                margin: 4rem 0;
+            }
+        }
     </style>
 </html>

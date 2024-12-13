@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { naturalLanguageJoin } from "@/strings/strings";
+import { generateShortIdentifiers, naturalLanguageJoin } from "@/strings/strings";
 
 describe("naturalLanguageJoin", () => {
   it("should return an empty string for an empty array", () =>
@@ -32,5 +32,33 @@ describe("naturalLanguageJoin", () => {
   it("should handle an array with more than three elements correctly", () =>
     expect(naturalLanguageJoin(["apple", "banana", "cherry", "date"])).toBe(
       "apple, banana, cherry, and date",
+    ));
+});
+
+describe("generateShortIdentifiers", () => {
+  it("should generate identifiers for a single word", () =>
+    expect(generateShortIdentifiers("Bob")).toEqual(expect.arrayContaining(["bob"])));
+
+  it("should generate identifiers for multiple words", () =>
+    expect(generateShortIdentifiers("John Doe")).toEqual(
+      expect.arrayContaining(["jd", "j_d", "johdoe", "joh_doe"]),
+    ));
+
+  it("should generate identifiers for words containing numbers", () =>
+    expect(generateShortIdentifiers("Alice 123")).toEqual(
+      expect.arrayContaining(["a1", "a_1", "ali123", "ali_123"]),
+    ));
+
+  it("should generate identifiers for words longer than three characters", () =>
+    expect(generateShortIdentifiers("Jonathan")).toEqual(
+      expect.arrayContaining(["jon"]),
+    ));
+
+  it("should generate identifiers for words shorter than three characters", () =>
+    expect(generateShortIdentifiers("Al")).toEqual(expect.arrayContaining(["al"])));
+
+  it("should generate identifiers for mixed cases", () =>
+    expect(generateShortIdentifiers("Alice Bob")).toEqual(
+      expect.arrayContaining(["ab", "a_b", "alibob", "ali_bob"]),
     ));
 });

@@ -66,16 +66,13 @@ class Client:
         make: str = "",
         model: str = "",
         properties: str = "",
-    ):
-        ...
+    ): ...
 
     @overload
-    def create(self, devices: Device):
-        ...
+    def create(self, devices: Device): ...
 
     @overload
-    def create(self, devices: list[Device]):
-        ...
+    def create(self, devices: list[Device]): ...
 
     def create(
         self,
@@ -124,8 +121,7 @@ class Client:
         name: str | None = None,
         model: str | None = None,
         location: str | None = None,
-    ) -> Device:
-        ...
+    ) -> Device: ...
 
     @overload
     def retrieve(
@@ -136,8 +132,7 @@ class Client:
         models: list[str] | None = None,
         names: list[str] | None = None,
         locations: list[str] | None = None,
-    ) -> list[Device]:
-        ...
+    ) -> list[Device]: ...
 
     @trace("debug")
     def retrieve(

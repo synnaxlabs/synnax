@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { clamp } from "@/clamp/clamp";
-import { numeric } from "@/numeric";
+import { type numeric } from "@/numeric";
 import * as bounds from "@/spatial/bounds/bounds";
 import { type Box, isBox } from "@/spatial/box/box";
 import * as box from "@/spatial/box/box";
@@ -19,8 +19,13 @@ import * as location from "@/spatial/location/location";
 import * as xy from "@/spatial/xy/xy";
 
 export const crudeXYTransform = z.object({ offset: xy.crudeZ, scale: xy.crudeZ });
-
 export type XYTransformT = z.infer<typeof crudeXYTransform>;
+
+export const transform = z.object({ offset: z.number(), scale: z.number() });
+export type TransformT<T extends numeric.Value = number> = {
+  offset: T;
+  scale: T;
+};
 
 export type BoundVariant = "domain" | "range";
 
@@ -92,7 +97,8 @@ const curriedClamp =
   };
 
 /**
- * Scale implements a chain of operations that can be used to transform a numeric value.
+ * Scale implements a chain of operations that can be used to transform numeric values.
+ * A scale can either operate on standard JS numbers or on BigInts, but not both.
  */
 export class Scale<T extends numeric.Value = number> {
   ops: TypedOperation<T>[] = [];
@@ -104,21 +110,87 @@ export class Scale<T extends numeric.Value = number> {
     this.ops = [];
   }
 
+  /**
+   * @returns a new scale with a translation as its first operation. Any number provided
+   * to the {@link pos} operation on the scale will be translated by the specified value.
+   * @param value - The amount to translate by.
+   */
   static translate<T extends numeric.Value = number>(value: T): Scale<T> {
     return new Scale<T>().translate(value);
   }
 
+  /**
+   * @returns a new scale with a magnification as its first operation. Any number provided
+   * to the {@link pos} or {@link dim} operation will be multiplied by the specified value.
+   * @param value - The amount to translate by.
+   */
   static magnify<T extends numeric.Value = number>(value: T): Scale<T> {
     return new Scale<T>().magnify(value);
   }
 
-  static scale<T extends numeric.Value>(
-    lowerOrBound: T | bounds.Bounds<T>,
-    upper?: T,
-  ): Scale<T> {
-    return new Scale<T>().scale(lowerOrBound, upper);
+  /**
+   * @returns a new scale that uses the given lower and upper bounds as it's initial
+   * scale. This scale will be used to define the initial 'band' of values defined within
+   * the scale. Once the scale is created, call {@link scale} again to scale the initial
+   * band to the new scaled band.
+   *
+   * @example
+   *    const s = Scale.scale<number>(1).scale(100)
+   *    console.log(s.pos(0))
+   *    // 0
+   *    console.log(s.pos(1))
+   *    // 100
+   *
+   * @param upper - The upper bound of the scale. This overload assumes that the lower
+   * bound is 0.
+   */
+  static scale<T extends numeric.Value>(upper: T): Scale<T>;
+
+  /**
+   * @returns a new scale that uses the given lower and upper bounds as it's initial
+   * scale. This scale will be used to define the initial 'band' of values defined within
+   * the scale. Once the scale is created, call {@link scale} again to scale the initial
+   * band to the new scaled band.
+   *
+   * @example
+   *    const s = Scale.scale<number>(0, 1).scale(0, 100)
+   *    console.log(s.pos(0))
+   *    // 0
+   *    console.log(s.pos(1))
+   *    // 100
+   *
+   * @param lower - The lower bound of the scale.
+   * @param upper - The upper bound of the scale.
+   */
+  static scale<T extends numeric.Value>(lower: T, upper: T): Scale<T>;
+
+  /**
+   * @returns a new scale that uses the given bounds as it's initial
+   * scale. This scale will be used to define the initial 'band' of values defined within
+   * the scale. Once the scale is created, call {@link scale} again to scale the initial
+   * band to the new scaled band.
+   *
+   * @example
+   *    const s = Scale.scale<number>({ lower: 0, upper: 1 }).scale({lower: 0, upper: 100 })
+   *    console.log(s.pos(0))
+   *    // 0
+   *    console.log(s.pos(1))
+   *    // 100
+   *
+   * @param bound - The bound to scale by. See {@link bounds.Bounds} for more info.
+   */
+  static scale<T extends numeric.Value>(bound: bounds.Bounds<T>): Scale<T>;
+
+  static scale<T extends numeric.Value = number>(upperOrBound: T, upper?: T): Scale<T> {
+    return new Scale<T>().scale(upperOrBound, upper);
   }
 
+  /**
+   * @returns a copy of the scale with a translation as its next operation. Any
+   * number provided to the {@link pos} method on the scale will be translated by the
+   * specified value.
+   * @param value - The amount to translate by.
+   */
   translate(value: T): Scale<T> {
     const next = this.new();
     const f = curriedTranslate(value) as TypedOperation<T>;
@@ -127,6 +199,12 @@ export class Scale<T extends numeric.Value = number> {
     return next;
   }
 
+  /**
+   * @returns a copy of the scale with a translation as its next operation. Any number
+   * provided to the {@link pos} or {@link dim} method on the scale will be multiplied
+   * by the specified value.
+   * @param value - The amount to magnify by.
+   */
   magnify(value: T): Scale<T> {
     const next = this.new();
     const f = curriedMagnify(value) as TypedOperation<T>;
@@ -134,15 +212,105 @@ export class Scale<T extends numeric.Value = number> {
     next.ops.push(f);
     return next;
   }
+  /**
+   * @returns a copy of the scale with a 're-scaling' as its next operation. This will
+   * translate numbers provided to {@link pos} and {@link dim} to the new scale.
+   *
+   * @example
+   *    const s = Scale.scale<number>(1).scale(100)
+   *    console.log(s.pos(0))
+   *    // 0
+   *    console.log(s.pos(1))
+   *    // 100
+   *
+   * @param upper - The upper bound of the scale. This overload assumes that the lower
+   * bound is 0.
+   */
+  scale(upper: T): Scale<T>;
 
-  scale(lowerOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
-    const b = bounds.construct<T>(lowerOrBound, upper);
+  /**
+   * @returns a copy of the scale with a 're-scaling' as its next operation. This will
+   * translate numbers provided to {@link pos} and {@link dim} to the new scale.
+   *
+   * @example
+   *    const s = Scale.scale<number>(0, 1).scale(0, 100)
+   *    console.log(s.pos(0))
+   *    // 0
+   *    console.log(s.pos(1))
+   *    // 100
+   *
+   * @param lower - The lower bound of the new scale.
+   * @param upper - The upper bound of the new scale.
+   */
+  scale(lower: T, upper: T): Scale<T>;
+
+  /**
+   * @returns a copy of the scale with a 're-scaling' as its next operation. This will
+   * translate numbers provided to {@link pos} and {@link dim} to the new scale.
+   *
+   * @example
+   *    const s = Scale.scale<number>({ lower: 0, upper: 1 }).scale({lower: 0, upper: 100 })
+   *    console.log(s.pos(0))
+   *    // 0
+   *    console.log(s.pos(1))
+   *    // 100
+   *
+   * @param bound - The bound to scale by. See {@link bounds.Bounds} for more info.
+   */
+  scale(bounds: bounds.Bounds<T>): Scale<T>;
+
+  /** This overload is for internal use only */
+  scale(upperOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T>;
+
+  scale(upperOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
+    const b = bounds.construct<T>(upperOrBound, upper);
     const next = this.new();
     const f = curriedScale<T>(b) as TypedOperation<T>;
     f.type = "scale";
     next.ops.push(f);
     return next;
   }
+
+  /**
+   * @returns a copy of the scale with a clamping operation applied. Any number passed
+   * to the scale wil be clamped to the specified bounds.
+   *
+   * @example
+   *  const s = Scale.scale(0, 1).clamp(0, 0.5)
+   *  console.log(s.pos(1))
+   *  // 0.5
+   *
+   * @param upper - The upper bound to clamp by. WARNING: This operation assumes
+   * that the lower bound of the clamp is 0.
+   */
+  clamp(upper: T): Scale<T>;
+
+  /**
+   * @returns a copy of the scale with a clamping operation applied. Any number passed
+   * to the scale wil be clamped to the specified bounds.
+   *
+   * @example
+   *  const s = Scale.scale(0, 1).clamp(0, 0.5)
+   *  console.log(s.pos(1))
+   *  // 0.5
+   *
+   * @param lower - The lower bound of the scale.
+   * @param upper - The upper bound of the scale.
+   */
+  clamp(lower: T, upper: T): Scale<T>;
+
+  /**
+   * @returns a copy of the scale with a clamping operation applied. Any number passed
+   * to the scale will be clamped to the specified bounds.
+   *
+   * @example
+   *  const s = Scale.scale(0, 1).clamp({ lower: 0, upper: 0.5 })
+   *  console.log(s.pos(1))
+   *  // 0.5
+   *
+   * @param bounds - The bounds to clamp by.
+   */
+  clamp(bounds: bounds.Bounds<T>): Scale<T>;
 
   clamp(lowerOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
     const b = bounds.construct(lowerOrBound, upper);
@@ -152,6 +320,27 @@ export class Scale<T extends numeric.Value = number> {
     next.ops.push(f);
     return next;
   }
+
+  /**
+   * @returns a copy of the scale with a re-bounding operation applied. This operation
+   * adjusts the bounds of the scale WITHOUT applying a scaling operation to values
+   * passed through the scale.
+   *
+   * @example
+   *  const s = Scale.scale(0, 1).reBound(0, 100)
+   *  console.log(s.bound)
+   *
+   * @param lower - The new lower bound.
+   * @param upper - The new upper bound.
+   */
+  reBound(lower: T, upper?: T): Scale<T>;
+
+  /**
+   * @returns a copy of he scale with a re-bounding operation applied. This operation
+   *
+   * @param bound
+   */
+  reBound(bound: bounds.Bounds<T>): Scale<T>;
 
   reBound(lowerOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
     const b = bounds.construct(lowerOrBound, upper);
@@ -218,19 +407,12 @@ export class Scale<T extends numeric.Value = number> {
     return scale;
   }
 
+  get transform(): TransformT<T> {
+    return { scale: this.dim(1 as T), offset: this.pos(0 as T) };
+  }
+
   static readonly IDENTITY = new Scale();
 }
-
-export const xyScaleToTransform = (scale: XY): XYTransformT => ({
-  scale: {
-    x: scale.x.dim(1),
-    y: scale.y.dim(1),
-  },
-  offset: {
-    x: scale.x.pos(0),
-    y: scale.y.pos(0),
-  },
-});
 
 export class XY {
   x: Scale<number>;
@@ -353,6 +535,10 @@ export class XY {
     return { x: this.x.pos(xy.x), y: this.y.pos(xy.y) };
   }
 
+  dim(xy: xy.XY): xy.XY {
+    return { x: this.x.dim(xy.x), y: this.y.dim(xy.y) };
+  }
+
   box(b: Box): Box {
     return box.construct(
       this.pos(b.one),
@@ -361,6 +547,13 @@ export class XY {
       0,
       this.currRoot ?? b.root,
     );
+  }
+
+  get transform(): XYTransformT {
+    return {
+      scale: this.dim({ x: 1, y: 1 }),
+      offset: this.pos({ x: 0, y: 0 }),
+    };
   }
 
   static readonly IDENTITY = new XY();

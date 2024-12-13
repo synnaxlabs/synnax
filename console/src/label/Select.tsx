@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Dialog, Label, Status, Text } from "@synnaxlabs/pluto";
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { createEditLayout } from "@/label/Edit";
 import { Layout } from "@/layout";

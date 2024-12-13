@@ -47,12 +47,12 @@ ni::Scanner::Scanner(
         NISysCfgBoolTrue
     );
     ni::NiSysCfgInterface::SetFilterProperty(
-        filter,
+        this->filter,
         NISysCfgFilterPropertyIsPresent,
         NISysCfgIsPresentTypePresent
     );
     ni::NiSysCfgInterface::SetFilterProperty(
-        filter,
+        this->filter,
         NISysCfgFilterPropertyIsChassis,
         NISysCfgBoolFalse
     );
@@ -66,10 +66,14 @@ void ni::Scanner::set_scan_thread(std::shared_ptr<std::thread> scan_thread) {
     this->scan_thread = scan_thread;
 }
 
+void ni::Scanner::join_scan_thread() {
+    if (this->scan_thread && this->scan_thread->joinable()) this->scan_thread->join();
+}
+
 ni::Scanner::~Scanner() {
+    if (this->scan_thread && scan_thread->joinable()) scan_thread->join();
     ni::NiSysCfgInterface::CloseHandle(this->filter);
     ni::NiSysCfgInterface::CloseHandle(this->session);
-    if (this->scan_thread && scan_thread->joinable()) scan_thread->join();
 }
 
 void ni::Scanner::scan() {
@@ -81,7 +85,6 @@ void ni::Scanner::scan() {
         this->filter, NULL,
         &this->resources_handle
     );
-   
     if (err != NISysCfg_OK) return log_err("failed to find hardware");
 
     while (ni::NiSysCfgInterface::NextResource(
@@ -215,7 +218,7 @@ void ni::Scanner::log_err(std::string err_msg) {
     json j = {
         {"error", err_msg}
     };
-    this->ctx->setState({
+    this->ctx->set_state({
         .task = this->task.key,
         .variant = "error",
         .details = j

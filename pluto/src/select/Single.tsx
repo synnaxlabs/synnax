@@ -18,7 +18,7 @@ import {
 import {
   type FocusEventHandler,
   type ReactElement,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -26,11 +26,12 @@ import {
 } from "react";
 
 import { Button } from "@/button";
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
-import { List as CoreList, List } from "@/list";
+import { List as CoreList, type List } from "@/list";
 import {
   selectValueIsZero,
   type UseSelectOnChangeExtra,
@@ -52,7 +53,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
     Pick<CoreList.SearchProps<K, E>, "filter"> {
   entryRenderKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
-  inputProps?: Omit<Input.TextProps, "onChange">;
+  inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
   searcher?: AsyncTermSearcher<string, K, E>;
   hideColumnHeader?: boolean;
   omit?: Array<K>;
@@ -148,6 +149,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     <InputWrapper<K, E> searcher={searcher} filter={filter}>
       {({ onChange: handleChange }) => (
         <SingleInput<K, E>
+          {...inputProps}
           autoFocus={dropdownVariant === "modal"}
           variant={variant}
           onChange={handleChange}
@@ -288,6 +290,9 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
         if (visible) return;
         onFocus?.();
       })}
+      endContent={
+        <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
+      }
       style={{ flexGrow: 1 }}
       onClick={handleClick}
       placeholder={placeholder}

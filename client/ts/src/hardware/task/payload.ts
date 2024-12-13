@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, observe, UnknownRecord } from "@synnaxlabs/x";
+import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -85,16 +85,31 @@ export const commandZ = z.object({
   task: taskKeyZ,
   type: z.string(),
   key: z.string(),
-  args: z.record(z.unknown()).or(
-    z.string().transform((c) => {
-      if (c === "") return {};
-      return JSON.parse(c);
-    }),
-  ) as z.ZodType<UnknownRecord>,
+  args: z
+    .record(z.unknown())
+    .or(
+      z.string().transform((c) => {
+        if (c === "") return {};
+        return JSON.parse(c);
+      }),
+    )
+    .or(z.array(z.unknown()))
+    .or(z.null())
+    .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
 });
+
+export type Command<A extends {} = UnknownRecord> = Omit<
+  z.infer<typeof commandZ>,
+  "args"
+> & {
+  args?: A;
+};
 
 export type StateObservable<D extends UnknownRecord = UnknownRecord> =
   observe.ObservableAsyncCloseable<State<D>>;
+
+export type CommandObservable<A extends UnknownRecord = UnknownRecord> =
+  observe.ObservableAsyncCloseable<Command<A>>;
 
 export const ONTOLOGY_TYPE: ontology.ResourceType = "task";
 

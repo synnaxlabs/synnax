@@ -115,18 +115,15 @@ export class CoreAxis<
         : DEFAULT_X_BOUND_PADDING;
     this.internal.core = new axis.Canvas(this.internal.render, {
       color: theme.colors.gray.l8,
-      font: fontString(theme, "small"),
+      font: fontString(theme, { level: "small" }),
       gridColor: theme.colors.gray.l1,
       ...this.state,
     });
     render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
-
-    if (this.internal.updateBounds == null) {
-      this.internal.updateBounds = throttle(
-        (b) => this.setState((p) => ({ ...p, bounds: b })),
-        this.state.autoBoundUpdateInterval.milliseconds,
-      );
-    }
+    this.internal.updateBounds ??= throttle(
+      (b) => this.setState((p) => ({ ...p, bounds: b })),
+      this.state.autoBoundUpdateInterval.milliseconds,
+    );
   }
 
   async afterDelete(): Promise<void> {

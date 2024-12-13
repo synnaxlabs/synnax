@@ -14,9 +14,9 @@ import { type status } from "@/status/aether";
 import { variantColors } from "@/status/colors";
 
 export interface CircleProps extends IconProps {
-  variant: status.Variant;
+  variant?: status.Variant;
 }
 
-export const Circle = ({ variant, ...props }: CircleProps): ReactElement => {
-  return <Icon.Circle color={variantColors[variant]} {...props} />;
-};
+export const Circle = ({ variant = "info", ...props }: CircleProps): ReactElement => (
+  <Icon.Circle color={variantColors[variant]} {...props} />
+);

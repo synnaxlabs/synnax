@@ -15,14 +15,15 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import {
   type ComponentPropsWithoutRef,
   type ReactElement,
-  ReactNode,
+  type ReactNode,
   useCallback,
+  useRef,
 } from "react";
 
 import { type Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { status } from "@/status/aether";
+import { type status } from "@/status/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
@@ -64,7 +65,7 @@ export type ButtonProps = Omit<
     endIcon?: ReactElement | ReactElement[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
-    delay?: number | TimeSpan;
+    onClickDelay?: number | TimeSpan;
     endContent?: ReactNode;
   };
 
@@ -81,6 +82,14 @@ export type ButtonProps = Omit<
  * to match the color and size of the button.
  * @param props.endIcon - The same as {@link startIcon}, but renders after the button
  * text.
+ * @param props.iconSpacing - The spacing between the optional start and end icons
+ * and the button text. Can be "small", "medium", "large", or a number representing
+ * the spacing in rem.
+ * @param props.onClickDelay - An optional delay to wait before calling the `onClick`
+ * handler. This will cause the button to render a progress bar that fills up over the
+ * specified time before calling the handler.
+ * @param props.loading - Whether the button is in a loading state. This will cause the
+ * button to render a loading spinner.
  */
 export const Button = Tooltip.wrap(
   ({
@@ -96,36 +105,53 @@ export const Button = Tooltip.wrap(
     level,
     triggers,
     startIcon = [] as ReactElement[],
-    delay = 0,
+    onClickDelay = 0,
     onClick,
     color,
     status,
     style,
     endContent,
+    onMouseDown,
     ...props
   }: ButtonProps): ReactElement => {
+    const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
-    if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
+    const isDisabled = disabled || loading;
+    iconSpacing ??= size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input
     // component API.
     if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
-      if (disabled || variant === "preview") return;
-      const span = delay instanceof TimeSpan ? delay : TimeSpan.milliseconds(delay);
-      if (span.isZero) return onClick?.(e);
+      if (isDisabled || variant === "preview") return;
+      if (parsedDelay.isZero) return onClick?.(e);
+    };
+
+    const toRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleMouseDown: ButtonProps["onMouseDown"] = (e) => {
+      onMouseDown?.(e);
+      if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
+      document.addEventListener(
+        "mouseup",
+        () => toRef.current != null && clearTimeout(toRef.current),
+      );
+      toRef.current = setTimeout(() => {
+        onClick?.(e);
+        toRef.current = null;
+      }, parsedDelay.milliseconds);
     };
 
     Triggers.use({
       triggers,
       callback: useCallback<(e: Triggers.UseEvent) => void>(
         ({ stage }) => {
-          if (stage !== "end" || disabled || variant === "preview") return;
+          if (stage !== "end" || isDisabled || variant === "preview") return;
           handleClick(
             new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
           );
         },
-        [handleClick, disabled],
+        [handleClick, isDisabled],
       ),
     });
 
@@ -143,9 +169,13 @@ export const Button = Tooltip.wrap(
       ).rgbCSS;
     }
 
+    if (!parsedDelay.isZero)
+      // @ts-expect-error - css variable
+      pStyle[CSS.var("btn-delay")] = `${parsedDelay.seconds.toString()}s`;
+
     if (size == null && level != null) size = Text.LevelComponentSizes[level];
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
-    else if (size == null) size = "medium";
+    else size ??= "medium";
 
     return (
       <Text.WithIcon<"button", any>
@@ -154,7 +184,7 @@ export const Button = Tooltip.wrap(
           CSS.B("btn"),
           CSS.size(size),
           CSS.sharp(sharp),
-          variant !== "preview" && CSS.disabled(disabled),
+          variant !== "preview" && CSS.disabled(isDisabled),
           status != null && CSS.M(status),
           CSS.BM("btn", variant),
           hasCustomColor && CSS.BM("btn", "custom-color"),
@@ -164,9 +194,11 @@ export const Button = Tooltip.wrap(
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}
         onClick={handleClick}
+        onMouseDown={handleMouseDown}
         noWrap
         style={pStyle}
         startIcon={startIcon}
+        color={color}
         {...props}
       >
         {children}

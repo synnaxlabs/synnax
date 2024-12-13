@@ -79,6 +79,20 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.LinePlotRename = fnoop.UnaryServer[api.LinePlotRenameRequest, types.Nil]{}
 	a.LinePlotSetData = fnoop.UnaryServer[api.LinePlotSetDataRequest, types.Nil]{}
 
+	// LOG
+	a.LogCreate = fnoop.UnaryServer[api.LogCreateRequest, api.LogCreateResponse]{}
+	a.LogRetrieve = fnoop.UnaryServer[api.LogRetrieveRequest, api.LogRetrieveResponse]{}
+	a.LogDelete = fnoop.UnaryServer[api.LogDeleteRequest, types.Nil]{}
+	a.LogRename = fnoop.UnaryServer[api.LogRenameRequest, types.Nil]{}
+	a.LogSetData = fnoop.UnaryServer[api.LogSetDataRequest, types.Nil]{}
+
+	// TABLE
+	a.TableCreate = fnoop.UnaryServer[api.TableCreateRequest, api.TableCreateResponse]{}
+	a.TableRetrieve = fnoop.UnaryServer[api.TableRetrieveRequest, api.TableRetrieveResponse]{}
+	a.TableDelete = fnoop.UnaryServer[api.TableDeleteRequest, types.Nil]{}
+	a.TableRename = fnoop.UnaryServer[api.TableRenameRequest, types.Nil]{}
+	a.TableSetData = fnoop.UnaryServer[api.TableSetDataRequest, types.Nil]{}
+
 	// LABEL
 	a.LabelCreate = fnoop.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse]{}
 	a.LabelRetrieve = fnoop.UnaryServer[api.LabelRetrieveRequest, api.LabelRetrieveResponse]{}

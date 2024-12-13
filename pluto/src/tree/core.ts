@@ -35,6 +35,7 @@ export interface FlattenedNode extends Node {
   index: number;
   depth: number;
   expanded: boolean;
+  path: string;
 }
 
 export const shouldExpand = (node: Node, expanded: string[]): boolean =>
@@ -45,12 +46,11 @@ export interface FlattenProps {
   expanded: string[];
   depth?: number;
   sort?: boolean;
+  path?: string;
 }
 
 export const sortAndSplice = (nodes: Node[], sort: boolean): Node[] => {
-  if (sort) {
-    nodes.sort((a, b) => compare.stringsWithNumbers(a.name, b.name));
-  }
+  if (sort) nodes.sort((a, b) => compare.stringsWithNumbers(a.name, b.name));
   let found = false;
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
@@ -71,17 +71,25 @@ export const flatten = ({
   expanded,
   depth = 0,
   sort = true,
+  path = "",
 }: FlattenProps): FlattenedNode[] => {
   // Sort the first level of the tree independently of the rest
   if (depth === 0 && sort) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
+    const nextPath = `${path}${node.key}/`;
     const expand = shouldExpand(node, expanded);
-    flattened.push({ ...node, depth, expanded: expand, index });
+    flattened.push({ ...node, depth, expanded: expand, index, path: nextPath });
     if (expand && node.children != null) {
       node.children = sortAndSplice(node.children, sort);
       flattened.push(
-        ...flatten({ nodes: node.children, expanded, depth: depth + 1, sort }),
+        ...flatten({
+          nodes: node.children,
+          expanded,
+          depth: depth + 1,
+          sort,
+          path: nextPath,
+        }),
       );
     }
   });
@@ -135,7 +143,7 @@ export const setNode = ({ tree, destination, additions }: SetNodeProps): Node[] 
   additions = toArray(additions);
   const node = findNode({ tree, key: destination });
   if (node == null) throw new Error(`Could not find node with key ${destination}`);
-  if (node.children == null) node.children = [];
+  node.children ??= [];
   const addedKeys = additions.map((node) => node.key);
   node.children = [
     ...additions,
@@ -167,14 +175,14 @@ export const updateNode = ({
     // splice the updated node into the parent's children
     const index = parent.children?.findIndex((child) => child.key === key);
     if (index != null && index !== -1) parent.children?.splice(index, 1, updater(node));
-  } else {
-    // we're in the root, so just update the node
+  }
+  // we're in the root, so just update the node
+  else
     tree.splice(
       tree.findIndex((node) => node.key === key),
       1,
       updater(node),
     );
-  }
   return tree;
 };
 
@@ -247,13 +255,12 @@ export interface FindNodeParentProps {
 }
 
 export const findNodeParent = ({ tree, key }: FindNodeParentProps): Node | null => {
-  for (const node of tree) {
+  for (const node of tree)
     if (node.children != null) {
       if (node.children.some((child) => child.key === key)) return node;
       const found = findNodeParent({ tree: node.children, key });
       if (found != null) return found;
     }
-  }
   return null;
 };
 

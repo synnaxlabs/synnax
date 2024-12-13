@@ -5,11 +5,14 @@ description = ""
 authors = ["Emiliano Bonilla <ebonilla@synnaxlabs.com>"]
 readme = "README.md"
 packages = [{include = "device_scraper"}]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
 requests = "^2.31.0"
 
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
 
 [build-system]
 requires = ["poetry-core"]

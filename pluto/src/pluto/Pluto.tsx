@@ -9,11 +9,12 @@
 
 import "@synnaxlabs/media/dist/style.css";
 
-import { FC, type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Channel } from "@/channel";
+import { Color } from "@/color";
 import { Haul } from "@/haul";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Status } from "@/status";
@@ -47,6 +48,7 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   haul?: Haul.ProviderProps;
   channelAlias?: Channel.AliasProviderProps;
   telem?: CanDisabledProps<Telem.ProviderProps>;
+  color?: Color.ProviderProps;
 }
 
 export const Provider = ({
@@ -61,6 +63,7 @@ export const Provider = ({
   haul,
   channelAlias,
   telem,
+  color,
 }: ProviderProps): ReactElement => (
   <Triggers.Provider {...triggers}>
     <Tooltip.Config {...tooltip}>
@@ -72,9 +75,11 @@ export const Provider = ({
                 <Synnax.Provider connParams={connParams}>
                   <Channel.AliasProvider {...channelAlias}>
                     <CanDisableTelem {...telem}>
-                      <Theming.Provider {...theming}>
-                        <Control.StateProvider>{children}</Control.StateProvider>
-                      </Theming.Provider>
+                      <Color.Provider {...color}>
+                        <Theming.Provider {...theming}>
+                          <Control.StateProvider>{children}</Control.StateProvider>
+                        </Theming.Provider>
+                      </Color.Provider>
                     </CanDisableTelem>
                   </Channel.AliasProvider>
                 </Synnax.Provider>

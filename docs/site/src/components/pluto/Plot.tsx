@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/* eslint-disable react/display-name */
-import { type ReactElement } from "react";
-
 import { type SynnaxProps } from "@synnaxlabs/client";
 import { Canvas, Channel, Pluto } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import WorkerURL from "@/components/pluto/worker?worker&url";
 
@@ -30,33 +28,22 @@ const provideProps: Pluto.ProviderProps = {
 };
 
 const AXES: Channel.AxisProps[] = [
-  {
-    key: "x",
-    label: "Time",
-    location: "bottom",
-    type: "time",
-  },
-  {
-    key: "y",
-    label: "Value",
-    location: "left",
-  },
+  { key: "x", label: "Time", location: "bottom", type: "time" },
+  { key: "y", label: "Value", location: "left" },
 ];
 
 const LINES: Channel.BaseLineProps[] = [
   {
     key: "line1",
     axes: { x: "x", y: "y" },
-    channels: {
-      x: "stream_write_example_time",
-      y: "stream_write_example_data_1",
-    },
+    channels: { x: "stream_write_example_time", y: "stream_write_example_data_1" },
     color: "#3774d0",
     label: "Line 1",
     strokeWidth: 3,
   },
 ];
 
+// eslint-disable-next-line react/display-name
 export const factory = (props: Channel.LinePlotProps) => (): ReactElement => (
   <Pluto.Provider workerURL={WorkerURL} {...provideProps}>
     <Canvas.Canvas style={{ width: "100%", height: 500 }}>

@@ -17,6 +17,11 @@ export interface Keyed<K extends Key> {
   key: K;
 }
 
+export interface KeyedNamed<K extends Key = string> {
+  key: K;
+  name: string;
+}
+
 export const unknownRecordZ = z.record(
   z.union([z.number(), z.string(), z.symbol()]),
   z.unknown(),
@@ -30,3 +35,9 @@ export type Entries<T> = Array<
 
 export const getEntries = <T extends Record<Key, unknown>>(obj: T): Entries<T> =>
   Object.entries(obj) as Entries<T>;
+
+export const mapValues = <T extends Record<Key, unknown>, U>(
+  obj: T,
+  fn: (value: T[keyof T], key: Key) => U,
+): Record<Key, U> =>
+  Object.fromEntries(getEntries(obj).map(([key, value]) => [key, fn(value, key as Key)]));

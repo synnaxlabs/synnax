@@ -21,7 +21,7 @@ using json = nlohmann::json;
 
 void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     std::uint64_t c_count = 0;
-    LOG(INFO) << "channel config:" << parser.get_json().dump(4);
+//    LOG(INFO) << "channel config:" << parser.get_json().dump(4);
     parser.iter("channels",
                 [&](config::Parser &channel_builder) {
                     ni::ChannelConfig config;
@@ -68,8 +68,7 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     config::Parser &parser, const std::string &channel_type,
     const std::string &channel_name) {
-    LOG(INFO) <<
-        "[ni.reader] Parsing channel " << channel_name << " of type " << channel_type;
+
     if (channel_type == "ai_accel")
         return std::make_shared<Acceleration>(
             parser, this->task_handle, channel_name);
@@ -142,7 +141,7 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
 
     // If channel type not recognized update task state
     std::string msg = "unknown channel type " + channel_type;
-    this->ctx->setState({
+    this->ctx->set_state({
         .task = task.key,
         .variant = "error",
         .details = {
@@ -231,7 +230,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
     uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
     // Construct and populate index channel
 
-    size_t s = d.samples_read_per_channel;
+    size_t s = d.samples_read_per_channel; // TODO: Remove this why is this here
     // Construct and populate synnax frame
     size_t data_index = 0;
     for (int ch = 0; ch < num_channels; ch++) {
@@ -295,7 +294,7 @@ int ni::AnalogReadSource::validate_channels() {
             channel.channel_key);
         if (channel_info.data_type != synnax::FLOAT32 && channel_info.data_type != synnax::FLOAT64) {
             this->log_error("Channel " + channel.name + " is not of type float32 or float64");
-            this->ctx->setState({
+            this->ctx->set_state({
                 .task = task.key,
                 .variant = "error",
                 .details = {

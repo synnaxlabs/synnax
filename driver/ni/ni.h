@@ -31,10 +31,10 @@
 
 #include "driver/ni/ai_channels.h"
 #include "driver/ni/error.h"
-#include "driver/ni/ts_queue.h"
-
+#include "driver/queue/ts_queue.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
+#include "driver/pipeline/middleware.h"
 
 #include "driver/task/task.h"
 #include "driver/breaker/breaker.h"
@@ -304,16 +304,20 @@ class StateSource final : public pipeline::Source {
 public:
     explicit StateSource() = default;
 
-    explicit StateSource(float state_rate,
-                         synnax::ChannelKey &state_index_key,
-                         std::vector<synnax::ChannelKey> &state_channel_keys);
+    explicit StateSource(
+            float state_rate,   // TODO: should this be a float?
+            synnax::ChannelKey &state_index_key,
+            std::vector<synnax::ChannelKey> &state_channel_keys
+        );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
 
     synnax::Frame get_state();
 
-    void update_state(std::queue<synnax::ChannelKey> &modified_state_keys,
-                      std::queue<std::uint8_t> &modified_state_values);
+    void update_state(
+            std::queue<synnax::ChannelKey> &modified_state_keys,
+          std::queue<std::uint8_t> &modified_state_values
+      );
 
 private:
     std::mutex state_mutex;
@@ -345,9 +349,11 @@ struct WriterConfig {
 
 class DigitalWriteSink final : public pipeline::Sink {
 public:
-    explicit DigitalWriteSink(TaskHandle task_handle,
-                              const std::shared_ptr<task::Context> &ctx,
-                              const synnax::Task &task);
+    explicit DigitalWriteSink(
+            TaskHandle task_handle,
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task &task
+        );
 
     ~DigitalWriteSink();
 
@@ -427,7 +433,9 @@ public:
 
     void create_devices();
 
-    void set_scan_thread(std::shared_ptr<std::thread> scan_thread); // TODO: rename
+    void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
+
+    void join_scan_thread();
 
     void log_err(std::string err_msg);
 
@@ -472,7 +480,6 @@ public:
 
     bool ok();
 
-    ~ScannerTask();
 
 private:
     breaker::Breaker breaker;
@@ -518,6 +525,7 @@ private:
     pipeline::Acquisition daq_read_pipe; // source is a daqreader
     bool ok_state = true;
     std::shared_ptr<ni::Source> source;
+    std::shared_ptr<pipeline::TareMiddleware> tare_mw;
 }; // class ReaderTask
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -621,13 +629,13 @@ static inline bool dlls_available() {
         "nixsru.dll"
     };
 
-    bool d = true;
+    bool all_present = true;
     for (const auto &dll: dlls)
         if (!does_dll_exist(dll.c_str()))
-            d = false;
-    if (d)
-        LOG(INFO) << "[ni] All required DLLs found.";
-    return d;
+            all_present = false;
+    if (!all_present)
+        LOG(ERROR) << "[ni] Required NI DLLs not found.";
+    return all_present;
 } // dlls_available
 
 const std::string INTEGRATION_NAME = "ni";

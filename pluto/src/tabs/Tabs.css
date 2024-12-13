@@ -56,6 +56,10 @@
     z-index: 3;
 }
 
+.pluto-header .pluto-tabs-selector.pluto--x {
+    box-shadow: none;
+}
+
 .pluto-header .pluto-tabs-selector {
     margin-top: 1px;
     height: 100%;
@@ -71,7 +75,7 @@
             font-weight: 500;
         }
         .pluto-tabs-selector__icon {
-            fill: var(--pluto-primary-z);
+            color: var(--pluto-primary-z) !important;
         }
     }
     .pluto-btn-icon {

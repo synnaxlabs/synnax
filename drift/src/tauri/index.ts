@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, type UnknownAction } from "@reduxjs/toolkit";
-import { debounce as debounceF, type dimensions, type xy } from "@synnaxlabs/x";
+import {
+  debounce as debounceF,
+  dimensions,
+  runtime,
+  TimeSpan,
+  xy,
+} from "@synnaxlabs/x";
 import {
   emit,
   type Event as TauriEvent,
@@ -39,7 +45,11 @@ const tauriCreated = "tauri://created";
 const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 
 //  Prevent the user or a programming error from creating a tiny window.
-const MIN_DIM = 100;
+const MIN_DIM = 250;
+
+// On MacOS, we need to poll for fullscreen changes, as tauri doesn't provide an
+// event for it. This is the interval at which we poll.
+const MACOS_FULLSCREEN_POLL_INTERVAL = TimeSpan.milliseconds(250);
 
 const clampDims = (dims?: dimensions.Dimensions): dimensions.Dimensions | undefined => {
   if (dims == null) return undefined;
@@ -76,6 +86,9 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async configure(): Promise<void> {
+    // We only need to poll for fullscreen on MacOS, as tauri doesn't provide an
+    // emitted event for fullscreen changes.
+    if (runtime.getOS() !== "MacOS") return;
     let prevFullscreen = (await this.getProps()).fullscreen;
     this.fullscreenPoll = setInterval(() => {
       this.win
@@ -96,7 +109,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
           }
         })
         .catch(console.error);
-    }, 250);
+    }, MACOS_FULLSCREEN_POLL_INTERVAL.milliseconds);
   }
 
   label(): string {
@@ -109,6 +122,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
 
   release(): void {
     Object.values(this.unsubscribe).forEach((f) => f?.());
+    if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
     this.unsubscribe = {};
   }
 
@@ -131,20 +145,18 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
       (event: TauriEvent<string>) => lis(decode(event.payload)),
     );
     const propsHandlers = newWindowPropsHandlers();
-    for (const { key, handler, debounce } of propsHandlers) {
+    for (const { key, handler, debounce } of propsHandlers)
       this.unsubscribe[key] = await this.win.listen(
         key,
         debounceF(() => {
           handler(this.win)
             .then((action) => {
-              if (action != null) {
+              if (action != null)
                 this.emit({ action: action as A }, undefined, "WHITELIST");
-              }
             })
             .catch(console.error);
         }, debounce),
       );
-    }
   }
 
   onCloseRequested(cb: () => void): void {
@@ -160,6 +172,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);
     if (maxSize?.width != null) maxSize.width = Math.max(maxSize.width, MIN_DIM);
     if (maxSize?.height != null) maxSize.height = Math.max(maxSize.height, MIN_DIM);
+    if (position?.x != null && position.x < 0) position.x = 0;
+    if (position?.y != null && position.y < 0) position.y = 0;
     try {
       const w = new WebviewWindow(label, {
         x: position?.x,
@@ -231,7 +245,10 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async setPosition(xy: xy.XY): Promise<void> {
-    await this.win.setPosition(new LogicalPosition(xy.x, xy.y));
+    const logicalPos = new LogicalPosition(xy.x, xy.y);
+    if (logicalPos.x < 0) logicalPos.x = 0;
+    if (logicalPos.y < 0) logicalPos.y = 0;
+    await this.win.setPosition(logicalPos);
   }
 
   async setSize(dims: dimensions.Dimensions): Promise<void> {
@@ -280,8 +297,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     const scaleFactor = await this.win.scaleFactor();
     const visible = await this.win.isVisible();
     return {
-      position: await parsePosition(await this.win.innerPosition(), scaleFactor),
-      size: await parseSize(await this.win.innerSize(), scaleFactor),
+      position: parsePosition(await this.win.innerPosition(), scaleFactor),
+      size: parseSize(await this.win.innerSize(), scaleFactor),
       maximized: await this.win.isMaximized(),
       visible,
       fullscreen: await this.win.isFullscreen(),
@@ -308,8 +325,8 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
         maximized: await window.isMaximized(),
         visible,
         minimized: !visible,
-        position: await parsePosition(await window.innerPosition(), scaleFactor),
-        size: await parseSize(await window.innerSize(), scaleFactor),
+        position: parsePosition(await window.innerPosition(), scaleFactor),
+        size: parseSize(await window.innerSize(), scaleFactor),
       };
       return setWindowProps(nextProps);
     },
@@ -320,7 +337,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
     handler: async (window) => {
       const scaleFactor = await window?.scaleFactor();
       if (scaleFactor == null) return null;
-      const position = await parsePosition(await window.innerPosition(), scaleFactor);
+      const position = parsePosition(await window.innerPosition(), scaleFactor);
       const visible = await window.isVisible();
       const nextProps: SetWindowPropsPayload = {
         label: window.label,
@@ -333,36 +350,23 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
   {
     key: TauriEventKey.WINDOW_BLUR,
     debounce: 0,
-    handler: async (window) => {
-      return setWindowProps({ focus: false, label: window.label });
-    },
+    handler: async (window) => setWindowProps({ focus: false, label: window.label }),
   },
   {
     key: TauriEventKey.WINDOW_FOCUS,
     debounce: 0,
-    handler: async (window) => {
-      return setWindowProps({
+    handler: async (window) =>
+      setWindowProps({
         focus: true,
         visible: true,
         minimized: false,
         label: window.label,
-      });
-    },
+      }),
   },
 ];
 
-const parsePosition = async (
-  position: PhysicalPosition,
-  scaleFactor: number,
-): Promise<xy.XY> => {
-  const logical = position.toLogical(scaleFactor);
-  return { x: logical.x, y: logical.y };
-};
+const parsePosition = (position: PhysicalPosition, scaleFactor: number): xy.XY =>
+  xy.scale(position, 1 / scaleFactor);
 
-const parseSize = async (
-  size: PhysicalSize,
-  scaleFactor: number,
-): Promise<dimensions.Dimensions> => {
-  const logical = size.toLogical(scaleFactor);
-  return { width: logical.width, height: logical.height };
-};
+const parseSize = (size: PhysicalSize, scaleFactor: number): dimensions.Dimensions =>
+  dimensions.scale(size, 1 / scaleFactor);

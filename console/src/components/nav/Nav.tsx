@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu as PMenu, Nav } from "@synnaxlabs/pluto";
-import { CSS as PCSS } from "@synnaxlabs/pluto";
-import { Text } from "@synnaxlabs/pluto/text";
+import { CSS as PCSS, Menu as PMenu, Nav, Text } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -71,7 +69,7 @@ export const NavDrawer = ({ location: l, ...props }: NavDrawerProps): ReactEleme
       activeItem={activeItem}
       onResize={onResize}
       onSelect={onSelect}
-      {...props}
+      // {...props}
     />
   );
 };

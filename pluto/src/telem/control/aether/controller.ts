@@ -11,13 +11,16 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   channel,
   control,
-  framer,
+  type framer,
   type Synnax,
   TimeStamp,
-  UnexpectedError,
 } from "@synnaxlabs/client";
-import { compare, CrudeSeries, type Destructor } from "@synnaxlabs/x";
-import { control as xControl } from "@synnaxlabs/x";
+import {
+  compare,
+  control as xControl,
+  type CrudeSeries,
+  type Destructor,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -102,13 +105,12 @@ export class Controller
   }
 
   private async updateNeedsControlOf(): Promise<void> {
-    if (this.internal.client == null) {
-      throw new UnexpectedError("No cluster connected but channelKeys were requested");
-    }
+    const { client } = this.internal;
+    if (client == null) return;
 
     const keys = new Set<channel.Key>([]);
     for (const telem of this.registry.keys()) {
-      const telemKeys = await telem.needsControlOf(this.internal.client);
+      const telemKeys = await telem.needsControlOf(client);
       telemKeys.forEach((k) => k !== 0 && keys.add(k));
     }
     const nextKeys = Array.from(keys);

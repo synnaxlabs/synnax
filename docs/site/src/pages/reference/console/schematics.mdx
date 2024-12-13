@@ -5,10 +5,12 @@ heading: "Schematics"
 description: "Control hardware using schematics."
 prev: "Line Plots"
 prevURL: "/reference/console/line-plots"
+next: "Logs"
+nextURL: "/reference/console/logs"
 ---
 
 import { Icon } from "@synnaxlabs/media";
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
 
@@ -26,6 +28,12 @@ Creating a schematic is as simple as adding a new tab and selecting the schemati
 visualization:
 
 <Video client:only="react" id="console/schematics/create" />
+
+<Note.Note variant="warning">
+  Make sure that you are working in an active
+  [workspace](/reference/console/workspaces)! If your schematic is not created in a
+  workspace, it will not be saved permanently to Synnax.
+</Note.Note>
 
 <Divider.Divider direction="x" />
 
@@ -53,7 +61,7 @@ the controls in the bottom-left hand corner of the schematic.
         <b>View</b>
       </td>
       <td>Live data from the cluster is displayed on the schematic. Symbols are not
-        editable and the user cannot change the system state.</td>
+          editable and the user cannot change the system state.</td>
     </tr>
     <tr>
       <td>
@@ -119,7 +127,7 @@ other visual properties.
         <b>Normally Open</b>
       </td>
       <td>Causes the body of the solenoid valve to look different when it is open or
-        closed.</td>
+          closed.</td>
     </tr>
     <tr>
       <td>
@@ -150,7 +158,7 @@ other visual properties.
         <b>Orientation</b>
       </td>
       <td>Determines the orientation of the symbol and the relative placement of the
-        label.</td>
+          label.</td>
     </tr>
   </tbody>
 </Table>
@@ -188,7 +196,7 @@ The telemetry tab can have the following properties:
         <b>Averaging Window</b>
       </td>
       <td>Can be used to display a rolling average. For example, a value of 2 will cause
-        the screen to display the average of the last 2 samples.</td>
+          the screen to display the average of the last 2 samples.</td>
     </tr>
   </tbody>
 </Table>
@@ -213,16 +221,16 @@ two main properties:
         <b>State Channel</b>
       </td>
       <td>Represents the display state of the symbol. If the input channel has a value
-        of 1, the symbol will be display as activated.</td>
+          of 1, the symbol will be display as activated.</td>
     </tr>
     <tr>
       <td>
         <b>Command Channel</b>
       </td>
-      <td>Will be written to when you click on the symbol. If the symbol is
-        de-activated, clicking on it will write 1 to the output channel (an activation
-        command). If the symbol is activated, clicking on it will write 0 to the output
-        channel (a deactivation command).</td>
+      <td>Will be written to when you click on the symbol. If the symbol is de-activated,
+          clicking on it will write 1 to the output channel (an activation command). If
+          the symbol is activated, clicking on it will write 0 to the output channel (a
+          deactivation command).</td>
     </tr>
   </tbody>
 </Table>
@@ -236,8 +244,8 @@ There are many ways that you can change the visuals of a schematic.
 ### Connection Lines
 
 Every symbol has locations to attach connection lines. When hovering over an symbol,
-these attachement points appear. To draw a connection line, click on an attachement
-point and drag the line to a different symbol:
+these attachment points appear. To draw a connection line, click on an attachment point
+and drag the line to a different symbol:
 
 <Video client:only="react" id="console/schematics/connections" />
 

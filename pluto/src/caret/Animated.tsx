@@ -10,7 +10,7 @@
 import "@/caret/Animated.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { location } from "@synnaxlabs/x";
+import { type location } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 

@@ -14,12 +14,15 @@ import { type deep } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
 import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
+import { Table } from "@/table";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -40,6 +43,8 @@ const ZERO_STATE: RootState = {
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
+  [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -53,6 +58,8 @@ const reducer = combineReducers({
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [Permissions.SLICE_NAME]: Permissions.reducer,
+  [Log.SLICE_NAME]: Log.reducer,
+  [Table.SLICE_NAME]: Table.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -66,6 +73,8 @@ export interface RootState {
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Permissions.SLICE_NAME]: Permissions.SliceState;
+  [Log.SLICE_NAME]: Log.SliceState;
+  [Table.SLICE_NAME]: Table.SliceState;
 }
 
 export type RootAction =
@@ -76,16 +85,21 @@ export type RootAction =
   | Cluster.Action
   | LinePlot.Action
   | Schematic.Action
-  | Range.Action
   | Permissions.Action
-  | Workspace.Action;
+  | Version.Action
+  | Workspace.Action
+  | Log.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
-const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = { visible: false };
+const DEFAULT_WINDOW_VISIBLE = isDev();
+const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
+  visible: DEFAULT_WINDOW_VISIBLE,
+  minSize: { width: 625, height: 375 },
+};
 
 export const migrateState = (prev: RootState): RootState => {
-  console.log("--------------- Migrating State ---------------");
+  console.group("Migrating State");
   console.log(`Previous Console Version: ${prev[Version.SLICE_NAME].version}`);
   const layout = Layout.migrateSlice(prev.layout);
   const schematic = Schematic.migrateSlice(prev.schematic);
@@ -96,7 +110,8 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
-  console.log("--------------- Migrated State ---------------");
+  console.log("Migrated State");
+  console.groupEnd();
   return {
     ...prev,
     layout,
@@ -120,7 +135,8 @@ const newStore = async (): Promise<RootStore> => {
   if (preloadedState != null && Drift.SLICE_NAME in preloadedState) {
     const windows = preloadedState[Drift.SLICE_NAME].windows;
     Object.keys(windows).forEach((key) => {
-      windows[key].visible = false;
+      if (!windows[key].reserved) return;
+      windows[key].visible = DEFAULT_WINDOW_VISIBLE;
       windows[key].focusCount = 0;
       windows[key].centerCount = 0;
     });

@@ -9,7 +9,7 @@
 
 import { control } from "@synnaxlabs/x";
 import { binary } from "@synnaxlabs/x/binary";
-import { observe } from "@synnaxlabs/x/observe";
+import { type observe } from "@synnaxlabs/x/observe";
 import { z } from "zod";
 
 import { type Key as ChannelKey } from "@/channel/payload";
@@ -47,7 +47,7 @@ export class StateTracker
 
   constructor(streamer: FrameStreamer) {
     super(streamer, (frame) => {
-      const update: Update = this.codec.decode(frame.series[0].buffer);
+      const update: Update = this.codec.decode(frame.series[0].data);
       this.merge(update);
       return [update.transfers, true];
     });

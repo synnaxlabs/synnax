@@ -3,14 +3,15 @@ layout: "@/layouts/Reference.astro"
 title: "Troubleshooting"
 heading: "Troubleshooting Guide"
 description: "Solve common issues when working with Synnax in Python."
+next: "Building a Custom Driver"
+nextURL: "/reference/python-client/custom-driver"
 prev: "Examples"
 prevURL: "/reference/python-client/examples"
 ---
-
-import { mdxOverrides } from "@/components/mdxOverrides";
-export const components = mdxOverrides;
-import { PlatformTabs } from "@/components/platform/PlatformTabs";
-import { Divider, Note } from "@synnaxlabs/pluto";
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
+import { PlatformTabs } from "@/components/platform/PlatformTabs"
+import { Divider, Note } from "@synnaxlabs/pluto"
 
 The following sections outline common issues our users encounter when working
 with the Synnax Python client. To get started, select your operating system

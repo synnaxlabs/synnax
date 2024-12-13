@@ -18,21 +18,24 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
+import { DeviceServices } from "@/hardware/device/services";
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
+import { LogServices } from "@/log/services";
 import { Notifications } from "@/notifications";
 import { Permissions } from "@/permissions";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
+import { TableServices } from "@/table/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
 const NOTIFICATION_ADAPTERS = [
-  ...Device.NOTIFICATION_ADAPTERS,
+  ...DeviceServices.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
   ...Cluster.NOTIFICATION_ADAPTERS,
 ];
@@ -44,6 +47,8 @@ const LINK_HANDLERS: Link.Handler[] = [
   SchematicServices.linkHandler,
   Task.linkHandler,
   Workspace.linkHandler,
+  LogServices.linkHandler,
+  TableServices.linkHandler,
 ];
 
 const SideEffect = (): null => {
@@ -57,6 +62,7 @@ const SideEffect = (): null => {
   Link.useDeep({ handlers: LINK_HANDLERS });
   Layout.useTriggers();
   Permissions.useFetchPermissions();
+  Layout.useDropOutside();
   return null;
 };
 

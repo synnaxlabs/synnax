@@ -54,6 +54,7 @@ export const selectSelectedElementsProps = (
   layoutKey: string,
 ): ElementInfo[] => {
   const schematic = select(state, layoutKey);
+  if (schematic == null) return [];
   const nodes: ElementInfo[] = schematic.nodes
     .filter((node) => node.selected)
     .map((node) => ({
@@ -75,6 +76,23 @@ export const selectSelectedElementsProps = (
 export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[] =>
   useMemoSelect(
     (state: StoreState) => selectSelectedElementsProps(state, layoutKey),
+    [layoutKey],
+  );
+
+export const selectSelectedElementNames = (
+  state: StoreState,
+  layoutKey: string,
+): (string | null)[] => {
+  const elements = selectSelectedElementsProps(state, layoutKey);
+  return elements.map((element) => {
+    if (element.type === "node") return element.props.label?.label ?? null;
+    return null;
+  });
+};
+
+export const useSelectSelectedElementNames = (layoutKey: string): (string | null)[] =>
+  useMemoSelect(
+    (s: StoreState) => selectSelectedElementNames(s, layoutKey),
     [layoutKey],
   );
 

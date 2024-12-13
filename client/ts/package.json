@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/client",
-  "version": "0.32.0",
+  "version": "0.36.0",
   "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
@@ -28,8 +28,8 @@
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "lint": "eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix",
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix",
     "genApi": "tsc --noEmit && vite build && npx api-extractor run --local",
     "checkApi": "tsc --noEmit && vite build && npx api-extractor run"
   },
@@ -43,14 +43,14 @@
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@types/node": "^22.7.5",
-    "@vitest/coverage-v8": "^2.1.2",
-    "eslint": "^9.12.0",
-    "uuid": "^10.0.0",
     "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^2.1.4",
+    "eslint": "^9.14.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.6.3",
-    "vite": "^5.4.8",
-    "vitest": "^2.1.2"
+    "uuid": "^10.0.0",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
   },
   "type": "module",
   "types": "dist/index.d.ts",

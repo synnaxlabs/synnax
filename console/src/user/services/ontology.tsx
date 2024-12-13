@@ -85,11 +85,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             </PMenu.Item>
           )}
           {canEditOrDelete && (
-            <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
-              Change Username
-            </PMenu.Item>
+            <>
+              <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+                Change Username
+              </PMenu.Item>
+              <PMenu.Divider />
+            </>
           )}
-          <PMenu.Divider />
         </>
       )}
       {canEditOrDelete && !hasRootUser && (

@@ -9,24 +9,27 @@
 
 import {
   Color,
-  Control,
+  type Control,
   control,
   Diagram,
   Schematic,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { migrate, xy } from "@synnaxlabs/x";
+import { type migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export type NodeProps = object & {
   key: Schematic.Variant;
   color?: Color.Crude;
+  label?: {
+    label?: string;
+  };
 };
 
 export const nodePropsZ = z.object({}).and(
   z
     .object({
-      key: Schematic.typeZ,
+      key: Schematic.variantZ,
       color: Color.crudeZ.optional(),
     })
     .passthrough(),

@@ -70,8 +70,7 @@ class Client:
         parents: bool = False,
         include_schema: bool = False,
         exclude_field_data: bool = False
-    ) -> Resource:
-        ...
+    ) -> Resource: ...
 
     @overload
     def retrieve(
@@ -82,8 +81,7 @@ class Client:
         parents: bool = False,
         include_schema: bool = False,
         exclude_field_data: bool = False
-    ) -> list[Resource]:
-        ...
+    ) -> list[Resource]: ...
 
     def retrieve(
         self,

@@ -7,21 +7,21 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-import { caseconv, deep, Key, Keyed } from "@synnaxlabs/x";
-import { FC, ReactElement } from "react";
+import { caseconv, deep, type Key, type Keyed } from "@synnaxlabs/x";
+import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import {
-  ContextValue,
-  FieldState,
+  type ContextValue,
+  type FieldState,
   useContext,
   useField,
-  UseFieldProps,
-  UseNullableFieldProps,
+  type UseFieldProps,
+  type UseNullableFieldProps,
 } from "@/form/Form";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { componentRenderProp, RenderProp } from "@/util/renderProp";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 interface FieldChild<I extends Input.Value, O extends Input.Value>
   extends Input.Control<I, O> {
@@ -68,7 +68,7 @@ export const Field = <
   const ctx = useContext();
   if (field == null) return null;
   if (path == null) throw new Error("No path provided to Form Field");
-  if (label == null) label = caseconv.capitalize(deep.element(path, -1));
+  label ??= caseconv.capitalize(deep.element(path, -1));
   visible = typeof visible === "function" ? visible(field, ctx) : visible;
   if (!visible) return null;
   const helpText = field.status.message;

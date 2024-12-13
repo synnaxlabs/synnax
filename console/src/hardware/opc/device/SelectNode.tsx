@@ -10,7 +10,7 @@
 import { type List, Select, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useMemo } from "react";
 
-import { ScannedNode } from "@/hardware/opc/device/types";
+import { type ScannedNode } from "@/hardware/opc/device/types";
 import { type NodeId, parseNodeId } from "@/hardware/opc/task/types";
 
 interface NodeEntry extends NodeId {
@@ -21,22 +21,10 @@ interface NodeEntry extends NodeId {
 }
 
 const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
-  {
-    name: "Name",
-    key: "name",
-  },
-  {
-    name: "Identifier",
-    key: "identifier",
-  },
-  {
-    name: "Namespace",
-    key: "namespaceIndex",
-  },
-  {
-    name: "Data Type",
-    key: "dataType",
-  },
+  { name: "Name", key: "name" },
+  { name: "Identifier", key: "identifier" },
+  { name: "Namespace", key: "namespaceIndex" },
+  { name: "Data Type", key: "dataType" },
   {
     name: "Is Array",
     key: "isArray",

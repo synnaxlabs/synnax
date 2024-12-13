@@ -33,7 +33,7 @@ type Prev = [
   18,
   19,
   20,
-  ...Array<0>,
+  ...0[],
 ];
 
 /**
@@ -81,7 +81,7 @@ export interface Get {
   ): V | null;
 }
 
-/** A strongly typed version of the @see Get function. */
+/** A strongly typed version of the @link Get function. */
 export interface TypedGet<V = unknown, T = UnknownRecord> {
   (obj: T, path: string, options?: GetOptions<false>): V;
   (obj: T, path: string, options?: GetOptions<boolean | undefined>): V | null;
@@ -160,10 +160,15 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
   let result: UnknownRecord = obj as UnknownRecord;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    if (result[part] == null) result[part] = {};
+    result[part] ??= {};
     result = result[part] as UnknownRecord;
   }
-  result[parts[parts.length - 1]] = value;
+  try {
+    result[parts[parts.length - 1]] = value;
+  } catch (e) {
+    console.error("failed to set value", value, "at path", path, "on object", obj);
+    throw e;
+  }
 };
 
 /**
@@ -182,7 +187,7 @@ export const remove = <V>(obj: V, path: string): void => {
   }
   // if its an array, we need to splice it
   if (Array.isArray(result)) {
-    const index = parseInt(parts[parts.length - 1], 10);
+    const index = parseInt(parts[parts.length - 1]);
     if (isNaN(index)) return;
     result.splice(index, 1);
     return;

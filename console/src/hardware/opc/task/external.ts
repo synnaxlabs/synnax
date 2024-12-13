@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { READ_SELECTABLE, ReadTask } from "@/hardware/opc/task/ReadTask";
-import { READ_TYPE, WRITE_TYPE } from "@/hardware/opc/task/types";
-import { WRITE_SELECTABLE, WriteTask } from "@/hardware/opc/task/WriteTask";
-import { Layout } from "@/layout";
+import { READ_SELECTABLE, ReadTask } from "@/hardware/opc/task/Read";
+import { READ_TYPE, WRITE_TYPE } from "@/hardware/opc/task/types/v0";
+import { WRITE_SELECTABLE, WriteTask } from "@/hardware/opc/task/Write";
+import { type Layout } from "@/layout";
 
-export * from "@/hardware/opc/task/ReadTask";
+export * from "@/hardware/opc/task/palette";
+export * from "@/hardware/opc/task/Read";
 export * from "@/hardware/opc/task/types";
-export * from "@/hardware/opc/task/WriteTask";
+export * from "@/hardware/opc/task/Write";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [READ_TYPE]: ReadTask,

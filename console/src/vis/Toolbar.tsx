@@ -16,7 +16,9 @@ import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { Selector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
 import { Schematic } from "@/schematic";
+import { Table } from "@/table";
 import { type LayoutType } from "@/vis/types";
 
 export const VisToolbarTitle = (): ReactElement => (
@@ -30,6 +32,8 @@ interface ToolbarProps {
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
   schematic: Schematic.Toolbar,
   lineplot: LinePlot.Toolbar,
+  log: Log.Toolbar,
+  table: Table.Toolbar,
   vis: ({ layoutKey }) => (
     <Selector layoutKey={layoutKey} visible focused={false} onClose={() => {}} />
   ),

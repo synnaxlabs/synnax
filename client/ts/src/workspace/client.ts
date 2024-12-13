@@ -12,15 +12,19 @@ import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 
 import { linePlot } from "@/workspace/lineplot";
+import { log } from "@/workspace/log";
 import { type Key, type Workspace } from "@/workspace/payload";
 import { Retriever } from "@/workspace/retriever";
 import { schematic } from "@/workspace/schematic";
+import { table } from "@/workspace/table";
 import { type NewWorkspace, Writer } from "@/workspace/writer";
 
 export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   readonly type = "workspace";
   readonly schematic: schematic.Client;
   readonly linePlot: linePlot.Client;
+  readonly log: log.Client;
+  readonly table: table.Client;
   private readonly retriever: Retriever;
   private readonly writer: Writer;
 
@@ -28,7 +32,9 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     this.schematic = new schematic.Client(client);
     this.linePlot = new linePlot.Client(client);
     this.retriever = new Retriever(client);
+    this.log = new log.Client(client);
     this.writer = new Writer(client);
+    this.table = new table.Client(client);
   }
 
   async search(term: string): Promise<Workspace[]> {

@@ -29,8 +29,7 @@ class _SetRequest(Payload):
     aliases: dict[ChannelKey, str]
 
 
-class _EmptyResponse(Payload):
-    ...
+class _EmptyResponse(Payload): ...
 
 
 class Aliaser:
@@ -44,11 +43,9 @@ class Aliaser:
         self.__rng = rng
         self.__cache = {}
 
-    def resolve(self, alias: str) -> ChannelKey:
-        ...
+    def resolve(self, alias: str) -> ChannelKey: ...
 
-    def resolve(self, aliases: list[str]) -> dict[str, ChannelKey]:
-        ...
+    def resolve(self, aliases: list[str]) -> dict[str, ChannelKey]: ...
 
     def resolve(self, aliases: str | list[str]) -> dict[str, ChannelKey] | ChannelKey:
         to_fetch = list()

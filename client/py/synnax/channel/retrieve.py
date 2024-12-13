@@ -40,11 +40,9 @@ class _Response(Payload):
 class ChannelRetriever(Protocol):
     """Protocol for retrieving channel payloads from the cluster."""
 
-    def retrieve(self, channels: ChannelParams) -> list[ChannelPayload]:
-        ...
+    def retrieve(self, channels: ChannelParams) -> list[ChannelPayload]: ...
 
-    def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload:
-        ...
+    def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload: ...
 
 
 _ENDPOINT = "/channel/retrieve"
@@ -84,7 +82,6 @@ class ClusterChannelRetriever:
         if len(res.channels) == 0:
             raise NotFoundError(f"Could not find channel matching {param}")
         return res.channels[0]
-
 
 
 class CacheChannelRetriever:

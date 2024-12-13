@@ -28,7 +28,7 @@ interface InternalState {
   stopListening: Destructor;
 }
 
-// Light is a component that listens to a boolean telemetry source to update its state.
+// Light is a component that listens to a telemetry source to update its state.
 export class Light
   extends aether.Leaf<typeof lightStateZ, InternalState>
   implements diagram.Element

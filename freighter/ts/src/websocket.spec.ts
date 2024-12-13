@@ -44,16 +44,15 @@ class MyCustomError extends BaseTypedError {
 }
 
 const encodeTestError = (err: TypedError): ErrorPayload => {
-  if (!(err instanceof MyCustomError)) {
-    throw new Error("Unexpected error type");
-  }
+  if (!(err instanceof MyCustomError)) throw new Error("Unexpected error type");
+
   return { type: "integration.error", data: `${err.code},${err.message}` };
 };
 
 const decodeTestError = (encoded: ErrorPayload): TypedError | null => {
   if (encoded.type !== "integration.error") return null;
   const [code, message] = encoded.data.split(",");
-  return new MyCustomError(message, parseInt(code, 10));
+  return new MyCustomError(message, parseInt(code));
 };
 
 registerError({
@@ -104,17 +103,26 @@ describe("websocket", () => {
     expect(response).toBeNull();
   });
 
-  test("middleware", async () => {
-    const myClient = new WebSocketClient(url, new binary.JSONCodec());
-    let c = 0;
-    myClient.use(async (md, next): Promise<[Context, Error | null]> => {
-      if (md.params !== undefined) {
-        c++;
-        md.params.Test = "test";
-      }
-      return await next(md);
+  describe("middleware", () => {
+    test("receive middleware", async () => {
+      const myClient = new WebSocketClient(url, new binary.JSONCodec());
+      let c = 0;
+      myClient.use(async (md, next): Promise<[Context, Error | null]> => {
+        if (md.params !== undefined) {
+          c++;
+          md.params.Test = "test";
+        }
+        return await next(md);
+      });
+      await myClient.stream("stream/middlewareCheck", MessageSchema, MessageSchema);
+      expect(c).toEqual(1);
     });
-    await myClient.stream("stream/middlewareCheck", MessageSchema, MessageSchema);
-    expect(c).toEqual(1);
+
+    test("middleware error on server", () => {
+      const myClient = new WebSocketClient(url, new binary.JSONCodec());
+      expect(
+        myClient.stream("stream/middlewareCheck", MessageSchema, MessageSchema),
+      ).rejects.toThrow("test param not found");
+    });
   });
 });

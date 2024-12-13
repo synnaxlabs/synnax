@@ -25,6 +25,8 @@ export default defineConfig({
       ? {
           "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
           "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
+          "@synnaxlabs/x/dist": path.resolve(__dirname, "../x/ts/dist"),
+          "@synnaxlabs/x": path.resolve(__dirname, "../x/ts/src"),
           "@synnaxlabs/drift/dist": path.resolve(__dirname, "../drift/dist"),
           "@synnaxlabs/drift": path.resolve(__dirname, "../drift/src"),
           "@synnaxlabs/media/dist": path.resolve(__dirname, "../x/media/dist"),
@@ -41,5 +43,8 @@ export default defineConfig({
     // We don't really care about maintaining a small bundle size right now, as this file
     // is loaded directly from disc instead of OTN
     chunkSizeWarningLimit: 10000 /* kbs */,
+  },
+  define: {
+    IS_DEV: isDev,
   },
 });

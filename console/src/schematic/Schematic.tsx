@@ -16,6 +16,7 @@ import {
   Diagram,
   Haul,
   type Legend,
+  Menu as PMenu,
   Schematic as Core,
   Text,
   Theming,
@@ -24,8 +25,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
+import { box, deep, id, type UnknownRecord, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -44,12 +44,12 @@ import {
   useSelect,
   useSelectHasPermission,
   useSelectNodeProps,
-  useSelectViewport,
   useSelectViewportMode,
 } from "@/schematic/selectors";
 import {
   addElement,
   calculatePos,
+  clearSelection,
   copySelection,
   internalCreate,
   pasteSelection,
@@ -89,7 +89,6 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
         snapshot: undefined,
       } as unknown as UnknownRecord;
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await new Promise((r) => setTimeout(r, 1000));
       const canSave = selectHasPermission(storeState);
       if (!canSave) return;
       await client.workspaces.schematic.create(ws, {
@@ -105,6 +104,7 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
+  draggable,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement => {
   const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
   const dispatch = useSyncComponent(layoutKey);
@@ -123,18 +123,16 @@ const SymbolRenderer = ({
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
-  const zoom = useSelectViewport(layoutKey);
-
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
   return (
     <C.Symbol
       id={symbolKey}
-      aetherKey={symbolKey}
+      symbolKey={symbolKey}
       position={position}
       selected={selected}
+      draggable={draggable}
       onChange={handleChange}
-      zoom={zoom.zoom}
       {...props}
     />
   );
@@ -213,9 +211,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const elRenderer = useCallback(
-    (props: Diagram.SymbolProps) => {
-      return <SymbolRenderer layoutKey={layoutKey} {...props} />;
-    },
+    (props: Diagram.SymbolProps) => <SymbolRenderer layoutKey={layoutKey} {...props} />,
     [layoutKey],
   );
 
@@ -229,10 +225,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       valid.forEach(({ key, data }) => {
         const spec = Core.SYMBOLS[key as Core.Variant];
         if (spec == null) return;
-        const pos = calculatePos(
-          region,
-          { x: event.clientX, y: event.clientY },
-          viewportRef.current,
+        const pos = xy.truncate(
+          calculatePos(
+            region,
+            { x: event.clientX, y: event.clientY },
+            viewportRef.current,
+          ),
+          0,
         );
         dispatch(
           addElement({
@@ -266,18 +265,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   Triggers.use({
-    triggers: [
-      ["Control", "V"],
-      ["Control", "C"],
-    ],
+    triggers: [["Control", "V"], ["Control", "C"], ["Escape"]],
     region: ref,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
         if (ref.current == null || stage !== "start") return;
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
+        const isClear = triggers.some((t) => t.includes("Escape"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));
+        else if (isClear) dispatch(clearSelection({ key: layoutKey }));
         else dispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [dispatch, layoutKey, viewportRef],
@@ -395,7 +393,7 @@ export const Schematic: Layout.Renderer = ({
     name: "Schematic",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect: useSelect,
+    useSelect,
     fetcher: async (client, layoutKey) => {
       const { key, data } = await client.workspaces.schematic.retrieve(layoutKey);
       return { key, ...data } as unknown as State;
@@ -423,7 +421,7 @@ export const create =
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     const newTab = canEditSchematic ? tab : { ...tab, editable: false };
     const key = initial.key ?? uuidv4();
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,
       location,

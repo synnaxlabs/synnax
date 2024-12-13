@@ -9,14 +9,23 @@
 
 import "@/text/Editable.css";
 
-import type { KeyboardEvent, ReactElement } from "react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactElement,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { CSS } from "@/css";
+import { useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
+import { triggerReflow } from "@/util/reflow";
 
 export type EditableProps<L extends text.Level = "h1"> = Omit<
   TextProps<L>,
@@ -25,6 +34,7 @@ export type EditableProps<L extends text.Level = "h1"> = Omit<
   Input.Control<string> & {
     useEditableState?: state.PureUse<boolean>;
     allowDoubleClick?: boolean;
+    allowEmpty?: boolean;
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
@@ -67,16 +77,52 @@ export const asyncEdit = (id: string): Promise<[string, boolean]> =>
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();
 
+interface StylesToTriggerReflow {
+  maxInlineSize?: CSSProperties["maxInlineSize"];
+}
+
+const compareStylesToTriggerReflow = (
+  a: StylesToTriggerReflow | undefined,
+  b: StylesToTriggerReflow | undefined,
+): boolean => {
+  if (a == null || b == null) return false;
+  return a.maxInlineSize === b.maxInlineSize;
+};
+
 export const Editable = <L extends text.Level = text.Level>({
   onChange,
   value,
+  className,
   useEditableState = useState,
   allowDoubleClick = true,
   onDoubleClick,
+  allowEmpty = false,
+  style,
   ...props
 }: EditableProps<L>): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
+  // Sometimes the onBlur event fires right after the user hits
+  // the enter key (since we trigger it artificially). We track
+  // this value as an optimistic update to make sure we don't
+  // call onChange twice in quick succession.
+  const optimisticValueRef = useSyncedRef(value);
+
+  // Turns out the writing modes like vertical-rl cause all sorts of problems with
+  // elements whose values change. The following section of code forces the browser
+  // to reflow the element when the value changes or the styles that affect the
+  // layout change.
+  const stylesToTriggerReflow = useRef<StylesToTriggerReflow | undefined>(style);
+  const valueRef = useRef(value);
+  if (
+    (stylesToTriggerReflow.current != null &&
+      !compareStylesToTriggerReflow(style, stylesToTriggerReflow.current)) ||
+    value !== valueRef.current
+  ) {
+    triggerReflow(ref.current as HTMLElement);
+    stylesToTriggerReflow.current = style;
+    valueRef.current = value;
+  }
 
   const handleDoubleClick = (
     e: React.MouseEvent<HTMLParagraphElement, MouseEvent>,
@@ -87,17 +133,21 @@ export const Editable = <L extends text.Level = text.Level>({
 
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
     const innerText = getInnerText(el);
-    if (forceEscape || innerText.length === 0) {
+    if (optimisticValueRef.current === innerText) return;
+    if (forceEscape || (innerText.length === 0 && !allowEmpty)) {
       el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
     } else {
       onChange?.(innerText);
+      optimisticValueRef.current = innerText;
       el.dispatchEvent(new Event(RENAMED_EVENT_NAME));
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLParagraphElement>): void => {
-    if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key) || ref.current == null) return;
+    if (ref.current == null) return;
+    triggerReflow(ref.current);
+    if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key)) return;
     e.stopPropagation();
     e.preventDefault();
     const el = ref.current;
@@ -136,7 +186,7 @@ export const Editable = <L extends text.Level = text.Level>({
     // @ts-expect-error - TODO: generic element behavior is funky
     <Text<L>
       ref={ref}
-      className={CSS.BM("text", "editable")}
+      className={CSS(className, CSS.BM("text", "editable"))}
       onBlur={() => {
         setEditable(false);
         const el = ref.current;
@@ -151,6 +201,7 @@ export const Editable = <L extends text.Level = text.Level>({
       onDoubleClick={handleDoubleClick}
       contentEditable={editable}
       suppressContentEditableWarning
+      style={style}
       {...props}
     >
       {value}

@@ -19,18 +19,18 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Properties } from "@/hardware/ni/device/types";
+import { type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import {
-  Chan,
+  type Chan,
   DIGITAL_WRITE_TYPE,
-  DigitalWrite,
-  DigitalWriteConfig,
+  type DigitalWrite,
+  type DigitalWriteConfig,
   digitalWriteConfigZ,
-  DigitalWritePayload,
-  DigitalWriteStateDetails,
-  DigitalWriteType,
-  DOChan,
+  type DigitalWritePayload,
+  type DigitalWriteStateDetails,
+  type DigitalWriteType,
+  type DOChan,
   ZERO_DIGITAL_WRITE_PAYLOAD,
   ZERO_DO_CHAN,
 } from "@/hardware/ni/task/migrations";
@@ -40,13 +40,17 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
-  TaskLayoutArgs,
+  type TaskLayoutArgs,
   useCreate,
   useObserveState,
-  WrappedTaskLayoutProps,
+  type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { Layout } from "@/layout";
+import {
+  checkDesiredStateMatch,
+  useDesiredState,
+} from "@/hardware/task/common/useDesiredState";
+import { type Layout } from "@/layout";
 
 export const configureDigitalWriteLayout = (
   args: TaskLayoutArgs<DigitalWritePayload> = { create: true },
@@ -93,6 +97,10 @@ const Wrapped = ({
     task?.key,
     task?.state,
   );
+  const running = taskState?.details?.running;
+  const initialState =
+    running === true ? "running" : running === false ? "paused" : undefined;
+  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
 
   const createTask = useCreate<
     DigitalWriteConfig,
@@ -119,14 +127,13 @@ const Wrapped = ({
       let shouldCreateStateIndex = primitiveIsZero(
         dev.properties.digitalOutput.stateIndex,
       );
-      if (!shouldCreateStateIndex) {
+      if (!shouldCreateStateIndex)
         try {
           await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
           else throw e;
         }
-      }
 
       if (shouldCreateStateIndex) {
         modified = true;
@@ -174,9 +181,9 @@ const Wrapped = ({
         );
         states.forEach((s, i) => {
           const key = `${statesToCreate[i].port}l${statesToCreate[i].line}`;
-          if (!(key in dev.properties.digitalOutput.channels)) {
+          if (!(key in dev.properties.digitalOutput.channels))
             dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
-          } else dev.properties.digitalOutput.channels[key].state = s.key;
+          else dev.properties.digitalOutput.channels[key].state = s.key;
         });
       }
 
@@ -197,9 +204,9 @@ const Wrapped = ({
         );
         commands.forEach((s, i) => {
           const key = `${commandsToCreate[i].port}l${commandsToCreate[i].line}`;
-          if (!(key in dev.properties.digitalOutput.channels)) {
+          if (!(key in dev.properties.digitalOutput.channels))
             dev.properties.digitalOutput.channels[key] = { state: 0, command: s.key };
-          } else dev.properties.digitalOutput.channels[key].command = s.key;
+          else dev.properties.digitalOutput.channels[key].command = s.key;
         });
       }
 
@@ -226,6 +233,7 @@ const Wrapped = ({
         type: DIGITAL_WRITE_TYPE,
         config,
       });
+      setDesiredState("paused");
     },
   });
 
@@ -233,9 +241,9 @@ const Wrapped = ({
     mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (client == null) return;
-      await task?.executeCommand(
-        taskState?.details?.running === true ? "stop" : "start",
-      );
+      const isRunning = running === true;
+      setDesiredState(isRunning ? "paused" : "running");
+      await task?.executeCommand(isRunning ? "stop" : "start");
     },
   });
 
@@ -300,8 +308,13 @@ const Wrapped = ({
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
-          startingOrStopping={start.isPending}
+          startingOrStopping={
+            start.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
+          }
           snapshot={task?.snapshot}
           configuring={configure.isPending}
           onStartStop={start.mutate}
@@ -470,7 +483,7 @@ const ChannelListItem = ({
             color={(() => {
               if (cmdChannelName === "No Synnax Channel")
                 return "var(--pluto-warning-z)";
-              else if (cmdChannelValid) return undefined;
+              if (cmdChannelValid) return undefined;
               return "var(--pluto-error-z)";
             })()}
           >
@@ -483,7 +496,7 @@ const ChannelListItem = ({
             color={(() => {
               if (stateChannelName === "No Synnax Channel")
                 return "var(--pluto-warning-z)";
-              else if (stateChannelValid) return undefined;
+              if (stateChannelValid) return undefined;
               return "var(--pluto-error-z)";
             })()}
           >

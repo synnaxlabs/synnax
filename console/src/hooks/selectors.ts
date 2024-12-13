@@ -41,7 +41,7 @@ export const selectByKey = <K extends Key, S extends Keyed<K>>(
   key?: string | null,
   defaultKey?: string | null,
 ): S | null | undefined => {
-  if (key == null) key = defaultKey;
+  key ??= defaultKey;
   if (key == null) return null;
   return state[key];
 };

@@ -49,6 +49,21 @@
     }
 }
 
+@keyframes delay {
+    0% {
+        width: 0%;
+        backdrop-filter: brightness(0.6);
+    }
+    99% {
+        width: 100%;
+        backdrop-filter: brightness(0.6);
+    }
+    100% {
+        width: 100%;
+        backdrop-filter: brightness(1);
+    }
+}
+
 /* |||| FILLED |||| */
 
 .pluto-btn--filled {
@@ -125,6 +140,20 @@
             border-color: var(--pluto-bg) !important;
         }
     }
+    &::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 0%;
+        z-index: 1;
+        border-radius: var(--pluto-border-radius);
+    }
+    &:active::after {
+        animation: delay var(--pluto-btn-delay) linear;
+        width: 100%;
+    }
 }
 
 /* |||| OUTLINED |||| */
@@ -186,8 +215,7 @@
         --pluto-bg: var(--pluto-gray-l2);
         background: var(--pluto-bg);
         color: var(--pluto-gray-l5);
-        border: var(--pluto-border);
-        border-color: var(--pluto-gray-l3);
+        border-color: var(--pluto-gray-l3) !important;
     }
 }
 

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
+import { Haul, Mosaic, type Tabs, Theming } from "@synnaxlabs/pluto";
 import { theming } from "@synnaxlabs/pluto/ether";
-import { location } from "@synnaxlabs/x";
+import { type location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const placementLocationZ = z.union([

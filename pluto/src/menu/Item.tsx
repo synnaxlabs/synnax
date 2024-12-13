@@ -7,7 +7,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useMenuContext } from "@/menu/Menu";
 import { Text as TriggersText } from "@/triggers/Text";
-import { Trigger } from "@/triggers/triggers";
+import { type Trigger } from "@/triggers/triggers";
 
 export interface MenuItemExtraProps {
   itemKey: string;

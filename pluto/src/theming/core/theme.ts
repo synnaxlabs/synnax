@@ -69,6 +69,7 @@ export const themeZ = z
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
+      palettes: z.record(color.paletteZ),
       visualization: z
         .object({
           palettes: z.record(z.array(color.Color.z)),
@@ -94,6 +95,7 @@ export const themeZ = z
     }),
     typography: z.object({
       family: z.string(),
+      codeFamily: z.string(),
       h1: text.specZ,
       h2: text.specZ,
       h3: text.specZ,
@@ -116,6 +118,7 @@ export type ThemeSpec = z.input<typeof themeZ>;
 export type Theme = z.output<typeof themeZ>;
 
 const fontFamily = "'Inter Variable', sans-serif";
+const codeFontFamily = "'Geist Mono', monospace";
 const baseSize: number = 6;
 
 // Error
@@ -180,6 +183,13 @@ const SYNNAX_BASE: ThemeSpec = {
       p1: color.fromHSLA(setLightness(WARNING_HSLA, 65)),
       p2: color.fromHSLA(setLightness(WARNING_HSLA, 75)),
     },
+    palettes: {
+      recent: {
+        key: "recent",
+        name: "Recent",
+        swatches: [],
+      },
+    },
     visualization: {
       palettes: {
         default: [
@@ -219,6 +229,7 @@ const SYNNAX_BASE: ThemeSpec = {
   },
   typography: {
     family: fontFamily,
+    codeFamily: codeFontFamily,
     h1: {
       size: 7,
       weight: "500",

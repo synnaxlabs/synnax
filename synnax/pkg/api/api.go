@@ -14,6 +14,7 @@
 package api
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 	"go/types"
 
 	"github.com/samber/lo"
@@ -35,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
@@ -57,6 +59,8 @@ type Config struct {
 	Workspace     *workspace.Service
 	Schematic     *schematic.Service
 	LinePlot      *lineplot.Service
+	Log           *log.Service
+	Table         *table.Service
 	Token         *token.Service
 	Label         *label.Service
 	Hardware      *hardware.Service
@@ -91,6 +95,8 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "hardware", c.Hardware)
 	validate.NotNil(v, "insecure", c.Insecure)
 	validate.NotNil(v, "label", c.Label)
+	validate.NotNil(v, "log", c.Log)
+	validate.NotNil(v, "table", c.Table)
 	return v.Error()
 }
 
@@ -113,9 +119,11 @@ func (c Config) Override(other Config) Config {
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.Schematic = override.Nil(c.Schematic, other.Schematic)
 	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
+	c.Log = override.Nil(c.Log, other.Log)
 	c.Label = override.Nil(c.Label, other.Label)
 	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
 	c.Hardware = override.Nil(c.Hardware, other.Hardware)
+	c.Table = override.Nil(c.Table, other.Table)
 	return c
 }
 
@@ -176,6 +184,18 @@ type Transport struct {
 	SchematicRename   freighter.UnaryServer[SchematicRenameRequest, types.Nil]
 	SchematicSetData  freighter.UnaryServer[SchematicSetDataRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[SchematicCopyRequest, SchematicCopyResponse]
+	// LOG
+	LogCreate   freighter.UnaryServer[LogCreateRequest, LogCreateResponse]
+	LogRetrieve freighter.UnaryServer[LogRetrieveRequest, LogRetrieveResponse]
+	LogDelete   freighter.UnaryServer[LogDeleteRequest, types.Nil]
+	LogRename   freighter.UnaryServer[LogRenameRequest, types.Nil]
+	LogSetData  freighter.UnaryServer[LogSetDataRequest, types.Nil]
+	// TABLE
+	TableCreate   freighter.UnaryServer[TableCreateRequest, TableCreateResponse]
+	TableRetrieve freighter.UnaryServer[TableRetrieveRequest, TableRetrieveResponse]
+	TableDelete   freighter.UnaryServer[TableDeleteRequest, types.Nil]
+	TableRename   freighter.UnaryServer[TableRenameRequest, types.Nil]
+	TableSetData  freighter.UnaryServer[TableSetDataRequest, types.Nil]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
@@ -220,6 +240,8 @@ type API struct {
 	Workspace    *WorkspaceService
 	Schematic    *SchematicService
 	LinePlot     *LinePlotService
+	Log          *LogService
+	Table        *TableService
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
@@ -313,6 +335,20 @@ func (a *API) BindTo(t Transport) {
 		t.LinePlotSetData,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
+
+		// LOG
+		t.LogCreate,
+		t.LogRetrieve,
+		t.LogDelete,
+		t.LogRename,
+		t.LogSetData,
+
+		// TABLE
+		t.TableCreate,
+		t.TableRetrieve,
+		t.TableDelete,
+		t.TableRename,
+		t.TableSetData,
 
 		// LABEL
 		t.LabelCreate,
@@ -411,6 +447,20 @@ func (a *API) BindTo(t Transport) {
 	t.LinePlotRetrieve.BindHandler(a.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(a.LinePlot.Delete)
 
+	// LOG
+	t.LogCreate.BindHandler(a.Log.Create)
+	t.LogRetrieve.BindHandler(a.Log.Retrieve)
+	t.LogDelete.BindHandler(a.Log.Delete)
+	t.LogRename.BindHandler(a.Log.Rename)
+	t.LogSetData.BindHandler(a.Log.SetData)
+
+	// TABLE
+	t.TableCreate.BindHandler(a.Table.Create)
+	t.TableRetrieve.BindHandler(a.Table.Retrieve)
+	t.TableDelete.BindHandler(a.Table.Delete)
+	t.TableRename.BindHandler(a.Table.Rename)
+	t.TableSetData.BindHandler(a.Table.SetData)
+
 	// LABEL
 	t.LabelCreate.BindHandler(a.Label.Create)
 	t.LabelRetrieve.BindHandler(a.Label.Retrieve)
@@ -457,5 +507,7 @@ func New(configs ...Config) (API, error) {
 	api.LinePlot = NewLinePlotService(api.provider)
 	api.Label = NewLabelService(api.provider)
 	api.Hardware = NewHardwareService(api.provider)
+	api.Log = NewLogService(api.provider)
+	api.Table = NewTableService(api.provider)
 	return api, nil
 }

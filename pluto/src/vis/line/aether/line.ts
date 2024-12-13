@@ -11,12 +11,12 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
   bounds,
-  box,
+  type box,
   clamp,
   DataType,
-  Destructor,
+  type Destructor,
   type direction,
-  scale,
+  type scale,
   type Series,
   type SeriesDigest,
   TimeSpan,
@@ -313,19 +313,15 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,
-      scale: scale.xyScaleToTransform(dataToDecimalScale),
+      scale: dataToDecimalScale.transform,
       props: props.region,
       ops: digests(ops),
     }));
     const clearProg = prog.setAsActive();
     const instances = prog.bindState(this.state);
-    const regionTransform = scale.xyScaleToTransform(
-      prog.ctx.scaleRegion(props.region),
-    );
+    const regionTransform = prog.ctx.scaleRegion(props.region).transform;
     ops.forEach((op) => {
-      const scaleTransform = scale.xyScaleToTransform(
-        offsetScale(dataToDecimalScale, op),
-      );
+      const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
       prog.bindScale(scaleTransform, regionTransform);
       prog.draw(op, instances);
     });
@@ -336,11 +332,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 /** Just makes sure that the lines we draw to make stuff thick are really close together. */
 const THICKNESS_DIVISOR = 5000;
 
-const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
-  return replicateBuffer(newDirectionBuffer(aspect), strokeWidth).map(
+const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>
+  replicateBuffer(newDirectionBuffer(aspect), strokeWidth).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
-};
 
 const DIRECTION_COUNT = 5;
 

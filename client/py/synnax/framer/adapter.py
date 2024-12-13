@@ -21,6 +21,7 @@ from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, CrudeFrame
 from synnax.telem.series import CrudeSeries, Series
 
+
 class ReadFrameAdapter:
     __adapter: dict[ChannelKey, ChannelName] | None
     retriever: ChannelRetriever
@@ -106,10 +107,9 @@ class WriteFrameAdapter:
 
     def adapt(
         self,
-        channels_or_data: ChannelPayload
-        | list[ChannelPayload]
-        | ChannelParams
-        | CrudeFrame,
+        channels_or_data: (
+            ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
+        ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(channels_or_data, (ChannelName, ChannelKey, ChannelPayload)):

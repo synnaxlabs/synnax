@@ -15,8 +15,10 @@ import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import {
   ButtonForm,
+  CommonDummyToggleForm,
   CommonStyleForm,
   CommonToggleForm,
+  CylinderForm,
   LightForm,
   OffPageReferenceForm,
   SetpointForm,
@@ -25,123 +27,118 @@ import {
   TextBoxForm,
   ValueForm,
 } from "@/vis/schematic/Forms";
-import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
-import { DEFAULT_BORDER_RADIUS } from "@/vis/schematic/primitives/Primitives";
+import { Primitives } from "@/vis/schematic/primitives";
+import {
+  type CylinderProps,
+  DEFAULT_BORDER_RADIUS,
+  TextBox,
+  type TextBoxProps,
+} from "@/vis/schematic/primitives/Primitives";
 import {
   Agitator,
-  AgitatorPreview,
-  AgitatorProps,
+  type AgitatorProps,
   AngledReliefValve,
-  AngledReliefValvePreview,
+  AngledSpringLoadedReliefValve,
+  type AngledSpringLoadedReliefValveProps,
   AngledValve,
-  AngledValvePreview,
   type AngledValveProps,
   Box,
   BoxPreview,
   type BoxProps,
   BurstDisc,
-  BurstDiscPreview,
+  type BurstDiscProps,
   Button,
   ButtonPreview,
   type ButtonProps,
   Cap,
-  CapPreview,
+  type CapProps,
   CavityPump,
-  CavityPumpPreview,
   type CavityPumpProps,
   CheckValve,
-  CheckValvePreview,
   type CheckValveProps,
   Compressor,
-  CompressorPreview,
   type CompressorProps,
   CrossBeamAgitator,
-  CrossBeamAgitatorPreview,
   type CrossBeamAgitatorProps,
+  Cylinder,
+  CylinderPreview,
   ElectricRegulator,
-  ElectricRegulatorPreview,
   type ElectricRegulatorProps,
   Filter,
-  FilterPreview,
   type FilterProps,
   FlatBladeAgitator,
-  FlatBladeAgitatorPreview,
   type FlatBladeAgitatorProps,
   FourWayValve,
-  FourWayValvePreview,
+  type FourWayValveProps,
   HelicalAgitator,
-  HelicalAgitatorPreview,
   type HelicalAgitatorProps,
+  ISOBurstDisc,
+  type ISOBurstDiscProps,
+  ISOCap,
+  type ISOCapProps,
+  ISOCheckValve,
+  type ISOCheckValveProps,
+  ISOFilter,
+  type ISOFilterProps,
+  type LabelExtensionProps,
   Light,
-  LightPreview,
   type LightProps,
   ManualValve,
-  ManualValvePreview,
   type ManualValveProps,
   NeedleValve,
-  NeedleValvePreview,
   type NeedleValveProps,
   OffPageReference,
   OffPageReferencePreview,
   type OffPageReferenceProps,
   Orifice,
-  OrificePreview,
+  OrificePlate,
+  type OrificePlateProps,
   type OrificeProps,
   PaddleAgitator,
-  PaddleAgitatorPreview,
   type PaddleAgitatorProps,
   PistonPump,
-  PistonPumpPreview,
   type PistonPumpProps,
   PropellerAgitator,
-  PropellerAgitatorPreview,
-  PropellerAgitatorProps,
+  type PropellerAgitatorProps,
   Pump,
-  PumpPreview,
   type PumpProps,
   Regulator,
-  RegulatorPreview,
   type RegulatorProps,
   ReliefValve,
-  ReliefValvePreview,
   type ReliefValveProps,
   RotaryMixer,
-  RotaryMixerPreview,
   type RotaryMixerProps,
   ScrewPump,
-  ScrewPumpPreview,
   type ScrewPumpProps,
   Setpoint,
   SetpointPreview,
   type SetpointProps,
   SolenoidValve,
-  SolenoidValvePreview,
   type SolenoidValveProps,
+  SpringLoadedReliefValve,
+  type SpringLoadedReliefValveProps,
   StaticMixer,
-  StaticMixerPreview,
   type StaticMixerProps,
   Switch,
-  SwitchPreview,
   type SwitchProps,
   type SymbolProps,
   Tank,
   TankPreview,
   type TankProps,
-  TextBox,
   TextBoxPreview,
-  type TextBoxProps,
   ThreeWayValve,
-  ThreeWayValvePreview,
   type ThreeWayValveProps,
+  TJunction,
+  type TJunctionProps,
   VacuumPump,
-  VacuumPumpPreview,
   type VacuumPumpProps,
   Value,
   ValuePreview,
   type ValueProps,
   Valve,
-  ValvePreview,
   type ValveProps,
+  Vent,
+  type VentProps,
 } from "@/vis/schematic/Symbols";
 
 export interface Spec<P extends object> {
@@ -160,14 +157,17 @@ const Z_INDEX_LOWER = 2;
 const VARIANTS = [
   "agitator",
   "angledReliefValve",
+  "angledSpringLoadedReliefValve",
   "angledValve",
   "offPageReference",
   "box",
   "burstDisc",
+  "isoBurstDisc",
   "button",
   "cap",
   "cavityPump",
   "checkValve",
+  "cylinder",
   "compressor",
   "crossBeamAgitator",
   "electricRegulator",
@@ -175,10 +175,14 @@ const VARIANTS = [
   "flatBladeAgitator",
   "fourWayValve",
   "helicalAgitator",
+  "isoCap",
+  "isoCheckValve",
+  "isoFilter",
   "light",
   "manualValve",
   "needleValve",
   "orifice",
+  "orificePlate",
   "paddleAgitator",
   "propellerAgitator",
   "pistonPump",
@@ -189,6 +193,7 @@ const VARIANTS = [
   "screwPump",
   "setpoint",
   "solenoidValve",
+  "springLoadedReliefValve",
   "staticMixer",
   "switch",
   "tank",
@@ -197,13 +202,14 @@ const VARIANTS = [
   "vacuumPump",
   "value",
   "valve",
+  "vent",
+  "tJunction",
 ] as const;
 
-export const typeZ = z.enum(VARIANTS);
-export type Variant = z.infer<typeof typeZ>;
+export const variantZ = z.enum(VARIANTS);
+export type Variant = z.infer<typeof variantZ>;
 
 const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
-
 const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("string", {
@@ -214,7 +220,7 @@ const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
     segments: {
       valueStream: telem.streamChannelValue({ channel: 0 }),
       rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-      stringifier: telem.stringifyNumber({ precision: 2 }),
+      stringifier: telem.stringifyNumber({ precision: 2, notation: "standard" }),
     },
     outlet: "stringifier",
   }),
@@ -265,10 +271,19 @@ const ZERO_BOOLEAN_SINK_PROPS = {
 
 const ZERO_TOGGLE_PROPS = { ...ZERO_BOOLEAN_SOURCE_PROPS, ...ZERO_BOOLEAN_SINK_PROPS };
 
+const ZERO_DUMMY_TOGGLE_PROPS = { ...ZERO_PROPS, enabled: false, clickable: false };
+
 type zeroLabelReturn = { label: LabelExtensionProps };
 
 const zeroLabel = (label: string): zeroLabelReturn => ({
-  label: { label, level: "p", orientation: "top", maxInlineSize: 150, align: "center" },
+  label: {
+    label,
+    level: "p",
+    orientation: "top",
+    maxInlineSize: 150,
+    align: "center",
+    direction: "x",
+  },
 });
 
 const ZERO_DIMENSIONS = { width: 125, height: 200 };
@@ -287,7 +302,7 @@ const threeWayValve: Spec<ThreeWayValveProps> = {
     ...zeroLabel("Three Way Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: ThreeWayValvePreview,
+  Preview: Primitives.ThreeWayValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -301,7 +316,7 @@ const valve: Spec<ValveProps> = {
     ...zeroLabel("Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: ValvePreview,
+  Preview: Primitives.Valve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -316,11 +331,11 @@ const solenoidValve: Spec<SolenoidValveProps> = {
     normallyOpen: false,
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: SolenoidValvePreview,
+  Preview: Primitives.SolenoidValve,
   zIndex: Z_INDEX_UPPER,
 };
 
-const fourWayValve: Spec<ValveProps> = {
+const fourWayValve: Spec<FourWayValveProps> = {
   name: "Four Way Valve",
   key: "fourWayValve",
   Form: CommonToggleForm,
@@ -330,7 +345,7 @@ const fourWayValve: Spec<ValveProps> = {
     ...zeroLabel("Four Way Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: FourWayValvePreview,
+  Preview: Primitives.FourWayValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -344,7 +359,7 @@ const angledValve: Spec<AngledValveProps> = {
     ...zeroLabel("Angled Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: AngledValvePreview,
+  Preview: Primitives.AngledValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -358,7 +373,7 @@ const pump: Spec<PumpProps> = {
     ...zeroLabel("Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: PumpPreview,
+  Preview: Primitives.Pump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -372,7 +387,7 @@ const screwPump: Spec<ScrewPumpProps> = {
     ...zeroLabel("Screw Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: ScrewPumpPreview,
+  Preview: Primitives.ScrewPump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -390,6 +405,25 @@ const tank: Spec<TankProps> = {
     ...ZERO_PROPS,
   }),
   Preview: TankPreview,
+  zIndex: Z_INDEX_LOWER,
+};
+
+const cylinder: Spec<CylinderProps> = {
+  name: "Cylinder",
+  key: "cylinder",
+  Form: CylinderForm,
+  Symbol: Cylinder,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    ...zeroLabel("cylinder"),
+    dimensions: {
+      width: 66,
+      height: 181,
+    },
+    ...ZERO_PROPS,
+  }),
+  Preview: CylinderPreview,
   zIndex: Z_INDEX_LOWER,
 };
 
@@ -413,14 +447,42 @@ const box: Spec<BoxProps> = {
 const reliefValve: Spec<ReliefValveProps> = {
   name: "Relief Valve",
   key: "reliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: ReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: ReliefValvePreview,
+  Preview: ({ clickable, ...props }) => Primitives.ReliefValve(props),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
+  name: "Spring Loaded Relief Valve",
+  key: "springLoadedReliefValve",
+  Form: CommonDummyToggleForm,
+  Symbol: SpringLoadedReliefValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Spring Loaded Relief Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.SpringLoadedReliefValve(props),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = {
+  name: "Angled Spring Loaded Relief Valve",
+  key: "angledSpringLoadedReliefValve",
+  Form: CommonDummyToggleForm,
+  Symbol: AngledSpringLoadedReliefValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Angled Spring Loaded Relief Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.AngledSpringLoadedReliefValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -434,7 +496,7 @@ const regulator: Spec<RegulatorProps> = {
     ...zeroLabel("Regulator"),
     ...ZERO_PROPS,
   }),
-  Preview: RegulatorPreview,
+  Preview: Primitives.Regulator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -448,11 +510,11 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
     ...zeroLabel("Electric Regulator"),
     ...ZERO_PROPS,
   }),
-  Preview: ElectricRegulatorPreview,
+  Preview: Primitives.ElectricRegulator,
   zIndex: Z_INDEX_UPPER,
 };
 
-const burstDisc: Spec<ReliefValveProps> = {
+const burstDisc: Spec<BurstDiscProps> = {
   name: "Burst Disc",
   key: "burstDisc",
   Form: CommonStyleForm,
@@ -462,11 +524,25 @@ const burstDisc: Spec<ReliefValveProps> = {
     ...zeroLabel("Burst Disc"),
     ...ZERO_PROPS,
   }),
-  Preview: BurstDiscPreview,
+  Preview: Primitives.BurstDisc,
   zIndex: Z_INDEX_UPPER,
 };
 
-const cap: Spec<ReliefValveProps> = {
+const isoBurstDisc: Spec<ISOBurstDiscProps> = {
+  name: "ISO Burst Disc",
+  key: "isoBurstDisc",
+  Form: CommonStyleForm,
+  Symbol: ISOBurstDisc,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Burst Disc"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.ISOBurstDisc,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const cap: Spec<CapProps> = {
   name: "Cap",
   key: "cap",
   Form: CommonStyleForm,
@@ -476,21 +552,63 @@ const cap: Spec<ReliefValveProps> = {
     ...zeroLabel("Cap"),
     ...ZERO_PROPS,
   }),
-  Preview: CapPreview,
+  Preview: Primitives.Cap,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const isoCap: Spec<ISOCapProps> = {
+  name: "ISO Cap",
+  key: "isoCap",
+  Form: CommonStyleForm,
+  Symbol: ISOCap,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Cap"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.ISOCap,
   zIndex: Z_INDEX_UPPER,
 };
 
 const manualValve: Spec<ManualValveProps> = {
   name: "Manual Valve",
   key: "manualValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: ManualValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Manual Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.ManualValve(props),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const orificePlate: Spec<OrificePlateProps> = {
+  name: "Orifice Plate",
+  key: "orificePlate",
+  Form: CommonStyleForm,
+  Symbol: OrificePlate,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Orifice Plate"),
     ...ZERO_PROPS,
   }),
-  Preview: ManualValvePreview,
+  Preview: Primitives.OrificePlate,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const isoFilter: Spec<ISOFilterProps> = {
+  name: "ISO Filter",
+  key: "isoFilter",
+  Form: CommonStyleForm,
+  Symbol: ISOFilter,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Filter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.ISOFilter,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -504,21 +622,21 @@ const filter: Spec<FilterProps> = {
     ...zeroLabel("Filter"),
     ...ZERO_PROPS,
   }),
-  Preview: FilterPreview,
+  Preview: Primitives.Filter,
   zIndex: Z_INDEX_UPPER,
 };
 
 const needleValve: Spec<NeedleValveProps> = {
   name: "Needle Valve",
   key: "needleValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: NeedleValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Needle Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: NeedleValvePreview,
+  Preview: ({ clickable, ...props }) => Primitives.NeedleValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -532,7 +650,7 @@ const checkValve: Spec<CheckValveProps> = {
     ...zeroLabel("Check Valve"),
     ...ZERO_PROPS,
   }),
-  Preview: CheckValvePreview,
+  Preview: Primitives.CheckValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -546,21 +664,21 @@ const orifice: Spec<OrificeProps> = {
     ...zeroLabel("Orifice"),
     ...ZERO_PROPS,
   }),
-  Preview: OrificePreview,
+  Preview: Primitives.Orifice,
   zIndex: Z_INDEX_UPPER,
 };
 
 const angledReliefValve: Spec<ReliefValveProps> = {
   name: "Angled Relief Valve",
   key: "angledReliefValve",
-  Form: CommonStyleForm,
+  Form: CommonDummyToggleForm,
   Symbol: AngledReliefValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Angled Relief Valve"),
-    ...ZERO_PROPS,
+    ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: AngledReliefValvePreview,
+  Preview: ({ clickable, ...props }) => Primitives.AngledReliefValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -592,6 +710,7 @@ const button: Spec<ButtonProps> = {
     color: t.colors.primary.z.rgba255,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
+    onClickDelay: 0,
     scale: null,
   }),
   zIndex: Z_INDEX_UPPER,
@@ -601,13 +720,13 @@ const switch_: Spec<SwitchProps> = {
   name: "Switch",
   key: "switch",
   Symbol: Switch,
-  Preview: SwitchPreview,
   Form: CommonToggleForm,
   defaultProps: () => ({
     ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,
     scale: null,
   }),
+  Preview: Primitives.Switch,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -621,7 +740,7 @@ const vacuumPump: Spec<VacuumPumpProps> = {
     ...zeroLabel("Vacuum Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: VacuumPumpPreview,
+  Preview: Primitives.VacuumPump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -635,7 +754,7 @@ const cavityPump: Spec<CavityPumpProps> = {
     ...zeroLabel("Cavity Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: CavityPumpPreview,
+  Preview: Primitives.CavityPump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -649,7 +768,7 @@ const pistonPump: Spec<PistonPumpProps> = {
     ...zeroLabel("Piston Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: PistonPumpPreview,
+  Preview: Primitives.PistonPump,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -663,7 +782,7 @@ const staticMixer: Spec<StaticMixerProps> = {
     ...zeroLabel("Static Mixer"),
     ...ZERO_PROPS,
   }),
-  Preview: StaticMixerPreview,
+  Preview: Primitives.StaticMixer,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -677,7 +796,7 @@ const rotaryMixer: Spec<RotaryMixerProps> = {
     ...zeroLabel("Rotary Mixer"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: RotaryMixerPreview,
+  Preview: Primitives.RotaryMixer,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -691,7 +810,7 @@ const light: Spec<LightProps> = {
     ...zeroLabel("Light"),
     ...ZERO_BOOLEAN_SOURCE_PROPS,
   }),
-  Preview: LightPreview,
+  Preview: Primitives.Light,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -721,7 +840,7 @@ const agitator: Spec<AgitatorProps> = {
     ...zeroLabel("Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: AgitatorPreview,
+  Preview: Primitives.Agitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -735,7 +854,7 @@ const propellerAgitator: Spec<PropellerAgitatorProps> = {
     ...zeroLabel("Propeller Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: PropellerAgitatorPreview,
+  Preview: Primitives.PropellerAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -749,7 +868,7 @@ const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
     ...zeroLabel("Flat Blade Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: FlatBladeAgitatorPreview,
+  Preview: Primitives.FlatBladeAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -763,7 +882,7 @@ const paddleAgitator: Spec<PaddleAgitatorProps> = {
     ...zeroLabel("Paddle Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: PaddleAgitatorPreview,
+  Preview: Primitives.PaddleAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -777,7 +896,7 @@ const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
     ...zeroLabel("Cross Beam Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: CrossBeamAgitatorPreview,
+  Preview: Primitives.CrossBeamAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -791,7 +910,7 @@ const helicalAgitator: Spec<HelicalAgitatorProps> = {
     ...zeroLabel("Helical Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: HelicalAgitatorPreview,
+  Preview: Primitives.HelicalAgitator,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -805,7 +924,7 @@ const compressor: Spec<CompressorProps> = {
     ...zeroLabel("Compressor"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: CompressorPreview,
+  Preview: Primitives.Compressor,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -843,10 +962,53 @@ const offPageReference: Spec<OffPageReferenceProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const isoCheckValve: Spec<ISOCheckValveProps> = {
+  name: "ISO Check Valve",
+  key: "isoCheckValve",
+  Form: CommonStyleForm,
+  Symbol: ISOCheckValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("ISO Check Valve"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.ISOCheckValve,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const vent: Spec<VentProps> = {
+  name: "Vent",
+  key: "vent",
+  Form: CommonStyleForm,
+  Symbol: Vent,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Vent"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.Vent,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const tJunction: Spec<TJunctionProps> = {
+  name: "T Junction",
+  key: "tJunction",
+  Form: CommonStyleForm,
+  Symbol: TJunction,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel(""),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.TJunction,
+  zIndex: Z_INDEX_UPPER + 20,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
   tank,
+  tJunction,
   switch: switch_,
   offPageReference,
   light,
@@ -873,9 +1035,13 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   staticMixer,
   rotaryMixer,
   burstDisc,
+  isoBurstDisc,
   cap,
+  isoCap,
   filter,
+  isoFilter,
   orifice,
+  orificePlate,
   agitator,
   propellerAgitator,
   flatBladeAgitator,
@@ -883,4 +1049,9 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   crossBeamAgitator,
   helicalAgitator,
   compressor,
+  isoCheckValve,
+  vent,
+  cylinder,
+  springLoadedReliefValve,
+  angledSpringLoadedReliefValve,
 };

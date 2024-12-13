@@ -7,9 +7,6 @@ config_setting(
 
 cc_library(
     name = "driver",
-    srcs = [
-        "config.cpp",
-    ],
     hdrs = [
         "config.h",
     ],
@@ -28,7 +25,10 @@ cc_library(
         "//driver/task",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["//driver/labjack"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(
@@ -53,14 +53,18 @@ cc_test(
 cc_binary(
     name = "driver_main",
     srcs = select({
-        "//conditions:default":["main.cpp"],
+        "//conditions:default": ["main.cpp"],
     }),
     copts = select({
         ":use_ni": ["-DUSE_NI"],
-#         "@platforms//os:windows": [
-# #            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
-#             "-std:c++20"
-#         ],
+                # "@platforms//os:windows": [
+                #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+                #     "/ZI",                # Debug info
+                #     "/DEBUG",             # Enable debug info
+                #     "/MDd",               # Debug runtime
+                #     "-std:c++20",
+                #     "/D_DEBUG",          # Debug mode  "/D_DEBUG",
+                # ],
         "//conditions:default": ["-std=c++20"],
     }),
     linkopts = select({
@@ -68,8 +72,12 @@ cc_binary(
             "/DEFAULTLIB:ws2_32.lib",
             "/DEFAULTLIB:iphlpapi.lib",
             "/DEFAULTLIB:psapi.lib",
-#            "/debug",
-#            "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+            "/FORCE:MULTIPLE",  # FIXME: handles the current duplicate symbo,ls because of labjack lib. temp workaround
+            # "/DEBUG",
+            # "/INCREMENTAL:NO",    # Required for AddressSanitizer
+            # "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+            "/DELAYLOAD:LabJackM.dll",
+            "/DELAYLOAD:LabJackWUSB.dll", # so that link to dll is only attempted once a function is called
         ],
         "//conditions:default": [],
     }),
@@ -77,6 +85,7 @@ cc_binary(
         "@platforms//os:windows": [
             "//driver",
             "//driver/breaker",
+            "//driver/labjack",
             "//driver/meminfo",
             "//driver/ni",
             "//driver/opc",

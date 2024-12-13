@@ -10,25 +10,14 @@
 import "@synnaxlabs/pluto/dist/style.css";
 import "./main.css";
 
-import { Pluto } from "@synnaxlabs/pluto";
+import { Table } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
 import { ChildRanges } from "./ChildRanges";
 import WorkerURL from "./worker?worker&url";
 
 const Main = () => (
-  <Pluto.Provider
-    workerURL={WorkerURL}
-    connParams={{
-      host: "demo.synnaxlabs.com",
-      port: 9090,
-      username: "synnax",
-      password: "seldon",
-      secure: true,
-    }}
-  >
-    <ChildRanges />
-  </Pluto.Provider>
-);
+
+)
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<Main />);

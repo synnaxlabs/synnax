@@ -13,14 +13,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"os"
 	"os/signal"
 	"time"
@@ -39,12 +31,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
@@ -60,7 +62,7 @@ import (
 
 const stopKeyWord = "stop"
 
-var integrations = []string{"opc", "ni"}
+var integrations = []string{"opc", "ni", "labjack"}
 
 func scanForStopKeyword(interruptC chan os.Signal) {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -200,6 +202,17 @@ func start(cmd *cobra.Command) {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		})
+		if err != nil {
+			return err
+		}
+		logSvc, err := log.NewService(log.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil {
+			return err
+		}
+		tableSvc, err := table.NewService(table.Config{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+		})
 		hardwareSvc, err := hardware.OpenService(ctx, hardware.Config{
 			DB:           gorpDB,
 			Ontology:     dist.Ontology,
@@ -240,10 +253,12 @@ func start(cmd *cobra.Command) {
 			Storage:         dist.Storage,
 			User:            userSvc,
 			Token:           tokenSvc,
+			Table:           tableSvc,
 			Cluster:         dist.Cluster,
 			Ontology:        dist.Ontology,
 			Group:           dist.Group,
 			Ranger:          rangeSvc,
+			Log:             logSvc,
 			Workspace:       workspaceSvc,
 			Label:           labelSvc,
 			Hardware:        hardwareSvc,
@@ -456,10 +471,12 @@ func maybeSetBasePermission(
 			"range":       access.All,
 			"range-alias": access.All,
 			"workspace":   access.All,
+			"log":         access.All,
 			"lineplot":    access.All,
 			"rack":        access.All,
 			"device":      access.All,
 			"task":        access.All,
+			"table":       access.All,
 			"user":        access.Retrieve,
 			"schematic":   access.Retrieve,
 			"policy":      access.Retrieve,
