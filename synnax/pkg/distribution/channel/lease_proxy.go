@@ -154,7 +154,7 @@ func (lp *leaseProxy) createFreeVirtual(
 				return false
 			}
 			for _, ch := range *channels {
-				if ch.Name == c.Name {
+				if ch.Key() == c.Key() {
 					return true
 				}
 			}
