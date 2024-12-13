@@ -111,7 +111,7 @@ export const useSyncComponent = (
     },
   );
 
-export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
+const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
