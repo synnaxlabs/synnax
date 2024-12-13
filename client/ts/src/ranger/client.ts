@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
+import { type CrudeTimeRange, observe, sortTimeRange, TimeRange } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type Series } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
@@ -191,6 +191,9 @@ export class Range {
     return wrapper;
   }
 }
+
+export const sort = (a: Range, b: Range): -1 | 0 | 1 =>
+  sortTimeRange(a.timeRange, b.timeRange);
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
