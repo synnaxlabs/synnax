@@ -421,7 +421,7 @@ const ChannelListItem = ({
       align="center"
       direction="x"
     >
-      <Align.Space direction="x" wrap align="center" size="small">
+      <Align.Pack direction="x" align="center">
         <Form.Field<OutputChannelType>
           path={`${path}.type`}
           showLabel={false}
@@ -444,7 +444,12 @@ const ChannelListItem = ({
           empty
         >
           {(p) => (
-            <SelectOutputChannelType {...p} onClick={(e) => e.stopPropagation()} />
+            <SelectOutputChannelType
+              {...p}
+              onClick={(e) => e.stopPropagation()}
+              size="medium"
+              sharpEnding
+            />
           )}
         </Form.Field>
         <Form.Field<string>
@@ -477,7 +482,7 @@ const ChannelListItem = ({
             />
           )}
         </Form.Field>
-      </Align.Space>
+      </Align.Pack>
       <Align.Space direction="x" align="center" justify="spaceEvenly">
         <Text.Text
           level="p"
