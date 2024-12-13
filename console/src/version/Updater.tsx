@@ -20,6 +20,8 @@ import { infoLayout } from "@/version/Info";
 import { useSelectUpdateNotificationsSilenced } from "@/version/selectors";
 import { silenceUpdateNotifications } from "@/version/slice";
 
+const STATUS_KEY_PREFIX = "versionUpdate";
+
 export const useCheckForUpdates = (): boolean => {
   const addStatus = Status.useAggregator();
   const isSilenced = useSelectUpdateNotificationsSilenced();
@@ -31,7 +33,7 @@ export const useCheckForUpdates = (): boolean => {
     setAvailable(true);
     if (addNotifications)
       addStatus({
-        key: `versionUpdate-${id.id()}`,
+        key: `${STATUS_KEY_PREFIX}-${id.id()}`,
         variant: "info",
         message: `Update available`,
       });
@@ -49,11 +51,14 @@ export const useCheckForUpdates = (): boolean => {
   return available;
 };
 
-export const notificationAdapter: NotificationAdapter = (status) => {
-  if (!status.key.startsWith("versionUpdate")) return null;
+export const notificationAdapter: NotificationAdapter = (status, silence) => {
+  if (!status.key.startsWith(STATUS_KEY_PREFIX)) return null;
   return {
     ...status,
-    actions: [<OpenUpdateDialogAction key="update" />, <SilenceAction key="silence" />],
+    actions: [
+      <OpenUpdateDialogAction key="update" />,
+      <SilenceAction key="silence" onClick={() => silence(status.key)} />,
+    ],
   };
 };
 
@@ -66,10 +71,19 @@ export const OpenUpdateDialogAction = () => {
   );
 };
 
-const SilenceAction = () => {
+interface SilenceActionProps {
+  onClick: () => void;
+  key: string;
+}
+
+const SilenceAction = ({ onClick }: SilenceActionProps) => {
   const dispatch = useDispatch();
+  const handleClick = () => {
+    dispatch(silenceUpdateNotifications());
+    onClick();
+  };
   return (
-    <Button.Icon variant="text" onClick={() => dispatch(silenceUpdateNotifications())}>
+    <Button.Icon variant="text" onClick={handleClick}>
       <Icon.Snooze />
     </Button.Icon>
   );
