@@ -11,13 +11,14 @@ import { compare, toArray } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Haul } from "@/haul";
+import { type Icon } from "@/icon";
 
 export interface Node {
   key: string;
   name: string;
   renaming?: boolean;
   forcePosition?: number;
-  icon?: ReactElement;
+  icon?: ReactElement<Icon.BaseProps>;
   allowRename?: boolean;
   hasChildren?: boolean;
   children?: Node[];

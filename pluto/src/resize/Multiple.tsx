@@ -9,7 +9,7 @@
 
 import "@/resize/Multiple.css";
 
-import { box, direction, math,type xy } from "@synnaxlabs/x";
+import { box, direction, math, type xy } from "@synnaxlabs/x";
 import {
   Children,
   type ForwardedRef,
@@ -46,7 +46,7 @@ export interface UseMultipleProps {
 export interface UseMultipleReturn {
   setSize: (i: number, size?: number) => void;
   props: Pick<MultipleProps, "sizeDistribution" | "onDragHandle" | "direction"> & {
-    ref: RefObject<HTMLDivElement>;
+    ref: RefObject<HTMLDivElement | null>;
   };
 }
 
@@ -243,7 +243,7 @@ const handleResize = (
     diffPercentage,
     minSize / parentSize,
   );
-  const root = changed ? clientPos ?? null : prev.root;
+  const root = changed ? (clientPos ?? null) : prev.root;
   return { ...prev, sizeDistribution, root };
 };
 

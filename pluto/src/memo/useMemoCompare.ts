@@ -15,7 +15,7 @@ export const useMemoCompare = <V, D extends DependencyList>(
   areEqual: (prevDeps: D, nextDeps: D) => boolean,
   deps: D,
 ): V => {
-  const ref = useRef<{ deps: D; value: V }>();
+  const ref = useRef<{ deps: D; value: V }>(null);
   if (ref.current == null) ref.current = { deps, value: factory() };
   else if (!areEqual(ref.current.deps, deps)) ref.current = { deps, value: factory() };
   return ref.current.value;
@@ -29,14 +29,14 @@ export const compareArrayDeps = <T extends Primitive>(
 export const useMemoDeepEqualProps = <T extends Record<string, unknown> | undefined>(
   props: T,
 ): T => {
-  const ref = useRef<T>();
+  const ref = useRef<T>(null);
   if (ref.current == null) ref.current = props;
   else if (!deep.equal(ref.current, props)) ref.current = props;
   return ref.current;
 };
 
 export const useMemoPrimitiveArray = <T extends Primitive>(arr: T[]): T[] => {
-  const ref = useRef<T[]>();
+  const ref = useRef<T[]>(null);
   if (ref.current == null) ref.current = arr;
   else if (compare.primitiveArrays(ref.current, arr) !== 0) ref.current = arr;
   return ref.current;

@@ -13,7 +13,7 @@ import {
   type TimeStampStringFormat,
   type TZInfo,
 } from "@synnaxlabs/x";
-import { type ForwardedRef, forwardRef, type ReactElement } from "react";
+import { type ForwardedRef, forwardRef, type JSX, type ReactElement } from "react";
 
 import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
