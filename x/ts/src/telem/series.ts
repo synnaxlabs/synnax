@@ -164,7 +164,12 @@ export class Series<T extends TelemValue = TelemValue> {
     timeRange: TimeRange.z.optional(),
     dataType: DataType.z,
     alignment: zodutil.bigInt.optional(),
-    data: z.union([stringArrayZ, nullArrayZ, z.instanceof(ArrayBuffer)]),
+    data: z.union([
+      stringArrayZ,
+      nullArrayZ,
+      z.instanceof(ArrayBuffer),
+      z.instanceof(Uint8Array),
+    ]),
     glBufferUsage: glBufferUsageZ.optional().default("static").optional(),
   });
 
