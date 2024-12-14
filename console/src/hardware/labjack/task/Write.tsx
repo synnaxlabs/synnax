@@ -374,7 +374,10 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
               replaceOnSingle
               onChange={setSelected}
             >
-              <List.Core<string, WriteChan> grow>
+              <List.Core<string, WriteChan>
+                grow
+                style={{ height: "calc(100% - 6rem)" }}
+              >
                 {({ key, ...props }) => (
                   <ChannelListItem
                     key={key}
@@ -422,36 +425,6 @@ const ChannelListItem = ({
       direction="x"
     >
       <Align.Pack direction="x" align="center">
-        <Form.Field<OutputChannelType>
-          path={`${path}.type`}
-          showLabel={false}
-          hideIfNull
-          onChange={(value, { path, get, set }) => {
-            const channelPath = path.slice(0, path.lastIndexOf("."));
-            const previousChannel = get<WriteChan>(channelPath).value;
-            if (previousChannel.type === value) return;
-            const port = DEVICES[device.model].ports[value][0].key;
-            const existingCommandStatePair =
-              device.properties[value].channels[port] ?? ZERO_COMMAND_STATE_PAIR;
-            set(channelPath, {
-              ...previousChannel,
-              cmdKey: existingCommandStatePair.command,
-              stateKey: existingCommandStatePair.state,
-              type: value,
-            });
-            set(`${channelPath}.port`, port);
-          }}
-          empty
-        >
-          {(p) => (
-            <SelectOutputChannelType
-              {...p}
-              onClick={(e) => e.stopPropagation()}
-              size="medium"
-              sharpEnding
-            />
-          )}
-        </Form.Field>
         <Form.Field<string>
           path={`${path}.port`}
           showLabel={false}
@@ -479,6 +452,42 @@ const ChannelListItem = ({
               channelType={entry.type}
               allowNone={false}
               onClick={(e: MouseEvent) => e.stopPropagation()}
+              style={{ width: 250 }}
+              actions={[
+                <Form.Field<OutputChannelType>
+                  key="type"
+                  path={`${path}.type`}
+                  showLabel={false}
+                  hideIfNull
+                  onChange={(value, { path, get, set }) => {
+                    const channelPath = path.slice(0, path.lastIndexOf("."));
+                    const previousChannel = get<WriteChan>(channelPath).value;
+                    if (previousChannel.type === value) return;
+                    const port = DEVICES[device.model].ports[value][0].key;
+                    const existingCommandStatePair =
+                      device.properties[value].channels[port] ??
+                      ZERO_COMMAND_STATE_PAIR;
+                    set(channelPath, {
+                      ...previousChannel,
+                      cmdKey: existingCommandStatePair.command,
+                      stateKey: existingCommandStatePair.state,
+                      type: value,
+                    });
+                    set(`${channelPath}.port`, port);
+                  }}
+                  empty
+                >
+                  {(p) => (
+                    <SelectOutputChannelType
+                      {...p}
+                      onClick={(e) => e.stopPropagation()}
+                      pack={false}
+                      size="medium"
+                      sharpEnding
+                    />
+                  )}
+                </Form.Field>,
+              ]}
             />
           )}
         </Form.Field>

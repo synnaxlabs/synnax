@@ -104,7 +104,9 @@ export const ChannelListContextMenu = <
   onTare,
 }: ChannelListContextMenuProps<T>) => {
   const methods = Form.useContext();
-  const indices = keys.map((k) => value.findIndex((v) => v.key === k));
+  const indices = keys
+    .map((k) => value.findIndex((v) => v.key === k))
+    .filter((i) => i !== -1);
   const handleRemove = () => {
     remove(indices);
     onSelect([], -1);
@@ -134,7 +136,7 @@ export const ChannelListContextMenu = <
       }}
       level="small"
     >
-      {!snapshot && (
+      {!snapshot && indices.length > 0 && (
         <>
           <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
             Remove

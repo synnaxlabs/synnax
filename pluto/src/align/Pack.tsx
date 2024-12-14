@@ -22,8 +22,6 @@ export type PackProps<E extends SpaceElementType = "div"> = Omit<
 > & {
   shadow?: boolean;
   borderWidth?: number;
-  sharpBeginning?: boolean;
-  sharpEnding?: boolean;
 };
 
 const CorePack = <E extends SpaceElementType = "div">(
@@ -38,8 +36,6 @@ const CorePack = <E extends SpaceElementType = "div">(
     shadow = false,
     borderWidth,
     style,
-    sharpBeginning = false,
-    sharpEnding = false,
     ...props
   }: PackProps<E>,
   // select the correct type for the ref
@@ -66,8 +62,6 @@ const CorePack = <E extends SpaceElementType = "div">(
         typeof size !== "number" && CSS.BM("pack", size),
         reverse && CSS.BM("pack", "reverse"),
         className,
-        sharpBeginning && CSS.BM("pack", "sharp-beginning"),
-        sharpEnding && CSS.BM("pack", "sharp-ending"),
       )}
       style={pStyle}
       bordered={bordered}

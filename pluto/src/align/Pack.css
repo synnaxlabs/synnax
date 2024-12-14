@@ -60,20 +60,6 @@
         --pluto-pack--x-last-y-last: var(--br);
         --pluto-pack--x-last-y-only: var(--r);
 
-        &.pluto-pack--sharp-beginning {
-            --pluto-pack--first: 0;
-            --pluto-pack--x-first-y-first: 0;
-            --pluto-pack--x-first-y-last: 0;
-            --pluto-pack--x-first-y-only: 0;
-        }
-
-        &.pluto-pack--sharp-ending {
-            --pluto-pack--last: 0;
-            --pluto-pack--x-last-y-first: 0;
-            --pluto-pack--x-last-y-last: 0;
-            --pluto-pack--x-last-y-only: 0;
-        }
-
         .pluto-pack--reverse {
             --pluto-pack--first: var(--r);
             --pluto-pack--last: var(--l);
@@ -167,20 +153,6 @@
         --pluto-pack--y-last-x-first: var(--bl);
         --pluto-pack--y-last-x-last: var(--br);
         --pluto-pack--y-last-x-only: var(--b);
-
-        &.pluto-pack--sharp-beginning {
-            --pluto-pack--first: 0;
-            --pluto-pack--y-first-x-first: 0;
-            --pluto-pack--y-first-x-last: 0;
-            --pluto-pack--y-first-x-only: 0;
-        }
-
-        &.pluto-pack--sharp-ending {
-            --pluto-pack--last: 0;
-            --pluto-pack--y-last-x-first: 0;
-            --pluto-pack--y-last-x-last: 0;
-            --pluto-pack--y-last-x-only: 0;
-        }
 
         &.pluto-pack--reverse {
             --pluto-pack--first: 0 0 var(--pluto-pack-br) var(--pluto-pack-br) !important;
