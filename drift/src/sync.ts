@@ -10,7 +10,7 @@
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { dimensions, unique, xy } from "@synnaxlabs/x";
 
-import { log } from "@/debug";
+import { group, log } from "@/debug";
 import { type MainChecker, type Manager, type Properties } from "@/runtime";
 import {
   runtimeSetWindowProps,
@@ -94,10 +94,15 @@ export const syncCurrent = async (
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
-  const changes: Array<[string, () => Promise<void>]> = [];
+  const changes: Array<[string, { prev: unknown; next: string }, () => Promise<void>]> =
+    [];
 
   if (nextWin.title != null && nextWin.title !== prevWin.title)
-    changes.push(["title", async () => runtime.setTitle(nextWin.title as string)]);
+    changes.push([
+      "title",
+      { prev: prevWin.title, next: nextWin.title },
+      async () => runtime.setTitle(nextWin.title as string),
+    ]);
 
   const changeVisibility =
     nextWin.visible != null && nextWin.visible !== prevWin.visible;
@@ -105,6 +110,7 @@ export const syncCurrent = async (
   const changeVisibilityF = (): number =>
     changes.push([
       "visible",
+      { prev: prevWin.visible },
       async () => {
         await runtime.setVisible(nextWin.visible as boolean);
         if (nextWin.visible === false) return;
@@ -204,6 +210,7 @@ export const syncCurrent = async (
   // we make it visible.
   if (changeVisibility && !changeVisibilityNow) changeVisibilityF();
 
+  group(debug);
   for (const [name, change] of changes) {
     log(debug, "sync", "change", name);
     await change();

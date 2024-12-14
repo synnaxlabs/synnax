@@ -152,6 +152,7 @@ export const resetInitialState = <S extends StoreState>(
   const drift = state[SLICE_NAME];
   Object.keys(drift.windows).forEach((key) => {
     const window = drift.windows[key];
+    if (!window.reserved) return;
     if (defaultWindowProps?.visible != null)
       window.visible = defaultWindowProps.visible;
     window.focusCount = 0;
