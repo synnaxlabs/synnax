@@ -166,8 +166,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const schematic = useSelect(layoutKey);
 
   const dispatch = useSyncComponent(layoutKey);
+  const selector = useCallback(
+    (state: RootState) => select(state, layoutKey),
+    [layoutKey],
+  );
   const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
-    (state) => select(state, layoutKey),
+    selector,
     internalCreate,
     30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
   );
@@ -309,15 +313,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         else if (isRedo) redo();
         else undoableDispatch(pasteSelection({ pos, key: layoutKey }));
       },
-      [
-        layoutKey,
-        viewportRef.current,
-        ref.current,
-        undoableDispatch,
-        undo,
-        redo,
-        dispatch,
-      ],
+      [layoutKey, undoableDispatch, undo, redo, dispatch],
     ),
   });
 
