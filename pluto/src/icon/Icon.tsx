@@ -21,15 +21,15 @@ import {
 
 import { CSS } from "@/css";
 
-interface BaseIconProps extends SVGProps<SVGSVGElement> {}
+export interface BaseProps extends SVGProps<SVGSVGElement> {}
 
 export interface IconProps
-  extends Partial<Record<location.CornerXYString, ReactElement<BaseIconProps>>>,
+  extends Partial<Record<location.CornerXYString, ReactElement<BaseProps>>>,
     ComponentPropsWithoutRef<"div"> {
-  children: ReactElement<BaseIconProps>;
+  children: ReactElement<BaseProps>;
 }
 
-const clone = (value: ReactElement<BaseIconProps>, key: location.CornerXYString) =>
+const clone = (value: ReactElement<BaseProps>, key: location.CornerXYString) =>
   cloneElement(value, {
     className: CSS(value.props.className, CSS.B("sub"), CSS.M(key)),
   });
@@ -66,23 +66,23 @@ export const Import = (props: ImportProps): ReactElement => (
 
 interface Resolve {
   (
-    icon: ReactElement<BaseIconProps> | string,
-    overrides?: BaseIconProps,
-  ): ReactElement<BaseIconProps>;
+    icon?: ReactElement<BaseProps> | string,
+    overrides?: BaseProps,
+  ): ReactElement<BaseProps> | undefined;
   (
-    icon?: ReactElement<BaseIconProps> | string,
-    overrides?: BaseIconProps,
-  ): ReactElement<BaseIconProps> | undefined;
+    icon: ReactElement<BaseProps> | string,
+    overrides?: BaseProps,
+  ): ReactElement<BaseProps>;
 }
 
 export const resolve = ((
-  icon?: ReactElement<BaseIconProps> | string,
-  overrides?: BaseIconProps,
-): ReactElement<BaseIconProps> | undefined => {
+  icon?: ReactElement<BaseProps> | string | undefined,
+  overrides?: BaseProps,
+): ReactElement<BaseProps> | undefined => {
   if (icon == null) return;
   if (typeof icon === "string") {
-    const C = deep.get<FC<BaseIconProps>>(
-      MediaIcon as unknown as Record<string, FC<BaseIconProps>>,
+    const C = deep.get<FC<BaseProps>>(
+      MediaIcon as unknown as Record<string, FC<BaseProps>>,
       icon,
     );
     return <C {...overrides} />;

@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { location } from "@synnaxlabs/x";
 import {
   cloneElement,
+  type CSSProperties,
   type DragEvent,
   type FC,
   Fragment,
@@ -31,7 +32,12 @@ import { selectNode } from "@/vis/diagram/util";
 
 export interface GridItem {
   key: string;
-  element: ReactElement;
+  element: ReactElement<{
+    style?: CSSProperties;
+    draggable?: boolean;
+    onDragStart?: (e: DragEvent<HTMLElement>) => void;
+    onDragEnd?: (e: DragEvent<HTMLElement>) => void;
+  }>;
   location: location.Outer;
 }
 
@@ -86,8 +92,7 @@ const createGridEl = (loc: location.Outer): FC<GridElProps> => {
     const items = fItems.filter((i) => i.location === loc);
 
     const onDragStart = useCallback(
-      (_: DragEvent<HTMLDivElement>, key: string) =>
-        startDrag([{ key, type: haulType }]),
+      (_: DragEvent<HTMLElement>, key: string) => startDrag([{ key, type: haulType }]),
       [startDrag, haulType],
     );
 
@@ -108,7 +113,7 @@ const createGridEl = (loc: location.Outer): FC<GridElProps> => {
           <Fragment key={key}>
             {cloneElement(element, {
               draggable: true,
-              onDragStart: (e: DragEvent<HTMLDivElement>) => onDragStart(e, key),
+              onDragStart: (e: DragEvent<HTMLElement>) => onDragStart(e, key),
               onDragEnd,
               style: { ...element.props.style, cursor: "grab" },
             })}

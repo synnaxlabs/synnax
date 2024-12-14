@@ -20,17 +20,17 @@ objc = "0.2.7"
 rand = "0.8.5"
 
 [dependencies]
-tauri = { version = "2.1.0", features = ["devtools"] }
-tauri-plugin-store = "2.1.0"
-tauri-plugin-deep-link = "2.0.1"
-tauri-plugin-fs = "2.0.3"
-tauri-plugin-shell = "2.0.2"
-tauri-plugin-updater = "2.0.2"
-tauri-plugin-dialog = "2.0.3"
-tauri-plugin-process = "2.0.1"
+tauri = { version = "2.1.1", features = ["devtools"] }
+tauri-plugin-store = "2.2.0"
+tauri-plugin-deep-link = "2.2.0"
+tauri-plugin-fs = "2.2.0"
+tauri-plugin-shell = "2.2.0"
+tauri-plugin-updater = "2.3.0"
+tauri-plugin-dialog = "2.2.0"
+tauri-plugin-process = "2.2.0"
 window-shadows = "0.2.2"
-serde = "1.0.214"
-serde_json = "1.0.132"
+serde = "1.0.216"
+serde_json = "1.0.133"
 device_query = "1.1.1"
 
 [features]

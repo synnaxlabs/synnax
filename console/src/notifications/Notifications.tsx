@@ -29,6 +29,7 @@ export interface SugaredNotification extends Status.NotificationSpec {
 
 export type NotificationAdapter = (
   status: Status.NotificationSpec,
+  silence: (key: string) => void,
 ) => null | SugaredNotification;
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
@@ -40,7 +41,7 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
   const sugared = statuses.map((status) => {
     if (adapters == null || adapters.length === 0) return status;
     for (const adapter of adapters) {
-      const result = adapter(status);
+      const result = adapter(status, silence);
       if (result != null) return result;
     }
     return status;

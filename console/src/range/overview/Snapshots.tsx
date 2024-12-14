@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
+  type Icon as PIcon,
   List,
   Synnax,
   Text,
@@ -25,7 +26,7 @@ import { create } from "@/schematic/external";
 import { type State as SchematicState } from "@/schematic/slice";
 
 interface SnapshotService {
-  icon: ReactElement;
+  icon: ReactElement<PIcon.BaseProps>;
   onClick: (client: Client, res: ontology.Resource, placer: Layout.Placer) => void;
 }
 

@@ -12,6 +12,7 @@ import {
   createElement,
   type ForwardedRef,
   forwardRef,
+  type JSX,
   type ReactElement,
 } from "react";
 

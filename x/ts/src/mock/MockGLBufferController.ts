@@ -41,14 +41,14 @@ export class MockGLBufferController implements GLBufferController {
 
   bufferData(
     target: number,
-    dataOrSize: ArrayBufferLike | number,
+    dataOrSize: AllowSharedBufferSource | number,
     usage: number,
   ): void {
     if (typeof dataOrSize === "number")
       this.buffers[this.targets[target]] = new ArrayBuffer(dataOrSize);
-    else this.buffers[this.targets[target]] = dataOrSize;
+    else this.buffers[this.targets[target]] = dataOrSize as ArrayBuffer;
 
-    this.bufferDataMock(target, dataOrSize, usage);
+    this.bufferDataMock(target, dataOrSize as ArrayBuffer, usage);
   }
 
   bindBuffer(target: number, buffer: WebGLBuffer | null): void {
@@ -57,14 +57,14 @@ export class MockGLBufferController implements GLBufferController {
     this.bindBufferMock(target, buffer);
   }
 
-  bufferSubData(target: number, offset: number, data: ArrayBufferLike): void {
+  bufferSubData(target: number, offset: number, data: AllowSharedBufferSource): void {
     let buffer = this.buffers[this.targets[target]];
     if (buffer == null) {
       buffer = new ArrayBuffer(offset + data.byteLength);
       this.buffers[target] = buffer;
     }
     const view = new Uint8Array(buffer);
-    view.set(new Uint8Array(data), offset);
-    this.bufferSubDataMock(target, offset, data);
+    view.set(new Uint8Array(data as ArrayBuffer), offset);
+    this.bufferSubDataMock(target, offset, data as ArrayBuffer);
   }
 }

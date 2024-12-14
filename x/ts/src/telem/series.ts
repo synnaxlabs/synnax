@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { isTypedArray } from "util/types";
 import { z } from "zod";
 
 import { binary } from "@/binary";
@@ -143,7 +144,7 @@ export class Series<T extends TelemValue = TelemValue> {
    */
   private readonly gl: GL;
   /** The underlying data. */
-  private readonly _data: ArrayBufferLike;
+  private readonly _data: ArrayBuffer;
   readonly _timeRange?: TimeRange;
   readonly alignment: bigint = 0n;
   /** A cached minimum value. */
@@ -163,7 +164,12 @@ export class Series<T extends TelemValue = TelemValue> {
     timeRange: TimeRange.z.optional(),
     dataType: DataType.z,
     alignment: zodutil.bigInt.optional(),
-    data: z.union([stringArrayZ, nullArrayZ, z.instanceof(ArrayBuffer)]),
+    data: z.union([
+      stringArrayZ,
+      nullArrayZ,
+      z.instanceof(ArrayBuffer),
+      z.instanceof(Uint8Array),
+    ]),
     glBufferUsage: glBufferUsageZ.optional().default("static").optional(),
   });
 
@@ -235,7 +241,7 @@ export class Series<T extends TelemValue = TelemValue> {
         );
     } else this.dataType = new DataType(data);
 
-    if (!isArray && !isSingle) this._data = data;
+    if (!isArray && !isSingle) this._data = data as ArrayBuffer;
     else {
       let data_ = isSingle ? [data] : data;
       const first = data_[0];
@@ -247,12 +253,13 @@ export class Series<T extends TelemValue = TelemValue> {
         data_ = data_.map((v) => new TimeStamp(v as CrudeTimeStamp).valueOf());
       if (this.dataType.equals(DataType.STRING)) {
         this._cachedLength = data_.length;
-        this._data = new TextEncoder().encode(`${data_.join("\n")}\n`);
+        this._data = new TextEncoder().encode(`${data_.join("\n")}\n`)
+          .buffer as ArrayBuffer;
       } else if (this.dataType.equals(DataType.JSON)) {
         this._cachedLength = data_.length;
         this._data = new TextEncoder().encode(
           `${data_.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n")}\n`,
-        );
+        ).buffer as ArrayBuffer;
       } else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
     }
 
@@ -294,14 +301,16 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   static fromStrings(data: string[], timeRange?: TimeRange): Series {
-    const buffer = new TextEncoder().encode(`${data.join("\n")}\n`);
+    const buffer = new TextEncoder().encode(
+      `${data.join("\n")}\n`,
+    ) as Uint8Array<ArrayBuffer>;
     return new Series({ data: buffer, dataType: DataType.STRING, timeRange });
   }
 
   static fromJSON<T>(data: T[], timeRange?: TimeRange): Series {
     const buffer = new TextEncoder().encode(
       `${data.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n")}\n`,
-    );
+    ) as Uint8Array<ArrayBuffer>;
     return new Series({ data: buffer, dataType: DataType.JSON, timeRange });
   }
 
@@ -365,10 +374,10 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   /** @returns the underlying buffer backing this array. */
-  get buffer(): ArrayBufferLike {
-    if (this._data instanceof ArrayBuffer || this._data instanceof SharedArrayBuffer)
-      return this._data;
-    return (this._data as TypedArray).buffer;
+  get buffer(): ArrayBuffer {
+    if (typeof this._data === "object" && "buffer" in this._data)
+      return (this._data as unknown as Uint8Array).buffer as ArrayBuffer;
+    return this._data;
   }
 
   private get underlyingData(): TypedArray {
@@ -378,6 +387,7 @@ export class Series<T extends TelemValue = TelemValue> {
   /** @returns a native typed array with the proper data type. */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
+    // @ts-expect-error - ABC
     return new this.dataType.Array(this._data, 0, this.writePos);
   }
 
@@ -395,7 +405,9 @@ export class Series<T extends TelemValue = TelemValue> {
 
     for (let i = 0; i < this.length; i++) {
       const v = this.underlyingData.slice(i * den, (i + 1) * den);
-      const id = Array.from(new Uint8Array(v), (b) => b.toString(16).padStart(2, "0"))
+      const id = Array.from(new Uint8Array(v.buffer), (b) =>
+        b.toString(16).padStart(2, "0"),
+      )
         .join("")
         .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
       r[i] = id;
@@ -660,7 +672,7 @@ export class Series<T extends TelemValue = TelemValue> {
       // This means we can buffer the entire array in a single go.
       gl.bufferData(
         gl.ARRAY_BUFFER,
-        this.underlyingData,
+        this.buffer,
         bufferUsage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW,
       );
       this.gl.prevBuffer = FULL_BUFFER;
@@ -1061,7 +1073,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
       buf.set(ser.data as ArrayLike<any>, offset);
       offset += ser.length;
     }
-    return new this.dataType.Array(buf);
+    return new this.dataType.Array(buf.buffer);
   }
 
   traverseAlignment(start: bigint, dist: bigint): bigint {

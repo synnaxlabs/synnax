@@ -799,7 +799,7 @@ export const ISOCap = ({
   className,
   orientation = "left",
   color,
-  scale,
+  scale = 1,
   ...props
 }: ISOCapProps): ReactElement => (
   <Div className={CSS(CSS.B("cap"), className)} {...props}>
@@ -810,7 +810,7 @@ export const ISOCap = ({
       color={color}
       dimensions={{ width: 36, height: 48 }}
       orientation={orientation}
-      scale={scale}
+      scale={scale * 0.6}
     >
       <Path
         d="M3 3H30C31.6569 3 33 4.34315 33 6V42C33 43.6569 31.6569 45 30 45H3"
@@ -2390,8 +2390,19 @@ export const Cylinder = ({
         />
       </svg>
       <HandleBoundary refreshDeps={refreshDeps} orientation="left">
+        {/* Top  */}
         <Handle location="top" orientation="left" left={50} top={2} id="1" />
+        <Handle location="left" orientation="left" left={35} top={10} id="9" />
+        <Handle location="right" orientation="left" left={65} top={10} id="10" />
+        {/* Bottom */}
         <Handle location="bottom" orientation="left" left={50} top={98.3333} id="2" />
+        {/* Main body */}
+        <Handle location="left" orientation="left" left={4} top={40} id="3" />
+        <Handle location="right" orientation="left" left={96} top={40} id="4" />
+        <Handle location="left" orientation="left" left={4} top={60} id="5" />
+        <Handle location="right" orientation="left" left={96} top={60} id="6" />
+        <Handle location="left" orientation="left" left={4} top={80} id="7" />
+        <Handle location="right" orientation="left" left={96} top={80} id="8" />
       </HandleBoundary>
     </Div>
   );

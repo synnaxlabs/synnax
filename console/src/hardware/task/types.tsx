@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
+import { type Icon as PIcon } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -18,13 +19,13 @@ import { OPC } from "@/hardware/opc";
 export const PREFIXES = [LabJack.Task.PREFIX, NI.Task.PREFIX, OPC.Task.PREFIX] as const;
 export type Prefix = (typeof PREFIXES)[number];
 
-export const ICONS: Record<Prefix, ReactElement> = {
+export const ICONS: Record<Prefix, ReactElement<PIcon.BaseProps>> = {
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
   [OPC.Task.PREFIX]: <Icon.Logo.OPC />,
 };
 
-export const getIcon = (type: string): ReactElement => {
+export const getIcon = (type: string): ReactElement<PIcon.BaseProps> => {
   for (const prefix of PREFIXES) if (type.startsWith(prefix)) return ICONS[prefix];
   return <Icon.Task />;
 };

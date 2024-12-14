@@ -11,9 +11,13 @@ import { z } from "zod";
 
 export interface GLBufferController {
   createBuffer: () => WebGLBuffer | null;
-  bufferData: ((target: number, data: ArrayBufferLike, usage: number) => void) &
+  bufferData: ((target: number, data: AllowSharedBufferSource, usage: number) => void) &
     ((target: number, size: number, usage: number) => void);
-  bufferSubData: (target: number, offset: number, data: ArrayBufferLike) => void;
+  bufferSubData: (
+    target: number,
+    offset: number,
+    data: AllowSharedBufferSource,
+  ) => void;
   bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
   deleteBuffer: (buffer: WebGLBuffer | null) => void;
   ARRAY_BUFFER: number;
