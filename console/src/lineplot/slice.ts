@@ -310,16 +310,14 @@ export const { actions, reducer } = createSlice({
     setRule: (state, { payload }: PayloadAction<SetRulePayload>) => {
       const { key: layoutKey, rule } = payload;
       const plot = state.plots[layoutKey];
-      toArray(rule).forEach((r) => {
-        const idx = plot.rules.findIndex((rr) => rr.key === r.key);
-        if (idx >= 0) plot.rules[idx] = { ...plot.rules[idx], ...r };
-        else
-          plot.rules.push({
-            ...latest.ZERO_RULE_STATE,
-            label: `Rule ${plot.rules.length + 1}`,
-            ...r,
-          });
-      });
+      const idx = plot.rules.findIndex((r) => r.key === rule.key);
+      if (idx >= 0) plot.rules[idx] = { ...plot.rules[idx], ...rule };
+      else
+        plot.rules.push({
+          ...latest.ZERO_RULE_STATE,
+          label: `Rule ${plot.rules.length + 1}`,
+          ...rule,
+        });
     },
     removeRule: (state, { payload }: PayloadAction<RemoveRulePayload>) => {
       const { key: layoutKey, ruleKeys } = payload;

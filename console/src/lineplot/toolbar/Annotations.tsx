@@ -27,7 +27,7 @@ import { useDispatch } from "react-redux";
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
 import { AXIS_KEYS, type AxisKey, Y1 } from "@/lineplot/axis";
-import { useSelect } from "@/lineplot/selectors";
+import { useSelectAxes, useSelectRules } from "@/lineplot/selectors";
 import { removeRule, type RuleState, setRule } from "@/lineplot/slice";
 
 interface EmptyContentProps {
@@ -85,7 +85,7 @@ const List = ({
   const menuProps = PMenu.useContextMenu();
   return (
     <Align.Space direction="x" empty>
-      <Button.Icon tooltip="Add Rule" size="large" onClick={onCreate}>
+      <Button.Icon tooltip="Add Rule" size="small" onClick={onCreate}>
         <Icon.Add />
       </Button.Icon>
       <Divider.Divider direction="y" />
@@ -207,8 +207,8 @@ export interface AnnotationsProps {
 }
 
 export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => {
-  const vis = useSelect(linePlotKey);
-  const rules = vis.rules;
+  const axes = useSelectAxes(linePlotKey);
+  const rules = useSelectRules(linePlotKey);
   const theme = Layout.useSelectTheme();
   const [selectedRuleKeys, setSelectedRuleKeys] = useState<string[]>(
     rules.length > 0 ? [rules[0].key] : [],
@@ -221,7 +221,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
     const color = visColors[rules.length % visColors.length]?.hex;
     const key = id.id();
     const axis = Y1;
-    const position = bounds.mean(vis.axes.axes[axis].bounds);
+    const position = bounds.mean(axes[axis].bounds);
     dispatch(setRule({ key: linePlotKey, rule: { key, color, axis, position } }));
     setSelectedRuleKeys([key]);
   };
@@ -240,7 +240,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
     );
   };
   const handleChangeAxis = (axis: AxisKey): void => {
-    const position = bounds.mean(vis.axes.axes[axis].bounds);
+    const position = bounds.mean(axes[axis].bounds);
     dispatch(
       setRule({ key: linePlotKey, rule: { key: shownRuleKey, axis, position } }),
     );

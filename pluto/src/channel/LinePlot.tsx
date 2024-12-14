@@ -36,14 +36,8 @@ export interface AxisProps extends Core.AxisProps {
 
 export interface BaseLineProps {
   key: string;
-  axes: {
-    x: string;
-    y: string;
-  };
-  channels: {
-    y: channel.KeyOrName;
-    x?: channel.KeyOrName;
-  };
+  axes: { x: string; y: string };
+  channels: { y: channel.KeyOrName; x?: channel.KeyOrName };
   color: Color.Crude;
   strokeWidth?: number;
   label?: string;
@@ -168,6 +162,7 @@ export const LinePlot = ({
             onAxisChannelDrop={onAxisChannelDrop}
             onAxisChange={onAxisChange}
             annotationProvider={annotationProvider}
+            onRuleChange={onRuleChange}
           />
         );
       })}
@@ -250,10 +245,7 @@ const XAxis = ({
         return (
           <YAxis
             key={a.key}
-            axis={{
-              ...a,
-              showGrid: showGrid ?? (index === 0 && i === 0),
-            }}
+            axis={{ ...a, showGrid: showGrid ?? (index === 0 && i === 0) }}
             lines={yLines}
             rules={yRules}
             onRuleChange={onRuleChange}

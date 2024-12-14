@@ -14,6 +14,7 @@ import { useMemoSelect } from "@/hooks";
 import { type AxisKey, type XAxisRecord } from "@/lineplot/axis";
 import {
   type ControlState,
+  type RuleState,
   type SelectionState,
   SLICE_NAME,
   type SliceState,
@@ -74,6 +75,12 @@ export const selectSelection = (state: StoreState, key: string): SelectionState 
 export const useSelectSelection = (key: string): SelectionState =>
   useMemoSelect((state: StoreState) => selectSelection(state, key), [key]);
 
+export const selectAxes = (state: StoreState, key: string) =>
+  select(state, key).axes.axes;
+
+export const useSelectAxes = (key: string) =>
+  useMemoSelect((state: StoreState) => selectAxes(state, key), [key]);
+
 export const selectAxisBounds = (
   state: StoreState,
   key: string,
@@ -94,3 +101,9 @@ export const selectVersion = (state: StoreState, key: string): string | undefine
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);
+
+export const selectRules = (state: StoreState, key: string): RuleState[] =>
+  select(state, key).rules;
+
+export const useSelectRules = (key: string): RuleState[] =>
+  useMemoSelect((state: StoreState) => selectRules(state, key), [key]);

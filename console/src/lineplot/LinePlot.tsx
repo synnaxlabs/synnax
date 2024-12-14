@@ -160,17 +160,16 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const handleRuleChange = useCallback<
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
-    (rule) =>
+    (rule) => {
+      if (rule.color != null) rule.color = Color.toHex(rule.color);
       syncDispatch(
         setRule({
           key: layoutKey,
-          rule: {
-            ...rule,
-            axis: rule.axis as XAxisKey,
-            color: Color.toHex(rule.color),
-          },
+          // @ts-expect-error rule.color was reassigned to be a string or undefined
+          rule,
         }),
-      ),
+      );
+    },
     [syncDispatch, layoutKey],
   );
 

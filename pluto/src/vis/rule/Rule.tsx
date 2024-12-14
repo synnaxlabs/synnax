@@ -67,8 +67,7 @@ export const Rule = Aether.wrap<RuleProps>(
       if (position == null) return;
       if (propsPosition == null) return onPositionChange?.(position);
       const b = bounds.construct(position + 0.01, position - 0.01);
-      if (propsPosition != null && !bounds.contains(b, propsPosition))
-        onPositionChange?.(Math.trunc(position * 100) / 100);
+      if (!bounds.contains(b, propsPosition)) onPositionChange?.(position);
     }, [position]);
 
     const pixelPosRef = useRef(pixelPosition);
