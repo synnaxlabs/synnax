@@ -2390,8 +2390,19 @@ export const Cylinder = ({
         />
       </svg>
       <HandleBoundary refreshDeps={refreshDeps} orientation="left">
+        {/* Top  */}
         <Handle location="top" orientation="left" left={50} top={2} id="1" />
+        <Handle location="left" orientation="left" left={35} top={10} id="9" />
+        <Handle location="right" orientation="left" left={65} top={10} id="10" />
+        {/* Bottom */}
         <Handle location="bottom" orientation="left" left={50} top={98.3333} id="2" />
+        {/* Main body */}
+        <Handle location="left" orientation="left" left={4} top={40} id="3" />
+        <Handle location="right" orientation="left" left={96} top={40} id="4" />
+        <Handle location="left" orientation="left" left={4} top={60} id="5" />
+        <Handle location="right" orientation="left" left={96} top={60} id="6" />
+        <Handle location="left" orientation="left" left={4} top={80} id="7" />
+        <Handle location="right" orientation="left" left={96} top={80} id="8" />
       </HandleBoundary>
     </Div>
   );

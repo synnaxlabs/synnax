@@ -767,7 +767,7 @@ export const OffPageReferenceForm = (): ReactElement => (
 
 export const CylinderForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow empty>
+    <Align.Space direction="y" grow>
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />
