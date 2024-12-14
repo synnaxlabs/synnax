@@ -31,7 +31,7 @@
     background: var(--pluto-gray-l2);
     z-index: 2;
     * {
-        /* color: var(--pluto-gray-l9) !important; */
+        color: var(--pluto-gray-l9) !important;
         font-size: var(--pluto-small-size);
     }
 }

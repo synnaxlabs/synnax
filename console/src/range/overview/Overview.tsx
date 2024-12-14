@@ -10,8 +10,6 @@
 import "@/range/overview/Overview.css";
 
 import { Align, Divider } from "@synnaxlabs/pluto";
-import nlp from "compromise";
-import nlpDates from "compromise-dates";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

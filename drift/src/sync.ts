@@ -9,7 +9,6 @@
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { dimensions, unique, xy } from "@synnaxlabs/x";
-import { Mutex } from "async-mutex";
 
 import { group, groupEnd, log } from "@/debug";
 import { type MainChecker, type Manager, type Properties } from "@/runtime";
