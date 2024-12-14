@@ -191,7 +191,6 @@ struct TableConfig {
         auto eu = parser.required<std::string>("electrical_units");
         auto pu = parser.required<std::string>("physical_units");
 
-
         electrical_units = ni::UNITS_MAP.at(eu);
         physical_units = ni::UNITS_MAP.at(pu);
 
