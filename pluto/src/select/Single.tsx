@@ -159,6 +159,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           visible={visible}
           allowNone={allowNone}
           className={className}
+          dropdownVariant={dropdownVariant}
           disabled={disabled}
           placeholder={inputPlaceholder}
         >
@@ -212,6 +213,7 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   debounceSearch?: number;
   allowNone?: boolean;
   onFocus: () => void;
+  dropdownVariant?: Dropdown.Variant;
   zIndex?: number;
 }
 
@@ -236,6 +238,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   placeholder = DEFAULT_PLACEHOLDER,
   className,
   disabled,
+  dropdownVariant,
   children,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
@@ -280,6 +283,12 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
     clear?.();
   };
 
+  let endContent: ReactElement | undefined;
+  if (dropdownVariant !== "modal")
+    endContent = (
+      <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
+    );
+
   return (
     <Input.Text
       className={CSS(CSS.BE("select", "input"), className)}
@@ -291,9 +300,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
         if (visible) return;
         onFocus?.();
       })}
-      endContent={
-        <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
-      }
+      endContent={endContent}
       style={{ flexGrow: 1 }}
       onClick={handleClick}
       placeholder={placeholder}

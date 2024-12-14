@@ -19,6 +19,23 @@
     z-index: 3;
 }
 
+.pluto-input__disabled-overlay {
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: var(--pluto-gray-l2);
+    z-index: 2;
+    * {
+        color: var(--pluto-gray-l9) !important;
+        font-size: var(--pluto-small-size);
+    }
+}
+
 .pluto-input {
     color: var(--pluto-text-color);
     margin: 0;
@@ -34,19 +51,20 @@
     }
 
     &.pluto--disabled {
-        * {
-            cursor: not-allowed !important;
-            color: var(--pluto-gray-l5) !important;
-        }
         & .pluto-input__internal {
             background-color: var(--pluto-gray-l2);
             border-color: var(--pluto-gray-l3);
+        }
+        & :not(.pluto-input__disabled-overlay) {
+            cursor: not-allowed !important;
+            color: var(--pluto-gray-l5) !important;
         }
     }
 
     & input {
         border: none;
         background: none;
+        text-align: inherit;
         width: 100%;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -129,6 +147,7 @@
 
 .pluto-input__end-content {
     position: absolute;
+
     right: -0.5rem;
     top: 0;
     height: 100%;
@@ -172,8 +191,9 @@
 .pluto-input--preview {
     background: none !important;
     border-radius: 0 !important;
+    align-items: center;
     & > * {
-        border-color: transparent;
+        border-color: transparent !important;
     }
 
     &:not(:hover) {

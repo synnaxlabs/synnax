@@ -11,9 +11,8 @@ import "@/layout/Window.css";
 
 import {
   MAIN_WINDOW,
-  setWindowDecorations,
-  setWindowMinimized,
-  setWindowVisible,
+  setWindowProps,
+  type SetWindowPropsPayload,
 } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
@@ -97,13 +96,15 @@ const WindowInternal = (): ReactElement | null => {
   const layout = useSelect(win);
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
-
   useEffect(() => {
-    if (layout?.key != null) {
-      dispatch(setWindowVisible({ key: layout.key, value: true }));
-      dispatch(setWindowMinimized({ key: layout.key, value: false }));
-    }
-    if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
+    if (layout?.key == null) return;
+    const pld: SetWindowPropsPayload = {
+      key: layout?.key,
+      visible: true,
+      minimized: false,
+    };
+    if (os === "Windows") pld.decorations = false;
+    dispatch(setWindowProps(pld));
   }, [os, layout?.key]);
 
   const menuProps = PMenu.useContextMenu();

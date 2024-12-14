@@ -41,8 +41,9 @@
             top: 30%;
             z-index: 11;
             transform: translateY(-25%);
-            background: var(--pluto-gray-l0);
-            backdrop-filter: saturate(300%) blur(5rem);
+            background: var(--pluto-gray-l0-90);
+            -webkit-backdrop-filter: blur(3rem);
+            backdrop-filter: blur(3rem);
             box-shadow: var(--pluto-shadow-menu);
             border-radius: 1rem;
             min-width: 400px;

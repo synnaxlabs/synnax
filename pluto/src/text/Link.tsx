@@ -26,17 +26,17 @@ const CoreLink = <L extends text.Level = "h1">(
   { href, download, target, rel, ...props }: LinkProps<L>,
   ref: ForwardedRef<HTMLAnchorElement>,
 ): ReactElement => (
-  <a
-    className={CSS.B("text-link")}
+  // @ts-expect-error - generic component errors
+  <Text<L>
+    el="a"
     ref={ref}
     href={href}
     download={download}
     target={target}
     rel={rel}
-  >
-    {/* @ts-expect-error - generic component errors */}
-    <Text<L> className={CSS.BE("text-link", "text")} {...props} />
-  </a>
+    className={CSS.B("text-link")}
+    {...props}
+  />
 );
 
 // @ts-expect-error - generic component errors
