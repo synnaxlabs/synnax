@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction, type Reducer } from "@reduxjs/toolkit";
 import { box, deep, type dimensions, id, TimeSpan, xy } from "@synnaxlabs/x";
 
+import { group, groupEnd, log } from "@/debug";
 import {
   INITIAL_PRERENDER_WINDOW_STATE,
   INITIAL_WINDOW_STATE,
@@ -23,6 +24,7 @@ export interface SliceState {
 export interface Config {
   enablePrerender: boolean;
   defaultWindowProps: Omit<WindowProps, "key">;
+  debug: boolean;
 }
 
 /** State of a store with a drift slice */
@@ -123,6 +125,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   label: MAIN_WINDOW,
   config: {
     enablePrerender: true,
+    debug: false,
     defaultWindowProps: {},
   },
   windows: {
@@ -217,32 +220,6 @@ const maybePositionInCenter = (
   return position;
 };
 
-const reduceSetConfig = (s: SliceState, a: PayloadAction<SetConfigPayload>): void => {
-  s.config = { ...s.config, ...a.payload };
-  const firstPreRender = Object.entries(s.windows).find(
-    ([, w]) => w.key === PRERENDER_WINDOW && !w.reserved,
-  );
-  s.windows = Object.fromEntries(
-    Object.entries(s.windows).filter(([, v]) => v.reserved),
-  );
-  if (s.config.enablePrerender && firstPreRender != null)
-    s.windows[firstPreRender[0]] = firstPreRender[1];
-};
-
-const reduceSetWindowLabel = (
-  s: SliceState,
-  a: PayloadAction<SetWindowLabelPayload>,
-): void => {
-  s.label = a.payload.label;
-  if (s.label === MAIN_WINDOW && s.config.enablePrerender) {
-    const prerenderLabel = id.id();
-    s.windows[prerenderLabel] = {
-      ...s.config.defaultWindowProps,
-      ...INITIAL_PRERENDER_WINDOW_STATE,
-    };
-  }
-};
-
 const reduceCreateWindow = (
   s: SliceState,
   { payload }: PayloadAction<CreateWindowPayload>,
@@ -252,16 +229,21 @@ const reduceCreateWindow = (
   if (label == null || prerenderLabel == null)
     throw new Error("[drift] - bug - missing label and prerender label");
 
+  console.log(s.config.debug);
+  group(s.config.debug, "reducer create window");
+
   const mainWin = s.windows.main;
   payload.position = maybePositionInCenter(mainWin, payload.position, payload.size);
 
   // If the window already exists, un-minimize and focus it
   if (key in s.keyLabels) {
+    log(s.config.debug, "window already exists, un-minimize and focus it");
     const existingLabel = s.keyLabels[payload.key];
     s.windows[existingLabel].visible = true;
     s.windows[existingLabel].focusCount += 1;
     s.windows[existingLabel].minimized = false;
     s.windows[existingLabel].position = payload.position;
+    groupEnd(s.config.debug);
     return;
   }
 
@@ -271,6 +253,7 @@ const reduceCreateWindow = (
 
   // If we have an available pre-rendered window, use it.
   if (availableLabel != null) {
+    log(s.config.debug, "using available pre-rendered window");
     s.windows[availableLabel] = {
       ...available,
       visible: true,
@@ -283,6 +266,7 @@ const reduceCreateWindow = (
     s.keyLabels[payload.key] = availableLabel;
   } else {
     // If we don't, just create the window directly.
+    log(s.config.debug, "creating new window");
     s.windows[label] = {
       ...s.config.defaultWindowProps,
       ...INITIAL_WINDOW_STATE,
@@ -293,11 +277,14 @@ const reduceCreateWindow = (
     s.keyLabels[key] = label;
   }
 
-  if (s.config.enablePrerender && !alreadyHasPreRender(s))
+  if (s.config.enablePrerender && !alreadyHasPreRender(s)) {
+    log(s.config.debug, "creating pre-render window");
     s.windows[prerenderLabel] = deep.copy({
       ...s.config.defaultWindowProps,
       ...INITIAL_PRERENDER_WINDOW_STATE,
     });
+  }
+  groupEnd(s.config.debug);
 };
 
 const reduceSetWindowStage = assertLabel<SetWindowStagePayload>((s, a) => {
@@ -354,7 +341,7 @@ const reduceSetWindowError = (
 const reduceFocusWindow = assertLabel<FocusWindowPayload>((s, a) => {
   const win = s.windows[a.payload.label];
   if (win == null) return;
-  if (win.visible !== true) s.windows[a.payload.label].visible = true;
+  if (win.visible !== true) win.visible = true;
   incrementCounter("focusCount")(s, a);
 });
 
@@ -401,18 +388,21 @@ const reduceSetWindowProps = (
   if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
 };
 
-interface InternalSetInitialPayload
-  extends SetConfigPayload,
-    SetWindowLabelPayload,
-    SetWindowStagePayload {}
+interface InternalSetInitialPayload extends SetConfigPayload, SetWindowLabelPayload {}
 
 export const reduceInternalSetInitial = (
   s: SliceState,
   a: PayloadAction<InternalSetInitialPayload>,
 ): void => {
-  reduceSetConfig(s, a);
-  reduceSetWindowLabel(s, a);
-  reduceSetWindowStage(s, a);
+  s.config = { ...s.config, ...a.payload };
+  s.label = a.payload.label;
+  if (s.label === MAIN_WINDOW && s.config.enablePrerender) {
+    const prerenderLabel = id.id();
+    s.windows[prerenderLabel] = {
+      ...s.config.defaultWindowProps,
+      ...INITIAL_PRERENDER_WINDOW_STATE,
+    };
+  }
 };
 
 /**
@@ -422,9 +412,7 @@ const slice = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    setConfig: reduceSetConfig,
     internalSetInitial: reduceInternalSetInitial,
-    setWindowLabel: reduceSetWindowLabel,
     createWindow: reduceCreateWindow,
     setWindowStage: reduceSetWindowStage,
     closeWindow: reduceCloseWindow,
@@ -457,10 +445,8 @@ const slice = createSlice({
 
 export const {
   actions: {
-    setConfig,
     runtimeSetWindowProps,
     setWindowProps,
-    setWindowLabel,
     createWindow,
     internalSetInitial,
     setWindowStage,
@@ -496,7 +482,7 @@ export const reducer: Reducer<SliceState, Action> = slice.reducer;
 export const isDriftAction = (type: string): boolean => type.startsWith(SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
-const EXCLUDED_ACTIONS: string[] = [setWindowLabel.type, internalSetInitial.type];
+const EXCLUDED_ACTIONS: string[] = [internalSetInitial.type];
 
 /**
  * @returns true if the action with the given type should be emitted to other

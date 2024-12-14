@@ -24,6 +24,7 @@ import {
   type Action,
   closeWindow,
   internalSetInitial,
+  setWindowStage,
   SLICE_NAME,
   type StoreState,
 } from "@/state";
@@ -71,6 +72,7 @@ const configureStoreInternal = async <
   store = base<S, A, M, E>({
     ...opts,
     preloadedState: await receivePreloadedState(
+      debug,
       runtime,
       () => store,
       defaultWindowProps,
@@ -80,14 +82,12 @@ const configureStoreInternal = async <
   });
 
   await syncInitial(store.getState().drift, store.dispatch, runtime, debug);
+  const label = runtime.label();
   store.dispatch(
-    internalSetInitial({
-      enablePrerender,
-      defaultWindowProps,
-      label: runtime.label(),
-      stage: "created",
-    }),
+    internalSetInitial({ enablePrerender, defaultWindowProps, debug, label }),
   );
+  console.log("Setting created");
+  store.dispatch(setWindowStage({ stage: "created" }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
   return store;
 };
@@ -96,20 +96,23 @@ const receivePreloadedState = async <
   S extends StoreState,
   A extends CoreAction = UnknownAction,
 >(
+  debug: boolean,
   runtime: Runtime<S, A>,
   store: () => EnhancedStore<S, A | Action> | undefined,
   defaultWindowProps: Omit<WindowProps, "key"> | undefined,
   preloadedState: (() => Promise<S | undefined>) | S | undefined,
 ): Promise<S | undefined> =>
   await new Promise<S | undefined>((resolve) => {
-    void listen(runtime, store, resolve);
-    if (runtime.isMain())
-      if (typeof preloadedState === "function")
-        preloadedState()
-          .then((s) => resolve(resetInitialState<S>(defaultWindowProps, s)))
-          .catch(console.error);
-      else resolve(resetInitialState<S>(defaultWindowProps, preloadedState));
-    else void runtime.emit({ sendState: true }, MAIN_WINDOW);
+    void (async () => {
+      await listen(runtime, store, resolve);
+      if (runtime.isMain())
+        if (typeof preloadedState === "function")
+          preloadedState()
+            .then((s) => resolve(resetInitialState<S>(defaultWindowProps, debug, s)))
+            .catch(console.error);
+        else resolve(resetInitialState<S>(defaultWindowProps, debug, preloadedState));
+      else await runtime.emit({ sendState: true }, MAIN_WINDOW);
+    })();
   });
 
 /**
@@ -146,18 +149,23 @@ export const configureStore: <
 
 export const resetInitialState = <S extends StoreState>(
   defaultWindowProps?: Omit<WindowProps, "key">,
+  debug?: boolean,
   state?: S,
 ): S | undefined => {
   if (state == null) return state;
   const drift = state[SLICE_NAME];
-  Object.keys(drift.windows).forEach((key) => {
-    const window = drift.windows[key];
-    if (!window.reserved) return;
-    if (defaultWindowProps?.visible != null)
-      window.visible = defaultWindowProps.visible;
-    window.focusCount = 0;
-    window.centerCount = 0;
-    window.processCount = 0;
-  });
+  drift.config.debug = debug ?? drift.config.debug;
+  drift.windows = Object.fromEntries(
+    Object.entries(drift.windows)
+      .filter(([, window]) => window.reserved)
+      .map(([key, window]) => {
+        if (defaultWindowProps?.visible != null)
+          window.visible = defaultWindowProps.visible;
+        window.focusCount = 0;
+        window.centerCount = 0;
+        window.processCount = 0;
+        return [key, window];
+      }),
+  );
   return state;
 };

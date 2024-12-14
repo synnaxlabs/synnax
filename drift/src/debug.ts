@@ -15,6 +15,6 @@ export const group = (debug: boolean = false, ...args: unknown[]): void => {
   if (debug) console.group(...args);
 };
 
-export const groupEnd = (debug: boolean = false): void => {
+export const groupEnd = (debug: boolean): void => {
   if (debug) console.groupEnd();
 };

@@ -42,6 +42,7 @@ export const listen = async <S extends StoreState, A extends Action = UnknownAct
     // case where we're receivign preloaded state.
     if (s == null) {
       if (state != null) return resolve(state);
+
       return;
     }
     if (action != null) {

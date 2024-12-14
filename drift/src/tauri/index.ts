@@ -10,6 +10,7 @@
 import { type Action, type UnknownAction } from "@reduxjs/toolkit";
 import {
   debounce as debounceF,
+  deep,
   dimensions,
   runtime,
   TimeSpan,
@@ -177,6 +178,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
+    props = deep.copy(props);
     const { size, minSize, maxSize, position, ...rest } = capWindowDimensions(props);
     if (size?.width != null) size.width = Math.max(size.width, MIN_DIM);
     if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);

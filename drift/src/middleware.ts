@@ -72,17 +72,17 @@ export const middleware =
 
     validateAction({ action: action_ as A | Action, emitted, emitter });
 
-    log(debug, "[drift] - middleware", {
-      action,
-      emitted,
-      emitter,
-      host: label,
-    });
+    const isDrift = isDriftAction(action.type);
+    if (isDrift)
+      log(debug, "[drift] - middleware", {
+        action,
+        emitted,
+        emitter,
+        host: label,
+      });
 
     // The action is recirculating from our own relay.
     if (emitter === runtime.label()) return;
-
-    const isDrift = isDriftAction(action.type);
 
     // If the runtime is updating its own props, no need to sync.
     const shouldSync = isDrift && !EXCLUDE_SYNC_ACTIONS.includes(action.type);
