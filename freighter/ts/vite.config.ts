@@ -12,9 +12,5 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [lib({ name: "freighter" })],
-  build: {
-    rollupOptions: {
-      external: ["zod"],
-    },
-  },
+  build: { rollupOptions: { external: ["zod"] } },
 });

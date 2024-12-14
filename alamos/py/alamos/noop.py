@@ -20,9 +20,7 @@ P = ParamSpec("P")
 T = TypeVar("T", bound=Noop)
 
 
-def noop(
-    f: Callable[Concatenate[T, P], None],
-) -> Callable[Concatenate[T, P], None]:
+def noop(f: Callable[Concatenate[T, P], None]) -> Callable[Concatenate[T, P], None]:
     """Decorator around a Noop class that will not call the decorated function if the
     Noop.noop is True.
     """

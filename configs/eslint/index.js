@@ -89,6 +89,7 @@ export default [
       "@typescript-eslint/no-wrapper-object-types": "off",
       "react/no-unescaped-entities": "off",
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-expressions": "off", // off as typescript-eslint cannot handle TypeScript 5.7 yet
       "@typescript-eslint/no-unused-vars": [
         "error",
         {

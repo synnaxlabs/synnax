@@ -41,10 +41,7 @@ class CSVReader(CSVMatcher):  # type: ignore
         return self
 
     def __init__(
-        self,
-        path: Path,
-        keys: list[str] | None = None,
-        chunk_size: int | None = None,
+        self, path: Path, keys: list[str] | None = None, chunk_size: int | None = None
     ):
         self._path = path
         self.channel_keys = keys
@@ -164,10 +161,7 @@ class CSVWriter(CSVMatcher):  # type: ignore
     _path: Path
     _header: bool
 
-    def __init__(
-        self,
-        path: Path,
-    ):
+    def __init__(self, path: Path):
         self._path = path
         self._header = True
         if path.exists():

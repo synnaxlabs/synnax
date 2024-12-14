@@ -32,9 +32,7 @@ class RangeRetriever:
     instrumentation: Instrumentation = NOOP
 
     def __init__(
-        self,
-        client: UnaryClient,
-        instrumentation: Instrumentation = NOOP,
+        self, client: UnaryClient, instrumentation: Instrumentation = NOOP
     ) -> None:
         self.__client = client
         self.instrumentation = instrumentation

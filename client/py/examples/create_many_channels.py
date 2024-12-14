@@ -22,9 +22,7 @@ NUM_CHANNELS = 1000
 
 # We need to create the time channel first, so it has a key assigned.
 time_channel = client.channels.create(
-    name="create_many_channels_time",
-    data_type=sy.DataType.TIMESTAMP,
-    is_index=True,
+    name="create_many_channels_time", data_type=sy.DataType.TIMESTAMP, is_index=True
 )
 
 # Define our data channels with the correct index key set.

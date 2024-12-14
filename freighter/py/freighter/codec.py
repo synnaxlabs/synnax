@@ -65,10 +65,7 @@ class JSONCodec(Codec):
         return pld_t.parse_raw(data.decode(JSONCodec.STRING_ENCODING))
 
 
-CODECS: list[Codec] = [
-    JSONCodec(),
-    MsgPackCodec(),
-]
+CODECS: list[Codec] = [JSONCodec(), MsgPackCodec()]
 
 
 class TracingCodec(Codec):
