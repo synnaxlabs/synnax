@@ -49,7 +49,7 @@ jobs:
   go:
     name: Go (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.go == 'true' && (github.ref == 'refs/heads/main' || matrix.always-run)
+    if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +57,9 @@ jobs:
         include:
           - os: ubuntu-latest
             format: true
-            always-run: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref == 'refs/heads/main' && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
