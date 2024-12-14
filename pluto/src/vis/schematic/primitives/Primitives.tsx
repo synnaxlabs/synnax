@@ -799,7 +799,7 @@ export const ISOCap = ({
   className,
   orientation = "left",
   color,
-  scale,
+  scale = 1,
   ...props
 }: ISOCapProps): ReactElement => (
   <Div className={CSS(CSS.B("cap"), className)} {...props}>
@@ -810,7 +810,7 @@ export const ISOCap = ({
       color={color}
       dimensions={{ width: 36, height: 48 }}
       orientation={orientation}
-      scale={scale}
+      scale={scale * 0.6}
     >
       <Path
         d="M3 3H30C31.6569 3 33 4.34315 33 6V42C33 43.6569 31.6569 45 30 45H3"
