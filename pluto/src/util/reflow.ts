@@ -4,7 +4,6 @@
 export const triggerReflow = (el: HTMLElement): void => {
   if (el == null) return;
   el.style.display = "none";
-  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   el.offsetHeight;
   el.style.display = "";
 };
