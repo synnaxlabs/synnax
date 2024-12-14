@@ -69,7 +69,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   actions,
   pack = false,
   ...props
-}: ButtonProps<K, E>): JSX.Element => {
+}: ButtonProps<K, E>): ReactElement => {
   const { onSelect } = useSelect<K, E>({
     allowMultiple,
     allowNone,
@@ -109,7 +109,7 @@ const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Key
   onClick,
   selected,
   title,
-}: ButtonOptionProps<K, E>): JSX.Element => (
+}: ButtonOptionProps<K, E>): ReactElement => (
   <CoreButton.Button
     key={key}
     onClick={onClick}

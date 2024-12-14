@@ -58,6 +58,7 @@ import {
   useSelectControlState,
   useSelectRanges,
   useSelectSelection,
+  useSelectVersion,
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
@@ -512,15 +513,7 @@ export const create =
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? uuidv4();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
-    return {
-      key,
-      name,
-      location,
-      type: LAYOUT_TYPE,
-      icon: "Visualize",
-      window,
-      tab,
-    };
+    return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
   };
 
 export const LinePlot: Layout.Renderer = ({
@@ -531,7 +524,7 @@ export const LinePlot: Layout.Renderer = ({
     name: "Line Plot",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect,
+    useSelectVersion,
     fetcher: async (client, layoutKey) => {
       const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
       return data as unknown as State;

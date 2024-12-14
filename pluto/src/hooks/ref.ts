@@ -94,7 +94,7 @@ export const useCombinedStateAndRef = <T extends Primitive | object>(
 };
 
 export const usePrevious = <T>(value: T): T | undefined => {
-  const ref = useRef<T>();
+  const ref = useRef<T>(undefined);
   const prev = ref.current;
   ref.current = value;
   return prev;

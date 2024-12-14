@@ -141,7 +141,7 @@ export const LinePlot = ({
   ...props
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
-  const ref = useRef<Viewport.UseRefValue>();
+  const ref = useRef<Viewport.UseRefValue | null>(null);
   const prevLinesLength = usePrevious(lines.length);
   const prevHold = usePrevious(props.hold);
   if (

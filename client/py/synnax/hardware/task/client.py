@@ -161,11 +161,9 @@ class Task:
 class MetaTask(Protocol):
     key: int
 
-    def to_payload(self) -> TaskPayload:
-        ...
+    def to_payload(self) -> TaskPayload: ...
 
-    def set_internal(self, task: Task):
-        ...
+    def set_internal(self, task: Task): ...
 
 
 class StarterStopperMixin:
@@ -257,16 +255,13 @@ class Client:
         type: str = "",
         config: str = "",
         rack: int = 0,
-    ):
-        ...
+    ): ...
 
     @overload
-    def create(self, tasks: Task) -> Task:
-        ...
+    def create(self, tasks: Task) -> Task: ...
 
     @overload
-    def create(self, tasks: list[Task]) -> list[Task]:
-        ...
+    def create(self, tasks: list[Task]) -> list[Task]: ...
 
     def create(
         self,
@@ -344,8 +339,7 @@ class Client:
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
-    ) -> Task:
-        ...
+    ) -> Task: ...
 
     @overload
     def retrieve(
@@ -353,8 +347,7 @@ class Client:
         names: list[str] | None = None,
         keys: list[int] | None = None,
         types: list[str] | None = None,
-    ) -> list[Task]:
-        ...
+    ) -> list[Task]: ...
 
     def retrieve(
         self,

@@ -12,11 +12,12 @@ import { type direction } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button as CoreButton } from "@/button";
+import { type Icon as PIcon } from "@/icon";
 import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Button";
 
 interface Entry {
   key: direction.Direction;
-  icon: ReactElement;
+  icon: ReactElement<PIcon.BaseProps>;
 }
 
 export interface DirectionProps

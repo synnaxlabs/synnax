@@ -23,11 +23,13 @@
     cursor: pointer;
     border-radius: var(--pluto-border-radius);
     min-width: 80px;
-    max-height: 110px;
+    max-width: 150px;
+    max-height: 130px;
     margin: 1rem 0.5rem;
 
     & > small {
         color: var(--pluto-gray-l7) !important;
+        text-align: center;
     }
 
     & .preview-wrapper {

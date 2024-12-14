@@ -13,7 +13,7 @@ import { type RefObject, useCallback, useEffect } from "react";
 import { useSyncedRef } from "@/hooks";
 
 export interface UseClickOutsideProps {
-  ref: RefObject<HTMLElement>;
+  ref: RefObject<HTMLElement | null>;
   exclude?: Array<RefObject<HTMLElement>> | ((e: MouseEvent) => boolean);
   onClickOutside: () => void;
 }

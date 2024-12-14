@@ -68,6 +68,7 @@ jobs:
         with:
           filters: |
             changed:
+              - "freighter/go/**"
               - "freighter/integration/**"
               - ".github/workflows/test.freighter.yaml"
 

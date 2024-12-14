@@ -454,7 +454,7 @@ const reliefValve: Spec<ReliefValveProps> = {
     ...zeroLabel("Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.ReliefValve,
+  Preview: ({ clickable, ...props }) => Primitives.ReliefValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -468,7 +468,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
     ...zeroLabel("Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.SpringLoadedReliefValve,
+  Preview: ({ clickable, ...props }) => Primitives.SpringLoadedReliefValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -482,7 +482,7 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.AngledSpringLoadedReliefValve,
+  Preview: ({ clickable, ...props }) => Primitives.AngledSpringLoadedReliefValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -580,7 +580,7 @@ const manualValve: Spec<ManualValveProps> = {
     ...zeroLabel("Manual Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.ManualValve,
+  Preview: ({ clickable, ...props }) => Primitives.ManualValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -636,7 +636,7 @@ const needleValve: Spec<NeedleValveProps> = {
     ...zeroLabel("Needle Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.NeedleValve,
+  Preview: ({ clickable, ...props }) => Primitives.NeedleValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -678,7 +678,7 @@ const angledReliefValve: Spec<ReliefValveProps> = {
     ...zeroLabel("Angled Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.AngledReliefValve,
+  Preview: ({ clickable, ...props }) => Primitives.AngledReliefValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 

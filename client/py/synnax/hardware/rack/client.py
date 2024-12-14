@@ -53,16 +53,13 @@ class Client:
         self.instrumentation = instrumentation
 
     @overload
-    def create(self, *, key: int = 0, name: str = "") -> Rack:
-        ...
+    def create(self, *, key: int = 0, name: str = "") -> Rack: ...
 
     @overload
-    def create(self, rack: Rack) -> Rack:
-        ...
+    def create(self, rack: Rack) -> Rack: ...
 
     @overload
-    def create(self, racks: list[Rack]) -> list[Rack]:
-        ...
+    def create(self, racks: list[Rack]) -> list[Rack]: ...
 
     def create(
         self, racks: Rack | list[Rack] | None = None, *, key: int = 0, name: str = ""
@@ -90,8 +87,7 @@ class Client:
         self,
         key: int | None = None,
         name: str | None = None,
-    ) -> Rack:
-        ...
+    ) -> Rack: ...
 
     def retrieve(
         self,

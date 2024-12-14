@@ -23,6 +23,7 @@ import {
 import { type Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { type Icon as PIcon } from "@/icon";
 import { type status } from "@/status/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
@@ -61,8 +62,8 @@ export type ButtonProps = Omit<
   ButtonExtensionProps &
   BaseProps & {
     level?: Text.Level;
-    startIcon?: ReactElement | ReactElement[];
-    endIcon?: ReactElement | ReactElement[];
+    startIcon?: ReactElement<PIcon.BaseProps> | ReactElement<PIcon.BaseProps>[];
+    endIcon?: ReactElement<PIcon.BaseProps> | ReactElement<PIcon.BaseProps>[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;
@@ -104,7 +105,7 @@ export const Button = Tooltip.wrap(
     loading = false,
     level,
     triggers,
-    startIcon = [] as ReactElement[],
+    startIcon = [] as ReactElement<PIcon.BaseProps>[],
     onClickDelay = 0,
     onClick,
     color,

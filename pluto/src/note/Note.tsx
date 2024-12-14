@@ -9,6 +9,8 @@
 
 import "@/note/Note.css";
 
+import { type ReactElement } from "react";
+
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type Status } from "@/status";
@@ -22,7 +24,7 @@ export const Note = ({
   className,
   children,
   ...props
-}: NoteProps): JSX.Element => (
+}: NoteProps): ReactElement => (
   <Align.Space
     className={CSS(className, CSS.B("note"), CSS.M(variant))}
     align="stretch"
