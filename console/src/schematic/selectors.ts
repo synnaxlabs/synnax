@@ -14,13 +14,14 @@ import { useMemoSelect } from "@/hooks";
 import { Permissions } from "@/permissions";
 import {
   type NodeProps,
+  SLICE_NAME,
   type SliceState,
   type State,
   type StoreState,
   type ToolbarState,
 } from "@/schematic/slice";
 
-export const selectSliceState = (state: StoreState): SliceState => state.schematic;
+export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
@@ -100,9 +101,12 @@ export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): NodeProps => select(state, layoutKey).props[key];
+): NodeProps | undefined => select(state, layoutKey).props[key];
 
-export const useSelectNodeProps = (layoutKey: string, key: string): NodeProps =>
+export const useSelectNodeProps = (
+  layoutKey: string,
+  key: string,
+): NodeProps | undefined =>
   useMemoSelect(
     (state: StoreState) => selectNodeProps(state, layoutKey, key),
     [layoutKey, key],
@@ -147,3 +151,9 @@ export const selectHasPermission = (state: Permissions.StoreState): boolean =>
 
 export const useSelectHasPermission = (): boolean =>
   useMemoSelect(selectHasPermission, []);
+
+export const selectVersion = (state: StoreState, key: string): string | undefined =>
+  select(state, key).version;
+
+export const useSelectVersion = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);

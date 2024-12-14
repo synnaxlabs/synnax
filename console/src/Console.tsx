@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import "@/index.css";
-import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
+import "@synnaxlabs/media/dist/media.css";
+import "@synnaxlabs/pluto/dist/pluto.css";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import {
@@ -20,7 +20,7 @@ import {
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useEffect } from "react";
+import React, { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";

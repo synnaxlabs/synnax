@@ -16,6 +16,7 @@ import {
   Button,
   componentRenderProp,
   Dropdown,
+  type Icon as PIcon,
   Input,
   List,
   Status,
@@ -376,7 +377,7 @@ interface CommandActionProps {
 export interface Command {
   key: string;
   name: ReactElement | string;
-  icon?: ReactElement;
+  icon?: ReactElement<PIcon.BaseProps>;
   visible?: (state: Permissions.StoreState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
   actions?: CommandActionProps[];

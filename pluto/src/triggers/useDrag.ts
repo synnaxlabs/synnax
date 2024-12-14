@@ -23,7 +23,7 @@ export interface DragEvent {
 export type DragCallback = (props: DragEvent) => void;
 
 export interface UseDragProps {
-  bound: RefObject<HTMLElement>;
+  bound: RefObject<HTMLElement | null>;
   triggers?: Trigger[];
   onDrag: DragCallback;
   loose?: boolean;

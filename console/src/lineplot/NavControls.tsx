@@ -10,7 +10,15 @@
 import "@/lineplot/NavControls.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Select, Text, Triggers, Viewport } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  type Icon as PIcon,
+  Select,
+  Text,
+  Triggers,
+  Viewport,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -96,7 +104,7 @@ export const NavControls = (): ReactElement => {
       </Button.ToggleIcon>
       <Select.Button<
         ClickMode,
-        { key: ClickMode; icon: ReactElement; tooltip: ReactNode }
+        { key: ClickMode; icon: ReactElement<PIcon.BaseProps>; tooltip: ReactNode }
       >
         value={control.clickMode}
         onChange={handleClickModeChange}

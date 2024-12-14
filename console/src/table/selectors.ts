@@ -121,3 +121,9 @@ export const selectEditable = (state: StoreState, key: string): boolean =>
 
 export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
+
+export const selectVersion = (state: StoreState, key: string): string | undefined =>
+  select(state, key).version;
+
+export const useSelectVersion = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);

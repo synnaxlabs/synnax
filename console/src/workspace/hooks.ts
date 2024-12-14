@@ -14,7 +14,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useStore } from "react-redux";
 
-import { useDispatchEffect } from "@/hooks/dispatchers";
+import { useDispatchEffect } from "@/hooks/useDispatchEffect";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
@@ -25,6 +25,7 @@ export const useSyncComponent = <P extends unknown>(
   name: string,
   layoutKey: string,
   save: (workspace: string, store: Store<RootState>, client: Synnax) => Promise<void>,
+  dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
   const client = PSynnax.use();
   const addStatus = Status.useAggregator();
@@ -56,5 +57,5 @@ export const useSyncComponent = <P extends unknown>(
     if (ws == null) return;
     syncLayout.mutate();
   }, [ws]);
-  return useDispatchEffect<P>(syncLayout.mutate, 1000);
+  return useDispatchEffect<P>(syncLayout.mutate, 1000, dispatch);
 };
