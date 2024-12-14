@@ -67,7 +67,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   className,
   size = "small",
   actions,
-  pack = false,
+  pack = true,
   ...props
 }: ButtonProps<K, E>): ReactElement => {
   const { onSelect } = useSelect<K, E>({
@@ -99,6 +99,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       size={size}
       {...props}
     >
+      {mapped}
       {actions}
     </Align.Pack>
   );
