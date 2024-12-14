@@ -30,13 +30,13 @@ import {
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
-import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
+import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Write,
   WRITE_TYPE,
@@ -52,7 +52,6 @@ import {
   ChannelListContextMenu,
   Controls,
   EnableDisableButton,
-  type TaskLayoutArgs,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -65,29 +64,17 @@ import {
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
-export const configureWriteLayout = (
-  args: TaskLayoutArgs<WritePayload> = { create: false },
-): Layout.State => ({
-  name: "Configure OPC UA Write Task",
-  key: uuid(),
-  type: WRITE_TYPE,
-  windowKey: WRITE_TYPE,
-  location: "mosaic",
-  icon: "Logo.OPC",
-  window: {
-    resizable: true,
-    size: { width: 1200, height: 900 },
-    navTop: true,
-  },
-  args,
-});
+export const createWriteLayout = createLayoutCreator<WritePayload>(
+  WRITE_TYPE,
+  "New OPC UA Write Task",
+);
 
 export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
   create: (layoutKey) => ({
-    ...configureWriteLayout({ create: true }),
+    ...createWriteLayout({ create: true }),
     key: layoutKey,
   }),
 };

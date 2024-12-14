@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x";
+import { type device } from "@synnaxlabs/client";
+import { bounds, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { identifierZ } from "@/hardware/device/Configure";
@@ -16,7 +17,9 @@ export const MODEL_KEYS = ["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"] as const;
 export const modelKeyZ = z.enum(MODEL_KEYS);
 export type ModelKey = z.infer<typeof modelKeyZ>;
 
-const commandStatePairZ = z.object({ command: z.number(), state: z.number() });
+export const commandStatePairZ = z.object({ command: z.number(), state: z.number() });
+export type CommandStatePair = z.infer<typeof commandStatePairZ>;
+export const ZERO_COMMAND_STATE_PAIR: CommandStatePair = { command: 0, state: 0 };
 
 export const propertiesZ = z.object({
   identifier: identifierZ,
@@ -251,3 +254,17 @@ export const devicesZ = z.object({
 export type Devices = z.output<typeof devicesZ>;
 
 export const DEVICES: Devices = { LJM_dtT4: T4, LJM_dtT7: T7, LJM_dtT8: T8 };
+
+type UnconfiguredDevice = device.Device & {
+  model: ModelKey;
+  make: "LabJack";
+  configured: false | undefined;
+  properties: UnknownRecord;
+};
+
+export type ConfiguredDevice = Omit<UnconfiguredDevice, "configured" | "properties"> & {
+  configured: true;
+  properties: Properties;
+};
+
+export type Device = ConfiguredDevice | UnconfiguredDevice;

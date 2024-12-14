@@ -13,6 +13,7 @@ import { Align, Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { useSyncComponent } from "@/log/Log";
@@ -45,6 +46,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           <Channel.SelectSingle
             value={state.channels[0]}
             onChange={handleChannelChange}
+            searchOptions={{ internal: isDev() }}
           />
         </Input.Item>
       </Align.Space>

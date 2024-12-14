@@ -20,7 +20,7 @@ client.hardware.devices.create(
         sy.Device(
             key="130227d9-02aa-47e4-b370-0d590add1bc1",
             rack=rack.key,
-            name="New PXI-6255",
+            name="PXI-6255",
             make="NI",
             model="PXI-6255",
             location="dev1",
@@ -29,9 +29,9 @@ client.hardware.devices.create(
         sy.Device(
             key="230227d9-02aa-47e4-b370-0d590add1bc1",
             rack=rack.key,
-            name="PXI-6255 3",
-            make="NI",
-            model="PXI-6255",
+            name="LJM dtT4",
+            make="LabJack",
+            model="LJM_dtT4",
             location="dev2",
             identifier="dev2",
         ),

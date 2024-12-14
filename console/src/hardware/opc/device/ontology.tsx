@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import { configureReadLayout } from "@/hardware/opc/task/Read";
-import { configureWriteLayout } from "@/hardware/opc/task/Write";
+import { createWriteLayout } from "@/hardware/opc/task/Write";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
@@ -33,7 +33,7 @@ export const ContextMenuItems = ({
     initialValues: { config: { device: first.id.key } },
   };
   const createReadTask = () => place(configureReadLayout(initialArgs));
-  const createWriteTask = () => place(configureWriteLayout(initialArgs));
+  const createWriteTask = () => place(createWriteLayout(initialArgs));
   const createConfigure = () => place(createConfigureLayout(first.id.key));
   if (!isSingle) return null;
   return (

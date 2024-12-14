@@ -29,11 +29,8 @@ button:is(:focus, :focus-within, :active, :hover) {
     --pluto-shadow-menu: 0px 1px 1px rgba(0, 0, 0, 0.02),
         0px 4px 8px -4px rgba(0, 0, 0, 0.04), 0px 16px 24px -8px rgba(0, 0, 0, 0.06);
     @media (prefers-color-scheme: dark) {
-        --pluto-shadow-menu: 
-            /* 3. multiple soft shadows 👇 */ 0 0.3px 0.4px
-                hsla(230, 13%, 9%, 0.02),
-            0 0.9px 1.5px hsla(230, 13%, 9%, 0.045),
-            0 3.5px 6px hsla(230, 13%, 9%, 0.09);
+        --pluto-shadow-menu: lch(0 0 0 / 0.188) 0px 3px 8px,
+            lch(0 0 0 / 0.188) 0px 2px 5px, lch(0 0 0 / 0.188) 0px 1px 1px;
     }
 }
 
