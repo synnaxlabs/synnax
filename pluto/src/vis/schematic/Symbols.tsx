@@ -699,7 +699,7 @@ export const Cylinder = createLabeled<
     borderRadius,
   }): ReactElement => (
     <Primitives.Cylinder
-      onResize={(dims) => onChange({ dimensions: dims })}
+      onResize={(dimensions) => onChange({ dimensions })}
       orientation={orientation}
       color={color}
       dimensions={dimensions}
