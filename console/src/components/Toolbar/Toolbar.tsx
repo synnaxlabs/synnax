@@ -9,7 +9,7 @@
 
 import "@/components/Toolbar/Toolbar.css";
 
-import { Header } from "@synnaxlabs/pluto";
+import { Header, type Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -26,7 +26,7 @@ export const ToolbarHeader = (
 );
 
 export interface ToolbarTitleProps extends Pick<Header.TitleProps, "children"> {
-  icon: ReactElement;
+  icon: ReactElement<Icon.BaseProps>;
 }
 
 export const ToolbarTitle = ({ icon, children }: ToolbarTitleProps): ReactElement => (

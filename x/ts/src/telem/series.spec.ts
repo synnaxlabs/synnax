@@ -435,7 +435,7 @@ describe("Series", () => {
       const buf = controller.buffers[series.glBuffer as number];
       expect(buf).toBeDefined();
       expect(buf.byteLength).toEqual(12);
-      expect(buf).toEqual(new Float32Array([1, 2, 3]));
+      expect(buf).toEqual(new Float32Array([1, 2, 3]).buffer);
     });
     it("should correctly update a buffer when writing to an allocated array", () => {
       const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });

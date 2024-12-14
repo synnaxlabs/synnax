@@ -37,7 +37,7 @@ export interface UseEvent {
 
 export interface UseProps extends MatchOptions {
   triggers?: Trigger[];
-  region?: RefObject<HTMLElement>;
+  region?: RefObject<HTMLElement | null>;
   callback?: (e: UseEvent) => void;
   regionMustBeElement?: boolean;
 }
@@ -82,7 +82,7 @@ const filterInRegion = (
   target: HTMLElement,
   cursor: xy.XY,
   added: Trigger[],
-  region?: RefObject<HTMLElement>,
+  region?: RefObject<HTMLElement | null>,
   regionMustBeElement?: boolean,
 ): Trigger[] => {
   if (region == null) return added;

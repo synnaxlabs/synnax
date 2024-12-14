@@ -13,6 +13,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
+import { type Icon as PIcon } from "@/icon";
 import { Select } from "@/select";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
@@ -21,7 +22,7 @@ import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 interface Entry {
   key: Mode;
-  icon: ReactElement;
+  icon: ReactElement<PIcon.BaseProps>;
   tooltip: ReactNode;
 }
 
@@ -62,7 +63,7 @@ export const SelectMode = ({
       icon: MODE_ICONS[key as Mode],
       tooltip: <Tooltip mode={key as Mode} triggers={value as Trigger[]} />,
     }))
-    .sort((a, b) => MODES.indexOf(a.key) - MODES.indexOf(b.key));
+    .sort((a, b) => MODES.indexOf(a.key) - MODES.indexOf(b.key)) as Entry[];
 
   return (
     <Select.Button<Mode, Entry> {...props} data={data} entryRenderKey="icon">

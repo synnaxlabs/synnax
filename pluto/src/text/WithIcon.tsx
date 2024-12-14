@@ -91,7 +91,7 @@ export const formatChildren = <L extends text.Level>(
 ): ReactElement | ReactElement[] => {
   const arr = toArray(children);
   const o: ReactElement[] = [];
-  let buff: Array<string | number | boolean | Iterable<ReactNode>> = [];
+  let buff: Array<ReactNode> = [];
   const props = { color, level, shade, weight };
   arr.forEach((child) => {
     if (child == null) return;
@@ -99,9 +99,9 @@ export const formatChildren = <L extends text.Level>(
       typeof child === "string" ||
       typeof child === "number" ||
       !isValidElement(child)
-    ) 
+    )
       buff.push(child);
-     else {
+    else {
       if (buff.length > 0) {
         o.push(
           // @ts-expect-error - level type errors

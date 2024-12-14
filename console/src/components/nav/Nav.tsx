@@ -57,7 +57,7 @@ export interface NavDrawerProps {
   location: Layout.NavDrawerLocation;
 }
 
-export const NavDrawer = ({ location: l, ...props }: NavDrawerProps): ReactElement => {
+export const NavDrawer = ({ location: l }: NavDrawerProps): ReactElement => {
   const { activeItem, onResize, onSelect } = Layout.useNavDrawer(l, NAV_DRAWERS);
   return (
     <Nav.Drawer

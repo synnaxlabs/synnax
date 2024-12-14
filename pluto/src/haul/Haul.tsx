@@ -22,6 +22,7 @@ import React, {
   type DragEventHandler,
   type MutableRefObject,
   type PropsWithChildren,
+  type ReactElement,
   useCallback,
   useContext as reactUseContext,
   useId,
@@ -111,7 +112,7 @@ export const Provider = ({
   children,
   useState = React.useState,
   onDropOutside,
-}: ProviderProps): JSX.Element => {
+}: ProviderProps): ReactElement => {
   const ctx = reactUseContext(Context);
 
   const [state, setState] = useState(ZERO_DRAGGING_STATE);
