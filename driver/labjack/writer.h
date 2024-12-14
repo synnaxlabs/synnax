@@ -129,13 +129,16 @@ struct WriterConfig {
         parser.iter("channels", [this, ctx](config::Parser &channel_parser) {
             auto channel = WriterChannelConfig(channel_parser);
 
+            if (channel.enabled) channels.emplace_back(channel);
+            else return;
+
             auto [channel_info, err] = ctx->client->channels.retrieve(channel.cmd_key);
             if (err) {
                 LOG(ERROR) << "Failed to retrieve channel info for key " << channel.cmd_key;
                 return;
             }
             channel.data_type = channel_info.data_type;
-            channels.emplace_back(channel);
+
 
             /// digital outputs start active high
             double initial_val = 0.0;
@@ -187,6 +190,8 @@ public:
     void open_device();
 
 private:
+    void log_err(std::string err_msg);
+
     int handle;
     std::shared_ptr<task::Context> ctx;
     WriterConfig writer_config;
