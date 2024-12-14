@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/query"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -147,28 +148,9 @@ func (lp *leaseProxy) createFreeVirtual(
 		return err
 	}
 
-	// make a slice of channels which are virtual and not internal
-	var toCreateVirtual []Channel
-	for _, ch := range toCreate {
-		if ch.Virtual && !ch.Internal {
-			toCreateVirtual = append(toCreateVirtual, ch)
-		}
-	}
-
 	// If existing channels are passed in, update as necessary (for calc channels)
 	err = gorp.NewUpdate[Key, Channel]().
-		//Where(func(c *Channel) bool {
-		//	if !c.Virtual || c.LocalKey == 0 || c.IsIndex || c.Expression == "" {
-		//		return false
-		//	}
-		//	for _, ch := range *channels {
-		//		if ch.Key() == c.Key() {
-		//			return true
-		//		}
-		//	}
-		//	return false
-		//}).
-		WhereKeys(KeysFromChannels((toCreateVirtual))...).
+		WhereKeys(KeysFromChannels(toCreate)...).
 		ChangeErr(
 			func(c Channel) (Channel, error) {
 				if !c.Virtual {
@@ -186,7 +168,7 @@ func (lp *leaseProxy) createFreeVirtual(
 			}).
 		Exec(ctx, tx)
 
-	if err != nil {
+	if err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
 
