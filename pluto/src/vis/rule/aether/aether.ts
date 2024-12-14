@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location, type scale } from "@synnaxlabs/x";
+import { box, location, type scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -37,10 +37,13 @@ interface InternalState {
   draw: Draw2D;
 }
 
+const PIXEL_POS_UPDATE_DIST = 3;
+
 export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
   static readonly TYPE = "Rule";
 
   schema = ruleStateZ;
+  lastUpdateRef: number | null = null;
 
   async afterUpdate(): Promise<void> {
     this.internal.renderCtx = render.Context.use(this.ctx);
@@ -54,7 +57,15 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
   }
 
   updatePositions({ decimalToDataScale: scale, plot, container }: RuleProps): number {
-    if (this.state.dragging && this.state.pixelPosition != null) {
+    const isDragging = this.state.dragging;
+    const wasDragging = this.prevState.dragging && !isDragging;
+
+    if ((isDragging || wasDragging) && this.state.pixelPosition != null) {
+      this.lastUpdateRef ??= this.state.pixelPosition;
+      const delta = Math.abs(this.state.pixelPosition - this.lastUpdateRef);
+      if (delta < PIXEL_POS_UPDATE_DIST && !wasDragging)
+        return this.state.pixelPosition;
+      this.lastUpdateRef = this.state.pixelPosition;
       const pos = scale.pos(
         (this.state.pixelPosition - box.top(plot) + box.top(container)) /
           box.height(plot),
@@ -62,16 +73,24 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
       this.setState((p) => ({ ...p, position: pos }));
       return this.state.pixelPosition;
     }
+
     if (this.state.position == null) {
       // Calculate the position of the rule at the middle of the plot
       const pos = scale.pos(0.5);
       this.setState((p) => ({ ...p, position: pos }));
     }
+
     const pixelPos =
       scale.reverse().pos(this.state.position as number) * box.height(plot) +
       box.top(plot) -
       box.top(container);
-    if (!isNaN(pixelPos)) this.setState((p) => ({ ...p, pixelPosition: pixelPos }));
+    if (!isNaN(pixelPos)) {
+      if (this.state.pixelPosition != null) {
+        const delta = Math.abs(pixelPos - this.state.pixelPosition);
+        if (delta < 1) return this.state.pixelPosition;
+      }
+      this.setState((p) => ({ ...p, pixelPosition: pixelPos }));
+    }
     return pixelPos;
   }
 
@@ -96,18 +115,29 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     });
 
     canvas.fillStyle = this.state.color.hex;
+    canvas.lineJoin = "round";
+    canvas.lineWidth = 3.5;
+    canvas.lineCap = "round";
     canvas.beginPath();
+    const TRIANGLE_SIZE = 4;
     if (l === "left") {
-      canvas.moveTo(box.left(plottingRegion), pixelPos);
-      canvas.lineTo(box.left(plottingRegion) - 5, pixelPos - 5);
-      canvas.lineTo(box.left(plottingRegion) - 5, pixelPos + 5);
+      const arrowPos = box.left(plottingRegion) - 1;
+      canvas.moveTo(arrowPos, pixelPos);
+      canvas.lineTo(arrowPos - TRIANGLE_SIZE, pixelPos - TRIANGLE_SIZE);
+      canvas.lineTo(arrowPos - TRIANGLE_SIZE, pixelPos + TRIANGLE_SIZE);
     } else if (l === "right") {
       canvas.moveTo(box.right(plottingRegion), pixelPos);
-      canvas.lineTo(box.right(plottingRegion) + 5, pixelPos - 5);
-      canvas.lineTo(box.right(plottingRegion) + 5, pixelPos + 5);
+      canvas.lineTo(
+        box.right(plottingRegion) + TRIANGLE_SIZE,
+        pixelPos - TRIANGLE_SIZE,
+      );
+      canvas.lineTo(
+        box.right(plottingRegion) + TRIANGLE_SIZE,
+        pixelPos + TRIANGLE_SIZE,
+      );
     }
     canvas.closePath();
-    canvas.fill();
+    canvas.stroke();
   }
 }
 

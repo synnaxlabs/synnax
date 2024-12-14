@@ -116,6 +116,7 @@ export const ZERO_LINES_STATE: LinesState = [];
 // |||||| RULES ||||||
 
 export const ruleStateZ = z.object({
+  selected: z.boolean().optional(),
   key: z.string(),
   label: z.string(),
   color: z.string(),
@@ -136,8 +137,8 @@ export const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
   color: "#3774D0",
   label: "",
   axis: "y1",
-  lineWidth: 2,
-  lineDash: 3,
+  lineWidth: 1,
+  lineDash: 0,
   units: "",
   position: 0,
 };

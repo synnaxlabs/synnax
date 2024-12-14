@@ -9,26 +9,31 @@
 
 import "@/vis/rule/Rule.css";
 
-import { bounds, box } from "@synnaxlabs/x/spatial";
+import { box } from "@synnaxlabs/x/spatial";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
+import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Divider } from "@/divider";
+import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { selectViewportEl } from "@/vis/lineplot/Viewport";
+import { LinePlot } from "@/vis/lineplot";
 import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps
-  extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition"> {
+  extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
+    Omit<Align.SpaceProps, "color"> {
   label?: string;
   onLabelChange?: (label: string) => void;
   units?: string;
   onPositionChange?: (position: number) => void;
+  onSelect?: () => void;
 }
 
 export const Rule = Aether.wrap<RuleProps>(
@@ -43,6 +48,10 @@ export const Rule = Aether.wrap<RuleProps>(
     color,
     lineWidth,
     lineDash,
+    className,
+    onSelect,
+    style,
+    ...props
   }): ReactElement | null => {
     const [internalLabel, setInternalLabel] = state.usePurePassthrough({
       value: label,
@@ -50,7 +59,9 @@ export const Rule = Aether.wrap<RuleProps>(
       initial: "",
     });
 
-    const [, { position, pixelPosition }, setState] = Aether.use({
+    const onPositionChangeRef = useSyncedRef(onPositionChange);
+
+    const [, { pixelPosition }, setState] = Aether.use({
       aetherKey,
       type: rule.Rule.TYPE,
       schema: rule.ruleStateZ,
@@ -61,17 +72,22 @@ export const Rule = Aether.wrap<RuleProps>(
         lineWidth,
         lineDash,
       },
+      onAetherChange: useCallback(
+        ({ position }: z.infer<typeof rule.ruleStateZ>) => {
+          if (position == null) return;
+          onPositionChangeRef.current?.(position);
+        },
+        [onPositionChangeRef],
+      ),
     });
-
-    useEffect(() => {
-      if (position == null) return;
-      if (propsPosition == null) return onPositionChange?.(position);
-      const b = bounds.construct(position + 0.01, position - 0.01);
-      if (!bounds.contains(b, propsPosition)) onPositionChange?.(position);
-    }, [position]);
 
     const pixelPosRef = useRef(pixelPosition);
     if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
+
+    const { id } = LinePlot.useContext("Rule");
+
+    const plotEl = document.getElementById(id);
+    const viewportEl = plotEl?.querySelector(".pluto-line-plot__viewport");
 
     const dragStartRef = useRef(pixelPosition);
 
@@ -81,6 +97,7 @@ export const Rule = Aether.wrap<RuleProps>(
 
     const handleDragStart = useCursorDrag({
       onStart: useCallback(() => {
+        onSelect?.();
         setState((p) => ({ ...p, dragging: true }));
         dragStartRef.current = pixelPosRef.current;
       }, []),
@@ -98,9 +115,10 @@ export const Rule = Aether.wrap<RuleProps>(
 
     const ref = useRef<HTMLDivElement>(null);
 
-    if (position == null || pixelPosition == null) return null;
+    if (propsPosition == null || pixelPosition == null) return null;
 
-    const viewportEl = selectViewportEl(ref?.current);
+    const pColor = new Color.Color(color);
+    const textColor = pColor.pickByContrast("#000000", "#ffffff");
 
     const content = (
       <div
@@ -113,12 +131,34 @@ export const Rule = Aether.wrap<RuleProps>(
           onDragStart={handleDragStart}
           draggable
         />
-        <Align.Space direction="x" align="center" style={{ marginLeft: "2rem" }}>
-          <Text.Editable level="p" value={internalLabel} onChange={setInternalLabel} />
-          <Text.Text
-            level="p"
-            style={{ padding: "0.25rem 0", width: "fit-content" }}
-          >{`${position.toFixed(2)} ${units}`}</Text.Text>
+        <Align.Space
+          direction="x"
+          align="center"
+          className={CSS(className, CSS.BE("rule", "label"))}
+          bordered
+          onClick={onSelect}
+          size={1}
+          rounded
+          style={{
+            borderColor: Color.cssString(color),
+            backgroundColor: new Color.Color(color).setAlpha(0.7).hex,
+            ...style,
+          }}
+          {...props}
+        >
+          <Text.Editable
+            level="small"
+            value={internalLabel}
+            onChange={setInternalLabel}
+            color={textColor}
+          />
+          <Divider.Divider
+            direction="y"
+            style={{ borderColor: Color.cssString(color) }}
+          />
+          <Text.Text level="small" color={textColor}>
+            {`${propsPosition.toFixed(2)} ${units}`}
+          </Text.Text>
         </Align.Space>
       </div>
     );

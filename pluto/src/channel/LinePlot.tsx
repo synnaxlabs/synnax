@@ -78,6 +78,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   // Rules
   rules?: RuleProps[];
   onRuleChange?: (rule: Partial<RuleProps> & { key: string }) => void;
+  onSelectRule?: (key: string) => void;
   // Title
   title?: string;
   showTitle?: boolean;
@@ -132,6 +133,7 @@ export const LinePlot = ({
   onViewportChange,
   viewportTriggers,
   annotationProvider,
+  onSelectRule,
   ...props
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
@@ -163,6 +165,7 @@ export const LinePlot = ({
             onAxisChange={onAxisChange}
             annotationProvider={annotationProvider}
             onRuleChange={onRuleChange}
+            onSelectRule={onSelectRule}
           />
         );
       })}
@@ -193,7 +196,12 @@ export const LinePlot = ({
 interface XAxisProps
   extends Pick<
     LinePlotProps,
-    "onRuleChange" | "lines" | "rules" | "onAxisChannelDrop" | "onAxisChange"
+    | "onRuleChange"
+    | "lines"
+    | "rules"
+    | "onAxisChannelDrop"
+    | "onAxisChange"
+    | "onSelectRule"
   > {
   axis: AxisProps;
   yAxes: AxisProps[];
@@ -207,6 +215,7 @@ const XAxis = ({
   index,
   rules,
   onRuleChange,
+  onSelectRule,
   onAxisChannelDrop,
   onAxisChange,
   axis: { location, key, showGrid, ...axis },
@@ -251,6 +260,7 @@ const XAxis = ({
             onRuleChange={onRuleChange}
             onAxisChannelDrop={onAxisChannelDrop}
             onAxisChange={onAxisChange}
+            onSelectRule={onSelectRule}
           />
         );
       })}
@@ -263,6 +273,7 @@ const XAxis = ({
           onPositionChange={(value) =>
             onRuleChange?.({ key: rule.key, position: value })
           }
+          onSelect={() => onSelectRule?.(rule.key)}
         />
       ))}
       <Range.Provider {...annotationProvider} />
@@ -273,7 +284,12 @@ const XAxis = ({
 interface YAxisProps
   extends Pick<
     LinePlotProps,
-    "onRuleChange" | "lines" | "rules" | "onAxisChannelDrop" | "onAxisChange"
+    | "onRuleChange"
+    | "lines"
+    | "rules"
+    | "onAxisChannelDrop"
+    | "onAxisChange"
+    | "onSelectRule"
   > {
   axis: AxisProps;
 }
@@ -287,6 +303,7 @@ const YAxis = ({
   onAxisChannelDrop,
   onAxisChange,
   axis: { key, location: loc, ...props },
+  onSelectRule,
 }: YAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.YAxis",
@@ -324,6 +341,7 @@ const YAxis = ({
           key={r.key}
           onLabelChange={(value) => onRuleChange?.({ key: r.key, label: value })}
           onPositionChange={(value) => onRuleChange?.({ key: r.key, position: value })}
+          onClick={() => onSelectRule?.(r.key)}
         />
       ))}
     </Core.YAxis>

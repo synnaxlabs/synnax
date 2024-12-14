@@ -147,6 +147,11 @@ export interface SetViewportModePayload {
   mode: Viewport.Mode;
 }
 
+export interface SelectRulePayload {
+  key: string;
+  ruleKey: string;
+}
+
 interface TypedLineKey {
   range: string;
   xAxis: XAxisKey;
@@ -342,6 +347,18 @@ export const { actions, reducer } = createSlice({
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.plots[payload.key].remoteCreated = true;
     },
+    selectRule: (
+      state,
+      { payload }: PayloadAction<{ key: string; ruleKey: string | string[] }>,
+    ) => {
+      const plot = state.plots[payload.key];
+      const keys = toArray(payload.ruleKey);
+      plot.rules = plot.rules.map((rule) => ({
+        ...rule,
+        selected: keys.includes(rule.key),
+      }));
+      state.toolbar.activeTab = "annotations";
+    },
   },
 });
 
@@ -361,6 +378,7 @@ export const {
   setControlState,
   storeViewport,
   setViewportMode,
+  selectRule,
   setRemoteCreated,
   setSelection,
   create: internalCreate,

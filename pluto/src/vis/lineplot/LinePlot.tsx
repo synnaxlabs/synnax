@@ -39,6 +39,7 @@ import { lineplot } from "@/vis/lineplot/aether";
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
 export interface LinePlotContextValue {
+  id: string;
   setGridEntry: (meta: grid.Region) => void;
   removeGridEntry: (key: string) => void;
   setLine: (meta: LineSpec) => void;
@@ -210,6 +211,8 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [setState, onHold],
     );
 
+    const id = `line-plot-${aetherKey}`;
+
     const contextValue = useMemo<LinePlotContextValue>(
       () => ({
         lines,
@@ -220,8 +223,10 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         setViewport,
         addViewportHandler,
         setHold,
+        id,
       }),
       [
+        id,
         lines,
         setGridEntry,
         removeGridEntry,
@@ -235,6 +240,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
     return (
       <div
+        id={id}
         className={CSS.B("line-plot")}
         style={{ ...style, ...cssGrid }}
         ref={ref}
