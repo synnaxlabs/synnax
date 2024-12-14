@@ -130,8 +130,8 @@ jobs:
         include:
           - os: ubuntu-latest
             lint: true
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' || 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' || 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
