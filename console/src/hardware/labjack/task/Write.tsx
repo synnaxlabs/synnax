@@ -484,7 +484,6 @@ const ChannelListItem = ({
                       onClick={(e) => e.stopPropagation()}
                       pack={false}
                       size="medium"
-                      sharpEnding
                     />
                   )}
                 </Form.Field>,
