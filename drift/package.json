@@ -55,24 +55,24 @@
   "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/src/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/src/index.d.ts"
+      "require": "./dist/index.cjs"
     },
     "./react": {
+      "types": "./dist/src/react/index.d.ts",
       "import": "./dist/react.js",
-      "require": "./dist/react.cjs",
-      "types": "./dist/src/react/index.d.ts"
+      "require": "./dist/react.cjs"
     },
     "./tauri": {
+      "types": "./dist/src/tauri/index.d.ts",
       "import": "./dist/tauri.js",
-      "require": "./dist/tauri.cjs",
-      "types": "./dist/src/tauri/index.d.ts"
+      "require": "./dist/tauri.cjs"
     },
     "./electron": {
+      "types": "./dist/src/electron/index.d.ts",
       "import": "./dist/electron.js",
-      "require": "./dist/electron.cjs",
-      "types": "./dist/src/electron/index.d.ts"
+      "require": "./dist/electron.cjs"
     }
   }
 }

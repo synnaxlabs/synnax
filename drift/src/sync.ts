@@ -44,45 +44,41 @@ const purgeWinStateToProps = (
   return rest;
 };
 
-const mu = new Mutex();
-
 export const syncInitial = async (
   state: SliceState,
   dispatch: Dispatch<PayloadAction<RuntimeSetWindowProsPayload>>,
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
-  await mu.runExclusive(async () => {
-    const runtimeLabels = (await runtime.listLabels()).filter(
-      (label) => label !== MAIN_WINDOW,
-    );
-    const nonMain = Object.keys(state.windows).filter((label) => label !== MAIN_WINDOW);
-    group(debug, "syncInitial");
-    log(debug, "existing windows in runtime", runtimeLabels.sort());
-    log(debug, "non-main windows in state", nonMain.sort());
-    groupEnd(debug);
-    // Create windows that are not in runtime, delete windows that are not in state
-    const allLabels = unique([...runtimeLabels, ...nonMain]);
-    // Only the main runtime is allowed to create windows.
-    for (const label of allLabels)
-      if (!runtimeLabels.includes(label) && runtime.isMain()) {
-        log(debug, "state window not in runtime, creating", label);
-        await createRuntimeWindow(runtime, label, state.windows[label], debug);
-      } else if (!nonMain.includes(label)) {
-        log(debug, "runtime window not in state, closing", label);
-        // We're safe to close the window even if we're not in the main runtime
-        // because there's no state to maintain.
-        await closeRuntimeWindow(runtime, label, debug);
-      }
-    const label = runtime.label();
-    const next = state.windows[label];
-    if (next == null) return;
-    const initial: WindowState = { ...INITIAL_WINDOW_STATE, key: label };
-    await syncCurrent(initial, next, runtime, debug);
-    dispatch(
-      runtimeSetWindowProps({ label: runtime.label(), ...(await runtime.getProps()) }),
-    );
-  });
+  const runtimeLabels = (await runtime.listLabels()).filter(
+    (label) => label !== MAIN_WINDOW,
+  );
+  const nonMain = Object.keys(state.windows).filter((label) => label !== MAIN_WINDOW);
+  group(debug, "syncInitial");
+  log(debug, "existing windows in runtime", runtimeLabels.sort());
+  log(debug, "non-main windows in state", nonMain.sort());
+  groupEnd(debug);
+  // Create windows that are not in runtime, delete windows that are not in state
+  const allLabels = unique([...runtimeLabels, ...nonMain]);
+  // Only the main runtime is allowed to create windows.
+  for (const label of allLabels)
+    if (!runtimeLabels.includes(label) && runtime.isMain()) {
+      log(debug, "state window not in runtime, creating", label);
+      await createRuntimeWindow(runtime, label, state.windows[label], debug);
+    } else if (!nonMain.includes(label)) {
+      log(debug, "runtime window not in state, closing", label);
+      // We're safe to close the window even if we're not in the main runtime
+      // because there's no state to maintain.
+      await closeRuntimeWindow(runtime, label, debug);
+    }
+  const label = runtime.label();
+  const next = state.windows[label];
+  if (next == null) return;
+  const initial: WindowState = { ...INITIAL_WINDOW_STATE, key: label };
+  await syncCurrent(initial, next, runtime, debug);
+  dispatch(
+    runtimeSetWindowProps({ label: runtime.label(), ...(await runtime.getProps()) }),
+  );
 };
 
 export const sync = async (
@@ -91,14 +87,12 @@ export const sync = async (
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
-  await mu.runExclusive(async () => {
-    log(debug, "sync", prev, next);
-    if (runtime.isMain()) await syncMain(prev, next, runtime, debug);
-    const prevWin = prev.windows[runtime.label()];
-    const nextWin = next.windows[runtime.label()];
-    if (prevWin == null || nextWin == null) return;
-    await syncCurrent(prevWin, nextWin, runtime, debug);
-  });
+  log(debug, "sync", prev, next);
+  if (runtime.isMain()) await syncMain(prev, next, runtime, debug);
+  const prevWin = prev.windows[runtime.label()];
+  const nextWin = next.windows[runtime.label()];
+  if (prevWin == null || nextWin == null) return;
+  await syncCurrent(prevWin, nextWin, runtime, debug);
 };
 
 export const syncCurrent = async (

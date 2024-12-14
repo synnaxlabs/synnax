@@ -126,7 +126,7 @@ export const migrateState = (prev: RootState): RootState => {
   };
 };
 
-const newStore = async (): Promise<RootStore> => {
+const createStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
     initial: ZERO_STATE,
     migrator: migrateState,
@@ -145,9 +145,9 @@ const newStore = async (): Promise<RootStore> => {
       ),
     reducer,
     enablePrerender: true,
-    debug: true,
+    debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };
 
-export const store = newStore();
+export const store = createStore();
