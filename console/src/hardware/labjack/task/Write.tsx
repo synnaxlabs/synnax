@@ -378,10 +378,11 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
                 grow
                 style={{ height: "calc(100% - 6rem)" }}
               >
-                {({ key, ...props }) => (
+                {({ key, entry, ...props }) => (
                   <ChannelListItem
                     key={key}
                     {...props}
+                    entry={{ ...entry }}
                     snapshot={snapshot}
                     path={`${path}.${props.index}`}
                     device={device}
