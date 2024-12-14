@@ -51,15 +51,5 @@ export const Overview: Layout.Renderer = ({ layoutKey }): ReactElement => (
     <ChildRanges rangeKey={layoutKey} />
     <Divider.Divider direction="x" />
     <Snapshots rangeKey={layoutKey} />
-    <DateParse />
   </Align.Space>
 );
-
-const nlpx = nlp.extend(nlpDates);
-
-const DateParse = () => {
-  const doc = nlpx("December 15 at noon");
-  console.log(doc.dates().json());
-
-  return <></>;
-};

@@ -11,7 +11,6 @@ import "@/layout/Window.css";
 
 import {
   MAIN_WINDOW,
-  setWindowDecorations,
   setWindowProps,
   type SetWindowPropsPayload,
 } from "@synnaxlabs/drift";
@@ -21,7 +20,7 @@ import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { type runtime } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { Controls } from "@/components";
 import { Menu } from "@/components/menu";
@@ -90,7 +89,6 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 const WindowInternal = (): ReactElement | null => {
-  console.log("HELLO");
   const currLabel = getCurrentWindow().label;
   const isMain = currLabel === MAIN_WINDOW;
   let win = useSelectWindowKey(getCurrentWindow().label) ?? "";
@@ -98,7 +96,6 @@ const WindowInternal = (): ReactElement | null => {
   const layout = useSelect(win);
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
-  console.log(layout);
   useEffect(() => {
     if (layout?.key == null) return;
     const pld: SetWindowPropsPayload = {
