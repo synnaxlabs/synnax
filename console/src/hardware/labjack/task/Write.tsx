@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, NotFoundError } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Channel,
   Form,
-  Header,
   Input,
   List,
   Menu,
@@ -28,23 +27,21 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useDevice } from "@/hardware/device/useDevice";
+import { createConfigureLayout } from "@/hardware/labjack/device/Configure";
+import { SelectOutputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
 import {
-  SelectOutputChannelTypeField,
-  SelectPort,
-} from "@/hardware/labjack/device/Select";
-import {
-  type ChannelType,
+  type ConfiguredDevice,
+  type Device,
   DEVICES,
-  type ModelKey,
   type OutputChannelType,
-  type Properties,
+  ZERO_COMMAND_STATE_PAIR,
 } from "@/hardware/labjack/device/types";
 import { SelectDevice } from "@/hardware/labjack/task/common";
+import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
 import {
   type Write,
   WRITE_TYPE,
   type WriteChan,
-  writeChan,
   type WritePayload,
   type WriteStateDetails,
   type WriteTaskConfig,
@@ -59,7 +56,6 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
-  type TaskLayoutArgs,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -69,31 +65,24 @@ import {
   checkDesiredStateMatch,
   useDesiredState,
 } from "@/hardware/task/common/useDesiredState";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 
-type LayoutArgs = TaskLayoutArgs<WritePayload>;
-
-export const configureWriteLayout = (
-  args: LayoutArgs = { create: false },
-): Layout.State<TaskLayoutArgs<WritePayload>> => ({
-  name: "Configure LabJack Write Task",
-  type: WRITE_TYPE,
-  key: id.id(),
-  icon: "Logo.LabJack",
-  windowKey: WRITE_TYPE,
-  location: "mosaic",
-  args,
-});
+export const createWriteLayout = createLayoutCreator<WritePayload>(
+  WRITE_TYPE,
+  "New LabJack Write Task",
+);
 
 export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
   create: (layoutKey) => ({
-    ...configureWriteLayout({ create: true }),
+    ...createWriteLayout({ create: true }),
     key: layoutKey,
   }),
 };
+
+const formSchema = z.object({ name: z.string().min(1), config: writeTaskConfigZ });
 
 const Wrapped = ({
   task,
@@ -101,49 +90,35 @@ const Wrapped = ({
   layoutKey,
 }: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
-  const methods = Form.use({
-    values: initialValues,
-    schema: z.object({
-      name: z.string(),
-      config: writeTaskConfigZ,
-    }),
-  });
-
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
-
+  const methods = Form.use({ values: initialValues, schema: formSchema });
   const taskState = useObserveState<WriteStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
     task?.state,
   );
-  const running = taskState?.details?.running;
+  const isRunning = taskState?.details?.running;
   const initialState =
-    running === true ? "running" : running === false ? "paused" : undefined;
+    isRunning === true ? "running" : isRunning === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-
   const createTask = useCreate<WriteTaskConfig, WriteStateDetails, WriteType>(
     layoutKey,
   );
-
   const addStatus = Status.useAggregator();
-
   const configure = useMutation({
-    mutationKey: [client?.key, "configure"],
-    onError: (e) => {
-      console.error(e);
+    mutationKey: [client?.key, "configure", addStatus],
+    onError: (e) =>
       addStatus({
         variant: "error",
-        message: e.message,
-      });
-    },
+        message: "Failed to configure write task",
+        description: e.message,
+      }),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
-
-      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
-
+      const dev = (await client.hardware.devices.retrieve(
+        config.device,
+      )) as ConfiguredDevice;
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
       if (!shouldCreateStateIndex)
@@ -153,7 +128,6 @@ const Wrapped = ({
           if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
           else throw e;
         }
-
       if (shouldCreateStateIndex) {
         modified = true;
         const stateIndex = await client.channels.create({
@@ -165,86 +139,78 @@ const Wrapped = ({
         dev.properties.DO.channels = {};
         dev.properties.AO.channels = {};
       }
-
-      const commandsToCreate: WriteChan[] = [];
-      const statesToCreate: WriteChan[] = [];
+      const commandChannelsToCreate: WriteChan[] = [];
+      const stateChannelsToCreate: WriteChan[] = [];
       for (const channel of config.channels) {
-        const key = `${channel.port}`;
-        const exPair = dev.properties[channel.type].channels[key];
-        if (exPair == null) {
-          commandsToCreate.push(channel);
-          statesToCreate.push(channel);
+        const key = channel.port;
+        const existingPair = dev.properties[channel.type].channels[key];
+        if (existingPair == null) {
+          commandChannelsToCreate.push(channel);
+          stateChannelsToCreate.push(channel);
         } else {
+          const { state, command } = existingPair;
           try {
-            await client.channels.retrieve([exPair.state]);
+            await client.channels.retrieve(state);
           } catch (e) {
-            if (NotFoundError.matches(e)) statesToCreate.push(channel);
+            if (NotFoundError.matches(e)) stateChannelsToCreate.push(channel);
             else throw e;
           }
           try {
-            await client.channels.retrieve([exPair.command]);
+            await client.channels.retrieve(command);
           } catch (e) {
-            if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+            if (NotFoundError.matches(e)) commandChannelsToCreate.push(channel);
             else throw e;
           }
         }
       }
-
-      if (statesToCreate.length > 0) {
+      if (stateChannelsToCreate.length > 0) {
         modified = true;
-        const states = await client.channels.create(
-          statesToCreate.map((c) => ({
+        const stateChannels = await client.channels.create(
+          stateChannelsToCreate.map((c) => ({
             name: `${dev.properties.identifier}_${c.type}_${c.port}_state`,
             index: dev.properties.writeStateIndex,
             dataType: c.type === "AO" ? "float32" : "uint8",
           })),
         );
-        states.forEach((s, i) => {
-          const statesToCreateC = statesToCreate[i];
-          if (!(statesToCreateC.port in dev.properties[statesToCreateC.type].channels))
-            dev.properties[statesToCreateC.type].channels[statesToCreateC.port] = {
-              state: s.key,
+        stateChannels.forEach((c, i) => {
+          const statesToCreateC = stateChannelsToCreate[i];
+          const port = statesToCreateC.port;
+          if (!(port in dev.properties[statesToCreateC.type].channels))
+            dev.properties[statesToCreateC.type].channels[port] = {
+              state: c.key,
               command: 0,
             };
-          else
-            dev.properties[statesToCreateC.type].channels[statesToCreateC.port].state =
-              s.key;
+          else dev.properties[statesToCreateC.type].channels[port].state = c.key;
         });
       }
-
-      if (commandsToCreate.length > 0) {
+      if (commandChannelsToCreate.length > 0) {
+        modified = true;
         const commandIndexes = await client.channels.create(
-          commandsToCreate.map((c) => ({
+          commandChannelsToCreate.map((c) => ({
             name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd_time`,
             dataType: "timestamp",
             isIndex: true,
           })),
         );
-        const commands = await client.channels.create(
-          commandsToCreate.map((c, i) => ({
+        const commandChannels = await client.channels.create(
+          commandChannelsToCreate.map((c, i) => ({
             name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd`,
             index: commandIndexes[i].key,
             dataType: c.type === "AO" ? "float32" : "uint8",
           })),
         );
-        commands.forEach((s, i) => {
-          const cmdToCreate = commandsToCreate[i];
-          if (!(cmdToCreate.port in dev.properties[cmdToCreate.type].channels))
-            dev.properties[cmdToCreate.type].channels[cmdToCreate.port] = {
+        commandChannels.forEach((c, i) => {
+          const cmdToCreate = commandChannelsToCreate[i];
+          const port = cmdToCreate.port;
+          if (!(port in dev.properties[cmdToCreate.type].channels))
+            dev.properties[cmdToCreate.type].channels[port] = {
               state: 0,
-              command: s.key,
+              command: c.key,
             };
-          else
-            dev.properties[cmdToCreate.type].channels[cmdToCreate.port].command = s.key;
+          else dev.properties[cmdToCreate.type].channels[port].command = c.key;
         });
       }
-
-      if (modified)
-        await client.hardware.devices.create({
-          ...dev,
-          properties: dev.properties,
-        });
-
+      if (modified) await client.hardware.devices.create(dev);
       config.channels = config.channels.map((c) => {
         const pair = dev.properties[c.type].channels[c.port];
         return {
@@ -254,7 +220,6 @@ const Wrapped = ({
         };
       });
       methods.set("config", config);
-
       await createTask({
         key: task?.key,
         name,
@@ -264,38 +229,43 @@ const Wrapped = ({
       setDesiredState("paused");
     },
   });
-
   const start = useMutation({
-    mutationKey: [client?.key],
+    mutationKey: [client?.key, isRunning, task?.key],
+    onError: (e) =>
+      addStatus({
+        variant: "error",
+        message: `Failed to ${isRunning ? "stop" : "start"} write task`,
+        description: e.message,
+      }),
     mutationFn: async () => {
-      if (client == null) return;
-      const isRunning = running === true;
+      if (client == null) throw new Error("No client");
+      if (task == null) throw new Error("No task state");
+      if (isRunning == null) throw new Error("No running state");
       setDesiredState(isRunning ? "paused" : "running");
-      await task?.executeCommand(isRunning ? "stop" : "start");
+      await task.executeCommand(isRunning ? "stop" : "start");
     },
   });
-
-  const dev = useDevice(methods);
-
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
-          <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name">
-              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-            </Form.Field>
-          </Align.Space>
-          <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <SelectDevice />
-            <Align.Space direction="x">
-              <Form.NumericField
-                label="State Update Rate"
-                path="config.stateRate"
-                inputProps={{ endContent: "Hz" }}
-                grow
-              />
-              <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
+          <Align.Space direction="y" empty>
+            <Align.Space direction="x" justify="spaceBetween">
+              <Form.Field<string> path="name">
+                {(p) => <Input.Text variant="natural" level="h2" {...p} />}
+              </Form.Field>
+            </Align.Space>
+            <Align.Space direction="x" className={CSS.B("task-properties")}>
+              <SelectDevice />
+              <Align.Space direction="x">
+                <Form.NumericField
+                  label="State Update Rate"
+                  path="config.stateRate"
+                  inputProps={{ endContent: "Hz" }}
+                  grow
+                />
+                <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
+              </Align.Space>
             </Align.Space>
           </Align.Space>
           <Align.Space
@@ -306,31 +276,7 @@ const Wrapped = ({
             grow
             empty
           >
-            <ChannelList
-              path="config.channels"
-              snapshot={task?.snapshot}
-              selected={selectedChannels}
-              onSelect={useCallback(
-                (v, i) => {
-                  setSelectedChannels(v);
-                  setSelectedChannelIndex(i);
-                },
-                [setSelectedChannels, setSelectedChannelIndex],
-              )}
-            />
-            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h4">
-                <Header.Title weight={500}>Details</Header.Title>
-              </Header.Header>
-              <Align.Space className={CSS.B("details")}>
-                {selectedChannelIndex != null && (
-                  <ChannelForm
-                    selectedChannelIndex={selectedChannelIndex}
-                    device={dev}
-                  />
-                )}
-              </Align.Space>
-            </Align.Space>
+            <MainContent snapshot={task?.snapshot} />
           </Align.Space>
         </Form.Form>
         <Controls
@@ -339,7 +285,7 @@ const Wrapped = ({
           snapshot={task?.snapshot}
           startingOrStopping={
             start.isPending ||
-            (!checkDesiredStateMatch(desiredState, running) &&
+            (!checkDesiredStateMatch(desiredState, isRunning) &&
               taskState?.variant === "success")
           }
           configuring={configure.isPending}
@@ -351,210 +297,230 @@ const Wrapped = ({
   );
 };
 
-interface ChannelFormProps {
-  selectedChannelIndex: number;
-  device?: device.Device;
+interface MainContentProps {
+  snapshot?: boolean;
 }
 
-const ChannelForm = ({
-  selectedChannelIndex,
-  device,
-}: ChannelFormProps): ReactElement => {
-  const prefix = `config.channels.${selectedChannelIndex}`;
-  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ?? "DO";
-  const model = (device?.model ?? "LJM_dtT4") as ModelKey;
-  return (
-    <Align.Space direction="y">
-      <SelectOutputChannelTypeField
-        path={prefix}
-        onChange={(value, ctx) => {
-          const prevType = ctx.get<OutputChannelType>(ctx.path).value;
-          if (prevType === value) return;
-          const next = deep.copy(ZERO_WRITE_CHAN);
-          const parentPath = ctx.path.slice(0, ctx.path.lastIndexOf("."));
-          const prevParent = ctx.get<WriteChan>(parentPath).value;
-          const schema = writeChan;
-          const port = DEVICES[model].ports[value][0].key;
-          ctx.set(parentPath, {
-            ...deep.overrideValidItems(next, prevParent, schema),
-            type: next.type,
-          });
-          // Need to explicitly set port to cause select port field to rerender
-          ctx.set(`${parentPath}.port`, port);
-        }}
-        inputProps={{ allowNone: false }}
-        grow
-      />
-      <Form.Field<string> path={`${prefix}.port`} label="Port" grow hideIfNull>
-        {(p) => (
-          <SelectPort
-            {...p}
-            model={(device?.model ?? "LJM_dtT4") as ModelKey}
-            channelType={channelType}
-          />
-        )}
-      </Form.Field>
-    </Align.Space>
-  );
+const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
+  const formCtx = Form.useContext();
+  const device = useDevice(formCtx) as Device | undefined;
+  const place = Layout.usePlacer();
+  if (device == null)
+    return (
+      <Align.Space grow empty align="center" justify="center">
+        <Text.Text level="p">{`No device selected`}</Text.Text>
+      </Align.Space>
+    );
+  const handleConfigure = () => place(createConfigureLayout(device.key, {}));
+  if (!device.configured)
+    return (
+      <Align.Space grow align="center" justify="center" direction="y">
+        <Text.Text level="p">{`${device.name} is not configured.`}</Text.Text>
+        <Text.Link level="p" onClick={handleConfigure}>
+          {`Configure ${device.name}.`}
+        </Text.Link>
+      </Align.Space>
+    );
+  return <ChannelList path="config.channels" snapshot={snapshot} device={device} />;
 };
 
 interface ChannelListProps {
   path: string;
-  onSelect: (keys: string[], index: number) => void;
-  selected: string[];
   snapshot?: boolean;
+  device: ConfiguredDevice;
 }
 
-const ChannelList = ({
-  path,
-  selected,
-  onSelect,
-  snapshot,
-}: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<WriteChan>({ path });
-  const handleAdd = (): void => {
+const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
+  const [selected, setSelected] = useState<string[]>([]);
+  const { value, push, remove } = Form.useFieldArray<WriteChan>({
+    path,
+    updateOnChildren: true,
+  });
+  const handleAdd = useCallback(() => {
+    const existingCommandStatePair =
+      device.properties[ZERO_WRITE_CHAN.type].channels[ZERO_WRITE_CHAN.port] ??
+      ZERO_COMMAND_STATE_PAIR;
     push({
       ...deep.copy(ZERO_WRITE_CHAN),
       key: id.id(),
+      cmdKey: existingCommandStatePair.command,
+      stateKey: existingCommandStatePair.state,
     });
-  };
+  }, [push, device]);
   const menuProps = Menu.useContextMenu();
   return (
-    <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
-      <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps) => (
-          <ChannelListContextMenu
-            path={path}
-            keys={keys}
-            value={value}
-            remove={remove}
-            onSelect={onSelect}
-            onDuplicate={(indices) => {
-              const newChannels = indices.map((i) => ({
-                ...value[i],
-                key: id.id(),
-              }));
-              push(newChannels);
-            }}
-          />
-        )}
-        {...menuProps}
-      >
-        <List.List<string, WriteChan>
-          data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+    <Align.Space grow empty direction="y">
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
+      <Align.Space grow empty style={{ height: "100%" }}>
+        <Menu.ContextMenu
+          menu={({ keys }: Menu.ContextMenuMenuProps) => (
+            <ChannelListContextMenu
+              path={path}
+              keys={keys}
+              value={value}
+              remove={remove}
+              onSelect={(keys) => setSelected(keys)}
+            />
+          )}
+          {...menuProps}
         >
-          <List.Selector<string, WriteChan>
-            value={selected}
-            allowNone={false}
-            allowMultiple
-            onChange={(keys, { clickedIndex }) =>
-              clickedIndex != null && onSelect(keys, clickedIndex)
-            }
-            replaceOnSingle
+          <List.List<string, WriteChan>
+            data={value}
+            emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
           >
-            <List.Core<string, WriteChan> grow>
-              {({ key, ...props }) => (
-                <ChannelListItem key={key} {...props} snapshot={snapshot} path={path} />
-              )}
-            </List.Core>
-          </List.Selector>
-        </List.List>
-      </Menu.ContextMenu>
+            <List.Selector<string, WriteChan>
+              value={selected}
+              allowMultiple
+              replaceOnSingle
+              onChange={setSelected}
+            >
+              <List.Core<string, WriteChan>
+                grow
+                style={{ height: "calc(100% - 6rem)" }}
+              >
+                {({ key, entry, ...props }) => (
+                  <ChannelListItem
+                    key={key}
+                    {...props}
+                    entry={{ ...entry }}
+                    snapshot={snapshot}
+                    path={`${path}.${props.index}`}
+                    device={device}
+                  />
+                )}
+              </List.Core>
+            </List.Selector>
+          </List.List>
+        </Menu.ContextMenu>
+      </Align.Space>
     </Align.Space>
   );
 };
 
-const ChannelListItem = ({
-  path,
-  snapshot = false,
-  ...props
-}: List.ItemProps<string, WriteChan> & {
+interface ChannelListItemProps extends List.ItemProps<string, WriteChan> {
   path: string;
   snapshot?: boolean;
-}): ReactElement => {
-  const { entry } = props;
+  device: ConfiguredDevice;
+}
+
+const NO_COMMAND_CHANNEL_NAME = "No Command Channel";
+const NO_STATE_CHANNEL_NAME = "No State Channel";
+
+const ChannelListItem = ({
+  path,
+  entry,
+  snapshot = false,
+  device,
+  ...props
+}: ChannelListItemProps): ReactElement => {
   const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<WriteChan>({
-    path: `${path}.${props.index}`,
-    optional: true,
-  });
-  const cmdChannelName = Channel.useName(
-    childValues?.cmdKey ?? 0,
-    "No Command Channel",
-  );
-  const stateChannelName = Channel.useName(
-    childValues?.stateKey ?? 0,
-    "No State Channel",
-  );
-
-  const stateChannel =
-    Form.useField<number>({
-      path: `${path}.${props.index}.stateKey`,
-      optional: true,
-    })?.status.variant === "success";
-
-  const cmdChannelState = Form.useField<number>({
-    path: `${path}.${props.index}.cmdKey`,
-    optional: true,
-  });
-  const cmdChannel = cmdChannelState?.status.variant === "success";
-
-  const locationValid =
-    Form.useField<number>({
-      path: `${path}.${props.index}.port`,
-      optional: true,
-    })?.status.variant === "success";
-
-  if (childValues == null) return <></>;
+  const cmdChannelName = Channel.useName(entry?.cmdKey ?? 0, NO_COMMAND_CHANNEL_NAME);
+  const stateChannelName = Channel.useName(entry?.stateKey ?? 0, NO_STATE_CHANNEL_NAME);
   return (
     <List.ItemFrame
       {...props}
-      entry={childValues}
+      entry={entry}
+      style={{ width: "100%" }}
       justify="spaceBetween"
       align="center"
+      direction="x"
     >
-      <Align.Space direction="x" size="small">
+      <Align.Pack direction="x" align="center">
+        <Form.Field<string>
+          path={`${path}.port`}
+          showLabel={false}
+          hideIfNull
+          empty
+          onChange={(value, { path, get, set }) => {
+            const channelPath = path.slice(0, path.lastIndexOf("."));
+            const previousChannel = get<WriteChan>(channelPath).value;
+            if (previousChannel.port === value) return;
+            const existingCommandStatePair =
+              device.properties[previousChannel.type].channels[value] ??
+              ZERO_COMMAND_STATE_PAIR;
+            set(channelPath, {
+              ...previousChannel,
+              cmdKey: existingCommandStatePair.command,
+              stateKey: existingCommandStatePair.state,
+              port: value,
+            });
+          }}
+        >
+          {(p) => (
+            <SelectPort
+              {...p}
+              model={device.model}
+              channelType={entry.type}
+              allowNone={false}
+              onClick={(e: MouseEvent) => e.stopPropagation()}
+              style={{ width: 250 }}
+              actions={[
+                <Form.Field<OutputChannelType>
+                  key="type"
+                  path={`${path}.type`}
+                  showLabel={false}
+                  hideIfNull
+                  onChange={(value, { path, get, set }) => {
+                    const channelPath = path.slice(0, path.lastIndexOf("."));
+                    const previousChannel = get<WriteChan>(channelPath).value;
+                    if (previousChannel.type === value) return;
+                    const port = DEVICES[device.model].ports[value][0].key;
+                    const existingCommandStatePair =
+                      device.properties[value].channels[port] ??
+                      ZERO_COMMAND_STATE_PAIR;
+                    set(channelPath, {
+                      ...previousChannel,
+                      cmdKey: existingCommandStatePair.command,
+                      stateKey: existingCommandStatePair.state,
+                      type: value,
+                    });
+                    set(`${channelPath}.port`, port);
+                  }}
+                  empty
+                >
+                  {(p) => (
+                    <SelectOutputChannelType
+                      {...p}
+                      onClick={(e) => e.stopPropagation()}
+                      pack={false}
+                      size="medium"
+                    />
+                  )}
+                </Form.Field>,
+              ]}
+            />
+          )}
+        </Form.Field>
+      </Align.Pack>
+      <Align.Space direction="x" align="center" justify="spaceEvenly">
         <Text.Text
           level="p"
-          shade={6}
-          color={locationValid ? undefined : "var(--pluto-error-z)"}
+          shade={9}
+          color={
+            cmdChannelName === NO_COMMAND_CHANNEL_NAME
+              ? "var(--pluto-warning-m1)"
+              : undefined
+          }
         >
-          {entry.port}
+          {cmdChannelName}
         </Text.Text>
-        <Align.Space direction="y" size="small">
-          <Text.Text
-            level="p"
-            shade={9}
-            color={(() => {
-              if (cmdChannelName === "No Command Channel")
-                return "var(--pluto-warning-m1)";
-              if (cmdChannel) return undefined;
-              return "var(--pluto-error-z)";
-            })()}
-          >
-            {cmdChannelName}
-          </Text.Text>
-          <Text.Text
-            level="p"
-            shade={9}
-            color={(() => {
-              if (stateChannelName === "No State Channel")
-                return "var(--pluto-warning-m1)";
-              if (stateChannel) return undefined;
-              return "var(--pluto-error-z)";
-            })()}
-          >
-            {stateChannelName}
-          </Text.Text>
-        </Align.Space>
+        <Text.Text
+          level="p"
+          shade={9}
+          color={
+            stateChannelName === NO_STATE_CHANNEL_NAME
+              ? "var(--pluto-warning-m1)"
+              : undefined
+          }
+        >
+          {stateChannelName}
+        </Text.Text>
+        <EnableDisableButton
+          value={entry.enabled}
+          onChange={(v) => ctx.set(`${path}.enabled`, v)}
+          snapshot={snapshot}
+        />
       </Align.Space>
-      <EnableDisableButton
-        value={childValues.enabled}
-        onChange={(v) => ctx?.set(`${path}.${props.index}.enabled`, v)}
-        snapshot={snapshot}
-      />
     </List.ItemFrame>
   );
 };

@@ -236,6 +236,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   placeholder = DEFAULT_PLACEHOLDER,
   className,
   disabled,
+  children,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
   const { clear } = CoreList.useSelectionUtils();
@@ -299,6 +300,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
       disabled={disabled}
       {...props}
     >
+      {children}
       {allowNone && <ClearButton onClick={handleClear} disabled={disabled} />}
     </Input.Text>
   );
