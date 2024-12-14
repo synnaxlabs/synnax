@@ -59,6 +59,7 @@ jobs:
               - configs/vite/**
               - console/**
               - drift/**
+              - freighter/ts/**
               - pluto/**
               - x/media/**
               - x/ts/**

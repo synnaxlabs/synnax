@@ -28,7 +28,7 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Configure NPM
+      - name: Configure npm
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
