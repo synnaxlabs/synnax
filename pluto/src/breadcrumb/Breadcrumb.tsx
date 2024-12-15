@@ -16,6 +16,8 @@ import { CSS } from "@/css";
 import { Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
 
+import "@/breadcrumb/Breadcrumb.css";
+
 export interface Segment {
   label: string;
   shade?: Text.Shade;
@@ -143,7 +145,7 @@ export const Breadcrumb = <
   if (hideFirst) content.shift();
   return (
     <Text.WithIcon
-      className={CSS(className, CSS.B("breadcrumb"))}
+      className={CSS(className, CSS.B("breadcrumb"), hideFirst && CSS.M("hide-first"))}
       level={level}
       shade={shade}
       weight={weight}

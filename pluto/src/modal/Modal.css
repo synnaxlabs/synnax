@@ -33,6 +33,7 @@
         background: var(--pluto-gray-l1-40);
         padding: 5rem;
         /* don't allow to select things underneath */
+        -webkit-user-select: none;
         user-select: none;
 
         .pluto-modal__dialog {
@@ -41,9 +42,7 @@
             top: 30%;
             z-index: 11;
             transform: translateY(-25%);
-            background: var(--pluto-gray-l0-90);
-            -webkit-backdrop-filter: blur(3rem);
-            backdrop-filter: blur(3rem);
+            background: var(--pluto-gray-l0);
             box-shadow: var(--pluto-shadow-menu);
             border-radius: 1rem;
             min-width: 400px;

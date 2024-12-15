@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Button, Status, Tabs } from "@synnaxlabs/pluto";
+import { Align, Breadcrumb, Button, Header, Status, Tabs } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
