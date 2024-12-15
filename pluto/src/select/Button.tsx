@@ -53,6 +53,7 @@ export type ButtonProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Om
     size?: ComponentSize;
     actions?: Align.PackProps["children"];
     pack?: boolean;
+    variant?: Input.Variant;
   };
 
 export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
@@ -68,6 +69,7 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   size = "small",
   actions,
   pack = true,
+  variant,
   ...props
 }: ButtonProps<K, E>): ReactElement => {
   const { onSelect } = useSelect<K, E>({
@@ -79,10 +81,15 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     onChange,
   } as const as UseSelectProps<K, E>);
 
+  const handleClick = (key: E["key"]) => {
+    if (variant === "preview") return;
+    onSelect(key);
+  };
+
   const mapped = data?.map((e) =>
     children({
       key: e.key,
-      onClick: () => onSelect(e.key),
+      onClick: () => handleClick(e.key),
       size,
       selected: e.key === value,
       entry: e,

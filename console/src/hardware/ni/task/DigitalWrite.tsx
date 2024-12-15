@@ -41,6 +41,7 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  ParentRangeButton,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -245,7 +246,7 @@ const Wrapped = ({
       <Align.Space grow>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name">
+            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
             <CopyButtons
@@ -255,6 +256,7 @@ const Wrapped = ({
               getConfig={() => methods.get<DigitalWriteConfig>("config").value}
             />
           </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -359,7 +361,7 @@ const ChannelList = ({
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }): ReactElement => (
           <ChannelListContextMenu
@@ -368,6 +370,7 @@ const ChannelList = ({
             value={value}
             remove={remove}
             onSelect={onSelect}
+            snapshot={snapshot}
             onDuplicate={(indices): void => {
               push(
                 indices.map((i) => ({
@@ -384,7 +387,9 @@ const ChannelList = ({
       >
         <List.List<string, Chan>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+          }
         >
           <List.Selector<string, Chan>
             value={selected}
@@ -396,8 +401,8 @@ const ChannelList = ({
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => (
-                <ChannelListItem {...props} path={path} snapshot={snapshot} />
+              {({ key, ...props }) => (
+                <ChannelListItem key={key} {...props} path={path} snapshot={snapshot} />
               )}
             </List.Core>
           </List.Selector>

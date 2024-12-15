@@ -444,7 +444,7 @@ const ChannelList = ({
           <List.Selector<string, Chan>
             value={selected}
             allowNone={false}
-            allowMultiple={true}
+            allowMultiple
             onChange={(keys, { clickedIndex }) =>
               clickedIndex != null && onSelect(keys, clickedIndex)
             }
