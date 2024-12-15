@@ -204,10 +204,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
       <Group.GroupMenuItem selection={selection} />
       {resources.every((r) => r.data?.snapshot === false) && (
-        <Range.SnapshotMenuItem key="snapshot" range={range} />
+        <>
+          <Range.SnapshotMenuItem key="snapshot" range={range} />
+          <PMenu.Divider />
+        </>
       )}
       {singleResource && (
         <>
+          <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
+            {`${resources[0].data?.snapshot ? "View" : "Edit"} Configuration`}
+          </PMenu.Item>
           <Menu.RenameItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />

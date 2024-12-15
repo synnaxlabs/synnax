@@ -124,7 +124,7 @@ const Content = (): ReactElement => {
   useAsyncEffect(async () => {
     if (client == null) return;
     const v = (await client.hardware.tasks.list({ includeState: true })).filter(
-      (t) => !t.internal,
+      (t) => !t.internal && !t.snapshot,
     );
     setTasks(v);
   }, [client]);
@@ -171,7 +171,9 @@ const Content = (): ReactElement => {
           const nextKeys = next.map((t) => t.key);
           return [
             ...next,
-            ...nextTasks.filter((u) => !u.internal && !nextKeys.includes(u.key)),
+            ...nextTasks.filter(
+              (u) => !u.internal && !u.snapshot && !nextKeys.includes(u.key),
+            ),
           ];
         });
       });
