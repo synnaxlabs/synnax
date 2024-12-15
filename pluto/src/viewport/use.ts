@@ -286,7 +286,7 @@ export const use = ({
       candidateElements.push(canvasRef.current);
       if (
         !box.contains(canvasBox, rawCursor) ||
-        (canvasRef.current === e.target &&
+        (canvasRef.current !== e.target &&
           findParent(e.target as HTMLElement, (el) => el === canvasRef.current) == null)
       )
         return;
