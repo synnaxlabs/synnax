@@ -20,7 +20,7 @@ import {
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import React, { type ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";

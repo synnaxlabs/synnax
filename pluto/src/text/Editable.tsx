@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { useSyncedRef } from "@/hooks";
+import { usePrevious, useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { type text } from "@/text/core";
@@ -127,7 +127,10 @@ export const Editable = <L extends text.Level = text.Level>({
   const handleDoubleClick = (
     e: React.MouseEvent<HTMLParagraphElement, MouseEvent>,
   ): void => {
-    if (allowDoubleClick) setEditable(true);
+    if (allowDoubleClick) {
+      setEditable(true);
+      triggerReflow(ref.current as HTMLElement);
+    }
     onDoubleClick?.(e);
   };
 
@@ -159,6 +162,7 @@ export const Editable = <L extends text.Level = text.Level>({
 
   useLayoutEffect(() => {
     if (ref.current == null || !editable) return;
+    triggerReflow(ref.current);
     const { current: el } = ref;
     el.focus();
     const range = document.createRange();
