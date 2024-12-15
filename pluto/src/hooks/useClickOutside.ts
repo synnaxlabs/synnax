@@ -56,7 +56,6 @@ export const useClickOutside = ({
   );
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
-    // window.addEventListener("blur", onClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [handleClickOutside]);
 };
