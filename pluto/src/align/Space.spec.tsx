@@ -37,7 +37,7 @@ describe("Space", () => {
     const world = c.getByText("World");
     expect(world).toBeTruthy();
     const parent = world.parentElement;
-    expect(parent?.style.gap).toBe("0 0");
+    expect(parent?.style.gap).toBe("0");
   });
   it("should render items with a multiple of the base size", () => {
     const c = render(
@@ -49,6 +49,6 @@ describe("Space", () => {
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
     expect(world).toBeTruthy();
-    expect(world.parentElement?.style.gap).toBe("2rem 2rem");
+    expect(world.parentElement?.style.gap).toBe("2rem");
   });
 });
