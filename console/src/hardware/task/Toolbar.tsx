@@ -9,7 +9,7 @@
 
 import "@/hardware/task/Toolbar.css";
 
-import { type task } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -24,6 +24,7 @@ import {
   useAsyncEffect,
   useDelayedState,
 } from "@synnaxlabs/pluto";
+import { Link } from "@/link";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
@@ -194,6 +195,7 @@ const Content = (): ReactElement => {
     },
   });
   const confirm = Confirm.useModal();
+  const handleLink = Link.useCopyToClipboard();
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
@@ -257,6 +259,11 @@ const Content = (): ReactElement => {
             iconSpacing="small"
             onChange={{
               rename: () => Text.edit(`text-${keys[0]}`),
+              link: () =>
+                handleLink({
+                  name: tasks.find((t) => t.key === keys[0])?.name,
+                  ontologyID: task.ontologyID(keys[0]),
+                }),
               delete: () => handleDelete.mutate(keys),
               start: () =>
                 selected.forEach((t) => {
@@ -302,6 +309,8 @@ const Content = (): ReactElement => {
                 </PMenu.Item>
                 <PMenu.Divider />
                 <Menu.RenameItem />
+                <Link.CopyMenuItem />
+                <PMenu.Divider />
               </>
             )}
             {someSelected && (
