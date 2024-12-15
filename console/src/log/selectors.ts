@@ -23,6 +23,8 @@ export const selectOptional = select as (
 export const useSelect = (key: string): State =>
   useMemoSelect((s: StoreState) => select(s, key), [key]);
 
+export const useSelectOptional = useSelect as (key: string) => State | undefined;
+
 export const selectVersion = (state: StoreState, key: string): string | undefined =>
   selectOptional(state, key)?.version;
 

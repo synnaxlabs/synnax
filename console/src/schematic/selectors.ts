@@ -34,6 +34,8 @@ export const selectOptional = select as (
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
+export const useSelectOptional = useSelect as (key: string) => State | undefined;
+
 export const selectMany = (state: StoreState, keys: string[]): State[] =>
   keys.map((key) => select(state, key));
 

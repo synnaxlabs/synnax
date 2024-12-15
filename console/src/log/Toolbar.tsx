@@ -17,17 +17,18 @@ import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { useSyncComponent } from "@/log/Log";
-import { useSelect } from "@/log/selectors";
+import { useSelect, useSelectOptional } from "@/log/selectors";
 import { setChannels } from "@/log/slice";
 
 export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const d = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
-  const state = useSelect(layoutKey);
+  const state = useSelectOptional(layoutKey);
+  if (state == null) return null;
   const handleChannelChange = (v: channel.Key) =>
     d(setChannels({ key: layoutKey, channels: [v ?? 0] }));
   return (

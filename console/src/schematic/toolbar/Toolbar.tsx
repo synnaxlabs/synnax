@@ -22,6 +22,7 @@ import {
   useSelect,
   useSelectControlStatus,
   useSelectHasPermission,
+  useSelectOptional,
   useSelectSelectedElementNames,
   useSelectToolbar,
 } from "@/schematic/selectors";
@@ -79,13 +80,13 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
-  const state = useSelect(layoutKey);
+  const state = useSelectOptional(layoutKey);
   const handleExport = useExport(name);
   const selectedNames = useSelectSelectedElementNames(layoutKey);
 
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
-      if (!state.editable) return <NotEditableContent layoutKey={layoutKey} />;
+      if (!state?.editable) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
