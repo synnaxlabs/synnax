@@ -653,6 +653,10 @@ export class TimeSpan implements Stringer {
     return str.trim();
   }
 
+  mult(value: number): TimeSpan {
+    return new TimeSpan(this.valueOf() * BigInt(value));
+  }
+
   /** @returns the decimal number of days in the timespan */
   get days(): number {
     return Number(this.valueOf()) / Number(TimeSpan.DAY.valueOf());
