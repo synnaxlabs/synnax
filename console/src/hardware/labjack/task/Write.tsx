@@ -219,7 +219,7 @@ const Wrapped = ({
           stateKey: pair.state,
         };
       });
-      methods.set("config", config);
+      methods.set("config.channels", config.channels);
       await createTask({
         key: task?.key,
         name,
