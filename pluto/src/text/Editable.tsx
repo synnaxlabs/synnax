@@ -58,15 +58,12 @@ export const edit = (
     }
     d.setAttribute("contenteditable", "true");
     if (onChange == null) return;
-    d.addEventListener(RENAMED_EVENT_NAME, (e) => {
-      console.log("ABC");
-      onChange(getInnerText(e.target as HTMLElement), true);
-    });
-    d.addEventListener(ESCAPED_EVENT_NAME, (e) => {
-      console.log("CDE");
-
-      onChange(getInnerText(e.target as HTMLElement), false);
-    });
+    d.addEventListener(RENAMED_EVENT_NAME, (e) =>
+      onChange(getInnerText(e.target as HTMLElement), true),
+    );
+    d.addEventListener(ESCAPED_EVENT_NAME, (e) =>
+      onChange(getInnerText(e.target as HTMLElement), false),
+    );
   };
   tryEdit();
 };
