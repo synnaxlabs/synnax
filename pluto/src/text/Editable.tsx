@@ -58,12 +58,15 @@ export const edit = (
     }
     d.setAttribute("contenteditable", "true");
     if (onChange == null) return;
-    d.addEventListener(RENAMED_EVENT_NAME, (e) =>
-      onChange(getInnerText(e.target as HTMLElement), true),
-    );
-    d.addEventListener(ESCAPED_EVENT_NAME, (e) =>
-      onChange(getInnerText(e.target as HTMLElement), false),
-    );
+    d.addEventListener(RENAMED_EVENT_NAME, (e) => {
+      console.log("ABC");
+      onChange(getInnerText(e.target as HTMLElement), true);
+    });
+    d.addEventListener(ESCAPED_EVENT_NAME, (e) => {
+      console.log("CDE");
+
+      onChange(getInnerText(e.target as HTMLElement), false);
+    });
   };
   tryEdit();
 };
@@ -133,7 +136,11 @@ export const Editable = <L extends text.Level = text.Level>({
 
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
     const innerText = getInnerText(el);
-    if (optimisticValueRef.current === innerText) return;
+    if (
+      optimisticValueRef.current === innerText &&
+      (innerText.length > 0 || allowEmpty)
+    )
+      return;
     if (forceEscape || (innerText.length === 0 && !allowEmpty)) {
       el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
