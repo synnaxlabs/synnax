@@ -49,6 +49,6 @@ describe("Space", () => {
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
     expect(world).toBeTruthy();
-    expect(world.parentElement?.style.gap).toBe("2rem 2rem");
+    expect(world.parentElement?.style.gap).toBe("2rem");
   });
 });
