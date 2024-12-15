@@ -72,11 +72,14 @@ const selectSelectedCells = <
 >(
   state: StoreState,
   key: string,
-): CellState<V, P>[] =>
-  Object.values(select(state, key).cells).filter((cell) => cell.selected) as CellState<
+): CellState<V, P>[] => {
+  const table = selectOptional(state, key);
+  if (table == null) return [];
+  return Object.values(table.cells).filter((cell) => cell.selected) as CellState<
     V,
     P
   >[];
+};
 
 export const useSelectSelectedCells = <
   V extends TableCells.Variant = TableCells.Variant,

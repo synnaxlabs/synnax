@@ -228,6 +228,9 @@ importers:
       '@synnaxlabs/drift':
         specifier: workspace:*
         version: link:../drift
+      '@synnaxlabs/freighter':
+        specifier: workspace:*
+        version: link:../freighter/ts
       '@synnaxlabs/media':
         specifier: workspace:*
         version: link:../x/media
