@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology } from "@synnaxlabs/client";
+import { NotFoundError, ontology, group } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
@@ -313,7 +313,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   canDrop: () => true,
   onSelect: () => {},
   // This haul item allows the group to be dragged between nodes in the tree.
-  haulItems: ({ key }) => [{ type: "group", key }],
+  haulItems: ({ key }) => [group.ontologyID(key)],
   allowRename: () => true,
   onMosaicDrop: () => {},
   TreeContextMenu,
