@@ -26,6 +26,11 @@ export const selectSliceState = (state: StoreState): SliceState => state[SLICE_N
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
 
+export const selectOptional = select as (
+  state: StoreState,
+  key: string,
+) => State | undefined;
+
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
@@ -153,7 +158,7 @@ export const useSelectHasPermission = (): boolean =>
   useMemoSelect(selectHasPermission, []);
 
 export const selectVersion = (state: StoreState, key: string): string | undefined =>
-  select(state, key).version;
+  selectOptional(state, key)?.version;
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);

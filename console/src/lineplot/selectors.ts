@@ -29,6 +29,9 @@ export const selectSliceState = (state: StoreState): SliceState => state[SLICE_N
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).plots[key];
 
+export const selectOptional = (state: StoreState, key: string): State | undefined =>
+  selectSliceState(state).plots[key];
+
 export const selectMultiple = (state: StoreState, keys: string[]): State[] =>
   keys.map((key) => select(state, key));
 
@@ -97,7 +100,7 @@ export const useSelectAxisBounds = (key: string, axisKey: AxisKey): bounds.Bound
   );
 
 export const selectVersion = (state: StoreState, key: string): string | undefined =>
-  select(state, key).version;
+  selectOptional(state, key)?.version;
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);
