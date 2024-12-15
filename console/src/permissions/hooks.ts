@@ -12,6 +12,7 @@ import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { giveAll, set } from "@/permissions/slice";
+import { Unreachable } from "@synnaxlabs/freighter";
 
 export const useFetchPermissions = async (): Promise<void> => {
   const client = Synnax.use();
@@ -31,6 +32,7 @@ export const useFetchPermissions = async (): Promise<void> => {
       dispatch(set({ policies }));
     } catch (e) {
       if (!(e instanceof Error)) throw e;
+      if (Unreachable.matches(e)) return;
       addStatus({
         variant: "error",
         message: `Failed to fetch permissions for ${username}`,

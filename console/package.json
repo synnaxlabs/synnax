@@ -23,6 +23,7 @@
     "@synnaxlabs/drift": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
+    "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
     "@tauri-apps/api": "^2.1.1",

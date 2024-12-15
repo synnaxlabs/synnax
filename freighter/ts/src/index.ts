@@ -23,5 +23,5 @@ export { HTTPClient } from "@/http";
 export type { Context, Middleware, Next } from "@/middleware";
 export type { Stream, StreamClient } from "@/stream";
 export type { UnaryClient } from "@/unary";
-export { sendRequired } from "@/unary";
+export { sendRequired, unaryWithBreaker } from "@/unary";
 export { WebSocketClient } from "@/websocket";

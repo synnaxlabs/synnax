@@ -53,7 +53,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       return prevNodes;
     },
     mutationFn: async ({ selection: { resources }, client, store }) => {
-      await client.workspaces.delete(...resources.map(({ id }) => id.key));
+      await client.workspaces.delete(resources.map(({ id }) => id.key));
       const s = store.getState();
       const activeKey = selectActiveKey(s);
       const active = resources.find((r) => r.id.key === activeKey);
