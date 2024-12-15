@@ -80,7 +80,7 @@ export const Configure: Layout.Renderer = ({ onClose, layoutKey }): ReactElement
     queryFn: async () => {
       if (client == null || layoutKey === CONFIGURE_LAYOUT_TYPE)
         return [
-          { name: "My OPC Server", connection: { ...ZERO_CONNECTION_CONFIG } },
+          { name: "New OPC Server", connection: { ...ZERO_CONNECTION_CONFIG } },
           undefined,
         ];
       const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);

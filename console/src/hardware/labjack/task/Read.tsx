@@ -68,6 +68,7 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  ParentRangeButton,
   TareButton,
   useCreate,
   useObserveState,
@@ -215,10 +216,11 @@ const Wrapped = ({
       <Align.Space>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name">
+            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
           </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -368,7 +370,7 @@ const ChannelList = ({
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps) => (
           <ChannelListContextMenu
@@ -377,6 +379,7 @@ const ChannelList = ({
             value={value}
             remove={remove}
             onSelect={onSelect}
+            snapshot={snapshot}
             allowTare={
               value.some((v) => v.type === "AI") && state?.details?.running === true
             }
@@ -391,7 +394,9 @@ const ChannelList = ({
       >
         <List.List<string, ReadChan>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+          }
         >
           <List.Selector<string, ReadChan>
             value={selected}

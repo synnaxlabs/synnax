@@ -56,6 +56,7 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  ParentRangeButton,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -251,10 +252,11 @@ const Wrapped = ({
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="y" empty>
             <Align.Space direction="x" justify="spaceBetween">
-              <Form.Field<string> path="name">
+              <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </Form.Field>
             </Align.Space>
+            <ParentRangeButton taskKey={task?.key} />
             <Align.Space direction="x" className={CSS.B("task-properties")}>
               <SelectDevice />
               <Align.Space direction="x">
@@ -316,9 +318,11 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
     return (
       <Align.Space grow align="center" justify="center" direction="y">
         <Text.Text level="p">{`${device.name} is not configured.`}</Text.Text>
-        <Text.Link level="p" onClick={handleConfigure}>
-          {`Configure ${device.name}.`}
-        </Text.Link>
+        {snapshot !== true && (
+          <Text.Link level="p" onClick={handleConfigure}>
+            {`Configure ${device.name}.`}
+          </Text.Link>
+        )}
       </Align.Space>
     );
   return <ChannelList path="config.channels" snapshot={snapshot} device={device} />;
@@ -360,13 +364,16 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
               value={value}
               remove={remove}
               onSelect={(keys) => setSelected(keys)}
+              snapshot={snapshot}
             />
           )}
           {...menuProps}
         >
           <List.List<string, WriteChan>
             data={value}
-            emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+            emptyContent={
+              <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+            }
           >
             <List.Selector<string, WriteChan>
               value={selected}

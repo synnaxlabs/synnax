@@ -196,12 +196,6 @@
         border-color: transparent !important;
     }
 
-    &:not(:hover) {
-        & > *:not(.pluto-input__internal) {
-            opacity: 0;
-        }
-    }
-
     & .pluto-input__internal {
         border: none !important;
         background: none !important;
