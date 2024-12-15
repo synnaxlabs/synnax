@@ -25,7 +25,8 @@
             right: -0.666rem;
             bottom: -1px;
             border-radius: var(--pluto-border-radius);
-            border: 1px solid var(--pluto-primary-z);
+            border: var(--pluto-border);
+            border-color: var(--pluto-primary-z);
         }
     }
 }
