@@ -28,6 +28,7 @@ import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
+import { breaker } from "@synnaxlabs/x";
 
 export const synnaxPropsZ = z.object({
   host: z
@@ -49,6 +50,7 @@ export const synnaxPropsZ = z.object({
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   secure: z.boolean().optional().default(false),
   name: z.string().optional(),
+  retry: breaker.breakerConfig.optional(),
 });
 
 export type SynnaxProps = z.input<typeof synnaxPropsZ>;
@@ -101,8 +103,20 @@ export default class Synnax extends framer.Client {
    */
   constructor(props_: SynnaxProps) {
     const props = synnaxPropsZ.parse(props_);
-    const { host, port, username, password, connectivityPollFrequency, secure } = props;
-    const transport = new Transport(new URL({ host, port: Number(port) }), secure);
+    const {
+      host,
+      port,
+      username,
+      password,
+      connectivityPollFrequency,
+      secure,
+      retry: breaker,
+    } = props;
+    const transport = new Transport(
+      new URL({ host, port: Number(port) }),
+      breaker,
+      secure,
+    );
     transport.use(errorsMiddleware);
     let auth_: auth.Client | undefined;
     if (username != null && password != null) {

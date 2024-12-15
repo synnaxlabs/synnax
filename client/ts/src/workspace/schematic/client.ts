@@ -12,7 +12,7 @@ export const schematicZ = z.object({
   key: z.string(),
   name: z.string(),
   data: unknownRecordZ.or(z.string().transform((s) => JSON.parse(s) as UnknownRecord)),
-  snapshot: z.boolean().optional(),
+  snapshot: z.boolean(),
 });
 
 export const schematicRemoteZ = z.object({
