@@ -312,7 +312,8 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   onRename: handleRename,
   canDrop: () => true,
   onSelect: () => {},
-  haulItems: () => [],
+  // This haul item allows the group to be dragged between nodes in the tree.
+  haulItems: ({ key }) => [{ type: "group", key }],
   allowRename: () => true,
   onMosaicDrop: () => {},
   TreeContextMenu,
