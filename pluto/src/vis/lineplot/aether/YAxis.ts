@@ -43,7 +43,9 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
 
   async xBounds(): Promise<bounds.Bounds> {
     return bounds.max(
-      await Promise.all(this.lines.map(async (el) => await el.xBounds())),
+      (await Promise.all(this.lines.map(async (el) => await el.xBounds()))).filter(
+        (b) => bounds.isFinite(b),
+      ),
     );
   }
 
