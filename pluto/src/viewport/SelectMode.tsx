@@ -34,7 +34,9 @@ interface TooltipProps {
 const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
   <Align.Space direction="x" align="center">
     <Text.Text level="small">{caseconv.capitalize(mode)}</Text.Text>
-    <Triggers.Text trigger={triggers[0]} level="small" />
+    <Align.Space empty direction="x" align="center">
+      <Triggers.Text trigger={triggers[0]} level="small" />
+    </Align.Space>
   </Align.Space>
 );
 
