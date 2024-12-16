@@ -28,6 +28,8 @@ type Domain struct {
 
 var _ Index = (*Domain)(nil)
 
+var sampleDensity = int64(telem.TimeStampT.Density())
+
 // Distance implements Index.
 func (i *Domain) Distance(
 	ctx context.Context,
@@ -124,7 +126,7 @@ func (i *Domain) Distance(
 				startToFirstEnd.Lower+gap,
 				startToFirstEnd.Upper+gap,
 			)
-			alignment = telem.NewAlignmentPair(iter.Position(), uint32(iter.Len()/8))
+			alignment = telem.NewAlignmentPair(iter.Position(), uint32(iter.Len()/sampleDensity))
 			return
 		}
 		if iter.TimeRange().ContainsStamp(tr.End) {
@@ -147,7 +149,7 @@ func (i *Domain) Distance(
 			)
 			return
 		}
-		gap += iter.Len() / 8
+		gap += iter.Len() / sampleDensity
 	}
 }
 
