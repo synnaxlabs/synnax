@@ -288,6 +288,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	return
 }
 
+// Len returns the number of samples in the iterator's frame.
 func (i *Iterator) Len() (l int64) {
 	for _, series := range i.frame.Series {
 		l += series.Len()
@@ -295,6 +296,8 @@ func (i *Iterator) Len() (l int64) {
 	return
 }
 
+// Error returns the error that caused the iterator to stop moving. If the iterator is
+// still moving, Error returns nil.
 func (i *Iterator) Error() error {
 	wrap := core.NewErrorWrapper(i.Channel)
 	return wrap(i.err)
@@ -304,6 +307,11 @@ func (i *Iterator) Error() error {
 // in its current frame.
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
+// Close closes the iterator and releases any resources it holds. As with all other
+// iterator methods, Close is not safe to call concurrently with any other database
+// method.
+//
+// After close is called, the iterator should no longer be used.
 func (i *Iterator) Close() (err error) {
 	if i.closed {
 		return nil
@@ -314,18 +322,17 @@ func (i *Iterator) Close() (err error) {
 }
 
 // accumulate reads the underlying data contained in the view from OS and
-// appends them to the frame.
-// accumulate returns false if iterator must stop moving.
+// appends them to the frame. accumulate returns false if iterator must stop moving.
 func (i *Iterator) accumulate(ctx context.Context) bool {
 	if !i.internal.TimeRange().OverlapsWith(i.view) {
 		return false
 	}
-	offset, domain, size, err := i.sliceDomain(ctx)
+	offset, alignment, size, err := i.sliceDomain(ctx)
 	if err != nil {
 		i.err = err
 		return false
 	}
-	series, err := i.read(ctx, domain, offset, size)
+	series, err := i.read(ctx, alignment, offset, size)
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false

@@ -124,8 +124,7 @@ func (i *Domain) Distance(
 				startToFirstEnd.Lower+gap,
 				startToFirstEnd.Upper+gap,
 			)
-			// Double check this
-			alignment = telem.NewAlignmentPair(iter.Position(), 0)
+			alignment = telem.NewAlignmentPair(iter.Position(), uint32(iter.Len()/8))
 			return
 		}
 		if iter.TimeRange().ContainsStamp(tr.End) {

@@ -179,6 +179,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Next(ctx, 4*telem.Second)).To(BeTrue())
 						Expect(iter.Len()).To(Equal(int64(2)))
 						Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
+						Expect(iter.Len()).To(Equal(int64(0)))
 						Expect(iter.Close()).To(Succeed())
 					})
 					Specify("Multi Time Range", func() {
