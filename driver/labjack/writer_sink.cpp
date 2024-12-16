@@ -293,7 +293,6 @@ bool labjack::WriteSink::ok() {
 }
 
 void labjack::WriteSink::log_err(std::string msg) {
-    if(this->ok()) return;
     LOG(ERROR) << "[labjack.writer] " << msg;
     this->ok_state = false;
     ctx->set_state({
