@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -67,33 +66,9 @@ func (db *DB) index() index.Index {
 
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
 
-func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
-	i.Bounds.Start = override.Numeric(i.Bounds.Start, other.Bounds.Start)
-	i.Bounds.End = override.Numeric(i.Bounds.End, other.Bounds.End)
-	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
-	return i
-}
-
-func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
-	return domain.IteratorConfig{Bounds: i.Bounds}
-}
-
 // LeadingControlState returns the first chronological gate in this unary database.
 func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
-}
-
-func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
-	cfg = DefaultIteratorConfig.Override(cfg)
-	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
-	i := &Iterator{
-		idx:            db.index(),
-		Channel:        db.cfg.Channel,
-		internal:       iter,
-		IteratorConfig: cfg,
-	}
-	i.SetBounds(cfg.Bounds)
-	return i
 }
 
 // HasDataFor check whether there is a time range in the unary DB's underlying domain that

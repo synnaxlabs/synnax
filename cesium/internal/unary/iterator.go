@@ -15,7 +15,9 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
@@ -27,13 +29,31 @@ type IteratorConfig struct {
 	AutoChunkSize int64
 }
 
+func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
+	return domain.IteratorConfig{Bounds: i.Bounds}
+}
+
+// Override implements config.Config.
+func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
+	i.Bounds = override.Zero(i.Bounds, other.Bounds)
+	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
+	return i
+}
+
+// Validate implements config.Config.
+func (i IteratorConfig) Validate() error { return nil }
+
+var (
+	_                     config.Config[IteratorConfig] = IteratorConfig{}
+	DefaultIteratorConfig                               = IteratorConfig{AutoChunkSize: 1e5}
+)
+
 func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
 var (
-	errIteratorClosed     = core.EntityClosed("unary.iterator")
-	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 1e5}
+	errIteratorClosed = core.EntityClosed("unary.iterator")
 )
 
 type Iterator struct {
@@ -47,6 +67,20 @@ type Iterator struct {
 	bounds   telem.TimeRange
 	err      error
 	closed   bool
+}
+
+func (db *DB) OpenIterator(cfgs ...IteratorConfig) *Iterator {
+	// Safe to ignore error here as Validate will always return nil
+	cfg, _ := config.New(DefaultIteratorConfig, cfgs...)
+	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
+	i := &Iterator{
+		idx:            db.index(),
+		Channel:        db.cfg.Channel,
+		internal:       iter,
+		IteratorConfig: cfg,
+	}
+	i.SetBounds(cfg.Bounds)
+	return i
 }
 
 const AutoSpan telem.TimeSpan = -1

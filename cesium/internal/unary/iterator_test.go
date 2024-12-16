@@ -901,85 +901,234 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 		})
 	}
 	Describe("Regressions", func() {
-		It("Should correctly read data even when a file size is overflowed", func() {
-			var (
-				indexKey cesium.ChannelKey = 1
-				dataKey  cesium.ChannelKey = 2
-			)
-			fileSizeLimit := 8 * 4 * telem.ByteSize
-			fs := xfs.NewMem()
-			indexFS := MustSucceed(fs.Sub("index"))
-			unaryFS := MustSucceed(fs.Sub("data"))
-			indexDB := MustSucceed(unary.Open(unary.Config{
-				FS:        indexFS,
-				MetaCodec: codec,
-				Channel: core.Channel{
-					Key:      indexKey,
-					DataType: telem.TimeStampT,
-					IsIndex:  true,
-					Index:    indexKey,
-				},
-				Instrumentation: PanicLogger(),
-				FileSize:        fileSizeLimit,
-			}))
-			db := MustSucceed(unary.Open(unary.Config{
-				FS:        unaryFS,
-				MetaCodec: codec,
-				Channel: core.Channel{
-					Key:      dataKey,
-					DataType: telem.Float32T,
-					Index:    indexKey,
-				},
-				Instrumentation: PanicLogger(),
-				FileSize:        fileSizeLimit,
-			}))
-			db.SetIndex(indexDB.Index())
+		// Tests a scenario where enough data is written to an 8-byte
+		// density index channel that it causes a file-rollover, splitting the domain
+		// into two effectively contiguous domains. The 4-byte density data channel
+		// does _not_ reach the rollover point.
+		//
+		// At this point, the index channel has two effectively contiguous domains while
+		// the data channel has a single domain. When querying data within the second
+		// effectively contiguous domain, the iterator would return the correct data,
+		// but the alignments of the domains would not match.
+		//
+		// This test ensures that changes to correct the alignment calculations behave
+		// properly.
+		Describe(`Correctly aligning effectively contiguous domains across index
+						and data channels with different densities`, func() {
 
-			indexW, _ := MustSucceed2(indexDB.OpenWriter(
-				ctx,
-				unary.WriterConfig{
-					Start:   1 * telem.SecondTS,
-					Subject: control.Subject{Key: "test"},
-				},
-			))
-			MustSucceed(indexW.Write(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
-			MustSucceed(indexW.Commit(ctx))
-			MustSucceed(indexW.Write(telem.NewSecondsTSV(6, 7, 8)))
-			MustSucceed(indexW.Commit(ctx))
-			MustSucceed(indexW.Close())
-			Expect(indexFS.List(".")).To(HaveLen(5))
+			It("Should correctly align effectively contiguous domains with different densities", func() {
+				var (
+					indexKey cesium.ChannelKey = 1
+					dataKey  cesium.ChannelKey = 2
+				)
+				fileSizeLimit := 8 * 4 * telem.ByteSize
+				fs := xfs.NewMem()
+				indexFS := MustSucceed(fs.Sub("index"))
+				unaryFS := MustSucceed(fs.Sub("data"))
+				indexDB := MustSucceed(unary.Open(unary.Config{
+					FS:        indexFS,
+					MetaCodec: codec,
+					Channel: core.Channel{
+						Key:      indexKey,
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+						Index:    indexKey,
+					},
+					Instrumentation: PanicLogger(),
+					FileSize:        fileSizeLimit,
+				}))
+				db := MustSucceed(unary.Open(unary.Config{
+					FS:        unaryFS,
+					MetaCodec: codec,
+					Channel: core.Channel{
+						Key:      dataKey,
+						DataType: telem.Float32T,
+						Index:    indexKey,
+					},
+					Instrumentation: PanicLogger(),
+					FileSize:        fileSizeLimit,
+				}))
+				db.SetIndex(indexDB.Index())
 
-			unaryW, _ := MustSucceed2(db.OpenWriter(
-				ctx,
-				unary.WriterConfig{
-					Start:   1 * telem.SecondTS,
-					Subject: control.Subject{Key: "test"},
-				},
-			))
-			MustSucceed(unaryW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5)))
-			MustSucceed(unaryW.Commit(ctx))
-			MustSucceed(unaryW.Write(telem.NewSeriesV[float32](6, 7, 8)))
-			MustSucceed(unaryW.Commit(ctx))
-			MustSucceed(unaryW.Close())
-			Expect(unaryFS.List(".")).To(HaveLen(4))
+				indexW, _ := MustSucceed2(indexDB.OpenWriter(
+					ctx,
+					unary.WriterConfig{
+						Start:   1 * telem.SecondTS,
+						Subject: control.Subject{Key: "test"},
+					},
+				))
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
+				MustSucceed(indexW.Commit(ctx))
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(6, 7, 8)))
+				MustSucceed(indexW.Commit(ctx))
+				MustSucceed(indexW.Close())
+				Expect(indexFS.List(".")).To(HaveLen(5 /* meta, index, counter, and 2 data files*/))
 
-			tr := telem.TimeRange{Start: 7 * telem.SecondTS, End: 8 * telem.SecondTS}
-			iterCfg := unary.IteratorConfig{Bounds: tr}
-			i := indexDB.OpenIterator(iterCfg)
-			Expect(i.SeekFirst(ctx)).To(BeTrue())
-			Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
-			firstSeries := i.Value().Series[0]
-			Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
-			Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(1)))
-			Expect(i.Close()).To(Succeed())
+				unaryW, _ := MustSucceed2(db.OpenWriter(
+					ctx,
+					unary.WriterConfig{
+						Start:   1 * telem.SecondTS,
+						Subject: control.Subject{Key: "test"},
+					},
+				))
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5)))
+				// Rollover 1
+				MustSucceed(unaryW.Commit(ctx))
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](6, 7, 8)))
+				MustSucceed(unaryW.Commit(ctx))
+				MustSucceed(unaryW.Close())
+				// Assert that we've rolled over the correct number of files
+				Expect(unaryFS.List(".")).To(HaveLen(4 /* meta, index, counter, and 1 data file*/))
 
-			i = db.OpenIterator(iterCfg)
-			Expect(i.SeekFirst(ctx)).To(BeTrue())
-			Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
-			firstSeries = i.Value().Series[0]
-			Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
-			Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(1)))
-			Expect(i.Close()).To(Succeed())
+				tr := telem.TimeRange{Start: 7 * telem.SecondTS, End: 8 * telem.SecondTS}
+				iterCfg := unary.IteratorConfig{Bounds: tr}
+				i := indexDB.OpenIterator(iterCfg)
+				Expect(i.SeekFirst(ctx)).To(BeTrue())
+				Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+				firstSeries := i.Value().Series[0]
+				Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
+				Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(1)))
+				Expect(i.Close()).To(Succeed())
+
+				i = db.OpenIterator(iterCfg)
+				Expect(i.SeekFirst(ctx)).To(BeTrue())
+				Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+				firstSeries = i.Value().Series[0]
+				Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
+				Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(1)))
+				Expect(i.Close()).To(Succeed())
+
+			})
+
+			It("Should correctly align across three different densities", func() {
+				var (
+					indexKey cesium.ChannelKey = 1
+					data1Key cesium.ChannelKey = 2
+					data2Key cesium.ChannelKey = 3
+				)
+				// 4 timestamps sample file size
+				fileSizeLimit := 8 * 4 * telem.ByteSize
+				fs := xfs.NewMem()
+				indexFS := MustSucceed(fs.Sub("index"))
+				uFS1 := MustSucceed(fs.Sub("data1"))
+				uFS2 := MustSucceed(fs.Sub("data2"))
+				indexDB := MustSucceed(unary.Open(unary.Config{
+					FS:        indexFS,
+					MetaCodec: codec,
+					Channel: core.Channel{
+						Key:      indexKey,
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					},
+					FileSize: fileSizeLimit,
+				}))
+				db1 := MustSucceed(unary.Open(unary.Config{
+					FS:        uFS1,
+					MetaCodec: codec,
+					Channel: core.Channel{
+						Key:      data1Key,
+						DataType: telem.Float32T,
+						Index:    indexKey,
+					},
+					FileSize: fileSizeLimit,
+				}))
+				db1.SetIndex(indexDB.Index())
+				db2 := MustSucceed(unary.Open(unary.Config{
+					FS:        uFS2,
+					MetaCodec: codec,
+					Channel: core.Channel{
+						Key:      data2Key,
+						DataType: telem.Uint8T,
+						Index:    indexKey,
+					},
+					FileSize: fileSizeLimit,
+				}))
+				db2.SetIndex(indexDB.Index())
+
+				indexW, _ := MustSucceed2(indexDB.OpenWriter(
+					ctx,
+					unary.WriterConfig{
+						Start:   1 * telem.SecondTS,
+						Subject: control.Subject{Key: "test"},
+					}),
+				)
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
+				// Rollover 1
+				MustSucceed(indexW.Commit(ctx))
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10)))
+				MustSucceed(indexW.Commit(ctx))
+				// Rollover 2
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(11)))
+				MustSucceed(indexW.Commit(ctx))
+
+				MustSucceed(indexW.Close())
+				// Assert that we've rolled over the correct number of files
+				Expect(indexFS.List(".")).To(HaveLen(6 /* meta, index, counter, and 3 data files*/))
+
+				// Write to the first data channel
+				unaryW, _ := MustSucceed2(db1.OpenWriter(
+					ctx,
+					unary.WriterConfig{
+						Start:   1 * telem.SecondTS,
+						Subject: control.Subject{Key: "test"},
+					}),
+				)
+
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9)))
+				// Rollover 1
+				MustSucceed(unaryW.Commit(ctx))
+				// Rollover 2
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](10)))
+				MustSucceed(unaryW.Commit(ctx))
+
+				MustSucceed(unaryW.Write(telem.NewSeriesV[float32](11)))
+				MustSucceed(unaryW.Commit(ctx))
+
+				MustSucceed(unaryW.Close())
+				// Assert that we've rolled over the correct number of files
+				Expect(uFS1.List(".")).To(HaveLen(5 /* meta, index, counter, and 2 data files*/))
+
+				// Write to the second data channel
+				unaryW, _ = MustSucceed2(db2.OpenWriter(
+					ctx,
+					unary.WriterConfig{
+						Start:   1 * telem.SecondTS,
+						Subject: control.Subject{Key: "test"},
+					}),
+				)
+
+				MustSucceed(unaryW.Write(telem.NewSeriesV[uint8](1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)))
+				MustSucceed(unaryW.Commit(ctx))
+				MustSucceed(unaryW.Close())
+				// Assert that we've rolled over the correct number of files
+				Expect(uFS2.List(".")).To(HaveLen(4 /* meta, index, counter, and 1 data file*/))
+
+				tr := telem.TimeRange{Start: 11 * telem.SecondTS, End: 12 * telem.SecondTS}
+				iterCfg := unary.IteratorConfig{Bounds: tr}
+				i := indexDB.OpenIterator(iterCfg)
+				Expect(i.SeekFirst(ctx)).To(BeTrue())
+				Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+				firstSeries := i.Value().Series[0]
+				Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(2)))
+				Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(0)))
+				Expect(firstSeries.Data).To(Equal(telem.NewSecondsTSV(11).Data))
+
+				i = db1.OpenIterator(iterCfg)
+				Expect(i.SeekFirst(ctx)).To(BeTrue())
+				Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+				firstSeries = i.Value().Series[0]
+				Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(2)))
+				Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(0)))
+				Expect(firstSeries.Data).To(Equal(telem.NewSeriesV[float32](11).Data))
+
+				i = db2.OpenIterator(iterCfg)
+				Expect(i.SeekFirst(ctx)).To(BeTrue())
+				Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+				firstSeries = i.Value().Series[0]
+				Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(2)))
+				Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(0)))
+				Expect(firstSeries.Data).To(Equal(telem.NewSeriesV[uint8](11).Data))
+			})
 
 		})
 	})
