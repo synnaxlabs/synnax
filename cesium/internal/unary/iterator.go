@@ -313,16 +313,16 @@ func (i *Iterator) insert(series telem.Series) {
 
 func (i *Iterator) read(
 	ctx context.Context,
-	idxDomain uint32,
+	idxDomain index.DomainBounds,
 	offset telem.Offset,
 	size telem.Size,
 ) (series telem.Series, err error) {
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
 	series.Data = make([]byte, size)
-	inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
+	//inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
-	series.Alignment = telem.AlignmentPair(idxDomain)<<32 | telem.AlignmentPair(inDomainAlignment)
+	series.Alignment = telem.AlignmentPair(idxDomain.Upper)<<32 | telem.AlignmentPair(idxDomain.Sample)
 	r, err := i.internal.OpenReader(ctx)
 	if err != nil {
 		return
@@ -343,13 +343,13 @@ func (i *Iterator) read(
 
 func (i *Iterator) sliceDomain(ctx context.Context) (
 	telem.Offset,
-	uint32,
+	index.DomainBounds,
 	telem.Size,
 	error,
 ) {
-	startApprox, domain, err := i.approximateStart(ctx)
+	startApprox, domainB, err := i.approximateStart(ctx)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, domainB, 0, err
 	}
 	startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
 	// Split into cases to determine which offsets to use. See unary/delete.go's
@@ -366,7 +366,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 	}
 	endApprox, err := i.approximateEnd(ctx)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, domainB, 0, err
 	}
 	endOffset := i.Channel.DataType.Density().Size(endApprox.Upper)
 	// Split into cases to determine which offsets to use. See unary/delete.go's
@@ -383,7 +383,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 	}
 
 	size := endOffset - startOffset
-	return startOffset, domain, size, nil
+	return startOffset, domainB, size, nil
 }
 
 // approximateStart approximates the number of samples between the start of the current
@@ -391,7 +391,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 // before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (
 	index.DistanceApproximation,
-	uint32,
+	index.DomainBounds,
 	error,
 ) {
 	target := i.internal.TimeRange().Start.SpanRange(0)
@@ -399,7 +399,7 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 		target.End = i.view.Start
 	}
 	startApprox, domainApprox, err := i.idx.Distance(ctx, target, true)
-	return startApprox, domainApprox.Upper, err
+	return startApprox, domainApprox, err
 }
 
 // approximateEnd approximates the number of samples between the start of the current

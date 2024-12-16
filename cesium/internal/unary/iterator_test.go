@@ -968,13 +968,17 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			i := indexDB.OpenIterator(iterCfg)
 			Expect(i.SeekFirst(ctx)).To(BeTrue())
 			Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
-			Expect(i.Value().Series[0].Alignment.DomainIndex()).To(Equal(uint32(1)))
+			firstSeries := i.Value().Series[0]
+			Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
+			Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(0)))
 			Expect(i.Close()).To(Succeed())
 
 			i = db.OpenIterator(iterCfg)
 			Expect(i.SeekFirst(ctx)).To(BeTrue())
 			Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
-			Expect(i.Value().Series[0].Alignment.DomainIndex()).To(Equal(uint32(1)))
+			firstSeries = i.Value().Series[0]
+			Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
+			Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(0)))
 			Expect(i.Close()).To(Succeed())
 
 		})

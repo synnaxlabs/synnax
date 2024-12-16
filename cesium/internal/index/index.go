@@ -28,8 +28,9 @@ func NewErrDiscontinuousStamp(offset int64, domainLen int64) error {
 }
 
 type DomainBounds struct {
-	Lower uint32
-	Upper uint32
+	Lower  uint32
+	Upper  uint32
+	Sample uint32
 }
 
 func ExactDomainBounds(pos uint32) DomainBounds {

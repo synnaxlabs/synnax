@@ -142,6 +142,7 @@ func (i *Domain) Distance(
 				return
 			}
 			approx.EndExact = endApprox.Exact()
+			domainBounds.Sample = uint32(endApprox.Lower)
 			approx.Approximation = Between(
 				startToFirstEnd.Lower+gap+endApprox.Lower,
 				startToFirstEnd.Upper+gap+endApprox.Upper,
