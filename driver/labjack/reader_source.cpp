@@ -36,13 +36,14 @@ labjack::ReaderSource::ReaderSource(
 }
 
 void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
+    LOG(ERROR) << "[labjack.reader] " << err.message();
     this->ok_state = false;
     ctx->set_state({
            .task = this->task.key,
            .variant = "error",
            .details = {
                    {"running", false},
-                   {"message", msg}
+                   {"message", err.message()}
            }
    });
 }
@@ -519,7 +520,6 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_ai_channel_keys() {
 }
 
 void labjack::ReaderSource::log_err(std::string msg) {
-    if(!this->ok()) return;
     LOG(ERROR) << "[labjack.reader] " << msg;
     this->ok_state = false;
     ctx->set_state({

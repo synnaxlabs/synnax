@@ -60,18 +60,21 @@ inline int check_err_internal(
     if (auto it = error_map.find(err_msg); it != error_map.end()) {
         description = ": " + it->second;
     }
-    ctx->set_state({
-        .task = task_key,
-        .variant = "error",
-        .details = {
-            {"running", false},
-            {"message", std::string(err_msg) + description}
-        }
-    });
+    
+    if(ok_state) {
+        ctx->set_state({
+            .task = task_key,
+            .variant = "error",
+            .details = {
+                {"running", false},
+                {"message", std::string(err_msg) + description}
+            }
+        });
+        ok_state = false;
+    }
 
     LOG(ERROR) << "[labjack." << prefix << "] " << err_msg << "(" << err << ")" << description << " (" << caller << ")";
 
-    ok_state = false;
     return -1;
 }
 
