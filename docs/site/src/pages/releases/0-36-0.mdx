@@ -1,0 +1,68 @@
+import Release from "@/components/releases/Release.astro";
+import { Image, Video } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+import LabJack from "@/pages/releases/LabJack.astro";
+
+<Release
+    version="0.36.0"
+    date="Dec 16, 2024"
+    title="Line Plot Annotation Tool"
+    breakingChanges
+>
+
+Synnax v0.36.0 introduces several new quality of life improvements and bug fixes,
+including a new line plot annotation tool, schematic undo / redo, a new way to select
+the time of the range, and a refactored LabJack write task.
+
+### Line Plot Annotation Tool
+
+A new annotation tool has been added to the line plot. This tool allows you to
+add horizontal lines to the plots to mark thresholds or other important values. This
+tool can be accessed by clicking the 'Annotations' tab in the line plot toolbar.
+
+<Image client:only="react" id="releases/0-36-0/annotations" themed={false} />
+
+### Schematic Undo / Redo
+
+You can now undo and redo changes to a schematic. This feature is possible by using the
+`Ctrl + Z` and `Ctrl + Shift + Z` keyboard shortcuts on a schematic that you are
+editing.
+
+<Video client:only="react" id="releases/0-36-0/schematic-undo" themed={false} />
+
+### New Range DateTime Selector
+
+Synnax has a refactored way to select dates and times of ranges. This can be opened by
+selecting the calendar icon that appears to the right of the time on the create range
+modal. You can now quickly type a short phrase and have an AI will automatically suggest
+the appropriate date and time.
+
+<Image client:only="react" id="releases/0-36-0/range" themed={false} />
+
+### Breaking Changes
+
+This release **introduces a breaking change** in the communication protocol that the
+server and console use to communicate. This change means that console versions 0.36.0
+and newer will not work with server versions of 0.35.0 and older. To avoid issues, please
+ensure that your server and console are updated to the same version.
+
+### Other Improvements and Bug Fixes
+
+- Bug fix: Disable all form elements in task snapshot.
+- Bug fix: Fix transport protocol websocket implementation.
+- Refactor: Sort child ranges of a range by start time.
+- Bug fix: Add LabJack driver warning when all channels on a task are disabled.
+- Refactor: Add more attachment points to cylinder schematic symbol.
+- Bug fix: Close version update notification when clicking snooze.
+- Bug fix: Remove unneeded label direction selector in off page reference schematic
+  form.
+- Bug fix: Fix NI table scale construction error.
+- refactor: Add copy link to task toolbar context menu.
+- Bug fix: Fix issues with dragging groups and creating empty groups in the resources
+  toolbar.
+- Refactor: Add schematic and line plot import commands.
+- Bug fix: Commit changes to server when clicking on schematic elements.
+- Bug fix: Close windows on empty workspace.
+- Bug fix: Fix error when creating a channel that doesn't exist.
+
+</Release>
