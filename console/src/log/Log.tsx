@@ -54,6 +54,7 @@ export const useSyncComponent = (
   );
 
 const DEFAULT_RETENTION = TimeSpan.days(1);
+const PRELOAD = TimeSpan.seconds(30);
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const winKey = useSelectWindowKey() as string;
@@ -74,7 +75,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   else
     t = telem.streamChannelData({
       channel: ch,
-      timeSpan: DEFAULT_RETENTION,
+      timeSpan: PRELOAD,
+      keepFor: DEFAULT_RETENTION,
     });
   const handleDoubleClick = useCallback(() => {
     dispatch(

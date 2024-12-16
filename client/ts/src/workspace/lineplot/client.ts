@@ -1,4 +1,5 @@
 import { ontology } from "@/ontology";
+import { nullableArrayZ } from "@/util/zod";
 import { sendRequired, UnaryClient } from "@synnaxlabs/freighter";
 import { breaker, TimeSpan, toArray, UnknownRecord } from "@synnaxlabs/x";
 import { unknownRecordZ } from "@synnaxlabs/x/record";
@@ -39,7 +40,7 @@ const createReqZ = z.object({ workspace: z.string(), linePlots: newLinePlotZ.arr
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const setDataReqZ = z.object({ key: keyZ, data: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const retrieveResZ = z.object({ linePlots: linePlotZ.array() });
+const retrieveResZ = z.object({ linePlots: nullableArrayZ(linePlotZ) });
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 const emptyResZ = z.object({});
 

@@ -1,4 +1,5 @@
 import { ontology } from "@/ontology";
+import { nullableArrayZ } from "@/util/zod";
 import { sendRequired, UnaryClient } from "@synnaxlabs/freighter";
 import { toArray, UnknownRecord } from "@synnaxlabs/x";
 import { unknownRecordZ } from "@synnaxlabs/x/record";
@@ -55,7 +56,7 @@ const setDataReqZ = z.object({ key: z.string(), data: z.string() });
 const deleteReqZ = z.object({ keys: z.string().array() });
 const copyReqZ = z.object({ key: z.string(), name: z.string(), snapshot: z.boolean() });
 
-const retrieveResZ = z.object({ schematics: schematicRemoteZ.array() });
+const retrieveResZ = z.object({ schematics: nullableArrayZ(schematicRemoteZ) });
 const createResZ = z.object({ schematics: schematicRemoteZ.array() });
 const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});

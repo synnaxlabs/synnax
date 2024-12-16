@@ -231,8 +231,6 @@ const Wrapped = ({
   const key = task?.key;
   const handleLink = Link.useCopyToClipboard();
 
-  console.log("opc", task);
-
   return (
     <Align.Space
       className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
