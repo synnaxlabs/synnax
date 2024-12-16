@@ -963,14 +963,14 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			MustSucceed(unaryW.Close())
 			Expect(unaryFS.List(".")).To(HaveLen(4))
 
-			tr := telem.TimeRange{Start: 6 * telem.SecondTS, End: 8 * telem.SecondTS}
+			tr := telem.TimeRange{Start: 7 * telem.SecondTS, End: 8 * telem.SecondTS}
 			iterCfg := unary.IteratorConfig{Bounds: tr}
 			i := indexDB.OpenIterator(iterCfg)
 			Expect(i.SeekFirst(ctx)).To(BeTrue())
 			Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
 			firstSeries := i.Value().Series[0]
 			Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
-			Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(0)))
+			Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(1)))
 			Expect(i.Close()).To(Succeed())
 
 			i = db.OpenIterator(iterCfg)
@@ -978,7 +978,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
 			firstSeries = i.Value().Series[0]
 			Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
-			Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(0)))
+			Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(1)))
 			Expect(i.Close()).To(Succeed())
 
 		})

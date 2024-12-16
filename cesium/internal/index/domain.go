@@ -92,6 +92,7 @@ func (i *Domain) Distance(
 		approx.EndExact = endApprox.Exact()
 
 		domainBounds = ExactDomainBounds(iter.Position())
+		domainBounds.Sample = uint32(endApprox.Upper)
 		return
 	} else if continuous &&
 		!effectiveDomainBounds.ContainsStamp(tr.End) &&
