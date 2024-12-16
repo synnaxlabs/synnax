@@ -8,6 +8,7 @@ import { linePlot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
 import { schematic } from "@/workspace/schematic";
 import { table } from "@/workspace/table";
+import { nullableArrayZ } from "@/util/zod";
 
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -63,7 +64,7 @@ const renameReqZ = z.object({ key: z.string(), name: z.string() });
 const setLayoutReqZ = z.object({ key: z.string(), layout: z.string() });
 const deleteReqZ = z.object({ keys: z.string().array() });
 
-const retrieveResZ = z.object({ workspaces: workspaceZ.array() });
+const retrieveResZ = z.object({ workspaces: nullableArrayZ(workspaceZ) });
 const createResZ = z.object({ workspaces: workspaceRemoteZ.array() });
 const emptyResZ = z.object({});
 

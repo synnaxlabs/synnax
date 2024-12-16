@@ -33,7 +33,7 @@ func (i *Domain) Distance(
 	ctx context.Context,
 	tr telem.TimeRange,
 	continuous bool,
-) (approx DistanceApproximation, domainBounds DomainBounds, err error) {
+) (approx DistanceApproximation, alignment telem.AlignmentPair, err error) {
 	var startApprox, endApprox Approximation[int64]
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
@@ -64,7 +64,7 @@ func (i *Domain) Distance(
 
 	// If the time range is zero, then the distance is zero.
 	if tr.IsZero() {
-		domainBounds = ExactDomainBounds(iter.Position())
+		alignment = telem.NewAlignmentPair(iter.Position(), 0)
 		return
 	}
 
@@ -91,8 +91,7 @@ func (i *Domain) Distance(
 		)
 		approx.EndExact = endApprox.Exact()
 
-		domainBounds = ExactDomainBounds(iter.Position())
-		domainBounds.Sample = uint32(endApprox.Upper)
+		alignment = telem.NewAlignmentPair(iter.Position(), uint32(endApprox.Upper))
 		return
 	} else if continuous &&
 		!effectiveDomainBounds.ContainsStamp(tr.End) &&
@@ -114,7 +113,6 @@ func (i *Domain) Distance(
 			l-startApprox.Lower,
 		)
 	)
-	domainBounds.Lower = iter.Position()
 
 	for {
 		if !iter.Next() || (continuous && !effectiveDomainBounds.ContainsRange(iter.TimeRange())) {
@@ -126,10 +124,10 @@ func (i *Domain) Distance(
 				startToFirstEnd.Lower+gap,
 				startToFirstEnd.Upper+gap,
 			)
-			domainBounds.Upper = iter.Position()
+			// Double check this
+			alignment = telem.NewAlignmentPair(iter.Position(), 0)
 			return
 		}
-		domainBounds.Upper = iter.Position()
 		if iter.TimeRange().ContainsStamp(tr.End) {
 			if err = r.Close(); err != nil {
 				return
@@ -143,7 +141,7 @@ func (i *Domain) Distance(
 				return
 			}
 			approx.EndExact = endApprox.Exact()
-			domainBounds.Sample = uint32(endApprox.Lower)
+			alignment = telem.NewAlignmentPair(iter.Position(), uint32(endApprox.Lower))
 			approx.Approximation = Between(
 				startToFirstEnd.Lower+gap+endApprox.Lower,
 				startToFirstEnd.Upper+gap+endApprox.Upper,
