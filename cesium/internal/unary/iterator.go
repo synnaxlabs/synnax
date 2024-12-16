@@ -361,7 +361,6 @@ func (i *Iterator) read(
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
 	series.Data = make([]byte, size)
-	//inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
 	series.Alignment = alignment
 	r, err := i.internal.OpenReader(ctx)
