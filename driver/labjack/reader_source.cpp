@@ -36,16 +36,15 @@ labjack::ReaderSource::ReaderSource(
 }
 
 void labjack::ReaderSource::stopped_with_err(const freighter::Error &err) {
-    this->log_err("stopped with error: " + err.message());
-    json j = json(err.message());
-    this->ctx->set_state({
-        .task = this->reader_config.task_key,
-        .variant = "error",
-        .details = {
-            {"running", false},
-            {"message", j}
-        }
-    });
+    this->ok_state = false;
+    ctx->set_state({
+           .task = this->task.key,
+           .variant = "error",
+           .details = {
+                   {"running", false},
+                   {"message", msg}
+           }
+   });
 }
 
 std::vector<synnax::ChannelKey> labjack::ReaderSource::get_channel_keys() {
@@ -409,15 +408,11 @@ void labjack::ReaderSource::acquire_data() {
                 data_packet.data.data(),
                 &numSkippedScans,
                 &deviceScanBacklog
-            ), "acquire_data.LJM_eStreamRead")) {
-            LOG(ERROR) << "[labjack.reader] LJM_eStreamRead error";
-            break;
-        }
+            ), "acquire_data.LJM_eStreamRead")) break;
         data_packet.tf = synnax::TimeStamp::now().value;
         data_queue.enqueue(data_packet);
     }
     check_err(LJM_eStreamStop(handle), "acquire_data.LJM_eStreamStop");
-    LOG(INFO) << "[labjack.reader] acquire_data loop stopped successfully";
 }
 
 void labjack::ReaderSource::configure_tc_ain_ef(TCConfig tc_config) {
@@ -460,7 +455,6 @@ void labjack::ReaderSource::configure_tc_ain_ef(TCConfig tc_config) {
     if (tc_config.units == "K") aValues[1] = 0;
     else if (tc_config.units == "C") aValues[1] = 1;
     else if (tc_config.units == "F") aValues[1] = 2;
-
 
     // For setting up the AIN#_EF_CONFIG_B (CJC address)
     aAddresses[2] = 9600 + 2 * tc_config.pos_chan;
@@ -525,6 +519,7 @@ std::vector<synnax::ChannelKey> labjack::ReaderSource::get_ai_channel_keys() {
 }
 
 void labjack::ReaderSource::log_err(std::string msg) {
+    if(!this->ok()) return;
     LOG(ERROR) << "[labjack.reader] " << msg;
     this->ok_state = false;
     ctx->set_state({

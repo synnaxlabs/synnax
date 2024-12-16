@@ -226,6 +226,8 @@ struct ReaderConfig {
         if (!parser.ok())
             LOG(ERROR) << "Failed to parse reader channel config: " << parser.error_json().dump(4);
 
+        LOG(INFO) << "Reader Config:" << parser.get_json().dump(4);
+
         parser.iter("channels", [this](config::Parser &channel_parser) {
             auto channel = labjack::ReaderChannelConfig(channel_parser);
 
