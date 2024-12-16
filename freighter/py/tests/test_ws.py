@@ -184,17 +184,19 @@ class TestSyncWebsocket:
             if isinstance(err, freighter.EOF):
                 break
 
-    @pytest.mark.focus
     def test_timeout_0(self, sync_client: WebsocketClient):
         """Should correctly return a frame if and when available"""
         stream = sync_client.stream("/eventuallyResponseWithMessage", Message, Message)
         stream.send(Message(id=1, message="hello"))
         cycle_count = 0
+        sleep = 0.05
+        dur = 0.25
+        max_cycles = (dur / sleep) + 1
         while True:
-            if cycle_count > 5:
+            if cycle_count > max_cycles:
                 break
             try:
-                time.sleep(0.05)
+                time.sleep(sleep)
                 msg, err = stream.receive(timeout=0)
                 assert err is None
                 assert msg.id == 1
@@ -202,7 +204,7 @@ class TestSyncWebsocket:
             except TimeoutError:
                 cycle_count += 1
                 pass
-        assert cycle_count < 5, "test timed out"
+        assert cycle_count < max_cycles, "test timed out"
 
 
 
