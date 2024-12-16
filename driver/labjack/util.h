@@ -60,7 +60,7 @@ inline int check_err_internal(
     if (auto it = error_map.find(err_msg); it != error_map.end()) {
         description = ": " + it->second;
     }
-    
+
     if(ok_state) {
         ctx->set_state({
             .task = task_key,
