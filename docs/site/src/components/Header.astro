@@ -111,11 +111,9 @@ const url = Astro.url.pathname;
             width: 100%;
 
             .pluto-text-link {
-                .pluto-text {
-                    font-size: 13.5px;
-                    font-weight: 425;
-                    color: var(--pluto-gray-l7);
-                }
+                font-size: 13.5px;
+                font-weight: 425;
+                color: var(--pluto-gray-l7);
                 position: relative;
                 &:before {
                     transition: all 0.2s ease-in-out;
@@ -129,21 +127,17 @@ const url = Astro.url.pathname;
                     border-color: var(--pluto-primary-z);
                     border-width: 2px;
                 }
-                &:has(.active) {
+                &.active {
+                    color: var(--pluto-gray-l10);
                     &:before {
                         width: 50% !important;
-                    }
-                    & .pluto-text {
-                        color: var(--pluto-gray-l10);
                     }
                 }
             }
 
             .pluto-text-link:hover {
                 text-decoration: none;
-                & .pluto-text {
-                    color: var(--pluto-gray-l10);
-                }
+                color: var(--pluto-gray-l10);
                 &:before {
                     width: 50%;
                 }
