@@ -71,6 +71,7 @@ inline int check_err_internal(
             }
         });
         ok_state = false;
+        return -1;
     }
 
     LOG(ERROR) << "[labjack." << prefix << "] " << err_msg << "(" << err << ")" << description << " (" << caller << ")";
