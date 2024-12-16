@@ -395,6 +395,10 @@ export class Frame {
     return new Size(this.series.reduce((acc, v) => acc.add(v.byteLength), Size.ZERO));
   }
 
+  /**
+   * @returns a digest of information about the structure of the frame for debugging
+   * purposes.
+   */
   get digest(): FrameDigest {
     const digest: FrameDigest = {};
     this.keys.forEach((k, i) => {
