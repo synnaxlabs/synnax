@@ -900,4 +900,83 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			})
 		})
 	}
+	Describe("Regressions", func() {
+		It("Should correctly read data even when a file size is overflowed", func() {
+			var (
+				indexKey cesium.ChannelKey = 1
+				dataKey  cesium.ChannelKey = 2
+			)
+			fileSizeLimit := 8 * 4 * telem.ByteSize
+			fs := xfs.NewMem()
+			indexFS := MustSucceed(fs.Sub("index"))
+			unaryFS := MustSucceed(fs.Sub("data"))
+			indexDB := MustSucceed(unary.Open(unary.Config{
+				FS:        indexFS,
+				MetaCodec: codec,
+				Channel: core.Channel{
+					Key:      indexKey,
+					DataType: telem.TimeStampT,
+					IsIndex:  true,
+					Index:    indexKey,
+				},
+				Instrumentation: PanicLogger(),
+				FileSize:        fileSizeLimit,
+			}))
+			db := MustSucceed(unary.Open(unary.Config{
+				FS:        unaryFS,
+				MetaCodec: codec,
+				Channel: core.Channel{
+					Key:      dataKey,
+					DataType: telem.Float32T,
+					Index:    indexKey,
+				},
+				Instrumentation: PanicLogger(),
+				FileSize:        fileSizeLimit,
+			}))
+			db.SetIndex(indexDB.Index())
+
+			indexW, _ := MustSucceed2(indexDB.OpenWriter(
+				ctx,
+				unary.WriterConfig{
+					Start:   1 * telem.SecondTS,
+					Subject: control.Subject{Key: "test"},
+				},
+			))
+			MustSucceed(indexW.Write(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
+			MustSucceed(indexW.Commit(ctx))
+			MustSucceed(indexW.Write(telem.NewSecondsTSV(6, 7, 8)))
+			MustSucceed(indexW.Commit(ctx))
+			MustSucceed(indexW.Close())
+			Expect(indexFS.List(".")).To(HaveLen(5))
+
+			unaryW, _ := MustSucceed2(db.OpenWriter(
+				ctx,
+				unary.WriterConfig{
+					Start:   1 * telem.SecondTS,
+					Subject: control.Subject{Key: "test"},
+				},
+			))
+			MustSucceed(unaryW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5)))
+			MustSucceed(unaryW.Commit(ctx))
+			MustSucceed(unaryW.Write(telem.NewSeriesV[float32](6, 7, 8)))
+			MustSucceed(unaryW.Commit(ctx))
+			MustSucceed(unaryW.Close())
+			Expect(unaryFS.List(".")).To(HaveLen(4))
+
+			tr := telem.TimeRange{Start: 6 * telem.SecondTS, End: 8 * telem.SecondTS}
+			iterCfg := unary.IteratorConfig{Bounds: tr}
+			i := indexDB.OpenIterator(iterCfg)
+			Expect(i.SeekFirst(ctx)).To(BeTrue())
+			Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+			Expect(i.Value().Series[0].Alignment.DomainIndex()).To(Equal(uint32(1)))
+			Expect(i.Close()).To(Succeed())
+
+			i = db.OpenIterator(iterCfg)
+			Expect(i.SeekFirst(ctx)).To(BeTrue())
+			Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
+			Expect(i.Value().Series[0].Alignment.DomainIndex()).To(Equal(uint32(1)))
+			Expect(i.Close()).To(Succeed())
+
+		})
+	})
 })

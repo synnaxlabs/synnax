@@ -188,6 +188,7 @@ export class Client {
     } finally {
       await i.close();
     }
+    console.log(frame.digest);
     return frame;
   }
 
