@@ -347,56 +347,5 @@ describe("Channel", () => {
       expect(retrieved.name).toEqual("new-name");
       console.log("retrieved name ", retrieved.name);
     });
-    // test("should reject updates to non-virtual channels", async () => {
-    //   const channel = await client.channels.create({
-    //     name: "regular-channel",
-    //     dataType: DataType.FLOAT32,
-    //     leaseholder: 1,
-    //     rate: Rate.hz(1)
-    //   });
-    //
-    //   await expect(
-    //     client.channels.create({
-    //       key: channel.key,
-    //       name: "new-name",
-    //       dataType: DataType.FLOAT32,
-    //       leaseholder: 1,
-    //       rate: Rate.hz(1)
-    //     })
-    //   ).rejects.toThrow(ValidationError);
-    // });
-
-  //   test("should reject updates without a key", async () => {
-  //     await expect(
-  //       client.channels.create({
-  //         name: "no-key-channel",
-  //         dataType: DataType.FLOAT32,
-  //         virtual: true,
-  //         expression: "result = np.array([])"
-  //       })
-  //     ).rejects.toThrow(ValidationError);
-  //   });
-  //
-  //   test("should reject updates that try to make virtual channel non-virtual", async () => {
-  //     const channel = await client.channels.create({
-  //       name: "virtual-channel",
-  //       dataType: DataType.FLOAT32,
-  //       virtual: true,
-  //       expression: "result = np.array([])"
-  //     });
-  //
-  //     await expect(
-  //       client.channels.create({
-  //         key: channel.key,
-  //         name: channel.name,
-  //         dataType: DataType.FLOAT32,
-  //         virtual: false,  // Trying to make it non-virtual
-  //         leaseholder: 1,
-  //         rate: Rate.hz(1)
-  //       })
-  //     ).rejects.toThrow(ValidationError);
-  //   });
-  //
-
   });
 });

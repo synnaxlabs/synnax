@@ -227,8 +227,6 @@ export const useOpenCalculated =
   ({ selection: { resources }, store }: Ontology.TreeContextMenuProps) => {
     if (resources.length !== 1) return;
     const resource = resources[0];
-    // console.log("Opening calculated channel", resource);
-
     const tabKey = `editCalculated-${resource.id.key}`;
     const layout = {
       ...createCalculatedLayout,
