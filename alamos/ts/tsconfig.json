@@ -2,7 +2,6 @@
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "experimentalDecorators": true,
     "paths": {
       "@/*": ["src/*"]
     }

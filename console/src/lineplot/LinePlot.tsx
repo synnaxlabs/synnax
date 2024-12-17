@@ -58,6 +58,7 @@ import {
   useSelectControlState,
   useSelectRanges,
   useSelectSelection,
+  useSelectVersion,
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
@@ -65,6 +66,7 @@ import {
   type AxisState,
   internalCreate,
   type LineState,
+  selectRule,
   setActiveToolbarTab,
   setAxis,
   setControlState,
@@ -159,17 +161,16 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const handleRuleChange = useCallback<
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
-    (rule) =>
+    (rule) => {
+      if (rule.color != null) rule.color = Color.toHex(rule.color);
       syncDispatch(
         setRule({
           key: layoutKey,
-          rule: {
-            ...rule,
-            axis: rule.axis as XAxisKey,
-            color: Color.toHex(rule.color),
-          },
+          // @ts-expect-error rule.color was reassigned to be a string or undefined
+          rule,
         }),
-      ),
+      );
+    },
     [syncDispatch, layoutKey],
   );
 
@@ -410,6 +411,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
+          onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
           annotationProvider={{
             menu: ({ key, timeRange, name }) => {
@@ -512,15 +514,7 @@ export const create =
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? uuidv4();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
-    return {
-      key,
-      name,
-      location,
-      type: LAYOUT_TYPE,
-      icon: "Visualize",
-      window,
-      tab,
-    };
+    return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
   };
 
 export const LinePlot: Layout.Renderer = ({
@@ -531,7 +525,7 @@ export const LinePlot: Layout.Renderer = ({
     name: "Line Plot",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect,
+    useSelectVersion,
     fetcher: async (client, layoutKey) => {
       const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
       return data as unknown as State;

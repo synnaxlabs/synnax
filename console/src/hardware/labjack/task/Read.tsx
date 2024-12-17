@@ -41,6 +41,7 @@ import {
   type Properties,
 } from "@/hardware/labjack/device/types";
 import { SelectDevice } from "@/hardware/labjack/task/common";
+import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
 import {
   inputChan,
   type Read,
@@ -67,8 +68,8 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  ParentRangeButton,
   TareButton,
-  type TaskLayoutArgs,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -81,26 +82,17 @@ import {
 } from "@/hardware/task/common/useDesiredState";
 import { type Layout } from "@/layout";
 
-type LayoutArgs = TaskLayoutArgs<ReadPayload>;
-
-export const configureReadLayout = (
-  args: LayoutArgs = { create: false },
-): Layout.State<TaskLayoutArgs<ReadPayload>> => ({
-  name: "Configure LabJack Read Task",
-  type: READ_TYPE,
-  key: id.id(),
-  icon: "Logo.LabJack",
-  windowKey: READ_TYPE,
-  location: "mosaic",
-  args,
-});
+export const createReadLayout = createLayoutCreator<ReadPayload>(
+  READ_TYPE,
+  "New LabJack Read Task",
+);
 
 export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
   create: (layoutKey) => ({
-    ...configureReadLayout({ create: true }),
+    ...createReadLayout({ create: true }),
     key: layoutKey,
   }),
 };
@@ -224,10 +216,11 @@ const Wrapped = ({
       <Align.Space>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name">
+            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
           </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -377,7 +370,7 @@ const ChannelList = ({
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps) => (
           <ChannelListContextMenu
@@ -386,6 +379,7 @@ const ChannelList = ({
             value={value}
             remove={remove}
             onSelect={onSelect}
+            snapshot={snapshot}
             allowTare={
               value.some((v) => v.type === "AI") && state?.details?.running === true
             }
@@ -400,7 +394,9 @@ const ChannelList = ({
       >
         <List.List<string, ReadChan>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+          }
         >
           <List.Selector<string, ReadChan>
             value={selected}

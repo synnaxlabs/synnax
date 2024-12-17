@@ -21,6 +21,13 @@
 .pluto-grid__item {
     border: var(--pluto-border);
     border-color: transparent;
+    width: max-content;
+    height: max-content;
+    position: absolute;
+    --offset: 0.666rem;
+    justify-content: center;
+    align-items: center;
+
     &.pluto-haul-drop-region {
         background: var(--haul-background);
         border-color: var(--haul-border-color);
@@ -29,10 +36,6 @@
     &.pluto-dragging-over {
         border-color: var(--pluto-primary-z);
     }
-    position: absolute;
-    --offset: 0.666rem;
-    justify-content: center;
-    align-items: center;
 
     &.pluto--y {
         padding: 0 0.5rem;
@@ -69,9 +72,13 @@
 
 .pluto-symbol__label {
     --offset: 0.666rem;
+    -webkit-user-select: none;
     user-select: none;
     pointer-events: none;
     overflow-wrap: break-word;
+    width: max-content;
+    height: max-content;
+    padding: 0 !important;
     &.pluto--y {
         writing-mode: vertical-rl;
     }

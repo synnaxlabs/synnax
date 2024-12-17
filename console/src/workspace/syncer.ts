@@ -25,7 +25,7 @@ export const useSyncLayout = async (): Promise<void> => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
-  const prevSync = useRef<unknown>();
+  const prevSync = useRef<unknown>(null);
   const sync = useMutation({
     mutationKey: ["workspace.save"],
     retry: MAX_RETRY_COUNT,

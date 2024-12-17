@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Device, Form, Synnax, Text } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
@@ -93,11 +94,7 @@ export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
     <Align.Space direction="x" size="small">
       {taskKey != null && (
         <Button.Icon
-          tooltip={() => (
-            <Text.Text level="small">
-              Copy Python code to retrieve {getName()}
-            </Text.Text>
-          )}
+          tooltip={() => <Text.Text level="small">Copy Python Code</Text.Text>}
           tooltipLocation="left"
           variant="text"
           onClick={copyPython}
@@ -106,9 +103,7 @@ export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
         </Button.Icon>
       )}
       <Button.Icon
-        tooltip={() => (
-          <Text.Text level="small">Copy JSON configuration for {getName()}</Text.Text>
-        )}
+        tooltip={() => <Text.Text level="small">Copy JSON Configuration</Text.Text>}
         tooltipLocation="left"
         variant="text"
         onClick={copyJSON}
@@ -117,13 +112,13 @@ export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
       </Button.Icon>
       {taskKey != null && (
         <Button.Icon
-          tooltip={() => <Text.Text level="small">Copy link to {getName()}</Text.Text>}
+          tooltip={() => <Text.Text level="small">Copy Link</Text.Text>}
           tooltipLocation="left"
           variant="text"
           onClick={() =>
             handleCopyToClipBoard({
               name: getName(),
-              ontologyID: { type: "task", key: taskKey },
+              ontologyID: task.ontologyID(taskKey),
             })
           }
         >

@@ -12,12 +12,12 @@
 .pluto-header {
     padding: 0 0.5rem;
     box-sizing: content-box;
-}
 
-.pluto-header__text {
-    padding: 1rem;
-}
-
-.pluto-header-button-title {
-    flex-grow: 1;
+    .pluto-header__text,
+    .pluto-breadcrumb {
+        padding: 1rem;
+    }
+    .pluto-header-button-title {
+        flex-grow: 1;
+    }
 }

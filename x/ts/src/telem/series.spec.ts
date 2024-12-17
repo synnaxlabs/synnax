@@ -435,7 +435,7 @@ describe("Series", () => {
       const buf = controller.buffers[series.glBuffer as number];
       expect(buf).toBeDefined();
       expect(buf.byteLength).toEqual(12);
-      expect(buf).toEqual(new Float32Array([1, 2, 3]));
+      expect(buf).toEqual(new Float32Array([1, 2, 3]).buffer);
     });
     it("should correctly update a buffer when writing to an allocated array", () => {
       const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });
@@ -694,7 +694,8 @@ describe("Series", () => {
         data: new Float32Array([1, 2, 3]),
         timeRange: new TimeRange(1, 3),
       }).digest;
-      expect(digest.alignment).toEqual({ lower: 0n, upper: 3n });
+      expect(digest.alignment.lower).toEqual({ domain: 0n, sample: 0n });
+      expect(digest.alignment.upper).toEqual({ domain: 0n, sample: 3n });
       expect(digest.dataType).toEqual("float32");
       expect(digest.length).toEqual(3);
       expect(digest.timeRange).toEqual(new TimeRange(1, 3).toString());

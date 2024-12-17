@@ -9,7 +9,7 @@
 
 import "@/text/Keyboard.css";
 
-import { type ReactElement } from "react";
+import { CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type text } from "@/text/core";
@@ -20,16 +20,29 @@ export type KeyboardProps<L extends text.Level = "h1"> = TextProps<L>;
 export const Keyboard = <L extends text.Level = "p">({
   className,
   level,
+  children,
+  style,
   ...props
-}: KeyboardProps<L>): ReactElement => (
-  // @ts-expect-error - generic component errors
-  <Text<L>
-    className={CSS(className, CSS.BM("text", "keyboard"))}
-    level={level}
-    style={{
-      width: `calc(var(--pluto-${level}-size) * 1.7)`,
-      height: `calc(var(--pluto-${level}-size) * 1.7)`,
-    }}
-    {...props}
-  />
-);
+}: KeyboardProps<L>): ReactElement => {
+  let iStyle: CSSProperties = {
+    height: `calc(var(--pluto-${level}-size) * 1.7)`,
+  };
+
+  let rect = true;
+  if (typeof children !== "string" || children.length === 1) {
+    rect = false;
+    iStyle.width = `calc(var(--pluto-${level}-size) * 1.7)`;
+  }
+
+  return (
+    // @ts-expect-error - generic component errors
+    <Text<L>
+      className={CSS(className, CSS.BM("text", "keyboard"), rect && CSS.M("rect"))}
+      level={level}
+      style={{ ...style, ...iStyle }}
+      {...props}
+    >
+      {children}
+    </Text>
+  );
+};

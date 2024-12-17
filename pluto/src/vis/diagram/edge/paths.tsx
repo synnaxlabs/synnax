@@ -17,7 +17,7 @@ import { Select } from "@/select";
 export const offsetPath = (path: xy.XY[], miters: xy.XY[]): xy.XY[] =>
   path.map((point, i) => xy.translate(point, miters[i]));
 
-interface PathProps extends Omit<BaseEdgeProps, "path"> {
+interface PathProps extends Omit<BaseEdgeProps, "path" | "color" | "points"> {
   points: xy.XY[];
   color?: Color.Crude;
 }
@@ -182,20 +182,13 @@ const DataLinkSymbol = ({ color, position }: SymbolProps): ReactElement => (
   />
 );
 
-const createSymbolLine = (C: FC<SymbolProps>, overrides: Partial<PathProps> = {}) => {
+const createSymbolLine = (C: FC<SymbolProps>) => {
   const O = ({ points, color, ...props }: PathProps): ReactElement => {
     const path = calcPath(points);
     const positions = computeSymbolPositions(points, 40); // Adjust the interval as needed
     return (
       <>
-        <BaseEdge
-          path={path}
-          style={{
-            stroke: Color.cssString(color),
-          }}
-          {...props}
-          {...overrides}
-        />
+        <BaseEdge path={path} {...props} color={Color.cssString(color)} />
         {positions.map(({ position, direction }, index) => (
           <C key={index} position={position} direction={direction} color={color} />
         ))}

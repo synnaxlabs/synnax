@@ -12,11 +12,12 @@ import { type ReactElement } from "react";
 
 import { type Align } from "@/align";
 import { Button as CoreButton } from "@/button";
+import { type Icon as PIcon } from "@/icon";
 import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Button";
 
 interface Entry {
   key: Align.Alignment;
-  icon: ReactElement;
+  icon: ReactElement<PIcon.BaseProps>;
 }
 
 export interface AlignmentProps

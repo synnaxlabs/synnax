@@ -10,6 +10,7 @@
 import { type Action, type UnknownAction } from "@reduxjs/toolkit";
 import {
   debounce as debounceF,
+  deep,
   dimensions,
   runtime,
   TimeSpan,
@@ -36,7 +37,11 @@ import {
 
 import { type Event, type Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
-import { setWindowProps, type SetWindowPropsPayload, type StoreState } from "@/state";
+import {
+  runtimeSetWindowProps,
+  type RuntimeSetWindowProsPayload,
+  type StoreState,
+} from "@/state";
 import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const actionEvent = "drift://action";
@@ -49,7 +54,7 @@ const MIN_DIM = 250;
 
 // On MacOS, we need to poll for fullscreen changes, as tauri doesn't provide an
 // event for it. This is the interval at which we poll.
-const MACOS_FULLSCREEN_POLL_INTERVAL = TimeSpan.milliseconds(250);
+const MACOS_FULLSCREEN_POLL_INTERVAL = TimeSpan.seconds(1);
 
 const clampDims = (dims?: dimensions.Dimensions): dimensions.Dimensions | undefined => {
   if (dims == null) return undefined;
@@ -88,6 +93,10 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   async configure(): Promise<void> {
     // We only need to poll for fullscreen on MacOS, as tauri doesn't provide an
     // emitted event for fullscreen changes.
+    await this.startFullscreenPoll();
+  }
+
+  private async startFullscreenPoll(): Promise<void> {
     if (runtime.getOS() !== "MacOS") return;
     let prevFullscreen = (await this.getProps()).fullscreen;
     this.fullscreenPoll = setInterval(() => {
@@ -98,7 +107,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
             prevFullscreen = isFullscreen;
             this.emit(
               {
-                action: setWindowProps({
+                action: runtimeSetWindowProps({
                   label: this.win.label,
                   fullscreen: isFullscreen,
                 }) as unknown as A,
@@ -123,6 +132,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   release(): void {
     Object.values(this.unsubscribe).forEach((f) => f?.());
     if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
+
     this.unsubscribe = {};
   }
 
@@ -140,6 +150,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
 
   async subscribe(lis: (action: Event<S, A>) => void): Promise<void> {
     this.release();
+    await this.startFullscreenPoll();
     this.unsubscribe[actionEvent] = await listen<string>(
       actionEvent,
       (event: TauriEvent<string>) => lis(decode(event.payload)),
@@ -167,6 +178,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
+    props = deep.copy(props);
     const { size, minSize, maxSize, position, ...rest } = capWindowDimensions(props);
     if (size?.width != null) size.width = Math.max(size.width, MIN_DIM);
     if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);
@@ -320,7 +332,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
     handler: async (window) => {
       const scaleFactor = await window.scaleFactor();
       const visible = await window.isVisible();
-      const nextProps: SetWindowPropsPayload = {
+      const nextProps: RuntimeSetWindowProsPayload = {
         label: window.label,
         maximized: await window.isMaximized(),
         visible,
@@ -328,7 +340,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
         position: parsePosition(await window.innerPosition(), scaleFactor),
         size: parseSize(await window.innerSize(), scaleFactor),
       };
-      return setWindowProps(nextProps);
+      return runtimeSetWindowProps(nextProps);
     },
   },
   {
@@ -339,24 +351,25 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
       if (scaleFactor == null) return null;
       const position = parsePosition(await window.innerPosition(), scaleFactor);
       const visible = await window.isVisible();
-      const nextProps: SetWindowPropsPayload = {
+      const nextProps: RuntimeSetWindowProsPayload = {
         label: window.label,
         visible,
         position,
       };
-      return setWindowProps(nextProps);
+      return runtimeSetWindowProps(nextProps);
     },
   },
   {
     key: TauriEventKey.WINDOW_BLUR,
     debounce: 0,
-    handler: async (window) => setWindowProps({ focus: false, label: window.label }),
+    handler: async (window) =>
+      runtimeSetWindowProps({ focus: false, label: window.label }),
   },
   {
     key: TauriEventKey.WINDOW_FOCUS,
     debounce: 0,
     handler: async (window) =>
-      setWindowProps({
+      runtimeSetWindowProps({
         focus: true,
         visible: true,
         minimized: false,

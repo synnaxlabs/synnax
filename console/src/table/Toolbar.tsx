@@ -3,6 +3,8 @@ import {
   Align,
   Breadcrumb,
   Form,
+  Header,
+  type Icon as PIcon,
   Select,
   Status,
   Table,
@@ -120,7 +122,9 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
   );
 };
 
-type CellEntry = KeyedNamed<TableCells.Variant> & { icon: ReactElement };
+type CellEntry = KeyedNamed<TableCells.Variant> & {
+  icon: ReactElement<PIcon.BaseProps>;
+};
 
 const CELL_TYPE_OPTIONS: CellEntry[] = [
   { key: TableCells.CELLS.text.key, name: "Text", icon: <Icon.Text /> },

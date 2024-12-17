@@ -26,9 +26,7 @@ import { useContext } from "@/vis/lineplot/LinePlot";
 export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
 
 export const selectViewportEl = (el: HTMLElement | null): Element | null =>
-  el == null
-    ? null
-    : document.querySelectorAll(".pluto-line-plot__viewport")[0] ?? null;
+  el == null ? null : (el.closest(".pluto-line-plot__viewport") ?? null);
 
 export const Viewport = forwardRef<UseRefValue | undefined, ViewportProps>(
   (

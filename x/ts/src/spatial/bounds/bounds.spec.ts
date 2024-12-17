@@ -387,4 +387,10 @@ describe("Bounds", () => {
       expect(bounds.clamp(b, 4)).toEqual(2);
     });
   });
+  describe("mean", () => {
+    it("should return the mean of the bounds", () => {
+      const b = bounds.construct([1, 3]);
+      expect(bounds.mean(b)).toEqual(2);
+    });
+  });
 });

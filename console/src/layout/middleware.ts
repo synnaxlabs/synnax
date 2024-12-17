@@ -138,7 +138,7 @@ const deleteLayoutsOnMosaicCloseEffect: MiddlewareEffect<
 
 export const MIDDLEWARE = [
   effectMiddleware(
-    [moveMosaicTab.type, remove.type, clearWorkspace.type],
+    [moveMosaicTab.type, remove.type, clearWorkspace.type, setWorkspace.type],
     [closeWindowOnEmptyMosaicEffect],
   ),
   effectMiddleware([place.type], [createWindowOnPlaceEffect]),

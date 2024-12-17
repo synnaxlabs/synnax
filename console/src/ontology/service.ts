@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { type Haul, type List, type Status, type Tree } from "@synnaxlabs/pluto";
+import {
+  type Haul,
+  type Icon,
+  type List,
+  type Status,
+  type Tree,
+} from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -89,7 +95,7 @@ export type PaletteListItem = FC<List.ItemProps<string, ontology.Resource>>;
 
 export interface Service {
   type: ontology.ResourceType;
-  icon: ReactElement;
+  icon: ReactElement<Icon.BaseProps>;
   hasChildren: boolean;
   onSelect: HandleSelect;
   canDrop: Haul.CanDrop;

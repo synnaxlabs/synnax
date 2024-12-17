@@ -25,7 +25,7 @@ import {
   type FitViewOptions,
   type IsValidConnection,
   type Node as RFNode,
-  type NodeChange as RFNodeChange,
+  type NodeChange,
   type NodeProps as RFNodeProps,
   type ProOptions,
   ReactFlow,
@@ -126,7 +126,7 @@ const isValidConnection: IsValidConnection = (): boolean => true;
 export interface UseReturn {
   edges: Edge[];
   nodes: Node[];
-  onNodesChange: (nodes: Node[]) => void;
+  onNodesChange: (nodes: Node[], changes: NodeChange[]) => void;
   onEdgesChange: (edges: Edge[]) => void;
   editable: boolean;
   onEditableChange: (v: boolean) => void;
@@ -323,9 +323,10 @@ const Core = Aether.wrap<DiagramProps>(
     }, [nodes]);
 
     const handleNodesChange = useCallback(
-      (changes: RFNodeChange[]) =>
+      (changes: NodeChange[]) =>
         onNodesChange(
           nodeConverter(nodesRef.current, (n) => rfApplyNodeChanges(changes, n)),
+          changes,
         ),
       [onNodesChange],
     );
@@ -355,11 +356,10 @@ const Core = Aether.wrap<DiagramProps>(
     );
 
     const handleConnect = useCallback(
-      (conn: RFConnection) => {
+      (conn: RFConnection) =>
         onEdgesChange(
           edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e), defaultEdgeColor),
-        );
-      },
+        ),
       [onEdgesChange, defaultEdgeColor],
     );
 
@@ -463,17 +463,12 @@ const Core = Aether.wrap<DiagramProps>(
               maxZoom={1.2}
               isValidConnection={isValidConnection}
               connectionMode={ConnectionMode.Loose}
-              snapGrid={[2, 2]}
-              snapToGrid
               fitViewOptions={FIT_VIEW_OPTIONS}
               selectionMode={SelectionMode.Partial}
               proOptions={PRO_OPTIONS}
               deleteKeyCode={DELETE_KEY_CODES}
               {...props}
-              style={{
-                [CSS.var("diagram-zoom")]: viewport.zoom,
-                ...props.style,
-              }}
+              style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...props.style }}
               {...editableProps}
               nodesDraggable={editable && !adjustable.held}
             >

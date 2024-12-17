@@ -10,6 +10,9 @@
 import { type z } from "zod";
 
 import { type Transport } from "@/transport";
+import { breaker } from "@synnaxlabs/x";
+import { Middleware } from "@/middleware";
+import { Unreachable } from "@/errors";
 
 /**
  * An interface for an entity that implements a simple request-response
@@ -29,6 +32,38 @@ export interface UnaryClient extends Transport {
     resSchema: RS,
   ) => Promise<[z.output<RS>, null] | [null, Error]>;
 }
+
+export const unaryWithBreaker = (
+  base: UnaryClient,
+  cfg: breaker.Config,
+): UnaryClient => {
+  class WithBreaker implements UnaryClient {
+    readonly wrapped: UnaryClient;
+
+    constructor(wrapper: UnaryClient) {
+      this.wrapped = wrapper;
+    }
+
+    use(...mw: Middleware[]) {
+      this.wrapped.use(...mw);
+    }
+
+    async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+      target: string,
+      req: z.input<RQ> | z.output<RQ>,
+      reqSchema: RQ,
+      resSchema: RS,
+    ): Promise<[z.output<RS>, null] | [null, Error]> {
+      const brk = breaker.create(cfg);
+      do {
+        const [res, err] = await this.wrapped.send(target, req, reqSchema, resSchema);
+        if (err == null || !Unreachable.matches(err)) return [res, err];
+        if (!(await brk())) return [res, err];
+      } while (true);
+    }
+  }
+  return new WithBreaker(base);
+};
 
 export const sendRequired = async <
   RQ extends z.ZodTypeAny,

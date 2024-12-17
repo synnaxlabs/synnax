@@ -29,7 +29,6 @@ import {
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
-import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -37,6 +36,7 @@ import { useDevice } from "@/hardware/device/useDevice";
 import { Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
+import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Read,
   READ_TYPE,
@@ -52,7 +52,7 @@ import {
   ChannelListContextMenu,
   Controls,
   EnableDisableButton,
-  type TaskLayoutArgs,
+  ParentRangeButton,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -65,22 +65,10 @@ import {
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
-export const configureReadLayout = (
-  args: TaskLayoutArgs<ReadPayload> = { create: false },
-): Layout.State<TaskLayoutArgs<ReadPayload>> => ({
-  name: "Configure OPC UA Read Task",
-  key: uuid(),
-  type: READ_TYPE,
-  windowKey: READ_TYPE,
-  icon: "Logo.OPC",
-  location: "mosaic",
-  window: {
-    resizable: true,
-    size: { width: 1200, height: 900 },
-    navTop: true,
-  },
-  args,
-});
+export const configureReadLayout = createLayoutCreator<ReadPayload>(
+  READ_TYPE,
+  "New OPC UA Read Task",
+);
 
 export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
@@ -299,18 +287,14 @@ const Wrapped = ({
       empty
     >
       <Align.Space direction="y" grow>
-        <Form.Form {...methods}>
+        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name" label="Name">
+            <Form.Field<string> path="name" label="Name" padHelpText={!task?.snapshot}>
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
             {key != null && (
               <Button.Icon
-                tooltip={
-                  <Text.Text level="small">
-                    {name == null ? "Copy link" : `Copy link to ${name}`}
-                  </Text.Text>
-                }
+                tooltip={<Text.Text level="small">Copy Link</Text.Text>}
                 tooltipLocation="left"
                 variant="text"
                 onClick={() => handleLink({ name, ontologyID: { key, type: "task" } })}
@@ -319,6 +303,7 @@ const Wrapped = ({
               </Button.Icon>
             )}
           </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
               path="config.device"
@@ -371,8 +356,12 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            <Browser device={dev} />
-            <ChannelList path="config.channels" device={dev} />
+            {task?.snapshot !== true && <Browser device={dev} />}
+            <ChannelList
+              path="config.channels"
+              device={dev}
+              snapshot={task?.snapshot}
+            />
           </Align.Space>
         </Form.Form>
         <Controls
@@ -386,6 +375,7 @@ const Wrapped = ({
           configuring={configure.isPending}
           onStartStop={start.mutate}
           onConfigure={configure.mutate}
+          snapshot={task?.snapshot}
         />
       </Align.Space>
     </Align.Space>
@@ -395,9 +385,10 @@ const Wrapped = ({
 interface ChannelListProps {
   path: string;
   device?: device.Device<Device.Properties>;
+  snapshot?: boolean;
 }
 
-const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
+const ChannelList = ({ path, device, snapshot }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 
@@ -474,6 +465,7 @@ const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
               setSelectedChannels(k);
               setSelectedChannelIndex(i);
             }}
+            snapshot={snapshot}
           />
         )}
         {...menuProps}
@@ -518,6 +510,7 @@ const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
                     setSelectedChannels([]);
                     setSelectedChannelIndex(null);
                   }}
+                  snapshot={snapshot}
                 />
               )}
             </List.Core>
@@ -525,23 +518,24 @@ const ChannelList = ({ path, device }: ChannelListProps): ReactElement => {
         </List.List>
       </Menu.ContextMenu>
       {value.length > 0 && (
-        <ChannelForm
-          selectedChannelIndex={selectedChannelIndex}
-          deviceProperties={device?.properties}
-        />
+        <ChannelForm selectedChannelIndex={selectedChannelIndex} snapshot={snapshot} />
       )}
     </Align.Space>
   );
 };
 
+interface ChannelListItemProps extends List.ItemProps<string, ReadChannelConfig> {
+  path: string;
+  remove?: () => void;
+  snapshot?: boolean;
+}
+
 export const ChannelListItem = ({
   path,
   remove,
+  snapshot,
   ...props
-}: List.ItemProps<string, ReadChannelConfig> & {
-  path: string;
-  remove?: () => void;
-}): ReactElement => {
+}: ChannelListItemProps): ReactElement => {
   const { entry } = props;
   const ctx = Form.useContext();
   const childValues = Form.useChildFieldValues<ReadChannelConfig>({
@@ -592,6 +586,7 @@ export const ChannelListItem = ({
         <EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+          snapshot={snapshot}
         />
       </Align.Space>
     </List.ItemFrame>
@@ -600,11 +595,15 @@ export const ChannelListItem = ({
 
 interface ChannelFormProps {
   selectedChannelIndex?: number | null;
-  deviceProperties?: Device.Properties;
+  snapshot?: boolean;
 }
 
-const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  if (selectedChannelIndex == null || selectedChannelIndex == -1)
+const ChannelForm = ({
+  selectedChannelIndex,
+  snapshot,
+}: ChannelFormProps): ReactElement | null => {
+  if (selectedChannelIndex == null || selectedChannelIndex == -1) {
+    if (snapshot === true) return null;
     return (
       <Align.Center className={CSS.B("channel-form")}>
         <Text.Text level="p" shade={6}>
@@ -612,14 +611,17 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
         </Text.Text>
       </Align.Center>
     );
+  }
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
     <Align.Space direction="x" grow className={CSS.B("channel-form")} empty>
-      <Form.TextField
+      <Form.Field<string>
         path={`${prefix}.name`}
+        padHelpText={!snapshot}
         label="Channel Name"
-        inputProps={{ variant: "natural", level: "h3" }}
-      />
+      >
+        {(p) => <Input.Text variant="natural" level="h3" {...p} />}
+      </Form.Field>
       <Form.SwitchField
         path={`${prefix}.useAsIndex`}
         label="Use as Index"

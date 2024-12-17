@@ -14,6 +14,7 @@ import {
   type CSSProperties,
   type ForwardedRef,
   forwardRef,
+  type JSX,
   type ReactElement,
 } from "react";
 
@@ -67,6 +68,7 @@ export interface SpaceExtensionProps {
   el?: SpaceElementType;
   bordered?: boolean;
   borderShade?: Theming.Shade;
+  borderWidth?: number;
   rounded?: boolean;
   background?: Theming.Shade;
 }
@@ -95,6 +97,7 @@ const CoreSpace = <E extends SpaceElementType>(
     wrap = false,
     bordered = false,
     borderShade,
+    borderWidth,
     rounded = false,
     el = "div",
     background,
@@ -115,6 +118,8 @@ const CoreSpace = <E extends SpaceElementType>(
     justifyContent: justifications[justify],
     alignItems: align,
     flexWrap: wrap ? "wrap" : "nowrap",
+    borderWidth,
+    borderColor: CSS.shadeVar(borderShade),
     ...style,
   };
 

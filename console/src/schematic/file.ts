@@ -138,6 +138,62 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
   }).mutate;
 };
 
+interface ImportPlotProps extends Omit<Layout.FileHandlerProps, "file" | "name"> {
+  workspaceKey?: string;
+  activeWorkspaceKey: string | null;
+}
+
+export const importSchematic = async ({
+  workspaceKey,
+  activeWorkspaceKey,
+  store,
+  placer,
+  confirm,
+  client,
+  dispatch,
+}: ImportPlotProps): Promise<void> => {
+  const paths = await open({
+    title: "Import schematic",
+    filters,
+    multiple: true,
+    directory: false,
+  });
+  if (paths == null) return;
+  if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
+    let ws = Workspace.select(store.getState(), workspaceKey);
+    if (ws == null) {
+      if (client == null) throw new Error("Cannot reach cluster");
+      ws = await client.workspaces.retrieve(workspaceKey);
+    }
+    dispatch(Workspace.add({ workspaces: [ws] }));
+    dispatch(
+      Layout.setWorkspace({
+        slice: ws.layout as unknown as Layout.SliceState,
+        keepNav: false,
+      }),
+    );
+  }
+  for (const path of paths) {
+    const rawData = await readFile(path);
+    const fileName = path.split("/").pop();
+    if (fileName == null) throw new UnexpectedError("File name is null");
+    const file = JSON.parse(new TextDecoder().decode(rawData));
+    if (
+      !(await fileHandler({
+        file,
+        placer,
+        name: fileName,
+        store,
+        confirm,
+        client,
+        workspaceKey,
+        dispatch,
+      }))
+    )
+      throw new Error(`${fileName} is not a valid schematic`);
+  }
+};
+
 export const useImport = (workspaceKey?: string): (() => void) => {
   const placeLayout = Layout.usePlacer();
   const addStatus = Status.useAggregator();
@@ -148,48 +204,16 @@ export const useImport = (workspaceKey?: string): (() => void) => {
   const activeWorkspaceKey = Workspace.useSelectActiveKey();
 
   return useMutation<void, Error>({
-    mutationFn: async () => {
-      const paths = await open({
-        title: "Import schematic",
-        filters,
-        multiple: true,
-        directory: false,
-      });
-      if (paths == null) return;
-      if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
-        let ws = Workspace.select(store.getState(), workspaceKey);
-        if (ws == null) {
-          if (client == null) throw new Error("Cannot reach cluster");
-          ws = await client.workspaces.retrieve(workspaceKey);
-        }
-        dispatch(Workspace.add({ workspaces: [ws] }));
-        dispatch(
-          Layout.setWorkspace({
-            slice: ws.layout as unknown as Layout.SliceState,
-            keepNav: false,
-          }),
-        );
-      }
-      for (const path of paths) {
-        const rawData = await readFile(path);
-        const fileName = path.split("/").pop();
-        if (fileName == null) throw new UnexpectedError("File name is null");
-        const file = JSON.parse(new TextDecoder().decode(rawData));
-        if (
-          !(await fileHandler({
-            file,
-            placer: placeLayout,
-            name: fileName,
-            store,
-            confirm,
-            client,
-            workspaceKey,
-            dispatch,
-          }))
-        )
-          throw new Error(`${fileName} is not a valid schematic`);
-      }
-    },
+    mutationFn: async () =>
+      await importSchematic({
+        workspaceKey,
+        activeWorkspaceKey,
+        store,
+        placer: placeLayout,
+        confirm,
+        client,
+        dispatch,
+      }),
     onError: (err) =>
       addStatus({
         variant: "error",

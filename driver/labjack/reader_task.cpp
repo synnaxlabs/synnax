@@ -86,6 +86,11 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     auto parser = config::Parser(task.config);
     ReaderConfig reader_config(parser);
 
+    auto control_subject = synnax::ControlSubject{
+            .name = task.name,
+            .key =  task.name + "-" +  std::to_string(task.key)
+    };
+
     auto source = std::make_shared<labjack::ReaderSource>(
         ctx,
         task,
@@ -98,6 +103,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
     auto writer_config = synnax::WriterConfig{
         .channels = channel_keys,
         .start = synnax::TimeStamp::now(),
+        .subject = control_subject,
         .mode = reader_config.data_saving
                     ? synnax::WriterMode::PersistStream
                     : synnax::WriterMode::StreamOnly,
@@ -113,6 +119,8 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
         writer_config,
         breaker_config
     );
+
+    if (!source->ok()) return nullptr;
 
     ctx->set_state({
         .task = task.key,
