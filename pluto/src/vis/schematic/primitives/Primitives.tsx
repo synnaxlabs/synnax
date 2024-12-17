@@ -1410,6 +1410,7 @@ export interface SetpointProps
   color?: Color.Crude;
   units?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
+  disabled?: boolean;
 }
 
 export const Setpoint = ({
@@ -1421,6 +1422,7 @@ export const Setpoint = ({
   units,
   color,
   onChange,
+  disabled,
   ...props
 }: SetpointProps): ReactElement => {
   const [currValue, setCurrValue] = useState(value);
@@ -1450,11 +1452,10 @@ export const Setpoint = ({
         selectOnFocus
         endContent={units}
         color={color}
-        style={{ [CSS.var("pack-border-shade")]: Color.cssString(color) }}
-        borderWidth={2}
+        borderWidth={1}
       >
         <CoreButton.Button
-          variant="outlined"
+          variant="filled"
           size="small"
           onClick={() => onChange(currValue)}
           color={color}

@@ -116,9 +116,12 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
 
     const combinedRef = useCombinedRefs(ref, internalRef);
 
+    const res = Color.Color.z.safeParse(color);
+    const hasCustomColor = res.success && variant == "outlined";
+
     if (variant === "preview") disabled = true;
-    if (color != null)
-      style = { ...style, [CSS.var("input-color")]: Color.cssString(color) };
+    if (hasCustomColor)
+      style = { ...style, [CSS.var("input-color")]: res.data.rgbString };
 
     const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
@@ -136,6 +139,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           shade != null && CSS.shade(shade),
           CSS.BM("input", variant),
           CSS.sharp(sharp),
+          hasCustomColor && CSS.BM("input", "custom-color"),
           status != null && CSS.M(status),
           className,
         )}
