@@ -720,7 +720,7 @@ const switch_: Spec<SwitchProps> = {
   name: "Switch",
   key: "switch",
   Symbol: Switch,
-  Form: CommonToggleForm,
+  Form: () => CommonToggleForm({ hideInnerOrientation: true }),
   defaultProps: () => ({
     ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,

@@ -68,27 +68,30 @@ const OrientationControl = ({
   hideOuter,
   hideInner,
   ...props
-}: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement => (
-  <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...props}>
-    {({ value, onChange }) => (
-      <SelectOrientation
-        value={{
-          inner: value.orientation ?? "top",
-          outer: value.label?.orientation ?? "top",
-        }}
-        hideInner={hideInner}
-        hideOuter={hideOuter}
-        onChange={(v) =>
-          onChange({
-            ...value,
-            orientation: v.inner,
-            label: { ...value.label, orientation: v.outer },
-          })
-        }
-      />
-    )}
-  </Form.Field>
-);
+}: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement => {
+  if (hideInner && hideOuter) return <></>;
+  return (
+    <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...props}>
+      {({ value, onChange }) => (
+        <SelectOrientation
+          value={{
+            inner: value.orientation ?? "top",
+            outer: value.label?.orientation ?? "top",
+          }}
+          hideInner={hideInner}
+          hideOuter={hideOuter}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              orientation: v.inner,
+              label: { ...value.label, orientation: v.outer },
+            })
+          }
+        />
+      )}
+    </Form.Field>
+  );
+};
 
 interface LabelControlsProps {
   path: string;
@@ -286,16 +289,24 @@ const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "control", name: "Control" },
 ];
 
-export const CommonToggleForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "control":
-        return <ToggleControlForm path="" />;
-      default:
-        return <CommonStyleForm />;
-    }
-  }, []);
+interface CommonToggleFormProps {
+  hideInnerOrientation?: boolean;
+}
 
+export const CommonToggleForm = ({
+  hideInnerOrientation,
+}: CommonToggleFormProps): ReactElement => {
+  const content: Tabs.RenderProp = useCallback(
+    ({ tabKey }) => {
+      switch (tabKey) {
+        case "control":
+          return <ToggleControlForm path="" />;
+        default:
+          return <CommonStyleForm hideInnerOrientation={hideInnerOrientation} />;
+      }
+    },
+    [hideInnerOrientation],
+  );
   const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
   return <Tabs.Tabs {...props} />;
 };
@@ -615,7 +626,13 @@ export const ButtonForm = (): ReactElement => {
       case "control":
         return <ButtonTelemForm path="" />;
       default:
-        return <CommonStyleForm omit={["align", "maxInlineSize"]} />;
+        return (
+          <CommonStyleForm
+            omit={["align", "maxInlineSize"]}
+            hideInnerOrientation
+            hideOuterOrientation
+          />
+        );
     }
   }, []);
 
