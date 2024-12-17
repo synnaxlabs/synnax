@@ -59,14 +59,16 @@ interface SymbolOrientation {
   orientation?: location.Outer;
 }
 
+interface ShowOrientationProps {
+  hideOuter?: boolean;
+  hideInner?: boolean;
+}
+
 const OrientationControl = ({
-  showOuter,
-  showInner,
+  hideOuter,
+  hideInner,
   ...props
-}: Form.FieldProps<SymbolOrientation> & {
-  showOuter?: boolean;
-  showInner?: boolean;
-}): ReactElement => (
+}: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement => (
   <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...props}>
     {({ value, onChange }) => (
       <SelectOrientation
@@ -74,8 +76,8 @@ const OrientationControl = ({
           inner: value.orientation ?? "top",
           outer: value.label?.orientation ?? "top",
         }}
-        showInner={showInner}
-        showOuter={showOuter}
+        hideInner={hideInner}
+        hideOuter={hideOuter}
         onChange={(v) =>
           onChange({
             ...value,
@@ -169,9 +171,15 @@ const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
 
 interface CommonStyleFormProps {
   omit?: string[];
+  hideInnerOrientation?: boolean;
+  hideOuterOrientation?: boolean;
 }
 
-export const CommonStyleForm = ({ omit }: CommonStyleFormProps): ReactElement => (
+export const CommonStyleForm = ({
+  omit,
+  hideInnerOrientation,
+  hideOuterOrientation,
+}: CommonStyleFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
     <Align.Space direction="y" grow>
       <LabelControls omit={omit} path="label" />
@@ -189,7 +197,11 @@ export const CommonStyleForm = ({ omit }: CommonStyleFormProps): ReactElement =>
         <ScaleControl path="scale" />
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" />
+    <OrientationControl
+      path=""
+      hideInner={hideInnerOrientation}
+      hideOuter={hideOuterOrientation}
+    />
   </FormWrapper>
 );
 
@@ -382,7 +394,7 @@ export const TankForm = ({
         </Form.Field>
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" showInner={false} />
+    <OrientationControl path="" hideInner />
   </FormWrapper>
 );
 
@@ -436,7 +448,7 @@ export const ValueForm = (): ReactElement => {
                 </Form.Field>
               </Align.Space>
             </Align.Space>
-            <OrientationControl path="" showInner={false} />
+            <OrientationControl path="" hideInner />
           </FormWrapper>
         );
     }
@@ -772,7 +784,7 @@ export const OffPageReferenceForm = (): ReactElement => (
       <LabelControls path="label" omit={["maxInlineSize", "align", "direction"]} />
       <ColorControl path="color" />
     </Align.Space>
-    <OrientationControl path="" showOuter={false} />
+    <OrientationControl path="" hideOuter />
   </FormWrapper>
 );
 
@@ -807,7 +819,7 @@ export const CylinderForm = (): ReactElement => (
         </Form.Field>
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" showInner={false} />
+    <OrientationControl path="" hideInner />
   </FormWrapper>
 );
 
