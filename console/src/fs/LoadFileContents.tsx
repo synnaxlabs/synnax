@@ -12,7 +12,7 @@ import "@/fs/LoadFileContents.css";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, type Input } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
-import { open } from "@tauri-apps/plugin-dialog";
+import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useEffect, useState } from "react";
 import { type z } from "zod";
@@ -21,17 +21,20 @@ import { CSS } from "@/css";
 
 export interface InputFilePathProps
   extends Input.Control<string>,
-    Omit<Align.PackProps, "value" | "onChange"> {}
+    Omit<Align.PackProps, "value" | "onChange"> {
+  filters?: DialogFilter[];
+}
 
 export const InputFilePath = ({
   value,
   onChange,
+  filters,
   ...props
 }: InputFilePathProps): ReactElement => {
   const path = value;
   const handleClick = () => {
     void (async () => {
-      const path = await open({ directory: false });
+      const path = await open({ directory: false, filters });
       if (path == null) return;
       onChange(path);
     })();
