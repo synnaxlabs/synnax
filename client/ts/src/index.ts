@@ -32,6 +32,7 @@ export { rack } from "@/hardware/rack";
 export { task } from "@/hardware/task";
 export { label } from "@/label";
 export { ontology } from "@/ontology";
+export { group } from "@/ontology/group";
 export { ranger } from "@/ranger";
 export { signals } from "@/signals";
 export { user } from "@/user";

@@ -9,7 +9,7 @@
 
 import "@/hardware/task/Toolbar.css";
 
-import { type task } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -24,6 +24,7 @@ import {
   useAsyncEffect,
   useDelayedState,
 } from "@synnaxlabs/pluto";
+import { Link } from "@/link";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
@@ -34,7 +35,7 @@ import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { checkDesiredStateMatch } from "@/hardware/task/common/useDesiredState";
-import { createTaskLayout } from "@/hardware/task/ontology";
+import { createLayout } from "@/hardware/task/ontology";
 import { createSelector } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
@@ -124,7 +125,7 @@ const Content = (): ReactElement => {
   useAsyncEffect(async () => {
     if (client == null) return;
     const v = (await client.hardware.tasks.list({ includeState: true })).filter(
-      (t) => !t.internal,
+      (t) => !t.internal && !t.snapshot,
     );
     setTasks(v);
   }, [client]);
@@ -171,7 +172,9 @@ const Content = (): ReactElement => {
           const nextKeys = next.map((t) => t.key);
           return [
             ...next,
-            ...nextTasks.filter((u) => !u.internal && !nextKeys.includes(u.key)),
+            ...nextTasks.filter(
+              (u) => !u.internal && !u.snapshot && !nextKeys.includes(u.key),
+            ),
           ];
         });
       });
@@ -194,6 +197,7 @@ const Content = (): ReactElement => {
     },
   });
   const confirm = Confirm.useModal();
+  const handleLink = Link.useCopyToClipboard();
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
@@ -241,14 +245,14 @@ const Content = (): ReactElement => {
         const someSelected = selected.length > 0;
         const isSingle = selected.length === 1;
         const handleEdit = (key: string): void => {
-          const type = tasks.find((t) => t.key === key)?.type;
-          if (type == null)
+          const task = tasks.find((t) => t.key === key);
+          if (task == null)
             return addStatus({
               variant: "error",
               message: "Failed to open task details",
               description: `Task with key ${key} not found`,
             });
-          const layout = createTaskLayout(key, type);
+          const layout = createLayout(task);
           place(layout);
         };
         return (
@@ -257,6 +261,11 @@ const Content = (): ReactElement => {
             iconSpacing="small"
             onChange={{
               rename: () => Text.edit(`text-${keys[0]}`),
+              link: () =>
+                handleLink({
+                  name: tasks.find((t) => t.key === keys[0])?.name,
+                  ontologyID: task.ontologyID(keys[0]),
+                }),
               delete: () => handleDelete.mutate(keys),
               start: () =>
                 selected.forEach((t) => {
@@ -302,6 +311,8 @@ const Content = (): ReactElement => {
                 </PMenu.Item>
                 <PMenu.Divider />
                 <Menu.RenameItem />
+                <Link.CopyMenuItem />
+                <PMenu.Divider />
               </>
             )}
             {someSelected && (

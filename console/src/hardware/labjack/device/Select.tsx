@@ -54,11 +54,6 @@ const INPUT_CHANNEL_TYPES: KeyedNamed<InputChannelType>[] = [
   { key: "TC", name: "Thermocouple" },
 ];
 
-const OUTPUT_CHANNEL_TYPES: KeyedNamed<OutputChannelType>[] = [
-  { key: "AO", name: "Analog Out" },
-  { key: "DO", name: "Digital Out" },
-];
-
 export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   InputChannelType,
   KeyedNamed<InputChannelType>
@@ -72,15 +67,23 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   },
 });
 
-export const SelectOutputChannelTypeField = Form.buildDropdownButtonSelectField<
-  OutputChannelType,
-  KeyedNamed<OutputChannelType>
->({
-  fieldKey: "type",
-  fieldProps: { label: "Channel Type" },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: [{ key: "name", name: "Name" }],
-    data: OUTPUT_CHANNEL_TYPES,
-  },
-});
+type OutputChannelTypeEntry = KeyedNamed<OutputChannelType>;
+
+const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
+  { key: "AO", name: "Analog" },
+  { key: "DO", name: "Digital" },
+];
+
+export interface SelectOutputChannelTypeProps
+  extends Omit<
+    Select.ButtonProps<OutputChannelType, OutputChannelTypeEntry>,
+    "data" | "entryRenderKey"
+  > {}
+
+export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
+  <Select.Button<OutputChannelType, OutputChannelTypeEntry>
+    data={OUTPUT_CHANNEL_TYPES}
+    entryRenderKey="name"
+    {...props}
+  />
+);

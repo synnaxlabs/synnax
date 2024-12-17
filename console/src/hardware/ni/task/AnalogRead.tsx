@@ -22,7 +22,12 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { type Properties } from "@/hardware/ni/device/types";
+import {
+  ANALOG_INPUT_FORMS,
+  SelectChannelTypeField,
+} from "@/hardware/ni/task/ChannelForms";
 import { CopyButtons } from "@/hardware/ni/task/common";
+import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   AI_CHANNEL_TYPE_NAMES,
   type AIChan,
@@ -47,7 +52,6 @@ import {
   EnableDisableButton,
   ParentRangeButton,
   TareButton,
-  type TaskLayoutArgs,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -60,29 +64,22 @@ import {
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { type Layout } from "@/layout";
 
-import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
-
-export const configureAnalogReadLayout = (
-  args: TaskLayoutArgs<AnalogReadPayload> = { create: false },
-): Layout.State<TaskLayoutArgs<AnalogReadPayload>> => ({
-  name: "Configure NI Analog Read Task",
-  key: id.id(),
-  type: ANALOG_READ_TYPE,
-  windowKey: ANALOG_READ_TYPE,
-  icon: "Logo.NI",
-  location: "mosaic",
-  args,
-});
+export const createAnalogReadLayout = createLayoutCreator<AnalogReadPayload>(
+  ANALOG_READ_TYPE,
+  "New NI Analog Read Task",
+);
 
 export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   key: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
   create: (layoutKey) => ({
-    ...configureAnalogReadLayout({ create: true }),
+    ...createAnalogReadLayout({ create: true }),
     key: layoutKey,
   }),
 };
+
+const schema = z.object({ name: z.string(), config: analogReadTaskConfigZ });
 
 const Wrapped = ({
   task,
@@ -90,13 +87,7 @@ const Wrapped = ({
   layoutKey,
 }: WrappedTaskLayoutProps<AnalogRead, AnalogReadPayload>): ReactElement => {
   const client = Synnax.use();
-  const methods = Form.use({
-    values: initialValues,
-    schema: z.object({
-      name: z.string(),
-      config: analogReadTaskConfigZ,
-    }),
-  });
+  const methods = Form.use({ values: initialValues, schema });
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>(
     initialValues.config.channels.length ? [initialValues.config.channels[0].key] : [],
@@ -453,7 +444,7 @@ const ChannelList = ({
           <List.Selector<string, Chan>
             value={selected}
             allowNone={false}
-            allowMultiple={true}
+            allowMultiple
             onChange={(keys, { clickedIndex }) =>
               clickedIndex != null && onSelect(keys, clickedIndex)
             }

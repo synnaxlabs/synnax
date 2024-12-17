@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
+  type Icon as PIcon,
   List,
   Synnax,
   Text,
@@ -25,7 +26,7 @@ import { create } from "@/schematic/external";
 import { type State as SchematicState } from "@/schematic/slice";
 
 interface SnapshotService {
-  icon: ReactElement;
+  icon: ReactElement<PIcon.BaseProps>;
   onClick: (client: Client, res: ontology.Resource, placer: Layout.Placer) => void;
 }
 
@@ -48,8 +49,8 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   },
   task: {
     icon: <Icon.Task />,
-    onClick: (_, res, placer) =>
-      placer(Task.createTaskLayout(res.id.key, res.data?.type as string)),
+    onClick: (client, res, placer) =>
+      void Task.retrieveAndPlaceLayout(client, res.id.key, placer),
   },
 };
 
@@ -78,6 +79,12 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
 };
 
 const snapshotsListItem = componentRenderProp(SnapshotsListItem);
+
+const EMPTY_LIST_CONTENT = (
+  <Text.Text level="p" weight={400} shade={6}>
+    No Snapshots.
+  </Text.Text>
+);
 
 export interface SnapshotsProps {
   rangeKey: string;
@@ -110,7 +117,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
       <Text.Text level="h4" shade={8} weight={500}>
         Snapshots
       </Text.Text>
-      <List.List data={snapshots}>
+      <List.List data={snapshots} emptyContent={EMPTY_LIST_CONTENT}>
         <List.Core empty>{snapshotsListItem}</List.Core>
       </List.List>
     </Align.Space>

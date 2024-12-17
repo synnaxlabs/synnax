@@ -200,7 +200,7 @@ export class TimeStamp implements Stringer {
 
   /** @returns A JavaScript Date object representing the TimeStamp. */
   date(): Date {
-    return new Date(this.milliseconds());
+    return new Date(this.milliseconds);
   }
 
   /**
@@ -323,10 +323,117 @@ export class TimeStamp implements Stringer {
   }
 
   /**
+   * @returns the floating point number of hours since the unix epoch to the timestamp
+   * value.
+   */
+  get hours(): number {
+    return Number(this.valueOf()) / Number(TimeSpan.HOUR.valueOf());
+  }
+
+  /**
+   * @returns the floating point number of minutes since the unix epoch to the timestamp
+   * value.
+   */
+  get minutes(): number {
+    return Number(this.valueOf()) / Number(TimeSpan.MINUTE.valueOf());
+  }
+
+  /**
+   * @returns the floating point number of days since the unix epoch to the timestamp
+   * value.
+   */
+  get days(): number {
+    return Number(this.valueOf()) / Number(TimeSpan.DAY.valueOf());
+  }
+
+  /**
+   * @returns the floating point number of seconds since the unix epoch to the timestamp
+   * value.
+   */
+  get seconds(): number {
+    return Number(this.valueOf()) / Number(TimeSpan.SECOND.valueOf());
+  }
+
+  /**
    * @returns The number of milliseconds since the unix epoch.
    */
-  milliseconds(): number {
+  get milliseconds(): number {
     return Number(this.valueOf()) / Number(TimeStamp.MILLISECOND.valueOf());
+  }
+
+  /** @returns the integer year that the timestamp corresponds to. */
+  get year(): number {
+    return this.date().getFullYear();
+  }
+
+  setYear(year: number): TimeStamp {
+    const d = this.date();
+    d.setFullYear(year);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer month that the timestamp corresponds to with its year. */
+  get month(): number {
+    return this.date().getMonth();
+  }
+
+  setMonth(month: number): TimeStamp {
+    const d = this.date();
+    d.setMonth(month);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer day that the timestamp corresponds to within its month. */
+  get day(): number {
+    return this.date().getDate();
+  }
+
+  setDay(day: number): TimeStamp {
+    const d = this.date();
+    d.setDate(day);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer hour that the timestamp corresponds to within its day. */
+  get hour(): number {
+    return this.date().getHours();
+  }
+
+  setHour(hour: number): TimeStamp {
+    const d = this.date();
+    d.setHours(hour);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer minute that the timestamp corresponds to within its hour. */
+  get minute(): number {
+    return this.date().getMinutes();
+  }
+
+  setMinute(minute: number): TimeStamp {
+    const d = this.date();
+    d.setMinutes(minute);
+    return new TimeStamp(d);
+  }
+
+  get second(): number {
+    return this.date().getSeconds();
+  }
+
+  setSecond(second: number): TimeStamp {
+    const d = this.date();
+    d.setSeconds(second);
+    return new TimeStamp(d);
+  }
+
+  get millisecond(): number {
+    return this.date().getMilliseconds();
+  }
+
+  setMillisecond(millisecond: number): TimeStamp {
+    const d = this.date();
+    d.setMilliseconds(millisecond);
+    return new TimeStamp(d);
   }
 
   toString(): string {
@@ -544,6 +651,10 @@ export class TimeSpan implements Stringer {
     if (!microseconds.isZero) str += `${microseconds.microseconds}µs `;
     if (!nanoseconds.isZero) str += `${nanoseconds.nanoseconds}ns`;
     return str.trim();
+  }
+
+  mult(value: number): TimeSpan {
+    return new TimeSpan(this.valueOf() * BigInt(value));
   }
 
   /** @returns the decimal number of days in the timespan */
@@ -1053,6 +1164,14 @@ export class TimeRange implements Stringer {
     z.instanceof(TimeRange),
   ]);
 }
+
+export const sortTimeRange = (a: TimeRange, b: TimeRange): -1 | 0 | 1 => {
+  if (a.start.before(b.start)) return -1;
+  if (a.start.after(b.start)) return 1;
+  if (a.end.before(b.end)) return -1;
+  if (a.end.after(b.end)) return 1;
+  return 0;
+};
 
 /** DataType is a string that represents a data type. */
 export class DataType extends String implements Stringer {

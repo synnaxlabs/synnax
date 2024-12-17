@@ -547,6 +547,7 @@ export const Tree = (): ReactElement => {
         onDoubleClick={handleDoubleClick}
         showRules
         loading={loading}
+        virtual={false}
         {...treeProps}
       >
         {item}

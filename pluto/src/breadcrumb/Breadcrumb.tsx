@@ -16,10 +16,12 @@ import { CSS } from "@/css";
 import { Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
 
+import "@/breadcrumb/Breadcrumb.css";
+
 export interface Segment {
   label: string;
   shade?: Text.Shade;
-  icon?: string | ReactElement;
+  icon?: string | ReactElement<PIcon.BaseProps>;
   weight?: Text.Weight;
   level?: Text.Level;
 }
@@ -37,7 +39,7 @@ export type BreadcrumbProps<
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
   /** Icon to display in the breadcrumb. */
-  icon?: string | ReactElement;
+  icon?: string | ReactElement<PIcon.BaseProps>;
   /** The breadcrumb items, either a single string or an array of strings. */
   children: Segments;
   url?: string | string[];
@@ -143,7 +145,7 @@ export const Breadcrumb = <
   if (hideFirst) content.shift();
   return (
     <Text.WithIcon
-      className={CSS(className, CSS.B("breadcrumb"))}
+      className={CSS(className, CSS.B("breadcrumb"), hideFirst && CSS.M("hide-first"))}
       level={level}
       shade={shade}
       weight={weight}

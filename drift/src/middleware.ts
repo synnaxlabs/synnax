@@ -27,8 +27,8 @@ import {
   type LabelPayload,
   type MaybeKeyPayload,
   reloadWindow,
+  runtimeSetWindowProps,
   setWindowError,
-  setWindowProps,
   shouldEmit,
   type SliceState,
   type StoreState,
@@ -46,7 +46,7 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 //    window operations have been applied.
 const mu = new Mutex();
 
-const EXCLUDE_SYNC_ACTIONS: string[] = [setWindowProps.type, reloadWindow.type];
+const EXCLUDE_SYNC_ACTIONS: string[] = [runtimeSetWindowProps.type, reloadWindow.type];
 
 /**
  * Redux middleware that conditionally does two things:
@@ -72,17 +72,17 @@ export const middleware =
 
     validateAction({ action: action_ as A | Action, emitted, emitter });
 
-    log(debug, "[drift] - middleware", {
-      action,
-      emitted,
-      emitter,
-      host: label,
-    });
+    const isDrift = isDriftAction(action.type);
+    if (isDrift)
+      log(debug, "[drift] - middleware", {
+        action,
+        emitted,
+        emitter,
+        host: label,
+      });
 
     // The action is recirculating from our own relay.
     if (emitter === runtime.label()) return;
-
-    const isDrift = isDriftAction(action.type);
 
     // If the runtime is updating its own props, no need to sync.
     const shouldSync = isDrift && !EXCLUDE_SYNC_ACTIONS.includes(action.type);

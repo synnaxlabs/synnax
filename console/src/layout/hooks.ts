@@ -12,6 +12,7 @@ import { Drift, selectWindowKey } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   type AsyncDestructor,
+  type Icon,
   type Nav,
   Text,
   Theming,
@@ -179,7 +180,7 @@ const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void>
 
 export interface NavMenuItem {
   key: string;
-  icon: ReactElement;
+  icon: ReactElement<Icon.BaseProps>;
   tooltip: string;
 }
 

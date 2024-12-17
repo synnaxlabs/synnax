@@ -22,6 +22,7 @@ import { z } from "zod";
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
 import { Triggers } from "@/triggers";
+import { findParent } from "@/util/findParent";
 
 export interface UseEvent {
   box: box.Box;
@@ -281,7 +282,14 @@ export const use = ({
       else sf += 0.035;
       const canvasBox = box.construct(canvasRef.current);
       const rawCursor = xy.construct(e);
-      if (!box.contains(canvasBox, rawCursor) || e.target !== canvasRef.current) return;
+      const candidateElements = Array.from(canvasRef.current.children);
+      candidateElements.push(canvasRef.current);
+      if (
+        !box.contains(canvasBox, rawCursor) ||
+        (canvasRef.current !== e.target &&
+          findParent(e.target as HTMLElement, (el) => el === canvasRef.current) == null)
+      )
+        return;
       const s2 = constructScale(stateRef.current, box.construct(canvasRef.current));
       const cursor = s2.pos(xy.construct(e));
       const s = scale.XY.magnify({

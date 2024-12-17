@@ -7,5 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/workspace/lineplot/client";
-export * from "@/workspace/lineplot/payload";
+import { type task } from "@synnaxlabs/client";
+
+import { createLayoutCreator as createTaskLayoutCreator } from "@/hardware/task/common/createLayoutCreator";
+
+export const createLayoutCreator = <P extends task.Payload>(
+  type: string,
+  defaultName: string = "New OPC UA Task",
+) => createTaskLayoutCreator<P>(type, defaultName, "Logo.OPC");

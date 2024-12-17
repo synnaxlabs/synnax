@@ -62,7 +62,10 @@ const stickyToCSS = (pos: StickyXY): CSSProperties => {
  * @param ref - The ref of the element being positioned. The parent will be inferred from
  * the parentElement of the ref.
  */
-const stickyToDecimalXY = (pos: StickyXY, ref: RefObject<HTMLDivElement>): xy.XY => {
+const stickyToDecimalXY = (
+  pos: StickyXY,
+  ref: RefObject<HTMLDivElement | null>,
+): xy.XY => {
   const ret = { x: pos.x, y: pos.y };
   if (ref.current == null) return ret;
   const b = box.construct(ref.current as HTMLDivElement);
@@ -82,7 +85,7 @@ const stickyToDecimalXY = (pos: StickyXY, ref: RefObject<HTMLDivElement>): xy.XY
 
 export const calcStickyPos = (
   pos: xy.XY,
-  ref: RefObject<HTMLDivElement>,
+  ref: RefObject<HTMLDivElement | null>,
 ): StickyXY | null => {
   if (ref.current == null) return null;
   const parentBox = box.construct(ref.current.parentElement as HTMLDivElement);

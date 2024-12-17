@@ -9,7 +9,7 @@
 
 import "@/layout/Selector.css";
 
-import { Button, Eraser, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
 
@@ -20,7 +20,7 @@ import { type RendererProps } from "@/layout/slice";
 export interface Selectable {
   key: string;
   title: string;
-  icon: ReactElement;
+  icon: ReactElement<Icon.BaseProps>;
   create: (layoutKey: string) => PlacerArgs;
 }
 

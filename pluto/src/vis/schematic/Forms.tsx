@@ -152,7 +152,18 @@ const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
 
 const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
   <Form.Field hideIfNull label="Scale" align="start" padHelpText={false} {...props}>
-    {(p) => <Input.Numeric dragScale={1} bounds={{ lower: 0.5, upper: 15 }} {...p} />}
+    {({ value, onChange }) => (
+      <Input.Numeric
+        dragScale={{
+          x: 0.75,
+          y: 0.5,
+        }}
+        bounds={{ lower: 50, upper: 1000 }}
+        endContent="%"
+        value={Math.round(value * 100)}
+        onChange={(v) => onChange(parseFloat((v / 100).toFixed(2)))}
+      />
+    )}
   </Form.Field>
 );
 
@@ -758,7 +769,7 @@ export const TextBoxForm = (): ReactElement => {
 export const OffPageReferenceForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
     <Align.Space direction="y" grow>
-      <LabelControls path="label" omit={["maxInlineSize", "align"]} />
+      <LabelControls path="label" omit={["maxInlineSize", "align", "direction"]} />
       <ColorControl path="color" />
     </Align.Space>
     <OrientationControl path="" showOuter={false} />
@@ -767,7 +778,7 @@ export const OffPageReferenceForm = (): ReactElement => (
 
 export const CylinderForm = (): ReactElement => (
   <FormWrapper direction="x" align="stretch">
-    <Align.Space direction="y" grow empty>
+    <Align.Space direction="y" grow>
       <LabelControls path="label" />
       <Align.Space direction="x">
         <ColorControl path="color" />

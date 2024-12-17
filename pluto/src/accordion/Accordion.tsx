@@ -109,7 +109,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): ReactElement => {
 interface EntryCProps extends Omit<Entry, "key"> {
   index: number;
   size: number;
-  parent: RefObject<HTMLDivElement>;
+  parent: RefObject<HTMLDivElement | null>;
   onExpand: (i: number) => void;
   direction: direction.Direction;
 }

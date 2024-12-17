@@ -13,15 +13,20 @@
     cursor: pointer;
     -webkit-user-select: text;
     user-select: text;
-    padding: 0.25rem 0;
+    position: relative;
 
     &:focus {
-        border: var(--pluto-border-width) solid var(--pluto-primary-z);
-        z-index: 2;
-        border-radius: var(--pluto-border-radius);
         outline: none;
-        display: inline-block;
-        cursor: text;
-        padding: 0.25rem 1rem;
+        &::after {
+            content: "";
+            position: absolute;
+            top: -1px;
+            left: -0.666rem;
+            right: -0.666rem;
+            bottom: -1px;
+            border-radius: var(--pluto-border-radius);
+            border: var(--pluto-border);
+            border-color: var(--pluto-primary-z);
+        }
     }
 }

@@ -30,13 +30,13 @@ import {
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
-import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
+import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Write,
   WRITE_TYPE,
@@ -52,7 +52,7 @@ import {
   ChannelListContextMenu,
   Controls,
   EnableDisableButton,
-  type TaskLayoutArgs,
+  ParentRangeButton,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -65,29 +65,17 @@ import {
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
-export const configureWriteLayout = (
-  args: TaskLayoutArgs<WritePayload> = { create: false },
-): Layout.State => ({
-  name: "Configure OPC UA Write Task",
-  key: uuid(),
-  type: WRITE_TYPE,
-  windowKey: WRITE_TYPE,
-  location: "mosaic",
-  icon: "Logo.OPC",
-  window: {
-    resizable: true,
-    size: { width: 1200, height: 900 },
-    navTop: true,
-  },
-  args,
-});
+export const createWriteLayout = createLayoutCreator<WritePayload>(
+  WRITE_TYPE,
+  "New OPC UA Write Task",
+);
 
 export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
   create: (layoutKey) => ({
-    ...configureWriteLayout({ create: true }),
+    ...createWriteLayout({ create: true }),
     key: layoutKey,
   }),
 };
@@ -251,26 +239,23 @@ const Wrapped = ({
       empty
     >
       <Align.Space direction="y" grow>
-        <Form.Form {...methods}>
+        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name" label="Name">
+            <Form.Field<string> path="name" label="Name" padHelpText={!task?.snapshot}>
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
             {key != null && (
               <Button.Icon
-                tooltip={
-                  <Text.Text level="small">
-                    {name == null ? "Copy link" : `Copy link to ${name}`}
-                  </Text.Text>
-                }
+                tooltip={<Text.Text level="small">Copy Link</Text.Text>}
                 tooltipLocation="left"
                 variant="text"
                 onClick={() => handleLink({ name, ontologyID: { key, type: "task" } })}
               >
                 <Icon.Link />
               </Button.Icon>
-            )}{" "}
+            )}
           </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
               path="config.device"
@@ -313,8 +298,12 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            <Browser device={device} />
-            <WriterChannelList path="config.channels" device={device} />
+            {task?.snapshot !== true && <Browser device={device} />}
+            <ChannelList
+              path="config.channels"
+              device={device}
+              snapshot={task?.snapshot}
+            />
           </Align.Space>
         </Form.Form>
         <Controls
@@ -328,18 +317,20 @@ const Wrapped = ({
           configuring={configure.isPending}
           onStartStop={start.mutate}
           onConfigure={configure.mutate}
+          snapshot={task?.snapshot}
         />
       </Align.Space>
     </Align.Space>
   );
 };
 
-interface WriterChannelListProps {
+interface ChannelListProps {
   path: string;
   device?: device.Device<Device.Properties>;
+  snapshot?: boolean;
 }
 
-const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactElement => {
+const ChannelList = ({ path, device, snapshot }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<WriteChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 
@@ -413,6 +404,7 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
               setSelectedChannels(k);
               setSelectedChannelIndex(i);
             }}
+            snapshot={snapshot}
           />
         )}
         {...menuProps}
@@ -445,7 +437,7 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
           >
             <List.Core<string, WriteChannelConfig> grow>
               {({ key, ...props }) => (
-                <WriterChannelListItem
+                <ChannelListItem
                   key={key}
                   {...props}
                   path={path}
@@ -457,6 +449,7 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
                     setSelectedChannels([]);
                     setSelectedChannelIndex(null);
                   }}
+                  snapshot={snapshot}
                 />
               )}
             </List.Core>
@@ -464,23 +457,24 @@ const WriterChannelList = ({ path, device }: WriterChannelListProps): ReactEleme
         </List.List>
       </Menu.ContextMenu>
       {value.length > 0 && (
-        <ChannelForm
-          selectedChannelIndex={selectedChannelIndex}
-          deviceProperties={device?.properties}
-        />
+        <ChannelForm selectedChannelIndex={selectedChannelIndex} snapshot={snapshot} />
       )}
     </Align.Space>
   );
 };
 
-const WriterChannelListItem = ({
-  path,
-  remove,
-  ...props
-}: List.ItemProps<string, WriteChannelConfig> & {
+interface ChannelListItemProps extends List.ItemProps<string, WriteChannelConfig> {
   path: string;
   remove?: () => void;
-}): ReactElement => {
+  snapshot?: boolean;
+}
+
+const ChannelListItem = ({
+  path,
+  remove,
+  snapshot,
+  ...props
+}: ChannelListItemProps): ReactElement => {
   const { entry } = props;
   const ctx = Form.useContext();
   const childValues = Form.useChildFieldValues<WriteChannelConfig>({
@@ -526,6 +520,7 @@ const WriterChannelListItem = ({
         <EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+          snapshot={snapshot}
         />
       </Align.Space>
     </List.ItemFrame>
@@ -534,11 +529,15 @@ const WriterChannelListItem = ({
 
 interface ChannelFormProps {
   selectedChannelIndex?: number | null;
-  deviceProperties?: Device.Properties;
+  snapshot?: boolean;
 }
 
-const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  if (selectedChannelIndex == null || selectedChannelIndex == -1)
+const ChannelForm = ({
+  selectedChannelIndex,
+  snapshot,
+}: ChannelFormProps): ReactElement | null => {
+  if (selectedChannelIndex == null || selectedChannelIndex == -1) {
+    if (snapshot === true) return null;
     return (
       <Align.Center className={CSS.B("channel-form")}>
         <Text.Text level="p" shade={6}>
@@ -546,14 +545,17 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
         </Text.Text>
       </Align.Center>
     );
+  }
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
     <Align.Space direction="y" grow className={CSS.B("channel-form")} empty>
-      <Form.TextField
+      <Form.Field<string>
         path={`${prefix}.name`}
+        padHelpText={!snapshot}
         label="Channel Name"
-        inputProps={{ variant: "natural", level: "h3" }}
-      />
+      >
+        {(p) => <Input.Text variant="natural" level="h3" {...p} />}
+      </Form.Field>
     </Align.Space>
   );
 };

@@ -30,6 +30,7 @@ import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
+import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   type Chan,
   type DIChan,
@@ -49,7 +50,7 @@ import {
   ChannelListHeader,
   Controls,
   EnableDisableButton,
-  type TaskLayoutArgs,
+  ParentRangeButton,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -61,26 +62,17 @@ import {
 } from "@/hardware/task/common/useDesiredState";
 import { type Layout } from "@/layout";
 
-type LayoutArgs = TaskLayoutArgs<DigitalReadPayload>;
-
-export const configureDigitalReadLayout = (
-  args: LayoutArgs = { create: false },
-): Layout.State<LayoutArgs> => ({
-  name: "Configure NI Digital Read Task",
-  type: DIGITAL_READ_TYPE,
-  key: id.id(),
-  icon: "Logo.NI",
-  windowKey: DIGITAL_READ_TYPE,
-  location: "mosaic",
-  args,
-});
+export const createDigitalReadLayout = createLayoutCreator<DigitalReadPayload>(
+  DIGITAL_READ_TYPE,
+  "New NI Digital Read Task",
+);
 
 export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_READ_TYPE,
   title: "NI Digital Read Task",
   icon: <Icon.Logo.NI />,
   create: (layoutKey) => ({
-    ...configureDigitalReadLayout({ create: true }),
+    ...createDigitalReadLayout({ create: true }),
     key: layoutKey,
   }),
 };
@@ -221,7 +213,7 @@ const Wrapped = ({
       <Align.Space>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
           <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name">
+            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
             <CopyButtons
@@ -231,6 +223,7 @@ const Wrapped = ({
               getConfig={() => methods.get("config").value}
             />
           </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -338,7 +331,7 @@ const ChannelList = ({
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps) => (
           <ChannelListContextMenu
@@ -346,6 +339,7 @@ const ChannelList = ({
             keys={keys}
             value={value}
             remove={remove}
+            snapshot={snapshot}
             onSelect={onSelect}
             onDuplicate={(indices) => {
               const newChannels = indices.map((i) => ({
@@ -360,7 +354,9 @@ const ChannelList = ({
       >
         <List.List<string, Chan>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+          }
         >
           <List.Selector<string, Chan>
             value={selected}
@@ -372,8 +368,8 @@ const ChannelList = ({
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => (
-                <ChannelListItem {...props} snapshot={snapshot} path={path} />
+              {({ key, ...props }) => (
+                <ChannelListItem key={key} {...props} snapshot={snapshot} path={path} />
               )}
             </List.Core>
           </List.Selector>

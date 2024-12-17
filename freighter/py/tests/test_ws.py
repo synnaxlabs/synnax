@@ -167,6 +167,12 @@ class TestSyncWebsocket:
         assert isinstance(err, freighter.EOF)
         assert dct["called"]
 
+    def test_middleware_error_on_server(self, sync_client: WebsocketClient):
+        """Should correctly decode and throw an error when the server middleware chain
+        fails"""
+        with pytest.raises(Error):
+            sync_client.stream("/middlewareCheck", Message, Message)
+
     def test_client_timeout(self, sync_client: WebsocketClient):
         """Should correctly timeout if the server exceeds a write deadline"""
         stream = sync_client.stream("/echo", Message, Message)
@@ -177,3 +183,31 @@ class TestSyncWebsocket:
             _, err = stream.receive()
             if isinstance(err, freighter.EOF):
                 break
+
+    def test_timeout_0(self, sync_client: WebsocketClient):
+        """Should correctly return a frame if and when available"""
+        stream = sync_client.stream("/eventuallyResponseWithMessage", Message, Message)
+        stream.send(Message(id=1, message="hello"))
+        cycle_count = 0
+        sleep = 0.05
+        dur = 0.25
+        max_cycles = (dur / sleep) + 1
+        while True:
+            if cycle_count > max_cycles:
+                break
+            try:
+                time.sleep(sleep)
+                msg, err = stream.receive(timeout=0)
+                assert err is None
+                assert msg.id == 1
+                break
+            except TimeoutError:
+                cycle_count += 1
+                pass
+        assert cycle_count < max_cycles, "test timed out"
+
+
+
+
+
+

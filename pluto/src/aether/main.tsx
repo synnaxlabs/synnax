@@ -143,7 +143,7 @@ const useLifecycle = <S extends z.ZodTypeAny>({
   initialTransfer = [],
   onReceive,
 }: UseLifecycleProps<S>): UseLifecycleReturn<S> => {
-  const comms = useRef<CreateReturn | null>();
+  const comms = useRef<CreateReturn | null>(null);
   const ctx = useAetherContext();
   const path = useMemoCompare(
     () => [...ctx.path, key],
@@ -301,7 +301,7 @@ export interface CompositeProps extends PropsWithChildren {
  *
  * Naturally, composites can be nested within each other. Child components that are
  */
-export const Composite = memo(({ children, path }: CompositeProps): JSX.Element => {
+export const Composite = memo(({ children, path }: CompositeProps): ReactElement => {
   const ctx = useAetherContext();
   const value = useMemo<ContextValue>(() => ({ ...ctx, path }), [ctx, path]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
@@ -323,7 +323,7 @@ export const wrap = <P extends {}>(
 ): FC<P & { aetherKey?: string }> => {
   Component.displayName = `Aether.wrap(${displayName})`;
   const Wrapped = memo<P & { aetherKey?: string }>(
-    ({ aetherKey, ...props }: P & { aetherKey?: string }): JSX.Element => {
+    ({ aetherKey, ...props }: P & { aetherKey?: string }): ReactElement => {
       const key = useUniqueKey(aetherKey);
       return <Component {...(props as unknown as P)} aetherKey={key} />;
     },

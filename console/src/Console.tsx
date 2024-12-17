@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import "@/index.css";
-import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
+import "@synnaxlabs/media/dist/media.css";
+import "@synnaxlabs/pluto/dist/pluto.css";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import {

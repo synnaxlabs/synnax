@@ -23,7 +23,6 @@
     border-color: transparent;
     width: max-content;
     height: max-content;
-    overflow: hidden;
     position: absolute;
     --offset: 0.666rem;
     justify-content: center;

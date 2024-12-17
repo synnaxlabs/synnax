@@ -15,5 +15,18 @@ export const selectSliceState = (state: StoreState): SliceState => state[SLICE_N
 export const select = (state: StoreState, key: string): State =>
   state[SLICE_NAME].logs[key];
 
+export const selectOptional = select as (
+  state: StoreState,
+  key: string,
+) => State | undefined;
+
 export const useSelect = (key: string): State =>
   useMemoSelect((s: StoreState) => select(s, key), [key]);
+
+export const useSelectOptional = useSelect as (key: string) => State | undefined;
+
+export const selectVersion = (state: StoreState, key: string): string | undefined =>
+  selectOptional(state, key)?.version;
+
+export const useSelectVersion = (key: string): string | undefined =>
+  useMemoSelect((s: StoreState) => selectVersion(s, key), [key]);

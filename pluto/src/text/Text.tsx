@@ -12,6 +12,7 @@ import "@/text/Text.css";
 import {
   type ForwardedRef,
   forwardRef,
+  type JSX,
   type ReactElement,
   type ReactNode,
 } from "react";
