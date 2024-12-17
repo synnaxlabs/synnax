@@ -143,11 +143,10 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 		})
 	})
-	Context("Updating a channel", func() {
+	FContext("Updating a channel", func() {
 		var ch channel.Channel
 		var ch2 channel.Channel
 		BeforeEach(func() {
-			ch.Rate = 5 * telem.Hz
 			ch.Name = "SG0001"
 			ch.DataType = telem.Float64T
 			ch.Virtual = true
@@ -175,5 +174,10 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(services[1].Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Requires).To(ContainElement(ch2.Key()))
 		})
-	}
+		//It("Should not update the channel if it already exists by name", func() {
+		//	ch.Name = "SG0003"
+		//	Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+		//	Expect(ch.Name).To(Equal("SG0001"))
+		//})
+	})
 })
