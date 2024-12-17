@@ -148,9 +148,14 @@ func (lp *leaseProxy) createFreeVirtual(
 		return err
 	}
 
+	toUpdate, err := lp.maybeRetrieveExistingUpdate(ctx, tx, channels, retrieveIfNameExists)
+	if err != nil {
+		return err
+	}
+
 	// If existing channels are passed in, update as necessary (for calc channels)
 	err = gorp.NewUpdate[Key, Channel]().
-		WhereKeys(KeysFromChannels(toCreate)...).
+		WhereKeys(KeysFromChannels(toUpdate)...).
 		ChangeErr(
 			func(c Channel) (Channel, error) {
 				if !c.Virtual {
@@ -172,7 +177,6 @@ func (lp *leaseProxy) createFreeVirtual(
 		return err
 	}
 
-	// only call new create of new channels isnt empty
 	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
 		tx); err != nil {
 		return err
@@ -216,6 +220,7 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 	toCreate = make([]Channel, 0, incCounterBy)
 	for i, ch := range *channels {
 		if ch.LocalKey == 0 {
+			// why is this how the localKey is set?
 			ch.LocalKey = nextCounterValue - incCounterBy + LocalKey(len(toCreate)) + 1
 			toCreate = append(toCreate, ch)
 		} else if ch.IsIndex {
@@ -223,8 +228,38 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 		}
 		(*channels)[i] = ch
 	}
-
 	return toCreate, nil
+}
+
+func (lp *leaseProxy) maybeRetrieveExistingUpdate(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels *[]Channel,
+	retrieveIfNameExists bool,
+) (toUpdate []Channel, err error) {
+	if retrieveIfNameExists {
+		var found []Channel
+		err = gorp.NewRetrieve[Key, Channel]().
+			WhereKeys(KeysFromChannels(*channels)...).
+			Entries(&found).
+			Exec(ctx, tx)
+
+		if err != nil && !errors.Is(err, query.NotFound) {
+			return nil, err
+		}
+
+		for _, f := range found {
+			for i, ch := range *channels {
+				if ch.Key() == f.Key() {
+					// if it exists, update channel with existing info
+					(*channels)[i] = f
+					break
+				}
+			}
+		}
+		return nil, nil
+	}
+	return *channels, nil
 }
 
 func (lp *leaseProxy) createGateway(
