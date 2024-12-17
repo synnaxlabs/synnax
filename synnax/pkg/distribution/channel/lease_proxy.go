@@ -243,15 +243,12 @@ func (lp *leaseProxy) maybeRetrieveExistingUpdate(
 			WhereKeys(KeysFromChannels(*channels)...).
 			Entries(&found).
 			Exec(ctx, tx)
-
 		if err != nil && !errors.Is(err, query.NotFound) {
 			return nil, err
 		}
-
 		for _, f := range found {
 			for i, ch := range *channels {
 				if ch.Key() == f.Key() {
-					// if it exists, update channel with existing info
 					(*channels)[i] = f
 					break
 				}
