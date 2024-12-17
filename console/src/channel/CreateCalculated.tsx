@@ -84,8 +84,6 @@ export const CreateCalculatedModal = (({
   onClose,
   args,
 }: CalculatedModalRendererProps): ReactElement => {
-  // console.log("CreateCalculatedModal Args:", args);
-  // console.log("CreateCalculatedModal LayoutKey:", layoutKey);
 
   const client = Synnax.use();
 
