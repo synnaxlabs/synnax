@@ -355,6 +355,8 @@ export const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>(
   },
 });
 
+const FILTERS = [{ name: "CSV", extensions: ["csv"] }];
+
 export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   linear: ({ prefix }) => (
     <>
@@ -461,6 +463,7 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
           <FS.InputFileContents<typeof tableSchema>
             initialPath={path}
             onChange={handleFileContentsChange}
+            filters={FILTERS}
             decoder={binary.CSV_CODEC}
           />
         </Input.Item>
