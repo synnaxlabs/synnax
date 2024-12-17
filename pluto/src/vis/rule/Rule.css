@@ -21,7 +21,7 @@
         width: 100%;
     }
 
-    & > .pluto-rule__label {
+    & > .pluto-rule__tag {
         width: fit-content;
         margin-top: -0.5rem;
         border-top: none;
@@ -38,11 +38,11 @@
             line-height: 1;
             font-weight: 500;
         }
-        & .pluto-text--editable {
+        & .pluto-label {
+            margin-left: 1rem;
             line-height: 1;
-            padding-top: 1rem;
-            padding-bottom: 0.75rem;
-            padding-left: 1rem;
+            margin-top: 1rem;
+            margin-bottom: 0.75rem;
         }
         z-index: 20;
     }

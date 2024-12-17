@@ -32,6 +32,7 @@ export interface RuleProps
   label?: string;
   onLabelChange?: (label: string) => void;
   units?: string;
+  onUnitsChange?: (label: string) => void;
   onPositionChange?: (position: number) => void;
   onSelect?: () => void;
 }
@@ -44,6 +45,7 @@ export const Rule = Aether.wrap<RuleProps>(
     position: propsPosition,
     onLabelChange,
     onPositionChange,
+    onUnitsChange,
     units = "",
     color,
     lineWidth,
@@ -134,7 +136,7 @@ export const Rule = Aether.wrap<RuleProps>(
         <Align.Space
           direction="x"
           align="center"
-          className={CSS(className, CSS.BE("rule", "label"))}
+          className={CSS(className, CSS.BE("rule", "tag"))}
           bordered
           onClick={onSelect}
           size={1}
@@ -147,6 +149,7 @@ export const Rule = Aether.wrap<RuleProps>(
           {...props}
         >
           <Text.Editable
+            className={CSS.B("label")}
             level="small"
             value={internalLabel}
             onChange={setInternalLabel}
@@ -156,9 +159,24 @@ export const Rule = Aether.wrap<RuleProps>(
             direction="y"
             style={{ borderColor: Color.cssString(color) }}
           />
-          <Text.Text level="small" color={textColor}>
-            {`${propsPosition.toFixed(2)} ${units}`}
-          </Text.Text>
+          <Align.Space size="small" direction="x" align="center">
+            <Text.Editable
+              value={propsPosition.toFixed(2)}
+              onChange={(v) => {
+                const num = Number(v);
+                if (!isFinite(num)) return;
+                onPositionChange?.(num);
+              }}
+              level="small"
+              color={textColor}
+            />
+            <Text.MaybeEditable
+              level="small"
+              color={textColor}
+              value={units}
+              onChange={onUnitsChange}
+            />
+          </Align.Space>
         </Align.Space>
       </div>
     );

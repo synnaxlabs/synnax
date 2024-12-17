@@ -66,10 +66,7 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
       if (delta < PIXEL_POS_UPDATE_DIST && !wasDragging)
         return this.state.pixelPosition;
       this.lastUpdateRef = this.state.pixelPosition;
-      const pos = scale.pos(
-        (this.state.pixelPosition - box.top(plot) + box.top(container)) /
-          box.height(plot),
-      );
+      const pos = scale.pos(this.state.pixelPosition / box.height(plot));
       this.setState((p) => ({ ...p, position: pos }));
       return this.state.pixelPosition;
     }
@@ -81,9 +78,7 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     }
 
     const pixelPos =
-      scale.reverse().pos(this.state.position as number) * box.height(plot) +
-      box.top(plot) -
-      box.top(container);
+      scale.reverse().pos(this.state.position as number) * box.height(plot);
     if (!isNaN(pixelPos)) {
       if (this.state.pixelPosition != null) {
         const delta = Math.abs(pixelPos - this.state.pixelPosition);
@@ -102,8 +97,10 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     const { upper2d: canvas } = renderCtx;
     const draw = this.internal.draw;
 
-    let pixelPos = this.updatePositions(props);
-    pixelPos += box.top(props.container);
+    // The pixel position we calculate for the main thread is relative
+    // to the plot box, so we need to offset it to match the pixel positions
+    // of the canvas.
+    const pos = this.updatePositions(props) + box.top(props.plot);
 
     draw.rule({
       stroke: this.state.color,
@@ -111,7 +108,7 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
       lineDash: this.state.lineDash,
       direction,
       region: plottingRegion,
-      position: pixelPos,
+      position: pos,
     });
 
     canvas.fillStyle = this.state.color.hex;
@@ -122,19 +119,13 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     const TRIANGLE_SIZE = 4;
     if (l === "left") {
       const arrowPos = box.left(plottingRegion) - 1;
-      canvas.moveTo(arrowPos, pixelPos);
-      canvas.lineTo(arrowPos - TRIANGLE_SIZE, pixelPos - TRIANGLE_SIZE);
-      canvas.lineTo(arrowPos - TRIANGLE_SIZE, pixelPos + TRIANGLE_SIZE);
+      canvas.moveTo(arrowPos, pos);
+      canvas.lineTo(arrowPos - TRIANGLE_SIZE, pos - TRIANGLE_SIZE);
+      canvas.lineTo(arrowPos - TRIANGLE_SIZE, pos + TRIANGLE_SIZE);
     } else if (l === "right") {
-      canvas.moveTo(box.right(plottingRegion), pixelPos);
-      canvas.lineTo(
-        box.right(plottingRegion) + TRIANGLE_SIZE,
-        pixelPos - TRIANGLE_SIZE,
-      );
-      canvas.lineTo(
-        box.right(plottingRegion) + TRIANGLE_SIZE,
-        pixelPos + TRIANGLE_SIZE,
-      );
+      canvas.moveTo(box.right(plottingRegion), pos);
+      canvas.lineTo(box.right(plottingRegion) + TRIANGLE_SIZE, pos - TRIANGLE_SIZE);
+      canvas.lineTo(box.right(plottingRegion) + TRIANGLE_SIZE, pos + TRIANGLE_SIZE);
     }
     canvas.closePath();
     canvas.stroke();
