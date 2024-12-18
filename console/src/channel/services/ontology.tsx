@@ -34,7 +34,7 @@ import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-
+import {isCalculated} from "@synnaxlabs/client/src/channel/client";
 const canDrop = (): boolean => false;
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -241,7 +241,7 @@ export const useOpenCalculated =
       args: {
         channelKey: Number(resource.id.key),
         channelName: resource.name,
-        expression: resource.data?.expression || "",
+        expression: resource.data?.expression ?? ""
       },
     };
     return store.dispatch(Layout.place(layout));
@@ -273,13 +273,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     openCalculated: () => openCalculated(props),
   };
   const singleResource = resources.length === 1;
-  const isCalculated = singleResource && resources[0].data?.expression !== "";
+
+  const isCalc = singleResource && isCalculated({
+    virtual: resources[0].data?.virtual ?? false,
+    expression: resources[0].data?.expression ?? "",
+  });
 
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
       <Group.GroupMenuItem selection={selection} />
-      {isCalculated && (
+      {isCalc && (
         <>
           <PMenu.Divider />
           <PMenu.Item itemKey="openCalculated" startIcon={<Icon.Edit />}>

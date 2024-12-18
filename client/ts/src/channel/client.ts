@@ -399,8 +399,6 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return await this.writer.rename(toArray(keys), toArray(names));
   }
 
-
-
   newSearcherWithOptions(
     options: RetrieveOptions,
   ): AsyncTermSearcher<string, Key, Channel> {

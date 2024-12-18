@@ -77,21 +77,6 @@ const NavTopPalette = (): ReactElement => (
   />
 );
 
-const Upload = (): ReactElement => {
-  const handleUpload = useMutation({
-    mutationKey: ["file", "upload"],
-    mutationFn: async () => {
-      const v = await open();
-      const data = { path: v };
-      await fetch("http://localhost:5000/api/v1/upload", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-    },
-  });
-
-  return <Button.Button onClick={handleUpload.mutate}>Upload</Button.Button>;
-};
 
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
