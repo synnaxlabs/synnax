@@ -300,7 +300,7 @@ describe("Channel", () => {
     });
   });
 
-  describe.only("update", () => {
+  describe("update", () => {
     test("update virtual channel expression", async () => {
       const channel = await client.channels.create({
         name: "virtual-calc",
@@ -345,7 +345,6 @@ describe("Channel", () => {
 
       const retrieved = await client.channels.retrieve(channel.key);
       expect(retrieved.name).toEqual("new-name");
-      console.log("retrieved name ", retrieved.name);
     });
   });
 });

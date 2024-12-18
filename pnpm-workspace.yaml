@@ -18,4 +18,3 @@ packages:
   - "drift/examples/tauri"
   - "landing/"
   - "integration/ts"
-  - "one"

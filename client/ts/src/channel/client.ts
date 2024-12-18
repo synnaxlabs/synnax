@@ -108,9 +108,13 @@ export class Channel {
    */
   readonly virtual: boolean;
   /**
-   *
+   * Only used for calculated channels. Specifies the python expression to evaluate
+   * the calculated value
    */
   readonly expression: string;
+  /**
+   * Only used for calculated channels. Specifies the channels required for calculation
+   */
   readonly requires: Key[];
 
   constructor({
@@ -142,7 +146,7 @@ export class Channel {
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
-    this.requires = requires ?? [];
+    this.requires = [];
     this._frameClient = frameClient ?? null;
   }
 

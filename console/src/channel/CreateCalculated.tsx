@@ -129,8 +129,6 @@ export const CreateCalculatedModal = (({
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
       if (!methods.validate() || client == null) return;
-      const d = methods.value();
-      d.dataType = d.dataType.toString();
 
       await client.channels.create(methods.value());
 
@@ -157,8 +155,6 @@ export const CreateCalculatedModal = (({
     false,
     methods,
   );
-
-  if (initialLoading) console.log("InitialLoading");
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>

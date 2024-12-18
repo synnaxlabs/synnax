@@ -134,7 +134,6 @@ export class Dynamic {
         Number(this.curr.alignment + BigInt(this.curr.length) - series.alignment),
       ) > 1
     ) {
-      console.log(series.alignment);
       // This case occurs when the alignment of the incoming series does not match
       // the alignment of the current buffer. In this case, we flush the current buffer
       // and allocate a new one.

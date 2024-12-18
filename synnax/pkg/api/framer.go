@@ -11,7 +11,6 @@ package api
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
@@ -31,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go/types"
-	"time"
 )
 
 type Frame = framer.Frame
@@ -52,26 +50,6 @@ func NewFrameService(p Provider) *FrameService {
 		dbProvider:      p.db,
 		accessProvider:  p.access,
 	}
-}
-
-func avgDuration(n int) (start func() (stop func())) {
-	times := make([]time.Duration, n)
-	i := 0
-	return func() (stop func()) {
-		start := time.Now()
-		return func() {
-			times[i] = time.Since(start)
-			i = (i + 1) % n
-			if i == 0 {
-				var sum time.Duration
-				for _, t := range times {
-					sum += t
-				}
-				logrus.Info(sum / time.Duration(n))
-			}
-		}
-	}
-
 }
 
 type FrameDeleteRequest struct {
