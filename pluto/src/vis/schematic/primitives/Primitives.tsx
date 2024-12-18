@@ -2566,3 +2566,40 @@ export const TJunction = ({
     </InternalSVG>
   </Div>
 );
+
+export interface FlowmeterGeneralProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const FlowmeterGeneral = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: FlowmeterGeneralProps): ReactElement => (
+  <Div {...props} className={CSS(CSS.B("flowmeter-general"), className)}>
+    <HandleBoundary orientation={orientation}>
+      <Handle 
+        location="left" 
+        orientation={orientation} 
+        left={1.6667} 
+        top={50} 
+        id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={98.3333}
+        top={50}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 71, height: 35 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Rect x="2" y="2" width="67" height="31" rx="2" />
+      <Path d="M60.233 30V19.8182H66.3381V20.9119H61.4659V24.3523H65.8807V25.446H61.4659V30H60.233Z" />
+    </InternalSVG>
+  </Div>
+);
