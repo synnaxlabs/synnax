@@ -1,8 +1,6 @@
 module github.com/synnaxlabs/freighter/integration
 
-go 1.22.7
-
-toolchain go1.23.0
+go 1.23.4
 
 replace (
 	github.com/synnaxlabs/alamos => ../../alamos/go
