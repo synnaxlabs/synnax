@@ -44,6 +44,7 @@ export const Content = memo(
         onClose={handleClose}
         visible={visible}
         focused={isFocused}
+        args={layout?.args}
       />
     );
   },

@@ -45,7 +45,7 @@ type Cluster interface {
 
 // Resolver is used to resolve a reachable address for a node in the cluster.
 type Resolver interface {
-	// Resolve resolves the address of a node with the given Name.
+	// Resolve resolves the address of a node with the given key.
 	Resolve(key node.Key) (address.Address, error)
 }
 

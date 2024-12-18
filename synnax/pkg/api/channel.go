@@ -41,6 +41,8 @@ type Channel struct {
 	Alias       string               `json:"alias" msgpack:"alias"`
 	Virtual     bool                 `json:"virtual" msgpack:"virtual"`
 	Internal    bool                 `json:"internal" msgpack:"internal"`
+	Requires    channel.Keys         `json:"requires" msgpack:"requires"`
+	Expression  string               `json:"expression" msgpack:"expression"`
 }
 
 // ChannelService is the central API for all things Channel related.
@@ -72,7 +74,6 @@ type ChannelCreateResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
-// Create creates a Channel based on the parameters given in the request.
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
@@ -87,9 +88,6 @@ func (s *ChannelService) Create(
 		Objects: channel.OntologyIDsFromChannels(translated),
 	}); err != nil {
 		return res, err
-	}
-	for i := range translated {
-		translated[i].Internal = false
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
@@ -245,11 +243,15 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Density:     ch.DataType.Density(),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
+			Expression:  ch.Expression,
+			Requires:    ch.Requires,
 		}
 	}
 	return translated
 }
 
+// translateChannelsBackward translates a slice of a API channel structs to a slice of
+// the internal channel structs.
 func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
@@ -262,9 +264,14 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			LocalIndex:  ch.Index.LocalKey(),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
+			Expression:  ch.Expression,
+			Requires:    ch.Requires,
 		}
 		if ch.IsIndex {
 			tCH.LocalIndex = tCH.LocalKey
+		}
+		if ch.Expression != "" && !ch.IsIndex && ch.Virtual && !ch.Internal {
+			tCH.LocalKey = ch.Key.LocalKey()
 		}
 		translated[i] = tCH
 	}

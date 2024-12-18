@@ -273,6 +273,9 @@ importers:
       compromise-dates:
         specifier: ^3.7.0
         version: 3.7.0(compromise@14.14.3)
+      monaco-editor:
+        specifier: ^0.52.0
+        version: 0.52.0
       proxy-memoize:
         specifier: 2.0.3
         version: 2.0.3
@@ -5150,6 +5153,9 @@ packages:
 
   module-details-from-path@1.0.3:
     resolution: {integrity: sha512-ySViT69/76t8VhE1xXHK6Ch4NcDd26gx0MzKXLO+F7NOtnqH68d9zF94nT8ZWSxXh8ELOERsnJO/sWt1xZYw5A==}
+
+  monaco-editor@0.52.0:
+    resolution: {integrity: sha512-OeWhNpABLCeTqubfqLMXGsqf6OmPU6pHM85kF3dhy6kq5hnhuVS1p3VrEW/XhWHc71P2tHyS5JFySD8mgs1crw==}
 
   mrmime@2.0.0:
     resolution: {integrity: sha512-eu38+hdgojoyq63s+yTpN4XMBdt5l8HhMhc4VKLO9KM5caLIBvUm4thi7fFaxyTmCKeNnXZ5pAlBwCUnhA09uw==}
@@ -11994,6 +12000,8 @@ snapshots:
       ufo: 1.5.4
 
   module-details-from-path@1.0.3: {}
+
+  monaco-editor@0.52.0: {}
 
   mrmime@2.0.0: {}
 
