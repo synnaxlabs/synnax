@@ -188,7 +188,8 @@ class Stream final : public freighter::Stream<RQ, RS> {
 public:
     Stream(
         std::shared_ptr<grpc::Channel> ch,
-        const freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> &mw,
+        const freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<
+            freighter::Stream<RQ, RS> > > &mw,
         freighter::Context &req_ctx,
         freighter::Context &res_ctx
     ) : mw(mw) {
