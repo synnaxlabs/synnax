@@ -273,6 +273,7 @@ const XAxis = ({
           onPositionChange={(value) =>
             onRuleChange?.({ key: rule.key, position: value })
           }
+          onUnitsChange={(value) => onRuleChange?.({ key: rule.key, units: value })}
           onSelect={() => onSelectRule?.(rule.key)}
         />
       ))}
@@ -341,6 +342,7 @@ const YAxis = ({
           key={r.key}
           onLabelChange={(value) => onRuleChange?.({ key: r.key, label: value })}
           onPositionChange={(value) => onRuleChange?.({ key: r.key, position: value })}
+          onUnitsChange={(value) => onRuleChange?.({ key: r.key, units: value })}
           onClick={() => onSelectRule?.(r.key)}
         />
       ))}
