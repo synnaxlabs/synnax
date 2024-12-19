@@ -11,7 +11,6 @@
 
 #include <mutex>
 #include <thread>
-#include "glog/logging.h"
 
 #include "freighter/cpp/freighter.h"
 #include "grpc/grpc.h"
