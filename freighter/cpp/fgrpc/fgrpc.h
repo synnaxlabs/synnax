@@ -10,6 +10,9 @@
 #pragma once
 
 #include <mutex>
+#include <thread>
+#include "glog/logging.h"
+
 #include "freighter/cpp/freighter.h"
 #include "grpc/grpc.h"
 #include "grpcpp/grpcpp.h"
@@ -182,15 +185,11 @@ private:
 
 /// @brief freighter stream object.
 template<typename RQ, typename RS, typename RPC>
-class Stream final : public freighter::Stream<RQ, RS>,
-                     freighter::Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<
-                         RQ, RS> > > {
+class Stream final : public freighter::Stream<RQ, RS> {
 public:
-    /// @brief Ctor saves GRPCUnaryClient stream object to use under the hood.
     Stream(
         std::shared_ptr<grpc::Channel> ch,
-        const freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<
-            freighter::Stream<RQ, RS> > > &mw,
+        const freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> &mw,
         freighter::Context &req_ctx,
         freighter::Context &res_ctx
     ) : mw(mw) {
@@ -203,53 +202,59 @@ public:
             res_ctx.set(k.data(), v.data());
     }
 
-    /// @brief Streamer send.
     freighter::Error send(RQ &request) const override {
+        if (closed.load() || writes_done_called.load())
+            return freighter::STREAM_CLOSED;
+
+        std::lock_guard<std::mutex> lock(mutex);
+        if (closed.load() || writes_done_called.load())
+            return freighter::STREAM_CLOSED;
+
         if (stream->Write(request)) return freighter::NIL;
         return freighter::STREAM_CLOSED;
     }
 
-    /// @brief Streamer read.
     std::pair<RS, freighter::Error> receive() override {
+        if (closed.load())
+            return {RS(), close_err};
+
         RS res;
-        if (stream->Read(&res)) return {res, freighter::NIL};
-        const auto ctx = freighter::Context("grpc", "", freighter::STREAM);
-        auto v = nullptr;
-        const auto err = mw.exec(ctx, this, v).second;
-        return {res, err};
+        bool read_success;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (closed.load()) return {RS(), close_err};
+            read_success = stream->Read(&res);
+        }
+
+        if (read_success) return {res, freighter::NIL};
+
+        bool expected = false;
+        if (closed.compare_exchange_strong(expected, true)) {
+            close_err = freighter::EOF_;
+        }
+        return {res, close_err};
     }
 
-    /// @brief Closing streamer.
     void closeSend() override {
-        if (writes_done_called) return;
-        stream->WritesDone();
-        writes_done_called = true;
-    }
-
-    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS> > > operator()(
-        freighter::Context outbound,
-        std::nullptr_t &_
-    ) override {
-        if (closed) return {outbound, close_err};
-        const grpc::Status status = stream->Finish();
-        closed = true;
-        close_err = status.ok() ? freighter::EOF_ : priv::errFromStatus(status);
-        return {outbound, close_err, nullptr};
+        if (writes_done_called.load()) return;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (writes_done_called.load()) return;
+            stream->WritesDone();
+            writes_done_called.store(true);
+        }
     }
 
 private:
-    freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ,
-        RS> > > mw;
-
-    std::unique_ptr<grpc::ClientReaderWriter<RQ, RS> > stream;
-    /// For god knows what reason, GRPC requries us to keep these around so
-    /// the stream doesn't die.
+    freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> mw;
+    std::unique_ptr<grpc::ClientReaderWriter<RQ, RS>> stream;
     grpc::ClientContext grpc_ctx{};
     std::unique_ptr<typename RPC::Stub> stub;
 
-    bool closed = false;
+    std::atomic<bool> closed{false};
     freighter::Error close_err = freighter::NIL;
-    bool writes_done_called = false;
+    std::atomic<bool> writes_done_called{false};
+    mutable std::mutex mutex;
 };
 
 /// @brief An implementation of freighter::StreamClient that uses GRPC as the backing
