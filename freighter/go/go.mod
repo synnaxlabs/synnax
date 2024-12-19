@@ -1,8 +1,6 @@
 module github.com/synnaxlabs/freighter
 
-go 1.22.7
-
-toolchain go1.23.0
+go 1.23.4
 
 require (
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292

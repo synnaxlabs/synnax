@@ -23,7 +23,7 @@ export type LinkProps<L extends text.Level = "h1"> = Omit<TextProps<L>, "ref"> &
 };
 
 const CoreLink = <L extends text.Level = "h1">(
-  { href, download, target, rel, ...props }: LinkProps<L>,
+  { href, download, target, rel, className, ...props }: LinkProps<L>,
   ref: ForwardedRef<HTMLAnchorElement>,
 ): ReactElement => (
   // @ts-expect-error - generic component errors
@@ -34,7 +34,7 @@ const CoreLink = <L extends text.Level = "h1">(
     download={download}
     target={target}
     rel={rel}
-    className={CSS.B("text-link")}
+    className={CSS(className, CSS.B("text-link"))}
     {...props}
   />
 );
