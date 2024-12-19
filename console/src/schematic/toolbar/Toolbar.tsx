@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Button, Header, Status, Tabs } from "@synnaxlabs/pluto";
+import { Align, Breadcrumb, Button, Status, Tabs } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -19,9 +19,9 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { useExport } from "@/schematic/file";
 import {
-  useSelect,
   useSelectControlStatus,
   useSelectHasPermission,
+  useSelectIsSnapshot,
   useSelectOptional,
   useSelectSelectedElementNames,
   useSelectToolbar,
@@ -46,16 +46,17 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const canEdit = useSelectHasPermission();
+  const hasEditingPermissions = useSelectHasPermission();
+  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
-
   return (
     <Align.Center direction="x" size="small">
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
-        {canEdit ? " To make changes," : ""}
+        {isEditable ? " To make changes," : ""}
       </Status.Text>
-      {canEdit && (
+      {isEditable && (
         <Text.Link
           onClick={(e) => {
             e.stopPropagation();
