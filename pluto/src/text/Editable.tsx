@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { usePrevious, useSyncedRef } from "@/hooks";
+import { useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { type text } from "@/text/core";

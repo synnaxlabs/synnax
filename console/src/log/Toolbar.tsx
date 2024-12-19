@@ -17,7 +17,7 @@ import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { useSyncComponent } from "@/log/Log";
-import { useSelect, useSelectOptional } from "@/log/selectors";
+import { useSelectOptional } from "@/log/selectors";
 import { setChannels } from "@/log/slice";
 
 export interface ToolbarProps {

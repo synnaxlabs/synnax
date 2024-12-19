@@ -31,13 +31,7 @@ from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import Writer, WriterMode, CrudeWriterMode
 from synnax.framer.deleter import Deleter
 from synnax.ontology import ID
-from synnax.telem import (
-    CrudeTimeStamp,
-    TimeRange,
-    TimeSpan,
-    CrudeSeries,
-    MultiSeries,
-)
+from synnax.telem import CrudeTimeStamp, TimeRange, TimeSpan, CrudeSeries, MultiSeries
 from synnax.telem.control import Authority, CrudeAuthority
 
 ontology_type = ID(type="framer")
@@ -133,10 +127,7 @@ class Client:
         )
 
     def open_iterator(
-        self,
-        tr: TimeRange,
-        channels: ChannelParams,
-        chunk_size: int = 1e5,
+        self, tr: TimeRange, channels: ChannelParams, chunk_size: int = 1e5
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
@@ -157,12 +148,7 @@ class Client:
         )
 
     @overload
-    def write(
-        self,
-        start: CrudeTimeStamp,
-        frame: CrudeFrame,
-        strict: bool = False,
-    ): ...
+    def write(self, start: CrudeTimeStamp, frame: CrudeFrame, strict: bool = False): ...
 
     @overload
     def write(
@@ -218,24 +204,14 @@ class Client:
             w.write(channels, series)
 
     @overload
-    def read(
-        self,
-        tr: TimeRange,
-        channels: ChannelKeys | ChannelNames,
-    ) -> Frame: ...
+    def read(self, tr: TimeRange, channels: ChannelKeys | ChannelNames) -> Frame: ...
 
     @overload
     def read(
-        self,
-        tr: TimeRange,
-        channels: ChannelKey | ChannelName,
+        self, tr: TimeRange, channels: ChannelKey | ChannelName
     ) -> MultiSeries: ...
 
-    def read(
-        self,
-        tr: TimeRange,
-        channels: ChannelParams,
-    ) -> MultiSeries | Frame:
+    def read(self, tr: TimeRange, channels: ChannelParams) -> MultiSeries | Frame:
         """
         Reads telemetry from the channel between the two timestamps.
 
@@ -299,11 +275,7 @@ class Client:
         """
         self.__deleter.delete(channels, tr)
 
-    def _read_frame(
-        self,
-        tr: TimeRange,
-        channels: ChannelParams,
-    ) -> Frame:
+    def _read_frame(self, tr: TimeRange, channels: ChannelParams) -> Frame:
         aggregate = Frame()
         with self.open_iterator(tr, channels) as it:
             for fr in it:

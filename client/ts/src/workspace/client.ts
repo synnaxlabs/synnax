@@ -1,14 +1,15 @@
-import { ontology } from "@/ontology";
-import { sendRequired, UnaryClient } from "@synnaxlabs/freighter";
-import { toArray, UnknownRecord } from "@synnaxlabs/x";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { toArray, type UnknownRecord } from "@synnaxlabs/x";
 import { unknownRecordZ } from "@synnaxlabs/x/record";
+import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
-import { AsyncTermSearcher } from "@synnaxlabs/x/search";
+
+import { ontology } from "@/ontology";
+import { nullableArrayZ } from "@/util/zod";
 import { linePlot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
 import { schematic } from "@/workspace/schematic";
 import { table } from "@/workspace/table";
-import { nullableArrayZ } from "@/util/zod";
 
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;

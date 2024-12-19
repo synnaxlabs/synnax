@@ -21,12 +21,12 @@ import {
 } from "@synnaxlabs/pluto";
 import { List as PList } from "@synnaxlabs/pluto/list";
 import { bounds, id, type KeyedNamed } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
-import { AXIS_KEYS, type AxisKey, Y1, Y2 } from "@/lineplot/axis";
+import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
 import { useSelectAxes, useSelectRules } from "@/lineplot/selectors";
 import { removeRule, type RuleState, selectRule, setRule } from "@/lineplot/slice";
 

@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import synnaxConfig from "./index.js";
+import { defineWorkspace } from "vitest/config";
 
-export default synnaxConfig;
+export default defineWorkspace(["**/*/vite.config.ts"]);

@@ -57,26 +57,20 @@ class TestController:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en.key],
-                write=[press_en_cmd.key],
+                name="Basic Valve Toggle", read=[press_en.key], write=[press_en_cmd.key]
             ) as auto:
                 auto[press_en_cmd.key] = True
                 assertions["seq_first_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
                 auto[press_en_cmd.key] = False
                 assertions["seq_second_ack"] = auto.wait_until(
-                    lambda c: not c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: not c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
 
         def daq(ev: threading.Event):
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en_cmd.key],
-                write=[press_en.key],
+                name="Basic Valve Toggle", read=[press_en_cmd.key], write=[press_en.key]
             ) as auto:
                 ev.set()
                 auto.wait_until(lambda c: c[press_en_cmd.key])
@@ -107,19 +101,15 @@ class TestController:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en.key],
-                write=[press_en_cmd.key],
+                name="Basic Valve Toggle", read=[press_en.key], write=[press_en_cmd.key]
             ) as auto:
                 auto[press_en_cmd.key] = True
                 assertions["seq_first_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
                 auto[press_en_cmd.key] = False
                 assertions["seq_second_ack"] = auto.wait_until(
-                    lambda c: not c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: not c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
                 remained_true = auto.remains_true_for(
                     lambda c: not c[press_en.key],
@@ -129,9 +119,7 @@ class TestController:
 
         def daq(ev: threading.Event):
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en_cmd.key],
-                write=[press_en.key],
+                name="Basic Valve Toggle", read=[press_en_cmd.key], write=[press_en.key]
             ) as auto:
                 ev.set()
                 auto.wait_until(lambda c: c[press_en_cmd.key])
@@ -166,19 +154,15 @@ class TestController:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en.key],
-                write=[press_en_cmd.key],
+                name="Basic Valve Toggle", read=[press_en.key], write=[press_en_cmd.key]
             ) as auto:
                 auto[press_en_cmd.key] = True
                 assertions["seq_first_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
                 auto[press_en_cmd.key] = False
                 assertions["seq_second_ack"] = auto.wait_until(
-                    lambda c: not c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: not c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
                 remained_true = auto.remains_true_for(
                     lambda c: not c[press_en.key],
@@ -188,9 +172,7 @@ class TestController:
 
         def daq(ev: threading.Event):
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en_cmd.key],
-                write=[press_en.key],
+                name="Basic Valve Toggle", read=[press_en_cmd.key], write=[press_en.key]
             ) as auto:
                 ev.set()
                 auto.wait_until(lambda c: c[press_en_cmd.key])
@@ -225,19 +207,15 @@ class TestController:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en.key],
-                write=[press_en_cmd.key],
+                name="Basic Valve Toggle", read=[press_en.key], write=[press_en_cmd.key]
             ) as auto:
                 auto[press_en_cmd.key] = True
                 assertions["seq_first_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
                 auto[press_en_cmd.key] = False
                 assertions["seq_second_ack"] = auto.wait_until(
-                    lambda c: not c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: not c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
                 c = 0
 
@@ -247,18 +225,14 @@ class TestController:
                     return not auto[press_en.key]
 
                 remained_true = auto.remains_true_for(
-                    is_closed,
-                    duration=100 * sy.TimeSpan.MILLISECOND,
-                    percentage=0.5,
+                    is_closed, duration=100 * sy.TimeSpan.MILLISECOND, percentage=0.5
                 )
                 assertions["remained_true"] = remained_true
                 assertions["remained_true_count"] = c
 
         def daq(ev: threading.Event):
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en_cmd.key],
-                write=[press_en.key],
+                name="Basic Valve Toggle", read=[press_en_cmd.key], write=[press_en.key]
             ) as auto:
                 ev.set()
                 auto.wait_until(lambda c: c[press_en_cmd.key])
@@ -297,19 +271,15 @@ class TestController:
             # Wait for the simulated DAQ to boot up
             ev.wait()
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en.key],
-                write=[press_en_cmd.key],
+                name="Basic Valve Toggle", read=[press_en.key], write=[press_en_cmd.key]
             ) as auto:
                 auto[press_en_cmd.key] = True
                 assertions["seq_first_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
                 auto[press_en_cmd.key] = False
                 assertions["seq_second_ack"] = auto.wait_until(
-                    lambda c: not c[press_en.key],
-                    timeout=2 * sy.TimeSpan.SECOND,
+                    lambda c: not c[press_en.key], timeout=2 * sy.TimeSpan.SECOND
                 )
                 c = 0
 
@@ -324,9 +294,7 @@ class TestController:
 
         def daq(ev: threading.Event):
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en_cmd.key],
-                write=[press_en.key],
+                name="Basic Valve Toggle", read=[press_en_cmd.key], write=[press_en.key]
             ) as auto:
                 ev.set()
                 auto.wait_until(lambda c: c[press_en_cmd.key])
@@ -358,9 +326,7 @@ class TestController:
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
         with pytest.raises(KeyError, match="Channel .* not found in controller state"):
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en_cmd.key],
-                write=[press_en.key],
+                name="Basic Valve Toggle", read=[press_en_cmd.key], write=[press_en.key]
             ) as auto:
                 v = auto[press_en.key]
                 assert v is None
@@ -375,12 +341,7 @@ class TestController:
             write_authorities=[100],
         ) as auto:
             auto[press_en_cmd.key] = True
-            assert auto.set_authority(
-                {
-                    press_en_cmd.key: 50,
-                    press_en.key: 50,
-                }
-            )
+            assert auto.set_authority({press_en_cmd.key: 50, press_en.key: 50})
             assert auto.set_authority(50)
             assert auto.set_authority(100)
             assert auto.set_authority(press_en_cmd.key, 50)
@@ -402,14 +363,12 @@ class TestController:
                 seq_two_ev.wait()
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_first_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=50 * sy.TimeSpan.MILLISECOND,
+                    lambda c: c[press_en.key], timeout=50 * sy.TimeSpan.MILLISECOND
                 )
                 time.sleep(0.15)
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_second_ack"] = auto.wait_until(
-                    lambda c: c[press_en.key],
-                    timeout=50 * sy.TimeSpan.MILLISECOND,
+                    lambda c: c[press_en.key], timeout=50 * sy.TimeSpan.MILLISECOND
                 )
                 auto[press_en_cmd.key] = False
 
@@ -432,9 +391,7 @@ class TestController:
 
         def daq(daq_ev: threading.Event):
             with client.control.acquire(
-                name="Basic Valve Toggle",
-                read=[press_en_cmd.key],
-                write=[press_en.key],
+                name="Basic Valve Toggle", read=[press_en_cmd.key], write=[press_en.key]
             ) as auto:
                 daq_ev.set()
                 auto.wait_until(lambda c: c[press_en_cmd.key])

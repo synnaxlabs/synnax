@@ -47,10 +47,7 @@ class TDMSReader(TDMSMatcher):  # type: ignore
         return self
 
     def __init__(
-        self,
-        path: Path,
-        keys: list[str] | None = None,
-        chunk_size: int | None = None,
+        self, path: Path, keys: list[str] | None = None, chunk_size: int | None = None
     ):
         self._path = path
         self.chunk_size = chunk_size or int(1e5)

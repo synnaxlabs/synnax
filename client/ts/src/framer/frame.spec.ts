@@ -11,7 +11,6 @@ import { DataType, Series, TimeRange } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
 import { framer } from "@/framer";
-import { equal } from "assert";
 
 describe("framer.Frame", () => {
   describe("construction", () => {

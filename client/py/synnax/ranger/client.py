@@ -32,14 +32,7 @@ from synnax.ranger.retrieve import RangeRetriever
 from synnax.ranger.writer import RangeWriter
 from synnax.signals.signals import Registry
 from synnax.state import LatestState
-from synnax.telem import (
-    TimeRange,
-    Series,
-    SampleValue,
-    DataType,
-    Rate,
-    CrudeSeries,
-)
+from synnax.telem import TimeRange, Series, SampleValue, DataType, Rate, CrudeSeries
 from synnax.ontology.payload import ID
 from synnax.channel.payload import (
     ChannelKey,
@@ -163,11 +156,7 @@ class ScopedChannel:
         cls = overload_comparison_operators(cls, "__array__")
         return super().__new__(cls)
 
-    def __init__(
-        self,
-        query: str,
-        internal: list[_InternalScopedChannel],
-    ):
+    def __init__(self, query: str, internal: list[_InternalScopedChannel]):
         self.__internal = internal
         self.__query = query
 
@@ -622,16 +611,10 @@ class RangeClient:
             raise QueryError(f"Multiple ranges matching {names} found")
         return sug[0]
 
-    def delete(
-        self,
-        key: RangeKey | RangeKeys,
-    ) -> None:
+    def delete(self, key: RangeKey | RangeKeys) -> None:
         self._writer.delete(normalize(key))
 
-    def search(
-        self,
-        term: str,
-    ) -> list[Range]:
+    def search(self, term: str) -> list[Range]:
         _ranges = self._retriever.search(term)
         return self.__sugar(_ranges)
 
@@ -659,8 +642,7 @@ class RangeClient:
                     name=d["name"],
                     key=d["key"],
                     time_range=TimeRange(
-                        start=d["time_range"]["start"],
-                        end=d["time_range"]["end"],
+                        start=d["time_range"]["start"], end=d["time_range"]["end"]
                     ),
                     _frame_client=self._frame_client,
                     _channel_retriever=self._channels,

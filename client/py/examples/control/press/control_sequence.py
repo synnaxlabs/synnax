@@ -76,8 +76,5 @@ with client.control.acquire(
     # Label the sequence with the end time
     client.ranges.create(
         name=f"Auto Pressurization Sequence {end}",
-        time_range=sy.TimeRange(
-            start=start,
-            end=end,
-        ),
+        time_range=sy.TimeRange(start=start, end=end),
     )

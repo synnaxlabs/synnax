@@ -24,7 +24,6 @@ import {
   useAsyncEffect,
   useDelayedState,
 } from "@synnaxlabs/pluto";
-import { Link } from "@/link";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
@@ -39,6 +38,7 @@ import { createLayout } from "@/hardware/task/ontology";
 import { createSelector } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 
 type DesiredTaskState = "running" | "paused" | null;
 

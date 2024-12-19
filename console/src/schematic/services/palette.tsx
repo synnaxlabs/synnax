@@ -10,11 +10,11 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
+import { importSchematic } from "@/schematic/file";
 import { create } from "@/schematic/Schematic";
 import { selectHasPermission } from "@/schematic/selectors";
-import { importSchematic } from "@/schematic/file";
-import { Workspace } from "@/workspace";
 import { ImportIcon } from "@/schematic/services/Icon";
+import { Workspace } from "@/workspace";
 
 export const createCommand: Command = {
   key: "create-schematic",

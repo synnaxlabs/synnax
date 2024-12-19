@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
 import { breaker } from "@/breaker";
 import { TimeSpan } from "@/telem";
 
@@ -52,9 +53,7 @@ describe("breaker", () => {
     const brk = breaker.create();
     let attempts = 0;
 
-    while (await brk()) {
-      attempts++;
-    }
+    while (await brk()) attempts++;
 
     expect(attempts).toBe(5); // Default maxRetries is 5
   });

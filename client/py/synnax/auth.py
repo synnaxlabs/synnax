@@ -61,10 +61,7 @@ def async_token_middleware(
     return mw
 
 
-def maybe_refresh_token(
-    ctx: Context,
-    set_token: Callable[[str], None],
-) -> None:
+def maybe_refresh_token(ctx: Context, set_token: Callable[[str], None]) -> None:
     refresh = ctx.get(TOKEN_REFRESH_HEADER, None)
     if refresh is not None:
         set_token(refresh)
@@ -79,12 +76,7 @@ class AuthenticationClient:
     token: str
     user: User
 
-    def __init__(
-        self,
-        transport: UnaryClient,
-        username: str,
-        password: str,
-    ) -> None:
+    def __init__(self, transport: UnaryClient, username: str, password: str) -> None:
         self.client = transport
         self.username = username
         self.password = password

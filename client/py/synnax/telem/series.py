@@ -116,7 +116,7 @@ class Series(Payload):
         else:
             if data_type is None:
                 raise ValueError(
-                    "[Series] - data_type must be specified if a buffer is given",
+                    "[Series] - data_type must be specified if a buffer is given"
                 )
             data_type = DataType(data_type)
             data_ = data
