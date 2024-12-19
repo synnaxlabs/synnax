@@ -75,6 +75,18 @@ describe("Input", () => {
       fireEvent.blur(input as HTMLInputElement);
       expect(onChange).not.toHaveBeenCalled();
     });
+    it("should not call the onChange handler when the user inputs NaN", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric value={0} placeholder="Hello" onChange={onChange} />,
+      );
+      expect(onChange).not.toHaveBeenCalled();
+      const input = c.getByDisplayValue("0");
+      expect(input).not.toBeUndefined();
+      fireEvent.change(input as HTMLInputElement, { target: { value: "NaN" } });
+      fireEvent.blur(input as HTMLInputElement);
+      expect(onChange).not.toHaveBeenCalled();
+    });
     it("should correctly evaluate a mathematical expression", () => {
       const onChange = vi.fn();
       const c = render(
