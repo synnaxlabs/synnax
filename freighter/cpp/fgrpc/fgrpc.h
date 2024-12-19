@@ -201,12 +201,12 @@ public:
         for (const auto &[k, v]: grpc_ctx.GetServerInitialMetadata())
             res_ctx.set(k.data(), v.data());
     }
-
+    /// @brief Streamer send.
     freighter::Error send(RQ &request) const override {
         if (stream->Write(request)) return freighter::NIL;
         return freighter::STREAM_CLOSED;
     }
-
+    /// @brief Streamer receive.
     std::pair<RS, freighter::Error> receive() override {
         RS res;
         bool read_success;
