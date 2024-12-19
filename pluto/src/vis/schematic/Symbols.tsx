@@ -355,8 +355,8 @@ export const TJunction = createLabeled(Primitives.TJunction);
 export type TJunctionProps = LabeledProps<Primitives.TJunctionProps>;
 export const StaticMixer = createLabeled(Primitives.StaticMixer);
 export type StaticMixerProps = LabeledProps<Primitives.StaticMixerProps>;
-export const FlowmeterGeneral = createToggle(Primitives.FlowmeterGeneral);
-export type FlowmeterGeneralProps = ToggleProps<Primitives.FlowmeterGeneralProps>;
+export const FlowmeterGeneral = createLabeled(Primitives.FlowmeterGeneral);
+export type FlowmeterGeneralProps = LabeledProps<Primitives.FlowmeterGeneralProps>;
 
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);

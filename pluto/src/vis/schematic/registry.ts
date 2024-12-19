@@ -68,6 +68,8 @@ import {
   type FilterProps,
   FlatBladeAgitator,
   type FlatBladeAgitatorProps,
+  FlowmeterGeneral,
+  type FlowmeterGeneralProps,
   FourWayValve,
   type FourWayValveProps,
   HelicalAgitator,
@@ -173,6 +175,7 @@ const VARIANTS = [
   "electricRegulator",
   "filter",
   "flatBladeAgitator",
+  "flowmeterGeneral",
   "fourWayValve",
   "helicalAgitator",
   "isoCap",
@@ -1004,6 +1007,20 @@ const tJunction: Spec<TJunctionProps> = {
   zIndex: Z_INDEX_UPPER + 20,
 };
 
+const flowmeterGeneral: Spec<FlowmeterGeneralProps> = {
+  name: "Flowmeter General",
+  key: "flowmeterGeneral",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterGeneral,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("General Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterGeneral,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -1054,4 +1071,5 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   cylinder,
   springLoadedReliefValve,
   angledSpringLoadedReliefValve,
+  flowmeterGeneral,
 };
