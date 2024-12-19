@@ -228,6 +228,17 @@ public:
         writes_done_called.store(true);
     }
 
+    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>> operator()(
+    freighter::Context outbound,
+    std::nullptr_t &_
+    ) {
+        if (closed.load()) return {outbound, close_err};
+        const grpc::Status status = stream->Finish();
+        closed.store(true);
+        close_err = status.ok() ? freighter::EOF_ : priv::errFromStatus(status);
+        return {outbound, close_err, nullptr};
+    }
+
 private:
     freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> mw;
     std::unique_ptr<grpc::ClientReaderWriter<RQ, RS>> stream;
