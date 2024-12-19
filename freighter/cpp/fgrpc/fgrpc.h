@@ -228,7 +228,7 @@ public:
         writes_done_called.store(true);
     }
 
-    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>> operator()(
+    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS > > > operator()(
         freighter::Context outbound,
         std::nullptr_t &_
     ) {
@@ -240,9 +240,10 @@ public:
     }
 
 private:
-    freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> mw;
+    freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ,
+        RS> > > mw;
 
-    std::unique_ptr<grpc::ClientReaderWriter<RQ, RS>> stream;
+    std::unique_ptr<grpc::ClientReaderWriter<RQ, RS > > stream;
     /// For god knows what reason, GRPC requries us to keep these around so
     /// the stream doesn't die.
     grpc::ClientContext grpc_ctx{};
