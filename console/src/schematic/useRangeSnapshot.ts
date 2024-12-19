@@ -20,7 +20,11 @@ export const useRangeSnapshot = () => {
   const addStatus = Status.useAggregator();
   const rng = Range.useSelect();
   const client = Synnax.use();
-  const mut = useMutation<void, Error, SchematicNameAndKey | SchematicNameAndKey[]>({
+  const { mutate: snapshot } = useMutation<
+    void,
+    Error,
+    SchematicNameAndKey | SchematicNameAndKey[]
+  >({
     onError: (err, schematics) => {
       const schematicNames = strings.naturalLanguageJoin(
         toArray(schematics).map((s) => s.name),
@@ -48,5 +52,5 @@ export const useRangeSnapshot = () => {
       await client.ontology.addChildren(ranger.rangeOntologyID(rng.key), ...ids);
     },
   });
-  return mut.mutate;
+  return snapshot;
 };
