@@ -74,7 +74,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
 
       // Connecting to the cluster
       const clusterKey = urlParts[1];
-      const connParams = Cluster.select(store.getState(), clusterKey)?.props;
+      const connParams = Cluster.select(store.getState(), clusterKey);
       const addClusterErrorStatus = () =>
         addStatus({
           variant: "error",

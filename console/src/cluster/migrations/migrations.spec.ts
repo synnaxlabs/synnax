@@ -12,13 +12,12 @@ import { describe, expect, it } from "vitest";
 import { migrateSlice, ZERO_SLICE_STATE } from "@/cluster/migrations";
 import * as v0 from "@/cluster/migrations/v0";
 import * as v1 from "@/cluster/migrations/v1";
+import * as v2 from "@/cluster/migrations/v2";
 
-describe("migrations", () => {
-  const STATES = [v0.ZERO_SLICE_STATE, v1.ZERO_SLICE_STATE];
-  STATES.forEach((state) => {
-    it(`should migrate slice from ${state.version} to latest`, () => {
-      const migrated = migrateSlice(state);
-      expect(migrated).toEqual(ZERO_SLICE_STATE);
-    });
-  });
-});
+const STATES = [v0.ZERO_SLICE_STATE, v1.ZERO_SLICE_STATE, v2.ZERO_SLICE_STATE];
+
+describe("migrations", () =>
+  STATES.forEach((state) =>
+    it(`should migrate slice from ${state.version} to latest`, () =>
+      expect(migrateSlice(state)).toEqual(ZERO_SLICE_STATE)),
+  ));
