@@ -229,8 +229,8 @@ public:
     }
 
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>> operator()(
-    freighter::Context outbound,
-    std::nullptr_t &_
+        freighter::Context outbound,
+        std::nullptr_t &_
     ) {
         if (closed.load()) return {outbound, close_err};
         const grpc::Status status = stream->Finish();
