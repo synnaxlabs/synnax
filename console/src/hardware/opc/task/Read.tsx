@@ -388,7 +388,7 @@ interface ChannelListProps {
   snapshot?: boolean;
 }
 
-const ChannelList = ({ path, device, snapshot }: ChannelListProps): ReactElement => {
+const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 

@@ -1,6 +1,7 @@
-import { sleep } from "@/sleep";
-import { CrudeTimeSpan, TimeSpan } from "@/telem";
 import { z } from "zod";
+
+import { sleep } from "@/sleep";
+import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 export const breakerConfig = z.object({
   interval: TimeSpan.z.optional(),

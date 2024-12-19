@@ -13,12 +13,8 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import ReactDOM from "react-dom/client";
 
-import { Align } from "@/align";
-import { Button } from "@/button";
 import { Input } from "@/input";
 import { Pluto } from "@/pluto";
-import { In } from "@/portal/Portal";
-import { Text } from "@/text";
 
 const Main = (): ReactElement => {
   const [value, setValue] = useState<number>(Number(TimeStamp.now().valueOf()));
