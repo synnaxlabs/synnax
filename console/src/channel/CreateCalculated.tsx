@@ -21,8 +21,9 @@ import {
   Text,
   Triggers,
   useSyncedRef,
+  Status,
 } from "@synnaxlabs/pluto";
-import { unique } from "@synnaxlabs/x";
+import { unique, deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import * as monaco from "monaco-editor";
 import { type ReactElement, useEffect, useState } from "react";
@@ -32,39 +33,17 @@ import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import type { RendererProps } from "@/layout/slice";
+import { useQuery } from "@tanstack/react-query";
 
 export interface CalculatedChannelArgs {
   channelKey?: number;
-  channelName?: string;
-  expression?: string;
 }
 
-interface CalculatedModalRendererProps extends RendererProps {
-  args?: CalculatedChannelArgs;
-}
-
-export const CREATE_CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
-
-export const createCalculatedLayout: Layout.State = {
-  key: CREATE_CALCULATED_LAYOUT_TYPE,
-  type: CREATE_CALCULATED_LAYOUT_TYPE,
-  windowKey: MAIN_WINDOW,
-  name: "Channel.Create.Calculated",
-  icon: "Channel",
-  location: "mosaic",
-  tab: {
-    closable: true,
-    editable: false,
-  },
-  window: {
-    resizable: false,
-    size: { height: 600, width: 1000 },
-    navTop: true,
-    showTitle: true,
-  },
+const defaultArgs: CalculatedChannelArgs = {
+  channelKey: undefined
 };
+
+
 
 const schema = channel.newPayload
   .extend({
@@ -80,74 +59,95 @@ const schema = channel.newPayload
     path: ["index"],
   });
 
-export const CreateCalculatedModal = (({
-  onClose,
-  args,
-}: CalculatedModalRendererProps): ReactElement => {
+type FormValues = z.infer<typeof schema>;
 
+export const CREATE_CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
+
+const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
+
+export const createCalculatedLayout: Layout.State = {
+  key: CREATE_CALCULATED_LAYOUT_TYPE,
+  type: CREATE_CALCULATED_LAYOUT_TYPE,
+  windowKey: MAIN_WINDOW,
+  name: "Channel.Create.Calculated",
+  icon: "Channel",
+  location: "modal",
+  tab: {
+    closable: true,
+    editable: false,
+  },
+  window: {
+    resizable: false,
+    size: { height: 600, width: 1000 },
+    navTop: true,
+    showTitle: true,
+  },
+};
+
+const ZERO_FORM_VALUES: FormValues = {
+  key: 0,
+  name: "",
+  index: 0,
+  dataType: "float32",
+  isIndex: false,
+  leaseholder: 0,
+  virtual: true,  // Set to true by default
+  rate: Rate.hz(0),
+  internal: false,
+  expression: "np.array([])",
+  requires: [],
+};
+
+export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) => {
   const client = Synnax.use();
-
-  const [initialLoading, setInitialLoading] = useState(!!args?.channelKey);
-
-  const methods = Form.use<typeof schema>({
-    schema,
-    values: {
-      key: args?.channelKey ?? 0,
-      name: args?.channelName ?? "",
-      index: 0,
-      dataType: "float32",
-      internal: false,
-      isIndex: false,
-      leaseholder: 0,
-      rate: Rate.hz(0),
-      virtual: true,
-      expression: args?.expression ?? "result = np.array([])",
-      requires: [],
+  const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? defaultArgs
+  const res = useQuery<FormValues>({
+    queryKey: [args.channelKey, client?.key],
+    queryFn: async () => {
+      if (args.channelKey == null) return deep.copy(ZERO_FORM_VALUES);
+      if (client == null) throw new Error("Client not available");
+      const ch = await client.channels.retrieve(args.channelKey);
+      return { ...ch, dataType: ch.dataType.toString() };
     },
   });
 
-  useEffect(() => {
-    const loadChannel = async () => {
-      if (!args?.channelKey || !client) return;
-      try {
-        const channel = await client.channels.retrieve(args.channelKey);
-        methods.reset({
-          ...channel,
-          dataType: channel.dataType.toString(),
-        });
-      } catch (err) {
-        console.error("Error loading channel", err);
-      } finally {
-        setInitialLoading(false);
-      }
-    };
-    void loadChannel();
-  }, [args?.channelKey, client]);
+  if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
+  if (res.isError)
+    return (
+      <Align.Space direction="y" grow style={{ height: "100%" }}>
+        <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
+      </Align.Space>
+    );
+  if (res.isSuccess) return <Internal onClose={onClose} initialValues={res.data} />;
+  return null;
+};
+
+interface InternalProps extends Pick<RendererProps, "onClose"> {
+  initialValues: FormValues;
+}
+
+const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
+  const client = Synnax.use();
+
+  const methods = Form.use<typeof schema>({ schema, values: initialValues });
 
   const [createMore, setCreateMore] = useState(false);
-
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
-      if (!methods.validate() || client == null) return;
+      const result = methods.validate();
+      if (!result) {
+        throw new Error("Form validation failed");
+      }
 
-      await client.channels.create(methods.value());
-
+      if (client == null) throw new Error("Client not available");
+      const formData = methods.value();
+      await client.channels.create(formData);
       if (!createMore) onClose();
-      else
-        methods.reset({
-          key: 0,
-          name: "",
-          index: 0,
-          dataType: "float32",
-          isIndex: false,
-          leaseholder: 0,
-          virtual: false,
-          rate: Rate.hz(0),
-          internal: false,
-          expression: "",
-          requires: [],
-        });
+      else methods.reset(deep.copy(ZERO_FORM_VALUES));
     },
+    onError: (error: Error) => {
+      console.error("Mutation error:", error.message);
+    }
   });
 
   const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
@@ -209,7 +209,7 @@ export const CreateCalculatedModal = (({
           </Text.Text>
         </Nav.Bar.Start>
         <Nav.Bar.End align="center" size="large">
-          {!args?.channelKey && (
+          {initialValues.key !== 0 && (
             <Align.Space direction="x" align="center" size="small">
               <Input.Switch value={createMore} onChange={setCreateMore} />
               <Text.Text level="p" shade={7}>
@@ -223,13 +223,13 @@ export const CreateCalculatedModal = (({
             onClick={() => mutate(createMore)}
             triggers={[SAVE_TRIGGER]}
           >
-            {args?.channelKey ? "Update Channel" : "Create Channel"}
+            {initialValues.key !== 0 ? "Update Channel" : "Create Channel"}
           </Button.Button>
         </Nav.Bar.End>
       </Layout.BottomNavBar>
     </Align.Space>
   );
-}) as Layout.Renderer;
+};
 
 const Editor = (props: Code.EditorProps): ReactElement => {
   const client = Synnax.use();

@@ -233,7 +233,7 @@ export const useOpenCalculated =
       key: tabKey,
       windowKey: MAIN_WINDOW,
       name: `Edit ${resource.name}`,
-      location: "mosaic" as const,
+      location: "modal" as const,
       tab: {
         closable: true,
         editable: false,

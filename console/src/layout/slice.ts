@@ -559,7 +559,6 @@ export interface RendererProps {
    * layout is in the mosaic, onClose will remove the layout from the mosaic.
    */
   onClose: () => void;
-  args?: unknown;
 }
 
 export interface OnCloseProps {
