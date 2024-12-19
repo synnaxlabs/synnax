@@ -7,58 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type SynnaxProps } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import * as v0 from "@/cluster/migrations/v0";
 
-export const sliceStateZ = v0.sliceStateZ.omit({ version: true }).extend({
-  version: z.literal("1.0.0"),
-});
+export const VERSION = "1.0.0";
+export type Version = typeof VERSION;
 
-export type SliceState = z.input<typeof sliceStateZ>;
+export type SliceState = Omit<v0.SliceState, "version"> & { version: Version };
 
-export const LOCAL_PROPS: SynnaxProps = {
-  name: "Local",
+export const LOCAL_KEY = "LOCAL";
+const LOCAL_NAME = "Local";
+export const LOCAL_PROPS = {
+  name: LOCAL_NAME,
   host: "localhost",
   port: 9090,
   username: "synnax",
   password: "seldon",
   secure: false,
-};
+} as const;
 
-export const isLocalCluster = (props: any): boolean =>
-  props.host === LOCAL_PROPS.host &&
-  props.port == LOCAL_PROPS.port &&
-  props.username === LOCAL_PROPS.username &&
-  props.password === LOCAL_PROPS.password &&
-  props.secure === LOCAL_PROPS.secure;
-
-export const LOCAL_CLUSTER_KEY = "LOCAL";
-
-export const LOCAL: v0.Cluster = {
-  key: LOCAL_CLUSTER_KEY,
-  name: "Local",
+const LOCAL: v0.Cluster = {
+  key: LOCAL_KEY,
+  name: LOCAL_NAME,
   props: LOCAL_PROPS,
 };
 
 export const ZERO_SLICE_STATE: SliceState = {
   ...v0.ZERO_SLICE_STATE,
-  version: "1.0.0",
-  clusters: {
-    [LOCAL_CLUSTER_KEY]: LOCAL,
-  },
+  version: VERSION,
+  clusters: { [LOCAL_KEY]: LOCAL },
 };
 
+export const SLICE_MIGRATION_NAME = "cluster.slice";
+
 export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({
-  name: "cluster.slice",
+  name: SLICE_MIGRATION_NAME,
   migrate: (slice) => ({
     ...slice,
-    version: "1.0.0",
-    clusters: {
-      ...slice.clusters,
-      [LOCAL_CLUSTER_KEY]: LOCAL,
-    },
+    version: VERSION,
+    clusters: { ...slice.clusters, [LOCAL_KEY]: LOCAL },
   }),
 });
