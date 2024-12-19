@@ -23,19 +23,25 @@ export const useRangeSnapshot = () => {
   const { mutate: snapshot } = useMutation<
     void,
     Error,
-    SchematicNameAndKey | SchematicNameAndKey[]
+    SchematicNameAndKey | SchematicNameAndKey[],
+    string
   >({
-    onError: (err, schematics) => {
-      const schematicNames = strings.naturalLanguageJoin(
+    onMutate: (schematics) =>
+      `${strings.naturalLanguageJoin(
         toArray(schematics).map((s) => s.name),
         "schematic",
-      );
+      )} to ${rng?.name ?? "active range"}`,
+    onError: (err, context) =>
       addStatus({
         variant: "error",
-        message: `Failed to snapshot ${schematicNames} to ${rng?.name ?? "active range"}`,
+        message: `Failed to snapshot ${context}}`,
         description: err.message,
-      });
-    },
+      }),
+    onSuccess: (_, __, context) =>
+      addStatus({
+        variant: "success",
+        message: `Successfully snapshotted ${context}`,
+      }),
     mutationFn: async (schematics) => {
       if (client == null) throw new Error("Server is not available");
       if (rng == null) throw new Error("No active range selected");
