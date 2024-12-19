@@ -143,7 +143,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 		})
 	})
-	Context("Updating a channel", func() {
+	FContext("Updating a channel", func() {
 		var ch channel.Channel
 		var ch2 channel.Channel
 		BeforeEach(func() {
@@ -164,21 +164,45 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Name = "SG0002"
 			Expect(services[1].Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Name).To(Equal("SG0002"))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Name).To(Equal("SG0002"))
 		})
 		It("Should update the channel expression without error", func() {
 			ch.Expression = "sin(x)"
 			Expect(services[1].Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Expression).To(Equal("sin(x)"))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Expression).To(Equal("sin(x)"))
 		})
 		It("Should update the requires without error", func() {
 			ch.Requires = []channel.Key{ch2.Key()}
 			Expect(services[1].Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Requires).To(ContainElement(ch2.Key()))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Requires).To(ContainElement(ch2.Key()))
 		})
 		It("Should not update the channel if it already exists by name", func() {
 			ch.Name = "SG0003"
 			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
 			Expect(ch.Name).To(Equal("SG0001"))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Name).To(Equal("SG0001"))
 		})
 	})
 })
