@@ -208,6 +208,7 @@ public:
         if (stream->Write(request)) return freighter::NIL;
         return freighter::STREAM_CLOSED;
     }
+
     /// @brief Streamer read.
     std::pair<RS, freighter::Error> receive() override {
         RS res;
@@ -224,6 +225,7 @@ public:
         return {res, close_err};
     }
 
+    /// @brief Closing streamer.
     void closeSend() override {
         if (writes_done_called.load()) return;
         stream->WritesDone();
