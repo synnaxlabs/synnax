@@ -186,6 +186,7 @@ private:
 template<typename RQ, typename RS, typename RPC>
 class Stream final : public freighter::Stream<RQ, RS> {
 public:
+    /// @brief Ctor saves GRPCUnaryClient stream object to use under the hood.
     Stream(
         std::shared_ptr<grpc::Channel> ch,
         const freighter::MiddlewareCollector<std::nullptr_t, std::unique_ptr<
@@ -201,12 +202,13 @@ public:
         for (const auto &[k, v]: grpc_ctx.GetServerInitialMetadata())
             res_ctx.set(k.data(), v.data());
     }
+
     /// @brief Streamer send.
     freighter::Error send(RQ &request) const override {
         if (stream->Write(request)) return freighter::NIL;
         return freighter::STREAM_CLOSED;
     }
-    /// @brief Streamer receive.
+    /// @brief Streamer read.
     std::pair<RS, freighter::Error> receive() override {
         RS res;
         bool read_success;
