@@ -614,7 +614,10 @@ export const ButtonForm = (): ReactElement => {
 
 export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<
-    Omit<Setpoint.UseProps, "aetherKey"> & { control: ControlStateProps }
+    Omit<Setpoint.UseProps, "aetherKey"> & {
+      control: ControlStateProps;
+      disabled?: boolean;
+    }
   >({ path });
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
@@ -658,6 +661,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
         showIndicator: true,
         indicator: { statusSource: authSource },
       },
+      disabled: v == 0,
     });
   };
 

@@ -89,6 +89,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
         const ev = evaluate(internalValueRef.current);
         // Sometimes mathjs returns a Unit object, so we need to convert it to a number.
         if (ev instanceof Unit) v = ev.toNumber();
+        else if (isNaN(ev)) ok = false;
         else v = ev;
         ok = v != null;
       } catch {

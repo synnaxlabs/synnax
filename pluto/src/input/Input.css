@@ -19,6 +19,25 @@
     z-index: 3;
 }
 
+.pluto-input--outlined.pluto-input--custom-color {
+    --pluto-pack-border-shade: rgba(
+        var(--pluto-input-color),
+        var(--pluto-input-border-opacity, 1)
+    ) !important;
+
+    &:hover:not(.pluto--disabled) .pluto-input__internal {
+        --pluto-pack-border-shade: rgb(var(--pluto-input-color)) !important;
+    }
+
+    & > .pluto-input__internal:focus-within {
+        --pluto-input-border-opacity: 1;
+        --pluto-pack-border-color: rgba(
+            var(--pluto-input-color),
+            var(--pluto-input-border-opacity)
+        ) !important;
+    }
+}
+
 .pluto-input__disabled-overlay {
     position: absolute;
     display: flex;
@@ -69,7 +88,6 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         height: 100%;
-        color: var(--pluto-input-color);
 
         padding: 0 1.5rem;
 
@@ -85,7 +103,8 @@
     }
 
     & > .pluto-input__internal:focus-within {
-        border-color: var(--pluto-primary-z) !important;
+        --c: rgba(var(--pluto-input-color), 1);
+        border-color: var(--c, var(--pluto-primary-z)) !important;
         & input {
             outline: none;
         }

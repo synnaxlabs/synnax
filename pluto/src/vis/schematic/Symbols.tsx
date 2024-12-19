@@ -453,6 +453,7 @@ export const Setpoint = ({
   onChange,
   selected,
   draggable,
+  disabled,
 }: SymbolProps<SetpointProps>): ReactElement => {
   const { value, set } = CoreSetpoint.use({ aetherKey: symbolKey, source, sink });
   const gridItems: GridItem[] = [];
@@ -481,13 +482,20 @@ export const Setpoint = ({
         units={units}
         color={color}
         orientation={orientation}
+        disabled={disabled}
       />
     </Grid>
   );
 };
 
 export const SetpointPreview = (props: SetpointProps): ReactElement => (
-  <Primitives.Setpoint value={12} onChange={() => {}} units={"mV"} {...props}>
+  <Primitives.Setpoint
+    value={12}
+    onChange={() => {}}
+    units={"mV"}
+    style={{ width: 120, transform: "scale(0.95)" }}
+    {...props}
+  >
     <Text.Text level="p">10.0</Text.Text>
   </Primitives.Setpoint>
 );

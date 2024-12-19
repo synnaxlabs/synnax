@@ -185,14 +185,8 @@
 
 .pluto-setpoint {
     --pluto-border-color: var(--pluto-gray-l5-40);
-    --pluto-border-l4: var(--pluto-border-width) solid var(--pluto-border-color);
+    /* --pluto-border-l4: var(--pluto-border-width) solid var(--pluto-border-color); */
     width: 150px;
-    .pluto-input__internal,
-    .pluto-units,
-    .pluto-btn {
-        /* background: var(--pluto-gray-l2) !important; */
-        transition: none !important;
-    }
     .pluto-units {
         padding: 0 1rem;
     }
