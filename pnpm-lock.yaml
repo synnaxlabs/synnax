@@ -33,6 +33,9 @@ importers:
       turbo:
         specifier: ^2.3.3
         version: 2.3.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.8(@types/node@22.10.2)(jsdom@25.0.1)(tsx@4.19.2)(yaml@2.6.1)
 
   alamos/ts:
     dependencies:
@@ -125,6 +128,9 @@ importers:
       eslint-plugin-simple-import-sort:
         specifier: ^12.1.1
         version: 12.1.1(eslint@9.17.0)
+      globals:
+        specifier: ^15.14.0
+        version: 15.14.0
       typescript-eslint:
         specifier: ^8.18.1
         version: 8.18.1(eslint@9.17.0)(typescript@5.7.2)
@@ -132,9 +138,6 @@ importers:
       eslint:
         specifier: ^9.17.0
         version: 9.17.0
-      globals:
-        specifier: ^15.14.0
-        version: 15.14.0
 
   configs/stylelint:
     dependencies:

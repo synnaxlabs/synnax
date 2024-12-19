@@ -6,20 +6,13 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          base-ref: main
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Set up Poetry
         run: pipx install poetry
@@ -53,7 +46,7 @@ jobs:
 
       - name: Update Package Versions
         run: |
-          cd ./client/py
+          cd client/py
           CLIENT_VERSION=$(poetry version -s)
           cd ../../freighter/py
           FREIGHTER_VERSION=$(poetry version -s)
@@ -113,20 +106,3 @@ jobs:
           poetry install -n
           echo "Publishing client"
           poetry publish --build --no-interaction
-
-      - name: Put Back Original Relative Paths
-        run: |
-          # put back the original relative paths (set develop = true)
-          cd client/py
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = { path = \"..\/..\/freighter\/py\", develop = true }/" pyproject.toml
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = { path = \"..\/..\/alamos\/py\", develop = true }/" pyproject.toml
-          cd ../../freighter/py
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = { path = \"..\/..\/alamos\/py\", develop = true }/" pyproject.toml
-
-      - name: Commit and Push Changes
-        uses: EndBug/add-and-commit@v9
-        with:
-          add: client/py/pyproject.toml freighter/py/pyproject.toml alamos/py/pyproject.toml
-          message: Update dependencies
-          pull: --commit --no-edit
-          push: origin ${{ github.ref }} --force

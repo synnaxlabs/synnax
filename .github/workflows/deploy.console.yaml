@@ -193,7 +193,7 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build Console Vite
+      - name: Build (TypeScript)
         if: needs.setup.outputs.changed == 'true'
         run: pnpm build:console-vite
 

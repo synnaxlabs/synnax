@@ -51,7 +51,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     strategy:
-      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
@@ -84,7 +83,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.py == 'true'
     strategy:
-      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
