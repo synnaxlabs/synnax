@@ -206,7 +206,6 @@ public:
         if (closed.load() || writes_done_called.load())
             return freighter::STREAM_CLOSED;
 
-        std::lock_guard<std::mutex> lock(mutex);
         if (closed.load() || writes_done_called.load())
             return freighter::STREAM_CLOSED;
 
@@ -221,7 +220,6 @@ public:
         RS res;
         bool read_success;
         {
-            std::lock_guard<std::mutex> lock(mutex);
             if (closed.load()) return {RS(), close_err};
             read_success = stream->Read(&res);
         }
@@ -238,7 +236,6 @@ public:
     void closeSend() override {
         if (writes_done_called.load()) return;
         {
-            std::lock_guard<std::mutex> lock(mutex);
             if (writes_done_called.load()) return;
             stream->WritesDone();
             writes_done_called.store(true);
@@ -254,7 +251,6 @@ private:
     std::atomic<bool> closed{false};
     freighter::Error close_err = freighter::NIL;
     std::atomic<bool> writes_done_called{false};
-    mutable std::mutex mutex;
 };
 
 /// @brief An implementation of freighter::StreamClient that uses GRPC as the backing
