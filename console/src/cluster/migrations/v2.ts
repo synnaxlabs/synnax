@@ -27,7 +27,12 @@ export type SliceState = Omit<v1.SliceState, "version" | "clusters"> & {
 };
 
 type LocalKey = typeof v1.LOCAL_KEY;
-const LOCAL = { ...v1.LOCAL_PROPS, key: v1.LOCAL_KEY } as const;
+const LOCAL: Cluster = {
+  ...v1.LOCAL.props,
+  key: v1.LOCAL_KEY,
+  name: v1.LOCAL.name,
+  secure: v1.LOCAL.props.secure ?? false,
+};
 
 const DEMO_KEY = "DEMO";
 type DemoKey = typeof DEMO_KEY;
@@ -42,17 +47,17 @@ const DEMO_CLUSTER = {
   secure: true,
 } as const;
 
-type PredefinedClusterKey = LocalKey | DemoKey;
+export type PredefinedClusterKey = LocalKey | DemoKey;
 
-const ZERO_CLUSTERS = {
+const ZERO_CLUSTERS: Record<string, Cluster> = {
   [v1.LOCAL_KEY]: LOCAL,
   [DEMO_KEY]: DEMO_CLUSTER,
-} as const;
+};
 
-type ClusterCore = Pick<Cluster, "host" | "port">;
+export type CoreCluster = Pick<Cluster, "host" | "port">;
 
 export const getPredefinedClusterKey = (
-  cluster: ClusterCore,
+  cluster: CoreCluster,
 ): PredefinedClusterKey | null => {
   for (const [key, c] of Object.entries(ZERO_CLUSTERS) as [
     PredefinedClusterKey,
@@ -82,9 +87,9 @@ export const sliceMigration = migrate.createMigration<v1.SliceState, SliceState>
 
     // check if the LOCAL or DEMO keys are duplicated by a cluster with a real cluster
     // key. If so, delete those keys. This needs to be done after all clusters have been
-    // assigned incase the previous slice had a LOCAL key and a cluster with a real key
+    // assigned in case the previous slice had a LOCAL key and a cluster with a real key
     // at localhost:9090.
-    for (const [key, cluster] of Object.entries(ZERO_CLUSTERS)) {
+    for (const [key, cluster] of Object.entries(clusters)) {
       const predefinedKey = getPredefinedClusterKey(cluster);
       if (predefinedKey != null && key !== predefinedKey)
         delete clusters[predefinedKey];

@@ -16,7 +16,7 @@ import * as v2 from "@/cluster/migrations/v2";
 export const clusterZ = v2.clusterZ;
 export type Cluster = v2.Cluster;
 export type SliceState = v2.SliceState;
-type AnySliceState = v0.SliceState | v1.SliceState | v2.SliceState;
+export type AnySliceState = v0.SliceState | v1.SliceState | v2.SliceState;
 
 export const getPredefinedClusterKey = v2.getPredefinedClusterKey;
 

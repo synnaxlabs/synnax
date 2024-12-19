@@ -18,19 +18,17 @@ export type SliceState = Omit<v0.SliceState, "version"> & { version: Version };
 
 export const LOCAL_KEY = "LOCAL";
 const LOCAL_NAME = "Local";
-export const LOCAL_PROPS = {
-  name: LOCAL_NAME,
-  host: "localhost",
-  port: 9090,
-  username: "synnax",
-  password: "seldon",
-  secure: false,
-} as const;
-
-const LOCAL: v0.Cluster = {
+export const LOCAL: v0.Cluster = {
   key: LOCAL_KEY,
   name: LOCAL_NAME,
-  props: LOCAL_PROPS,
+  props: {
+    name: LOCAL_NAME,
+    host: "localhost",
+    port: 9090,
+    username: "synnax",
+    password: "seldon",
+    secure: false,
+  },
 };
 
 export const ZERO_SLICE_STATE: SliceState = {

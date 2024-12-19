@@ -39,7 +39,7 @@ import { Link } from "@/link";
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
-  const allClusters = useSelectMany();
+  const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const active = useSelect();
   const openWindow = Layout.usePlacer();
   const selected = active?.key ?? null;
