@@ -203,43 +203,29 @@ public:
     }
 
     freighter::Error send(RQ &request) const override {
-        if (closed.load() || writes_done_called.load())
-            return freighter::STREAM_CLOSED;
-
-        if (closed.load() || writes_done_called.load())
-            return freighter::STREAM_CLOSED;
-
         if (stream->Write(request)) return freighter::NIL;
         return freighter::STREAM_CLOSED;
     }
 
     std::pair<RS, freighter::Error> receive() override {
-        if (closed.load())
-            return {RS(), close_err};
-
         RS res;
         bool read_success;
-        {
-            if (closed.load()) return {RS(), close_err};
-            read_success = stream->Read(&res);
-        }
+
+        if (closed.load()) return {RS(), close_err};
+        read_success = stream->Read(&res);
 
         if (read_success) return {res, freighter::NIL};
 
         bool expected = false;
-        if (closed.compare_exchange_strong(expected, true)) {
+        if (closed.compare_exchange_strong(expected, true))
             close_err = freighter::EOF_;
-        }
         return {res, close_err};
     }
 
     void closeSend() override {
         if (writes_done_called.load()) return;
-        {
-            if (writes_done_called.load()) return;
-            stream->WritesDone();
-            writes_done_called.store(true);
-        }
+        stream->WritesDone();
+        writes_done_called.store(true);
     }
 
 private:
