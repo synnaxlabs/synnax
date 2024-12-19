@@ -16,6 +16,11 @@ export const selectSliceState = (state: StoreState): SliceState => state[SLICE_N
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).tables[key];
 
+export const selectOptional = select as (
+  state: StoreState,
+  key: string,
+) => State | undefined;
+
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
@@ -67,11 +72,14 @@ const selectSelectedCells = <
 >(
   state: StoreState,
   key: string,
-): CellState<V, P>[] =>
-  Object.values(select(state, key).cells).filter((cell) => cell.selected) as CellState<
+): CellState<V, P>[] => {
+  const table = selectOptional(state, key);
+  if (table == null) return [];
+  return Object.values(table.cells).filter((cell) => cell.selected) as CellState<
     V,
     P
   >[];
+};
 
 export const useSelectSelectedCells = <
   V extends TableCells.Variant = TableCells.Variant,
@@ -123,7 +131,7 @@ export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
 export const selectVersion = (state: StoreState, key: string): string | undefined =>
-  select(state, key).version;
+  selectOptional(state, key)?.version;
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);

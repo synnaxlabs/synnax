@@ -192,6 +192,22 @@ export const isFinite = (a: Crude): boolean => {
 };
 
 /**
+ * Returns the mean value between the lower and upper bounds.
+ *
+ * @param a - The bounds to find the mean of. Can be either a strict bounds object
+ * with 'lower' and 'upper' properties or an array of length 2.
+ * @returns The mean value between the lower and upper bounds.
+ *
+ * @example
+ * bounds.mean([0, 10]) // => 5
+ * bounds.mean({ lower: 0, upper: 10 }) // => 5
+ */
+export const mean = (a: Crude): number => {
+  const _a = construct(a);
+  return (_a.upper + _a.lower) / 2;
+};
+
+/**
  * @returns bounds that have the maximum span of the given bounds i.e. the min of all
  * of the lower bounds and the max of all of the upper bounds.
  */

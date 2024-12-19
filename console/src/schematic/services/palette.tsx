@@ -12,6 +12,9 @@ import { Icon } from "@synnaxlabs/media";
 import { type Command } from "@/palette/Palette";
 import { create } from "@/schematic/Schematic";
 import { selectHasPermission } from "@/schematic/selectors";
+import { importSchematic } from "@/schematic/file";
+import { Workspace } from "@/workspace";
+import { ImportIcon } from "@/schematic/services/Icon";
 
 export const createCommand: Command = {
   key: "create-schematic",
@@ -21,4 +24,21 @@ export const createCommand: Command = {
   visible: (state) => selectHasPermission(state),
 };
 
-export const COMMANDS = [createCommand];
+export const importSchematicCommand: Command = {
+  key: "import-schematic",
+  name: "Import Schematic",
+  icon: <ImportIcon />,
+  onSelect: ({ placeLayout, ...props }) => {
+    const { store } = props;
+    const state = store.getState();
+    const activeWorkspaceKey = Workspace.selectActiveKey(state);
+    importSchematic({
+      activeWorkspaceKey,
+      placer: placeLayout,
+      dispatch: store.dispatch,
+      ...props,
+    });
+  },
+};
+
+export const COMMANDS = [createCommand, importSchematicCommand];

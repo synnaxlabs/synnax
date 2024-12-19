@@ -77,10 +77,12 @@ export const NavControls = (): ReactElement => {
         tooltip={
           <Align.Space direction="x" align="center">
             <Text.Text level="small">Reset Zoom</Text.Text>
-            <Text.Keyboard level="small">
-              <Text.Symbols.Meta />
-            </Text.Keyboard>
-            <Text.Keyboard level="small">Click</Text.Keyboard>
+            <Align.Space direction="x" empty>
+              <Text.Keyboard level="small">
+                <Text.Symbols.Meta />
+              </Text.Keyboard>
+              <Text.Keyboard level="small">Click</Text.Keyboard>
+            </Align.Space>
           </Align.Space>
         }
         size="medium"
@@ -147,7 +149,7 @@ export const NavControls = (): ReactElement => {
         uncheckedVariant="text"
         tooltipLocation={{ x: "right", y: "top" }}
         tooltip={
-          <Align.Space direction="x" align="center">
+          <Align.Space direction="x" align="center" size="small">
             <Text.Text level="small">
               {control.hold ? "Resume live plotting" : "Pause live plotting"}
             </Text.Text>

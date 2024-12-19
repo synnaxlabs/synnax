@@ -10,6 +10,7 @@
 import {
   MultiSeries,
   Series,
+  SeriesDigest,
   type SeriesPayload,
   Size,
   type TelemValue,
@@ -30,6 +31,8 @@ import {
 import { UnexpectedError, ValidationError } from "@/errors";
 
 type ColumnType = "key" | "name" | null;
+
+export interface FrameDigest extends Record<KeyOrName, SeriesDigest[]> {}
 
 const columnType = (columns: Params): ColumnType => {
   const arrKeys = toArray(columns);
@@ -390,6 +393,20 @@ export class Frame {
   /** @returns the total number of bytes in the frame. */
   get byteLength(): Size {
     return new Size(this.series.reduce((acc, v) => acc.add(v.byteLength), Size.ZERO));
+  }
+
+  /**
+   * @returns a digest of information about the structure of the frame for debugging
+   * purposes.
+   */
+  get digest(): FrameDigest {
+    const digest: FrameDigest = {};
+    this.keys.forEach((k, i) => {
+      const sd = this.series[i].digest;
+      if (k in digest) digest[k].push(sd);
+      else digest[k] = [sd];
+    });
+    return digest;
   }
 
   /** @returns the total number of samples in the frame. */

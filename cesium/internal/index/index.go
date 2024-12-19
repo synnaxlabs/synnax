@@ -27,19 +27,6 @@ func NewErrDiscontinuousStamp(offset int64, domainLen int64) error {
 	return errors.Wrapf(ErrDiscontinuous, "failed to resolve position %d in continuous index of length %d", offset, domainLen)
 }
 
-type DomainBounds struct {
-	Lower uint32
-	Upper uint32
-}
-
-func ExactDomainBounds(pos uint32) DomainBounds {
-	return DomainBounds{Lower: pos, Upper: pos}
-}
-
-func BetweenDomains(lower, upper uint32) DomainBounds {
-	return DomainBounds{Lower: lower, Upper: upper}
-}
-
 // Index implements an index over a time series.
 type Index interface {
 	// Distance calculates an approximate distance (arithmetic difference in offset)
@@ -58,11 +45,11 @@ type Index interface {
 	// whose start timestamp and end timestamps are both known will have an equal lower
 	// and upper bound.
 	//
-	// The distance method also returns a set of DomainBonds, where the lower bound
-	// represents the domain containing the starting timestamp and the upper bound
-	// represents the domain containing the ending timestamp. In the case where
-	// continuous is true, the lower and upper bounds will always be the same.
-	Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, DomainBounds, error)
+	// The distance method also returns an alignment pair, which represents the
+	// alignment of the lower and upper bounds. The alignment pair is a 64-bit integer
+	// where the lower 32 bits represent the domain and the upper 32 bits represent the
+	// sample index within the domain.
+	Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, telem.AlignmentPair, error)
 	// Stamp calculates an approximate ending timestamp for a range given a known distance
 	// in the number of samples. This operation may be understood as the
 	// opposite of Distance.

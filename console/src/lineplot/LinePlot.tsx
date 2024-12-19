@@ -66,6 +66,7 @@ import {
   type AxisState,
   internalCreate,
   type LineState,
+  selectRule,
   setActiveToolbarTab,
   setAxis,
   setControlState,
@@ -160,17 +161,16 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const handleRuleChange = useCallback<
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
-    (rule) =>
+    (rule) => {
+      if (rule.color != null) rule.color = Color.toHex(rule.color);
       syncDispatch(
         setRule({
           key: layoutKey,
-          rule: {
-            ...rule,
-            axis: rule.axis as XAxisKey,
-            color: Color.toHex(rule.color),
-          },
+          // @ts-expect-error rule.color was reassigned to be a string or undefined
+          rule,
         }),
-      ),
+      );
+    },
     [syncDispatch, layoutKey],
   );
 
@@ -411,6 +411,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
+          onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
           annotationProvider={{
             menu: ({ key, timeRange, name }) => {

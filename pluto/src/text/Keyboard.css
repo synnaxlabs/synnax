@@ -24,4 +24,9 @@
     aspect-ratio: 1;
     font-weight: 500 !important;
     transform: scale(0.9);
+
+    &.pluto--rect {
+        aspect-ratio: unset;
+        padding: 0 1rem;
+    }
 }
