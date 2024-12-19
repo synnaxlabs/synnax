@@ -162,14 +162,6 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
               )}
             </div>
           )}
-          {endContent != null && (
-            <div className={CSS.BE("input", "end-content")}>
-              {CoreText.formatChildren(
-                level ?? CoreText.ComponentSizeLevels[size],
-                endContent,
-              )}
-            </div>
-          )}
 
           <input
             ref={combinedRef}
@@ -189,6 +181,14 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             style={{ fontWeight: weight }}
             {...props}
           />
+          {endContent != null && (
+            <div className={CSS.BE("input", "end-content")}>
+              {CoreText.formatChildren(
+                level ?? CoreText.ComponentSizeLevels[size],
+                endContent,
+              )}
+            </div>
+          )}
         </div>
         {children}
       </C>

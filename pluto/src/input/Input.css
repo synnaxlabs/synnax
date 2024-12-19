@@ -58,12 +58,13 @@
 .pluto-input {
     color: var(--pluto-text-color);
     margin: 0;
-    width: 100%;
     flex-shrink: 0;
     overflow: hidden;
 
     & .pluto-input__internal {
         position: relative;
+        display: inline-flex;
+        align-items: center;
         height: 100%;
         background: var(--pluto-gray-l2);
         flex-grow: 1;
@@ -165,9 +166,6 @@
 }
 
 .pluto-input__end-content {
-    position: absolute;
-
-    right: -0.5rem;
     top: 0;
     height: 100%;
     display: flex;
@@ -177,6 +175,8 @@
     z-index: 0;
     font-size: inherit;
     line-height: inherit;
+    white-space: nowrap;
+    background-color: var(--pluto-gray-l2);
     * {
         color: var(--pluto-gray-l6);
     }

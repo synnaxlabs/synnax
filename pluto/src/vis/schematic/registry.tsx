@@ -720,7 +720,7 @@ const switch_: Spec<SwitchProps> = {
   name: "Switch",
   key: "switch",
   Symbol: Switch,
-  Form: CommonToggleForm,
+  Form: () => <CommonToggleForm hideInnerOrientation />,
   defaultProps: () => ({
     ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,
@@ -822,7 +822,6 @@ const setpoint: Spec<SetpointProps> = {
   defaultProps: (t) => ({
     units: "mV",
     color: t.colors.gray.l4.rgba255,
-    size: "small",
     ...zeroLabel("Setpoint"),
     ...ZERO_NUMERIC_SOURCE_PROPS,
     ...ZERO_NUMERIC_SINK_PROPS,
