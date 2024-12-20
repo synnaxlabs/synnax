@@ -25,21 +25,21 @@ export interface OrientationValue {
 export interface SelectOrientationProps
   extends Input.Control<OrientationValue>,
     Omit<Align.SpaceProps, "value" | "onChange"> {
-  showOuter?: boolean;
-  showInner?: boolean;
+  hideOuter?: boolean;
+  hideInner?: boolean;
 }
 
 export const SelectOrientation = ({
   value,
-  showOuter = true,
-  showInner,
+  hideOuter = false,
+  hideInner,
   onChange,
 }: SelectOrientationProps): ReactElement => {
   const { outer } = value;
   const handleChange = (next: Partial<OrientationValue>) => () =>
     onChange({ ...value, ...next });
 
-  if (!showOuter)
+  if (hideOuter)
     return (
       <InternalOrientation
         className={CSS.B("orientation-control")}
@@ -58,7 +58,7 @@ export const SelectOrientation = ({
       <Button selected={outer === "top"} onClick={handleChange({ outer: "top" })} />
       <Align.Space direction="x" align="center" justify="center" size={0.5}>
         <Button selected={outer === "left"} onClick={handleChange({ outer: "left" })} />
-        <InternalOrientation showInner={showInner} value={value} onChange={onChange} />
+        <InternalOrientation hideInner={hideInner} value={value} onChange={onChange} />
         <Button
           selected={outer === "right"}
           onClick={handleChange({ outer: "right" })}
@@ -76,20 +76,15 @@ const InternalOrientation = ({
   value,
   onChange,
   className,
-  showInner = true,
+  hideInner = false,
   ...props
 }: SelectOrientationProps): ReactElement => {
   const { inner } = value;
   const handleChange = (next: Partial<OrientationValue>) => () =>
     onChange({ ...value, ...next });
   let showStyle: CSSProperties = {};
-  if (!showInner)
-    showStyle = {
-      opacity: 0,
-      userSelect: "none",
-      width: "1.5rem",
-      height: "1.5rem",
-    };
+  if (hideInner)
+    showStyle = { opacity: 0, userSelect: "none", width: "1.5rem", height: "1.5rem" };
   return (
     <Align.Space
       className={CSS(className, CSS.B("value"))}
@@ -101,7 +96,7 @@ const InternalOrientation = ({
     >
       <Button
         style={showStyle}
-        disabled={!showInner}
+        disabled={hideInner}
         className={CSS(CSS.dir("y"))}
         selected={inner === "top"}
         onClick={handleChange({ inner: "top" })}
@@ -109,20 +104,20 @@ const InternalOrientation = ({
       <Align.Space direction="x" align="center" justify="center">
         <Button
           style={showStyle}
-          disabled={!showInner}
+          disabled={hideInner}
           selected={inner === "left"}
           onClick={handleChange({ inner: "left" })}
         />
         <Button
           style={showStyle}
-          disabled={!showInner}
+          disabled={hideInner}
           selected={inner === "right"}
           onClick={handleChange({ inner: "right" })}
         />
       </Align.Space>
       <Button
         style={showStyle}
-        disabled={!showInner}
+        disabled={hideInner}
         className={CSS(CSS.dir("y"))}
         selected={inner === "bottom"}
         onClick={handleChange({ inner: "bottom" })}
