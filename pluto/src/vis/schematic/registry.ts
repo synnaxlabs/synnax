@@ -152,6 +152,8 @@ import {
   type ThreeWayValveProps,
   TJunction,
   type TJunctionProps,
+  CrossJunction,
+  type CrossJunctionProps,
   VacuumPump,
   type VacuumPumpProps,
   Value,
@@ -237,6 +239,7 @@ const VARIANTS = [
   "valve",
   "vent",
   "tJunction",
+  "crossJunction"
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1037,6 +1040,20 @@ const tJunction: Spec<TJunctionProps> = {
   zIndex: Z_INDEX_UPPER + 20,
 };
 
+const crossJunction: Spec<CrossJunctionProps> = {
+  name: "Cross Junction",
+  key: "crossJunction",
+  Form: CommonStyleForm,
+  Symbol: CrossJunction,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel(""),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.CrossJunction,
+  zIndex: Z_INDEX_UPPER + 20,
+};
+
 const flowmeterGeneral: Spec<FlowmeterGeneralProps> = {
   name: "Flowmeter General",
   key: "flowmeterGeneral",
@@ -1196,6 +1213,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   button,
   tank,
   tJunction,
+  crossJunction,
   switch: switch_,
   offPageReference,
   light,

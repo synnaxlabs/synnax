@@ -2568,6 +2568,37 @@ export const TJunction = ({
   </Div>
 );
 
+export interface CrossJunctionProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const CrossJunction = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...props
+}: CrossJunctionProps): ReactElement => (
+  <Div className={CSS(CSS.B("t-junction"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={5} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={95} top={50} id="2" />
+      <Handle location="bottom" orientation={orientation} left={50} top={95} id="3" />
+      <Handle location="top" orientation={orientation} left={50} top={5} id="4" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 36, height: 36 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path
+        d="M21 34C21 35.1046 20.1046 36 19 36H17C15.8954 36 15 35.1046 15 34V23C15 21.8954 14.1046 21 13 21H2C0.895432 21 0 20.1046 0 19V17C0 15.8954 0.895432 15 2 15H13C14.1046 15 15 14.1046 15 13V2C15 0.895432 15.8954 0 17 0H19C20.1046 0 21 0.895432 21 2V13C21 14.1046 21.8954 15 23 15H34C35.1046 15 36 15.8954 36 17V19C36 20.1046 35.1046 21 34 21H23C21.8954 21 21 21.8954 21 23V34Z"
+        fill={Color.cssString(color)}
+        stroke="none"
+      />
+    </InternalSVG>
+  </Div>
+);
+
 export interface FlowmeterGeneralProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const FlowmeterGeneral = ({
