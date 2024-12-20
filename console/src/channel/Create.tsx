@@ -58,24 +58,29 @@ const schema = channel.newPayload
   .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
     message: "Data channel must have an index",
     path: ["index"],
+  })
+  .refine((v) => v.virtual || !new DataType(v.dataType).isVariable, {
+    message: "Persisted channels must have a fixed-size data type",
+    path: ["dataType"],
   });
+
+type Schema = typeof schema;
+
+const ZERO_CHANNEL: z.infer<Schema> = {
+  key: 0,
+  name: "",
+  index: 0,
+  dataType: DataType.FLOAT32.toString(),
+  internal: false,
+  isIndex: false,
+  leaseholder: 0,
+  rate: Rate.hz(0),
+  virtual: false,
+};
 
 export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
   const client = Synnax.use();
-  const methods = Form.use<typeof schema>({
-    schema,
-    values: {
-      key: 0,
-      name: "",
-      index: 0,
-      dataType: "float32",
-      internal: false,
-      isIndex: false,
-      leaseholder: 0,
-      rate: Rate.hz(0),
-      virtual: false,
-    },
-  });
+  const methods = Form.use<Schema>({ schema, values: { ...ZERO_CHANNEL } });
   const [createMore, setCreateMore] = useState(false);
 
   const { mutate, isPending } = useMutation({
@@ -85,27 +90,16 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
       d.dataType = d.dataType.toString();
       await client.channels.create(methods.value());
       if (!createMore) onClose();
-      else
-        methods.reset({
-          key: 0,
-          name: "",
-          index: 0,
-          dataType: "float32",
-          isIndex: false,
-          leaseholder: 0,
-          virtual: false,
-          rate: Rate.hz(0),
-          internal: false,
-        });
+      else methods.reset({ ...ZERO_CHANNEL });
     },
   });
 
-  const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
+  const isIndex = Form.useFieldValue<boolean, boolean, Schema>(
     "isIndex",
     false,
     methods,
   );
-  const isVirtual = Form.useFieldValue<boolean, boolean, typeof schema>(
+  const isVirtual = Form.useFieldValue<boolean, boolean, Schema>(
     "virtual",
     false,
     methods,
@@ -132,7 +126,12 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
               label="Virtual"
               inputProps={{ disabled: isIndex }}
               onChange={(v, ctx) => {
-                if (!v) return;
+                if (!v) {
+                  const dType = ctx.get<string>("dataType").value;
+                  if (new DataType(dType).isVariable)
+                    ctx.set("dataType", DataType.FLOAT32.toString());
+                  return;
+                }
                 ctx.set("isIndex", false);
                 ctx.set("index", 0);
               }}
@@ -154,6 +153,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
                   disabled={isIndex}
                   maxHeight="small"
                   zIndex={100}
+                  hideVariableDensity={!isVirtual}
                 />
               )}
             </Form.Field>

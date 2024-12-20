@@ -77,3 +77,9 @@ export const selectMany = (state: StoreState, keys?: string[]): Cluster[] =>
  */
 export const useSelectMany = (keys?: string[]): Cluster[] =>
   useMemoSelect((s: StoreState) => selectMany(s, keys), [keys]);
+
+export const selectAllNames = (state: StoreState): string[] =>
+  Object.values(selectSliceState(state).clusters).map((c) => c.name);
+
+export const useSelectAllNames = (): string[] =>
+  useMemoSelect((s: StoreState) => selectAllNames(s), []);
