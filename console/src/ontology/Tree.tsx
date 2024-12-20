@@ -19,7 +19,7 @@ import {
   useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
-import { deep } from "@synnaxlabs/x";
+import { compare, deep } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
 import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
@@ -183,6 +183,12 @@ const handleRelationshipsChange = async (
     setNodes([...nextTree]);
   });
 
+const sortFunc = (a: Core.Node, b: Core.Node) => {
+  if (a.key.startsWith("group")) return -1;
+  if (b.key.startsWith("group")) return 1;
+  return Core.defaultSort(a, b);
+};
+
 export const Tree = (): ReactElement => {
   const client = Synnax.use();
   const services = useServices();
@@ -290,6 +296,7 @@ export const Tree = (): ReactElement => {
     nodes,
     selected,
     onSelectedChange: setSelected,
+    sort: sortFunc,
   });
 
   const dropMutation = useMutation<
