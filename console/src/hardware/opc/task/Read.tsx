@@ -106,6 +106,7 @@ const Wrapped = ({
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) throw new Error("Client not available");
+      if (!methods.validate()) return;
       const { config, name } = methods.value();
 
       // Retrieving the device and updating its properties if needed
