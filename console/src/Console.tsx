@@ -137,7 +137,7 @@ const MainUnderContext = (): ReactElement => {
           activeRange: activeRange?.persisted ? activeRange.key : undefined,
         }}
         workerEnabled
-        connParams={cluster?.props}
+        connParams={cluster ?? undefined}
         workerURL={WorkerURL}
         triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}

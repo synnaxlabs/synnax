@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { breaker } from "@synnaxlabs/x";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod";
@@ -28,7 +29,6 @@ import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
-import { breaker } from "@synnaxlabs/x";
 
 export const synnaxPropsZ = z.object({
   host: z

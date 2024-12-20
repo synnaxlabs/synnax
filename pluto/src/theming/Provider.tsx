@@ -25,7 +25,6 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { type SwitchProps } from "@/input/Switch";

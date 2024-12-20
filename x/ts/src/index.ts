@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/binary";
+export * from "@/breaker";
 export * from "@/caseconv";
 export * from "@/change";
 export * from "@/clamp/clamp";
@@ -41,4 +42,3 @@ export * from "@/unique";
 export * from "@/url";
 export * from "@/worker";
 export * from "@/zodutil";
-export * from "@/breaker";
