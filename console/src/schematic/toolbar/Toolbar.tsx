@@ -21,6 +21,7 @@ import { useExport } from "@/schematic/file";
 import {
   useSelectControlStatus,
   useSelectHasPermission,
+  useSelectIsSnapshot,
   useSelectOptional,
   useSelectSelectedElementNames,
   useSelectToolbar,
@@ -40,15 +41,17 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const canEdit = useSelectHasPermission();
+  const hasEditingPermissions = useSelectHasPermission();
+  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
     <Align.Center direction="x" size="small">
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
-        {canEdit ? " To make changes," : ""}
+        {isEditable ? " To make changes," : ""}
       </Status.Text>
-      {canEdit && (
+      {isEditable && (
         <Text.Link
           onClick={(e) => {
             e.stopPropagation();

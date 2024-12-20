@@ -106,6 +106,7 @@ const Wrapped = ({
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) throw new Error("Client not available");
+      if (!methods.validate()) return;
       const { config, name } = methods.value();
 
       // Retrieving the device and updating its properties if needed
@@ -388,7 +389,7 @@ interface ChannelListProps {
   snapshot?: boolean;
 }
 
-const ChannelList = ({ path, device, snapshot }: ChannelListProps): ReactElement => {
+const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 
