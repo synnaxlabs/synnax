@@ -191,13 +191,6 @@ export const { actions, reducer } = createSlice({
       const { location, name, tab } = layout;
       let key = layout.key;
 
-      // Handle modal layouts separately
-      if (location === "modal") {
-        // Directly assign the layout for modals without touching mosaics
-        state.layouts[key] = layout;
-        return;
-      }
-      // Continue with mosaic logic for non-modal layouts
 
       const prev = select(state, key);
       const mosaic = state.mosaics[layout.windowKey];
