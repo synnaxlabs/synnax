@@ -132,9 +132,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             <Form.Field<string> path="password" className={CSS.BE("input", "password")}>
               {(p) => <Input.Text {...p} placeholder="seldon" type="password" />}
             </Form.Field>
-            <Form.Field<boolean> path="secure">
-              {(p) => <Input.Switch {...p} />}
-            </Form.Field>
+            <Form.SwitchField path="secure" label="Secure" />
           </Align.Space>
         </Align.Space>
       </Form.Form>

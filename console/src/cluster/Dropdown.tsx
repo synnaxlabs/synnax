@@ -185,7 +185,7 @@ interface ListItemProps extends CoreList.ItemProps<string, Cluster> {
 const ListItem = ({ validateName, ...props }: ListItemProps): ReactElement => {
   const dispatch = useDispatch();
   const handleChange = (value: string) => {
-    // if (!validateName(value)) return;
+    if (!validateName(value)) return;
     dispatch(rename({ key: props.entry.key, name: value }));
   };
 
