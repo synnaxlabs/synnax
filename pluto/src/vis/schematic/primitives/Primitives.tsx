@@ -2599,7 +2599,7 @@ export const FlowmeterGeneral = ({
           top: '65%',
           right: '10%', 
           transform: 'translateY(-50%)', 
-          fontSize: '10px', 
+          fontSize: `${scale * 10}px`, 
         }}
       >
         F
