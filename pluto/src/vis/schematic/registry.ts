@@ -76,6 +76,12 @@ import {
   type FlowmeterVariableAreaProps,
   FlowmeterCoriolis,
   type FlowmeterCoriolisProps,
+  FlowmeterNozzle,
+  type FlowmeterNozzleProps,
+  FlowmeterVenturi,
+  type FlowmeterVenturiProps,
+  FlowmeterRingPiston,
+  type FlowmeterRingPistonProps,
   FourWayValve,
   type FourWayValveProps,
   HelicalAgitator,
@@ -185,6 +191,9 @@ const VARIANTS = [
   "flowmeterElectromagnetic",
   "flowmeterVariableArea",
   "flowmeterCoriolis",
+  "flowmeterNozzle",
+  "flowmeterVenturi",
+  "flowmeterRingPiston",
   "fourWayValve",
   "helicalAgitator",
   "isoCap",
@@ -1072,6 +1081,48 @@ const flowmeterCoriolis: Spec<FlowmeterCoriolisProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const flowmeterNozzle: Spec<FlowmeterNozzleProps> = {
+  name: "Flowmeter Nozzle",
+  key: "flowmeterNozzle",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterNozzle,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Nozzle Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterNozzle,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterVenturi: Spec<FlowmeterVenturiProps> = {
+  name: "Flowmeter Venturi",
+  key: "flowmeterVenturi",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterVenturi,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Venturi Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterVenturi,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterRingPiston: Spec<FlowmeterRingPistonProps> = {
+  name: "Flowmeter Ring Piston",
+  key: "flowmeterRingPiston",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterRingPiston,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Ring Piston Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterRingPiston,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -1126,4 +1177,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   flowmeterElectromagnetic,
   flowmeterVariableArea,
   flowmeterCoriolis,
+  flowmeterNozzle,
+  flowmeterVenturi,
+  flowmeterRingPiston
 };

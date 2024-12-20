@@ -2743,3 +2743,139 @@ export const FlowmeterCoriolis = ({
     </Div>
   );
 };
+
+export interface FlowmeterNozzleProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const FlowmeterNozzle = ({
+  id,
+  className,
+  orientation = 'right',
+  color = 'black',
+  scale = 1,
+  ...props
+}: FlowmeterNozzleProps): ReactElement => {
+  const colorStr = Color.cssString(color);
+  return (
+    <Div {...props} className={CSS(CSS.B('flowmeter-Nozzle'), className)}>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 71, height: 35 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Rect x="2" y="2" width="67" height="31" rx="2" />
+        <Path d="M24 2V7V12" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <Path d="M24 12H34" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <Path d="M24 23H29H34" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <Path d="M24 33V23" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </InternalSVG>
+      <Text.Text
+          level="p"
+          className={CSS.BE('flowmeter-text', 'f')}
+          style={{
+            position: 'absolute',
+            top: '70%',
+            right: '7%', 
+            transform: 'translateY(-50%)', 
+            fontSize: `${scale * 10}px`, 
+          }}
+        >
+          F
+        </Text.Text> 
+    </Div>
+  );
+};
+
+export interface FlowmeterVenturiProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const FlowmeterVenturi = ({
+  id,
+  className,
+  orientation = 'right',
+  color = 'black',
+  scale = 1,
+  ...props
+}: FlowmeterVenturiProps): ReactElement => {
+  const colorStr = Color.cssString(color);
+  return (
+    <Div {...props} className={CSS(CSS.B('flowmeter-Venturi'), className)}>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 71, height: 35 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Rect x="2" y="2" width="67" height="31" rx="2" />
+        <Path d="M8 33L26.5329 22.3" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <Path d="M8 2L26.5329 12.7" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <Path d="M56 33L26.5876 22.2948" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <Path d="M56 2L26.5876 12.7052" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </InternalSVG>
+      <Text.Text
+          level="p"
+          className={CSS.BE('flowmeter-text', 'f')}
+          style={{
+            position: 'absolute',
+            top: '70%',
+            right: '7%', 
+            transform: 'translateY(-50%)', 
+            fontSize: `${scale * 10}px`, 
+          }}
+        >
+          F
+        </Text.Text> 
+    </Div>
+  );
+};
+
+export interface FlowmeterRingPistonProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const FlowmeterRingPiston = ({
+  id,
+  className,
+  orientation = 'right',
+  color = 'black',
+  scale = 1,
+  ...props
+}: FlowmeterRingPistonProps): ReactElement => {
+  const colorStr = Color.cssString(color);
+  return (
+    <Div {...props} className={CSS(CSS.B('flowmeter-RingPiston'), className)}>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 71, height: 35 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Rect x="2" y="2" width="67" height="31" rx="2" />
+        <Circle cx="36.5" cy="17.5" r="10.5" stroke="white" stroke-width="2"/>
+        <Circle cx="36.5" cy="21.5" r="6.5" stroke="white" stroke-width="2"/>
+      </InternalSVG>
+      <Text.Text
+          level="p"
+          className={CSS.BE('flowmeter-text', 'f')}
+          style={{
+            position: 'absolute',
+            top: '70%',
+            right: '7%', 
+            transform: 'translateY(-50%)', 
+            fontSize: `${scale * 10}px`, 
+          }}
+        >
+          F
+        </Text.Text> 
+    </Div>
+  );
+};

@@ -363,6 +363,12 @@ export const FlowmeterVariableArea = createLabeled(Primitives.FlowmeterVariableA
 export type FlowmeterVariableAreaProps = LabeledProps<Primitives.FlowmeterVariableAreaProps>;
 export const FlowmeterCoriolis = createLabeled(Primitives.FlowmeterCoriolis);
 export type FlowmeterCoriolisProps = LabeledProps<Primitives.FlowmeterCoriolisProps>;
+export const FlowmeterNozzle = createLabeled(Primitives.FlowmeterNozzle);
+export type FlowmeterNozzleProps = LabeledProps<Primitives.FlowmeterNozzleProps>;
+export const FlowmeterVenturi = createLabeled(Primitives.FlowmeterVenturi);
+export type FlowmeterVenturiProps = LabeledProps<Primitives.FlowmeterVenturiProps>;
+export const FlowmeterRingPiston = createLabeled(Primitives.FlowmeterRingPiston);
+export type FlowmeterRingPistonProps = LabeledProps<Primitives.FlowmeterRingPistonProps>;
 
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);
