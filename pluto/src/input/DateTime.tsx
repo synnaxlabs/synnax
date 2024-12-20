@@ -77,11 +77,6 @@ export const DateTime = ({
     onBlur?.(e);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (!onlyChangeOnBlur) return;
-    if (e.key === "Enter") e.currentTarget.blur();
-  };
-
   const tsValue = new TimeStamp(value, "UTC");
   const parsedValue = tsValue.fString("ISO", "local").slice(0, -1);
 
@@ -95,7 +90,6 @@ export const DateTime = ({
         type="datetime-local"
         onBlur={handleBlur}
         required={false}
-        onKeyDown={handleKeyDown}
         value={tempValue ?? parsedValue}
         onChange={handleChange}
         step={0.00001}
