@@ -35,6 +35,7 @@ import {
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
+import { ComponentSize } from "@/util/component";
 
 export interface SymbolFormProps {}
 
@@ -614,7 +615,10 @@ export const ButtonForm = (): ReactElement => {
 
 export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<
-    Omit<Setpoint.UseProps, "aetherKey"> & { control: ControlStateProps }
+    Omit<Setpoint.UseProps, "aetherKey"> & {
+      control: ControlStateProps;
+      disabled?: boolean;
+    }
   >({ path });
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
@@ -658,17 +662,12 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
         showIndicator: true,
         indicator: { statusSource: authSource },
       },
+      disabled: v == 0,
     });
   };
 
   return (
     <FormWrapper direction="x" grow align="stretch">
-      <Input.Item label="State Channel" grow>
-        <Channel.SelectSingle
-          value={source.channel as number}
-          onChange={handleSourceChange}
-        />
-      </Input.Item>
       <Input.Item label="Command Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
@@ -684,17 +683,27 @@ export const SetpointForm = (): ReactElement => {
       default:
         return (
           <FormWrapper direction="x" align="stretch">
-            <Align.Space direction="x" align="stretch" grow>
+            <Align.Space direction="y" align="stretch" grow size="small">
               <LabelControls path="label" />
-              <Form.TextField
-                path="units"
-                label="Units"
-                align="start"
-                padHelpText={false}
-              />
-              <ColorControl path="color" />
+              <Align.Space direction="x">
+                <Form.TextField
+                  path="units"
+                  label="Units"
+                  align="start"
+                  padHelpText={false}
+                />
+                <Form.Field<ComponentSize>
+                  path="size"
+                  label="Size"
+                  hideIfNull
+                  padHelpText={false}
+                >
+                  {(p) => <Select.ComponentSize {...p} />}
+                </Form.Field>
+                <ColorControl path="color" />
+              </Align.Space>
             </Align.Space>
-            <OrientationControl path="" />
+            <OrientationControl path="" showInner={false} />
           </FormWrapper>
         );
     }

@@ -183,6 +183,7 @@ const Handle = ({
   left,
   swap,
   top,
+  style,
   ...props
 }: HandleProps): ReactElement => {
   const adjusted = adjustHandle(top, left, orientation, preventAutoAdjust);
@@ -196,6 +197,7 @@ const Handle = ({
       style={{
         left: `${adjusted.left}%`,
         top: `${adjusted.top}%`,
+        ...style,
       }}
     />
   );
@@ -1405,11 +1407,13 @@ export const TextBox = ({
 
 export interface SetpointProps
   extends Omit<DivProps, "onClick" | "value" | "onChange">,
-    Input.Control<number> {
+    Input.Control<number>,
+    Pick<Input.NumericProps, "size"> {
   dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
   units?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
+  disabled?: boolean;
 }
 
 export const Setpoint = ({
@@ -1421,6 +1425,8 @@ export const Setpoint = ({
   units,
   color,
   onChange,
+  size = "small",
+  disabled,
   ...props
 }: SetpointProps): ReactElement => {
   const [currValue, setCurrValue] = useState(value);
@@ -1431,8 +1437,16 @@ export const Setpoint = ({
       {...props}
     >
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={1} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+        <Handle location="left" orientation={orientation} left={0.5} top={50} id="1" />
+        <Handle
+          location="right"
+          orientation={orientation}
+          left={100}
+          top={50}
+          id="2"
+          // Filled button has a z-index of 4 so we need to set this higher to show handle above
+          style={{ zIndex: 5 }}
+        />
         <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
         <Handle
           location="bottom"
@@ -1443,19 +1457,18 @@ export const Setpoint = ({
         />
       </HandleBoundary>
       <Input.Numeric
-        size="small"
+        size={size}
         value={currValue}
         onChange={setCurrValue}
         showDragHandle={false}
         selectOnFocus
         endContent={units}
         color={color}
-        style={{ [CSS.var("pack-border-shade")]: Color.cssString(color) }}
-        borderWidth={2}
+        borderWidth={1}
       >
         <CoreButton.Button
-          variant="outlined"
-          size="small"
+          size={size}
+          variant="filled"
           onClick={() => onChange(currValue)}
           color={color}
         >
