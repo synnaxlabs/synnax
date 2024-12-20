@@ -9,14 +9,14 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Button, Status, Tabs } from "@synnaxlabs/pluto";
-import { Text } from "@synnaxlabs/pluto/text";
+import { Align, Breadcrumb, Button, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
+import { Range } from "@/range";
 import { useExport } from "@/schematic/file";
 import {
   useSelectControlStatus,
@@ -29,16 +29,11 @@ import {
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
+import { useRangeSnapshot } from "@/schematic/useRangeSnapshot";
 
 const TABS = [
-  {
-    tabKey: "symbols",
-    name: "Symbols",
-  },
-  {
-    tabKey: "properties",
-    name: "Properties",
-  },
+  { tabKey: "symbols", name: "Symbols" },
+  { tabKey: "properties", name: "Properties" },
 ];
 
 interface NotEditableContentProps extends ToolbarProps {}
@@ -84,7 +79,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const state = useSelectOptional(layoutKey);
   const handleExport = useExport(name);
   const selectedNames = useSelectSelectedElementNames(layoutKey);
-
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       if (!state?.editable) return <NotEditableContent layoutKey={layoutKey} />;
@@ -104,6 +98,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch],
   );
+  const snapshot = useRangeSnapshot();
+  const handleRangeSnapshot = useCallback(() => {
+    snapshot({ key: layoutKey, name });
+  }, [snapshot, name, layoutKey]);
 
   const canEdit = useSelectHasPermission();
   if (state == null) return null;
@@ -124,6 +122,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       level: "p",
     });
 
+  const activeRange = Range.useSelect();
+  const hasActiveRange = activeRange != null;
+
   return (
     <Tabs.Provider
       value={{
@@ -137,11 +138,22 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <Align.Space direction="x" empty>
           <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         </Align.Space>
-
         <Align.Space direction="x" align="center" empty>
-          <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
+          <Align.Space direction="x" empty style={{ height: "100%", width: 93 }}>
             <Button.Icon
-              tooltip={`Export ${name}`}
+              sharp
+              disabled={!hasActiveRange}
+              tooltip={
+                hasActiveRange ? `Snapshot to ${activeRange.name}` : "No active range"
+              }
+              onClick={handleRangeSnapshot}
+              size="medium"
+              style={{ height: "100%" }}
+            >
+              <Icon.Range />
+            </Button.Icon>
+            <Button.Icon
+              tooltip={"Export"}
               sharp
               size="medium"
               style={{ height: "100%" }}
