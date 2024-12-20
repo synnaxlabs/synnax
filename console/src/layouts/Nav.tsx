@@ -12,7 +12,10 @@ import "@/layouts/Nav.css";
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
+import { useMutation } from "@tanstack/react-query";
+import { open } from "@tauri-apps/plugin-dialog";
 import { type ReactElement, useEffect, useState } from "react";
+import { J } from "vitest/dist/chunks/reporters.WnPwkmgA.js";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -73,6 +76,7 @@ const NavTopPalette = (): ReactElement => (
     commandSymbol=">"
   />
 );
+
 
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component

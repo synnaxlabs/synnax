@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import { nullToArr, toArray, unique } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
@@ -80,6 +81,12 @@ const useColumns = (
     if (filter.length === 0) return channelColumns;
     return channelColumns.filter((column) => filter.includes(column.key));
   }, [filter, aliases]);
+};
+
+const renderTag = (
+  p: Select.MultipleTagProps<channel.Key, channel.Payload>,
+): ReactElement => {
+  return <Select.MultipleTag icon={<Icon.Channel />} {...p} />;
 };
 
 export const SelectMultiple = ({
@@ -174,6 +181,7 @@ export const SelectMultiple = ({
       columns={columns}
       emptyContent={emptyContent}
       entryRenderKey={entryRenderKey}
+      renderTag={renderTag}
       {...dropProps}
       {...props}
     />

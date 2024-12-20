@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
@@ -21,6 +22,9 @@ import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
+import {
+  createCalculatedLayout,
+} from "@/channel/CreateCalculated";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -30,7 +34,7 @@ import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-
+import {isCalculated} from "@synnaxlabs/client/src/channel/client";
 const canDrop = (): boolean => false;
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -218,6 +222,30 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
   }).mutate;
 
+export const useOpenCalculated =
+  () =>
+  ({ selection: { resources }, store }: Ontology.TreeContextMenuProps) => {
+    if (resources.length !== 1) return;
+    const resource = resources[0];
+    const tabKey = `editCalculated-${resource.id.key}`;
+    const layout = {
+      ...createCalculatedLayout,
+      key: tabKey,
+      windowKey: MAIN_WINDOW,
+      name: `Edit ${resource.name}`,
+      location: "modal" as const,
+      tab: {
+        closable: true,
+        editable: false,
+      },
+      args: {
+        channelKey: Number(resource.id.key),
+        channelName: resource.name,
+        expression: resource.data?.expression ?? ""
+      },
+    };
+    return store.dispatch(Layout.place(layout));
+  };
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
@@ -230,6 +258,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const handleRename = useRename();
   const handleLink = Link.useCopyToClipboard();
+  const openCalculated = useOpenCalculated();
   const handleSelect = {
     group: () => groupFromSelection(props),
     delete: () => del(props),
@@ -241,12 +270,27 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
+    openCalculated: () => openCalculated(props),
   };
   const singleResource = resources.length === 1;
+
+  const isCalc = singleResource && isCalculated({
+    virtual: resources[0].data?.virtual ?? false,
+    expression: resources[0].data?.expression ?? "",
+  });
+
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
       <Group.GroupMenuItem selection={selection} />
+      {isCalc && (
+        <>
+          <PMenu.Divider />
+          <PMenu.Item itemKey="openCalculated" startIcon={<Icon.Edit />}>
+            Edit Calculated Channel
+          </PMenu.Item>
+        </>
+      )}
       {activeRange != null && activeRange.persisted && (
         <>
           <PMenu.Divider />
