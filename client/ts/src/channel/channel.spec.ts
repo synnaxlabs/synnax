@@ -346,5 +346,26 @@ describe("Channel", () => {
       const retrieved = await client.channels.retrieve(channel.key);
       expect(retrieved.name).toEqual("new-name");
     });
+
+    test("should not allow updates to non-virtual channels", async () => {
+      const channel = await client.channels.create({
+        name: "regular-channel",
+        leaseholder: 1,
+        rate: Rate.hz(1),
+        dataType: DataType.FLOAT32
+      });
+
+      await expect(
+        async () => await client.channels.create({
+          key: channel.key,
+          name: "new-name",
+          leaseholder: channel.leaseholder,
+          rate: channel.rate,
+          dataType: channel.dataType
+        })
+      );
+      const retrieved = await client.channels.retrieve(channel.key);
+      expect(retrieved.name).toEqual("regular-channel");
+    });
   });
 });
