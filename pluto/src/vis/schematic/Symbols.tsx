@@ -357,6 +357,12 @@ export const StaticMixer = createLabeled(Primitives.StaticMixer);
 export type StaticMixerProps = LabeledProps<Primitives.StaticMixerProps>;
 export const FlowmeterGeneral = createLabeled(Primitives.FlowmeterGeneral);
 export type FlowmeterGeneralProps = LabeledProps<Primitives.FlowmeterGeneralProps>;
+export const FlowmeterElectromagnetic = createLabeled(Primitives.FlowmeterElectromagnetic);
+export type FlowmeterElectromagneticProps = LabeledProps<Primitives.FlowmeterElectromagneticProps>;
+export const FlowmeterVariableArea = createLabeled(Primitives.FlowmeterVariableArea);
+export type FlowmeterVariableAreaProps = LabeledProps<Primitives.FlowmeterVariableAreaProps>;
+export const FlowmeterCoriolis = createLabeled(Primitives.FlowmeterCoriolis);
+export type FlowmeterCoriolisProps = LabeledProps<Primitives.FlowmeterCoriolisProps>;
 
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);

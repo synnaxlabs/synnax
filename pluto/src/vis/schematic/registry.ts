@@ -70,6 +70,12 @@ import {
   type FlatBladeAgitatorProps,
   FlowmeterGeneral,
   type FlowmeterGeneralProps,
+  FlowmeterElectromagnetic,
+  type FlowmeterElectromagneticProps,
+  FlowmeterVariableArea,
+  type FlowmeterVariableAreaProps,
+  FlowmeterCoriolis,
+  type FlowmeterCoriolisProps,
   FourWayValve,
   type FourWayValveProps,
   HelicalAgitator,
@@ -176,6 +182,9 @@ const VARIANTS = [
   "filter",
   "flatBladeAgitator",
   "flowmeterGeneral",
+  "flowmeterElectromagnetic",
+  "flowmeterVariableArea",
+  "flowmeterCoriolis",
   "fourWayValve",
   "helicalAgitator",
   "isoCap",
@@ -1021,6 +1030,48 @@ const flowmeterGeneral: Spec<FlowmeterGeneralProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const flowmeterElectromagnetic: Spec<FlowmeterElectromagneticProps> = {
+  name: "Flowmeter Electromagnetic",
+  key: "flowmeterElectromagnetic",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterElectromagnetic,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Electromagnetic Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterElectromagnetic,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterVariableArea: Spec<FlowmeterVariableAreaProps> = {
+  name: "Flowmeter Variable Area",
+  key: "flowmeterVariableArea",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterVariableArea,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Variable Area Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterVariableArea,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterCoriolis: Spec<FlowmeterCoriolisProps> = {
+  name: "Flowmeter Coriolis",
+  key: "flowmeterCoriolis",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterCoriolis,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Coriolis Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterCoriolis,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -1072,4 +1123,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   springLoadedReliefValve,
   angledSpringLoadedReliefValve,
   flowmeterGeneral,
+  flowmeterElectromagnetic,
+  flowmeterVariableArea,
+  flowmeterCoriolis,
 };
