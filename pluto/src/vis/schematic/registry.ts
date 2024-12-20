@@ -14,6 +14,7 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import {
+  BoxForm,
   ButtonForm,
   CommonDummyToggleForm,
   CommonStyleForm,
@@ -22,6 +23,7 @@ import {
   LightForm,
   OffPageReferenceForm,
   SetpointForm,
+  SwitchForm,
   type SymbolFormProps,
   TankForm,
   TextBoxForm,
@@ -430,7 +432,7 @@ const cylinder: Spec<CylinderProps> = {
 const box: Spec<BoxProps> = {
   name: "Box",
   key: "box",
-  Form: () => TankForm({ includeBorderRadius: true }),
+  Form: BoxForm,
   Symbol: Box,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -720,7 +722,7 @@ const switch_: Spec<SwitchProps> = {
   name: "Switch",
   key: "switch",
   Symbol: Switch,
-  Form: CommonToggleForm,
+  Form: SwitchForm,
   defaultProps: () => ({
     ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,
