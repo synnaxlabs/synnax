@@ -19,6 +19,7 @@ import {
   Synnax,
 } from "@synnaxlabs/pluto";
 import { binary, deep, type KeyedNamed } from "@synnaxlabs/x";
+import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, type ReactElement, useRef } from "react";
 import { z } from "zod";
 
@@ -355,7 +356,7 @@ export const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>(
   },
 });
 
-const FILTERS = [{ name: "CSV", extensions: ["csv"] }];
+const FILTERS: DialogFilter[] = [{ name: "CSV", extensions: ["csv"] }];
 
 export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   linear: ({ prefix }) => (
