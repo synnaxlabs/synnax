@@ -143,7 +143,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 		})
 	})
-	FContext("Updating a channel", func() {
+	Context("Updating a channel", func() {
 		var ch channel.Channel
 		var ch2 channel.Channel
 		BeforeEach(func() {

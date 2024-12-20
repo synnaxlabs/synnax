@@ -270,7 +270,9 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 		if ch.IsIndex {
 			tCH.LocalIndex = tCH.LocalKey
 		}
-		if ch.Expression != "" && !ch.IsIndex && ch.Virtual && !ch.Internal {
+
+		isCalc := ch.Expression != "" && !ch.IsIndex && ch.Virtual && !ch.Internal
+		if isCalc {
 			tCH.LocalKey = ch.Key.LocalKey()
 		}
 		translated[i] = tCH
