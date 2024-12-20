@@ -68,8 +68,8 @@ const OrientationControl = ({
   hideOuter,
   hideInner,
   ...props
-}: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement => {
-  if (hideInner && hideOuter) return <></>;
+}: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement | null => {
+  if (hideInner && hideOuter) return null;
   return (
     <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...props}>
       {({ value, onChange }) => (
@@ -853,3 +853,8 @@ export const CommonDummyToggleForm = (): ReactElement => (
     <OrientationControl path="" />
   </FormWrapper>
 );
+
+export const BoxForm = (): ReactElement => TankForm({ includeBorderRadius: true });
+
+export const SwitchForm = (): ReactElement =>
+  CommonToggleForm({ hideInnerOrientation: true });
