@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/breadcrumb/Breadcrumb.css";
+
 import { Icon } from "@synnaxlabs/media";
 import { caseconv, type Optional, toArray } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -15,8 +17,6 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
-
-import "@/breadcrumb/Breadcrumb.css";
 
 export interface Segment {
   label: string;

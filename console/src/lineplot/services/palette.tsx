@@ -9,11 +9,11 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { create } from "@/lineplot/LinePlot";
-import { type Command } from "@/palette/Palette";
 import { importPlot } from "@/lineplot/file";
-import { Workspace } from "@/workspace";
+import { create } from "@/lineplot/LinePlot";
 import { ImportIcon } from "@/lineplot/services/Icon";
+import { type Command } from "@/palette/Palette";
+import { Workspace } from "@/workspace";
 
 export const createLinePlotCommand: Command = {
   key: "create-line-plot",

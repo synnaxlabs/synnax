@@ -1,4 +1,4 @@
-import { CrudeTimeSpan, TimeSpan } from "@/telem";
+import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 export const sleep = async (span: CrudeTimeSpan): Promise<void> =>
   await new Promise((resolve) =>

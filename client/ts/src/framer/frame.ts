@@ -10,7 +10,7 @@
 import {
   MultiSeries,
   Series,
-  SeriesDigest,
+  type SeriesDigest,
   type SeriesPayload,
   Size,
   type TelemValue,

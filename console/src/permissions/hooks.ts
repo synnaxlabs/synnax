@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { user } from "@synnaxlabs/client";
+import { Unreachable } from "@synnaxlabs/freighter";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { giveAll, set } from "@/permissions/slice";
-import { Unreachable } from "@synnaxlabs/freighter";
 
 export const useFetchPermissions = async (): Promise<void> => {
   const client = Synnax.use();
