@@ -26,16 +26,11 @@ export const ToolbarCopyButton = ({
   const handleLink = Link.useCopyToClipboard();
   return (
     <Button.Icon
-      tooltip={`Copy link to ${name}`}
+      tooltip={"Copy link"}
       sharp
       size="medium"
       style={{ height: "100%", width: "var(--pluto-height-medium)" }}
-      onClick={() =>
-        handleLink({
-          name,
-          ontologyID,
-        })
-      }
+      onClick={() => handleLink({ name, ontologyID })}
       {...props}
     >
       <Icon.Link />
