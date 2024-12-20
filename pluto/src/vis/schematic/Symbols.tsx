@@ -369,6 +369,14 @@ export const FlowmeterVenturi = createLabeled(Primitives.FlowmeterVenturi);
 export type FlowmeterVenturiProps = LabeledProps<Primitives.FlowmeterVenturiProps>;
 export const FlowmeterRingPiston = createLabeled(Primitives.FlowmeterRingPiston);
 export type FlowmeterRingPistonProps = LabeledProps<Primitives.FlowmeterRingPistonProps>;
+export const FlowmeterPositiveDisplacement = createLabeled(Primitives.FlowmeterPositiveDisplacement);
+export type FlowmeterPositiveDisplacementProps = LabeledProps<Primitives.FlowmeterPositiveDisplacementProps>;
+export const FlowmeterTurbine = createLabeled(Primitives.FlowmeterTurbine);
+export type FlowmeterTurbineProps = LabeledProps<Primitives.FlowmeterTurbineProps>;
+export const FlowmeterPulse = createLabeled(Primitives.FlowmeterPulse);
+export type FlowmeterPulseProps = LabeledProps<Primitives.FlowmeterPulseProps>;
+export const FlowmeterFloatSensor = createLabeled(Primitives.FlowmeterFloatSensor);
+export type FlowmeterFloatSensorProps = LabeledProps<Primitives.FlowmeterFloatSensorProps>;
 
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);

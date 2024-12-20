@@ -82,6 +82,14 @@ import {
   type FlowmeterVenturiProps,
   FlowmeterRingPiston,
   type FlowmeterRingPistonProps,
+  FlowmeterPositiveDisplacement,
+  type FlowmeterPositiveDisplacementProps,
+  FlowmeterTurbine,
+  type FlowmeterTurbineProps,
+  FlowmeterPulse,
+  type FlowmeterPulseProps,
+  FlowmeterFloatSensor,
+  type FlowmeterFloatSensorProps,
   FourWayValve,
   type FourWayValveProps,
   HelicalAgitator,
@@ -194,6 +202,10 @@ const VARIANTS = [
   "flowmeterNozzle",
   "flowmeterVenturi",
   "flowmeterRingPiston",
+  "flowmeterPositiveDisplacement",
+  "flowmeterTurbine",
+  "flowmeterPulse",
+  "flowmeterFloatSensor",
   "fourWayValve",
   "helicalAgitator",
   "isoCap",
@@ -1123,6 +1135,62 @@ const flowmeterRingPiston: Spec<FlowmeterRingPistonProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const flowmeterPositiveDisplacement: Spec<FlowmeterPositiveDisplacementProps> = {
+  name: "Flowmeter Positive Displacement",
+  key: "flowmeterPositiveDisplacement",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterPositiveDisplacement,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Positive Displacement Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterPositiveDisplacement,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterTurbine: Spec<FlowmeterTurbineProps> = {
+  name: "Flowmeter Turbine",
+  key: "flowmeterTurbine",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterTurbine,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Turbine Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterTurbine,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterPulse: Spec<FlowmeterPulseProps> = {
+  name: "Flowmeter Pulse",
+  key: "flowmeterPulse",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterPulse,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Pulse Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterPulse,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
+  name: "Flowmeter Float Sensor",
+  key: "flowmeterFloatSensor",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterFloatSensor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Float Sensor Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterFloatSensor,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -1179,5 +1247,9 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   flowmeterCoriolis,
   flowmeterNozzle,
   flowmeterVenturi,
-  flowmeterRingPiston
+  flowmeterRingPiston,
+  flowmeterPositiveDisplacement,
+  flowmeterTurbine,
+  flowmeterPulse,
+  flowmeterFloatSensor
 };
