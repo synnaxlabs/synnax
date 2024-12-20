@@ -12,12 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import asyncio
 
-client = sy.Synnax(
-    host="localhost",
-    port=9090,
-    username="synnax",
-    password="seldon",
-)
+client = sy.Synnax(host="localhost", port=9090, username="synnax", password="seldon")
 
 
 @client.ranges.on_create

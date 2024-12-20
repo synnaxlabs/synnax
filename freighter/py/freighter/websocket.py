@@ -49,12 +49,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
     __send_closed: bool
     __res_msg_t: Type[_Message[RS]]
 
-    def __init__(
-        self,
-        encoder: Codec,
-        ws: AsyncClientProtocol,
-        res_t: Type[RS],
-    ):
+    def __init__(self, encoder: Codec, ws: AsyncClientProtocol, res_t: Type[RS]):
         self.__encoder = encoder
         self.__internal = ws
         self.__send_closed = False
@@ -62,8 +57,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         self.__res_msg_t = _new_res_msg_t(res_t)
 
     async def receive(
-        self,
-        timeout: float | None = None,
+        self, timeout: float | None = None
     ) -> tuple[RS | None, Exception | None]:
         """Implements the AsyncStream protocol."""
         if timeout is not None:
@@ -143,12 +137,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
     __send_closed: bool
     __res_msg_t: Type[_Message[RS]]
 
-    def __init__(
-        self,
-        encoder: Codec,
-        ws: SyncClientProtocol,
-        res_t: Type[RS],
-    ):
+    def __init__(self, encoder: Codec, ws: SyncClientProtocol, res_t: Type[RS]):
         self.__encoder = encoder
         self.__internal = ws
         self.__send_closed = False
@@ -260,10 +249,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         return self
 
     async def stream(
-        self,
-        target: str,
-        _req_t: Type[RQ],
-        res_t: Type[RS],
+        self, target: str, _req_t: Type[RQ], res_t: Type[RS]
     ) -> AsyncStream[RQ, RS]:
         """Implements the AsyncStreamClient protocol."""
 
@@ -302,10 +288,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         return self
 
     def stream(
-        self,
-        target: str,
-        _req_t: Type[RQ],
-        res_t: Type[RS],
+        self, target: str, _req_t: Type[RQ], res_t: Type[RS]
     ) -> SyncWebsocketStream[RQ, RS]:
         socket: SyncWebsocketStream[RQ, RS] | None = None
 

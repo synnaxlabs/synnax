@@ -58,10 +58,7 @@ class ChannelWriter:
         self._cache = cache
 
     @trace("debug")
-    def create(
-        self,
-        channels: list[ChannelPayload],
-    ) -> list[ChannelPayload]:
+    def create(self, channels: list[ChannelPayload]) -> list[ChannelPayload]:
         req = _CreateRequest(channels=channels)
         res = send_required(self._client, _CREATE_ENDPOINT, req, _Response)
         self._cache.set(res.channels)

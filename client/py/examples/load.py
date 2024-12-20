@@ -75,11 +75,7 @@ for i in range(NUM_VALVES):
     command_to_res[cmd.key] = res
 
 sensors = [
-    sy.Channel(
-        name=f"Sensor {i}",
-        index=sensor_idx.key,
-        data_type=sy.DataType.FLOAT32,
-    )
+    sy.Channel(name=f"Sensor {i}", index=sensor_idx.key, data_type=sy.DataType.FLOAT32)
     for i in range(NUM_SENSORS)
 ]
 
@@ -107,9 +103,7 @@ with client.open_streamer([a.key for a in valve_commands]) as streamer:
     i = 0
     # Open a writer to write data to Synnax.
     with client.open_writer(
-        sy.TimeStamp.now(),
-        write_to,
-        enable_auto_commit=True,
+        sy.TimeStamp.now(), write_to, enable_auto_commit=True
     ) as writer:
         start = sy.TimeStamp.now()
         while True:

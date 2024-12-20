@@ -32,9 +32,7 @@ class Registry:
         self.__channel_retriever = channels
 
     def on(
-        self,
-        channels: ChannelParams,
-        filter_f: Callable[[LatestState], bool],
+        self, channels: ChannelParams, filter_f: Callable[[LatestState], bool]
     ) -> Callable[[Callable[[LatestState], None]], Callable[[], None] | None]:
         self.__channels.update(channels)
 

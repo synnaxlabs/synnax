@@ -20,12 +20,7 @@ class TestAuthentication:
         """
         host, port, username, _ = login_info
         with pytest.raises(sy.AuthError):
-            sy.Synnax(
-                host=host,
-                port=port,
-                username=username,
-                password="wrong",
-            )
+            sy.Synnax(host=host, port=port, username=username, password="wrong")
 
     def test_no_password_provided(self, login_info: tuple[str, int, str, str]):
         """
@@ -33,8 +28,4 @@ class TestAuthentication:
         """
         host, port, username, _ = login_info
         with pytest.raises(sy.FieldError):
-            sy.Synnax(
-                host=host,
-                port=port,
-                username=username,
-            )
+            sy.Synnax(host=host, port=port, username=username)
