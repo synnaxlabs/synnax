@@ -107,6 +107,15 @@ export class Channel {
    * database, but can still be used for streaming purposes.
    */
   readonly virtual: boolean;
+  /**
+   * Only used for calculated channels. Specifies the python expression to evaluate
+   * the calculated value
+   */
+  readonly expression: string;
+  /**
+   * Only used for calculated channels. Specifies the channels required for calculation
+   */
+  readonly requires: Key[];
 
   constructor({
     dataType,
@@ -120,6 +129,8 @@ export class Channel {
     virtual = false,
     frameClient,
     alias,
+    expression = "",
+    requires = [],
   }: NewPayload & {
     frameClient?: framer.Client;
     density?: CrudeDensity;
@@ -134,6 +145,8 @@ export class Channel {
     this.internal = internal;
     this.alias = alias;
     this.virtual = virtual;
+    this.expression = expression;
+    this.requires = [];
     this._frameClient = frameClient ?? null;
   }
 
@@ -158,7 +171,14 @@ export class Channel {
       index: this.index,
       isIndex: this.isIndex,
       internal: this.internal,
+      virtual: this.virtual,
+      expression: this.expression,
+      requires: this.requires,
     });
+  }
+
+  get isCalculated(): boolean {
+    return isCalculated(this.payload);
   }
 
   /***
@@ -421,3 +441,6 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return new group.Group(res.group.name, res.group.key);
   }
 }
+
+export const isCalculated = ({ virtual, expression }: Payload): boolean =>
+  virtual && expression !== "";

@@ -110,3 +110,5 @@ driver/vendor/mbedtls/mbedtls
 
 # |||| ESLINT ||||
 .eslintcache
+
+python_install

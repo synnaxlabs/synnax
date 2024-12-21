@@ -44,6 +44,12 @@ export const selectRequired = (state: StoreState, key: string): State => {
   return layout;
 };
 
+export const selectType = (state: StoreState, key: string): string | undefined =>
+  select(state, key)?.type;
+
+export const useSelectType = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectType(state, key), [key]);
+
 export const selectArgs = <A>(state: StoreState, key: string): A => {
   const layout = select(state, key);
   return layout?.args as A;

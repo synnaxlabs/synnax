@@ -12,6 +12,8 @@ package channel
 import (
 	"context"
 
+	"github.com/synnaxlabs/x/query"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -88,11 +90,14 @@ func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMess
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, retrieveIfNameExists bool) error {
 	channels := *_channels
 	for i, ch := range channels {
-		if ch.LocalKey != 0 {
-			channels[i].LocalKey = 0
-		}
 		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
+		}
+		if ch.Expression != "" {
+			channels[i].Leaseholder = core.Free
+			channels[i].Virtual = true
+		} else if ch.LocalKey != 0 {
+			channels[i].LocalKey = 0
 		}
 	}
 	batch := lp.createRouter.Batch(channels)
@@ -112,7 +117,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			}
 			oChannels = append(oChannels, remoteChannels...)
 		} else {
-			err := lp.createFreeVirtual(ctx, tx, &batch.Free, retrieveIfNameExists)
+			err := lp.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, retrieveIfNameExists)
 			if err != nil {
 				return err
 			}
@@ -128,7 +133,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	return lp.maybeSetResources(ctx, tx, oChannels)
 }
 
-func (lp *leaseProxy) createFreeVirtual(
+func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
@@ -137,17 +142,60 @@ func (lp *leaseProxy) createFreeVirtual(
 	if lp.freeCounter == nil {
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
-	toCreate, err := lp.maybeRetrieveExisting(ctx, tx, channels, lp.freeCounter, retrieveIfNameExists)
+
+	// If existing channels are passed in, update as necessary (for calc channels).
+	// If retrieveIfNameExists is true and user has provided channels to update, we need
+	// to reset those channels to the actual values to ensure the user does not mistakenly
+	// think the update was successful.
+	if retrieveIfNameExists {
+		var retrieved []Channel
+		err := gorp.NewRetrieve[Key, Channel]().
+			WhereKeys(KeysFromChannels(*channels)...).
+			Entries(&retrieved).
+			Exec(ctx, tx)
+		if err != nil && !errors.Is(err, query.NotFound) {
+			return err
+		}
+		lo.ForEach(retrieved, func(existing Channel, _ int) {
+			if _, idx, exists := lo.FindIndexOf(*channels, func(ch Channel) bool {
+				return ch.Key() == existing.Key()
+			}); exists {
+				(*channels)[idx] = existing
+			}
+		})
+	} else {
+		err := gorp.NewUpdate[Key, Channel]().
+			WhereKeys(KeysFromChannels(*channels)...).
+			ChangeErr(
+				func(c Channel) (Channel, error) {
+					if newCh, found := lo.Find(*channels, func(ch Channel) bool {
+						return ch.Key() == c.Key()
+					}); found {
+						c.Name = newCh.Name
+						c.Requires = newCh.Requires
+						c.Expression = newCh.Expression
+					}
+					return c, nil
+				}).
+			Exec(ctx, tx)
+		if err != nil && !errors.Is(err, query.NotFound) {
+			return err
+		}
+	}
+
+	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.freeCounter, retrieveIfNameExists)
 	if err != nil {
 		return err
 	}
-	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
+
+	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
+		tx); err != nil {
 		return err
 	}
 	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
-func (lp *leaseProxy) maybeRetrieveExisting(
+func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
@@ -180,17 +228,17 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 		return
 	}
 
+	originalCounterValue := nextCounterValue - incCounterBy
 	toCreate = make([]Channel, 0, incCounterBy)
 	for i, ch := range *channels {
 		if ch.LocalKey == 0 {
-			ch.LocalKey = nextCounterValue - incCounterBy + LocalKey(len(toCreate)) + 1
+			ch.LocalKey = originalCounterValue + LocalKey(len(toCreate)) + 1
 			toCreate = append(toCreate, ch)
 		} else if ch.IsIndex {
-			ch.LocalIndex = ch.LocalKey
+			ch.LocalIndex = ch.LocalKey // remove and run tests
 		}
 		(*channels)[i] = ch
 	}
-
 	return toCreate, nil
 }
 
@@ -200,7 +248,7 @@ func (lp *leaseProxy) createGateway(
 	channels *[]Channel,
 	retrieveIfNameExists bool,
 ) error {
-	toCreate, err := lp.maybeRetrieveExisting(ctx, tx, channels, lp.leasedCounter, retrieveIfNameExists)
+	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.leasedCounter, retrieveIfNameExists)
 	if err != nil {
 		return err
 	}
