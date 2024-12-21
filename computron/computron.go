@@ -1,12 +1,16 @@
-//go:build windows
-
 package computron
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
-#cgo LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython311
-#define PY_SSIZE_T_CLEAN
+#cgo  linux CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
+#cgo  linux LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
 
+#cgo  darwin CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
+#cgo  darwin LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
+
+#cgo windows CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
+#cgo windows LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython311
+
+#define PY_SSIZE_T_CLEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <Python.h>
 #include <numpy/arrayobject.h>
@@ -22,18 +26,18 @@ static void py_incref(PyObject* obj) { Py_INCREF(obj); }
 static void py_decref(PyObject* obj) { Py_DECREF(obj); }
 
 void set_dict_items(PyObject* dict, char** keys, PyObject** values, int count) {
-    for (int i = 0; i < count; i++) {
-        py_incref(values[i]); // Increment reference count for value
-        PyDict_SetItemString(dict, keys[i], values[i]);
-    }
+   for (int i = 0; i < count; i++) {
+	   py_incref(values[i]); // Increment reference count for value
+	   PyDict_SetItemString(dict, keys[i], values[i]);
+   }
 }
 
 static PyObject* wrapped_PyCompileString(const char *str, const char *filename, int start) {
-    return Py_CompileString(str, filename, start);
+   return Py_CompileString(str, filename, start);
 }
 
 static PyObject* wrapped_PyArray_SimpleNew(int nd, npy_intp* dims, int typenum) {
-    return PyArray_SimpleNew(nd, dims, typenum);
+   return PyArray_SimpleNew(nd, dims, typenum);
 }
 
 static int wrapped_PyArray_TYPE(PyArrayObject* arr) { return PyArray_TYPE(arr); }
@@ -46,11 +50,13 @@ static int wrapped_PyArray_ITEMSIZE(PyArrayObject* arr) { return PyArray_ITEMSIZ
 
 static void* wrapped_PyArray_DATA(PyArrayObject* arr) { return PyArray_DATA(arr); }
 
+// TODO: for windows only
 void SetPythonPath(const char *path) {
 	wchar_t *wpath = Py_DecodeLocale(path, NULL);
 	Py_SetPath(wpath);
 	PyMem_RawFree(wpath);
 }
+
 */
 import "C"
 import (
@@ -90,11 +96,9 @@ var (
 	_ config.Config[Config] = Config{}
 	//DefaultConfig is the default configuration for the computron service.
 	DefaultConfig = Config{
-		PythonInstallDir: "C:\\Users\\Synnax\\Desktop\\synnaxlabs\\synnax\\computron\\nested",
+		PythonInstallDir: "/Users/elham/workspace/synnax/computron/nested",
+		// Windows: "C:\\Users\\Synnax\\Desktop\\synnaxlabs\\synnax\\computron\\nested"
 	}
-	//DefaultConfig = Config{
-	//	PythonInstallDir: filepath.Join(".", "computron"),
-	//}
 )
 
 // Validate implements config.Config.
@@ -176,10 +180,10 @@ func (s *Interpreter) initPython() error {
 		s.cfg.L.Debug("embedded Python installation extracted")
 	}
 
-	path_ := "C:\\Users\\Synnax\\Desktop\\synnaxlabs\\synnax\\computron\\nested\\python_install\\lib\\python3.11;C:\\Users\\Synnax\\Desktop\\synnaxlabs\\synnax\\computron\\nested\\python_install\\lib\\python3.11\\site-packages"
-
-	cPythonPath := C.CString(path_)
-	C.SetPythonPath(cPythonPath)
+	// windows only
+	//path_ := "C:\\Users\\Synnax\\Desktop\\synnaxlabs\\synnax\\computron\\nested\\python_install\\lib\\python3.11;C:\\Users\\Synnax\\Desktop\\synnaxlabs\\synnax\\computron\\nested\\python_install\\lib\\python3.11\\site-packages"
+	//cPythonPath := C.CString(path_)
+	//C.SetPythonPath(cPythonPath)
 
 	pythonHome := C.CString(installDir)
 	defer C.free(unsafe.Pointer(pythonHome))
