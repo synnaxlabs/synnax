@@ -46,12 +46,20 @@ export interface FlattenProps {
   nodes: Node[];
   expanded: string[];
   depth?: number;
-  sort?: boolean;
+  sort?: SortOption;
   path?: string;
 }
 
-export const sortAndSplice = (nodes: Node[], sort: boolean): Node[] => {
-  if (sort) nodes.sort((a, b) => compare.stringsWithNumbers(a.name, b.name));
+export type SortOption = compare.CompareF<Node> | boolean;
+
+export const defaultSort: compare.CompareF<Node> = (a, b) =>
+  compare.stringsWithNumbers(a.name, b.name);
+
+export const sortAndSplice = (
+  nodes: Node[],
+  sort: SortOption = defaultSort,
+): Node[] => {
+  if (typeof sort === "function") nodes.sort(sort);
   let found = false;
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
@@ -71,11 +79,12 @@ export const flatten = ({
   nodes,
   expanded,
   depth = 0,
-  sort = true,
+  sort,
   path = "",
 }: FlattenProps): FlattenedNode[] => {
   // Sort the first level of the tree independently of the rest
-  if (depth === 0 && sort) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
+  if (depth === 0 && sort != false)
+    nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
     const nextPath = `${path}${node.key}/`;

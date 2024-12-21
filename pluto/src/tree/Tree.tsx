@@ -35,7 +35,7 @@ import {
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { flatten, type FlattenedNode, type Node } from "@/tree/core";
+import { flatten, SortOption, type FlattenedNode, type Node } from "@/tree/core";
 import { Triggers } from "@/triggers";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
@@ -53,7 +53,7 @@ export interface UseProps {
   onSelectedChange?: state.Set<string[]>;
   initialExpanded?: string[];
   nodes: Node[];
-  sort?: boolean;
+  sort?: SortOption;
 }
 
 export interface UseReturn {
@@ -73,7 +73,7 @@ export const use = (props: UseProps): UseReturn => {
     onExpand,
     nodes,
     initialExpanded = [],
-    sort = true,
+    sort,
     selected: propsSelected,
     onSelectedChange,
   } = props ?? {};
