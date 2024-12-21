@@ -168,9 +168,6 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 			WhereKeys(KeysFromChannels(*channels)...).
 			ChangeErr(
 				func(c Channel) (Channel, error) {
-					if !c.Virtual {
-						return c, errors.New("can only update virtual channels")
-					}
 					if newCh, found := lo.Find(*channels, func(ch Channel) bool {
 						return ch.Key() == c.Key()
 					}); found {
