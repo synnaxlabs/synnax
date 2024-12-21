@@ -379,6 +379,12 @@ export const FlowmeterPulse = createLabeled(Primitives.FlowmeterPulse);
 export type FlowmeterPulseProps = LabeledProps<Primitives.FlowmeterPulseProps>;
 export const FlowmeterFloatSensor = createLabeled(Primitives.FlowmeterFloatSensor);
 export type FlowmeterFloatSensorProps = LabeledProps<Primitives.FlowmeterFloatSensorProps>;
+export const HeatExchangerGeneral = createLabeled(Primitives.HeatExchangerGeneral);
+export type HeatExchangerGeneralProps = LabeledProps<Primitives.HeatExchangerGeneralProps>;
+export const HeatExchangerM = createLabeled(Primitives.HeatExchangerM);
+export type HeatExchangerMProps = LabeledProps<Primitives.HeatExchangerMProps>;
+export const HeatExchangerStraightTube = createLabeled(Primitives.HeatExchangerStraightTube);
+export type HeatExchangerStraightTubeProps = LabeledProps<Primitives.HeatExchangerStraightTubeProps>;
 
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);

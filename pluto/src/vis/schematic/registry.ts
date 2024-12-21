@@ -76,6 +76,12 @@ import {
   type FlowmeterVariableAreaProps,
   FlowmeterCoriolis,
   type FlowmeterCoriolisProps,
+  HeatExchangerGeneral,
+  type HeatExchangerGeneralProps,
+  HeatExchangerM,
+  type HeatExchangerMProps,
+  HeatExchangerStraightTube,
+  type HeatExchangerStraightTubeProps,
   FlowmeterNozzle,
   type FlowmeterNozzleProps,
   FlowmeterVenturi,
@@ -239,7 +245,10 @@ const VARIANTS = [
   "valve",
   "vent",
   "tJunction",
-  "crossJunction"
+  "crossJunction",
+  "heatExchangerGeneral",
+  "heatExchangerM",
+  "heatExchangerStraightTube",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1208,6 +1217,48 @@ const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const heatExchangerGeneral: Spec<HeatExchangerGeneralProps> = {
+  name: "Heat Exchanger General",
+  key: "heatExchangerGeneral",
+  Form: CommonStyleForm,
+  Symbol: HeatExchangerGeneral,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("General Heat Exchanger"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.HeatExchangerGeneral,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const heatExchangerM: Spec<HeatExchangerMProps> = {
+  name: "Heat Exchanger M",
+  key: "heatExchangerM",
+  Form: CommonStyleForm,
+  Symbol: HeatExchangerM,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("M Heat Exchanger"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.HeatExchangerM,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
+  name: "Heat Exchanger Straight Tube",
+  key: "heatExchangerStraightTube",
+  Form: CommonStyleForm,
+  Symbol: HeatExchangerStraightTube,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Straight Tube Heat Exchanger"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.HeatExchangerStraightTube,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -1269,5 +1320,8 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   flowmeterPositiveDisplacement,
   flowmeterTurbine,
   flowmeterPulse,
-  flowmeterFloatSensor
+  flowmeterFloatSensor,
+  heatExchangerGeneral,
+  heatExchangerM,
+  heatExchangerStraightTube
 };

@@ -3096,3 +3096,101 @@ export const FlowmeterFloatSensor = ({
     </Div>
   );
 };
+
+export interface HeatExchangerGeneralProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const HeatExchangerGeneral = ({
+  id,
+  className,
+  orientation = 'right',
+  color = 'black',
+  scale = 1,
+  ...props
+}: HeatExchangerGeneralProps): ReactElement => {
+  const colorStr = Color.cssString(color);
+  return (
+    <Div {...props} className={CSS(CSS.B('heat-exchanger-general'), className)}>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={1.6667} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={98.3333} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 50, height: 50 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Path d="M48 25C48 28.0204 47.4051 31.0112 46.2492 33.8017C45.0934 36.5922 43.3992 39.1277 41.2635 41.2635C39.1277 43.3992 36.5922 45.0934 33.8017 46.2492C31.0112 47.4051 28.0204 48 25 48C21.9796 48 18.9888 47.4051 16.1983 46.2492C13.4078 45.0934 10.8723 43.3992 8.73654 41.2635C6.6008 39.1277 4.90663 36.5922 3.75077 33.8017C2.59491 31.0112 2 28.0204 2 25C2 21.9796 2.59491 18.9888 3.75077 16.1983C4.90663 13.4078 6.6008 10.8723 8.73655 8.73654C10.8723 6.60079 13.4078 4.90663 16.1983 3.75077C18.9888 2.59491 21.9796 2 25 2C28.0204 2 31.0112 2.59491 33.8017 3.75077C36.5922 4.90663 39.1277 6.6008 41.2635 8.73655C43.3992 10.8723 45.0934 13.4078 46.2492 16.1983C47.4051 18.9888 48 21.9796 48 25L48 25Z" stroke="white" stroke-width="2"/>
+        <Path d="M2 25.4098H13.8033L25.0984 14.1147M25.3278 36.705L36.623 25.4098H48M25.2131 36.8197V14" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </InternalSVG>
+    </Div>
+  );
+};
+
+export interface HeatExchangerMProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const HeatExchangerM = ({
+  id,
+  className,
+  orientation = 'right',
+  color = 'black',
+  scale = 1,
+  ...props
+}: HeatExchangerMProps): ReactElement => {
+  const colorStr = Color.cssString(color);
+  return (
+    <Div {...props} className={CSS(CSS.B('heat-exchanger-M'), className)}>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="right" orientation={orientation} left={92} top={26} id="1" />
+        <Handle location="right" orientation={orientation} left={92} top={74} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={1.6667} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={98.3333} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 50, height: 50 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Path d="M44.5 13H16.1721L28.1739 25.0018M28.1739 24.9982L16.1721 37H44.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <Path d="M48 25C48 28.0204 47.4051 31.0112 46.2492 33.8017C45.0934 36.5922 43.3992 39.1277 41.2635 41.2635C39.1277 43.3992 36.5922 45.0934 33.8017 46.2492C31.0112 47.4051 28.0204 48 25 48C21.9796 48 18.9888 47.4051 16.1983 46.2492C13.4078 45.0934 10.8723 43.3992 8.73654 41.2635C6.6008 39.1277 4.90663 36.5922 3.75077 33.8017C2.59491 31.0112 2 28.0204 2 25C2 21.9796 2.59491 18.9888 3.75077 16.1983C4.90663 13.4078 6.6008 10.8723 8.73655 8.73654C10.8723 6.60079 13.4078 4.90663 16.1983 3.75077C18.9888 2.59491 21.9796 2 25 2C28.0204 2 31.0112 2.59491 33.8017 3.75077C36.5922 4.90663 39.1277 6.6008 41.2635 8.73655C43.3992 10.8723 45.0934 13.4078 46.2492 16.1983C47.4051 18.9888 48 21.9796 48 25L48 25Z" stroke="white" stroke-width="2"/>
+      </InternalSVG>
+    </Div>
+  );
+};
+
+export interface HeatExchangerStraightTubeProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const HeatExchangerStraightTube = ({
+  id,
+  className,
+  orientation = 'right',
+  color = 'black',
+  scale = 1,
+  ...props
+}: HeatExchangerStraightTubeProps): ReactElement => {
+  const colorStr = Color.cssString(color);
+  return (
+    <Div {...props} className={CSS(CSS.B('heat-exchanger-M'), className)}>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="top" orientation={orientation} left={9} top={5} id="1" />
+        <Handle location="bottom" orientation={orientation} left={24} top={95} id="2" />
+        <Handle location="top" orientation={orientation} left={76} top={5} id="3" />
+        <Handle location="bottom" orientation={orientation} left={91} top={95} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 199, height: 49 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Rect x="3" y="3" width="193" height="42" rx="1" stroke="white" stroke-width="2"/>
+        <Rect x="32.397" y="3" width="134.206" height="42" rx="1" stroke="white" stroke-width="2"/>
+        <Rect x="32.397" y="13.5" width="134.206" height="21" rx="1" stroke="white" stroke-width="2"/>
+        <Line x1="32.3769" y1="24" x2="166.623" y2="24" stroke="white" stroke-width="2"/>
+      </InternalSVG>
+    </Div>
+  );
+};
