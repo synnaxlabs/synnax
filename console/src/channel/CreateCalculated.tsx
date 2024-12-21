@@ -131,22 +131,23 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
 
   const methods = Form.use<typeof schema>({ schema, values: initialValues });
 
+  const addStatus = Status.useAggregator();
+
   const [createMore, setCreateMore] = useState(false);
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
-      const result = methods.validate();
-      if (!result) {
-        throw new Error("Form validation failed");
-      }
-
-      if (client == null) throw new Error("Client not available");
-      const formData = methods.value();
-      await client.channels.create(formData);
+     if(!methods.validate() || client == null) return;
+      const d = methods.value();
+      await client.channels.create(d);
       if (!createMore) onClose();
       else methods.reset(deep.copy(ZERO_FORM_VALUES));
     },
     onError: (error: Error) => {
-      console.error("Mutation error:", error.message);
+      addStatus({
+        variant: "error",
+        message: "Error creating channel",
+        description: error.message,
+      })
     }
   });
 

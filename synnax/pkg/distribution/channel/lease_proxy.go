@@ -143,27 +143,26 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
 
-	// If existing channels are passed in, update as necessary (for calc channels)
-	// unless retrieveIfNameExists is true,
-	//in which case we just update returned list of channels
+	// If existing channels are passed in, update as necessary (for calc channels).
+	// If retrieveIfNameExists is true and user has provided channels to update, we need
+	// to reset those channels to the actual values to ensure the user does not mistakenly
+	// think the update was successful.
 	if retrieveIfNameExists {
-		var found []Channel
+		var retrieved []Channel
 		err := gorp.NewRetrieve[Key, Channel]().
 			WhereKeys(KeysFromChannels(*channels)...).
-			Entries(&found).
+			Entries(&retrieved).
 			Exec(ctx, tx)
-
 		if err != nil && !errors.Is(err, query.NotFound) {
 			return err
 		}
-		for _, f := range found {
-			for i, ch := range *channels {
-				if ch.Key() == f.Key() {
-					(*channels)[i] = f
-					break
-				}
+		lo.ForEach(retrieved, func(existing Channel, _ int) {
+			if _, idx, exists := lo.FindIndexOf(*channels, func(ch Channel) bool {
+				return ch.Key() == existing.Key()
+			}); exists {
+				(*channels)[idx] = existing
 			}
-		}
+		})
 	} else {
 		err := gorp.NewUpdate[Key, Channel]().
 			WhereKeys(KeysFromChannels(*channels)...).
@@ -172,13 +171,12 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 					if !c.Virtual {
 						return c, errors.New("can only update virtual channels")
 					}
-					for _, ch := range *channels {
-						if ch.Key() == c.Key() {
-							c.Name = ch.Name
-							c.Requires = ch.Requires
-							c.Expression = ch.Expression
-							break
-						}
+					if newCh, found := lo.Find(*channels, func(ch Channel) bool {
+						return ch.Key() == c.Key()
+					}); found {
+						c.Name = newCh.Name
+						c.Requires = newCh.Requires
+						c.Expression = newCh.Expression
 					}
 					return c, nil
 				}).

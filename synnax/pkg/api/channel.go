@@ -262,6 +262,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			LocalIndex:  ch.Index.LocalKey(),
+			LocalKey:    ch.Key.LocalKey(),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
@@ -271,10 +272,6 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			tCH.LocalIndex = tCH.LocalKey
 		}
 
-		isCalc := ch.Expression != "" && !ch.IsIndex && ch.Virtual && !ch.Internal
-		if isCalc {
-			tCH.LocalKey = ch.Key.LocalKey()
-		}
 		translated[i] = tCH
 	}
 	return translated, nil

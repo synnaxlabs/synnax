@@ -231,17 +231,14 @@ export const useOpenCalculated =
     const layout = {
       ...createCalculatedLayout,
       key: tabKey,
-      windowKey: MAIN_WINDOW,
       name: `Edit ${resource.name}`,
-      location: "modal" as const,
+      location: "modal",
       tab: {
         closable: true,
         editable: false,
       },
       args: {
         channelKey: Number(resource.id.key),
-        channelName: resource.name,
-        expression: resource.data?.expression ?? ""
       },
     };
     return store.dispatch(Layout.place(layout));
