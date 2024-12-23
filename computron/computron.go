@@ -89,8 +89,7 @@ var (
 	_ config.Config[Config] = Config{}
 	//DefaultConfig is the default configuration for the computron service.
 	DefaultConfig = Config{
-		PythonInstallDir: "/Users/elham/workspace/synnax/computron/nested",
-		// Windows: "C:\\Users\\Synnax\\Desktop\\synnaxlabs\\synnax\\computron\\nested"
+		PythonInstallDir: filepath.Join(os.TempDir(), "synnax", "computron"),
 	}
 )
 
