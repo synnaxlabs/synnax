@@ -237,6 +237,32 @@ const Editor = (props: Code.EditorProps): ReactElement => {
   const requires = Form.useField<channel.Key[]>({ path: "requires" });
   const valueRef = useSyncedRef(requires.value);
 
+  // Specifically to handle generating requires list when reopening existing calc channel
+  useEffect(() => {
+    if (!client || !props.value) return;
+    const initializeRequiredChannels = async () => {
+      try {
+        const channelNames = props.value.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g) || [];
+        const channels = await Promise.all(
+          channelNames.map(name =>
+            client.channels.search(name, { internal: false })
+              .then(results => results.find(ch => ch.name === name))
+          )
+        );
+        const channelKeys = channels
+          .filter((ch): ch is NonNullable<typeof ch> => ch != null)
+          .map(ch => ch.key);
+        if (channelKeys.length > 0) {
+          requires.onChange(unique([...valueRef.current, ...channelKeys]));
+        }
+      } catch (error) {
+        console.error('Error initializing required channels:', error);
+      }
+    };
+    initializeRequiredChannels();
+  }, [client, props.value]);
+
+  // Register Monaco editor commands and completion provider
   useEffect(() => {
     const disposables: monaco.IDisposable[] = [];
     disposables.push(
