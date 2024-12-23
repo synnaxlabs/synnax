@@ -181,9 +181,11 @@ func (s *Interpreter) initPython() error {
 	}
 
 	// windows only
-	//path_ := "C:\\Users\\Synnax\\Desktop\\synnaxlabs\\synnax\\computron\\nested\\python_install\\lib\\python3.11;C:\\Users\\Synnax\\Desktop\\synnaxlabs\\synnax\\computron\\nested\\python_install\\lib\\python3.11\\site-packages"
-	//cPythonPath := C.CString(path_)
-	//C.SetPythonPath(cPythonPath)
+	path_ := fmt.Sprintf("%s\\lib\\python3.11;%s\\lib\\python3.11\\site-packages;%s\\lib\\combined",
+		installDir, installDir, installDir)
+	cPythonPath := C.CString(path_)
+	C.SetPythonPath(cPythonPath)
+	//////////////////////////////////////
 
 	pythonHome := C.CString(installDir)
 	defer C.free(unsafe.Pointer(pythonHome))
