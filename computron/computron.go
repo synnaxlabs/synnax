@@ -206,13 +206,8 @@ func (s *Interpreter) initPython() error {
 
 // initGlobals initializes global variables for the Python interpreter, specifically NumPy.
 func (s *Interpreter) initGlobals() error {
-	// Lock the OS thread
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	// Acquire the GIL
-	gilState := C.PyGILState_Ensure()
-	defer C.PyGILState_Release(gilState)
+	unlock := lockThreadAndGIL()
+	defer unlock()
 
 	s.globals = C.PyDict_New()
 	if s.globals == nil {
@@ -256,13 +251,8 @@ var compiledCodeCache xsync.Map[string, *C.PyObject]
 
 // compile takes a Python code string and returns a compiled Python code object (*C.PyObject).
 func compile(code string) (*C.PyObject, error) {
-	// Lock the OS thread
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	// Acquire the GIL
-	gilState := C.PyGILState_Ensure()
-	defer C.PyGILState_Release(gilState)
+	unlock := lockThreadAndGIL()
+	defer unlock()
 
 	if compiledCode, exists := compiledCodeCache.Load(code); exists {
 		return compiledCode, nil
