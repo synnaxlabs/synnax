@@ -50,13 +50,6 @@ static int wrapped_PyArray_ITEMSIZE(PyArrayObject* arr) { return PyArray_ITEMSIZ
 
 static void* wrapped_PyArray_DATA(PyArrayObject* arr) { return PyArray_DATA(arr); }
 
-// TODO: for windows only
-void SetPythonPath(const char *path) {
-	wchar_t *wpath = Py_DecodeLocale(path, NULL);
-	Py_SetPath(wpath);
-	PyMem_RawFree(wpath);
-}
-
 */
 import "C"
 import (
@@ -181,24 +174,19 @@ func (s *Interpreter) initPython() error {
 	}
 
 	// windows only
-	path_ := fmt.Sprintf("%s\\lib\\python3.11;%s\\lib\\python3.11\\site-packages;%s\\lib\\combined",
+	path := fmt.Sprintf("%s\\lib\\python3.11;%s\\lib\\python3.11\\site-packages;%s\\lib\\combined",
 		installDir, installDir, installDir)
-	cPythonPath := C.CString(path_)
-	C.SetPythonPath(cPythonPath)
-	//////////////////////////////////////
+	os.Setenv("PYTHONPATH", path)
 
-	pythonHome := C.CString(installDir)
-	defer C.free(unsafe.Pointer(pythonHome))
-	wPythonHome := C.Py_DecodeLocale(pythonHome, nil)
-	defer C.PyMem_Free(unsafe.Pointer(wPythonHome))
+	pythonHome := installDir
+	os.Setenv("PYTHONHOME", pythonHome)
 
 	// Lock the OS thread before initializing Python
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	C.Py_SetPythonHome(wPythonHome)
 	C.Py_Initialize()
-	C.PyEval_InitThreads()
+	// Threads are automatically initialized for python interpreter for python 3.11+
 
 	if res := C.init_numpy(); res != 0 {
 		return errors.New("failed to initialize NumPy")
