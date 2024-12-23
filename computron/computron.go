@@ -112,6 +112,7 @@ type Interpreter struct {
 	globals *C.PyObject
 }
 
+// lockThreadAndGIL locks the current thread and the Python Global Interpreter Lock (GIL).
 func lockThreadAndGIL() func() {
 	runtime.LockOSThread()
 	gilState := C.PyGILState_Ensure()
@@ -121,6 +122,7 @@ func lockThreadAndGIL() func() {
 	}
 }
 
+// New creates a new embedded Python interpreter.
 func New(cfgs ...Config) (*Interpreter, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -172,10 +174,16 @@ func (s *Interpreter) initPython() error {
 		s.cfg.L.Debug("embedded Python installation extracted")
 	}
 
-	// windows only
-	path := fmt.Sprintf("%s\\lib\\python3.11;%s\\lib\\python3.11\\site-packages;%s\\lib\\combined",
-		installDir, installDir, installDir)
-	os.Setenv("PYTHONPATH", path)
+	if runtime.GOOS == "windows" {
+		path := fmt.Sprintf("%s\\lib\\python3.11;%s\\lib\\python3.11\\site-packages;%s\\lib\\combined",
+			installDir, installDir, installDir)
+		os.Setenv("PYTHONPATH", path)
+	} else {
+		// macOS and Linux use forward slashes and colons
+		path := fmt.Sprintf("%s/lib/python3.11:%s/lib/python3.11/site-packages:%s/lib/combined",
+			installDir, installDir, installDir)
+		os.Setenv("PYTHONPATH", path)
+	}
 
 	pythonHome := installDir
 	os.Setenv("PYTHONHOME", pythonHome)
@@ -191,12 +199,12 @@ func (s *Interpreter) initPython() error {
 		return errors.New("failed to initialize NumPy")
 	}
 
-	// Release the GIL acquired by PyEval_InitThreads()
 	C.PyEval_SaveThread()
 
 	return nil
 }
 
+// initGlobals initializes global variables for the Python interpreter, specifically NumPy.
 func (s *Interpreter) initGlobals() error {
 	// Lock the OS thread
 	runtime.LockOSThread()
@@ -226,11 +234,15 @@ func (s *Interpreter) initGlobals() error {
 	return nil
 }
 
+// Calculation represents a compiled Python calculation.
 type Calculation struct {
-	globals  *C.PyObject
+	// Python namespace with pre-imported modules.
+	globals *C.PyObject
+	// The compiled Python bytecode.
 	compiled *C.PyObject
 }
 
+// NewCalculation takes a Python code string and compiles it into a Calculation object.
 func (s *Interpreter) NewCalculation(code string) (*Calculation, error) {
 	compiled, err := compile(code)
 	if err != nil {
@@ -239,8 +251,10 @@ func (s *Interpreter) NewCalculation(code string) (*Calculation, error) {
 	return &Calculation{compiled: compiled, globals: s.globals}, nil
 }
 
+// cache to avoid recompiling the same code
 var compiledCodeCache xsync.Map[string, *C.PyObject]
 
+// compile takes a Python code string and returns a compiled Python code object (*C.PyObject).
 func compile(code string) (*C.PyObject, error) {
 	// Lock the OS thread
 	runtime.LockOSThread()
