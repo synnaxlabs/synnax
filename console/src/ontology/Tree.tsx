@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Haul,
   Menu,
@@ -184,8 +184,10 @@ const handleRelationshipsChange = async (
   });
 
 const sortFunc = (a: Core.Node, b: Core.Node) => {
-  if (a.key.startsWith("group")) return -1;
-  if (b.key.startsWith("group")) return 1;
+  const aIsGroup = a.key.startsWith(group.ONTOLOGY_TYPE);
+  const bIsGroup = b.key.startsWith(group.ONTOLOGY_TYPE);
+  if (aIsGroup && !bIsGroup) return -1;
+  if (!aIsGroup && bIsGroup) return 1;
   return Core.defaultSort(a, b);
 };
 
