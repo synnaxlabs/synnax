@@ -144,43 +144,27 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	}
 
 	// If existing channels are passed in, update as necessary (for calc channels).
-	// If retrieveIfNameExists is true and user has provided channels to update, we need
-	// to reset those channels to the actual values to ensure the user does not mistakenly
-	// think the update was successful.
-	if retrieveIfNameExists {
-		var retrieved []Channel
-		err := gorp.NewRetrieve[Key, Channel]().
-			WhereKeys(KeysFromChannels(*channels)...).
-			Entries(&retrieved).
-			Exec(ctx, tx)
-		if err != nil && !errors.Is(err, query.NotFound) {
-			return err
-		}
-		lo.ForEach(retrieved, func(existing Channel, _ int) {
-			if _, idx, exists := lo.FindIndexOf(*channels, func(ch Channel) bool {
-				return ch.Key() == existing.Key()
-			}); exists {
-				(*channels)[idx] = existing
-			}
-		})
-	} else {
-		err := gorp.NewUpdate[Key, Channel]().
-			WhereKeys(KeysFromChannels(*channels)...).
-			ChangeErr(
-				func(c Channel) (Channel, error) {
-					if newCh, found := lo.Find(*channels, func(ch Channel) bool {
-						return ch.Key() == c.Key()
-					}); found {
-						c.Name = newCh.Name
-						c.Requires = newCh.Requires
-						c.Expression = newCh.Expression
-					}
+	keys := KeysFromChannels(*channels)
+	if err := gorp.NewUpdate[Key, Channel]().
+		WhereKeys(keys...).
+		ChangeErr(
+			func(c Channel) (Channel, error) {
+				idx := lo.IndexOf(keys, c.Key())
+				ic := (*channels)[idx]
+				// If retrieveIfNameExists is true and user has provided channels to update, we need
+				// to reset those channels to the actual values to ensure the user does not mistakenly
+				// think the update was successful.
+				if retrieveIfNameExists {
+					(*channels)[idx] = c
 					return c, nil
-				}).
-			Exec(ctx, tx)
-		if err != nil && !errors.Is(err, query.NotFound) {
-			return err
-		}
+				}
+				c.Name = ic.Name
+				c.Requires = ic.Requires
+				c.Expression = ic.Expression
+				return c, nil
+			}).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
+		return err
 	}
 
 	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.freeCounter, retrieveIfNameExists)

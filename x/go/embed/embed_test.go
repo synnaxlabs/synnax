@@ -26,7 +26,7 @@ var testFiles embed.FS
 var emptyFS embed.FS
 
 /*
-	Expected file structure in located in the directory that contains this file:
+	Expected file structure located in the directory that contains this test file:
 	└──  emptydata
 	└── testdata
 		├── nested
