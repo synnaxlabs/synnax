@@ -143,7 +143,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     onError: (error: Error) => {
       addStatus({
         variant: "error",
-        message: "Error creating channel",
+        message: "Error creating calculated channel: ".concat(methods.value().name),
         description: error.message,
       });
     },

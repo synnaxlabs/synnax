@@ -1,18 +1,16 @@
 package computron
 
 /*
-#cgo  linux CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
+#cgo  CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
+
 #cgo  linux LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
-
-#cgo  darwin CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
 #cgo  darwin LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
-
-#cgo windows CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
 #cgo windows LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython311
 
 #define PY_SSIZE_T_CLEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <Python.h>
+
 #include <numpy/arrayobject.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,6 +73,16 @@ const (
 	dirPerm             os.FileMode = 0755
 	filePerm            os.FileMode = 0644
 )
+
+const pythonLibPath string = "" +
+	// windows
+	`\lib\python3.11;%[1]s\lib\python3.11\site-packages;%[1]s\lib\combined` +
+	// !windows
+	`/lib/python3.11:%[1]s/lib/python3.11/site-packages:%[1]s/lib/combined`
+
+func getPythonPath(installDir string) string {
+	return fmt.Sprintf(pythonLibPath, installDir)
+}
 
 type Config struct {
 	// Instrumentation is used for logging, tracing, and metrics
@@ -174,16 +182,7 @@ func (s *Interpreter) initPython() error {
 		s.cfg.L.Debug("embedded Python installation extracted")
 	}
 
-	if runtime.GOOS == "windows" {
-		path := fmt.Sprintf("%s\\lib\\python3.11;%s\\lib\\python3.11\\site-packages;%s\\lib\\combined",
-			installDir, installDir, installDir)
-		os.Setenv("PYTHONPATH", path)
-	} else {
-		// macOS and Linux use forward slashes and colons
-		path := fmt.Sprintf("%s/lib/python3.11:%s/lib/python3.11/site-packages:%s/lib/combined",
-			installDir, installDir, installDir)
-		os.Setenv("PYTHONPATH", path)
-	}
+	os.Setenv("PYTHONPATH", getPythonPath(installDir))
 
 	pythonHome := installDir
 	os.Setenv("PYTHONHOME", pythonHome)
@@ -219,7 +218,7 @@ func (s *Interpreter) initGlobals() error {
 	numpyModule := C.PyImport_ImportModule(numpyName)
 	if numpyModule == nil {
 		C.PyErr_Print()
-		return fmt.Errorf("failed to import numpy")
+		return errors.Newf("failed to import numpy")
 	}
 	npKey := C.CString("np")
 	defer C.free(unsafe.Pointer(npKey))
@@ -328,9 +327,7 @@ func (c *Calculation) Run(vars map[string]interface{}) (telem.Series, error) {
 	if r == nil {
 		// If 'result' not in locals, check in globals (in case code modifies globals)
 		r = C.PyDict_GetItemString(c.globals, cr)
-		if r == nil {
-			return s, errors.New("no 'result' variable in vars or locals")
-		}
+		return s, errors.New("no 'result' variable in vars or locals")
 	}
 	// Increase reference count since we are going to use r
 	C.py_incref(r)
@@ -374,17 +371,17 @@ func NewSeries(s telem.Series) (*C.PyObject, error) {
 
 	dataType, ok := toNP[s.DataType]
 	if !ok {
-		return nil, fmt.Errorf("unsupported data type: %s", s.DataType)
+		return nil, errors.Newf("unsupported data type: %s", s.DataType)
 	}
 	if len(s.Data) == 0 {
-		return nil, fmt.Errorf("empty data")
+		return nil, errors.Newf("empty data")
 	}
 	length := C.npy_intp(s.Len())
 
 	// Create a new NumPy array
 	arr := C.wrapped_PyArray_SimpleNew(1, &length, C.int(dataType))
 	if arr == nil {
-		return nil, fmt.Errorf("failed to create numpy array")
+		return nil, errors.Newf("failed to create numpy array")
 	}
 
 	// Copy data from Go to NumPy array

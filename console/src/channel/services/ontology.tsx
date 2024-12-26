@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, isCalculated } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -32,7 +32,6 @@ import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-import { isCalculated } from "@synnaxlabs/client/src/channel/client";
 const canDrop = (): boolean => false;
 
 const handleSelect: Ontology.HandleSelect = ({
