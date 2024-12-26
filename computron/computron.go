@@ -76,7 +76,7 @@ const (
 
 const pythonLibPath string = "" +
 	// windows
-	`\lib\python3.11;%[1]s\lib\python3.11\site-packages;%[1]s\lib\combined` +
+	`%[1]s\lib\python3.11;%[1]s\lib\python3.11\site-packages;%[1]s\lib\combined` +
 	// !windows
 	`/lib/python3.11:%[1]s/lib/python3.11/site-packages:%[1]s/lib/combined`
 
