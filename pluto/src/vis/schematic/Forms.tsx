@@ -833,3 +833,5 @@ export const CommonDummyToggleForm = (): ReactElement => (
     <OrientationControl path="" />
   </FormWrapper>
 );
+
+export const BoxForm = (): ReactElement => <TankForm includeBorderRadius />;

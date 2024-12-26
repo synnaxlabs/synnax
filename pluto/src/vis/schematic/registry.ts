@@ -14,6 +14,7 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import {
+  BoxForm,
   ButtonForm,
   CommonDummyToggleForm,
   CommonStyleForm,
@@ -430,7 +431,7 @@ const cylinder: Spec<CylinderProps> = {
 const box: Spec<BoxProps> = {
   name: "Box",
   key: "box",
-  Form: () => TankForm({ includeBorderRadius: true }),
+  Form: BoxForm,
   Symbol: Box,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
@@ -454,7 +455,7 @@ const reliefValve: Spec<ReliefValveProps> = {
     ...zeroLabel("Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.ReliefValve(props),
+  Preview: Primitives.ReliefValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -468,7 +469,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
     ...zeroLabel("Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.SpringLoadedReliefValve(props),
+  Preview: Primitives.SpringLoadedReliefValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -482,7 +483,7 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.AngledSpringLoadedReliefValve(props),
+  Preview: Primitives.AngledSpringLoadedReliefValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -580,7 +581,7 @@ const manualValve: Spec<ManualValveProps> = {
     ...zeroLabel("Manual Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.ManualValve(props),
+  Preview: Primitives.ManualValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -636,7 +637,7 @@ const needleValve: Spec<NeedleValveProps> = {
     ...zeroLabel("Needle Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.NeedleValve(props),
+  Preview: Primitives.NeedleValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -678,7 +679,7 @@ const angledReliefValve: Spec<ReliefValveProps> = {
     ...zeroLabel("Angled Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.AngledReliefValve(props),
+  Preview: Primitives.AngledReliefValve,
   zIndex: Z_INDEX_UPPER,
 };
 
