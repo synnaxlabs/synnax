@@ -22,9 +22,7 @@ import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
-import {
-  createCalculatedLayout,
-} from "@/channel/CreateCalculated";
+import { createCalculatedLayout } from "@/channel/CreateCalculated";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -34,7 +32,7 @@ import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-import {isCalculated} from "@synnaxlabs/client/src/channel/client";
+import { isCalculated } from "@synnaxlabs/client/src/channel/client";
 const canDrop = (): boolean => false;
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -271,10 +269,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   const singleResource = resources.length === 1;
 
-  const isCalc = singleResource && isCalculated({
-    virtual: resources[0].data?.virtual ?? false,
-    expression: resources[0].data?.expression ?? "",
-  });
+  const isCalc =
+    singleResource &&
+    isCalculated({
+      virtual: resources[0].data?.virtual ?? false,
+      expression: resources[0].data?.expression ?? "",
+    });
 
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>

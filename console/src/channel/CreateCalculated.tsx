@@ -40,10 +40,8 @@ export interface CalculatedChannelArgs {
 }
 
 const defaultArgs: CalculatedChannelArgs = {
-  channelKey: undefined
+  channelKey: undefined,
 };
-
-
 
 const schema = channel.newPayload
   .extend({
@@ -91,7 +89,7 @@ const ZERO_FORM_VALUES: FormValues = {
   dataType: "float32",
   isIndex: false,
   leaseholder: 0,
-  virtual: true,  // Set to true by default
+  virtual: true, // Set to true by default
   rate: Rate.hz(0),
   internal: false,
   expression: "np.array([])",
@@ -100,7 +98,7 @@ const ZERO_FORM_VALUES: FormValues = {
 
 export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) => {
   const client = Synnax.use();
-  const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? defaultArgs
+  const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? defaultArgs;
   const res = useQuery<FormValues>({
     queryKey: [args.channelKey, client?.key],
     queryFn: async () => {
@@ -136,7 +134,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const [createMore, setCreateMore] = useState(false);
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
-     if(!methods.validate() || client == null) return;
+      if (!methods.validate() || client == null) return;
       const d = methods.value();
       await client.channels.create(d);
       if (!createMore) onClose();
@@ -147,8 +145,8 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
         variant: "error",
         message: "Error creating channel",
         description: error.message,
-      })
-    }
+      });
+    },
   });
 
   const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
@@ -244,19 +242,20 @@ const Editor = (props: Code.EditorProps): ReactElement => {
       try {
         const channelNames = props.value.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g) || [];
         const channels = await Promise.all(
-          channelNames.map(name =>
-            client.channels.search(name, { internal: false })
-              .then(results => results.find(ch => ch.name === name))
-          )
+          channelNames.map((name) =>
+            client.channels
+              .search(name, { internal: false })
+              .then((results) => results.find((ch) => ch.name === name)),
+          ),
         );
         const channelKeys = channels
           .filter((ch): ch is NonNullable<typeof ch> => ch != null)
-          .map(ch => ch.key);
+          .map((ch) => ch.key);
         if (channelKeys.length > 0) {
           requires.onChange(unique([...valueRef.current, ...channelKeys]));
         }
       } catch (error) {
-        console.error('Error initializing required channels:', error);
+        console.error("Error initializing required channels:", error);
       }
     };
     initializeRequiredChannels();
