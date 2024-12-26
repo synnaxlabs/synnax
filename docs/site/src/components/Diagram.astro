@@ -1,0 +1,74 @@
+---
+import { Icon } from "@synnaxlabs/media";
+const { preview, ...props } = Astro.props;
+---
+
+<div class=`diagram ${preview ? 'preview' : ''}` {...props}>
+    <div class="internal"></div>
+    <slot />
+</div>
+
+<style>
+    .diagram {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        margin: 5rem 0;
+        width: 100%;
+        border-radius: 1.5rem;
+        border: 1px solid var(--pluto-gray-l4);
+        box-shadow: var(--pluto-shadow-menu);
+        background-image: radial-gradient(
+            var(--pluto-dark-gray-l5) 0.5px,
+            var(--pluto-dark-gray-l0) 0.5px
+        );
+        background-size: 2rem 2rem;
+        overflow: hidden;
+        padding: 5rem;
+
+        @media (prefers-color-scheme: dark) {
+            border: 1px solid var(--pluto-dark-gray-l2);
+            box-shadow: none;
+            background-image: radial-gradient(
+                var(--pluto-gray-l4-70) 0.5px,
+                transparent 0.5px
+            );
+        }
+
+        &.preview {
+            justify-content: unset;
+            align-items: unset;
+            background-image: radial-gradient(
+                var(--pluto-gray-l5-70) 0.5px,
+                transparent 0.5px
+            );
+            @media (prefers-color-scheme: dark) {
+                background-image: radial-gradient(
+                    var(--pluto-dark-gray-l3) 0.5px,
+                    transparent 0.5px
+                );
+            }
+            img {
+                width: 100%;
+                border-radius: 1rem;
+                z-index: 10;
+            }
+            & .internal {
+                position: absolute;
+                z-index: 0;
+                top: 0;
+                left: 0;
+                height: 100%;
+                width: 100%;
+                background: linear-gradient(
+                    45deg,
+                    var(--pluto-primary-z-50),
+                    #ff007b66
+                );
+            }
+            padding: 10rem 20rem;
+        }
+    }
+</style>

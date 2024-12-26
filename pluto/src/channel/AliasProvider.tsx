@@ -37,9 +37,7 @@ const AliasContext = createContext<AliasContextValue>({
   setAlias: null,
 });
 
-export const useContext = (): AliasContextValue => {
-  return reactUseContext(AliasContext);
-};
+export const useContext = (): AliasContextValue => reactUseContext(AliasContext);
 
 export interface AliasProviderProps extends PropsWithChildren {
   activeRange?: string | null;
@@ -60,7 +58,7 @@ export const useName = (key: channel.Key, def: string = ""): string => {
   const [name, setName] = useState<string | undefined>(def);
   useAsyncEffect(async () => {
     const n = await getName(key);
-    if (n != null) setName(n);
+    setName(n);
   }, [key, getName]);
   return name ?? def;
 };

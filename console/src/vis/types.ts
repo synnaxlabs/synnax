@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type LinePlot } from "@/lineplot";
+import { type Log } from "@/log";
 import { type Schematic } from "@/schematic";
-// import { type Table } from "@/table";
+import { type Table } from "@/table";
 
-export type LayoutType = LinePlot.LayoutType | Schematic.LayoutType;
+export type LayoutType =
+  | LinePlot.LayoutType
+  | Schematic.LayoutType
+  | Log.LayoutType
+  | Table.LayoutType;

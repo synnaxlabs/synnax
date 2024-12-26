@@ -28,6 +28,8 @@ const grayScaleZ = z.object({
 
 type GrayScale = z.input<typeof grayScaleZ>;
 
+export type Shade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
 const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
   color[0],
   color[1],
@@ -67,6 +69,7 @@ export const themeZ = z
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
+      palettes: z.record(color.paletteZ),
       visualization: z
         .object({
           palettes: z.record(z.array(color.Color.z)),
@@ -92,6 +95,7 @@ export const themeZ = z
     }),
     typography: z.object({
       family: z.string(),
+      codeFamily: z.string(),
       h1: text.specZ,
       h2: text.specZ,
       h3: text.specZ,
@@ -114,6 +118,7 @@ export type ThemeSpec = z.input<typeof themeZ>;
 export type Theme = z.output<typeof themeZ>;
 
 const fontFamily = "'Inter Variable', sans-serif";
+const codeFontFamily = "'Geist Mono', monospace";
 const baseSize: number = 6;
 
 // Error
@@ -122,16 +127,16 @@ const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
 // Warning
 
-const WARNING_HSLA: color.HSLA = [42, 100, 50, 1];
+const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 
 // Grayscale
 
 const LIGHT_SCALE = [
-  "#FCFCFC",
-  "#F9F9F9",
-  "#F4F4F4",
-  "#ededed",
-  "#d9d9d9",
+  "#FDFDFD",
+  "#FAFAFA",
+  "#F3F3F3",
+  "#EAEAEA",
+  "#D8D8D8",
   "#ADADAD",
   "#878787",
   "#616161",
@@ -178,6 +183,13 @@ const SYNNAX_BASE: ThemeSpec = {
       p1: color.fromHSLA(setLightness(WARNING_HSLA, 65)),
       p2: color.fromHSLA(setLightness(WARNING_HSLA, 75)),
     },
+    palettes: {
+      recent: {
+        key: "recent",
+        name: "Recent",
+        swatches: [],
+      },
+    },
     visualization: {
       palettes: {
         default: [
@@ -203,6 +215,7 @@ const SYNNAX_BASE: ThemeSpec = {
     black: "#000000",
     text: lightGrayScale.l9,
     textInverted: lightGrayScale.l0,
+    textOnPrimary: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
@@ -216,6 +229,7 @@ const SYNNAX_BASE: ThemeSpec = {
   },
   typography: {
     family: fontFamily,
+    codeFamily: codeFontFamily,
     h1: {
       size: 7,
       weight: "500",
@@ -232,9 +246,9 @@ const SYNNAX_BASE: ThemeSpec = {
       lineHeight: 3.5 * 1.5,
     },
     h4: {
-      size: 2.5,
+      size: 2.6666,
       weight: "medium",
-      lineHeight: 2.5 * 1.5,
+      lineHeight: 2.6666 * 1.5,
     },
     h5: {
       size: 2.333333,
@@ -262,15 +276,15 @@ export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
 
 const DARK_SCALE = [
   "#020202",
-  "#080808",
-  "#141414",
-  "#1a1a1a",
-  "#242424",
-  "#515151",
-  "#7f7f7f",
-  "#9D9D9D",
-  "#BFBFBF",
-  "#EDEDED",
+  "#0A0A0A",
+  "#131313",
+  "#1E1E1E",
+  "#2E2E2E",
+  "#444444",
+  "#646464",
+  "#8A8A8A",
+  "#AFAFAF",
+  "#D5D5D5",
   "#FDFDFD",
 ];
 
@@ -289,6 +303,7 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     border: DARK_GRAY_SCALE.l3,
     text: DARK_GRAY_SCALE.l9,
     textInverted: DARK_GRAY_SCALE.l0,
+    textOnPrimary: DARK_GRAY_SCALE.l10,
   },
 });
 

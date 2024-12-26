@@ -11,6 +11,9 @@ package freighter_test
 
 import (
 	"context"
+	"net/http"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,8 +25,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
-	"net/http"
-	"time"
 )
 
 type (
@@ -127,9 +128,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				})
 
 			})
-			Describe("Details Handling", func() {
+			Describe("Error Handling", func() {
 
-				Describe("adaptStream returns a non-nil error", func() {
+				Describe("Stream returns a non-nil error", func() {
 					It("Should send the error to the client", func() {
 						serverClosed := make(chan struct{})
 						server.BindHandler(func(ctx context.Context, server serverStream) error {
@@ -244,7 +245,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				})
 			})
 			Describe("Middleware", func() {
-				It("Should be able to intercept the stream request", func() {
+				It("Should correctly execute a middleware in the chain", func() {
 					serverClosed := make(chan struct{})
 					server.BindHandler(func(ctx context.Context, server serverStream) error {
 						defer close(serverClosed)
@@ -259,9 +260,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						next freighter.Next,
 					) (freighter.Context, error) {
 						c++
-						oMd, _ := next(ctx)
+						oMd, err := next(ctx)
 						c++
-						return oMd, nil
+						return oMd, err
 					}))
 					ctx, cancel := context.WithCancel(context.TODO())
 					defer cancel()
@@ -272,6 +273,27 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					Expect(err).To(HaveOccurredAs(freighter.EOF))
 					Eventually(serverClosed).Should(BeClosed())
 					Expect(c).To(Equal(2))
+				})
+				It("Should correctly propagate an error that arises in a middleware", func() {
+					serverClosed := make(chan struct{})
+					server.BindHandler(func(ctx context.Context, server serverStream) error {
+						defer close(serverClosed)
+						defer GinkgoRecover()
+						_, err := server.Receive()
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
+						return nil
+					})
+					server.Use(freighter.MiddlewareFunc(func(
+						ctx freighter.Context,
+						next freighter.Next,
+					) (freighter.Context, error) {
+						return ctx, errors.New("middleware error")
+					}))
+					ctx, cancel := context.WithCancel(context.TODO())
+					defer cancel()
+					_, err := client.Stream(ctx, addr)
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(HaveOccurredAs(errors.New("middleware error")))
 				})
 			})
 		}
@@ -294,7 +316,7 @@ func (impl *httpStreamImplementation) start(
 ) (streamServer, streamClient) {
 	impl.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	router := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})
-	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{Codec: httputil.MsgPackCodec})
+	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{Codec: httputil.JSONCodec})
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Link } from "@/link";
+import { type Link } from "@/link";
 import { create } from "@/schematic/Schematic";
-import { State } from "@/schematic/slice";
+import { type State } from "@/schematic/slice";
 
 export const linkHandler: Link.Handler = async ({
   resource,
@@ -25,6 +25,7 @@ export const linkHandler: Link.Handler = async ({
       ...(schematic.data as unknown as State),
       key: schematic.key,
       name: schematic.name,
+      editable: false,
     });
     placer(layoutCreator);
   } catch (e) {

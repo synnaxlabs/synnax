@@ -4,7 +4,9 @@
   "type": "module",
   "description": "Vite plugin for Synnax Labs",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix"
   },
   "exports": {
     ".": {
@@ -13,12 +15,13 @@
       "import": "./dist/index.js"
     }
   },
-  "dependencies": {
+  "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
-    "typescript": "^5.4.5",
-    "vite": "5.2.11",
-    "vite-plugin-dts": "3.8.2",
-    "vite-tsconfig-paths": "4.3.2"
+    "eslint": "^9.17.0",
+    "eslint-config-synnaxlabs": "workspace:*",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vite-plugin-dts": "^4.3.0"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",

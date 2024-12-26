@@ -14,7 +14,7 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type framer } from "@/framer";
 import { type Key, type Label, labelZ } from "@/label/payload";
 import { Retriever } from "@/label/retriever";
-import { type NewLabelPayload, SetOptions, Writer } from "@/label/writer";
+import { type NewLabelPayload, type SetOptions, Writer } from "@/label/writer";
 import { ontology } from "@/ontology";
 import { signals } from "@/signals";
 
@@ -110,11 +110,11 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
       name: l.name,
       data: l,
     }));
-    const base = await this.ontology.openDependentTracker(
-      new ontology.ID(id),
-      initial,
-      "labeled_by",
-    );
+    const base = await this.ontology.openDependentTracker({
+      target: new ontology.ID(id),
+      dependents: initial,
+      relationshipType: "labeled_by",
+    });
     base.onChange((resources: ontology.Resource[]) =>
       wrapper.notify(
         resources.map((r) => ({

@@ -28,9 +28,7 @@ export const payloadZ = z.object({
 });
 export type Payload = z.infer<typeof payloadZ>;
 
-export const newPayloadZ = payloadZ.extend({
-  key: z.string().uuid().optional(),
-});
+export const newPayloadZ = payloadZ.extend({ key: z.string().uuid().optional() });
 export type NewPayload = z.input<typeof newPayloadZ>;
 
 export type ParamAnalysisResult =
@@ -63,25 +61,25 @@ export type ParamAnalysisResult =
       empty: boolean;
     };
 
-export const analyzeParams = (params: Params): ParamAnalysisResult => {
-  const normal = toArray(params) as Keys | Names;
+export const analyzeParams = (ranges: Params): ParamAnalysisResult => {
+  const normal = toArray(ranges) as Keys | Names;
   const empty = normal.length === 0;
   let isKey = false;
   if (!empty) isKey = keyZ.safeParse(normal[0]).success;
   return {
-    single: !Array.isArray(params),
+    single: !Array.isArray(ranges),
     variant: isKey ? "keys" : "names",
     normalized: normal,
-    actual: params,
+    actual: ranges,
     empty,
   } as const as ParamAnalysisResult;
 };
 
-export const RangeOntologyType = "range" as ontology.ResourceType;
-export const RangeAliasOntologyType = "range-alias" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "range";
+export const ALIAS_ONTOLOGY_TYPE: ontology.ResourceType = "range-alias";
 
 export const rangeOntologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: RangeOntologyType, key: key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });
 
 export const rangeAliasOntologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: RangeAliasOntologyType, key: key });
+  new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key });

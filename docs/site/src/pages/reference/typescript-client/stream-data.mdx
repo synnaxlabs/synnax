@@ -1,12 +1,16 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Stream Data"
 heading: "Stream Data"
 description: "Use the TypeScript client to stream data from a Synnax cluster."
+next: "Delete Data"
+nextURL: "/reference/typescript-client/delete-data"
+prev: "Write Data"
+prevURL: "/reference/typescript-client/write-data"
 ---
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
-import { Divider } from "@synnaxlabs/pluto"
+import { Divider, Note } from "@synnaxlabs/pluto"
 
 Streaming data is useful for real-time processing, visualization, and
 monitoring. This page guides you through using the TypeScript client to stream
@@ -42,6 +46,47 @@ frame containing data only for the second channel.
 
 For more details on how to work with the returned frames, see the [Series and Frames](series-and-frames) page.
 
+### Downsampling Frames
+
+If you are interested in streaming data at a lower rate than is being written to the server, you can use the optional `downsample` parameter to specify the number of frames to skip before returning the next frame:
+
+```typescript
+// setting the downsample factor to n means every nth sample will be retained
+// e.g. for a downsample factor of 2, if [0.13, 0.12, 0.14, 0.13] is written,
+// a streamer.read() will return [0.13, 0.14]
+
+const streamer = await client.openStreamer(["temperature1", "temperature2"],2);
+```
+
+### Handling Partial Frames
+
+When reading frames from a streamer, it's important to note that a frame may not
+contain data for every channel specified when opening the streamer. For example,
+if we're reading from two sensors, `temperature` and `pressure`, that are being
+sampled by different devices at different rates, we may receive a frame
+containing data only for the first channel, followed by a frame containing only
+data for the second channel.
+
+```typescript
+const frame = await streamer.read();
+console.log(frame.at(-1))
+// Output: { temperature: 25.0 }
+const frame2 = await streamer.read();
+console.log(frame2.at(-1))
+// Output: { pressure: 1000.0 }
+const frame3 = await streamer.read();
+console.log(frame3.at(-1))
+// Output: { temperature: 25.0, pressure: 1000.0 }
+```
+
+To check if a frame contains data for a specific channel, you can use the `has`
+method:
+
+```typescript
+const frame = await streamer.read();
+if (frame.has("temperature")) console.log(frame.get("temperature"));
+```
+
 ### Using an Async For Loop
 
 The streamer implements an async iterator, which can be useful for continuously
@@ -53,6 +98,21 @@ for await (const frame of streamer) {
   const latestSamples = frame.at(-1);
 }
 ```
+
+<Divider.Divider direction="x" />
+
+## Updating the Channel List
+
+If you need to update the list of channels being streamed, you can call the
+`update` method on the streamer:
+
+```typescript
+await streamer.update(["temperature1", "temperature2", "pressure"]);
+```
+
+<Note.Note variant="info">
+This method will *replace* the current list of channels with the new list, not add to it.
+</Note.Note>
 
 <Divider.Divider direction="x"/>
 

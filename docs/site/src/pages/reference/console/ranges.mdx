@@ -1,88 +1,72 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Ranges"
 heading: "Ranges"
-description: "Query data using ranges."
+description: "Create, view, and manage ranges using the Console"
+prev: "Workspaces"
+prevURL: "/reference/console/workspaces"
+next: "Line Plots"
+nextURL: "/reference/console/line-plots"
 ---
-import { Icon } from "@synnaxlabs/media";
-import { Divider } from "@synnaxlabs/pluto"
-import { Video } from "@/components/Media"
-import { Table } from "@/components/Table"
 
-This page walks you through using [ranges](/reference/concepts/read-ranges) to query
-sections of your cluster's data.
+import { Icon } from "@synnaxlabs/media";
+import { Text, Divider, Triggers } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/Media";
+import { Table } from "@/components/Table";
+import Diagram from "@/components/Diagram.astro";
+
+<Diagram preview>
+  <Image client:only="react" id="console/ranges/range-3" themed={false} />
+</Diagram>
+
+Ranges are the primary means for organizing and accessing the data stored in a Synnax
+cluster. They identify and name a specific time interval, and can be used to correlate
+meta-data with channel telemetry. If you'd like a conceptual introduction to ranges and
+their use cases, visit the [concepts page](/reference/concepts/ranges) on ranges.
 
 <Divider.Divider direction="x" />
 
-## Defining New Ranges
+## Creating a Range
 
-The primary means for accessing data in the Synnax Console is through ranges. A range is
-identified by a start timestamp, end timestamp, and name.
+There are several ways to create ranges in the Synnax Console.
 
-### Creating a New Range
+### Using the Range Toolbar
 
-Creating a range is simple: just just click the "Add Range" button in the range toolbar
-and fill in the required fields. If you would like to save the range to your local
-computer and not share it with the rest of the cluster, click "Save Locally". If you
-want the range to be saved to the whole cluster, click "Save Permanently".
+The simplest way to create a new range is by clicking the **create** button in the
+range toolbar. This will open a dialog where you can fill in the required fields.
 
-<Video client:only="react" id="console/ranges/create" />
+<Video client:only="react" id="console/ranges/toolbar-create" />
 
-### Local vs. Persisted Ranges
+### Using the Command Palette
 
-The difference between local and persisted range is that local ranges are _not_ saved to
-your cluster. What that means is if two users are connected to the same cluster, a local
-range created by one user will not be visible to the other user. When you clear the
-console's local storage, the local range will also be lost. If you want to make sure
-your range is always accessible, save it as a persisted range.
+You can also create a range using the command palette. To open the palette, click on
+the search bar at the top, or type `Cmd+Shift+P` on Mac or `Ctrl+Shift+P` on Windows
+and Linux.
 
-### Parameters for Creating a Range
+<Video client:only="react" id="console/ranges/palette-create" />
 
-<Table
-    columns={[
-        {
-            key: "name",
-            name: "Name",
-        },
-        {
-            key: "description",
-            name: "Description",
-        },
-    ]}
-    data={[
-        {
-            name: "Name",
-            description: "A name for identifying the range.",
-        },
-        {
-            name: "From",
-            description: "The date and time when the range starts.",
-        },
-        {
-            name: "To",
-            description: "The date and time when the range ends.",
-        },
-    ]}
-/>
+### From a Plot Region
+
+You can also create a range by selecting a region on a plot. This is particularly useful
+when you want to annotate a particular event. The range creation dialog will automatically
+populate the `From` and `To` fields with the selected region.
+
+<Video client:only="react" id="console/ranges/plot-create" />
 
 <Divider.Divider direction="x" />
 
 ## Finding Existing Ranges
 
-There are two ways to find existing ranges in the console: the resources toolbar and the
-command and search palette.
+There are two primary ways to search for existing ranges in the console: the resources
+toolbar and command and search palette.
 
-### Resources Toolbar
+### Using the Resources Toolbar
 
 The resources toolbar is located on the left side of the console, and can be used to
 browse all of your cluster's resources, including ranges. All of your ranges can be
 found under the "Ranges" section.
 
-<Video
-  client:only="react"
-  id="console/ranges/resources"
-  style={{width: "50%", marginLeft: "25%"}}
-/>
+<Video client:only="react" id="console/ranges/resources" />
 
 We can load a specific range into our ranges toolbar by clicking on it.
 
@@ -96,3 +80,33 @@ saved range just by typing its name into the palette.
 
 Use the arrow keys to navigate the results, and press <Icon.Keyboard.Return /> to load
 the range you're interested in. You can also hover and click using your mouse.
+
+<Divider.Divider direction="x" />
+
+## Child Ranges
+
+[Child ranges](/reference/concepts/ranges#child-ranges) are a way to further segment a
+range into smaller, specific intervals. The easiest way to create a child range is by
+specifying the parent range field in the range creation dialog. You can also create a
+child by clicking on the **Add Child Range** button in the range overview page.
+
+<Video client:only="react" id="console/ranges/create-child" />
+
+<Divider.Divider direction="x" />
+
+## Meta Data
+
+You can also attach arbitrary meta-data to a range, including links to external resources.
+To add a new field, simply click on a cell in the meta data section of the range
+overview page.
+
+<Video client:only="react" id="console/ranges/add-meta-data" />
+
+<Divider.Divider direction="x" />
+
+## Labels
+
+Labels are an effective way to categorize and filter ranges. You can add a label to a
+range by clicking on the **Add Label** button in the range overview page.
+
+<Video client:only="react" id="console/ranges/add-label" />

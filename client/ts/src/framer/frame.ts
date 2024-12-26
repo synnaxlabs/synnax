@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  DataType,
   MultiSeries,
   Series,
+  type SeriesDigest,
+  type SeriesPayload,
   Size,
   type TelemValue,
   TimeRange,
@@ -30,6 +31,8 @@ import {
 import { UnexpectedError, ValidationError } from "@/errors";
 
 type ColumnType = "key" | "name" | null;
+
+export interface FrameDigest extends Record<KeyOrName, SeriesDigest[]> {}
 
 const columnType = (columns: Params): ColumnType => {
   const arrKeys = toArray(columns);
@@ -55,7 +58,7 @@ const validateMatchedColsAndSeries = (columns: Params, series: Series[]): void =
 
 export type CrudeFrame =
   | Frame
-  | FramePayload
+  | CrudeFramePayload
   | Map<KeyOrName, Series[] | Series>
   | Record<KeyOrName, Series[] | Series>;
 
@@ -117,6 +120,8 @@ export class Frame {
     if (isObject) {
       if ("keys" in columnsOrData && "series" in columnsOrData) {
         const data_ = columnsOrData as FramePayload;
+        data_.series ??= [];
+        data_.keys ??= [];
         const series = data_.series.map((a) => seriesFromPayload(a));
         validateMatchedColsAndSeries(data_.keys, series);
         data_.keys.forEach((key, i) => this.push(key, series[i]));
@@ -124,7 +129,7 @@ export class Frame {
         Object.entries(columnsOrData).forEach(([k, v]) => {
           const key = parseInt(k);
           if (!isNaN(key)) return this.push(key, ...toArray(v));
-          else this.push(k, ...toArray(v));
+          this.push(k, ...toArray(v));
         });
       return;
     }
@@ -332,7 +337,7 @@ export class Frame {
    */
   has(channel: KeyOrName): boolean {
     if (typeof channel === "string" && this.colType === "key") return false;
-    else if (typeof channel === "number" && this.colType === "name") return false;
+    if (typeof channel === "number" && this.colType === "name") return false;
     return (this.columns as Keys).includes(channel as Key);
   }
 
@@ -390,30 +395,25 @@ export class Frame {
     return new Size(this.series.reduce((acc, v) => acc.add(v.byteLength), Size.ZERO));
   }
 
+  /**
+   * @returns a digest of information about the structure of the frame for debugging
+   * purposes.
+   */
+  get digest(): FrameDigest {
+    const digest: FrameDigest = {};
+    this.keys.forEach((k, i) => {
+      const sd = this.series[i].digest;
+      if (k in digest) digest[k].push(sd);
+      else digest[k] = [sd];
+    });
+    return digest;
+  }
+
   /** @returns the total number of samples in the frame. */
   get length(): number {
     return this.series.reduce((acc, v) => acc + v.length, 0);
   }
 }
-
-export const series = z.object({
-  timeRange: TimeRange.z.optional(),
-  alignment: z
-    .bigint()
-    .or(z.string().transform((s) => BigInt(s)))
-    .optional(),
-  dataType: DataType.z,
-  data: z.string().transform(
-    (s) =>
-      new Uint8Array(
-        atob(s)
-          .split("")
-          .map((c) => c.charCodeAt(0)),
-      ).buffer,
-  ),
-});
-
-export type SeriesPayload = z.infer<typeof series>;
 
 export const frameZ = z.object({
   keys: z.union([
@@ -421,23 +421,23 @@ export const frameZ = z.object({
     z.number().array().optional().default([]),
   ]),
   series: z.union([
-    z.null().transform(() => [] as Array<z.infer<typeof series>>),
-    series.array().optional().default([]),
+    z.null().transform(() => [] as Array<z.infer<typeof Series.crudeZ>>),
+    Series.crudeZ.array().optional().default([]),
   ]),
 });
 
-export type FramePayload = z.infer<typeof frameZ>;
+export type FramePayload = z.output<typeof frameZ>;
+
+export type CrudeFramePayload = z.input<typeof frameZ>;
 
 export const seriesFromPayload = (series: SeriesPayload): Series => {
   const { dataType, data, timeRange, alignment } = series;
   return new Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
 };
 
-export const seriesToPayload = (series: Series): SeriesPayload => {
-  return {
-    timeRange: series._timeRange,
-    dataType: series.dataType,
-    data: new Uint8Array(series.data.buffer),
-    alignment: series.alignment,
-  };
-};
+export const seriesToPayload = (series: Series): SeriesPayload => ({
+  timeRange: series._timeRange,
+  dataType: series.dataType,
+  data: new Uint8Array(series.data.buffer),
+  alignment: series.alignment,
+});

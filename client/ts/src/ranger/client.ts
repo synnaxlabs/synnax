@@ -8,21 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
+import { type CrudeTimeRange, observe, sortTimeRange, TimeRange } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type Series } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { Key as ChannelKey } from "@/channel/payload";
+import { type Key as ChannelKey } from "@/channel/payload";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
-import { MultipleFoundError, NotFoundError } from "@/errors";
-import { QueryError } from "@/errors";
+import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { type Label } from "@/label/payload";
 import { ontology } from "@/ontology";
-import { Resource } from "@/ontology/payload";
+import { type Resource } from "@/ontology/payload";
 import { type Alias, Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
@@ -37,7 +36,7 @@ import {
   type Payload,
   payloadZ,
 } from "@/ranger/payload";
-import { CreateOptions, type Writer } from "@/ranger/writer";
+import { type CreateOptions, type Writer } from "@/ranger/writer";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
 
@@ -98,9 +97,8 @@ export class Range {
 
   async setAlias(channel: ChannelKey | Name, alias: string): Promise<void> {
     const ch = await this.channels.retrieve(channel);
-    if (ch.length === 0) {
-      throw new QueryError(`Channel ${channel} does not exist`);
-    }
+    if (ch.length === 0) throw new QueryError(`Channel ${channel} does not exist`);
+
     await this.aliaser.set({ [ch[0].key]: alias });
   }
 
@@ -128,6 +126,7 @@ export class Range {
     const res = (
       await this.ontologyClient.retrieveChildren(this.ontologyID, {
         excludeFieldData: true,
+        types: ["range"],
       })
     ).map((r) => r.id.key);
     return await this.rangeClient.retrieve(res);
@@ -159,12 +158,13 @@ export class Range {
       const id = new ontology.ID({ key: r.key, type: "range" });
       return { id, key: id.toString(), name: r.name, data: r.payload };
     });
-    const base = await this.ontologyClient.openDependentTracker(
-      this.ontologyID,
-      initial,
-    );
-    base.onChange((resources: Resource[]) =>
-      wrapper.notify(this.rangeClient.resourcesToRanges(resources)),
+    const base = await this.ontologyClient.openDependentTracker({
+      target: this.ontologyID,
+      dependents: initial,
+      resourceType: "range",
+    });
+    base.onChange((r: Resource[]) =>
+      wrapper.notify(this.rangeClient.resourcesToRanges(r)),
     );
     wrapper.setCloser(async () => await base.close());
     return wrapper;
@@ -176,12 +176,11 @@ export class Range {
     if (p == null) return null;
     const id = new ontology.ID({ key: p.key, type: "range" });
     const resourceP = { id, key: id.toString(), name: p.name, data: p.payload };
-    const base = await this.ontologyClient.openDependentTracker(
-      this.ontologyID,
-      [resourceP],
-      "parent",
-      "to",
-    );
+    const base = await this.ontologyClient.openDependentTracker({
+      target: this.ontologyID,
+      dependents: [resourceP],
+      relationshipDirection: "to",
+    });
     base.onChange((resources: Resource[]) => {
       const ranges = this.rangeClient.resourcesToRanges(resources);
       if (ranges.length === 0) return;
@@ -192,6 +191,9 @@ export class Range {
     return wrapper;
   }
 }
+
+export const sort = (a: Range, b: Range): -1 | 0 | 1 =>
+  sortTimeRange(a.timeRange, b.timeRange);
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -244,7 +246,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     options?: CreateOptions,
   ): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
-    const res = this.sugar(await this.writer.create(toArray(ranges), options));
+    const res = this.sugarMany(await this.writer.create(toArray(ranges), options));
     return single ? res[0] : res;
   }
 
@@ -257,11 +259,11 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   }
 
   async search(term: string): Promise<Range[]> {
-    return this.sugar(await this.execRetrieve({ term }));
+    return this.sugarMany(await this.execRetrieve({ term }));
   }
 
   async page(offset: number, limit: number): Promise<Range[]> {
-    return this.sugar(await this.execRetrieve({ offset, limit }));
+    return this.sugarMany(await this.execRetrieve({ offset, limit }));
   }
 
   async retrieve(range: CrudeTimeRange): Promise<Range[]>;
@@ -270,18 +272,18 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
 
   async retrieve(range: Keys | Names): Promise<Range[]>;
 
-  async retrieve(params: Params | CrudeTimeRange): Promise<Range | Range[]> {
-    if (typeof params === "object" && "start" in params)
-      return await this.execRetrieve({ overlapsWith: new TimeRange(params) });
-    const { single, actual, variant, normalized, empty } = analyzeParams(params);
+  async retrieve(ranges: Params | CrudeTimeRange): Promise<Range | Range[]> {
+    if (typeof ranges === "object" && "start" in ranges)
+      return await this.execRetrieve({ overlapsWith: new TimeRange(ranges) });
+    const { single, actual, variant, normalized, empty } = analyzeParams(ranges);
     if (empty) return [];
-    const ranges = await this.execRetrieve({ [variant]: normalized });
-    if (!single) return ranges;
-    if (ranges.length === 0)
+    const retrieved = await this.execRetrieve({ [variant]: normalized });
+    if (!single) return retrieved;
+    if (retrieved.length === 0)
       throw new NotFoundError(`range matching ${actual} not found`);
-    if (ranges.length > 1)
+    if (retrieved.length > 1)
       throw new MultipleFoundError(`multiple ranges matching ${actual} found`);
-    return ranges[0];
+    return retrieved[0];
   }
 
   getKV(range: Key): KV {
@@ -296,7 +298,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       retrieveReqZ,
       retrieveResZ,
     );
-    return this.sugar(ranges);
+    return this.sugarMany(ranges);
   }
 
   async retrieveParent(range: Key): Promise<Range | null> {
@@ -310,22 +312,24 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     return await this.retrieve(first.id.key);
   }
 
-  sugar(payloads: Payload[]): Range[] {
-    return payloads.map((payload) => {
-      return new Range(
-        payload.name,
-        payload.timeRange,
-        payload.key,
-        payload.color,
-        this.frameClient,
-        new KV(payload.key, this.unaryClient, this.frameClient),
-        new Aliaser(payload.key, this.frameClient, this.unaryClient),
-        this.channels,
-        this.labelClient,
-        this.ontologyClient,
-        this,
-      );
-    });
+  sugarOne(payload: Payload): Range {
+    return new Range(
+      payload.name,
+      payload.timeRange,
+      payload.key,
+      payload.color,
+      this.frameClient,
+      new KV(payload.key, this.unaryClient, this.frameClient),
+      new Aliaser(payload.key, this.frameClient, this.unaryClient),
+      this.channels,
+      this.labelClient,
+      this.ontologyClient,
+      this,
+    );
+  }
+
+  sugarMany(payloads: Payload[]): Range[] {
+    return payloads.map((payload) => this.sugarOne(payload));
   }
 
   async openTracker(): Promise<signals.Observable<string, Range>> {
@@ -336,19 +340,22 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       (variant, data) => {
         if (variant === "delete")
           return data.toStrings().map((k) => ({ variant, key: k, value: undefined }));
-        const sugared = this.sugar(data.parseJSON(payloadZ));
+        const sugared = this.sugarMany(data.parseJSON(payloadZ));
         return sugared.map((r) => ({ variant, key: r.key, value: r }));
       },
     );
   }
 
   resourcesToRanges(resources: Resource[]): Range[] {
-    return this.sugar(
-      resources.map((r) => ({
-        key: r.id.key,
-        name: r.data?.name as string,
-        timeRange: new TimeRange(r.data?.timeRange as CrudeTimeRange),
-      })),
-    );
+    return resources.map((r) => this.resourceToRange(r));
+  }
+
+  resourceToRange(resource: Resource): Range {
+    return this.sugarOne({
+      key: resource.id.key,
+      name: resource.data?.name as string,
+      timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
+      color: resource.data?.color as string,
+    });
   }
 }

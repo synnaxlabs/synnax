@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { box, xy } from "@synnaxlabs/x";
-import { ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { useSyncedRef } from "@/hooks";
 import { Menu } from "@/menu";
-import { RenderProp } from "@/util/renderProp";
+import { type RenderProp } from "@/util/renderProp";
 import { useContext, useGridEntry } from "@/vis/lineplot/LinePlot";
 import { range } from "@/vis/lineplot/range/aether";
 
@@ -42,7 +42,7 @@ export const Provider = Aether.wrap<ProviderProps>(
         key: aetherKey,
         loc: "top",
         size: count > 0 ? 32 : 0,
-        order: "last",
+        order: 3,
       },
       "Annotation.Provider",
     );

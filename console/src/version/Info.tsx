@@ -12,11 +12,11 @@ import { Align, Button, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check, DownloadEvent } from "@tauri-apps/plugin-updater";
-import { useState } from "react";
+import { check, type DownloadEvent } from "@tauri-apps/plugin-updater";
+import { type ReactElement, useState } from "react";
 
-import { Layout } from "@/layout";
-import { useSelect } from "@/version/selectors";
+import { type Layout } from "@/layout";
+import { useSelectVersion } from "@/version/selectors";
 
 export const infoLayout: Layout.State = {
   type: "versionInfo",
@@ -29,10 +29,11 @@ export const infoLayout: Layout.State = {
     navTop: true,
     size: { width: 500, height: 325 },
   },
+  excludeFromWorkspace: true,
 };
 
 export const Info: Layout.Renderer = () => {
-  const version = useSelect();
+  const version = useSelectVersion();
   const updateQuery = useQuery({
     queryKey: ["version.update"],
     queryFn: async () => {
@@ -65,19 +66,19 @@ export const Info: Layout.Renderer = () => {
     },
   });
 
-  let updateContent: JSX.Element = (
+  let updateContent: ReactElement = (
     <Status.Text level="h4" weight={350} variant="loading" size="medium">
       Checking for updates
     </Status.Text>
   );
-  if (updateMutation.isPending) {
-    if (progressPercent === 100) {
+  if (updateMutation.isPending)
+    if (progressPercent === 100)
       updateContent = (
         <Status.Text level="h4" variant="loading" size="medium">
           Update downloaded. Restarting
         </Status.Text>
       );
-    } else {
+    else
       updateContent = (
         <Align.Space direction="y" size="medium">
           <Status.Text variant="loading" level="h4" size="medium">
@@ -92,8 +93,7 @@ export const Info: Layout.Renderer = () => {
           </Align.Space>
         </Align.Space>
       );
-    }
-  } else if (updateQuery.isFetched) {
+  else if (updateQuery.isFetched)
     if (updateQuery.data?.available) {
       const version = updateQuery.data.version;
       updateContent = (
@@ -110,26 +110,24 @@ export const Info: Layout.Renderer = () => {
           </Button.Button>
         </>
       );
-    } else {
+    } else
       updateContent = (
         <Status.Text level="h4" variant="success">
           Up to date
         </Status.Text>
       );
-    }
-  } else if (updateQuery.isError) {
+  else if (updateQuery.isError)
     updateContent = (
       <Status.Text level="h4" variant="error">
         Error checking for update: {updateQuery.error.message}
       </Status.Text>
     );
-  } else if (updateMutation.isError) {
+  else if (updateMutation.isError)
     updateContent = (
       <Status.Text level="h4" variant="error">
         Error updating: {updateMutation.error.message}
       </Status.Text>
     );
-  }
 
   return (
     <Align.Space

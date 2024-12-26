@@ -10,18 +10,19 @@
 import "@/tag/Tag.css";
 
 import { Icon } from "@synnaxlabs/media";
+import { type Optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { type Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
-import { Optional } from "@synnaxlabs/x";
 
 export interface TagProps
   extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
-  icon?: ReactElement;
+  icon?: ReactElement<PIcon.BaseProps>;
   onClose?: () => void;
   color?: Color.Crude;
   size?: ComponentSize;

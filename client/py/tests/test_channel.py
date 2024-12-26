@@ -16,7 +16,9 @@ import synnax as sy
 
 
 @pytest.mark.channel
-class TestChannelClient:
+class TestChannel:
+    """Tests all things related to channel operations. Create, delete, retrieve, etc."""
+
     @pytest.fixture(scope="class")
     def two_channels(self, client: sy.Synnax) -> list[sy.Channel]:
         return client.channels.create(
@@ -66,6 +68,14 @@ class TestChannelClient:
         assert channel.key != ""
         assert channel.data_type == sy.DataType.FLOAT64
         assert channel.rate == 1 * sy.Rate.HZ
+
+    def test_create_virtual(self, client: sy.Synnax):
+        """Should create a virtual channel"""
+        channel = client.channels.create(
+            name="test", data_type=sy.DataType.JSON, virtual=True
+        )
+        res = client.channels.retrieve(channel.key)
+        assert res.virtual is True
 
     def test_create_invalid_nptype(self, client: sy.Synnax):
         """Should throw a Validation Error when passing invalid numpy data type"""
@@ -203,6 +213,8 @@ class TestChannelClient:
         assert len(results) == 0
 
     def test_delete_and_recreate_with_same_name(self, client: sy.Synnax):
+        """Should be able to delete, recreate, and then query a channel with the same
+        name."""
         name = str(uuid.uuid4())
         ch = client.channels.create(
             sy.Channel(
@@ -270,3 +282,20 @@ class TestChannelClient:
         for i, name in enumerate(new_names):
             retrieved = client.channels.retrieve(name)
             assert retrieved.name == name
+
+
+class TestChannelRetriever:
+    """Tests methods internal to the channel retriever that are not publicly availble
+    through the ChannelClient.
+    """
+
+    def test_retrieve_one(self, client: sy.Synnax):
+        ch = client.channels.create(
+            data_type=sy.DataType.FLOAT32, name="test", rate=1 * sy.Rate.HZ
+        )
+        retrieved = client.channels._retriever.retrieve_one(ch.key)
+        assert retrieved.key == ch.key
+
+    def test_retrieve_one_not_found(self, client: sy.Synnax):
+        with pytest.raises(sy.NotFoundError):
+            client.channels._retriever.retrieve_one(1234)

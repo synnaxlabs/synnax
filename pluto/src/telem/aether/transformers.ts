@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x";
+import { bounds, scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { color } from "@/color/core";
+import { notationZ, stringifyNumber as stringify } from "@/notation/notation";
 import { status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
@@ -17,6 +19,7 @@ import {
   type BooleanSinkSpec,
   type BooleanSource,
   type BooleanSourceSpec,
+  type ColorSourceSpec,
   MultiSourceTransformer,
   type NumberSourceSpec,
   type Spec,
@@ -42,6 +45,10 @@ export class TransformerFactory implements Factory {
         return new StringifyNumber(spec.props);
       case RollingAverage.TYPE:
         return new RollingAverage(spec.props);
+      case ColorGradient.TYPE:
+        return new ColorGradient(spec.props);
+      case ScaleNumber.TYPE:
+        return new ScaleNumber(spec.props);
     }
     return null;
   }
@@ -74,7 +81,7 @@ export class SetPoint
   }
 }
 
-const withinBoundsProps = z.object({ trueBound: bounds.bounds });
+export const withinBoundsProps = z.object({ trueBound: bounds.bounds });
 
 export type WithinBoundsProps = z.infer<typeof withinBoundsProps>;
 
@@ -158,6 +165,7 @@ export const stringifyNumberProps = z.object({
   precision: z.number().optional().default(2),
   prefix: z.string().optional().default(""),
   suffix: z.string().optional().default(""),
+  notation: notationZ.optional().default("standard"),
 });
 
 export class StringifyNumber extends UnarySourceTransformer<
@@ -170,9 +178,7 @@ export class StringifyNumber extends UnarySourceTransformer<
   schema = StringifyNumber.propsZ;
 
   protected transform(value: number): string {
-    return `${this.props.prefix}${value.toFixed(this.props.precision)}${
-      this.props.suffix
-    }`;
+    return `${this.props.prefix}${stringify(value, this.props.precision, this.props.notation)}${this.props.suffix}`;
   }
 }
 
@@ -206,9 +212,7 @@ export class RollingAverage extends UnarySourceTransformer<
 
   protected shouldNotify(value: number): boolean {
     if (this.props.windowSize < 2) return true;
-    if (this.values.length > this.props.windowSize) {
-      this.values = [];
-    }
+    if (this.values.length > this.props.windowSize) this.values = [];
     this.values.push(value);
     return this.values.length === this.props.windowSize;
   }
@@ -219,6 +223,61 @@ export const rollingAverage = (
 ): NumberSourceSpec => ({
   props,
   type: RollingAverage.TYPE,
+  variant: "source",
+  valueType: "number",
+});
+
+export const colorGradientProps = z.object({
+  gradient: color.gradientZ,
+});
+
+export class ColorGradient extends UnarySourceTransformer<
+  number,
+  color.Color,
+  typeof colorGradientProps
+> {
+  static readonly TYPE = "color-gradient";
+  static readonly propsZ = colorGradientProps;
+  schema = ColorGradient.propsZ;
+
+  protected transform(value: number): color.Color {
+    return color.fromGradient(this.props.gradient, value);
+  }
+}
+
+export const colorGradient = (
+  props: z.input<typeof colorGradientProps>,
+): ColorSourceSpec => ({
+  props,
+  type: ColorGradient.TYPE,
+  variant: "source",
+  valueType: "color",
+});
+
+export const scaleNumberProps = z.object({
+  scale: scale.transform,
+});
+
+export class ScaleNumber extends UnarySourceTransformer<
+  number,
+  number,
+  typeof scaleNumberProps
+> {
+  static readonly TYPE = "scale-number";
+  static readonly propsZ = scaleNumberProps;
+  schema = ScaleNumber.propsZ;
+
+  protected transform(value: number): number {
+    const { offset, scale } = this.props.scale;
+    return value * scale + offset;
+  }
+}
+
+export const scaleNumber = (
+  props: z.input<typeof scaleNumberProps>,
+): NumberSourceSpec => ({
+  props,
+  type: ScaleNumber.TYPE,
   variant: "source",
   valueType: "number",
 });

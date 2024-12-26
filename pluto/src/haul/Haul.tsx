@@ -10,11 +10,10 @@
 import "@/haul/Haul.css";
 
 import {
-  box,
-  Destructor,
+  type Destructor,
   type Key,
   type Optional,
-  UnknownRecord,
+  type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
 import React, {
@@ -23,9 +22,9 @@ import React, {
   type DragEventHandler,
   type MutableRefObject,
   type PropsWithChildren,
+  type ReactElement,
   useCallback,
   useContext as reactUseContext,
-  useEffect,
   useId,
   useMemo,
   useRef,
@@ -113,7 +112,7 @@ export const Provider = ({
   children,
   useState = React.useState,
   onDropOutside,
-}: ProviderProps): JSX.Element => {
+}: ProviderProps): ReactElement => {
   const ctx = reactUseContext(Context);
 
   const [state, setState] = useState(ZERO_DRAGGING_STATE);
@@ -246,14 +245,16 @@ export const useDrop = ({
   const key_ = key ?? useId();
   const target: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
 
+  const prevDragOver = useRef<xy.XY>({ x: -1, y: -1 });
+
   const handleDragOver = useCallback(
     (event: DragEvent) => {
-      if (!canDrop(ref.current)) return;
       event.preventDefault();
-      onDragOver?.({
-        event,
-        ...ref.current,
-      });
+      const cursor = xy.construct({ x: event.screenX, y: event.screenY });
+      if (xy.equals(cursor, prevDragOver.current)) return;
+      prevDragOver.current = cursor;
+      if (!canDrop(ref.current)) return;
+      onDragOver?.({ event, ...ref.current });
     },
     [ref, canDrop],
   );
@@ -302,42 +303,3 @@ export const filterByType = (type: string, entities: Item[]): Item[] =>
 export interface UseDropOutsideProps extends Omit<UseDropProps, "onDrop"> {
   onDrop: (props: OnDropProps, cursor: xy.XY) => Item[];
 }
-
-export const useDropOutside = ({ type, key, ...rest }: UseDropOutsideProps): void => {
-  const ctx = useContext();
-  if (ctx == null) return;
-  const dragging = useDraggingRef();
-  const { bind } = ctx;
-  const isOutside = useRef(false);
-  const key_ = key ?? useId();
-  const target: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
-  const propsRef = useRef<UseDropOutsideProps>({ ...rest, type, key: key_ });
-  useEffect(() => {
-    const release = bind((state, cursor) => {
-      const { canDrop, onDrop } = propsRef.current;
-      if (!canDrop(state) || !isOutside.current) return null;
-      const dropped = onDrop({ ...state }, cursor);
-      return { target, dropped };
-    });
-    const handleMouseEnter = () => {
-      const { canDrop } = propsRef.current;
-      isOutside.current = false;
-      if (!canDrop(dragging.current)) return;
-    };
-    const handleMouseLeave = (e: globalThis.DragEvent) => {
-      const { onDragOver, canDrop } = propsRef.current;
-      const windowBox = box.construct(window.document.documentElement);
-      if ((box.contains(windowBox, xy.construct(e.clientX, e.clientY)), false)) return;
-      isOutside.current = true;
-      if (!canDrop(dragging.current)) return;
-      onDragOver?.(dragging.current);
-    };
-    document.body.addEventListener("dragleave", handleMouseLeave);
-    document.body.addEventListener("mouseenter", handleMouseEnter);
-    return () => {
-      release();
-      document.body.removeEventListener("dragleave", handleMouseLeave);
-      document.body.removeEventListener("mouseenter", handleMouseEnter);
-    };
-  }, []);
-};

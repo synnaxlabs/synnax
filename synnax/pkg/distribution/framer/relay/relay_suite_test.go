@@ -75,6 +75,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			TS:              c.Storage.TS,
 			Transport:       relayNet.New(c.Config.AdvertiseAddress),
 			HostResolver:    c.Cluster,
+			ChannelReader:   container.channel,
 			FreeWrites:      freeWrites,
 		}))
 		container.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{

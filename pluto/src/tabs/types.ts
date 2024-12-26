@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
-import { RenderProp as BaseRenderProp } from "@/util/renderProp";
+import { type Icon } from "@/icon";
+import { type RenderProp as BaseRenderProp } from "@/util/renderProp";
 
 export const specZ = z.object({
   tabKey: z.string(),
@@ -18,10 +19,11 @@ export const specZ = z.object({
   closable: z.boolean().optional(),
   icon: z.unknown().optional(),
   editable: z.boolean().optional(),
+  visible: z.boolean().optional(),
 });
 
 export interface Spec extends Omit<z.infer<typeof specZ>, "icon"> {
-  icon?: ReactElement | unknown;
+  icon?: ReactElement<Icon.BaseProps> | string | unknown;
 }
 export const tabZ = specZ.extend({
   content: z.unknown().optional(),

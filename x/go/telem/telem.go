@@ -437,7 +437,9 @@ const (
 // AlignmentPair is essentially two array index values that can be used to represent
 // the location of a sample within a group of arrays. For example, if you have two arrays
 // that have 50 elements each, and you want the 15th element of the second array, you would
-// use NewAlignmentPair(1, 15).
+// use NewAlignmentPair(1, 15). The first index is called the 'domain index' and the second
+// index is called the 'sample index'. The domain index is the index of the array, and the
+// sample index is the index of the sample within that array.
 //
 // You may think a better design is to just use a single number that overflows the arrays
 // before it i.e. the value of our previous example would be 50 + 14 = 64. However, this
@@ -455,8 +457,8 @@ var (
 
 // NewAlignmentPair takes the given array index and sample index within that array and
 // returns a new AlignmentPair (see AlignmentPair for more information).
-func NewAlignmentPair(arrayIndex, sampleIndex uint32) AlignmentPair {
-	return AlignmentPair(arrayIndex)<<32 | AlignmentPair(sampleIndex)
+func NewAlignmentPair(domainIdx, sampleIdx uint32) AlignmentPair {
+	return AlignmentPair(domainIdx)<<32 | AlignmentPair(sampleIdx)
 }
 
 // ZeroLeadingAlignment represents the start of a region reserved for written data that
@@ -466,12 +468,12 @@ const ZeroLeadingAlignment = math.MaxUint32 - 1e6
 
 // LeadingAlignment returns an AlignmentPair whose array index is the maximum possible value
 // and whose sample index is the provided value.
-func LeadingAlignment(offset uint32, sampleIndex uint32) AlignmentPair {
-	return NewAlignmentPair(ZeroLeadingAlignment+offset, sampleIndex)
+func LeadingAlignment(domainIdx, sampleIdx uint32) AlignmentPair {
+	return NewAlignmentPair(ZeroLeadingAlignment+domainIdx, sampleIdx)
 }
 
-// ArrayIndex returns the array index of the AlignmentPair. See AlignmentPair for more information.
-func (a AlignmentPair) ArrayIndex() uint32 { return uint32(a >> 32) }
+// DomainIndex returns the domain index of the AlignmentPair. See AlignmentPair for more information.
+func (a AlignmentPair) DomainIndex() uint32 { return uint32(a >> 32) }
 
 // SampleIndex returns the sample index of the AlignmentPair. See AlignmentPair for more information.
 func (a AlignmentPair) SampleIndex() uint32 { return uint32(a) }
@@ -489,5 +491,5 @@ func (a *AlignmentPair) MarshalJSON() ([]byte, error) {
 }
 
 func (a AlignmentPair) AddSamples(samples uint32) AlignmentPair {
-	return NewAlignmentPair(a.ArrayIndex(), a.SampleIndex()+samples)
+	return NewAlignmentPair(a.DomainIndex(), a.SampleIndex()+samples)
 }

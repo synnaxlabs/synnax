@@ -19,16 +19,16 @@ export interface TooltipContentProps {
 }
 
 export const TooltipContent = ({ triggers }: TooltipContentProps): ReactElement => (
-  <Align.Space>
+  <Align.Space size="small">
     <Align.Space direction="x" justify="spaceBetween" align="center">
       <Text.Text level={TOOLTIP_TEXT_LEVEL}>Search</Text.Text>
-      <Align.Space direction="x" size="small">
+      <Align.Space direction="x" empty size={0.5}>
         <Triggers.Text trigger={triggers.resource[0]} level={TOOLTIP_TEXT_LEVEL} />
       </Align.Space>
     </Align.Space>
     <Align.Space direction="x" justify="spaceBetween" align="center">
       <Text.Text level={TOOLTIP_TEXT_LEVEL}>Command Palette</Text.Text>
-      <Align.Space direction="x" size="small">
+      <Align.Space direction="x" size={0.5}>
         <Triggers.Text trigger={triggers.command[0]} level={TOOLTIP_TEXT_LEVEL} />
       </Align.Space>
     </Align.Space>

@@ -10,7 +10,7 @@
 import "@/text/WithIcon.css";
 
 import { toArray } from "@synnaxlabs/x";
-import { Children, type ReactElement, type ReactNode } from "react";
+import { Children, type Key, type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -20,7 +20,7 @@ import { type CoreProps, evalColor, Text } from "@/text/Text";
 import { isValidElement } from "@/util/children";
 
 interface IconProps {
-  key?: string | number;
+  key?: Key | null;
   color?: string;
   style?: React.CSSProperties;
 }
@@ -91,7 +91,7 @@ export const formatChildren = <L extends text.Level>(
 ): ReactElement | ReactElement[] => {
   const arr = toArray(children);
   const o: ReactElement[] = [];
-  let buff: Array<string | number | boolean | Iterable<ReactNode>> = [];
+  let buff: Array<ReactNode> = [];
   const props = { color, level, shade, weight };
   arr.forEach((child) => {
     if (child == null) return;
@@ -99,9 +99,9 @@ export const formatChildren = <L extends text.Level>(
       typeof child === "string" ||
       typeof child === "number" ||
       !isValidElement(child)
-    ) {
+    )
       buff.push(child);
-    } else {
+    else {
       if (buff.length > 0) {
         o.push(
           // @ts-expect-error - level type errors

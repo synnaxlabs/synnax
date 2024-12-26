@@ -1,7 +1,9 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Control"
 heading: "Control Hardware"
+next: "Sequence Basics"
+nextURL: "/reference/control/sequence-basics"
 ---
 import { Divider } from "@synnaxlabs/pluto";
 import { Image } from "@/components/Media";
@@ -14,7 +16,7 @@ Python control module.
 
 ## Using Channels for Control
 
-Synnax controls hardware through it's channel streaming system. In Synnax, channels are
+Synnax controls hardware through its channel streaming system. In Synnax, channels are
 simply pipes that pass samples from one place to another. Internally, Synnax treats 
 channels that are used for data acquisition and channels used for control the same way.
 While this may seem strange at first, it allows for high-degrees of flexibility in how

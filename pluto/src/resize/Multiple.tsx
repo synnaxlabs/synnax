@@ -9,7 +9,7 @@
 
 import "@/resize/Multiple.css";
 
-import { box, direction, math,type xy } from "@synnaxlabs/x";
+import { box, direction, math, type xy } from "@synnaxlabs/x";
 import {
   Children,
   type ForwardedRef,
@@ -46,7 +46,7 @@ export interface UseMultipleProps {
 export interface UseMultipleReturn {
   setSize: (i: number, size?: number) => void;
   props: Pick<MultipleProps, "sizeDistribution" | "onDragHandle" | "direction"> & {
-    ref: RefObject<HTMLDivElement>;
+    ref: RefObject<HTMLDivElement | null>;
   };
 }
 
@@ -243,7 +243,7 @@ const handleResize = (
     diffPercentage,
     minSize / parentSize,
   );
-  const root = changed ? clientPos ?? null : prev.root;
+  const root = changed ? (clientPos ?? null) : prev.root;
   return { ...prev, sizeDistribution, root };
 };
 
@@ -258,7 +258,7 @@ export const calculateDiffPercentage = (
   // If the caller provided a target size, prefer that.
   if (targetSize != null) {
     // If the target size is a pixel value, convert it to a percentage.
-    if (targetSize > 1) targetSize = targetSize / parentSize;
+    if (targetSize > 1) targetSize /= parentSize;
     diff = targetSize - prev.sizeDistribution[dragging];
   } else if (clientPos != null) {
     if (prev.root === null) throw new Error("resize root is null during handle drag");

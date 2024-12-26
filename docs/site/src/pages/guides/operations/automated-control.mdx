@@ -1,13 +1,12 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Control Sequences"
 heading: "Control Sequences in Python"
 description: "Write a control sequence for pressurizing a tank."
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
-import Note from "@/components/Note.astro";
 import { Image, Video } from "@/components/Media";
 export const components = { pre: Code };
 
@@ -98,14 +97,12 @@ with client.control.acquire(
 ) as controller:
 ```
 
-<Note variant="info">
-
+<Note.Note variant="info">
     Write authorities determine which writer is allowed to write to a given channel.
     Every writer in Synnax has an authority between 0 and 255. If two writers are open
     on the same channel, the writer with the higher authority will be able to write but
     the other one will not.
-
-</Note>
+</Note.Note>
 
 Next, lets grab the start timestamp from the control sequence and set a target pressure:
 
@@ -138,8 +135,8 @@ controller.wait_until(
 controller[PRESS_VALVE] = False
 ```
 
-<Note variant="info">
-    Lambda functions are short, annonymous functions in Python. This lambda function can
+<Note.Note variant="info">
+    Lambda functions are short, anonymous functions in Python. This lambda function can
     be equivalent to writing a function like this:
 
     ```python
@@ -155,8 +152,7 @@ controller[PRESS_VALVE] = False
 
     For more information on lambda functions, you can visit our [reference
     page](/reference/control/sequence-basics#lambda-expressions) on controllers.
-
-</Note>
+</Note.Note>
 
 We can then depressurize the tank by opening the vent valve:
 
@@ -259,11 +255,11 @@ command:
 python simulated_daq.py
 ```
 
-<Note variant="info">
+<Note.Note variant="info">
   Python can be tricky to get installed and running properly. If you are having
   troubles, please visit our [Python troubleshooting
   guide](/reference/python-client/troubleshooting).
-</Note>
+</Note.Note>
 
 Now its, time to open the Synnax Console to set up two visualizations of the tank. After
 opening the console, you can connect to the cluster using the same connection parameters

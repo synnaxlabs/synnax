@@ -9,19 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "^2.2.3",
+    "@reduxjs/toolkit": "^2.5.0",
     "@synnaxlabs/drift": "workspace:*",
-    "@tauri-apps/api": "^2.0.0-beta.11",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "@tauri-apps/api": "^2.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.5.11",
-    "@types/react": "^18.2.79",
-    "@types/react-dom": "^18.2.25",
-    "@vitejs/plugin-react": "^4.3.0",
-    "typescript": "^5.4.5",
-    "vite": "5.2.11",
-    "vite-tsconfig-paths": "4.3.2"
+    "@tauri-apps/cli": "^2.1.0",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
   }
 }

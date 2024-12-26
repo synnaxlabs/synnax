@@ -231,7 +231,6 @@ export class Writer {
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean> {
     const frame = await this.adapter.adapt(channelsOrData, series);
-    // @ts-expect-error - zod issues
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
   }
@@ -246,7 +245,7 @@ export class Writer {
     value: Record<KeyOrName, control.Authority> | KeyOrName | number,
     authority?: control.Authority,
   ): Promise<boolean> {
-    let config: Config = { keys: [], authorities: [] };
+    let config: Config;
     if (typeof value === "number" && authority == null)
       config = { keys: [], authorities: [value] };
     else {
@@ -298,7 +297,6 @@ export class Writer {
   }
 
   async execute(req: Request): Promise<Response> {
-    // @ts-expect-error - frame payload adjustments
     this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();

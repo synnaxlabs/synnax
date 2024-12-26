@@ -15,18 +15,41 @@ import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { ChannelServices } from "@/channel/services";
+import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Device } from "@/hardware/device";
+import { DeviceServices } from "@/hardware/device/services";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/Nav";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
+import { LogServices } from "@/log/services";
 import { Notifications } from "@/notifications";
+import { Permissions } from "@/permissions";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
+import { TableServices } from "@/table/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
+
+const NOTIFICATION_ADAPTERS = [
+  ...DeviceServices.NOTIFICATION_ADAPTERS,
+  ...Version.NOTIFICATION_ADAPTERS,
+  ...Cluster.NOTIFICATION_ADAPTERS,
+];
+
+const LINK_HANDLERS: Link.Handler[] = [
+  ChannelServices.linkHandler,
+  LinePlotServices.linkHandler,
+  RangeServices.linkHandler,
+  SchematicServices.linkHandler,
+  Task.linkHandler,
+  Workspace.linkHandler,
+  LogServices.linkHandler,
+  TableServices.linkHandler,
+];
 
 const SideEffect = (): null => {
   const dispatch = useDispatch();
@@ -34,9 +57,13 @@ const SideEffect = (): null => {
     dispatch(Layout.maybeCreateGetStartedTab());
   }, []);
   Version.useLoadTauri();
+  Cluster.useSyncClusterKey();
   Device.useListenForChanges();
   Workspace.useSyncLayout();
-  Link.useDeep({ handlers: HANDLERS });
+  Link.useDeep({ handlers: LINK_HANDLERS });
+  Layout.useTriggers();
+  Permissions.useFetchPermissions();
+  Layout.useDropOutside();
   return null;
 };
 
@@ -46,40 +73,30 @@ export const MAIN_TYPE = Drift.MAIN_WINDOW;
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
-export const Main = (): ReactElement => {
-  return (
-    <>
-      {/* We need to place notifications here so they are in the proper stacking context */}
-      <Notifications.Notifications />
-      <SideEffect />
-      <NavTop />
-      <Layout.Modals />
-      <Align.Space className="console-main-fixed--y" direction="x" empty>
-        <NavLeft />
-        <Align.Space
-          className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
-          empty
-        >
-          <Align.Space className="console-main--driven" direction="x" empty>
-            <NavDrawer location="left" />
-            <main className="console-main--driven" style={{ position: "relative" }}>
-              <Mosaic />
-            </main>
-            <NavDrawer location="right" />
-          </Align.Space>
-          <NavDrawer location="bottom" />
+export const Main = (): ReactElement => (
+  <>
+    {/* We need to place notifications here so they are in the proper stacking context */}
+    <Notifications.Notifications adapters={NOTIFICATION_ADAPTERS} />
+    <SideEffect />
+    <NavTop />
+    <Layout.Modals />
+    <Align.Space className="console-main-fixed--y" direction="x" empty>
+      <NavLeft />
+      <Align.Space
+        className="console-main-content-drawers console-main-fixed--y console-main-fixed--x"
+        empty
+      >
+        <Align.Space className="console-main--driven" direction="x" empty>
+          <NavDrawer location="left" />
+          <main className="console-main--driven" style={{ position: "relative" }}>
+            <Mosaic />
+          </main>
+          <NavDrawer location="right" />
         </Align.Space>
-        <NavRight />
+        <NavDrawer location="bottom" />
       </Align.Space>
-      <NavBottom />
-    </>
-  );
-};
-
-export const HANDLERS: Link.Handler[] = [
-  ChannelServices.linkHandler,
-  LinePlotServices.linkHandler,
-  RangeServices.linkHandler,
-  SchematicServices.linkHandler,
-  Workspace.linkHandler,
-];
+      <NavRight />
+    </Align.Space>
+    <NavBottom />
+  </>
+);

@@ -31,10 +31,10 @@ public:
     HeartbeatSource(
         const synnax::ChannelKey key,
         const RackKey rack_key
-    ): key(key),
-       rack_key(rack_key),
-       version(0),
-       timer(loop::Timer(synnax::Rate(1))) {
+    ) : key(key),
+        rack_key(rack_key),
+        version(0),
+        timer(loop::Timer(synnax::Rate(1))) {
     }
 
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
@@ -56,8 +56,8 @@ public:
         std::shared_ptr<pipeline::Source> source,
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
-    ): pipe(pipeline::Acquisition(ctx->client, writer_config, std::move(source),
-                                  breaker_config)) {
+    ) : pipe(pipeline::Acquisition(ctx->client, writer_config, std::move(source),
+                                   breaker_config)) {
         pipe.start();
     }
 
@@ -95,7 +95,7 @@ public:
 };
 
 class Factory final : public task::Factory {
-    std::pair<std::unique_ptr<task::Task>, bool> configureTask(
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override {
@@ -105,7 +105,7 @@ class Factory final : public task::Factory {
     }
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-    configureInitialTasks(
+    configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override {
@@ -123,7 +123,7 @@ class Factory final : public task::Factory {
             if (err) {
                 LOG(ERROR) << "failed to create heartbeat task: " << err;
             }
-            auto [task, ok] = configureTask(ctx, sy_task);
+            auto [task, ok] = configure_task(ctx, sy_task);
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         } else if (err) {
             LOG(ERROR) << "failed to retrieve heartbeat task: " << err;

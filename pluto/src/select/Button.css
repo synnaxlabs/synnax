@@ -10,11 +10,12 @@
  */
 
 .pluto-select-dropdown-button {
-    /* This is so it matches the background style of input components */
-    background: var(--pluto-gray-l1) !important;
-
     & .pluto-caret-animated {
         margin-left: auto;
+    }
+
+    &.pluto-btn--preview svg {
+        display: none;
     }
 }
 

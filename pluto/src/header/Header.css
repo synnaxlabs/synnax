@@ -9,14 +9,21 @@
  * included in the file licenses/APL.txt.
  */
 
- .pluto-header {
+.pluto-header {
     padding: 0 0.5rem;
- }
+    box-sizing: content-box;
 
-.pluto-header__text {
-    padding: 1rem;
-}
-
-.pluto-header-button-title {
-    flex-grow: 1;
+    .pluto-header__text,
+    .pluto-breadcrumb {
+        padding: 1rem;
+        overflow: hidden;
+        .pluto-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+    .pluto-header-button-title {
+        flex-grow: 1;
+    }
 }

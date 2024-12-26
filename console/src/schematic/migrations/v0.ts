@@ -9,44 +9,51 @@
 
 import {
   Color,
-  Control,
+  type Control,
   control,
   Diagram,
   Schematic,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { migrate, xy } from "@synnaxlabs/x";
+import { type migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
+
+export const VERSION = "0.0.0";
+export type Version = typeof VERSION;
 
 export type NodeProps = object & {
   key: Schematic.Variant;
   color?: Color.Crude;
+  label?: { label?: string };
 };
 
-export const nodePropsZ = z.object({}).and(
-  z
-    .object({
-      key: Schematic.typeZ,
-      color: Color.crudeZ,
-    })
-    .passthrough(),
-);
+export const nodePropsZ = z
+  .object({})
+  .and(
+    z.object({ key: Schematic.variantZ, color: Color.crudeZ.optional() }).passthrough(),
+  );
 
 export const stateZ = z.object({
-  version: z.literal("0.0.0"),
+  version: z.literal(VERSION),
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
   snapshot: z.boolean(),
   remoteCreated: z.boolean(),
   viewport: Diagram.viewportZ,
-  nodes: z.array(Diagram.nodeZ),
-  edges: z.array(Diagram.edgeZ),
+  nodes: z
+    .array(z.any())
+    .transform((nodes) => nodes.filter((node) => Diagram.nodeZ.safeParse(node).success))
+    .pipe(z.array(Diagram.nodeZ)),
+  edges: z
+    .array(z.any())
+    .transform((edges) => edges.filter((edge) => Diagram.edgeZ.safeParse(edge).success))
+    .pipe(z.array(Diagram.edgeZ)),
   props: z.record(z.string(), nodePropsZ),
   control: control.statusZ,
   controlAcquireTrigger: z.number(),
 });
 
-export interface State extends migrate.Migratable<"0.0.0"> {
+export interface State extends migrate.Migratable<Version> {
   editable: boolean;
   fitViewOnResize: boolean;
   snapshot: boolean;
@@ -73,12 +80,7 @@ export interface CopyBuffer {
   props: Record<string, NodeProps>;
 }
 
-const ZERO_COPY_BUFFER: CopyBuffer = {
-  pos: xy.ZERO,
-  nodes: [],
-  edges: [],
-  props: {},
-};
+const ZERO_COPY_BUFFER: CopyBuffer = { pos: xy.ZERO, nodes: [], edges: [], props: {} };
 
 // ||||| TOOLBAR |||||
 
@@ -86,20 +88,18 @@ const TOOLBAR_TABS = ["symbols", "properties"] as const;
 export const toolbarTabZ = z.enum(TOOLBAR_TABS);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
-export const toolbarStateZ = z.object({
-  activeTab: toolbarTabZ,
-});
+export const toolbarStateZ = z.object({ activeTab: toolbarTabZ });
 export type ToolbarState = z.infer<typeof toolbarStateZ>;
 
 export const sliceStateZ = z.object({
-  version: z.literal("0.0.0"),
+  version: z.literal(VERSION),
   mode: Viewport.modeZ,
   copy: copyBufferZ,
   toolbar: toolbarStateZ,
   schematics: z.record(z.string(), stateZ),
 });
 
-export interface SliceState extends migrate.Migratable<"0.0.0"> {
+export interface SliceState extends migrate.Migratable<Version> {
   mode: Viewport.Mode;
   copy: CopyBuffer;
   toolbar: ToolbarState;
@@ -107,7 +107,7 @@ export interface SliceState extends migrate.Migratable<"0.0.0"> {
 }
 
 export const ZERO_STATE: State = {
-  version: "0.0.0",
+  version: VERSION,
   snapshot: false,
   nodes: [],
   edges: [],
@@ -121,7 +121,7 @@ export const ZERO_STATE: State = {
 };
 
 export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.0",
+  version: VERSION,
   mode: "select",
   copy: { ...ZERO_COPY_BUFFER },
   toolbar: { activeTab: "symbols" },

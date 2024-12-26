@@ -68,6 +68,7 @@ jobs:
         with:
           filters: |
             changed:
+              - "freighter/go/**"
               - "freighter/integration/**"
               - ".github/workflows/test.freighter.yaml"
 
@@ -89,7 +90,7 @@ jobs:
         working-directory: ./freighter/integration
 
   test-python:
-    needs: [ build-integration-image ]
+    needs: [build-integration-image]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -109,7 +110,7 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install Poetry
         if: steps.filter.outputs.changed == 'true'
@@ -143,7 +144,7 @@ jobs:
           - 8080:8080
 
   test-typescript:
-    needs: [ build-integration-image ]
+    needs: [build-integration-image]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository

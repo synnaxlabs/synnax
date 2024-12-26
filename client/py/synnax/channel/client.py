@@ -6,6 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
 from __future__ import annotations
 
 from typing import overload
@@ -25,7 +26,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.writer import ChannelWriter
 from synnax.exceptions import NotFoundError, MultipleFoundError, ValidationError
 from synnax.framer.client import Client as FrameClient
-from synnax.ontology.id import OntologyID
+from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
     CrudeRate,
@@ -35,17 +36,16 @@ from synnax.telem import (
     Series,
     TimeRange,
 )
-
 from synnax.util.normalize import normalize
 
-
-channel_ontology_type = OntologyID(type="channel")
+CHANNEL_ONTOLOGY_TYPE = ID(type="channel")
 
 
 class Channel(ChannelPayload):
     """A channel is a logical collection of samples emitted by or representing the
-    values of a single source. See https://docs.synnaxlabs.com/concepts/channels for an
-    introduction to channels and how they work.
+    values of a single source. See
+    https://docs.synnaxlabs.com/reference/concepts/channels for an introduction to
+    channels and how they work.
     """
 
     ___frame_client: FrameClient | None = PrivateAttr(None)
@@ -64,6 +64,7 @@ class Channel(ChannelPayload):
         index: ChannelKey = 0,
         leaseholder: int = 0,
         key: ChannelKey = 0,
+        virtual: bool = False,
         internal: bool = False,
         _frame_client: FrameClient | None = None,
         _client: ChannelClient | None = None,
@@ -97,6 +98,7 @@ class Channel(ChannelPayload):
             is_index=is_index,
             index=index,
             internal=internal,
+            virtual=virtual,
         )
         self.___frame_client = _frame_client
         self.__client = _client
@@ -105,16 +107,14 @@ class Channel(ChannelPayload):
     def read(
         self,
         start_or_range: TimeRange,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     @overload
     def read(
         self,
         start_or_range: CrudeTimeStamp,
         end: CrudeTimeStamp,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     def read(
         self,
@@ -208,20 +208,17 @@ class ChannelClient:
         is_index: bool = False,
         leaseholder: int = 0,
         retrieve_if_name_exists: bool = False,
-    ) -> Channel:
-        ...
+    ) -> Channel: ...
 
     @overload
     def create(
         self, channels: Channel, *, retrieve_if_name_exists: bool = False
-    ) -> Channel:
-        ...
+    ) -> Channel: ...
 
     @overload
     def create(
         self, channels: list[Channel], *, retrieve_if_name_exists: bool = False
-    ) -> list[Channel]:
-        ...
+    ) -> list[Channel]: ...
 
     def create(
         self,
@@ -233,36 +230,44 @@ class ChannelClient:
         is_index: bool = False,
         index: ChannelKey = 0,
         leaseholder: int = 0,
+        virtual: bool = False,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
-        """Creates a new channel or set of channels in the cluster. Possible arguments
-        are as follows:
+        """Creates new channel(s) in the Synnax cluster.
 
         Overload 1:
-        :param data_type: The data type of the samples in the channel e.g np.int64
+        :param data_type: The data type of the samples in the channel. For example, `"float32"`.
         :param rate: Rate sets the rate at which the channels values are written. If this
         parameter is non-zero, is_index must be false and index must be an empty string or
         unspecified.
-        :param name: A human-readable name for the channel.
+        :param name: A name for the channel.
         :param is_index: Boolean indicating whether the channel is an index. Index
-        channels should have ax data type of synnax.TIMESTAMP.
-        :param index: The key or channel that indexes this channel.
+        channels should have a data type of synnax.TIMESTAMP.
+        :param index: The key of the channel that indexes this channel.
         :param leaseholder: The node that holds the lease for this channel. If you don't know
         what this is, leave it at the default value of 0.
+        :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
+        with the same name if they already exist in the cluster.
         :returns: The created channel.
 
         Overload 2:
 
         :param channels: A single channel to create.
+        :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
+        with the same name if they already exist in the cluster.
         :returns: The created channel.
 
         Overload 3:
 
         :param channels: A list of channels to create.
+        :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
+        with the same name if they already exist in the cluster.
         :returns: The created channels.
         """
 
         if channels is None:
+            if is_index and data_type == DataType.UNKNOWN:
+                data_type = DataType.TIMESTAMP
             _channels = [
                 ChannelPayload(
                     name=name,
@@ -271,6 +276,7 @@ class ChannelClient:
                     data_type=DataType(data_type),
                     index=index,
                     is_index=is_index,
+                    virtual=virtual,
                 )
             ]
         elif isinstance(channels, Channel):
@@ -291,15 +297,13 @@ class ChannelClient:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel:
-        ...
+    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel: ...
 
     @overload
     def retrieve(
         self,
         channel: ChannelKeys | ChannelNames,
-    ) -> list[Channel]:
-        ...
+    ) -> list[Channel]: ...
 
     def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.

@@ -10,6 +10,8 @@
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
+  Button,
+  Header,
   Icon as PIcon,
   Status,
   Synnax,
@@ -17,13 +19,14 @@ import {
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
-import { Optional } from "@synnaxlabs/x";
+import { type Optional } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
+import { CSS } from "@/css";
 import {
-  Device as OPCDevice,
-  ScannerScanCommandResult,
+  type Device as OPCDevice,
+  type ScannerScanCommandResult,
 } from "@/hardware/opc/device/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -106,14 +109,18 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
 
   const [initialLoading, setInitialLoading] = useState(false);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     if (device == null || scanTask == null) return;
     setInitialLoading(true);
     expand.mutate({ action: "expand", current: [], delay: 200 });
     treeProps.clearExpanded();
   }, [device, scanTask?.key, treeProps.clearExpanded]);
 
-  let content: ReactElement | null = null;
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  let content: ReactElement;
   if (initialLoading)
     content = (
       <Align.Center style={{ width: "100%", height: "100%" }}>
@@ -146,8 +153,33 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
     );
 
   return (
-    <Align.Space direction="y" grow style={{ height: "100%", overflow: "hidden" }}>
-      {content}
+    <Align.Space
+      className={CSS.B("browser")}
+      direction="y"
+      grow
+      bordered
+      rounded
+      style={{
+        overflow: "hidden",
+        height: "100%",
+      }}
+      empty
+      background={1}
+    >
+      <Header.Header level="h4">
+        <Header.Title weight={500}>Browser</Header.Title>
+        <Header.Actions>
+          <Button.Icon
+            onClick={refresh}
+            disabled={device == null || scanTask == null || initialLoading}
+          >
+            <Icon.Refresh style={{ color: "var(--pluto-gray-l9)" }} />
+          </Button.Icon>
+        </Header.Actions>
+      </Header.Header>
+      <Align.Space direction="y" grow style={{ height: "100%", overflow: "hidden" }}>
+        {content}
+      </Align.Space>
     </Align.Space>
   );
 };

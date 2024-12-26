@@ -14,11 +14,11 @@ import { z } from "zod";
 
 import { type framer } from "@/framer";
 import {
-  Device,
-  DeviceKey,
+  type Device,
+  type DeviceKey,
   deviceKeyZ,
   deviceZ,
-  NewDevice,
+  type NewDevice,
   newDeviceZ,
 } from "@/hardware/device/payload";
 import { signals } from "@/signals";
@@ -117,11 +117,17 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
     ).devices;
   }
 
-  async create(device: NewDevice): Promise<Device>;
+  async create<P extends UnknownRecord = UnknownRecord>(
+    device: NewDevice<P>,
+  ): Promise<Device<P>>;
 
-  async create(devices: NewDevice[]): Promise<Device[]>;
+  async create<P extends UnknownRecord = UnknownRecord>(
+    devices: NewDevice<P>[],
+  ): Promise<Device<P>[]>;
 
-  async create(devices: NewDevice | NewDevice[]): Promise<Device | Device[]> {
+  async create<P extends UnknownRecord = UnknownRecord>(
+    devices: NewDevice<P> | NewDevice<P>[],
+  ): Promise<Device<P> | Device<P>[]> {
     const isSingle = !Array.isArray(devices);
     const res = await sendRequired(
       this.client,
@@ -130,7 +136,7 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
       createReqZ,
       createResZ,
     );
-    return isSingle ? res.devices[0] : res.devices;
+    return isSingle ? (res.devices[0] as Device<P>) : (res.devices as Device<P>[]);
   }
 
   async delete(keys: string | string[]): Promise<void> {

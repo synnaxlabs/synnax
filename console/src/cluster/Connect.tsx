@@ -9,11 +9,10 @@
 
 import "@/cluster/Connect.css";
 
-import { type connection, type SynnaxProps, synnaxPropsZ } from "@synnaxlabs/client";
+import { type connection } from "@synnaxlabs/client";
 import {
   Align,
   Button,
-  componentRenderProp,
   Form,
   Input,
   Nav,
@@ -24,21 +23,23 @@ import {
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { statusVariants } from "@/cluster/Badges";
-import { useSelectMany } from "@/cluster/selectors";
-import { isLocalCluster, LOCAL_CLUSTER_KEY, set, setActive } from "@/cluster/slice";
+import { useSelectAllNames } from "@/cluster/selectors";
+import { clusterZ, set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
+export const LAYOUT_TYPE = "connectCluster";
+
 export const connectWindowLayout: Layout.State = {
-  key: "connectCluster",
-  windowKey: "connectCluster",
-  type: "connectCluster",
+  key: LAYOUT_TYPE,
+  windowKey: LAYOUT_TYPE,
+  type: LAYOUT_TYPE,
   name: "Cluster.Connect",
   icon: "Cluster",
   location: "modal",
@@ -49,6 +50,15 @@ export const connectWindowLayout: Layout.State = {
   },
 };
 
+const ZERO_VALUES: z.infer<typeof clusterZ> = {
+  name: "",
+  host: "",
+  port: "",
+  username: "",
+  password: "",
+  secure: false,
+};
+
 /**
  * Connect implements the LayoutRenderer component type to provide a form for connecting
  * to a cluster.
@@ -57,27 +67,15 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
-  const names = useSelectMany().map((c) => c.name);
-
-  const formSchema = synnaxPropsZ.omit({ connectivityPollFrequency: true }).extend({
-    name: z
-      .string()
-      .min(1, { message: "Name is required" })
-      .refine((n) => !names.includes(n), {
-        message: "A cluster with this name already exists",
-      }),
-  });
+  const names = useSelectAllNames();
+  const formSchema = clusterZ.refine(
+    ({ name }) => !names.includes(name),
+    ({ name }) => ({ message: `${name} is already in use.`, path: ["name"] }),
+  );
 
   const methods = Form.use<typeof formSchema>({
     schema: formSchema,
-    values: {
-      name: "",
-      host: "",
-      port: "",
-      username: "",
-      password: "",
-      secure: false,
-    },
+    values: { ...ZERO_VALUES },
   });
 
   const handleSubmit = (): void => {
@@ -89,14 +87,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       const state = await testConnection(data);
       setLoading(null);
       if (state.status !== "connected") return setConnState(state);
-      if (isLocalCluster(data)) state.clusterKey = LOCAL_CLUSTER_KEY;
-      dispatch(
-        set({
-          key: state.clusterKey,
-          name: data.name,
-          props: data as SynnaxProps,
-        }),
-      );
+      dispatch(set({ ...data, key: state.clusterKey }));
       dispatch(setActive(state.clusterKey));
       onClose();
     })();
@@ -104,12 +95,10 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
-      if (!methods.validate()) {
-        return;
-      }
+      if (!methods.validate()) return;
       setConnState(null);
       setLoading("test");
-      const state = await testConnection(methods.value() as SynnaxProps);
+      const state = await testConnection(methods.value());
       setConnState(state);
       setLoading(null);
     })();
@@ -143,14 +132,12 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             <Form.Field<string> path="password" className={CSS.BE("input", "password")}>
               {(p) => <Input.Text {...p} placeholder="seldon" type="password" />}
             </Form.Field>
-            <Form.Field<boolean> path="secure">
-              {componentRenderProp(Input.Switch)}
-            </Form.Field>
+            <Form.SwitchField path="secure" label="Secure" />
           </Align.Space>
         </Align.Space>
       </Form.Form>
-      <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start className={CSS.BE("footer", "start")} size="small">
+      <Layout.BottomNavBar>
+        <Nav.Bar.Start size="small">
           {connState != null ? (
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
@@ -166,7 +153,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             </>
           )}
         </Nav.Bar.Start>
-        <Nav.Bar.End className={CSS.BE("footer", "end")}>
+        <Nav.Bar.End>
           <Button.Button
             loading={loading === "test"}
             disabled={loading !== null}
@@ -184,7 +171,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             Done
           </Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Layout.BottomNavBar>
     </Align.Space>
   );
 };

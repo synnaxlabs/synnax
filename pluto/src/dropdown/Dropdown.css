@@ -35,21 +35,23 @@
     width: 100%;
     height: 100%;
     z-index: 10;
-    background: var(--pluto-gray-l3-40);
+    background: var(--pluto-gray-l3-35);
 
     .pluto-dropdown__dialog {
+        /* contain: layout size style; */
         top: 30%;
         transform: translateY(-25%);
         --pluto-pack-br: 1rem;
         border-radius: 1rem;
-        background: var(--pluto-gray-l1);
-        backdrop-filter: saturate(300%) blur(5rem);
+        background: var(--pluto-gray-l0);
         overflow: hidden;
+        max-width: calc(100vw - 5rem);
     }
 
     @media (max-height: 800px) {
         .pluto-dropdown__dialog {
             top: 10%;
+            transform: translateY(0%);
         }
     }
 }
@@ -66,7 +68,6 @@
 
     &:not(.pluto--modal) {
         background: var(--pluto-gray-l1);
-        backdrop-filter: saturate(180%) blur(5rem);
         max-height: 360px;
         &.pluto-height-small {
             max-height: 200px;

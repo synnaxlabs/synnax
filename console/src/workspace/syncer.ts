@@ -15,7 +15,7 @@ import { useEffect, useRef } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
-import { RootState } from "@/store";
+import { type RootState } from "@/store";
 import { selectActiveKey } from "@/workspace/selectors";
 import { setActive } from "@/workspace/slice";
 
@@ -25,7 +25,7 @@ export const useSyncLayout = async (): Promise<void> => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
-  const prevSync = useRef<unknown>();
+  const prevSync = useRef<unknown>(null);
   const sync = useMutation({
     mutationKey: ["workspace.save"],
     retry: MAX_RETRY_COUNT,
@@ -35,8 +35,13 @@ export const useSyncLayout = async (): Promise<void> => {
         if (key == null || client == null) return;
         const layoutSlice = Layout.selectSliceState(s);
         if (deep.equal(prevSync.current, layoutSlice)) return;
+        const toSave = deep.copy(layoutSlice);
+        Object.entries(toSave.layouts).forEach(([key, layout]) => {
+          if (layout.excludeFromWorkspace == true || layout.location === "modal")
+            delete toSave.layouts[key];
+        });
         prevSync.current = layoutSlice;
-        await client.workspaces.setLayout(key, layoutSlice as unknown as UnknownRecord);
+        await client.workspaces.setLayout(key, toSave as unknown as UnknownRecord);
       },
       250,
       [client],

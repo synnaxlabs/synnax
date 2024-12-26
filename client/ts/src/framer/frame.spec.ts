@@ -75,19 +75,26 @@ describe("framer.Frame", () => {
         expect(f.colType).toEqual("name");
       });
 
-      test("from payload", () => {
-        const f = new framer.Frame({
-          keys: [12],
-          series: [
-            {
-              dataType: new DataType("float32"),
-              data: new SharedArrayBuffer(12),
-            },
-          ],
+      describe("payload parsing", () => {
+        it("should correctly parse a series payload", () => {
+          const f = new framer.Frame({
+            keys: [12],
+            series: [{ dataType: new DataType("float32"), data: new ArrayBuffer(12) }],
+          });
+          expect(f.length.valueOf()).toEqual(3);
+          expect(f.columns.length).toEqual(1);
+          expect(f.series.length).toEqual(1);
         });
-        expect(f.length.valueOf()).toEqual(3);
-        expect(f.columns.length).toEqual(1);
-        expect(f.series.length).toEqual(1);
+
+        it("should correctly parse a series with null data", () => {
+          const f = new framer.Frame({
+            keys: [12],
+            series: [{ dataType: "float32", data: null }],
+          });
+          expect(f.length.valueOf()).toEqual(0);
+          expect(f.columns.length).toEqual(1);
+          expect(f.series.length).toEqual(1);
+        });
       });
 
       test("from record", () => {
@@ -504,6 +511,36 @@ describe("framer.Frame", () => {
         ]),
       );
       expect(f.at(2)).toEqual({ 12: 3, 13: undefined });
+    });
+  });
+
+  describe("digest", () => {
+    it("should return digest information about the frame", () => {
+      const s1 = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(40, 50000),
+      });
+      const s2 = new Series({
+        data: new Float32Array([4, 5, 6]),
+        timeRange: new TimeRange(50001, 60000),
+      });
+      const s3 = new Series({
+        data: new Float32Array([7, 8, 9]),
+        timeRange: new TimeRange(500, 50001),
+      });
+      const f = new framer.Frame(
+        new Map([
+          [12, [s1, s2]],
+          [13, [s3]],
+        ]),
+      );
+      const digest = f.digest;
+      expect(Object.keys(digest)).toEqual(["12", "13"]);
+      expect(digest[12].length).toEqual(2);
+      expect(digest[13].length).toEqual(1);
+      expect(digest[12][0]).toEqual(s1.digest);
+      expect(digest[12][1]).toEqual(s2.digest);
+      expect(digest[13][0]).toEqual(s3.digest);
     });
   });
 });

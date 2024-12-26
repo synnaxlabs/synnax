@@ -7,32 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type GetDefaultMiddleware } from "node_modules/@reduxjs/toolkit/dist/getDefaultMiddleware";
 import { describe, expect, it, vi } from "vitest";
 
 import { MockRuntime } from "@/mock/runtime";
-import { initialState, setWindowStage } from "@/state";
+import { setWindowStage, type StoreState, ZERO_SLICE_STATE } from "@/state";
 
-import { configureMiddleware, middleware } from "./middleware";
+import {
+  configureMiddleware,
+  type GetDefaultMiddleware,
+  middleware,
+} from "./middleware";
 
 const state = {
-  drift: initialState,
+  drift: ZERO_SLICE_STATE,
 };
 
 describe("middleware", () => {
   describe("middleware", () => {
     describe("emitting actions", () => {
-      it("should emit an action if it hasn't already been emited", () => {
+      it("should emit an action if it hasn't already been emited", async () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
         const mw = middleware(runtime)(store);
         mw((action) => action)({ type: "test" });
-        expect(runtime.emissions).toEqual([
-          {
-            action: { type: "test" },
-            emitter: "mock",
-          },
-        ]);
+        await expect
+          .poll(() => runtime.emissions)
+          .toEqual([
+            {
+              action: { type: "test" },
+              emitter: "mock",
+            },
+          ]);
       });
       it("should not emit an action if it has already been emited", () => {
         const store = { getState: () => state, dispatch: vi.fn() };
@@ -102,7 +107,7 @@ describe("middleware", () => {
       const runtime = new MockRuntime(true);
       const mwF = configureMiddleware([], runtime);
       expect(typeof mwF).toBe("function");
-      expect(mwF([] as unknown as GetDefaultMiddleware<unknown>).length).toBe(1);
+      expect(mwF([] as unknown as GetDefaultMiddleware<StoreState>).length).toBe(1);
     });
     it("should call a middleware curry function when provided", () => {
       const runtime = new MockRuntime(true);
@@ -111,7 +116,7 @@ describe("middleware", () => {
         curry();
         return [];
       }, runtime);
-      mw([] as unknown as GetDefaultMiddleware<unknown>);
+      mw([] as unknown as GetDefaultMiddleware<StoreState>);
       expect(curry).toHaveBeenCalled();
     });
   });

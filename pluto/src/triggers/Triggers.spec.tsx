@@ -66,14 +66,14 @@ describe("Triggers", () => {
               ["A", "C"],
             ],
             [["A", "D"]],
-            true,
+            { loose: true },
           ),
         ).toEqual([]);
       });
       it("Should return a list of triggers that match", () => {
-        expect(Triggers.filter([["A"], ["A", "C"]], [["A", "B"]], true)).toEqual([
-          ["A"],
-        ]);
+        expect(
+          Triggers.filter([["A"], ["A", "C"]], [["A", "B"]], { loose: true }),
+        ).toEqual([["A"]]);
       });
       it("should return an empty list when no triggers match", () => {
         expect(
@@ -83,7 +83,7 @@ describe("Triggers", () => {
               ["A", "C"],
             ],
             [["A"]],
-            true,
+            { loose: true },
           ),
         ).toEqual([]);
       });
@@ -141,10 +141,12 @@ describe("Triggers", () => {
             a: [["Shift"]],
             b: [["Shift", "Control"]],
           };
-          expect(Triggers.determineMode(config, [["Shift", "Control"]], true)).toEqual(
-            "b",
+          expect(
+            Triggers.determineMode(config, [["Shift", "Control"]], { loose: true }),
+          ).toEqual("b");
+          expect(Triggers.determineMode(config, [["Shift"]], { loose: true })).toEqual(
+            "a",
           );
-          expect(Triggers.determineMode(config, [["Shift"]], true)).toEqual("a");
         });
       });
     });

@@ -13,11 +13,11 @@ import { type Viewport } from "@synnaxlabs/pluto";
 import { deep, toArray, unique } from "@synnaxlabs/x";
 
 import {
-  AxisKey,
-  MultiXAxisRecord,
+  type AxisKey,
+  type MultiXAxisRecord,
   X_AXIS_KEYS,
-  XAxisKey,
-  YAxisKey,
+  type XAxisKey,
+  type YAxisKey,
 } from "@/lineplot/axis";
 import * as latest from "@/lineplot/migrations";
 
@@ -52,6 +52,9 @@ export const ZERO_CHANNELS_STATE = latest.ZERO_CHANNELS_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
+export const parser = latest.parser;
+
+export type StateWithName = State & { name: string };
 
 export const SLICE_NAME = "line";
 
@@ -142,6 +145,11 @@ export interface SetControlStatePayload {
 
 export interface SetViewportModePayload {
   mode: Viewport.Mode;
+}
+
+export interface SelectRulePayload {
+  key: string;
+  ruleKey: string;
 }
 
 interface TypedLineKey {
@@ -307,17 +315,14 @@ export const { actions, reducer } = createSlice({
     setRule: (state, { payload }: PayloadAction<SetRulePayload>) => {
       const { key: layoutKey, rule } = payload;
       const plot = state.plots[layoutKey];
-      toArray(rule).forEach((r) => {
-        const idx = plot.rules.findIndex((rr) => rr.key === r.key);
-        if (idx >= 0) plot.rules[idx] = { ...plot.rules[idx], ...r };
-        else {
-          plot.rules.push({
-            ...latest.ZERO_RULE_STATE,
-            label: `Rule ${plot.rules.length}`,
-            ...r,
-          });
-        }
-      });
+      const idx = plot.rules.findIndex((r) => r.key === rule.key);
+      if (idx >= 0) plot.rules[idx] = { ...plot.rules[idx], ...rule };
+      else
+        plot.rules.push({
+          ...latest.ZERO_RULE_STATE,
+          label: `Rule ${plot.rules.length + 1}`,
+          ...rule,
+        });
     },
     removeRule: (state, { payload }: PayloadAction<RemoveRulePayload>) => {
       const { key: layoutKey, ruleKeys } = payload;
@@ -342,6 +347,18 @@ export const { actions, reducer } = createSlice({
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
       state.plots[payload.key].remoteCreated = true;
     },
+    selectRule: (
+      state,
+      { payload }: PayloadAction<{ key: string; ruleKey: string | string[] }>,
+    ) => {
+      const plot = state.plots[payload.key];
+      const keys = toArray(payload.ruleKey);
+      plot.rules = plot.rules.map((rule) => ({
+        ...rule,
+        selected: keys.includes(rule.key),
+      }));
+      state.toolbar.activeTab = "annotations";
+    },
   },
 });
 
@@ -361,10 +378,10 @@ export const {
   setControlState,
   storeViewport,
   setViewportMode,
+  selectRule,
   setRemoteCreated,
   setSelection,
   create: internalCreate,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-export type LinePayload = Action["payload"];

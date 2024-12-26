@@ -13,14 +13,14 @@ package api
 
 import (
 	"context"
+	access "github.com/synnaxlabs/synnax/pkg/service/access"
 	"go/types"
 
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/hardware"
-	"github.com/synnaxlabs/synnax/pkg/hardware/device"
-	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
-	"github.com/synnaxlabs/synnax/pkg/hardware/task"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -57,11 +57,11 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{rack.OntologyID(0)},
+		Objects: rack.OntologyIDsFromRacks(req.Racks),
 	}); err != nil {
 		return res, err
 	}
-	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
+	if err := svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Rack.NewWriter(tx)
 		for i, r := range req.Racks {
 			if err := w.Create(ctx, &r); err != nil {
@@ -71,7 +71,10 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 		}
 		res.Racks = req.Racks
 		return nil
-	})
+	}); err != nil {
+		return HardwareCreateRackResponse{}, err
+	}
+	return res, nil
 }
 
 type (
@@ -162,7 +165,7 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{task.OntologyID(0)},
+		Objects: task.OntologyIDsFromTasks(req.Tasks),
 	}); err != nil {
 		return res, err
 	}
@@ -271,6 +274,47 @@ func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTa
 	})
 }
 
+type (
+	HardwareCopyTaskRequest struct {
+		Key      task.Key `json:"key" msgpack:"key"`
+		Name     string   `json:"name" msgpack:"name"`
+		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
+	}
+	HardwareCopyTaskResponse struct {
+		Task task.Task `json:"task" msgpack:"task"`
+	}
+)
+
+func (svc *HardwareService) CopyTask(ctx context.Context, req HardwareCopyTaskRequest) (res HardwareCopyTaskResponse, _ error) {
+	if err := svc.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Retrieve,
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	err := svc.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		res.Task, err = svc.internal.Task.NewWriter(tx).Copy(
+			ctx,
+			req.Key,
+			req.Name,
+			req.Snapshot,
+		)
+		return err
+	})
+	if err != nil {
+		return HardwareCopyTaskResponse{}, err
+	}
+	if err := svc.access.Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.Create,
+		Objects: []ontology.ID{task.OntologyID(res.Task.Key)},
+	}); err != nil {
+		return HardwareCopyTaskResponse{}, err
+	}
+	return res, nil
+}
+
 type HardwareCreateDeviceRequest struct {
 	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
@@ -283,7 +327,7 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{device.OntologyID("")},
+		Objects: device.OntologyIDsFromDevices(req.Devices),
 	}); err != nil {
 		return res, err
 	}
@@ -300,12 +344,14 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 }
 
 type HardwareRetrieveDeviceRequest struct {
-	Keys   []string `json:"keys" msgpack:"keys"`
-	Names  []string `json:"names" msgpack:"names"`
-	Makes  []string `json:"makes" msgpack:"makes"`
-	Search string   `json:"search" msgpack:"search"`
-	Limit  int      `json:"limit" msgpack:"limit"`
-	Offset int      `json:"offset" msgpack:"offset"`
+	Keys      []string `json:"keys" msgpack:"keys"`
+	Names     []string `json:"names" msgpack:"names"`
+	Makes     []string `json:"makes" msgpack:"makes"`
+	Models    []string `json:"models" msgpack:"models"`
+	Locations []string `json:"locations" msgpack:"locations"`
+	Search    string   `json:"search" msgpack:"search"`
+	Limit     int      `json:"limit" msgpack:"limit"`
+	Offset    int      `json:"offset" msgpack:"offset"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -314,12 +360,14 @@ type HardwareRetrieveDeviceResponse struct {
 
 func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetrieveDeviceRequest) (res HardwareRetrieveDeviceResponse, _ error) {
 	var (
-		hasSearch = len(req.Search) > 0
-		hasKeys   = len(req.Keys) > 0
-		hasNames  = len(req.Names) > 0
-		hasMakes  = len(req.Makes) > 0
-		hasLimit  = req.Limit > 0
-		hasOffset = req.Offset > 0
+		hasSearch    = len(req.Search) > 0
+		hasKeys      = len(req.Keys) > 0
+		hasNames     = len(req.Names) > 0
+		hasMakes     = len(req.Makes) > 0
+		hasLimit     = req.Limit > 0
+		hasOffset    = req.Offset > 0
+		hasLocations = len(req.Locations) > 0
+		hasModels    = len(req.Models) > 0
 	)
 	q := svc.internal.Device.NewRetrieve()
 	if hasKeys {
@@ -340,9 +388,15 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	if hasMakes {
 		q = q.WhereMakes(req.Makes...)
 	}
+	if hasLocations {
+		q = q.WhereLocations(req.Locations...)
+	}
+	if hasModels {
+		q = q.WhereModels(req.Models...)
+	}
 	err := q.Entries(&res.Devices).Exec(ctx, nil)
 	if err != nil {
-		return res, err
+		return HardwareRetrieveDeviceResponse{}, err
 	}
 	if err = svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),

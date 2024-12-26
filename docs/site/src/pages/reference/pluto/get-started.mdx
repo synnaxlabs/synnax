@@ -1,10 +1,11 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Pluto Components"
 description: "Use Pluto components to build custom user interfaces."
+next: "Provider and Canvas"
+nextURL: "/reference/pluto/provider-and-canvas"
 ---
-import { Divider } from "@synnaxlabs/pluto";
-import Note from "@/components/Note.astro";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
@@ -13,9 +14,9 @@ Pluto is a [React](https://react.dev/) component library designed to build high-
 real-time user interfaces on top of Synnax. It provides a number of components from simple 
 buttons to complex data visualizations.
 
-<Note variant="warning">
+<Note.Note variant="warning">
 Pluto is currently in beta and it's API is subject to changes before reaching V1.
-</Note>
+</Note.Note>
  
 <Divider.Divider direction="x" />
 

@@ -1,4 +1,3 @@
-
 // Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -39,10 +38,10 @@ struct Command {
     /// @brief constructs the command from the provided configuration parser.
     explicit Command(
         config::Parser parser
-    ): task(parser.required<TaskKey>("task")),
-       type(parser.required<std::string>("type")),
-       key(parser.optional<std::string>("key", "")),
-       args(parser.optional<json>("args", json{})) {
+    ) : task(parser.required<TaskKey>("task")),
+        type(parser.required<std::string>("type")),
+        key(parser.optional<std::string>("key", "")),
+        args(parser.optional<json>("args", json{})) {
     }
 
     /// @brief Construct a new Task Command object
@@ -112,11 +111,11 @@ public:
 
     virtual ~Context() = default;
 
-    explicit Context(std::shared_ptr<Synnax> client): client(std::move(client)) {
+    explicit Context(std::shared_ptr<Synnax> client) : client(std::move(client)) {
     }
 
     /// @brief updates the state of the task in the Synnax cluster.
-    virtual void setState(const State &state) = 0;
+    virtual void set_state(const State &state) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -124,11 +123,11 @@ class MockContext final : public Context {
 public:
     std::vector<State> states{};
 
-    explicit MockContext(std::shared_ptr<Synnax> client): Context(client) {
+    explicit MockContext(std::shared_ptr<Synnax> client) : Context(client) {
     }
 
 
-    void setState(const State &state) override {
+    void set_state(const State &state) override {
         state_mutex.lock();
         states.push_back(state);
         state_mutex.unlock();
@@ -140,10 +139,10 @@ private:
 
 class SynnaxContext final : public Context {
 public:
-    explicit SynnaxContext(std::shared_ptr<Synnax> client): Context(client) {
+    explicit SynnaxContext(std::shared_ptr<Synnax> client) : Context(client) {
     }
 
-    void setState(const State &state) override {
+    void set_state(const State &state) override {
         std::unique_lock lock(state_mutex);
         if (state_updater == nullptr) {
             auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
@@ -160,7 +159,8 @@ public:
             });
             if (err) {
                 LOG(ERROR) <<
-                        "[task.context] failed to open writer to update task state" <<
+                        "[task.context] failed to open writer to update task state"
+                        <<
                         su_err.
                         message();
                 return;
@@ -184,12 +184,12 @@ private:
 class Factory {
 public:
     virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
-    configureInitialTasks(
+    configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
     ) { return {}; }
 
-    virtual std::pair<std::unique_ptr<Task>, bool> configureTask(
+    virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::Task &task
     ) = 0;
@@ -203,25 +203,25 @@ public:
         : factories(std::move(factories)) {
     }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > configureInitialTasks(
+    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
     ) override {
         std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > tasks;
         for (const auto &factory: factories) {
-            auto new_tasks = factory->configureInitialTasks(ctx, rack);
+            auto new_tasks = factory->configure_initial_tasks(ctx, rack);
             for (auto &task: new_tasks) tasks.emplace_back(std::move(task));
         }
         return tasks;
     }
 
     std::pair<std::unique_ptr<Task>, bool>
-    configureTask(
+    configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::Task &task
     ) override {
         for (const auto &factory: factories) {
-            auto [t, ok] = factory->configureTask(ctx, task);
+            auto [t, ok] = factory->configure_task(ctx, task);
             if (ok) return {std::move(t), true};
         }
         return {nullptr, false};
@@ -236,15 +236,15 @@ private:
 class Manager {
 public:
     Manager(
-        const Rack& rack,
+        const Rack &rack,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> factory,
-        const breaker::Config& breaker
+        const breaker::Config &breaker
     );
 
     ~Manager();
 
-    freighter::Error start(std::atomic<bool> &done);
+    freighter::Error start();
 
     freighter::Error stop();
 
@@ -266,7 +266,7 @@ private:
     std::thread run_thread;
     freighter::Error run_err;
 
-    void run(std::atomic<bool> &done);
+    void run();
 
     freighter::Error runGuarded();
 

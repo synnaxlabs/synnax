@@ -21,17 +21,18 @@ import {
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { useResize, type UseResizeHandler, UseResizeOpts } from "@/hooks";
+import {
+  useCombinedRefs,
+  useResize,
+  type UseResizeHandler,
+  type UseResizeOpts,
+} from "@/hooks";
 import { canvas } from "@/vis/canvas/aether";
 
 type HTMLDivProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLDivElement>,
   HTMLDivElement
 >;
-
-export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
-  resizeDebounce?: number;
-}
 
 const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() as runtime.OS };
 
@@ -48,6 +49,10 @@ const ZERO_CANVASES: Canvases = {
   upper2d: null,
   bootstrapped: false,
 };
+
+export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
+  resizeDebounce?: number;
+}
 
 export const Canvas = Aether.wrap<CanvasProps>(
   canvas.Canvas.TYPE,
@@ -67,27 +72,45 @@ export const Canvas = Aether.wrap<CanvasProps>(
 
     const canvases = useRef<Canvases>({ ...ZERO_CANVASES });
 
+    const initialResizeComplete = useRef(false);
+
     const handleResize = useCallback(
       (region: box.Box) => {
-        if (canvases.current.bootstrapped)
+        if (canvases.current.bootstrapped) {
           setState(() => ({
             bootstrapped: true,
             region,
             dpr: window.devicePixelRatio,
             os: runtime.getOS({ default: "Windows" }) as runtime.OS,
           }));
+          initialResizeComplete.current = true;
+        }
       },
       [setState],
     );
 
+    const elRef = useRef<HTMLDivElement | null>(null);
     const resizeRef = useResize(handleResize, { debounce });
+    const combinedElRef = useCombinedRefs(elRef, resizeRef);
 
     useEffect(() => {
       // Handle device pixel ratio change i.e. when the user moves the window to a
       // different display.
       const handleChange = (): void => {
-        if (window.devicePixelRatio === dpr) return;
-        setState((p) => ({ ...p, dpr: window.devicePixelRatio }));
+        if (
+          window.devicePixelRatio === dpr ||
+          !canvases.current.bootstrapped ||
+          elRef.current == null
+        )
+          return;
+        setState((p) => ({
+          ...p,
+          // We need to explicitly construct the region here because this callback
+          // may race against the `useResize` callback and cause a stale region to
+          // be used in state.
+          region: box.construct(elRef.current),
+          dpr: window.devicePixelRatio,
+        }));
       };
       window
         .matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
@@ -97,13 +120,25 @@ export const Canvas = Aether.wrap<CanvasProps>(
     // We want to trigger a re-render when the window is focused or blurred to ensure
     // that we wake up sleeping render contexts.
     useEffect(() => {
-      window.addEventListener("focus", () => setState((p) => ({ ...p })));
-      window.addEventListener("blur", () => setState((p) => ({ ...p })));
+      const handler = () => {
+        if (!canvases.current.bootstrapped || elRef.current == null) return;
+        setState((p) => ({
+          ...p,
+          // We need to explicitly construct the region here because this callback
+          // may race against the `useResize` callback and cause a stale region to
+          // be used in state.
+          region: box.construct(elRef.current),
+          glCanvas: undefined,
+          upper2dCanvas: undefined,
+          lower2dCanvas: undefined,
+        }));
+      };
+      window.addEventListener("focus", handler);
+      window.addEventListener("blur", handler);
     }, [setState]);
 
     const refCallback = useCallback(
       (el: HTMLCanvasElement | null) => {
-        resizeRef(el);
         if (el == null) return;
 
         // Store the canvas
@@ -137,7 +172,11 @@ export const Canvas = Aether.wrap<CanvasProps>(
     );
 
     return (
-      <div className={CSS(CSS.B("canvas-container"), className)} {...props}>
+      <div
+        ref={combinedElRef}
+        className={CSS(CSS.B("canvas-container"), className)}
+        {...props}
+      >
         <canvas
           ref={refCallback}
           className={CSS(CSS.B("canvas"), CSS.BM("canvas", "lower2d"))}

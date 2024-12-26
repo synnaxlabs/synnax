@@ -12,5 +12,5 @@ import { type RefObject } from "react";
 import { type UseCursorDragProps } from "@/hooks/useCursorDrag/useCursorDrag";
 
 export interface UseVirtualCursorDragProps extends UseCursorDragProps {
-  ref: RefObject<HTMLElement>;
+  ref: RefObject<HTMLElement | null>;
 }

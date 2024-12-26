@@ -12,7 +12,10 @@
       "@synnaxlabs/pluto": [
         "../../pluto/src/index.ts"
       ]
-    }
+    },
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["./src/vite-env.d.ts"],
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
 }

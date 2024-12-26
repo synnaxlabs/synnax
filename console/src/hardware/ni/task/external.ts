@@ -23,13 +23,13 @@ import {
   ANALOG_READ_TYPE,
   DIGITAL_READ_TYPE,
   DIGITAL_WRITE_TYPE,
-} from "@/hardware/ni/task/types";
-import { Layout } from "@/layout";
+} from "@/hardware/ni/task/migrations";
+import { type Layout } from "@/layout";
 
 export * from "@/hardware/ni/task/AnalogRead";
 export * from "@/hardware/ni/task/DigitalRead";
 export * from "@/hardware/ni/task/DigitalWrite";
-export * from "@/hardware/ni/task/types";
+export * from "@/hardware/ni/task/migrations";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [ANALOG_READ_TYPE]: ConfigureAnalogRead,

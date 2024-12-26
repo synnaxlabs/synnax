@@ -59,15 +59,15 @@ interface ActionProps {
 const Action = ({ index, level, children, divided }: ActionProps): ReactElement => {
   let content: ReactElement = children as ReactElement;
   if (!isValidElement(children)) {
-    const { onClick, ...props } = children as Button.IconProps;
+    const { onClick, key, ...props } = children as Button.IconProps;
     content = (
       <Button.Icon
+        key={key ?? index}
         onClick={(e) => {
           e.stopPropagation();
           e.preventDefault();
           onClick?.(e);
         }}
-        key={index}
         size={Text.LevelComponentSizes[level]}
         {...props}
       />

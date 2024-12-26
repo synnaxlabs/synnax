@@ -9,10 +9,19 @@
 
 import synnax as sy
 
-client = sy.Synnax()
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    secure=False,
+    username="synnax",
+    password="seldon",
+)
 
 
-with client.open_streamer(["sy_rack16_meminfo"]) as s:
+with client.open_streamer(["sy_task_set", "sy_task_state"]) as s:
+    print("STREAMING")
     for frame in s:
-        print(sy.TimeStamp.now())
-        print(sy.Size.BYTE * frame["sy_rack16_meminfo"][0])
+        if "sy_task_set" in frame:
+            print(client.hardware.tasks.retrieve(frame["sy_task_set"][0]).to_payload())
+        elif "sy_task_state" in frame:
+            print(frame["sy_task_state"][0])

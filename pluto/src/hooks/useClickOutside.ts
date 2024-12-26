@@ -13,7 +13,7 @@ import { type RefObject, useCallback, useEffect } from "react";
 import { useSyncedRef } from "@/hooks";
 
 export interface UseClickOutsideProps {
-  ref: RefObject<HTMLElement>;
+  ref: RefObject<HTMLElement | null>;
   exclude?: Array<RefObject<HTMLElement>> | ((e: MouseEvent) => boolean);
   onClickOutside: () => void;
 }
@@ -38,11 +38,10 @@ export const useClickOutside = ({
       const pos = xy.construct(e);
 
       const exclude = excludeRef.current;
-      if (exclude != null) {
+      if (exclude != null)
         if (typeof exclude === "function") {
           if (exclude(e)) return;
         } else if (exclude.some((r) => r.current?.contains(e.target as Node))) return;
-      }
 
       if (
         el == null ||
@@ -57,7 +56,6 @@ export const useClickOutside = ({
   );
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
-    // window.addEventListener("blur", onClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [handleClickOutside]);
 };

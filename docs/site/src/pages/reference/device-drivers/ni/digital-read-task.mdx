@@ -1,14 +1,15 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "NI | Digital Read Task"
 heading: "NI Digital Read Task"
 description: "Learn how to create a digital read task for NI hardware."   
+prev: "Digital Write Task"
+prevURL: "/reference/device-drivers/ni/digital-write-task"
 ---
 import { Icon } from "@synnaxlabs/media";
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { StepText } from "@/components/StepText";
 import { Video, Image } from "@/components/Media";
-import Note from "@/components/Note.astro";
 
 The Digital Read Task is used for acquiring data from analog inputs on your NI devices. In
 this guide, we'll walk you through the steps to create a digital read Task in Synnax.
@@ -28,7 +29,7 @@ guide for more information.
 Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
 can be used for both control and data acquisition purposes. In the context of the NI
 Driver, a digital read task defines a background process that reads data from the 
-analog inputs on a particular DAQ card.
+digital inputs on a particular DAQ card.
 
 A digital read task can be started, stopped, and re-configured at any time. We 
 permanently store the configuration of the task in Synnax, so it's easy to set up 
@@ -69,7 +70,7 @@ To create a digital read task from the command palette, open the Synnax Console 
 click on the Quick Search & Command Palette at the top. You can also open this palette with 
 `Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
 
-In command moe (enabled when the first character in the input is ">"), type
+In command mode (enabled when the first character in the input is ">"), type
 "NI". You'll see an option called "Create a New Digital read Task". Select this
 option to open the read task configuration dialog.
 
@@ -143,8 +144,8 @@ task and enable the Play (<Icon.Play />) button in the dialog. Click this button
 
 <Video client:only="react" id="device-drivers/ni/digital-read-task/digital-read-task-start" />
 
-<Note variant="info">
+<Note.Note variant="info">
 Starting and stopping a task does not re-apply the task configuration. If you've made 
 changes to the configuration, you'll need to re-configure the task by hitting the "
 Configure" button.
-</Note>
+</Note.Note>

@@ -9,29 +9,33 @@
 
 import "@/layout/Selector.css";
 
-import { Button, Eraser, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { PlacerArgs, usePlacer } from "@/layout/hooks";
-import { RendererProps } from "@/layout/slice";
+import { type PlacerArgs, usePlacer } from "@/layout/hooks";
+import { type RendererProps } from "@/layout/slice";
 
 export interface Selectable {
   key: string;
   title: string;
-  icon: ReactElement;
+  icon: ReactElement<Icon.BaseProps>;
   create: (layoutKey: string) => PlacerArgs;
 }
 
 export interface SelectorProps extends Align.SpaceProps, RendererProps {
   layouts?: Selectable[];
+  text?: string;
 }
 
 const Base = ({
   layoutKey,
   direction,
   layouts,
+  visible: _,
+  focused: __,
+  text = "Select a Component Type",
   ...props
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
@@ -45,12 +49,12 @@ const Base = ({
         wrap
       >
         <Text.Text level="h4" shade={6} weight={400}>
-          Select a Component Type
+          {text}
         </Text.Text>
         <Align.Space
           direction="x"
           wrap
-          style={{ width: "500px" }}
+          style={{ maxWidth: "500px", width: "100%" }}
           justify="center"
           size={2.5}
         >
@@ -60,7 +64,7 @@ const Base = ({
               variant="outlined"
               onClick={() => place(create(layoutKey))}
               startIcon={icon}
-              style={{ flexBasis: "200px" }}
+              style={{ flexBasis: "185px" }}
             >
               {title}
             </Button.Button>

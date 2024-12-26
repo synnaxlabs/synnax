@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/errors"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
@@ -43,14 +44,11 @@ func (db *DB) OpenTx() Tx { return tx{Tx: db.DB.OpenTx(), options: db.options} }
 func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	txn := db.OpenTx()
 	defer func() {
-		if err_ := txn.Close(); err_ != nil {
-			err = err_
-		}
+		err = errors.CombineErrors(err, txn.Close())
 	}()
 	if err = f(txn); err == nil {
 		err = txn.Commit(ctx)
 	}
-
 	return
 }
 
@@ -66,9 +64,7 @@ func (db *DB) Close() error { return db.DB.Close() }
 
 // OverrideTx returns the override transaction if it is not nil. Otherwise,
 // it returns the base transaction.
-func OverrideTx(base, override Tx) Tx {
-	return lo.Ternary(override != nil, override, base)
-}
+func OverrideTx(base, override Tx) Tx { return lo.Ternary(override != nil, override, base) }
 
 // Tx extends the kv.Tx interface to provide gorp-required utilities for
 // executing a strongly-typed, atomic transaction against a DB. To open a

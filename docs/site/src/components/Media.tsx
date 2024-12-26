@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Video as Core } from "@synnaxlabs/pluto/video";
 import {
+  type DetailedHTMLProps,
+  type ReactElement,
   useEffect,
   useRef,
   useState,
-  type DetailedHTMLProps,
-  type ReactElement,
 } from "react";
-
-import { Video as Core } from "@synnaxlabs/pluto/video";
 
 export interface VideoProps
   extends DetailedHTMLProps<
@@ -52,14 +51,14 @@ const useLiveTheme = (): string => {
   return theme;
 };
 
-export const Video = ({ id, ...props }: VideoProps): ReactElement => {
+export const Video = ({ id, themed = true, ...props }: VideoProps): ReactElement => {
   const theme = useLiveTheme();
-  const href = `${CDN_ROOT}/${id}-${theme}.mp4`;
+  const url = `${CDN_ROOT}/${id}${themed ? `-${theme}` : ""}.mp4`;
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (ref.current) ref.current.load();
-  }, [href]);
+  }, [url]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -76,17 +75,27 @@ export const Video = ({ id, ...props }: VideoProps): ReactElement => {
     };
   }, []);
 
-  return <Core.Video ref={ref} href={href} loop muted {...props} />;
+  return <Core.Video ref={ref} href={url} loop muted {...props} />;
 };
 
-export const Image = ({ id, themed = true, ...props }: VideoProps): ReactElement => {
+export interface ImageProps extends VideoProps {
+  extension?: "png" | "jpg" | "jpeg" | "webp" | "svg";
+}
+
+export const Image = ({
+  id,
+  themed = true,
+  className,
+  extension = "png",
+  ...props
+}: ImageProps): ReactElement => {
   const theme = useLiveTheme();
   let url = `${CDN_ROOT}/${id}`;
   if (themed) url += `-${theme}`;
-  url += ".png";
+  url += `.${extension}`;
   const ref = useRef<HTMLImageElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.src = url;
   }, []);
-  return <img src={url} className="image" {...props} />;
+  return <img src={url} {...props} />;
 };

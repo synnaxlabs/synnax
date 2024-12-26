@@ -11,14 +11,16 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   channel,
   control,
-  framer,
-  Series,
+  type framer,
   type Synnax,
   TimeStamp,
-  UnexpectedError,
 } from "@synnaxlabs/client";
-import { compare, type Destructor } from "@synnaxlabs/x";
-import { control as xControl } from "@synnaxlabs/x";
+import {
+  compare,
+  control as xControl,
+  type CrudeSeries,
+  type Destructor,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -103,13 +105,12 @@ export class Controller
   }
 
   private async updateNeedsControlOf(): Promise<void> {
-    if (this.internal.client == null) {
-      throw new UnexpectedError("No cluster connected but channelKeys were requested");
-    }
+    const { client } = this.internal;
+    if (client == null) return;
 
     const keys = new Set<channel.Key>([]);
     for (const telem of this.registry.keys()) {
-      const telemKeys = await telem.needsControlOf(this.internal.client);
+      const telemKeys = await telem.needsControlOf(client);
       telemKeys.forEach((k) => k !== 0 && keys.add(k));
     }
     const nextKeys = Array.from(keys);
@@ -144,12 +145,9 @@ export class Controller
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
+        enableAutoCommit: true,
       });
       this.setState((p) => ({ ...p, status: "acquired" }));
-      addStatus({
-        message: `Acquired control on ${this.state.name}`,
-        variant: "success",
-      });
     } catch (e) {
       this.setState((p) => ({ ...p, status: "failed" }));
       addStatus({
@@ -162,17 +160,24 @@ export class Controller
   }
 
   private async release(): Promise<void> {
-    await this.writer?.close();
-    this.setState((p) => ({ ...p, status: "released" }));
-    if (this.writer != null)
+    try {
+      await this.writer?.close();
+      this.setState((p) => ({ ...p, status: "released" }));
+    } catch (e) {
       this.internal.addStatus({
-        message: `Released control on ${this.state.name}.`,
-        variant: "success",
+        message: `${this.state.name} failed to release control: ${
+          (e as Error).message
+        }`,
+        variant: "error",
       });
-    this.writer = undefined;
+    } finally {
+      this.writer = undefined;
+    }
   }
 
-  async set(frame: framer.CrudeFrame): Promise<void> {
+  async set(
+    frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
+  ): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.write(frame);
   }
@@ -262,17 +267,12 @@ export class SetChannelValue
     const { client } = this.controller.internal;
     if (client == null) return;
     const ch = await client.channels.retrieve(this.props.channel);
-    const index = await client.channels.retrieve(ch.index);
-    const frame = new framer.Frame(
-      [ch.key, index.key],
-      [
-        // @ts-expect-error - issues with BigInt vs number.
-        new Series({ data: new ch.dataType.Array([value]) }),
-        // @ts-expect-error - issues with BigInt vs number.
-        new Series({ data: new index.dataType.Array([BigInt(TimeStamp.now())]) }),
-      ],
-    );
-    await this.controller.set(frame);
+    const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: value };
+    if (ch.index !== 0) {
+      const index = await client.channels.retrieve(ch.index);
+      fr[index.key] = TimeStamp.now();
+    }
+    await this.controller.set(fr);
   }
 }
 

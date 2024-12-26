@@ -41,7 +41,7 @@ const scrollToRelevantChild = (
   ref: HTMLDivElement,
 ) => {
   const dirMultiplier = hover > prevHover ? 1 : -1;
-  let scrollTo = hover;
+  let scrollTo: number;
   const idealHover = hover + dirMultiplier * 2;
   if (bounds.contains({ lower: 0, upper: ref.children.length }, idealHover))
     scrollTo = hover + dirMultiplier * 2;
@@ -150,6 +150,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
 export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   itemHeight = 50,
+  className,
   ...props
 }: Omit<Align.SpaceProps, "children"> & {
   children: ItemRenderProp<K, E>;
@@ -178,7 +179,12 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   }, [hover, itemHeight]);
 
   return (
-    <Align.Space className={CSS.BE("list", "container")} ref={ref} size={0} {...props}>
+    <Align.Space
+      className={CSS(className, CSS.BE("list", "container"))}
+      ref={ref}
+      size={0}
+      {...props}
+    >
       {data.length === 0 ? (
         emptyContent
       ) : (

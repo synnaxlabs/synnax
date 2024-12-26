@@ -1,8 +1,10 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Device Drivers"
 heading: "Device Drivers"
 description: "Browse available device drivers to connect your hardware."
+next: "OPC UA"
+nextURL: "/reference/device-drivers/opc-ua/connect-server"
 ---
 import { Divider } from "@synnaxlabs/pluto"
 
@@ -17,3 +19,9 @@ control hardware out of the box.
 | ---------------------------------------------------------------- | ----------------------------------------- |
 | [OPC UA](/reference/device-drivers/opc-ua/connect-server)        | Connect to OPC UA servers.                |
 | [National Instruments](/reference/device-drivers/ni/get-started) | Connect to National Instruments hardware. |
+| [LabJack](/reference/device-drivers/labjack/get-started)         | Connect to LabJack hardware.              |
+
+## Building a Custom Driver
+
+If you don't see a driver for your hardware, you can build your own using the
+[Python client](/reference/python-client/building-a-custom-driver). 

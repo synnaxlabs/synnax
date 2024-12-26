@@ -154,12 +154,11 @@ describe("connector", () => {
       BOTTOM_EQUAL_FALSE,
     ];
 
-    for (const spec of SPECS) {
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.needToGoAround(spec.props);
         expect(actual).toEqual(spec.expected);
       });
-    }
   });
 
   describe("travelSegments", () => {
@@ -200,12 +199,11 @@ describe("connector", () => {
 
     const SPECS = [TO_RIGHT, TO_LEFT, TO_TOP, TO_BOTTOM];
 
-    for (const spec of SPECS) {
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.travelSegments(spec.source, ...spec.segments);
         expect(actual).toEqual(spec.expected);
       });
-    }
   });
 
   describe("stump", () => {
@@ -275,12 +273,11 @@ describe("connector", () => {
       RIGHT_LEFT_TRUE_LONG_WAY,
     ];
 
-    for (const spec of SPECS) {
+    for (const spec of SPECS)
       it(spec.description, () => {
         const actual = connector.prepareNode(spec.props);
         expect(actual).toEqual(spec.expected);
       });
-    }
   });
 
   describe("new connector formation", () => {
@@ -440,7 +437,7 @@ describe("connector", () => {
       LEFT_LEFT_TARGET_EQ_LEFT,
     ];
 
-    for (const spec of SPECS) {
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.buildNew(spec.props);
         expect(actual).toEqual(spec.expected);
@@ -449,7 +446,6 @@ describe("connector", () => {
         const target = connector.travelSegments(spec.props.sourcePos, ...actual);
         expect(target).toEqual(spec.props.targetPos);
       });
-    }
   });
 
   describe("dragging segments", () => {
@@ -581,7 +577,7 @@ describe("connector", () => {
       ADD_SOURCE_STUMP,
     ];
 
-    for (const spec of SPECS) {
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.dragSegment(spec.props);
         const propsTarget = connector.travelSegments(xy.ZERO, ...spec.props.segments);
@@ -591,7 +587,6 @@ describe("connector", () => {
         expect(actual).toEqual(spec.expected);
         expect(propsTarget).toEqual(actualTarget);
       });
-    }
   });
 
   describe("moving nodes", () => {
@@ -782,23 +777,6 @@ describe("connector", () => {
       ],
     };
 
-    const TIGHT_COMPRESSION: Spec = {
-      name: "tight compression",
-      props: {
-        delta: { x: 1, y: 0 },
-        segments: [
-          { direction: "x", length: 11 },
-          { direction: "y", length: 1 },
-          { direction: "x", length: 11 },
-        ],
-      },
-      expected: [
-        { direction: "x", length: 10 },
-        { direction: "y", length: 1 },
-        { direction: "x", length: 11 },
-      ],
-    };
-
     const TIGHT_SINGLE_COMPRESSION: Spec = {
       name: "tight single compression",
       props: {
@@ -823,29 +801,30 @@ describe("connector", () => {
       ],
     };
 
-    // Props:
-    //   |
-    //   T
-    //   |
-    // S-|
-    //
-    // Expected:
-    //   |
-    //   T
-    //   |
-    //   |
-    //  S|
-    const ORTHOGONAL_REVERSE_STUMP: Spec = {
-      name: "orthogonal reverse stump",
+    const TIGHT_COMPRESSION: Spec = {
+      name: "orthogonal reverse stump -2 ",
       props: {
-        delta: { x: 10, y: 0 },
+        delta: { x: 5, y: 0 },
         segments: [
-          { direction: "x", length: 10 },
-          { direction: "y", length: 30 },
-          { direction: "y", length: -10 },
+          { direction: "x", length: 2 },
+          { direction: "y", length: -133 },
+          { direction: "x", length: 9 },
         ],
       },
-      expected: [{ direction: "y", length: 20 }],
+      expected: [
+        {
+          direction: "x",
+          length: 2,
+        },
+        {
+          direction: "y",
+          length: -133,
+        },
+        {
+          direction: "x",
+          length: 4,
+        },
+      ],
     };
 
     const SPECS: Spec[] = [
@@ -858,12 +837,11 @@ describe("connector", () => {
       DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION_DISCONNECT,
       OPPOSITE_ORIENTATION_COMPRESSED_DISCONNECT,
       PARALLEL_ORIENTATION_COMPRESSION,
-      TIGHT_COMPRESSION,
       TIGHT_SINGLE_COMPRESSION,
       ORTHOGONAL_DOWN,
-      ORTHOGONAL_REVERSE_STUMP,
+      TIGHT_COMPRESSION,
     ];
-    for (const spec of SPECS) {
+    for (const spec of SPECS)
       it(spec.name, () => {
         const actual = connector.moveSourceNode(spec.props);
         const expectedTarget = connector.travelSegments(xy.ZERO, ...spec.expected);
@@ -871,6 +849,5 @@ describe("connector", () => {
         expect(actual).toEqual(spec.expected);
         expect(actualTarget).toEqual(expectedTarget);
       });
-    }
   });
 });

@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, type PayloadAction } from "@reduxjs/toolkit";
+import {
+  type Dispatch,
+  type PayloadAction,
+  type UnknownAction,
+} from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -15,7 +19,8 @@ import {
   Control,
   Diagram,
   Haul,
-  Legend,
+  type Legend,
+  Menu as PMenu,
   Schematic as Core,
   Text,
   Theming,
@@ -24,7 +29,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, type UnknownRecord } from "@synnaxlabs/x";
+import { box, deep, id, primitiveIsZero, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -33,20 +38,24 @@ import {
   useRef,
   useState,
 } from "react";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
+import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
   select,
+  selectHasPermission,
   useSelect,
+  useSelectHasPermission,
   useSelectNodeProps,
-  useSelectViewport,
+  useSelectVersion,
   useSelectViewportMode,
 } from "@/schematic/selectors";
 import {
   addElement,
   calculatePos,
+  clearSelection,
   copySelection,
   internalCreate,
   pasteSelection,
@@ -63,6 +72,7 @@ import {
   toggleControl,
   ZERO_STATE,
 } from "@/schematic/slice";
+import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
@@ -71,147 +81,166 @@ interface SyncPayload {
 
 export const HAUL_TYPE = "schematic-element";
 
-const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
+const useSyncComponent = (
+  layoutKey: string,
+  dispatch?: Dispatch<PayloadAction<SyncPayload>>,
+): Dispatch<PayloadAction<SyncPayload>> =>
   Workspace.useSyncComponent<SyncPayload>(
     "Schematic",
     layoutKey,
     async (ws, store, client) => {
-      const s = store.getState();
-      const data = select(s, layoutKey);
-      if (data == null || data.snapshot) return;
-      const la = Layout.selectRequired(s, layoutKey);
-      const setData = {
-        ...data,
-        key: undefined,
-        snapshot: undefined,
-      } as unknown as UnknownRecord;
+      const storeState = store.getState();
+      if (!selectHasPermission(storeState)) return;
+      const data = select(storeState, layoutKey);
+      if (data == null) return;
+      const layout = Layout.selectRequired(storeState, layoutKey);
+      if (data.snapshot) {
+        await client.workspaces.schematic.rename(layoutKey, layout.name);
+        return;
+      }
+      const setData = { ...data, key: undefined };
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await new Promise((r) => setTimeout(r, 1000));
       await client.workspaces.schematic.create(ws, {
         key: layoutKey,
-        name: la.name,
+        name: layout.name,
         data: setData,
       });
     },
+    dispatch,
   );
+
+interface SymbolRendererProps extends Diagram.SymbolProps {
+  layoutKey: string;
+  dispatch: Dispatch<UnknownAction>;
+}
 
 const SymbolRenderer = ({
   symbolKey,
   position,
   selected,
   layoutKey,
-}: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
-  const nodeProps = useSelectNodeProps(layoutKey, symbolKey);
-  if (nodeProps == null) return null;
-  const { key, ...props } = nodeProps;
-  const dispatch = useSyncComponent(layoutKey);
-
+  draggable,
+  dispatch,
+}: SymbolRendererProps): ReactElement | null => {
+  const props = useSelectNodeProps(layoutKey, symbolKey);
+  const key = props?.key;
   const handleChange = useCallback(
     (props: object) => {
+      if (key == null) return;
       dispatch(
-        setElementProps({
-          layoutKey,
-          key: symbolKey,
-          props: { key, ...props },
-        }),
+        setElementProps({ layoutKey, key: symbolKey, props: { key, ...props } }),
       );
     },
-    [dispatch, symbolKey, layoutKey, key],
+    [symbolKey, layoutKey, key, dispatch],
   );
+
+  if (props == null) return null;
 
   const C = Core.SYMBOLS[key as Core.Variant];
 
-  if (C == null) {
-    throw new Error(`Symbol ${key} not found`);
-  }
+  if (C == null) throw new Error(`Symbol ${key} not found`);
 
-  const zoom = useSelectViewport(layoutKey);
+  // Just here to make sure we don't spread the key into the symbol.
+  const { key: _, ...rest } = props;
 
   return (
     <C.Symbol
-      aetherKey={symbolKey}
+      key={key}
+      id={symbolKey}
+      symbolKey={symbolKey}
       position={position}
       selected={selected}
+      draggable={draggable}
       onChange={handleChange}
-      zoom={zoom.zoom}
-      {...props}
+      {...rest}
     />
   );
 };
 
-export const Loaded: Layout.Renderer = ({ layoutKey }) => {
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <PMenu.Menu level="small" iconSpacing="small">
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </PMenu.Menu>
+);
+
+export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const schematic = useSelect(layoutKey);
 
   const dispatch = useSyncComponent(layoutKey);
+  const selector = useCallback(
+    (state: RootState) => select(state, layoutKey),
+    [layoutKey],
+  );
+  const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
+    selector,
+    internalCreate,
+    30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
+  );
+  const undoableDispatch = useSyncComponent(layoutKey, undoableDispatch_);
+
   const theme = Theming.use();
   const viewportRef = useSyncedRef(schematic.viewport);
 
   const prevName = usePrevious(name);
   useEffect(() => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey]);
+  }, [name, prevName, layoutKey, dispatch]);
+
+  const canBeEditable = useSelectHasPermission();
+  if (!canBeEditable && schematic.editable)
+    dispatch(setEditable({ key: layoutKey, editable: false }));
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
-    (edges) => {
-      dispatch(setEdges({ key: layoutKey, edges }));
-    },
-    [dispatch, layoutKey],
+    (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
+    [layoutKey, undoableDispatch],
   );
 
   const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
-    (nodes) => {
-      dispatch(setNodes({ key: layoutKey, nodes }));
+    (nodes, changes) => {
+      // @ts-expect-error - Sometimes, the nodes do have dragging
+      if (nodes.some((n) => n.dragging) || changes.some((c) => c.type === "select"))
+        // don't remember dragging a node or selecting an element
+        dispatch(setNodes({ key: layoutKey, nodes }));
+      else undoableDispatch(setNodes({ key: layoutKey, nodes }));
     },
-    [dispatch, layoutKey],
+    [layoutKey, dispatch, undoableDispatch],
   );
 
   const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
-    (vp) => {
-      dispatch(setViewport({ key: layoutKey, viewport: vp }));
-    },
-    [layoutKey],
+    (vp) => dispatch(setViewport({ key: layoutKey, viewport: vp })),
+    [layoutKey, dispatch],
   );
 
   const handleEditableChange: Diagram.DiagramProps["onEditableChange"] = useCallback(
-    (cbk) => {
-      dispatch(setEditable({ key: layoutKey, editable: cbk }));
-    },
-    [layoutKey],
+    (cbk) => dispatch(setEditable({ key: layoutKey, editable: cbk })),
+    [layoutKey, dispatch],
   );
 
   const handleSetFitViewOnResize = useCallback(
-    (v: boolean) => {
-      dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v }));
-    },
+    (v: boolean) =>
+      dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
     [layoutKey, dispatch],
   );
 
   const handleControlStatusChange = useCallback(
-    (control: Control.Status) => {
-      dispatch(setControlStatus({ key: layoutKey, control }));
-    },
-    [layoutKey],
+    (control: Control.Status) =>
+      dispatch(setControlStatus({ key: layoutKey, control })),
+    [layoutKey, dispatch],
   );
 
   const acquireControl = useCallback(
-    (v: boolean) => {
-      dispatch(
-        toggleControl({
-          key: layoutKey,
-          status: v ? "acquired" : "released",
-        }),
-      );
-    },
-    [layoutKey],
+    (v: boolean) =>
+      dispatch(toggleControl({ key: layoutKey, status: v ? "acquired" : "released" })),
+    [layoutKey, dispatch],
   );
 
   const elRenderer = useCallback(
-    (props: Diagram.SymbolProps) => {
-      return <SymbolRenderer layoutKey={layoutKey} {...props} />;
-    },
-    [layoutKey],
+    (props: Diagram.SymbolProps) => (
+      <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
+    ),
+    [layoutKey, undoableDispatch],
   );
 
   const ref = useRef<HTMLDivElement>(null);
@@ -224,30 +253,26 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       valid.forEach(({ key, data }) => {
         const spec = Core.SYMBOLS[key as Core.Variant];
         if (spec == null) return;
-        const pos = calculatePos(
-          region,
-          { x: event.clientX, y: event.clientY },
-          viewportRef.current,
+        const pos = xy.truncate(
+          calculatePos(
+            region,
+            { x: event.clientX, y: event.clientY },
+            viewportRef.current,
+          ),
+          0,
         );
-        dispatch(
+        undoableDispatch(
           addElement({
             key: layoutKey,
             elKey: id.id(),
-            node: {
-              position: pos,
-              zIndex: spec.zIndex,
-            },
-            props: {
-              key,
-              ...spec.defaultProps(theme),
-              ...(data ?? {}),
-            },
+            node: { position: pos, zIndex: spec.zIndex },
+            props: { key, ...spec.defaultProps(theme), ...(data ?? {}) },
           }),
         );
       });
       return valid;
     },
-    [schematic.viewport, theme],
+    [theme, undoableDispatch, layoutKey],
   );
 
   const dropProps = Haul.useDrop({
@@ -264,46 +289,52 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     triggers: [
       ["Control", "V"],
       ["Control", "C"],
+      ["Escape"],
+      ["Control", "Z"],
+      ["Control", "Shift", "Z"],
     ],
+    loose: true,
     region: ref,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
         if (ref.current == null || stage !== "start") return;
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
+        const isClear = triggers.some((t) => t.includes("Escape"));
+        const isUndo =
+          triggers.some((t) => t.includes("Z")) &&
+          triggers.some((t) => t.includes("Control")) &&
+          !triggers.some((t) => t.includes("Shift"));
+        const isRedo =
+          triggers.some((t) => t.includes("Z")) &&
+          triggers.some((t) => t.includes("Control")) &&
+          triggers.some((t) => t.includes("Shift"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));
-        else dispatch(pasteSelection({ pos, key: layoutKey }));
+        else if (isClear) dispatch(clearSelection({ key: layoutKey }));
+        else if (isUndo) undo();
+        else if (isRedo) redo();
+        else undoableDispatch(pasteSelection({ pos, key: layoutKey }));
       },
-      [dispatch, layoutKey, viewportRef],
+      [layoutKey, undoableDispatch, undo, redo, dispatch],
     ),
   });
 
   const handleDoubleClick = useCallback(() => {
     if (!schematic.editable) return;
     dispatch(
-      Layout.setNavDrawerVisible({
-        windowKey,
-        key: "visualization",
-        value: true,
-      }) as PayloadAction<SyncPayload>,
+      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-  }, [windowKey, dispatch, schematic.editable]);
+  }, [windowKey, schematic.editable, dispatch]);
 
   const [legendPosition, setLegendPosition] = useState<Legend.StickyXY>(
     schematic.legend.position,
   );
 
   const storeLegendPosition = useCallback(
-    (position: Legend.StickyXY) => {
-      dispatch(
-        setLegend({
-          key: layoutKey,
-          legend: { position },
-        }),
-      );
-    },
-    [dispatch, layoutKey],
+    (position: Legend.StickyXY) =>
+      dispatch(setLegend({ key: layoutKey, legend: { position } })),
+    [layoutKey, dispatch],
   );
 
   const handleLegendPositionChange = useCallback(
@@ -311,8 +342,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       setLegendPosition(position);
       storeLegendPosition(position);
     },
-    [storeLegendPosition],
+    [storeLegendPosition, setLegendPosition],
   );
+
+  const canEditSchematic = useSelectHasPermission() && !schematic.snapshot;
 
   return (
     <div
@@ -330,7 +363,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onViewportChange={handleViewportChange}
           edges={schematic.edges}
           nodes={schematic.nodes}
-          viewport={schematic.viewport}
+          // Turns out that setting the zoom value to 1 here doesn't have any negative
+          // effects on the schematic sizing and ensures that we position all the lines
+          // in the correct place.
+          viewport={{ ...schematic.viewport, zoom: 1 }}
           onEdgesChange={handleEdgesChange}
           onNodesChange={handleNodesChange}
           onEditableChange={handleEditableChange}
@@ -339,12 +375,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onDoubleClick={handleDoubleClick}
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
+          visible={visible}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
           <Diagram.Background />
           <Diagram.Controls>
-            {!schematic.snapshot && (
+            {canEditSchematic && (
               <Diagram.ToggleEditControl disabled={schematic.control === "acquired"} />
             )}
             <Diagram.FitViewControl />
@@ -380,23 +417,23 @@ export const Schematic: Layout.Renderer = ({
   layoutKey,
   ...props
 }): ReactElement | null => {
-  const schematic = useLoadRemote({
+  const loaded = useLoadRemote({
     name: "Schematic",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect: useSelect,
+    useSelectVersion,
     fetcher: async (client, layoutKey) => {
       const { key, data } = await client.workspaces.schematic.retrieve(layoutKey);
       return { key, ...data } as unknown as State;
     },
     actionCreator: internalCreate,
   });
-  if (schematic == null) return null;
+  if (!loaded) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;
 };
 
-export type LayoutType = "schematic";
 export const LAYOUT_TYPE = "schematic";
+export type LayoutType = typeof LAYOUT_TYPE;
 
 export const SELECTABLE: Layout.Selectable = {
   key: LAYOUT_TYPE,
@@ -407,9 +444,19 @@ export const SELECTABLE: Layout.Selectable = {
 
 export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
-  ({ dispatch }) => {
+  ({ dispatch, store }) => {
+    const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
-    const key = initial.key ?? uuidv4();
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key, ...rest }));
-    return { key, location, name, type: LAYOUT_TYPE, window, tab };
+    const newTab = canEditSchematic ? tab : { ...tab, editable: false };
+    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
+    return {
+      key,
+      location,
+      name,
+      icon: "Schematic",
+      type: LAYOUT_TYPE,
+      window: { navTop: true, showTitle: true },
+      tab: newTab,
+    };
   };

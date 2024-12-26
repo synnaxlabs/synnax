@@ -21,23 +21,26 @@ import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
+import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/constants";
 import { LinePlotServices } from "@/lineplot/services";
-import { Palette } from "@/palette/Palette";
-import { type TriggerConfig } from "@/palette/types";
+import { LogServices } from "@/log/services";
+import { Palette } from "@/palette";
 import { Persist } from "@/persist";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
+import { TableServices } from "@/table/services";
+import { UserServices } from "@/user/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
-const DEFAULT_TRIGGER: TriggerConfig = {
+const DEFAULT_TRIGGER: Palette.TriggerConfig = {
   defaultMode: "command",
   resource: [["Control", "P"]],
   command: [["Control", "Shift", "P"]],
@@ -51,15 +54,19 @@ const COMMANDS = [
   ...Workspace.COMMANDS,
   ...ClusterServices.COMMANDS,
   ...RangeServices.COMMANDS,
+  ...LabJack.COMMANDS,
   ...OPC.COMMANDS,
   ...Persist.COMMANDS,
   ...NI.COMMANDS,
   ...Channel.COMMANDS,
   ...LabelServices.COMMANDS,
+  ...UserServices.COMMANDS,
+  ...LogServices.COMMANDS,
+  ...TableServices.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => (
-  <Palette
+  <Palette.Palette
     commands={COMMANDS}
     triggers={DEFAULT_TRIGGER}
     services={SERVICES}
@@ -123,7 +130,7 @@ export const NavTop = (): ReactElement => {
  * presentational.
  */
 export const NavLeft = (): ReactElement => {
-  const { onSelect, menuItems } = Layout.useNavDrawer("left", NAV_DRAWERS);
+  const { onSelect, menuItems, activeItem } = Layout.useNavDrawer("left", NAV_DRAWERS);
   const os = OS.use();
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="left" size={NAV_SIZES.side}>
@@ -133,7 +140,9 @@ export const NavLeft = (): ReactElement => {
         </Nav.Bar.Start>
       )}
       <Nav.Bar.Content className="console-main-nav__content">
-        <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
+        <NavMenu activeItem={activeItem} onChange={onSelect}>
+          {menuItems}
+        </NavMenu>
       </Nav.Bar.Content>
     </Nav.Bar>
   );
@@ -144,19 +153,24 @@ export const NavLeft = (): ReactElement => {
  * presentational.
  */
 export const NavRight = (): ReactElement | null => {
-  const { menuItems, onSelect } = Layout.useNavDrawer("right", NAV_DRAWERS);
-  const { menuItems: bottomMenuItems, onSelect: onBottomSelect } = Layout.useNavDrawer(
-    "bottom",
-    NAV_DRAWERS,
-  );
+  const { activeItem, menuItems, onSelect } = Layout.useNavDrawer("right", NAV_DRAWERS);
+  const {
+    menuItems: bottomMenuItems,
+    activeItem: bottomActiveItem,
+    onSelect: onBottomSelect,
+  } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="right" size={NAV_SIZES.side}>
       <Nav.Bar.Content className="console-main-nav__content" size="medium">
-        <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
+        <NavMenu activeItem={activeItem} onChange={onSelect}>
+          {menuItems}
+        </NavMenu>
       </Nav.Bar.Content>
       {bottomMenuItems.length > 0 && (
         <Nav.Bar.End className="console-main-nav__content" bordered>
-          <NavMenu onChange={onBottomSelect}>{bottomMenuItems}</NavMenu>
+          <NavMenu activeItem={bottomActiveItem} onChange={onBottomSelect}>
+            {bottomMenuItems}
+          </NavMenu>
         </Nav.Bar.End>
       )}
     </Nav.Bar>
@@ -211,21 +225,19 @@ const MemoryBadge = (): ReactElement | null => {
  * NavBottom is the bottom navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
-export const NavBottom = (): ReactElement => {
-  return (
-    <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
-      <Nav.Bar.Start>
-        <Vis.NavControls />
-      </Nav.Bar.Start>
-      <Nav.Bar.End className="console-main-nav-bottom__end" empty>
-        <MemoryBadge />
-        <Divider.Divider />
-        <Version.Badge />
-        <Divider.Divider />
-        <Cluster.Dropdown />
-        <Divider.Divider />
-        <Cluster.ConnectionBadge />
-      </Nav.Bar.End>
-    </Nav.Bar>
-  );
-};
+export const NavBottom = (): ReactElement => (
+  <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
+    <Nav.Bar.Start>
+      <Vis.NavControls />
+    </Nav.Bar.Start>
+    <Nav.Bar.End className="console-main-nav-bottom__end" empty>
+      <MemoryBadge />
+      <Divider.Divider />
+      <Version.Badge />
+      <Divider.Divider />
+      <Cluster.Dropdown />
+      <Divider.Divider />
+      <Cluster.ConnectionBadge />
+    </Nav.Bar.End>
+  </Nav.Bar>
+);

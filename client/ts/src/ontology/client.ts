@@ -13,20 +13,20 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
-import { framer } from "@/framer";
-import { Frame } from "@/framer/frame";
+import { type framer } from "@/framer";
 import { group } from "@/ontology/group";
 import {
-  CrudeID,
+  type CrudeID,
   ID,
-  IDPayload,
+  type IDPayload,
   idZ,
   parseRelationship,
-  RelationshipChange,
-  RelationshipDirection,
+  type RelationshipChange,
+  type RelationshipDirection,
   type Resource,
-  ResourceChange,
+  type ResourceChange,
   resourceSchemaZ,
+  resourceTypeZ,
 } from "@/ontology/payload";
 import { Writer } from "@/ontology/writer";
 
@@ -41,13 +41,14 @@ const retrieveReqZ = z.object({
   term: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
+  types: resourceTypeZ.array().optional(),
 });
 
 type RetrieveRequest = z.infer<typeof retrieveReqZ>;
 
 export type RetrieveOptions = Pick<
   RetrieveRequest,
-  "includeSchema" | "excludeFieldData"
+  "includeSchema" | "excludeFieldData" | "types"
 >;
 
 const retrieveResZ = z.object({
@@ -90,12 +91,12 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Retrieves the resource in the ontology with the given ID.
-   * @param id The ID of the resource to retrieve.
-   * @param options Additional options for the retrieval.
-   * @param options.includeSchema Whether to include the schema of the resource in the
+   * @param id - The ID of the resource to retrieve.
+   * @param options - Additional options for the retrieval.
+   * @param options.includeSchema - Whether to include the schema of the resource in the
    * results.
-   * @param options.excludeFieldData Whether to exclude the field data of the resource in
-   * the results.
+   * @param options.excludeFieldData - Whether to exclude the field data of the resource
+   * in the results.
    * @returns The resource with the given ID.
    * @throws {QueryError} If no resource is found with the given ID.
    */
@@ -103,12 +104,13 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Retrieves the resources in the ontology with the given IDs.
-   * @param ids The IDs of the resources to retrieve.
-   * @param options Additional options for the retrieval.
-   * @param options.includeSchema Whether to include the schema of the resources in the
-   * results.
-   * @param options.excludeFieldData Whether to exclude the field data of the resources in
+   *
+   * @param ids - The IDs of the resources to retrieve.
+   * @param options - Additional options for the retrieval.
+   * @param options.includeSchema - Whether to include the schema of the resources in
    * the results.
+   * @param options.excludeFieldData - Whether to exclude the field data of the
+   * resources in the results.
    * @returns The resources with the given IDs.
    * @throws {QueryError} If no resource is found with any of the given IDs.
    */
@@ -162,10 +164,12 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   /**
    * Retrieves the parents of the resources with the given IDs.
    *
-   * @param ids the IDs of the resources whose parents to retrieve
-   * @param options additional options for the retrieval
-   * @param options.includeSchema whether to include the schema of the parents in the results
-   * @param options.excludeFieldData whether to exclude the field data of the parents in the results
+   * @param ids - the IDs of the resources whose parents to retrieve
+   * @param options - additional options for the retrieval
+   * @param options.includeSchema - whether to include the schema of the parents in the
+   * results
+   * @param options.excludeFieldData - whether to exclude the field data of the parents
+   * in the results
    * @returns the parents of the resources with the given IDs
    */
   async retrieveParents(
@@ -177,8 +181,8 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Adds children to a resource in the ontology.
-   * @param id The ID of the resource to add children to.
-   * @param children The IDs of the children to add.
+   * @param id - The ID of the resource to add children to.
+   * @param children - The IDs of the children to add.
    */
   async addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
     return await this.writer.addChildren(id, ...children);
@@ -186,9 +190,8 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Removes children from a resource in the ontology.
-   * @param id The ID of the resource to remove children from.
-   * @param children The IDs of the children
-   * to remove.
+   * @param id - The ID of the resource to remove children from.
+   * @param children - The IDs of the children to remove.
    */
   async removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
     return await this.writer.removeChildren(id, ...children);
@@ -196,9 +199,9 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   /**
    * Moves children from one resource to another in the ontology.
-   * @param from The ID of the resource to move children from.
-   * @param to The ID of the resource to move children to.
-   * @param children The IDs of the children to move.
+   * @param from - The ID of the resource to move children from.
+   * @param to - The ID of the resource to move children to.
+   * @param children - The IDs of the children to move.
    */
   async moveChildren(
     from: CrudeID,
@@ -211,7 +214,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   /**
    * Opens an observable that can be used to subscribe to changes in both the ontology's
    * resources and relationships.
-   * @see ChangeTracker for more information.
+   * @link ChangeTracker for more information.
    * @returns An observable that emits changes to the ontology's resources and relationships.
    */
   async openChangeTracker(): Promise<ChangeTracker> {
@@ -219,19 +222,9 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   }
 
   async openDependentTracker(
-    parent: ID,
-    initial: Resource[],
-    type: string = "parent",
-    direction: RelationshipDirection = "from",
+    props: DependentTrackerProps,
   ): Promise<observe.ObservableAsyncCloseable<Resource[]>> {
-    return await DependentTracker.open(
-      parent,
-      this,
-      this.framer,
-      initial,
-      type,
-      direction,
-    );
+    return await DependentTracker.open(props, this.framer, this);
   }
 
   newSearcherWithOptions(
@@ -297,12 +290,10 @@ export class ChangeTracker {
   }
 
   private async start(): Promise<void> {
-    for await (const frame of this.streamer) {
-      await this.update(frame);
-    }
+    for await (const frame of this.streamer) await this.update(frame);
   }
 
-  private async update(frame: Frame): Promise<void> {
+  private async update(frame: framer.Frame): Promise<void> {
     const resSets = await this.parseResourceSets(frame);
     const resDeletes = this.parseResourceDeletes(frame);
     const allResources = resSets.concat(resDeletes);
@@ -314,7 +305,7 @@ export class ChangeTracker {
       this.relationshipObs.notify(relSets.concat(relDeletes));
   }
 
-  private parseRelationshipSets(frame: Frame): RelationshipChange[] {
+  private parseRelationshipSets(frame: framer.Frame): RelationshipChange[] {
     const relationships = frame.get(RELATIONSHIP_SET_NAME);
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
@@ -324,7 +315,7 @@ export class ChangeTracker {
     }));
   }
 
-  private parseRelationshipDeletes(frame: Frame): RelationshipChange[] {
+  private parseRelationshipDeletes(frame: framer.Frame): RelationshipChange[] {
     const relationships = frame.get(RELATIONSHIP_DELETE_NAME);
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
@@ -333,7 +324,7 @@ export class ChangeTracker {
     }));
   }
 
-  private async parseResourceSets(frame: Frame): Promise<ResourceChange[]> {
+  private async parseResourceSets(frame: framer.Frame): Promise<ResourceChange[]> {
     const sets = frame.get(RESOURCE_SET_NAME);
     if (sets.length === 0) return [];
     // We should only ever get one series of sets
@@ -351,7 +342,7 @@ export class ChangeTracker {
     }
   }
 
-  private parseResourceDeletes(frame: Frame): ResourceChange[] {
+  private parseResourceDeletes(frame: framer.Frame): ResourceChange[] {
     const deletes = frame.get(RESOURCE_DELETE_NAME);
     if (deletes.length === 0) return [];
     // We should only ever get one series of deletes
@@ -372,6 +363,17 @@ export class ChangeTracker {
   }
 }
 
+const oppositeDirection = (dir: RelationshipDirection): RelationshipDirection =>
+  dir === "from" ? "to" : "from";
+
+interface DependentTrackerProps {
+  target: ID;
+  dependents: Resource[];
+  relationshipType?: string;
+  relationshipDirection?: RelationshipDirection;
+  resourceType?: string;
+}
+
 /**
  * A class that tracks a resource (called the 'target' resource) and related resources
  * (called 'dependents') of a particular type (called the 'type') in a Synnax cluster
@@ -383,39 +385,43 @@ export class DependentTracker
 {
   private readonly internal: ChangeTracker;
   private readonly target: ID;
-  private readonly direction: RelationshipDirection;
+  private readonly relDir: RelationshipDirection;
+  private readonly resourceType?: string;
   private dependents: Resource[];
   private readonly client: Client;
-  private readonly type: string;
+  private readonly relType: string;
 
   private constructor(
-    target: ID,
+    {
+      target,
+      dependents,
+      relationshipType = "parent",
+      relationshipDirection = "from",
+      resourceType,
+    }: DependentTrackerProps,
     internal: ChangeTracker,
-    dependents: Resource[],
     client: Client,
-    type: string = "parent",
-    direction: RelationshipDirection = "from",
   ) {
     super();
+    this.resourceType = resourceType;
     this.internal = internal;
     this.target = target;
     this.dependents = dependents;
+    if (this.resourceType != null)
+      this.dependents = this.dependents.filter((r) => r.id.type === this.resourceType);
     this.client = client;
-    this.type = type;
-    this.direction = direction;
+    this.relType = relationshipType;
+    this.relDir = relationshipDirection;
     this.internal.resources.onChange(this.handleResourceChange);
     this.internal.relationships.onChange(this.handleRelationshipChange);
   }
   static async open(
-    from: ID,
-    client: Client,
+    props: DependentTrackerProps,
     framer: framer.Client,
-    initial: Resource[],
-    type: string = "parent",
-    direction: RelationshipDirection = "from",
+    client: Client,
   ): Promise<DependentTracker> {
     const internal = await ChangeTracker.open(framer, client);
-    return new DependentTracker(from, internal, initial, client, type, direction);
+    return new DependentTracker(props, internal, client);
   }
 
   private handleResourceChange = (changes: ResourceChange[]): void => {
@@ -431,20 +437,25 @@ export class DependentTracker
     const deletes = changes.filter(
       (c) =>
         c.variant === "delete" &&
-        c.key[this.direction].toString() === this.target.toString(),
+        c.key[this.relDir].toString() === this.target.toString() &&
+        (this.resourceType == null ||
+          c.key[oppositeDirection(this.relDir)].type === this.resourceType),
     );
     this.dependents = this.dependents.filter(
       (child) =>
         !deletes.some(
           (del) =>
-            del.key.to.toString() === child.id.toString() && del.key.type === this.type,
+            del.key.to.toString() === child.id.toString() &&
+            del.key.type === this.relType,
         ),
     );
     const sets = changes.filter(
       (c) =>
         c.variant === "set" &&
-        c.key.type === this.type &&
-        c.key[this.direction].toString() === this.target.toString(),
+        c.key.type === this.relType &&
+        c.key[this.relDir].toString() === this.target.toString() &&
+        (this.resourceType == null ||
+          c.key[oppositeDirection(this.relDir)].type === this.resourceType),
     );
     if (sets.length === 0) return this.notify(this.dependents);
     this.client.retrieve(sets.map((s) => s.key.to)).then((resources) => {

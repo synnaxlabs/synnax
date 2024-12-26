@@ -18,7 +18,7 @@ import {
 import {
   type FocusEventHandler,
   type ReactElement,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -26,11 +26,12 @@ import {
 } from "react";
 
 import { Button } from "@/button";
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
-import { List as CoreList, List } from "@/list";
+import { List as CoreList, type List } from "@/list";
 import {
   selectValueIsZero,
   type UseSelectOnChangeExtra,
@@ -52,7 +53,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
     Pick<CoreList.SearchProps<K, E>, "filter"> {
   entryRenderKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
-  inputProps?: Omit<Input.TextProps, "onChange">;
+  inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
   searcher?: AsyncTermSearcher<string, K, E>;
   hideColumnHeader?: boolean;
   omit?: Array<K>;
@@ -93,7 +94,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   allowNone = true,
   searcher,
   className,
-  variant,
+  variant = "button",
   hideColumnHeader = false,
   disabled,
   omit,
@@ -148,6 +149,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     <InputWrapper<K, E> searcher={searcher} filter={filter}>
       {({ onChange: handleChange }) => (
         <SingleInput<K, E>
+          {...inputProps}
           autoFocus={dropdownVariant === "modal"}
           variant={variant}
           onChange={handleChange}
@@ -157,6 +159,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           visible={visible}
           allowNone={allowNone}
           className={className}
+          dropdownVariant={dropdownVariant}
           disabled={disabled}
           placeholder={inputPlaceholder}
         >
@@ -210,6 +213,7 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   debounceSearch?: number;
   allowNone?: boolean;
   onFocus: () => void;
+  dropdownVariant?: Dropdown.Variant;
   zIndex?: number;
 }
 
@@ -234,6 +238,8 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   placeholder = DEFAULT_PLACEHOLDER,
   className,
   disabled,
+  dropdownVariant,
+  children,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
   const { clear } = CoreList.useSelectionUtils();
@@ -260,6 +266,8 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   };
 
   const handleFocus: FocusEventHandler<HTMLInputElement> = () => {
+    // Trigger an onChange to make sure the parent component is aware of the focus event.
+    if (internalValue === "") onChange("");
     setInternalValue("");
     onFocus?.();
   };
@@ -275,6 +283,12 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
     clear?.();
   };
 
+  let endContent: ReactElement | undefined;
+  if (dropdownVariant !== "modal")
+    endContent = (
+      <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
+    );
+
   return (
     <Input.Text
       className={CSS(CSS.BE("select", "input"), className)}
@@ -286,12 +300,14 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
         if (visible) return;
         onFocus?.();
       })}
+      endContent={endContent}
       style={{ flexGrow: 1 }}
       onClick={handleClick}
       placeholder={placeholder}
       disabled={disabled}
       {...props}
     >
+      {children}
       {allowNone && <ClearButton onClick={handleClear} disabled={disabled} />}
     </Input.Text>
   );

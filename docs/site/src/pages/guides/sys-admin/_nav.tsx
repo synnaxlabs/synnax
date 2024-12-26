@@ -23,5 +23,10 @@ export const sysAdminNav: PageNavNode = {
       href: "/guides/sys-admin/deployment-self-signed",
       key: "/guides/sys-admin/deployment-self-signed",
     },
+    {
+      name: "Using Synnax with Multiple Users",
+      href: "/guides/sys-admin/multiple-users",
+      key: "/guides/sys-admin/multiple-users",
+    },
   ],
 };

@@ -11,9 +11,10 @@ import { type Viewport } from "@synnaxlabs/pluto";
 import { type bounds } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
-import { AxisKey, XAxisRecord } from "@/lineplot/axis";
+import { type AxisKey, type XAxisRecord } from "@/lineplot/axis";
 import {
   type ControlState,
+  type RuleState,
   type SelectionState,
   SLICE_NAME,
   type SliceState,
@@ -28,24 +29,31 @@ export const selectSliceState = (state: StoreState): SliceState => state[SLICE_N
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).plots[key];
 
+export const selectOptional = (state: StoreState, key: string): State | undefined =>
+  selectSliceState(state).plots[key];
+
 export const selectMultiple = (state: StoreState, keys: string[]): State[] =>
   keys.map((key) => select(state, key));
 
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
-export const selectRanges = (key: string): XAxisRecord<Range.Range[]> => {
-  return useMemoSelect(
-    (state: StoreState & Range.StoreState) => {
-      const p = select(state, key);
-      return {
-        x1: Range.selectMultiple(state, p.ranges.x1),
-        x2: Range.selectMultiple(state, p.ranges.x2),
-      };
-    },
+export const selectRanges = (
+  state: StoreState & Range.StoreState,
+  key: string,
+): XAxisRecord<Range.Range[]> => {
+  const ranges = select(state, key).ranges;
+  return {
+    x1: Range.selectMultiple(state, ranges.x1),
+    x2: Range.selectMultiple(state, ranges.x2),
+  };
+};
+
+export const useSelectRanges = (key: string): XAxisRecord<Range.Range[]> =>
+  useMemoSelect(
+    (state: StoreState & Range.StoreState) => selectRanges(state, key),
     [key],
   );
-};
 
 export const selectToolbar = (state: StoreState): ToolbarState =>
   selectSliceState(state).toolbar;
@@ -70,6 +78,12 @@ export const selectSelection = (state: StoreState, key: string): SelectionState 
 export const useSelectSelection = (key: string): SelectionState =>
   useMemoSelect((state: StoreState) => selectSelection(state, key), [key]);
 
+export const selectAxes = (state: StoreState, key: string) =>
+  select(state, key).axes.axes;
+
+export const useSelectAxes = (key: string) =>
+  useMemoSelect((state: StoreState) => selectAxes(state, key), [key]);
+
 export const selectAxisBounds = (
   state: StoreState,
   key: string,
@@ -84,3 +98,15 @@ export const useSelectAxisBounds = (key: string, axisKey: AxisKey): bounds.Bound
     (state: StoreState) => selectAxisBounds(state, key, axisKey),
     [key, axisKey],
   );
+
+export const selectVersion = (state: StoreState, key: string): string | undefined =>
+  selectOptional(state, key)?.version;
+
+export const useSelectVersion = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);
+
+export const selectRules = (state: StoreState, key: string): RuleState[] =>
+  select(state, key).rules;
+
+export const useSelectRules = (key: string): RuleState[] =>
+  useMemoSelect((state: StoreState) => selectRules(state, key), [key]);

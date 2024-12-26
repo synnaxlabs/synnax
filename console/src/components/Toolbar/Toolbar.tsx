@@ -9,7 +9,7 @@
 
 import "@/components/Toolbar/Toolbar.css";
 
-import { Header } from "@synnaxlabs/pluto";
+import { Header, type Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -17,11 +17,16 @@ import { CSS } from "@/css";
 export const ToolbarHeader = (
   props: Omit<Header.HeaderProps, "level" | "divided">,
 ): ReactElement => (
-  <Header.Header className={CSS.B("toolbar-header")} level="h5" {...props} />
+  <Header.Header
+    className={CSS.B("toolbar-header")}
+    level="h5"
+    shrink={false}
+    {...props}
+  />
 );
 
 export interface ToolbarTitleProps extends Pick<Header.TitleProps, "children"> {
-  icon: ReactElement;
+  icon: ReactElement<Icon.BaseProps>;
 }
 
 export const ToolbarTitle = ({ icon, children }: ToolbarTitleProps): ReactElement => (

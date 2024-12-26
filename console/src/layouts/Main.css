@@ -12,16 +12,14 @@
 ::-webkit-scrollbar {
     width: 1rem;
     height: 1rem;
-    z-index: -1;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--pluto-gray-l1);
-    z-index: -1;
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--pluto-gray-l3);
+    background: var(--pluto-gray-l4);
     border-radius: var(--pluto-border-radius);
 }
 

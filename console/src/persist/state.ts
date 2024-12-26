@@ -15,10 +15,10 @@ import {
   type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
+import { debounce, deep, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { TauriKV } from "@/persist/kv";
+import { createTauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
@@ -28,7 +28,8 @@ export interface RequiredState extends Version.StoreState {}
 
 export interface Config<S extends RequiredState> {
   migrator?: (state: S) => S;
-  exclude: Array<deep.Key<S>>;
+  initial: S;
+  exclude: Array<deep.Key<S> | ((func: S) => S)>;
 }
 
 export const REVERT_STATE: Action = {
@@ -51,19 +52,21 @@ const KEEP_HISTORY = 4;
 export const hardClearAndReload = () => {
   const appWindow = getCurrentWindow();
   if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
-  const db = new TauriKV();
-  db.clear().finally(() => {
-    window.location.reload();
-  });
+  createTauriKV()
+    .then(async (db) => await db.clear())
+    .finally(window.location.reload);
 };
+
+const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250).milliseconds;
 
 export const open = async <S extends RequiredState>({
   exclude = [],
+  initial,
   migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
   const appWindow = getCurrentWindow();
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
-  const db = new TauriKV();
+  const db = await createTauriKV();
   let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
 
   console.log(`Latest database version key is ${version}`);
@@ -89,14 +92,19 @@ export const open = async <S extends RequiredState>({
     version++;
     // We need to make a deep copy here to make immer happy
     // when we do deep deletes.
-    const deepCopy = deep.copy(store.getState());
-    const filtered = deep.deleteD<S>(deepCopy, ...exclude);
+    let deepCopy = deep.copy(store.getState());
+    exclude.forEach((key) => {
+      if (typeof key === "function") deepCopy = key(deepCopy);
+      // @ts-expect-error - we know this is a key
+      else deepCopy = deep.deleteD(deepCopy, key);
+    });
+
     void (async () => {
-      await db.set(persistedStateKey(version), filtered).catch(console.error);
+      await db.set(persistedStateKey(version), deepCopy).catch(console.error);
       await db.set(DB_VERSION_KEY, { version }).catch(console.error);
       await db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
     })();
-  }, 500);
+  }, PERSIST_DEBOUNCE);
 
   let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
   if (state != null && migrator != null) {
@@ -109,6 +117,13 @@ export const open = async <S extends RequiredState>({
     }
     await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
   }
+  if (state != null)
+    exclude.forEach((key) => {
+      if (typeof key === "function") return;
+      const v = deep.get(initial, key, { optional: true });
+      if (v == null) return;
+      deep.set(state, key, v);
+    });
 
   return [
     state,

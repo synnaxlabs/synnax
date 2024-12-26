@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -19,8 +19,8 @@ import {
   List,
   Text,
 } from "@synnaxlabs/pluto";
-import { change, compare, deep, kv } from "@synnaxlabs/x";
-import { FC, ReactElement, useMemo } from "react";
+import { type change, compare, deep, kv } from "@synnaxlabs/x";
+import { type FC, type ReactElement, useMemo } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -31,6 +31,7 @@ interface MetaDataProps {
   rangeKey: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const metaDataFormSchema = z.object({
   pairs: kv.stringPairZ.array(),
 });
@@ -61,6 +62,7 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
           variant="outlined"
           href={value}
           target="_blank"
+          autoFormat
           style={{ padding: "1rem" }}
         >
           <Icon.LinkExternal />
@@ -199,7 +201,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
   const sorted = useMemo(() => arr.value.sort(), [arr.value]);
   return (
     <Align.Space direction="y">
-      <Text.Text level="h4" shade={8} weight={500}>
+      <Text.Text level="h4" shade={9} weight={450}>
         Meta Data
       </Text.Text>
       <Form.Form {...formCtx}>

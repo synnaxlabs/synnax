@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -20,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/reflect"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 )
 
 type Streamer = confluence.Segment[StreamerRequest, StreamerResponse]
@@ -128,8 +128,8 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 type StreamerConfig struct {
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
-	Keys  channel.Keys    `json:"keys" msgpack:"keys"`
+	Keys             channel.Keys `json:"keys" msgpack:"keys"`
+	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
 }
 
 type StreamerRequest = StreamerConfig

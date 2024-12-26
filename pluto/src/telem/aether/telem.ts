@@ -139,12 +139,11 @@ export class Base<P extends z.ZodTypeAny> extends observe.BaseObserver<void> {
     if (this.props_ == null) {
       const res = this._schema.safeParse(this.uProps_);
       if (res.success) this.props_ = res.data;
-      else {
+      else
         throw new ValidationError(
           `[BaseTelem] - expected props to be valid, but found the following errors:
           ${res.error.message}`,
         );
-      }
     }
     return this.props_;
   }

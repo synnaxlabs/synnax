@@ -7,28 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type {
-  Action as CoreAction,
-  ConfigureStoreOptions as BaseOpts,
-  EnhancedStore,
-  StoreEnhancer,
-  Tuple,
-  UnknownAction,
+import {
+  type Action as CoreAction,
+  configureStore as base,
+  type ConfigureStoreOptions as BaseOpts,
+  type EnhancedStore,
+  type StoreEnhancer,
+  type Tuple,
+  type UnknownAction,
 } from "@reduxjs/toolkit";
-import { configureStore as base } from "@reduxjs/toolkit";
 
-import { listen } from "@/listener";
 import { configureMiddleware, type Middlewares } from "@/middleware";
 import { type Runtime } from "@/runtime";
 import {
   type Action,
   closeWindow,
-  setConfig,
-  setWindowLabel,
+  internalSetInitial,
   setWindowStage,
+  SLICE_NAME,
   type StoreState,
 } from "@/state";
+import { sugar } from "@/sugar";
 import { syncInitial } from "@/sync";
+import { validateAction } from "@/validate";
 import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 export type Enhancers = readonly StoreEnhancer[];
@@ -71,34 +72,90 @@ const configureStoreInternal = async <
   // eslint-disable-next-line prefer-const
   store = base<S, A, M, E>({
     ...opts,
-    preloadedState: await receivePreloadedState(runtime, () => store, preloadedState),
+    preloadedState: await receivePreloadedStateAndListen(
+      debug,
+      runtime,
+      () => store,
+      defaultWindowProps,
+      preloadedState,
+    ),
     middleware: configureMiddleware(middleware, runtime, debug),
   });
 
   await syncInitial(store.getState().drift, store.dispatch, runtime, debug);
-  store.dispatch(setConfig({ enablePrerender, defaultWindowProps }));
-  store.dispatch(setWindowLabel({ label: runtime.label() }));
+  const label = runtime.label();
+  store.dispatch(
+    internalSetInitial({ enablePrerender, defaultWindowProps, debug, label }),
+  );
+  console.log("Setting created");
   store.dispatch(setWindowStage({ stage: "created" }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
   return store;
 };
 
-const receivePreloadedState = async <
+const receivePreloadedStateAndListen = async <
   S extends StoreState,
   A extends CoreAction = UnknownAction,
 >(
+  debug: boolean,
   runtime: Runtime<S, A>,
-  store: () => EnhancedStore<S, A | Action> | undefined,
+  getStore: () => EnhancedStore<S, A | Action> | undefined,
+  defaultWindowProps: Omit<WindowProps, "key"> | undefined,
   preloadedState: (() => Promise<S | undefined>) | S | undefined,
-): Promise<S | undefined> =>
-  await new Promise<S | undefined>((resolve) => {
-    void listen(runtime, store, resolve);
-    if (runtime.isMain()) {
-      if (typeof preloadedState === "function")
-        preloadedState().then(resolve).catch(console.error);
-      else resolve(preloadedState);
-    } else void runtime.emit({ sendState: true }, MAIN_WINDOW);
+): Promise<S | undefined> => {
+  // If we're in the main window, we use the preloaded state passed into configureStore.
+  if (runtime.isMain()) {
+    await runtime.subscribe(({ action, emitter, sendState }) => {
+      const store = getStore();
+      if (store == null) return;
+      if (action != null) {
+        validateAction({ action, emitter });
+        store.dispatch(sugar(action, emitter));
+        return;
+      }
+      const state = store.getState();
+      if (sendState === true) void runtime.emit({ state }, emitter);
+    });
+    if (typeof preloadedState === "function")
+      return resetInitialState<S>(defaultWindowProps, debug, await preloadedState());
+    return resetInitialState<S>(defaultWindowProps, debug, preloadedState);
+  }
+
+  // If we're in a non-main window, we need to request the initial state from the main
+  // window. We need to create a new promise to resolve the initial state because
+  // there's a two promise process happening here.
+  //
+  // Promise 1: (statePromise) This promise will be resolved when the main window
+  // sends the initial state to this window. This is the condition we're ultimate
+  // waiting on.
+  // Promise 2: (startListening) This coroutine will call subscribe and **then**
+  // emit a message to the main window requesting the initial state. This coroutine
+  // maintains the subscribe then emit order, so we don't accidentally miss the
+  // initial state message from the main window.
+  const statePromise = await new Promise<S | undefined>((resolve, reject) => {
+    const startListening = async () => {
+      try {
+        await runtime.subscribe(({ action, emitter, state }) => {
+          const s = getStore();
+          if (s == null) {
+            if (state != null) return resolve(state);
+            return;
+          }
+          if (action == null) return;
+          validateAction({ action, emitter });
+          s.dispatch(sugar(action, emitter));
+        });
+        await runtime.emit({ sendState: true }, MAIN_WINDOW);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    // We're safe to void here because we're catching and rejecting the error in
+    // the state promise.
+    void startListening();
   });
+  return statePromise;
+};
 
 /**
  * configureStore replaces the standard Redux Toolkit configureStore function
@@ -131,3 +188,26 @@ export const configureStore: <
 >(
   options: ConfigureStoreOptions<S, A, M, E>,
 ) => Promise<EnhancedStore<S, A | Action>> = configureStoreInternal;
+
+export const resetInitialState = <S extends StoreState>(
+  defaultWindowProps?: Omit<WindowProps, "key">,
+  debug?: boolean,
+  state?: S,
+): S | undefined => {
+  if (state == null) return state;
+  const drift = state[SLICE_NAME];
+  drift.config.debug = debug ?? drift.config.debug;
+  drift.windows = Object.fromEntries(
+    Object.entries(drift.windows)
+      .filter(([, window]) => window.reserved)
+      .map(([key, window]) => {
+        if (defaultWindowProps?.visible != null)
+          window.visible = defaultWindowProps.visible;
+        window.focusCount = 0;
+        window.centerCount = 0;
+        window.processCount = 0;
+        return [key, window];
+      }),
+  );
+  return state;
+};

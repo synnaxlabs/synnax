@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PayloadAction } from "@reduxjs/toolkit";
-import { Synnax } from "@synnaxlabs/client";
+import { type PayloadAction } from "@reduxjs/toolkit";
+import { type Synnax } from "@synnaxlabs/client";
 import { Status, Synnax as PSynnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -18,7 +18,7 @@ export interface UseLoadRemoteProps<V extends migrate.Migratable> {
   name: string;
   targetVersion: string;
   layoutKey: string;
-  useSelect: (layoutKey: string) => V | undefined;
+  useSelectVersion: (layoutKey: string) => string | undefined;
   fetcher: (client: Synnax, layoutKey: string) => Promise<V>;
   actionCreator: (v: V) => PayloadAction<any>;
 }
@@ -27,12 +27,12 @@ export const useLoadRemote = <V extends migrate.Migratable>({
   name,
   targetVersion,
   layoutKey,
-  useSelect,
+  useSelectVersion,
   fetcher,
   actionCreator,
-}: UseLoadRemoteProps<any>): V | null => {
+}: UseLoadRemoteProps<V>): boolean | null => {
   const dispatch = useDispatch();
-  const v = useSelect(layoutKey);
+  const version = useSelectVersion(layoutKey);
   const addStatus = Status.useAggregator();
   const client = PSynnax.use();
   const get = useMutation({
@@ -48,12 +48,16 @@ export const useLoadRemote = <V extends migrate.Migratable>({
         description: e.message,
       }),
   });
+  const versionPresent = version != null;
+  const notOutdated = versionPresent && !migrate.semVerOlder(version, targetVersion);
   useAsyncEffect(async () => {
     // If the layout data already exists and is not outdated, don't fetch.
-    if (v != null && !migrate.semVerOlder(v.version, targetVersion)) return;
-    dispatch(actionCreator(await get.mutateAsync()));
-  }, [get.mutate, v, layoutKey, targetVersion]);
+    if (notOutdated) return;
+    const res = await get.mutateAsync();
+    if (res == null) return;
+    dispatch(actionCreator(res));
+  }, [get.mutate, notOutdated, layoutKey, targetVersion]);
   // If the layout data is null or outdated, return null.
-  if (v == null || migrate.semVerOlder(v.version, targetVersion)) return null;
-  return v;
+  if (version == null || migrate.semVerOlder(version, targetVersion)) return null;
+  return version != null;
 };

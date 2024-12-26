@@ -16,6 +16,7 @@ export type DynamicRange = latest.DynamicRange;
 export type StaticRange = latest.StaticRange;
 export type Range = latest.Range;
 export const migrateSlice = latest.migrateSlice;
+export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 
 export const SLICE_NAME = "range";
 
@@ -43,7 +44,7 @@ type PA<P> = PayloadAction<P>;
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
-  initialState: latest.ZERO_SLICE_STATE,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     add: (state, { payload: { ranges, switchActive = true } }: PA<AddPayload>) => {
       ranges.forEach((range) => {
@@ -52,6 +53,8 @@ export const { actions, reducer } = createSlice({
       });
     },
     remove: (state, { payload: { keys } }: PA<RemovePayload>) => {
+      if (state.activeRange != null && keys.includes(state.activeRange))
+        state.activeRange = null;
       keys.forEach((k) => delete state.ranges[k]);
     },
     setActive: (state, { payload }: PA<SetActivePayload>) => {

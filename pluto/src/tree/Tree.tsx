@@ -10,7 +10,7 @@
 import "@/tree/Tree.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Optional, unique } from "@synnaxlabs/x";
+import { type Optional, unique } from "@synnaxlabs/x";
 import {
   type FC,
   memo,
@@ -25,16 +25,17 @@ import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
+import { type Icon as PIcon } from "@/icon";
 import { List } from "@/list";
 import {
-  UseSelectMultipleProps,
+  type UseSelectMultipleProps,
   type UseSelectOnChangeExtra,
   type UseSelectProps,
 } from "@/list/useSelect";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { flatten, type FlattenedNode, type Node } from "@/tree/core";
+import { flatten, SortOption, type FlattenedNode, type Node } from "@/tree/core";
 import { Triggers } from "@/triggers";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
@@ -52,7 +53,7 @@ export interface UseProps {
   onSelectedChange?: state.Set<string[]>;
   initialExpanded?: string[];
   nodes: Node[];
-  sort?: boolean;
+  sort?: SortOption;
 }
 
 export interface UseReturn {
@@ -72,7 +73,7 @@ export const use = (props: UseProps): UseReturn => {
     onExpand,
     nodes,
     initialExpanded = [],
-    sort = true,
+    sort,
     selected: propsSelected,
     onSelectedChange,
   } = props ?? {};
@@ -83,9 +84,10 @@ export const use = (props: UseProps): UseReturn => {
     value: propsSelected,
     onChange: onSelectedChange,
   });
-  const flat = useMemo(() => {
-    return flatten({ nodes, expanded, sort });
-  }, [nodes, expanded, sort]);
+  const flat = useMemo(
+    () => flatten({ nodes, expanded, sort }),
+    [nodes, expanded, sort],
+  );
   const flatRef = useSyncedRef(flat);
 
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
@@ -103,7 +105,7 @@ export const use = (props: UseProps): UseReturn => {
       const action = currentlyExpanded.some((key) => key === clicked)
         ? "contract"
         : "expand";
-      let nextExpanded = currentlyExpanded;
+      let nextExpanded: string[];
       if (action === "contract")
         nextExpanded = currentlyExpanded.filter((key) => key !== clicked);
       else nextExpanded = [...currentlyExpanded, clicked];
@@ -211,13 +213,13 @@ export const DefaultItem = memo(
       hasChildren || (children != null && children.length > 0);
 
     // Expand, contract, and loading items.
-    const startIcons: ReactElement[] = [];
+    const startIcons: ReactElement<PIcon.BaseProps>[] = [];
     if (actuallyHasChildren)
       startIcons.push(
         <Caret.Animated enabled={expanded} enabledLoc="bottom" disabledLoc="right" />,
       );
     if (icon != null) startIcons.push(icon);
-    const endIcons: ReactElement[] = [];
+    const endIcons: ReactElement<PIcon.BaseProps>[] = [];
     if (loading) endIcons.push(<Icon.Loading className={CSS.B("loading-indicator")} />);
 
     const [draggingOver, setDraggingOver] = useState(false);
@@ -262,6 +264,9 @@ export const DefaultItem = memo(
 
     const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
 
+    let offset = depth * 2 + 1;
+    if (actuallyHasChildren && useMargin) offset -= 1;
+
     const baseProps: Button.LinkProps | Button.ButtonProps = {
       id: key,
       variant: "text",
@@ -282,7 +287,7 @@ export const DefaultItem = memo(
         border: "none",
         position: translate != null ? "absolute" : "relative",
         transform: `translateY(${translate}px)`,
-        [offsetKey]: `${depth * 1.5 + 1.5}rem`,
+        [offsetKey]: `${offset}rem`,
         // @ts-expect-error - CSS variable
         "--pluto-tree-indicator-offset": `${depth * 1.5 + (depth === 0 ? 0 : 0.5)}rem`,
       },

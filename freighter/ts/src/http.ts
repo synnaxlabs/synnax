@@ -7,25 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Copyright 2024 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
-/* eslint-disable @typescript-eslint/no-var-requires */
-// Copyright 2023 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 import { type binary, runtime, type URL } from "@synnaxlabs/x";
 import { type z } from "zod";
 
@@ -37,8 +18,10 @@ export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 
 const resolveFetchAPI = (protocol: "http" | "https"): typeof fetch => {
   if (runtime.RUNTIME !== "node") return fetch;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const _fetch: typeof fetch = require("node-fetch");
   if (protocol === "http") return _fetch;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const https = require("https");
   const agent = new https.Agent({ rejectUnauthorized: false });
   // @ts-expect-error - TS doesn't know about qhis option

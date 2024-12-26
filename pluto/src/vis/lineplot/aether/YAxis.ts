@@ -28,13 +28,24 @@ export interface YAxisProps extends AxisRenderProps {
 
 type Children = line.Line | rule.Rule;
 
+const INVALID_SIZE_THRESHOLD = 2; // px;
+
+// There are certain cases where the plot box is too small or completely
+// negative. In these cases there is no visual area to render to the user,
+// so we can skip rendering the lines.
+const invalidArea = (region: box.Box): boolean =>
+  box.signedWidth(region) < INVALID_SIZE_THRESHOLD ||
+  box.signedHeight(region) < INVALID_SIZE_THRESHOLD;
+
 export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
   schema = coreAxisStateZ;
 
   async xBounds(): Promise<bounds.Bounds> {
     return bounds.max(
-      await Promise.all(this.lines.map(async (el) => await el.xBounds())),
+      (await Promise.all(this.lines.map(async (el) => await el.xBounds()))).filter(
+        (b) => bounds.isFinite(b),
+      ),
     );
   }
 
@@ -58,7 +69,7 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
     { xDataToDecimalScale: xScale, plot, canvases, exposure }: YAxisProps,
     yScale: scale.Scale,
   ): Promise<void> {
-    if (!canvases.includes("gl")) return;
+    if (!canvases.includes("gl") || invalidArea(plot)) return;
     const props: line.LineProps = {
       region: plot,
       dataToDecimalScale: new scale.XY(xScale, yScale),

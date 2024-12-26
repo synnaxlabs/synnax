@@ -9,9 +9,7 @@
 
 import { promises as fs } from "fs";
 import path from "path";
-
-import type { CompilerOptions } from "typescript";
-import ts from "typescript";
+import ts, { type CompilerOptions } from "typescript";
 import type { Alias, AliasOptions, Plugin } from "vite";
 import dts from "vite-plugin-dts";
 
@@ -23,66 +21,52 @@ export interface Options {
   name: string;
 }
 
-export const tsConfigPaths = ({ name }: Options): Plugin => {
-  return {
-    name: "vite-plugin-lib:alias",
-    enforce: "pre",
-    config: async (config) => {
-      const prod = isProd();
-      console.log(
-        `\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`,
-      );
-      const tsconfigPath = path.resolve(config.root ?? ".", "tsconfig.json");
-      const { baseUrl, paths } = await readConfig(tsconfigPath);
-      if (baseUrl == null || paths == null) return config;
-      const aliasOptions: Alias[] = Object.entries(paths).map(
-        ([alias, replacement]) => ({
-          find: alias.replace("/*", ""),
-          replacement: path.resolve(
-            tsconfigPath,
-            baseUrl,
-            replacement[0].replace("/*", ""),
-          ),
-        }),
-      );
-      const existingAlias = transformExistingAlias(config.resolve?.alias);
-      return {
-        ...config,
-        resolve: {
-          ...config.resolve,
-          alias: [...existingAlias, ...aliasOptions],
-        },
-        build: {
-          sourcemap: !isProd(),
-          minify: isProd(),
-          lib: {
-            name,
-            formats: ["es", "cjs"],
-            fileName: (format) => {
-              if (format === "es") return `${name}.js`;
-              else return `${name}.${format}`;
-            },
-            entry: path.resolve(config.root ?? ".", "src/index.ts"),
-            ...config.build?.lib,
+export const tsConfigPaths = ({ name }: Options): Plugin => ({
+  name: "vite-plugin-lib:alias",
+  enforce: "pre",
+  config: async (config) => {
+    const prod = isProd();
+    console.log(`\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`);
+    const tsconfigPath = path.resolve(config.root ?? ".", "tsconfig.json");
+    const { baseUrl, paths } = await readConfig(tsconfigPath);
+    if (baseUrl == null || paths == null) return config;
+    const aliasOptions: Alias[] = Object.entries(paths).map(([alias, replacement]) => ({
+      find: alias.replace("/*", ""),
+      replacement: path.resolve(
+        tsconfigPath,
+        baseUrl,
+        replacement[0].replace("/*", ""),
+      ),
+    }));
+    const existingAlias = transformExistingAlias(config.resolve?.alias);
+    return {
+      ...config,
+      resolve: { ...config.resolve, alias: [...existingAlias, ...aliasOptions] },
+      build: {
+        sourcemap: !isProd(),
+        minify: isProd(),
+        lib: {
+          name,
+          formats: ["es", "cjs"],
+          fileName: (format) => {
+            if (format === "es") return `${name}.js`;
+            return `${name}.${format}`;
           },
-          ...config.build,
+          entry: path.resolve(config.root ?? ".", "src/index.ts"),
+          ...config.build?.lib,
         },
-      };
-    },
-  };
-};
+        ...config.build,
+      },
+    };
+  },
+});
 
-export const lib = (options: Options): Plugin[] => {
-  return [tsConfigPaths(options), dts({})];
-};
+export const lib = (options: Options): Plugin[] => [tsConfigPaths(options), dts({})];
 
 const transformExistingAlias = (alias: AliasOptions | undefined): Alias[] => {
   if (alias == null) return [];
   if (Array.isArray(alias)) return alias;
-  return Object.entries(alias).map(([find, replacement]) => ({
-    find,
-    replacement,
-  }));
+  return Object.entries(alias).map(([find, replacement]) => ({ find, replacement }));
 };
 
 const readConfig = async (configPath: string): Promise<CompilerOptions> => {
@@ -102,6 +86,4 @@ const readConfig = async (configPath: string): Promise<CompilerOptions> => {
   }
 };
 
-export const isProd = () => {
-  return process.env.SYNNAX_TS_ENV === "prod";
-};
+export const isProd = () => process.env.SYNNAX_TS_ENV === "prod";

@@ -16,11 +16,11 @@ import {
 } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Haul, Mosaic } from "@synnaxlabs/pluto";
-import { type deep, id, type location } from "@synnaxlabs/x";
-import { ComponentType } from "react";
+import { type Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
+import { type deep, type direction, id, type location } from "@synnaxlabs/x";
+import { type ComponentType } from "react";
 
-import { CreateConfirmModal } from "@/confirm/Confirm";
+import { type CreateConfirmModal } from "@/confirm/Confirm";
 import { type Placer } from "@/layout/hooks";
 import * as latest from "@/layout/migrations";
 
@@ -49,7 +49,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
+export const PERSIST_EXCLUDE = ["hauling", "alreadyCheckedGetStarted", "themes"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<StoreState>>;
 
@@ -67,7 +67,7 @@ export type SetActiveThemePayload = string | undefined;
 export interface MoveMosaicTabPayload {
   tabKey: string;
   windowKey?: string;
-  key: number;
+  key?: number;
   loc: location.Location;
 }
 
@@ -75,6 +75,12 @@ interface ResizeMosaicTabPayload {
   windowKey: string;
   key: number;
   size: number;
+}
+
+interface SplitMosaicNodePayload {
+  windowKey: string;
+  direction: direction.Direction;
+  tabKey: string;
 }
 
 interface SelectMosaicTabPayload {
@@ -97,18 +103,26 @@ interface SetAltKeyPayload {
   altKey: string;
 }
 
+interface SetFocusPayload {
+  key: string | null;
+  windowKey: string;
+}
+
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface FileHandlerProps {
-  mosaicKey: number;
   file: any;
-  loc: location.Location;
   name: string;
   placer: Placer;
   store: Store;
   confirm: CreateConfirmModal;
   client: Synnax | null;
-  workspaceKey: string | null;
+  workspaceKey?: string;
+  dispatch: Dispatch<UnknownAction>;
+  tab?: {
+    mosaicKey: number;
+    location: location.Location;
+  };
 }
 
 export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;
@@ -133,6 +147,10 @@ interface SetNavDrawerVisiblePayload {
 interface SetArgsPayload<T = unknown> {
   key: string;
   args: T;
+}
+
+export interface SetColorContextPayload {
+  state: Color.ContextState;
 }
 
 export const GET_STARTED_LAYOUT_TYPE = "getStarted";
@@ -190,6 +208,7 @@ export const { actions, reducer } = createSlice({
         closable: true,
         ...tab,
         name,
+        icon: layout.icon,
         tabKey: key,
       };
       delete mosaicTab.location;
@@ -217,7 +236,11 @@ export const { actions, reducer } = createSlice({
       // and select it. Also rename it.
       if (prev?.location === "mosaic" && location === "mosaic") {
         mosaic.activeTab = key;
-        mosaic.root = Mosaic.renameTab(Mosaic.selectTab(mosaic.root, key), key, name);
+        mosaic.root = Mosaic.updateTab(
+          Mosaic.selectTab(mosaic.root, key),
+          key,
+          () => mosaicTab,
+        );
       }
 
       state.layouts[key] = layout;
@@ -230,13 +253,12 @@ export const { actions, reducer } = createSlice({
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       keys.forEach((contentKey) => {
         const layout = select(state, contentKey);
-        if (layout == null) return;
+        if (layout == null || layout.key == MAIN_WINDOW) return;
         const mosaic = state.mosaics[layout.windowKey];
         if (layout == null || mosaic == null) return;
         const { location } = layout;
         if (location === "mosaic")
           [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, layout.key);
-
         delete state.layouts[layout.key];
         state.mosaics[layout.windowKey] = mosaic;
         purgeEmptyMosaics(state);
@@ -259,6 +281,8 @@ export const { actions, reducer } = createSlice({
       if (layout == null) return;
       const prevWindowKey = layout.windowKey;
       if (windowKey == null || prevWindowKey === windowKey) {
+        // This is a redundant operation, so we leave everything as is.
+        if (key == null) return;
         const mosaic = state.mosaics[prevWindowKey];
         [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key);
         state.mosaics[prevWindowKey] = mosaic;
@@ -268,11 +292,12 @@ export const { actions, reducer } = createSlice({
       [prevMosaic.root] = Mosaic.removeTab(prevMosaic.root, tabKey);
       state.mosaics[prevWindowKey] = prevMosaic;
       const mosaic = state.mosaics[windowKey];
-      if (mosaic.activeTab == null) mosaic.activeTab = tabKey;
+      mosaic.activeTab ??= tabKey;
       state.layouts[layout.key].windowKey = windowKey;
 
       const mosaicTab = {
         closable: true,
+        icon: layout.icon,
         ...layout.tab,
         name: layout.name,
         tabKey: layout.key,
@@ -281,6 +306,16 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
       state.mosaics[windowKey] = mosaic;
       purgeEmptyMosaics(state);
+    },
+    splitMosaicNode: (
+      state,
+      {
+        payload: { windowKey, direction, tabKey },
+      }: PayloadAction<SplitMosaicNodePayload>,
+    ) => {
+      const mosaic = state.mosaics[windowKey];
+      mosaic.root = Mosaic.split(mosaic.root, tabKey, direction);
+      state.mosaics[windowKey] = mosaic;
     },
     selectMosaicTab: (
       state,
@@ -354,13 +389,12 @@ export const { actions, reducer } = createSlice({
         state.nav[windowKey] = navState;
       }
 
-      if (key != null) {
+      if (key != null)
         Object.values(navState.drawers).forEach((drawer) => {
-          if (drawer.menuItems.includes(key)) {
-            drawer.activeItem = value ?? drawer.activeItem !== key ? key : null;
-          }
+          if (drawer.menuItems.includes(key))
+            drawer.activeItem = (value ?? drawer.activeItem !== key) ? key : null;
         });
-      } else if (location != null) {
+      else if (location != null) {
         let drawer = navState.drawers[location];
         if (drawer == null) {
           drawer = { activeItem: null, menuItems: [] };
@@ -371,9 +405,7 @@ export const { actions, reducer } = createSlice({
         else if (value === false) drawer.activeItem = null;
         else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
         else drawer.activeItem = null;
-      } else {
-        throw new Error("setNavDrawerVisible requires either a key or location");
-      }
+      } else throw new Error("setNavDrawerVisible requires either a key or location");
     },
     maybeCreateGetStartedTab: (state) => {
       const checkedGetStarted = state.alreadyCheckedGetStarted;
@@ -404,8 +436,8 @@ export const { actions, reducer } = createSlice({
     setWorkspace: (
       state,
       { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
-    ) => {
-      return migrateSlice({
+    ) =>
+      migrateSlice({
         ...slice,
         layouts: {
           ...layoutsToPreserve(state.layouts),
@@ -416,31 +448,46 @@ export const { actions, reducer } = createSlice({
         themes: state.themes,
         activeTheme: state.activeTheme,
         nav: keepNav ? state.nav : slice.nav,
-      });
-    },
-    clearWorkspace: (state) => {
-      return {
-        ...ZERO_SLICE_STATE,
-        layouts: {
-          ...layoutsToPreserve(state.layouts),
-          main: MAIN_LAYOUT,
-        },
-        hauling: state.hauling,
-        themes: state.themes,
-        activeTheme: state.activeTheme,
-        nav: state.nav,
-      };
-    },
+      }),
+    clearWorkspace: (state) => ({
+      ...ZERO_SLICE_STATE,
+      layouts: {
+        ...layoutsToPreserve(state.layouts),
+        main: MAIN_LAYOUT,
+      },
+      hauling: state.hauling,
+      themes: state.themes,
+      activeTheme: state.activeTheme,
+      nav: state.nav,
+    }),
     setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
       const layout = select(state, key);
       if (layout == null) return;
       layout.args = args;
+    },
+    setFocus: (
+      state,
+      { payload: { key, windowKey } }: PayloadAction<SetFocusPayload>,
+    ) => {
+      if (key == null) {
+        const mosaic = state.mosaics[windowKey];
+        mosaic.focused = null;
+        return;
+      }
+      const layout = select(state, key);
+      if (layout == null) return;
+      const mosaic = state.mosaics[layout.windowKey];
+      mosaic.focused = key;
+    },
+    setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
+      state.colorContext = payload.state;
     },
   },
 });
 
 export const {
   place,
+  setFocus,
   remove,
   setAltKey,
   toggleActiveTheme,
@@ -448,6 +495,7 @@ export const {
   moveMosaicTab,
   selectMosaicTab,
   resizeMosaicTab,
+  splitMosaicNode,
   rename,
   setNavDrawer,
   resizeNavDrawer,
@@ -455,6 +503,7 @@ export const {
   maybeCreateGetStartedTab,
   setHauled,
   setWorkspace,
+  setColorContext,
   clearWorkspace,
 } = actions;
 
@@ -464,7 +513,7 @@ export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
-export const MOSAIC_WINDOW_TYPE = "mosaic";
+export const MOSAIC_WINDOW_TYPE = "mosaicWindow";
 
 export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey"> => ({
   key: `${MOSAIC_WINDOW_TYPE}-${id.id()}`,
@@ -474,7 +523,7 @@ export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey
   window: {
     ...window,
     size: { width: 800, height: 600 },
-    navTop: true,
+    navTop: false,
     visible: true,
     showTitle: false,
   },
@@ -493,6 +542,8 @@ export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey
 export interface RendererProps {
   /** The unique key of the layout. */
   layoutKey: string;
+  visible: boolean;
+  focused: boolean;
   /**
    * onClose should be called when the layout is ready to be closed. This function is
    * polymorphic and may have different behavior depending on the location of the layout.
@@ -512,3 +563,9 @@ export interface OnCloseProps {
  * rendered by a layout renderer of a specific type.
  */
 export type Renderer = ComponentType<RendererProps>;
+
+export interface ContextMenuProps {
+  layoutKey: string;
+}
+
+export type ContextMenuRenderer = ComponentType<ContextMenuProps>;

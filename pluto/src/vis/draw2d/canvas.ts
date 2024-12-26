@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, Destructor, dimensions, scale, xy } from "@synnaxlabs/x";
+import { box, type Destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
 import { applyOverScan } from "@/vis/render/util";
 
@@ -39,6 +39,10 @@ export class SugaredOffscreenCanvasRenderingContext2D
 
   set fontVariantCaps(value: CanvasFontVariantCaps) {
     this.wrapped.fontVariantCaps = value;
+  }
+
+  isContextLost(): boolean {
+    return this.wrapped.isContextLost();
   }
 
   get wordSpacing(): string {
@@ -115,10 +119,6 @@ export class SugaredOffscreenCanvasRenderingContext2D
 
   set strokeStyle(value: string | CanvasGradient | CanvasPattern) {
     this.wrapped.strokeStyle = value;
-  }
-
-  commit(): void {
-    this.wrapped.commit();
   }
 
   drawImage(image: CanvasImageSource, dx: number, dy: number): void;
@@ -618,11 +618,11 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   scissor(region: box.Box, overScan: xy.XY = xy.ZERO): Destructor {
-    const p = new Path2D();
+    const p = new ScaledPath2D(this.scale_);
     region = applyOverScan(region, overScan);
     p.rect(...xy.couple(box.topLeft(region)), ...dimensions.couple(box.dims(region)));
     this.save();
-    this.clip(p);
+    this.clip(p.getPath());
     return () => this.restore();
   }
 
@@ -659,3 +659,159 @@ const scaleFontSize = (font: string, scale: scale.Scale): string => {
   const scaled = scale.dim(fontSize);
   return font.replace(FONT_REGEX, `${scaled}px`);
 };
+
+export class ScaledPath2D {
+  readonly scale_: scale.XY;
+  readonly path: Path2D;
+
+  constructor(scale_: scale.XY = scale.XY.IDENTITY, path?: Path2D | string) {
+    this.scale_ = scale_;
+    if (path instanceof Path2D || typeof path === "string")
+      this.path = new Path2D(path);
+    else this.path = new Path2D();
+  }
+
+  addPath(path: Path2D, transform?: DOMMatrix2DInit): void {
+    this.path.addPath(path, transform);
+  }
+
+  arc(
+    x: number,
+    y: number,
+    radius: number,
+    startAngle: number,
+    endAngle: number,
+    counterclockwise?: boolean,
+  ): void {
+    this.path.arc(
+      this.scale_.x.pos(x),
+      this.scale_.y.pos(y),
+      this.scale_.x.dim(radius),
+      startAngle,
+      endAngle,
+      counterclockwise,
+    );
+  }
+
+  arcTo(x1: number, y1: number, x2: number, y2: number, radius: number): void {
+    this.path.arcTo(
+      this.scale_.x.pos(x1),
+      this.scale_.y.pos(y1),
+      this.scale_.x.pos(x2),
+      this.scale_.y.pos(y2),
+      this.scale_.x.dim(radius),
+    );
+  }
+
+  bezierCurveTo(
+    cp1x: number,
+    cp1y: number,
+    cp2x: number,
+    cp2y: number,
+    x: number,
+    y: number,
+  ): void {
+    this.path.bezierCurveTo(
+      this.scale_.x.pos(cp1x),
+      this.scale_.y.pos(cp1y),
+      this.scale_.x.pos(cp2x),
+      this.scale_.y.pos(cp2y),
+      this.scale_.x.pos(x),
+      this.scale_.y.pos(y),
+    );
+  }
+
+  closePath(): void {
+    this.path.closePath();
+  }
+
+  ellipse(
+    x: number,
+    y: number,
+    radiusX: number,
+    radiusY: number,
+    rotation: number,
+    startAngle: number,
+    endAngle: number,
+    counterclockwise?: boolean,
+  ): void {
+    this.path.ellipse(
+      this.scale_.x.pos(x),
+      this.scale_.y.pos(y),
+      this.scale_.x.dim(radiusX),
+      this.scale_.y.dim(radiusY),
+      rotation,
+      startAngle,
+      endAngle,
+      counterclockwise,
+    );
+  }
+
+  lineTo(x: number, y: number): void {
+    this.path.lineTo(this.scale_.x.pos(x), this.scale_.y.pos(y));
+  }
+
+  moveTo(x: number, y: number): void {
+    this.path.moveTo(this.scale_.x.pos(x), this.scale_.y.pos(y));
+  }
+
+  quadraticCurveTo(cpx: number, cpy: number, x: number, y: number): void {
+    this.path.quadraticCurveTo(
+      this.scale_.x.pos(cpx),
+      this.scale_.y.pos(cpy),
+      this.scale_.x.pos(x),
+      this.scale_.y.pos(y),
+    );
+  }
+
+  rect(x: number, y: number, w: number, h: number): void {
+    this.path.rect(
+      this.scale_.x.pos(x),
+      this.scale_.y.pos(y),
+      this.scale_.x.dim(w),
+      this.scale_.y.dim(h),
+    );
+  }
+
+  roundRect(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    radii?: number | DOMPointInit | Array<number | DOMPointInit>,
+  ): void {
+    const scaledRadii = this.scaleRadii(radii);
+    this.path.roundRect(
+      this.scale_.x.pos(x),
+      this.scale_.y.pos(y),
+      this.scale_.x.dim(w),
+      this.scale_.y.dim(h),
+      scaledRadii,
+    );
+  }
+
+  // Helper method to scale radii for roundRect
+  private scaleRadii(
+    radii?: number | DOMPointInit | Array<number | DOMPointInit>,
+  ): number | DOMPointInit | Array<number | DOMPointInit> | undefined {
+    if (radii == null) return radii;
+    if (typeof radii === "number") return this.scale_.x.dim(radii);
+    if (Array.isArray(radii)) return radii.map((r) => this.scaleRadius(r));
+
+    return this.scaleRadius(radii);
+  }
+
+  private scaleRadius(r: number | DOMPointInit): number | DOMPointInit {
+    if (typeof r === "number") return this.scale_.x.dim(r);
+
+    return {
+      x: this.scale_.x.dim(r.x ?? 0),
+      y: this.scale_.y.dim(r.y ?? 0),
+    };
+  }
+
+  // Method to retrieve the underlying Path2D
+  getPath(): Path2D {
+    return this.path;
+  }
+}

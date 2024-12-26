@@ -35,7 +35,7 @@ export const zeroCacheGCMetrics = (): CacheGCMetrics => ({
   purgedBytes: Size.bytes(0),
 });
 
-/** Props for the @see Static cache. */
+/** Props for the @link Static cache. */
 export interface StaticProps {
   /** Used for logging */
   instrumentation?: alamos.Instrumentation;
@@ -162,13 +162,13 @@ export class Static {
       instrumentation: { L },
     } = this.props;
     const allBounds = this.data.map((s) => s.data.alignmentBounds);
-    const invalid = allBounds.some((b, i) => {
-      return allBounds.some((b2, j) => {
+    const invalid = allBounds.some((b, i) =>
+      allBounds.some((b2, j) => {
         if (i === j) return false;
         const ok = bounds.overlapsWith(b, b2);
         return ok;
-      });
-    });
+      }),
+    );
     if (invalid) {
       L.debug("Cache is in an invalid state - bounds overlap!", () => ({
         write: write.map((s) => s.digest),

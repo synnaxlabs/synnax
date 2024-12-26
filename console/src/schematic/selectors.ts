@@ -7,24 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
+import { Permissions } from "@/permissions";
 import {
   type NodeProps,
+  SLICE_NAME,
   type SliceState,
   type State,
   type StoreState,
   type ToolbarState,
 } from "@/schematic/slice";
 
-export const selectSliceState = (state: StoreState): SliceState => state.schematic;
+export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
 
+export const selectOptional = select as (
+  state: StoreState,
+  key: string,
+) => State | undefined;
+
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
+
+export const useSelectOptional = useSelect as (key: string) => State | undefined;
 
 export const selectMany = (state: StoreState, keys: string[]): State[] =>
   keys.map((key) => select(state, key));
@@ -32,11 +42,27 @@ export const selectMany = (state: StoreState, keys: string[]): State[] =>
 export const useSelectMany = (keys: string[]): State[] =>
   useMemoSelect((state: StoreState) => selectMany(state, keys), [keys]);
 
+export interface NodeElementInfo {
+  key: string;
+  type: "node";
+  node: Diagram.Node;
+  props: NodeProps;
+}
+
+export interface EdgeElementInfo {
+  key: string;
+  type: "edge";
+  edge: Diagram.Edge;
+}
+
+export type ElementInfo = NodeElementInfo | EdgeElementInfo;
+
 export const selectSelectedElementsProps = (
   state: StoreState,
   layoutKey: string,
 ): ElementInfo[] => {
   const schematic = select(state, layoutKey);
+  if (schematic == null) return [];
   const nodes: ElementInfo[] = schematic.nodes
     .filter((node) => node.selected)
     .map((node) => ({
@@ -55,24 +81,26 @@ export const selectSelectedElementsProps = (
   return [...nodes, ...edges];
 };
 
-export interface NodeElementInfo {
-  key: string;
-  type: "node";
-  node: Diagram.Node;
-  props: NodeProps;
-}
-
-export interface EdgeElementInfo {
-  key: string;
-  type: "edge";
-  edge: Diagram.Edge;
-}
-
-export type ElementInfo = NodeElementInfo | EdgeElementInfo;
-
 export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[] =>
   useMemoSelect(
     (state: StoreState) => selectSelectedElementsProps(state, layoutKey),
+    [layoutKey],
+  );
+
+export const selectSelectedElementNames = (
+  state: StoreState,
+  layoutKey: string,
+): (string | null)[] => {
+  const elements = selectSelectedElementsProps(state, layoutKey);
+  return elements.map((element) => {
+    if (element.type === "node") return element.props.label?.label ?? null;
+    return null;
+  });
+};
+
+export const useSelectSelectedElementNames = (layoutKey: string): (string | null)[] =>
+  useMemoSelect(
+    (s: StoreState) => selectSelectedElementNames(s, layoutKey),
     [layoutKey],
   );
 
@@ -80,12 +108,12 @@ export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): NodeProps => {
-  const schematic = select(state, layoutKey);
-  return schematic.props[key];
-};
+): NodeProps | undefined => select(state, layoutKey).props[key];
 
-export const useSelectNodeProps = (layoutKey: string, key: string): NodeProps =>
+export const useSelectNodeProps = (
+  layoutKey: string,
+  key: string,
+): NodeProps | undefined =>
   useMemoSelect(
     (state: StoreState) => selectNodeProps(state, layoutKey, key),
     [layoutKey, key],
@@ -124,3 +152,21 @@ export const useSelectControlStatus = (layoutKey: string): Control.Status =>
     (state: StoreState) => selectControlStatus(state, layoutKey),
     [layoutKey],
   );
+
+export const selectHasPermission = (state: Permissions.StoreState): boolean =>
+  Permissions.selectCanUseType(state, schematic.ONTOLOGY_TYPE);
+
+export const useSelectHasPermission = (): boolean =>
+  useMemoSelect(selectHasPermission, []);
+
+export const selectVersion = (state: StoreState, key: string): string | undefined =>
+  selectOptional(state, key)?.version;
+
+export const useSelectVersion = (key: string): string | undefined =>
+  useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);
+
+export const selectIsSnapshot = (state: StoreState, key: string): boolean =>
+  select(state, key).snapshot;
+
+export const useSelectIsSnapshot = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectIsSnapshot(state, key), [key]);

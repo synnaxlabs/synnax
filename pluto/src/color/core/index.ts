@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import * as color from "@/color/core/color";
-
-export { color };
+export * as color from "@/color/core/external";

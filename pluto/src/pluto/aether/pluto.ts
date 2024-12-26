@@ -13,6 +13,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
+import { table } from "@/table/aether";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { theming } from "@/theming/aether";
@@ -20,10 +21,12 @@ import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
 import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
+import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
 import { range } from "@/vis/lineplot/range/aether";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
+import { log } from "@/vis/log/aether";
 import { measure } from "@/vis/measure/aether";
 import { rule } from "@/vis/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
@@ -42,6 +45,7 @@ export const render = (): void => {
     ...control.REGISTRY,
     ...diagram.REGISTRY,
     ...eraser.REGISTRY,
+    ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
     ...measure.REGISTRY,
@@ -55,6 +59,8 @@ export const render = (): void => {
     ...toggle.REGISTRY,
     ...tooltip.REGISTRY,
     ...value.REGISTRY,
+    ...log.REGISTRY,
+    ...table.REGISTRY,
   };
 
   aether.render({

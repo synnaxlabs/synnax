@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 
+import { math } from "@/math";
 import { type Stringer } from "@/primitive";
 import { addSamples } from "@/telem/series";
 
@@ -42,11 +43,10 @@ const remainder = <T extends TimeStamp | TimeSpan>(
       TimeSpan.MICROSECOND,
       TimeSpan.NANOSECOND,
     ].some((s) => s.equals(ts))
-  ) {
+  )
     throw new Error(
       "Invalid argument for remainder. Must be an even TimeSpan or Timestamp",
     );
-  }
   const v = value.valueOf() % ts.valueOf();
   return (value instanceof TimeStamp ? new TimeStamp(v) : new TimeSpan(v)) as T;
 };
@@ -92,14 +92,13 @@ export class TimeStamp implements Stringer {
       let offset: bigint = BigInt(0);
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
-      if (typeof value === "number") {
+      if (typeof value === "number")
         if (isFinite(value)) value = Math.trunc(value);
         else {
           if (isNaN(value)) value = 0;
           if (value === Infinity) value = TimeStamp.MAX;
           else value = TimeStamp.MIN;
         }
-      }
       this.value = BigInt(value.valueOf()) + offset;
     }
   }
@@ -125,10 +124,10 @@ export class TimeStamp implements Stringer {
     let seconds = "00";
     let milliseconds: string | undefined = "00";
     if (mbeSeconds != null) [seconds, milliseconds] = mbeSeconds.split(".");
-    let base = TimeStamp.hours(parseInt(hours ?? "00", 10))
-      .add(TimeStamp.minutes(parseInt(minutes ?? "00", 10)))
-      .add(TimeStamp.seconds(parseInt(seconds ?? "00", 10)))
-      .add(TimeStamp.milliseconds(parseInt(milliseconds ?? "00", 10)));
+    let base = TimeStamp.hours(parseInt(hours ?? "00"))
+      .add(TimeStamp.minutes(parseInt(minutes ?? "00")))
+      .add(TimeStamp.seconds(parseInt(seconds ?? "00")))
+      .add(TimeStamp.milliseconds(parseInt(milliseconds ?? "00")));
     if (tzInfo === "local") base = base.add(TimeStamp.utcOffset);
     return base.valueOf();
   }
@@ -201,7 +200,7 @@ export class TimeStamp implements Stringer {
 
   /** @returns A JavaScript Date object representing the TimeStamp. */
   date(): Date {
-    return new Date(this.milliseconds());
+    return new Date(this.milliseconds);
   }
 
   /**
@@ -324,10 +323,117 @@ export class TimeStamp implements Stringer {
   }
 
   /**
+   * @returns the floating point number of hours since the unix epoch to the timestamp
+   * value.
+   */
+  get hours(): number {
+    return Number(this.valueOf()) / Number(TimeSpan.HOUR.valueOf());
+  }
+
+  /**
+   * @returns the floating point number of minutes since the unix epoch to the timestamp
+   * value.
+   */
+  get minutes(): number {
+    return Number(this.valueOf()) / Number(TimeSpan.MINUTE.valueOf());
+  }
+
+  /**
+   * @returns the floating point number of days since the unix epoch to the timestamp
+   * value.
+   */
+  get days(): number {
+    return Number(this.valueOf()) / Number(TimeSpan.DAY.valueOf());
+  }
+
+  /**
+   * @returns the floating point number of seconds since the unix epoch to the timestamp
+   * value.
+   */
+  get seconds(): number {
+    return Number(this.valueOf()) / Number(TimeSpan.SECOND.valueOf());
+  }
+
+  /**
    * @returns The number of milliseconds since the unix epoch.
    */
-  milliseconds(): number {
+  get milliseconds(): number {
     return Number(this.valueOf()) / Number(TimeStamp.MILLISECOND.valueOf());
+  }
+
+  /** @returns the integer year that the timestamp corresponds to. */
+  get year(): number {
+    return this.date().getFullYear();
+  }
+
+  setYear(year: number): TimeStamp {
+    const d = this.date();
+    d.setFullYear(year);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer month that the timestamp corresponds to with its year. */
+  get month(): number {
+    return this.date().getMonth();
+  }
+
+  setMonth(month: number): TimeStamp {
+    const d = this.date();
+    d.setMonth(month);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer day that the timestamp corresponds to within its month. */
+  get day(): number {
+    return this.date().getDate();
+  }
+
+  setDay(day: number): TimeStamp {
+    const d = this.date();
+    d.setDate(day);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer hour that the timestamp corresponds to within its day. */
+  get hour(): number {
+    return this.date().getHours();
+  }
+
+  setHour(hour: number): TimeStamp {
+    const d = this.date();
+    d.setHours(hour);
+    return new TimeStamp(d);
+  }
+
+  /** @returns the integer minute that the timestamp corresponds to within its hour. */
+  get minute(): number {
+    return this.date().getMinutes();
+  }
+
+  setMinute(minute: number): TimeStamp {
+    const d = this.date();
+    d.setMinutes(minute);
+    return new TimeStamp(d);
+  }
+
+  get second(): number {
+    return this.date().getSeconds();
+  }
+
+  setSecond(second: number): TimeStamp {
+    const d = this.date();
+    d.setSeconds(second);
+    return new TimeStamp(d);
+  }
+
+  get millisecond(): number {
+    return this.date().getMilliseconds();
+  }
+
+  setMillisecond(millisecond: number): TimeStamp {
+    const d = this.date();
+    d.setMilliseconds(millisecond);
+    return new TimeStamp(d);
   }
 
   toString(): string {
@@ -470,6 +576,22 @@ export class TimeSpan implements Stringer {
     this.value = BigInt(value.valueOf());
   }
 
+  static fromSeconds(span: CrudeTimeSpan): TimeSpan {
+    if (span instanceof TimeSpan) return span;
+    if (span instanceof Rate) return span.period;
+    if (span instanceof TimeStamp) return new TimeSpan(span);
+    if (["number", "bigint"].includes(typeof span)) return TimeSpan.seconds(span);
+    return new TimeSpan(span);
+  }
+
+  static fromMilliseconds(span: CrudeTimeSpan): TimeSpan {
+    if (span instanceof TimeSpan) return span;
+    if (span instanceof Rate) return span.period;
+    if (span instanceof TimeStamp) return new TimeSpan(span);
+    if (["number", "bigint"].includes(typeof span)) return TimeSpan.milliseconds(span);
+    return new TimeSpan(span);
+  }
+
   encode(): string {
     return this.value.toString();
   }
@@ -529,6 +651,10 @@ export class TimeSpan implements Stringer {
     if (!microseconds.isZero) str += `${microseconds.microseconds}µs `;
     if (!nanoseconds.isZero) str += `${nanoseconds.nanoseconds}ns`;
     return str.trim();
+  }
+
+  mult(value: number): TimeSpan {
+    return new TimeSpan(this.valueOf() * BigInt(value));
   }
 
   /** @returns the decimal number of days in the timespan */
@@ -606,7 +732,7 @@ export class TimeSpan implements Stringer {
    * @param value - The number of nanoseconds.
    * @returns A TimeSpan representing the given number of nanoseconds.
    */
-  static nanoseconds(value: number = 1): TimeSpan {
+  static nanoseconds(value: math.Numeric = 1): TimeSpan {
     return new TimeSpan(value);
   }
 
@@ -619,8 +745,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of microseconds.
    * @returns A TimeSpan representing the given number of microseconds.
    */
-  static microseconds(value: number = 1): TimeSpan {
-    return TimeSpan.nanoseconds(value * 1000);
+  static microseconds(value: math.Numeric = 1): TimeSpan {
+    return TimeSpan.nanoseconds(math.mult(value, 1000));
   }
 
   /** A microsecond. */
@@ -632,8 +758,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of milliseconds.
    * @returns A TimeSpan representing the given number of milliseconds.
    */
-  static milliseconds(value: number = 1): TimeSpan {
-    return TimeSpan.microseconds(value * 1000);
+  static milliseconds(value: math.Numeric = 1): TimeSpan {
+    return TimeSpan.microseconds(math.mult(value, 1000));
   }
 
   /** A millisecond. */
@@ -645,8 +771,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of seconds.
    * @returns A TimeSpan representing the given number of seconds.
    */
-  static seconds(value: number = 1): TimeSpan {
-    return TimeSpan.milliseconds(value * 1000);
+  static seconds(value: math.Numeric = 1): TimeSpan {
+    return TimeSpan.milliseconds(math.mult(value, 1000));
   }
 
   /** A second. */
@@ -658,8 +784,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of minutes.
    * @returns A TimeSpan representing the given number of minutes.
    */
-  static minutes(value: number): TimeSpan {
-    return TimeSpan.seconds(value.valueOf() * 60);
+  static minutes(value: math.Numeric = 1): TimeSpan {
+    return TimeSpan.seconds(math.mult(value, 60));
   }
 
   /** A minute. */
@@ -671,8 +797,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of hours.
    * @returns A TimeSpan representing the given number of hours.
    */
-  static hours(value: number): TimeSpan {
-    return TimeSpan.minutes(value * 60);
+  static hours(value: math.Numeric): TimeSpan {
+    return TimeSpan.minutes(math.mult(value, 60));
   }
 
   /** Represents an hour. */
@@ -684,8 +810,8 @@ export class TimeSpan implements Stringer {
    * @param value - The number of days.
    * @returns A TimeSpan representing the given number of days.
    */
-  static days(value: number): TimeSpan {
-    return TimeSpan.hours(value * 24);
+  static days(value: math.Numeric): TimeSpan {
+    return TimeSpan.hours(math.mult(value, 24));
   }
 
   /** Represents a day. */
@@ -1039,6 +1165,14 @@ export class TimeRange implements Stringer {
   ]);
 }
 
+export const sortTimeRange = (a: TimeRange, b: TimeRange): -1 | 0 | 1 => {
+  if (a.start.before(b.start)) return -1;
+  if (a.start.after(b.start)) return 1;
+  if (a.end.before(b.end)) return -1;
+  if (a.end.after(b.end)) return 1;
+  return 0;
+};
+
 /** DataType is a string that represents a data type. */
 export class DataType extends String implements Stringer {
   constructor(value: CrudeDataType) {
@@ -1049,12 +1183,11 @@ export class DataType extends String implements Stringer {
     ) {
       super(value.valueOf());
       return;
-    } else {
-      const t = DataType.ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.constructor.name);
-      if (t != null) {
-        super(t.valueOf());
-        return;
-      }
+    }
+    const t = DataType.ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.constructor.name);
+    if (t != null) {
+      super(t.valueOf());
+      return;
     }
     super(DataType.UNKNOWN.valueOf());
     throw new Error(`unable to find data type for ${value.toString()}`);
@@ -1119,9 +1252,8 @@ export class DataType extends String implements Stringer {
       (!this.isVariable && other.isVariable)
     )
       return false;
-    if ((this.isFloat && other.isInteger) || (this.isInteger && other.isFloat)) {
+    if ((this.isFloat && other.isInteger) || (this.isInteger && other.isFloat))
       return this.density.valueOf() < other.density.valueOf();
-    }
     if ((this.isFloat && other.isFloat) || (this.isInteger && other.isInteger))
       return this.density.valueOf() <= other.density.valueOf();
     return false;
@@ -1427,7 +1559,14 @@ export type CrudeTimeStamp =
   | DateComponents
   | Number;
 export type TimeStampT = number;
-export type CrudeTimeSpan = bigint | BigInt | TimeSpan | TimeStamp | number | Number;
+export type CrudeTimeSpan =
+  | bigint
+  | BigInt
+  | TimeSpan
+  | TimeStamp
+  | number
+  | Number
+  | Rate;
 export type TimeSpanT = number;
 export type CrudeRate = Rate | number | Number;
 export type RateT = number;
@@ -1477,7 +1616,6 @@ type TypedArrayConstructor =
   | Int16ArrayConstructor
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
-export type NumericTelemValue = number | bigint;
 export type TelemValue =
   | number
   | bigint
@@ -1503,10 +1641,11 @@ export const isTelemValue = (value: unknown): value is TelemValue => {
 export const convertDataType = (
   source: DataType,
   target: DataType,
-  value: NumericTelemValue,
-  offset: number | bigint = 0,
-): NumericTelemValue => {
+  value: math.Numeric,
+  offset: math.Numeric = 0,
+): math.PrimitiveNumeric => {
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
-  if (!source.usesBigInt && target.usesBigInt) return BigInt(value) - BigInt(offset);
-  return addSamples(value, -offset);
+  if (!source.usesBigInt && target.usesBigInt)
+    return BigInt(value.valueOf()) - BigInt(offset.valueOf());
+  return addSamples(value, -offset).valueOf();
 };

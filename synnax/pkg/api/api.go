@@ -7,42 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package api implements the client interfaces for interacting with the delta cluster.
-// The top level package is completely transport agnostic, and provides freighter compatible
-// interfaces for all of its services. sub-packages in this directory wrap the core API
-// services to provide transport specific implementations.
+// Package api implements the client interfaces for interacting with the Synnax cluster.
+// The top level package is completely transport agnostic, and provides freighter
+// compatible interfaces for all of its services. sub-packages in this directory wrap
+// the core API services to provide transport specific implementations.
 package api
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
+	"go/types"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/falamos"
-	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/auth"
-	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	"github.com/synnaxlabs/synnax/pkg/hardware"
-	"github.com/synnaxlabs/synnax/pkg/label"
-	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/user"
-	"github.com/synnaxlabs/synnax/pkg/workspace"
-	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go/types"
 )
 
-// Config is all required configuration parameters and services necessary to
-// instantiate the API.
+// Config is all required configuration parameters and services necessary to instantiate
+// the API.
 type Config struct {
 	alamos.Instrumentation
 	RBAC          *rbac.Service
@@ -56,6 +59,8 @@ type Config struct {
 	Workspace     *workspace.Service
 	Schematic     *schematic.Service
 	LinePlot      *lineplot.Service
+	Log           *log.Service
+	Table         *table.Service
 	Token         *token.Service
 	Label         *label.Service
 	Hardware      *hardware.Service
@@ -90,6 +95,8 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "hardware", c.Hardware)
 	validate.NotNil(v, "insecure", c.Insecure)
 	validate.NotNil(v, "label", c.Label)
+	validate.NotNil(v, "log", c.Log)
+	validate.NotNil(v, "table", c.Table)
 	return v.Error()
 }
 
@@ -112,22 +119,24 @@ func (c Config) Override(other Config) Config {
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.Schematic = override.Nil(c.Schematic, other.Schematic)
 	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
+	c.Log = override.Nil(c.Log, other.Log)
 	c.Label = override.Nil(c.Label, other.Label)
 	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
 	c.Hardware = override.Nil(c.Hardware, other.Hardware)
+	c.Table = override.Nil(c.Table, other.Table)
 	return c
 }
 
 type Transport struct {
 	// AUTH
-	AuthLogin freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
-	// User
-	UserChangeUsernameOld freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	UserChangePasswordOld freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	UserRegistrationOld   freighter.UnaryServer[RegistrationRequest, TokenResponse]
-	UserChangeUsername    freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	UserChangePassword    freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	UserRegistration      freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	AuthLogin          freighter.UnaryServer[AuthLoginRequest, AuthLoginResponse]
+	AuthChangePassword freighter.UnaryServer[AuthChangePasswordRequest, types.Nil]
+	// USER
+	UserRename         freighter.UnaryServer[UserRenameRequest, types.Nil]
+	UserChangeUsername freighter.UnaryServer[UserChangeUsernameRequest, types.Nil]
+	UserCreate         freighter.UnaryServer[UserCreateRequest, UserCreateResponse]
+	UserDelete         freighter.UnaryServer[UserDeleteRequest, types.Nil]
+	UserRetrieve       freighter.UnaryServer[UserRetrieveRequest, UserRetrieveResponse]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
@@ -175,6 +184,18 @@ type Transport struct {
 	SchematicRename   freighter.UnaryServer[SchematicRenameRequest, types.Nil]
 	SchematicSetData  freighter.UnaryServer[SchematicSetDataRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[SchematicCopyRequest, SchematicCopyResponse]
+	// LOG
+	LogCreate   freighter.UnaryServer[LogCreateRequest, LogCreateResponse]
+	LogRetrieve freighter.UnaryServer[LogRetrieveRequest, LogRetrieveResponse]
+	LogDelete   freighter.UnaryServer[LogDeleteRequest, types.Nil]
+	LogRename   freighter.UnaryServer[LogRenameRequest, types.Nil]
+	LogSetData  freighter.UnaryServer[LogSetDataRequest, types.Nil]
+	// TABLE
+	TableCreate   freighter.UnaryServer[TableCreateRequest, TableCreateResponse]
+	TableRetrieve freighter.UnaryServer[TableRetrieveRequest, TableRetrieveResponse]
+	TableDelete   freighter.UnaryServer[TableDeleteRequest, types.Nil]
+	TableRename   freighter.UnaryServer[TableRenameRequest, types.Nil]
+	TableSetData  freighter.UnaryServer[TableSetDataRequest, types.Nil]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
@@ -193,6 +214,7 @@ type Transport struct {
 	HardwareDeleteRack     freighter.UnaryServer[HardwareDeleteRackRequest, types.Nil]
 	HardwareCreateTask     freighter.UnaryServer[HardwareCreateTaskRequest, HardwareCreateTaskResponse]
 	HardwareRetrieveTask   freighter.UnaryServer[HardwareRetrieveTaskRequest, HardwareRetrieveTaskResponse]
+	HardwareCopyTask       freighter.UnaryServer[HardwareCopyTaskRequest, HardwareCopyTaskResponse]
 	HardwareDeleteTask     freighter.UnaryServer[HardwareDeleteTaskRequest, types.Nil]
 	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
 	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
@@ -203,14 +225,14 @@ type Transport struct {
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 }
 
-// API wraps all implemented API services into a single container. Protocol-specific
-// API implementations should use this struct during instantiation.
+// API wraps all implemented API services into a single container. Protocol-specific API
+// implementations should use this struct during instantiation.
 type API struct {
 	provider     Provider
 	config       Config
 	Auth         *AuthService
 	User         *UserService
-	Telem        *FrameService
+	Framer       *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
 	Ontology     *OntologyService
@@ -218,6 +240,8 @@ type API struct {
 	Workspace    *WorkspaceService
 	Schematic    *SchematicService
 	LinePlot     *LinePlotService
+	Log          *LogService
+	Table        *TableService
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
@@ -243,10 +267,15 @@ func (a *API) BindTo(t Transport) {
 	freighter.UseOnAll(
 		secureMiddleware,
 
+		// AUTH
+		t.AuthChangePassword,
+
 		// USER
+		t.UserRename,
 		t.UserChangeUsername,
-		t.UserChangePassword,
-		t.UserRegistration,
+		t.UserCreate,
+		t.UserDelete,
+		t.UserRetrieve,
 
 		// CHANNEL
 		t.ChannelCreate,
@@ -292,7 +321,7 @@ func (a *API) BindTo(t Transport) {
 		t.WorkspaceRename,
 		t.WorkspaceSetLayout,
 
-		// Schematic
+		// SCHEMATIC
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
@@ -306,6 +335,20 @@ func (a *API) BindTo(t Transport) {
 		t.LinePlotSetData,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
+
+		// LOG
+		t.LogCreate,
+		t.LogRetrieve,
+		t.LogDelete,
+		t.LogRename,
+		t.LogSetData,
+
+		// TABLE
+		t.TableCreate,
+		t.TableRetrieve,
+		t.TableDelete,
+		t.TableRename,
+		t.TableSetData,
 
 		// LABEL
 		t.LabelCreate,
@@ -322,6 +365,7 @@ func (a *API) BindTo(t Transport) {
 		t.HardwareCreateTask,
 		t.HardwareRetrieveTask,
 		t.HardwareDeleteTask,
+		t.HardwareCopyTask,
 		t.HardwareCreateDevice,
 		t.HardwareRetrieveDevice,
 		t.HardwareDeleteDevice,
@@ -334,14 +378,14 @@ func (a *API) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(a.Auth.Login)
+	t.AuthChangePassword.BindHandler(a.Auth.ChangePassword)
 
 	// USER
-	t.UserRegistrationOld.BindHandler(a.User.Register)
-	t.UserChangeUsernameOld.BindHandler(a.User.ChangeUsername)
-	t.UserChangePasswordOld.BindHandler(a.User.ChangePassword)
-	t.UserRegistration.BindHandler(a.User.Register)
+	t.UserRename.BindHandler(a.User.Rename)
 	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
-	t.UserChangePassword.BindHandler(a.User.ChangePassword)
+	t.UserCreate.BindHandler(a.User.Create)
+	t.UserDelete.BindHandler(a.User.Delete)
+	t.UserRetrieve.BindHandler(a.User.Retrieve)
 
 	// CHANNEL
 	t.ChannelCreate.BindHandler(a.Channel.Create)
@@ -352,10 +396,10 @@ func (a *API) BindTo(t Transport) {
 	t.ChannelRetrieveGroup.BindHandler(a.Channel.RetrieveGroup)
 
 	// FRAME
-	t.FrameWriter.BindHandler(a.Telem.Write)
-	t.FrameIterator.BindHandler(a.Telem.Iterate)
-	t.FrameStreamer.BindHandler(a.Telem.Stream)
-	t.FrameDelete.BindHandler(a.Telem.FrameDelete)
+	t.FrameWriter.BindHandler(a.Framer.Write)
+	t.FrameIterator.BindHandler(a.Framer.Iterate)
+	t.FrameStreamer.BindHandler(a.Framer.Stream)
+	t.FrameDelete.BindHandler(a.Framer.FrameDelete)
 
 	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(a.Ontology.Retrieve)
@@ -388,7 +432,7 @@ func (a *API) BindTo(t Transport) {
 	t.WorkspaceRename.BindHandler(a.Workspace.Rename)
 	t.WorkspaceSetLayout.BindHandler(a.Workspace.SetLayout)
 
-	// Schematic
+	// SCHEMATIC
 	t.SchematicCreate.BindHandler(a.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(a.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(a.Schematic.Delete)
@@ -402,6 +446,20 @@ func (a *API) BindTo(t Transport) {
 	t.LinePlotSetData.BindHandler(a.LinePlot.SetData)
 	t.LinePlotRetrieve.BindHandler(a.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(a.LinePlot.Delete)
+
+	// LOG
+	t.LogCreate.BindHandler(a.Log.Create)
+	t.LogRetrieve.BindHandler(a.Log.Retrieve)
+	t.LogDelete.BindHandler(a.Log.Delete)
+	t.LogRename.BindHandler(a.Log.Rename)
+	t.LogSetData.BindHandler(a.Log.SetData)
+
+	// TABLE
+	t.TableCreate.BindHandler(a.Table.Create)
+	t.TableRetrieve.BindHandler(a.Table.Retrieve)
+	t.TableDelete.BindHandler(a.Table.Delete)
+	t.TableRename.BindHandler(a.Table.Rename)
+	t.TableSetData.BindHandler(a.Table.SetData)
 
 	// LABEL
 	t.LabelCreate.BindHandler(a.Label.Create)
@@ -420,6 +478,7 @@ func (a *API) BindTo(t Transport) {
 	t.HardwareCreateDevice.BindHandler(a.Hardware.CreateDevice)
 	t.HardwareRetrieveDevice.BindHandler(a.Hardware.RetrieveDevice)
 	t.HardwareDeleteDevice.BindHandler(a.Hardware.DeleteDevice)
+	t.HardwareCopyTask.BindHandler(a.Hardware.CopyTask)
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
@@ -427,8 +486,8 @@ func (a *API) BindTo(t Transport) {
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
 }
 
-// New instantiates the delta API using the provided Config. This should probably
-// only be called once.
+// New instantiates the server API using the provided Config. This should only be called
+// once.
 func New(configs ...Config) (API, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
@@ -438,7 +497,7 @@ func New(configs ...Config) (API, error) {
 	api.Auth = NewAuthService(api.provider)
 	api.User = NewUserService(api.provider)
 	api.Access = NewAccessService(api.provider)
-	api.Telem = NewFrameService(api.provider)
+	api.Framer = NewFrameService(api.provider)
 	api.Channel = NewChannelService(api.provider)
 	api.Connectivity = NewConnectivityService(api.provider)
 	api.Ontology = NewOntologyService(api.provider)
@@ -448,5 +507,7 @@ func New(configs ...Config) (API, error) {
 	api.LinePlot = NewLinePlotService(api.provider)
 	api.Label = NewLabelService(api.provider)
 	api.Hardware = NewHardwareService(api.provider)
+	api.Log = NewLogService(api.provider)
+	api.Table = NewTableService(api.provider)
 	return api, nil
 }

@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu as PMenu, Nav } from "@synnaxlabs/pluto";
-import { Text } from "@synnaxlabs/pluto/text";
+import { CSS as PCSS, Menu as PMenu, Nav, Text } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -26,15 +25,23 @@ export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Task.Toolbar,
 ];
 
+interface NavMenuProps extends Omit<PMenu.MenuProps, "children"> {
+  children: Layout.NavMenuItem[];
+  activeItem?: Layout.NavDrawerItem;
+}
+
 export const NavMenu = ({
   children,
+  activeItem,
   ...props
-}: {
-  children: Layout.NavMenuItem[];
-} & Omit<PMenu.MenuProps, "children">): ReactElement => (
+}: NavMenuProps): ReactElement => (
   <PMenu.Menu {...props}>
     {children.map(({ key, tooltip, icon }) => (
       <PMenu.Item.Icon
+        className={CSS(
+          CSS.BE("main-nav", "item"),
+          PCSS.selected(activeItem?.key === key),
+        )}
         key={key}
         itemKey={key}
         size="large"
@@ -50,7 +57,7 @@ export interface NavDrawerProps {
   location: Layout.NavDrawerLocation;
 }
 
-export const NavDrawer = ({ location: l, ...props }: NavDrawerProps): ReactElement => {
+export const NavDrawer = ({ location: l }: NavDrawerProps): ReactElement => {
   const { activeItem, onResize, onSelect } = Layout.useNavDrawer(l, NAV_DRAWERS);
   return (
     <Nav.Drawer
@@ -62,7 +69,7 @@ export const NavDrawer = ({ location: l, ...props }: NavDrawerProps): ReactEleme
       activeItem={activeItem}
       onResize={onResize}
       onSelect={onSelect}
-      {...props}
+      // {...props}
     />
   );
 };

@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-    "typescript": "^5.4.5"
+  "devDependencies": {
+    "typescript": "^5.7.2"
   }
 }

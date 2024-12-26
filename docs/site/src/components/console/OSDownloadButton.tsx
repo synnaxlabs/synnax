@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState, useEffect } from "react";
-
 import { Icon } from "@synnaxlabs/media";
-import { Button } from "@synnaxlabs/pluto/button";
+import { Button } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
+import { type ReactElement, useEffect, useState } from "react";
 
 export interface OSDownloadButtonEntry {
   os: runtime.OS;
@@ -28,14 +27,13 @@ export const OSDownloadButton = ({
   name,
   ...props
 }: OSDownloadButtonProps): ReactElement | null => {
-  // const os = useOS();
-  if (entries.length === 0) return null;
-  let entry = entries.find((entry) => entry.os === runtime.getOS());
-  if (entry == null) entry = entries[0];
+  const os = runtime.getOS();
+  const entry = entries.find((entry) => entry.os === os);
+  if (entry == null) return null;
   const { href } = entry;
   return (
     <Button.Link href={href} startIcon={<Icon.Download />} {...props}>
-      Download {name} for {runtime.getOS()}
+      Download {name} for {os}
     </Button.Link>
   );
 };
@@ -80,16 +78,13 @@ export const SynnaxConsoleDownloadButton = (): ReactElement | null => {
   if (updateFile == null) return null;
   return (
     <OSDownloadButton
+      className="os-download-button"
       name={updateFile.version}
       size="large"
       entries={[
         {
           os: "MacOS",
-          href: updateFile.platforms[OSToUpdateFilePlatform.MacOS].url,
-        },
-        {
-          os: "Linux",
-          href: updateFile.platforms[OSToUpdateFilePlatform.Linux].url,
+          href: `https://github.com/synnaxlabs/synnax/releases/download/console-${updateFile.version}/Synnax_${updateFile.version.slice(1)}_aarch64.dmg`,
         },
         {
           os: "Windows",

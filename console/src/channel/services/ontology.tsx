@@ -17,7 +17,7 @@ import {
   telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { errors, UnknownRecord } from "@synnaxlabs/x";
+import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
@@ -26,7 +26,7 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -42,22 +42,8 @@ const handleSelect: Ontology.HandleSelect = ({
   const layout = Layout.selectActiveMosaicLayout(state);
   if (selection.length === 0) return;
 
-  // If no layout is selected, create a new line plot and add the selected channels
-  // to it.
-  if (layout == null) {
-    placeLayout(
-      LinePlot.create({
-        channels: {
-          ...LinePlot.ZERO_CHANNELS_STATE,
-          y1: selection.map((s) => Number(s.id.key)),
-        },
-      }),
-    );
-    return;
-  }
-
   // Otherwise, update the layout with the selected channels.
-  switch (layout.type) {
+  switch (layout?.type) {
     case LinePlot.LAYOUT_TYPE:
       store.dispatch(
         LinePlot.setYChannels({
@@ -65,6 +51,16 @@ const handleSelect: Ontology.HandleSelect = ({
           mode: "add",
           axisKey: "y1",
           channels: selection.map((s) => Number(s.id.key)),
+        }),
+      );
+      break;
+    default:
+      placeLayout(
+        LinePlot.create({
+          channels: {
+            ...LinePlot.ZERO_CHANNELS_STATE,
+            y1: selection.map((s) => Number(s.id.key)),
+          },
         }),
       );
   }
@@ -268,7 +264,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      {singleResource && <Link.CopyMenuItem />}
+      {singleResource && (
+        <>
+          <PMenu.Divider />
+          <Link.CopyMenuItem />
+        </>
+      )}
       <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>

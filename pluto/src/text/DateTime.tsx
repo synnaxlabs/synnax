@@ -13,11 +13,10 @@ import {
   type TimeStampStringFormat,
   type TZInfo,
 } from "@synnaxlabs/x";
-import { type ForwardedRef, forwardRef, type ReactElement } from "react";
+import { type ForwardedRef, forwardRef, type JSX, type ReactElement } from "react";
 
 import { type text } from "@/text/core";
-import type { TextProps } from "@/text/Text";
-import { Text } from "@/text/Text";
+import { Text, type TextProps } from "@/text/Text";
 
 export type DateTimeProps<L extends text.Level = "h1"> = Omit<
   TextProps<L>,

@@ -7,24 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type StreamClient, UnaryClient } from "@synnaxlabs/freighter";
+import { type StreamClient, type UnaryClient } from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
   type CrudeTimeRange,
   type CrudeTimeStamp,
   type MultiSeries,
-  TimeRange,
+  type TimeRange,
   TimeSpan,
-  toArray,
 } from "@synnaxlabs/x";
 
-import { type Key, type KeyOrName, KeysOrNames, type Params } from "@/channel/payload";
+import {
+  type Key,
+  type KeyOrName,
+  type KeysOrNames,
+  type Params,
+} from "@/channel/payload";
 import { analyzeChannelParams, type Retriever } from "@/channel/retriever";
 import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";
-import { Iterator, IteratorConfig } from "@/framer/iterator";
+import { Iterator, type IteratorConfig } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
+import { ontology } from "@/ontology";
+
+export const ONTOLOGY_TYPE: ontology.ResourceType = "framer";
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
 
 export class Client {
   private readonly streamClient: StreamClient;
@@ -94,7 +104,7 @@ export class Client {
 
   async openStreamer(config: StreamerConfig | Params): Promise<Streamer> {
     if (Array.isArray(config) || typeof config !== "object")
-      config = { channels: config as Params };
+      config = { channels: config as Params, downsampleFactor: 1 };
     return await Streamer._open(this.retriever, this.streamClient, config);
   }
 
@@ -170,8 +180,8 @@ export class Client {
     return fr;
   }
 
-  private async readFrame(tr: CrudeTimeRange, params: Params): Promise<Frame> {
-    const i = await this.openIterator(tr, params);
+  private async readFrame(tr: CrudeTimeRange, channels: Params): Promise<Frame> {
+    const i = await this.openIterator(tr, channels);
     const frame = new Frame();
     try {
       for await (const f of i) frame.push(f);

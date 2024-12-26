@@ -7,11 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 export interface GLBufferController {
   createBuffer: () => WebGLBuffer | null;
-  bufferData: ((target: number, data: ArrayBufferLike, usage: number) => void) &
+  bufferData: ((target: number, data: AllowSharedBufferSource, usage: number) => void) &
     ((target: number, size: number, usage: number) => void);
-  bufferSubData: (target: number, offset: number, data: ArrayBufferLike) => void;
+  bufferSubData: (
+    target: number,
+    offset: number,
+    data: AllowSharedBufferSource,
+  ) => void;
   bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
   deleteBuffer: (buffer: WebGLBuffer | null) => void;
   ARRAY_BUFFER: number;
@@ -20,3 +26,5 @@ export interface GLBufferController {
 }
 
 export type GLBufferUsage = "static" | "dynamic";
+
+export const glBufferUsageZ = z.enum(["static", "dynamic"]);

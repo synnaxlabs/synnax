@@ -7,16 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
-import { LAYOUT_TYPE, Schematic } from "@/schematic/Schematic";
+import { type Layout } from "@/layout";
+import { ContextMenu, LAYOUT_TYPE, Schematic } from "@/schematic/Schematic";
 
+export * from "@/schematic/file";
 export * from "@/schematic/middleware";
 export * from "@/schematic/NavControls";
 export * from "@/schematic/Schematic";
 export * from "@/schematic/selectors";
 export * from "@/schematic/slice";
 export * from "@/schematic/toolbar";
+export * from "@/schematic/useRangeSnapshot";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Schematic,
+};
+
+export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
+  [LAYOUT_TYPE]: ContextMenu,
 };

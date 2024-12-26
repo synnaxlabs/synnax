@@ -9,50 +9,48 @@
 
 import "@/lineplot/toolbar/Toolbar.css";
 
+import { linePlot } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Tabs } from "@synnaxlabs/pluto";
+import { Align, Button, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { useExport } from "@/lineplot/file";
 import { useSelect, useSelectToolbar } from "@/lineplot/selectors";
-import { setActiveToolbarTab,type ToolbarTab } from "@/lineplot/slice";
+import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
 import { Lines } from "@/lineplot/toolbar/Lines";
 import { Properties } from "@/lineplot/toolbar/Properties";
+import { Link } from "@/link";
+
+interface Tab {
+  tabKey: ToolbarTab;
+  name: string;
+}
+
+const TABS: Tab[] = [
+  { tabKey: "data", name: "Data" },
+  { tabKey: "lines", name: "Lines" },
+  { tabKey: "axes", name: "Axes" },
+  { tabKey: "properties", name: "Properties" },
+  { tabKey: "annotations", name: "Annotations" },
+];
 
 export interface ToolbarProps {
   layoutKey: string;
 }
 
-const TABS = [
-  {
-    tabKey: "data",
-    name: "Data",
-  },
-  {
-    tabKey: "lines",
-    name: "Lines",
-  },
-  {
-    tabKey: "axes",
-    name: "Axes",
-  },
-  {
-    tabKey: "properties",
-    name: "Properties",
-  },
-];
-
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
-  const linePlot = useSelect(layoutKey);
+  const state = useSelect(layoutKey);
+  const handleExport = useExport(name);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       switch (tabKey) {
@@ -63,22 +61,20 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         case "properties":
           return <Properties layoutKey={layoutKey} />;
         case "annotations":
-          return <Annotations layoutKey={layoutKey} />;
+          return <Annotations linePlotKey={layoutKey} />;
         default:
           return <Data layoutKey={layoutKey} />;
       }
     },
     [layoutKey],
   );
-
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
     },
     [dispatch],
   );
-
-  if (linePlot == null) return null;
+  if (state == null) return null;
   return (
     <Align.Space empty className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider
@@ -91,7 +87,24 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
-          <Tabs.Selector size="medium" />
+          <Align.Space direction="x" align="center" empty>
+            <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
+              <Button.Icon
+                tooltip={`Export ${name}`}
+                sharp
+                size="medium"
+                style={{ height: "100%" }}
+                onClick={() => handleExport(state.key)}
+              >
+                <Icon.Export />
+              </Button.Icon>
+              <Link.ToolbarCopyButton
+                name={name}
+                ontologyID={{ key: state.key, type: linePlot.ONTOLOGY_TYPE }}
+              />
+            </Align.Space>
+            <Tabs.Selector style={{ borderBottom: "none" }} />
+          </Align.Space>
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>

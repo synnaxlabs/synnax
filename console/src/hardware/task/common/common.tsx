@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { task, UnexpectedError } from "@synnaxlabs/client";
+import { ontology, type task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -23,22 +23,36 @@ import {
   Synnax,
   Text,
   Triggers,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { caseconv, deep, Key, Keyed, Optional, UnknownRecord } from "@synnaxlabs/x";
+import {
+  caseconv,
+  deep,
+  type Key,
+  type Keyed,
+  type migrate,
+  type Optional,
+  type UnknownRecord,
+} from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
-import { FC, ReactElement, useCallback, useId, useState } from "react";
+import { type Migratable } from "node_modules/@synnaxlabs/x/dist/src/migrate/migrate";
+import { type FC, type ReactElement, useCallback, useId, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
+import { type LayoutArgs } from "@/hardware/task/common/createLayoutCreator";
 import { Layout } from "@/layout";
+import { overviewLayout } from "@/range/external";
 
 export interface ControlsProps {
+  layoutKey: string;
   onStartStop: () => void;
   startingOrStopping: boolean;
   onConfigure: () => void;
   configuring: boolean;
+  snapshot?: boolean;
   state?: task.State<{ running?: boolean; message?: string }>;
 }
 
@@ -46,17 +60,21 @@ const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export interface ChannelListEmptyContentProps {
   onAdd: () => void;
+  snapshot?: boolean;
 }
 
-export const ChannelListEmptyContent = ({ onAdd }: ChannelListEmptyContentProps) => (
-  <Align.Space direction="y" style={{ height: "100%" }}>
-    <Align.Center direction="y">
-      <Text.Text level="p">No channels in task.</Text.Text>
+export const ChannelListEmptyContent = ({
+  onAdd,
+  snapshot = false,
+}: ChannelListEmptyContentProps) => (
+  <Align.Center direction="y" justify="center">
+    <Text.Text level="p">No channels in task.</Text.Text>
+    {!snapshot && (
       <Text.Link level="p" onClick={onAdd}>
         Add a channel
       </Text.Link>
-    </Align.Center>
-  </Align.Space>
+    )}
+  </Align.Center>
 );
 
 interface ChannelListContextMenuProps<T> {
@@ -64,8 +82,11 @@ interface ChannelListContextMenuProps<T> {
   value: T[];
   onSelect: (keys: string[], index: number) => void;
   remove: (indices: number[]) => void;
-  onDuplicate?: (indices: number[]) => void;
   path: string;
+  onDuplicate?: (indices: number[]) => void;
+  snapshot?: boolean;
+  allowTare?: boolean;
+  onTare?: (indices: number[]) => void;
 }
 
 export const ChannelListContextMenu = <
@@ -78,9 +99,14 @@ export const ChannelListContextMenu = <
   remove,
   onDuplicate,
   path,
+  snapshot,
+  allowTare,
+  onTare,
 }: ChannelListContextMenuProps<T>) => {
   const methods = Form.useContext();
-  const indices = keys.map((k) => value.findIndex((v) => v.key === k));
+  const indices = keys
+    .map((k) => value.findIndex((v) => v.key === k))
+    .filter((i) => i !== -1);
   const handleRemove = () => {
     remove(indices);
     onSelect([], -1);
@@ -96,6 +122,7 @@ export const ChannelListContextMenu = <
       if (!indices.includes(i)) return;
       methods.set(`${path}.${i}.enabled`, true);
     });
+  const handleTare = () => onTare?.(indices);
   const allowDisable = indices.some((i) => value[i].enabled);
   const allowEnable = indices.some((i) => !value[i].enabled);
   return (
@@ -105,29 +132,42 @@ export const ChannelListContextMenu = <
         duplicate: handleDuplicate,
         disable: handleDisable,
         enable: handleEnable,
+        tare: handleTare,
       }}
       level="small"
     >
-      <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
-        Remove
-      </Menu.Item>
-      {onDuplicate != null && (
-        <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
-          Duplicate
-        </Menu.Item>
+      {!snapshot && indices.length > 0 && (
+        <>
+          <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+            Remove
+          </Menu.Item>
+          {onDuplicate != null && (
+            <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+              Duplicate
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {allowDisable && (
+            <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+              Disable
+            </Menu.Item>
+          )}
+          {allowEnable && (
+            <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+              Enable
+            </Menu.Item>
+          )}
+          {(allowEnable || allowDisable) && <Menu.Divider />}
+          {allowTare && (
+            <>
+              <Menu.Item itemKey="tare" startIcon={<Icon.Tare />}>
+                Tare
+              </Menu.Item>
+              <Menu.Divider />
+            </>
+          )}
+        </>
       )}
-      <Menu.Divider />
-      {allowDisable && (
-        <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
-          Disable
-        </Menu.Item>
-      )}
-      {allowEnable && (
-        <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
-          Enable
-        </Menu.Item>
-      )}
-      {(allowEnable || allowDisable) && <Menu.Divider />}
       <CMenu.HardReloadItem />
     </Menu.Menu>
   );
@@ -163,12 +203,11 @@ export const useObserveState = <T extends ParserErrorsDetails>(
       if (state.task !== taskKey) return;
       setTaskState(state);
       if (state.variant !== "error") clearStatuses();
-      else if (state.details != null && state.details.errors != null) {
+      else if (state.details != null && state.details.errors != null)
         state.details.errors.forEach((e) => {
           const path = `config.${caseconv.snakeToCamel(e.path)}`;
           setStatus(path, { variant: "error", message: "" });
         });
-      }
     },
   });
   return taskState;
@@ -177,52 +216,67 @@ export const useObserveState = <T extends ParserErrorsDetails>(
 export const Controls = ({
   state,
   onStartStop,
+  layoutKey,
   startingOrStopping,
   onConfigure,
   configuring,
-}: ControlsProps) => (
-  <Align.Space direction="x" className={CSS.B("task-controls")} justify="spaceBetween">
+  snapshot = false,
+}: ControlsProps) => {
+  let content: ReactElement | null = null;
+  if (state?.details?.message != null)
+    content = (
+      <Status.Text variant={state?.variant as Status.Variant}>
+        {state?.details?.message}
+      </Status.Text>
+    );
+  if (snapshot)
+    content = (
+      <Status.Text.Centered variant="disabled" hideIcon>
+        This task is a snapshot and cannot be modified or started.
+      </Status.Text.Centered>
+    );
+  const isActive = Layout.useSelectActiveMosaicTabKey() === layoutKey;
+  return (
     <Align.Space
-      className={CSS.B("task-state")}
       direction="x"
-      style={{
-        borderRadius: "1rem",
-        border: "var(--pluto-border)",
-        padding: "2rem",
-        width: "100%",
-      }}
+      className={CSS.B("task-controls")}
+      justify="spaceBetween"
     >
-      {state?.details?.message != null && (
-        <Status.Text variant={state?.variant as Status.Variant}>
-          {state?.details?.message}
-        </Status.Text>
-      )}
-    </Align.Space>
-    <Align.Space
-      direction="x"
-      style={{
-        borderRadius: "1rem",
-        border: "var(--pluto-border)",
-        padding: "2rem",
-      }}
-      justify="end"
-    >
-      <Align.Space direction="y">
+      <Align.Space
+        className={CSS.B("task-state")}
+        direction="x"
+        style={{
+          borderRadius: "1rem",
+          border: "var(--pluto-border)",
+          padding: "2rem",
+          width: "100%",
+        }}
+      >
+        {content}
+      </Align.Space>
+      <Align.Space
+        direction="x"
+        bordered
+        rounded
+        style={{
+          padding: "2rem",
+          borderRadius: "1rem",
+        }}
+        justify="end"
+      >
         <Button.Icon
           loading={startingOrStopping}
-          disabled={startingOrStopping || state == null}
+          disabled={startingOrStopping || state == null || snapshot}
           onClick={onStartStop}
           variant="outlined"
         >
           {state?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
         </Button.Icon>
-      </Align.Space>
-      <Align.Space direction="y">
         <Button.Button
           loading={configuring}
-          disabled={configuring}
+          disabled={configuring || snapshot}
           onClick={onConfigure}
-          triggers={[CONFIGURE_TRIGGER]}
+          triggers={isActive ? [CONFIGURE_TRIGGER] : undefined}
           tooltip={
             <Align.Space direction="x" align="center" size="small">
               <Triggers.Text shade={7} level="small" trigger={CONFIGURE_TRIGGER} />
@@ -236,53 +290,77 @@ export const Controls = ({
         </Button.Button>
       </Align.Space>
     </Align.Space>
-  </Align.Space>
-);
+  );
+};
 
-export const ChannelListHeader = ({ onAdd }: ChannelListEmptyContentProps) => (
+export interface ChannelListHeaderProps extends ChannelListEmptyContentProps {}
+
+export const ChannelListHeader = ({ onAdd, snapshot }: ChannelListHeaderProps) => (
   <Header.Header level="h4">
     <Header.Title weight={500}>Channels</Header.Title>
-    <Header.Actions>
-      {[
-        {
-          key: "add",
-          onClick: onAdd,
-          children: <Icon.Add />,
-          size: "large",
-        },
-      ]}
-    </Header.Actions>
+    {!snapshot && (
+      <Header.Actions>
+        {[
+          {
+            key: "add",
+            onClick: onAdd,
+            children: <Icon.Add />,
+            size: "large",
+          },
+        ]}
+      </Header.Actions>
+    )}
   </Header.Header>
 );
 
 export interface EnableDisableButtonProps {
   value: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
+  snapshot?: boolean;
 }
 
 export const EnableDisableButton = ({
   value,
-  onChange: onClick,
+  onChange,
+  disabled,
+  snapshot = false,
 }: EnableDisableButtonProps) => (
-  <Button.Toggle
-    checkedVariant="outlined"
-    uncheckedVariant="outlined"
+  <Button.ToggleIcon
+    checkedVariant={snapshot ? "preview" : undefined}
+    uncheckedVariant={snapshot ? "preview" : "outlined"}
     className={CSS.B("enable-disable-button")}
+    disabled={disabled}
     value={value}
     size="small"
     onClick={(e) => e.stopPropagation()}
-    onChange={onClick}
+    onChange={onChange}
     tooltip={
-      <Text.Text level="small" style={{ maxWidth: 300 }}>
-        Data acquisition for this channel is {value ? "enabled" : "disabled"}. Click to
-        {value ? " disable" : " enable"} it.
-      </Text.Text>
+      snapshot ? undefined : (
+        <Text.Text level="small" style={{ maxWidth: 300 }}>
+          {value ? "Disable" : "Enable"} data acquisition
+        </Text.Text>
+      )
     }
   >
-    <Status.Text variant={value ? "success" : "disabled"} level="small" align="center">
-      {value ? "Enabled" : "Disabled"}
-    </Status.Text>
-  </Button.Toggle>
+    <Status.Circle variant={value ? "success" : "disabled"} />
+  </Button.ToggleIcon>
+);
+
+export interface TareButtonProps {
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+export const TareButton = ({ onClick, disabled }: TareButtonProps) => (
+  <Button.Icon
+    variant={"outlined"}
+    disabled={disabled}
+    onClick={onClick}
+    tooltip="Click to tare"
+  >
+    <Icon.Tare />
+  </Button.Icon>
 );
 
 export const useCreate = <
@@ -318,10 +396,11 @@ export interface WrappedTaskLayoutProps<T extends task.Task, P extends task.Payl
 export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
   Wrapped: FC<WrappedTaskLayoutProps<T, P>>,
   zeroPayload: P,
+  migrator?: migrate.Migrator,
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const client = Synnax.use();
-    const args = Layout.useSelectArgs<{ create: boolean }>(layoutKey);
+    const args = Layout.useSelectArgs<LayoutArgs<P>>(layoutKey);
     const altKey = Layout.useSelectAltKey(layoutKey);
     const id = useId();
     // The query can't take into account state changes, so we need to use a unique
@@ -329,8 +408,12 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
     const fetchTask = useQuery<WrappedTaskLayoutProps<T, P>>({
       queryKey: [layoutKey, client?.key, altKey, id],
       queryFn: async () => {
-        if (client == null || args.create)
-          return { initialValues: deep.copy(zeroPayload), layoutKey };
+        if (client == null || args.create) {
+          let initialValues = deep.copy(zeroPayload);
+          if (args.initialValues != null)
+            initialValues = deep.override(initialValues, args.initialValues);
+          return { initialValues, layoutKey };
+        }
         // try to parse the key as a big int. If the parse fails, set the lat key as a key
         let key: string = layoutKey;
         try {
@@ -343,6 +426,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
           if (e instanceof SyntaxError) key = altKey;
         }
         const t = await client.hardware.tasks.retrieve(key, { includeState: true });
+        if (migrator != null) t.config = migrator(t.config as Migratable);
         return { initialValues: t as unknown as P, task: t as T, layoutKey };
       },
     });
@@ -361,4 +445,62 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
   };
   Wrapper.displayName = `TaskWrapper(${Wrapped.displayName ?? Wrapped.name})`;
   return Wrapper;
+};
+
+export interface ParentRangeButtonProps {
+  taskKey?: string;
+}
+
+export const ParentRangeButton = ({
+  taskKey,
+}: ParentRangeButtonProps): ReactElement | null => {
+  const client = Synnax.use();
+  const addStatus = Status.useAggregator();
+  const [parent, setParent] = useState<ontology.Resource | null>();
+  const placer = Layout.usePlacer();
+
+  useAsyncEffect(async () => {
+    try {
+      if (client == null || taskKey == null) return;
+      const tsk = await client.hardware.tasks.retrieve(taskKey);
+      const parent = await tsk.snapshottedTo();
+      if (parent != null) setParent(parent);
+      const tracker = await client.ontology.openDependentTracker({
+        target: new ontology.ID({ key: taskKey, type: "task" }),
+        dependents: parent == null ? [] : [parent],
+        relationshipDirection: "to",
+      });
+      tracker.onChange((parents) => {
+        if (parents.length === 0) return setParent(null);
+        setParent(parents[0]);
+      });
+      return async () => await tracker.close();
+    } catch (e) {
+      addStatus({
+        variant: "error",
+        message: `Failed to retrieve child ranges`,
+        description: (e as Error).message,
+      });
+      return undefined;
+    }
+  }, [taskKey, client?.key]);
+  if (parent == null) return null;
+  return (
+    <Align.Space direction="x" size="small" align="center">
+      <Text.Text level="p">Snapshotted to</Text.Text>
+      <Button.Button
+        variant="text"
+        shade={7}
+        weight={400}
+        startIcon={<Icon.Range />}
+        iconSpacing="small"
+        style={{ padding: "1rem" }}
+        onClick={() =>
+          placer({ ...overviewLayout, key: parent.id.key, name: parent.name })
+        }
+      >
+        {parent.name}
+      </Button.Button>
+    </Align.Space>
+  );
 };

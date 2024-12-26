@@ -9,53 +9,80 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-input-switch__track {
-    position: relative;
-    display: inline-block;
-    width: 5rem;
-    height: 2.5rem;
-}
-
 .pluto-input-switch__container {
     display: flex;
+    justify-content: center;
     align-items: center;
-}
 
-.pluto-input-switch__input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
+    .pluto-input-switch__track {
+        position: relative;
+        display: inline-block;
+        width: 5rem;
+        height: 2.5rem;
+    }
 
-.pluto-input-switch__slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--pluto-gray-l4);
-    transition: 0.15s;
-    border-radius: 4rem;
-}
+    .pluto-input-switch__input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
 
-.pluto-input-switch__slider::before {
-    position: absolute;
-    content: "";
-    height: 2rem;
-    width: 2rem;
-    left: 0.25rem;
-    bottom: 0.25rem;
-    background: var(--pluto-gray-l5);
-    transition: 0.15s;
-    border-radius: 50%;
-}
+    .pluto-input-switch__slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--pluto-gray-l4);
+        transition: 0.15s;
+        border-radius: 4rem;
+    }
 
-.pluto-input-switch__input:checked + .pluto-input-switch__slider {
-    background: var(--pluto-primary-m1);
-}
+    .pluto-input-switch__slider::before {
+        position: absolute;
+        content: "";
+        height: 2rem;
+        width: 2rem;
+        left: 0.25rem;
+        bottom: 0.25rem;
+        background: var(--pluto-gray-l5);
+        transition: 0.15s;
+        border-radius: 50%;
+    }
 
-.pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
-    transform: translateX(2.5rem);
-    background: var(--pluto-primary-p1);
+    .pluto-input-switch__input:checked + .pluto-input-switch__slider {
+        background: var(--pluto-primary-m1);
+    }
+
+    .pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
+        transform: translateX(2.5rem);
+        background: var(--pluto-primary-p1);
+    }
+
+    &.pluto--disabled {
+        .pluto-input-switch__slider {
+            background: var(--pluto-gray-l3);
+            cursor: not-allowed;
+        }
+        .pluto-input-switch__slider::before {
+            background: var(--pluto-gray-l4);
+        }
+
+        .pluto-input-switch__input:checked + .pluto-input-switch__slider {
+            background: color-mix(
+                in srgb,
+                var(--pluto-gray-l3),
+                var(--pluto-primary-m1)
+            );
+        }
+
+        .pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
+            background: color-mix(
+                in srgb,
+                var(--pluto-gray-l4),
+                var(--pluto-primary-p1)
+            );
+        }
+    }
 }

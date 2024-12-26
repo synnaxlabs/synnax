@@ -10,7 +10,15 @@
 import "@/lineplot/NavControls.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Select, Text, Triggers, Viewport } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  type Icon as PIcon,
+  Select,
+  Text,
+  Triggers,
+  Viewport,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -69,10 +77,12 @@ export const NavControls = (): ReactElement => {
         tooltip={
           <Align.Space direction="x" align="center">
             <Text.Text level="small">Reset Zoom</Text.Text>
-            <Text.Keyboard level="small">
-              <Text.Symbols.Meta />
-            </Text.Keyboard>
-            <Text.Keyboard level="small">Click</Text.Keyboard>
+            <Align.Space direction="x" empty>
+              <Text.Keyboard level="small">
+                <Text.Symbols.Meta />
+              </Text.Keyboard>
+              <Text.Keyboard level="small">Click</Text.Keyboard>
+            </Align.Space>
           </Align.Space>
         }
         size="medium"
@@ -96,7 +106,7 @@ export const NavControls = (): ReactElement => {
       </Button.ToggleIcon>
       <Select.Button<
         ClickMode,
-        { key: ClickMode; icon: ReactElement; tooltip: ReactNode }
+        { key: ClickMode; icon: ReactElement<PIcon.BaseProps>; tooltip: ReactNode }
       >
         value={control.clickMode}
         onChange={handleClickModeChange}
@@ -139,7 +149,7 @@ export const NavControls = (): ReactElement => {
         uncheckedVariant="text"
         tooltipLocation={{ x: "right", y: "top" }}
         tooltip={
-          <Align.Space direction="x" align="center">
+          <Align.Space direction="x" align="center" size="small">
             <Text.Text level="small">
               {control.hold ? "Resume live plotting" : "Pause live plotting"}
             </Text.Text>

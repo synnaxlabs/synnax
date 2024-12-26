@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action, EnhancedStore, UnknownAction } from "@reduxjs/toolkit";
+import { type Action, type EnhancedStore, type UnknownAction } from "@reduxjs/toolkit";
 import { createElement, type ReactElement, useState } from "react";
-import type { ProviderProps as BaseProps } from "react-redux";
-import { Provider } from "react-redux";
+import { Provider, type ProviderProps as BaseProps } from "react-redux";
 
 import { type Enhancers } from "@/configureStore";
 import { type StoreState } from "@/state";
@@ -54,12 +53,7 @@ export const DriftProvider = <
   if (store == null) {
     // if the store isn't a promise, then it's already ready
     if (!(storeOrPromise instanceof Promise)) setStore(storeOrPromise);
-    else
-      storeOrPromise
-        .then((s) => setStore(s))
-        .catch((e) => {
-          setError(e);
-        });
+    else storeOrPromise.then(setStore).catch(setError);
     return emptyContent;
   }
   // @ts-expect-error - store is guaranteed to be non-null here

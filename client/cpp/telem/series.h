@@ -22,7 +22,8 @@ constexpr char NEWLINE_TERMINATOR_CHAR = '\n';
 
 namespace synnax {
 template<typename T>
-static inline void output_partial_vector(std::ostream &os, const std::vector<T> &v) {
+static inline void
+output_partial_vector(std::ostream &os, const std::vector<T> &v) {
     if (v.size() <= 6) {
         for (const auto &i: v) os << i << " ";
         return;
@@ -32,14 +33,17 @@ static inline void output_partial_vector(std::ostream &os, const std::vector<T> 
     for (size_t i = v.size() - 3; i < v.size(); ++i) os << v[i] << " ";
 }
 
-static inline void output_partial_vector_byte(std::ostream &os, const std::vector<uint8_t> &v) {
+static inline void
+output_partial_vector_byte(std::ostream &os, const std::vector<uint8_t> &v) {
     if (v.size() <= 6) {
-        for (size_t i = 0; i < v.size(); ++i) os << static_cast<uint32_t>(v[i]) << " ";
+        for (size_t i = 0; i < v.size(); ++i)
+            os << static_cast<uint32_t>(v[i]) << " ";
         return;
     }
     for (size_t i = 0; i < 3; ++i) os << static_cast<uint64_t>(v[i]) << " ";
     os << "... ";
-    for (size_t i = v.size() - 3; i < v.size(); ++i) os << static_cast<uint64_t>(v[i]) << " ";
+    for (size_t i = v.size() - 3; i < v.size(); ++i)
+        os << static_cast<uint64_t>(v[i]) << " ";
 }
 
 
@@ -54,10 +58,10 @@ public:
     Series(
         const DataType &data_type,
         const size_t cap
-    ): size(0),
-       cap(cap),
-       data_type(data_type),
-       data(std::make_unique<std::byte[]>(cap * data_type.density())) {
+    ) : size(0),
+        cap(cap),
+        data_type(data_type),
+        data(std::make_unique<std::byte[]>(cap * data_type.density())) {
         if (data_type.is_variable())
             throw std::runtime_error(
                 "cannot pre-allocate a series with a variable data type");
@@ -81,7 +85,8 @@ public:
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
         );
-        if (data_type == DATA_TYPE_UNKNOWN) data_type = DataType::infer<NumericType>();
+        if (data_type == DATA_TYPE_UNKNOWN)
+            data_type = DataType::infer<NumericType>();
         data = std::make_unique<std::byte[]>(byteSize());
         memcpy(data.get(), d.data(), byteSize());
     }
@@ -114,7 +119,8 @@ public:
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
         );
-        if (data_type == DATA_TYPE_UNKNOWN) data_type = DataType::infer<NumericType>();
+        if (data_type == DATA_TYPE_UNKNOWN)
+            data_type = DataType::infer<NumericType>();
         data = std::make_unique<std::byte[]>(this->byteSize());
         memcpy(data.get(), &v, this->byteSize());
     }
@@ -261,7 +267,7 @@ public:
     explicit Series(
         const std::string &data,
         DataType data_type_ = STRING
-    ): size(1), cap(1), data_type(std::move(data_type_)) {
+    ) : size(1), cap(1), data_type(std::move(data_type_)) {
         if (data_type != STRING && data_type != JSON)
             throw std::runtime_error("invalid data type c");
         cached_byte_size = data.size() + 1;
@@ -370,12 +376,14 @@ public:
     template<typename NumericType>
     [[nodiscard]] NumericType at(const size_t index) const {
         NumericType value;
-        memcpy(&value, data.get() + index * data_type.density(), data_type.density());
+        memcpy(&value, data.get() + index * data_type.density(),
+               data_type.density());
         return value;
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Series &s) {
-        os << "Series(type: " << s.data_type.name() << ", size: " << s.size << ", cap: "
+        os << "Series(type: " << s.data_type.name() << ", size: " << s.size
+                << ", cap: "
                 << s.cap << ", data: [";
         if (s.data_type == synnax::STRING || s.data_type == synnax::JSON)
             output_partial_vector(os, s.strings());
@@ -385,13 +393,13 @@ public:
             output_partial_vector(os, s.values<int64_t>());
         else if (s.data_type == synnax::UINT64 || s.data_type == synnax::TIMESTAMP)
             output_partial_vector(os, s.values<uint64_t>());
-        else if (s.data_type == synnax::UINT8)
+        else if (s.data_type == synnax::SY_UINT8)
             output_partial_vector_byte(os, s.values<uint8_t>());
         else if (s.data_type == synnax::INT32)
             output_partial_vector(os, s.values<int32_t>());
         else if (s.data_type == synnax::INT16)
             output_partial_vector(os, s.values<int16_t>());
-        else if (s.data_type == synnax::UINT16)
+        else if (s.data_type == synnax::SY_UINT16)
             output_partial_vector(os, s.values<uint16_t>());
         else if (s.data_type == synnax::UINT32)
             output_partial_vector(os, s.values<uint32_t>());
@@ -419,6 +427,16 @@ public:
         return cap * data_type.density();
     }
 
+    template<typename NumericType>
+    void transform_inplace(const std::function<NumericType(NumericType)>& func){
+        static_assert(std::is_arithmetic_v<NumericType>, "NumericType must be a numeric type");
+        if (size == 0) return;
+        auto vals = values<NumericType>();
+        std::transform(vals.begin(), vals.end(), vals.begin(), func);
+        set_array(vals.data(), 0, vals.size());
+    }
+
+
     /// @brief Holds what type of data is being used.
     DataType data_type;
     /// @brief Holds the underlying data.
@@ -439,12 +457,13 @@ private:
     ) const {
         auto adjusted = index;
         if (index < 0) adjusted = static_cast<int>(size) + index;
-        if (adjusted + write_size >= size || adjusted < 0)
+        if (adjusted + write_size > size || adjusted < 0)
             throw std::runtime_error(
-                "index" + std::to_string(index) + " out of bounds for series of size" +
+                "index " + std::to_string(index) +
+                " out of bounds for series of size " +
                 std::to_string(size)
             );
         return adjusted;
     }
-};
-}
+}; // class Series
+} // namespace synnax

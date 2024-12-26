@@ -24,7 +24,7 @@ export const linePlotZ = z.object({
 
 export type LinePlot = z.infer<typeof linePlotZ>;
 
-export const LineplotOntologyType = "lineplot" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "lineplot";
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: LineplotOntologyType, key: key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

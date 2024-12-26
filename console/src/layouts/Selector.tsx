@@ -7,19 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { v4 as uuidv4 } from "uuid";
+import { type ReactElement } from "react";
+import { v4 as uuid } from "uuid";
 
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Log } from "@/log";
 import { Schematic } from "@/schematic";
+import { Table } from "@/table";
 
 const SELECTABLES: Layout.Selectable[] = [
   LinePlot.SELECTABLE,
   Schematic.SELECTABLE,
-  ...NI.SELECTABLES,
-  ...OPC.SELECTABLES,
+  Table.SELECTABLE,
+  ...Log.SELECTABLES,
+  ...Task.SELECTABLES,
 ];
 
 export const SELECTOR_TYPE = "visLayoutSelector";
@@ -27,13 +30,7 @@ export const SELECTOR_TYPE = "visLayoutSelector";
 export const createSelector = (
   props: Omit<Partial<Layout.State>, "type">,
 ): Omit<Layout.State, "windowKey"> => {
-  const {
-    location = "mosaic",
-    name = "New Layout",
-    key = uuidv4(),
-    window,
-    tab,
-  } = props;
+  const { location = "mosaic", name = "New Layout", key = uuid(), window, tab } = props;
   return {
     type: SELECTOR_TYPE,
     location,
@@ -44,4 +41,11 @@ export const createSelector = (
   };
 };
 
-export const Selector = Layout.createSelectorComponent(SELECTABLES);
+export const Selector = (props: Layout.SelectorProps): ReactElement => {
+  const canCreateSchematic = Schematic.useSelectHasPermission();
+  const selectables = SELECTABLES.filter((s) => {
+    if (s.key === Schematic.SELECTABLE.key) return canCreateSchematic;
+    return true;
+  });
+  return Layout.createSelectorComponent(selectables)(props);
+};

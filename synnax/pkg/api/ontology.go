@@ -11,14 +11,15 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/gorp"
-	"go/types"
 )
 
 type OntologyService struct {
@@ -39,14 +40,15 @@ func NewOntologyService(p Provider) *OntologyService {
 
 type (
 	OntologyRetrieveRequest struct {
-		IDs              []ontology.ID `json:"ids" msgpack:"ids" validate:"required"`
-		Children         bool          `json:"children" msgpack:"children"`
-		Parents          bool          `json:"parents" msgpack:"parents"`
-		IncludeSchema    bool          `json:"include_schema" msgpack:"include_schema"`
-		ExcludeFieldData bool          `json:"exclude_field_data" msgpack:"exclude_field_data"`
-		Term             string        `json:"term" msgpack:"term"`
-		Limit            int           `json:"limit" msgpack:"limit"`
-		Offset           int           `json:"offset" msgpack:"offset"`
+		IDs              []ontology.ID   `json:"ids" msgpack:"ids" validate:"required"`
+		Children         bool            `json:"children" msgpack:"children"`
+		Parents          bool            `json:"parents" msgpack:"parents"`
+		IncludeSchema    bool            `json:"include_schema" msgpack:"include_schema"`
+		ExcludeFieldData bool            `json:"exclude_field_data" msgpack:"exclude_field_data"`
+		Types            []ontology.Type `json:"types" msgpack:"types"`
+		Term             string          `json:"term" msgpack:"term"`
+		Limit            int             `json:"limit" msgpack:"limit"`
+		Offset           int             `json:"offset" msgpack:"offset"`
 	}
 	OntologyRetrieveResponse struct {
 		Resources []ontology.Resource `json:"resources" msgpack:"resources"`
@@ -71,6 +73,9 @@ func (o *OntologyService) Retrieve(
 	}
 	if req.Parents {
 		q = q.TraverseTo(ontology.Parents)
+	}
+	if len(req.Types) > 0 {
+		q = q.WhereTypes(req.Types...)
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -117,8 +122,11 @@ func (o *OntologyService) CreateGroup(
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
 		g, err_ := w.CreateWithKey(ctx, req.Key, req.Name, req.Parent)
+		if err_ != nil {
+			return err_
+		}
 		res.Group = g
-		return err_
+		return nil
 	})
 }
 
@@ -154,7 +162,7 @@ func (o *OntologyService) RenameGroup(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Rename,
+		Action:  access.Update,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -176,8 +184,8 @@ func (o *OntologyService) AddChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
@@ -203,8 +211,8 @@ func (o *OntologyService) RemoveChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: []ontology.ID{req.ID},
+		Action:  access.Update,
+		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
@@ -231,15 +239,8 @@ func (o *OntologyService) MoveChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: []ontology.ID{req.From},
-	}); err != nil {
-		return res, err
-	}
-	if err = o.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{req.To},
+		Action:  access.Update,
+		Objects: append(req.Children, req.From, req.To),
 	}); err != nil {
 		return res, err
 	}

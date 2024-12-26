@@ -12,6 +12,7 @@ import "@/menu/ContextMenu.css";
 import { box, position, unique, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
+  type FC,
   type ForwardedRef,
   forwardRef,
   type ReactElement,
@@ -108,7 +109,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
       // Prevent parent context menus from opening.
       e.stopPropagation();
       const selected = findSelected(e.target as HTMLElement);
-      keys = keys ?? unique(selected.map((el) => el.id).filter((id) => id.length > 0));
+      keys ??= unique(selected.map((el) => el.id).filter((id) => id.length > 0));
     } else keys = [];
     setMenuState({ visible: true, keys, position: p, cursor: p });
   };
@@ -233,5 +234,7 @@ const ContextMenuCore = (
  * underlying div component acting as the root element.
  * @param props.menu - The menu to show when the user right clicks.
  */
-export const ContextMenu = forwardRef(ContextMenuCore);
+export const ContextMenu = forwardRef(
+  ContextMenuCore as React.ForwardRefRenderFunction<HTMLDivElement>,
+) as FC<ContextMenuProps>;
 ContextMenu.displayName = "ContextMenu";

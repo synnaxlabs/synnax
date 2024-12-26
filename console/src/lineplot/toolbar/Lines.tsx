@@ -35,7 +35,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
     dispatch(setLine({ key: layoutKey, line }));
   };
 
-  const { onSelect } = Tabs.useTabsContext();
+  const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
     <Align.Center direction="x" size="small">
@@ -148,7 +148,11 @@ const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
           upper: 51,
         }}
       />
-      <Color.Swatch value={new Color.Color(entry.color)} onChange={handleColorChange} />
+      <Color.Swatch
+        value={new Color.Color(entry.color)}
+        onChange={handleColorChange}
+        size="small"
+      />
     </Align.Space>
   );
 };

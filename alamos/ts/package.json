@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/alamos",
-  "version": "0.27.0",
+  "version": "0.36.0",
   "type": "module",
   "description": "Distributed instrumentation for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
@@ -19,29 +19,25 @@
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "lint": "eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix"
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.8.0",
-    "@opentelemetry/context-zone": "^1.23.0",
-    "@opentelemetry/instrumentation-document-load": "^0.37.0",
-    "@opentelemetry/sdk-trace-web": "^1.23.0",
-    "@synnaxlabs/x": "workspace:*",
-    "@uptrace/node": "^1.19.0",
-    "@uptrace/web": "^1.19.0"
+    "@opentelemetry/api": "^1.9.0",
+    "@synnaxlabs/x": "workspace:*"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@vitest/coverage-v8": "^1.5.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.17.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.4.5",
-    "vite": "5.2.11",
-    "vitest": "^1.5.0"
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -52,9 +48,9 @@
       "require": "./dist/index.cjs"
     },
     "./dev": {
+      "types": "./dist/dev/index.d.ts",
       "import": "./dist/dev.js",
-      "require": "./dist/dev.cjs",
-      "types": "./dist/dev/index.d.ts"
+      "require": "./dist/dev.cjs"
     }
   }
 }

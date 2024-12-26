@@ -7,116 +7,108 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import globals from "globals";
+import { fixupConfigRules, includeIgnoreFile } from "@eslint/compat";
 import pluginJs from "@eslint/js";
-import tseslint from "typescript-eslint";
-import pluginReactConfig from "eslint-plugin-react/configs/recommended.js";
-import { fixupConfigRules } from "@eslint/compat";
+import pluginReact from "eslint-plugin-react/configs/recommended.js";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
+import globals from "globals";
+import path from "path";
+import tseslint from "typescript-eslint";
+import { fileURLToPath } from "url";
+
+const filename = fileURLToPath(import.meta.url);
+const dirname = path.dirname(filename);
+const gitignorePath = path.join(dirname, "../../.gitignore");
 
 export default [
-    { languageOptions: { globals: globals.browser } },
-    pluginJs.configs.recommended,
-    ...tseslint.configs.recommended,
-    ...fixupConfigRules(pluginReactConfig),
-    {
-        languageOptions: {
-            ecmaVersion: "latest",
-            sourceType: "module",
-            globals: {
-                ...globals.browser,
-            },
-            parserOptions: {
-                ecmaVersion: "latest",
-                sourceType: "module",
-            },
-        },
-        ignores: ["node_modules", "node_modules", "build", "dist", "release"],
-        plugins: {
-            "simple-import-sort": simpleImportSort,
-        },
-        rules: {
-            "simple-import-sort/imports": "error",
-            "simple-import-sort/exports": "error",
-            // "import/order": [
-            //     "error",
-            //     {
-            //         groups: [
-            //             "builtin",
-            //             "external",
-            //             "internal",
-            //             "parent",
-            //             "sibling",
-            //             "index",
-            //             "unknown",
-            //         ],
-            //         pathGroups: [
-            //             {
-            //                 pattern: "react",
-            //                 group: "external",
-            //                 position: "before",
-            //             },
-            //             {
-            //                 pattern: "**/*.css",
-            //                 patternOptions: { matchBase: true },
-            //                 group: "unknown",
-            //                 position: "after",
-            //             },
-            //         ],
-            //         pathGroupsExcludedImportTypes: ["react"],
-            //         "newlines-between": "always",
-            //         alphabetize: {
-            //             order: "asc",
-            //             caseInsensitive: true,
-            //         },
-            //         warnOnUnassignedImports: true,
-            //     },
-            // ],
-            // "no-restricted-imports": [
-            //     "error",
-            //     {
-            //         patterns: [".*"],
-            //     },
-            // ],
-            // "import/no-unresolved": [2],
-            // "import/named": "off",
-            "react/react-in-jsx-scope": "off",
-            // "import/no-default-export": "warn",
-            "react/prop-types": "off",
-            // "prettier/prettier": ["error", { endOfLine: "auto" }],
-            // "@typescript-eslint/no-namespace": "off",
-            // "@typescript-eslint/no-confusing-void-expression": "off",
-            "@typescript-eslint/ban-types": "off",
-            "react/no-unescaped-entities": "off",
-            // "@typescript-eslint/non-nullable-type-assertion-style": "off",
-            // "@typescript-eslint/no-empty-interface": "off",
-            // "@typescript-eslint/ban-ts-comment": "off",
-            // "@typescript-eslint/no-dynamic-delete": "off",
-            "@typescript-eslint/no-explicit-any": "off",
-            "@typescript-eslint/no-unused-vars": [
-                "error",
-                {
-                    "args": "all",
-                    "argsIgnorePattern": "^_",
-                    "caughtErrors": "all",
-                    "caughtErrorsIgnorePattern": "^_",
-                    "destructuredArrayIgnorePattern": "^_",
-                    "varsIgnorePattern": "^_",
-                    "ignoreRestSiblings": true
-                  }
-            ],
-            "no-constant-condition": "off",
-        },
-        settings: {
-            "import/resolver": {
-                typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
-                node: {
-                    extensions: [".js", ".jsx", ".ts", ".tsx"],
-                },
-            },
-            react: {
-                version: "^18.0.0",
-            },
-        },
+  includeIgnoreFile(gitignorePath),
+  { languageOptions: { globals: globals.browser } },
+  pluginJs.configs.recommended,
+  ...tseslint.configs.recommended,
+  ...fixupConfigRules(pluginReact),
+  {
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: { ...globals.browser },
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
     },
+    plugins: { "simple-import-sort": simpleImportSort },
+    rules: {
+      "no-constant-condition": ["error", { checkLoops: false }],
+      "no-duplicate-imports": "error",
+      "use-isnan": ["error", { enforceForIndexOf: true }],
+      "valid-typeof": ["error", { requireStringLiterals: true }],
+      "arrow-body-style": "error",
+      curly: ["error", "multi"],
+      "dot-notation": "error",
+      "logical-assignment-operators": [
+        "error",
+        "always",
+        { enforceForIfStatements: true },
+      ],
+      "no-array-constructor": "error",
+      "no-else-return": ["error", { allowElseIf: false }],
+      "no-extra-boolean-cast": ["error", { enforceForInnerExpressions: true }],
+      "no-lonely-if": "error",
+      "no-object-constructor": "error",
+      "no-undef-init": "error",
+      "no-unneeded-ternary": ["error", { defaultAssignment: false }],
+      "no-useless-computed-key": "error",
+      "no-useless-concat": "error",
+      "no-useless-constructor": "error",
+      "no-useless-rename": "error",
+      "no-useless-return": "error",
+      "object-shorthand": "error",
+      "operator-assignment": "error",
+      "prefer-arrow-callback": "error",
+      "prefer-const": "error",
+      "prefer-exponentiation-operator": "error",
+      "prefer-numeric-literals": "error",
+      "prefer-object-has-own": "error",
+      "prefer-object-spread": "error",
+      "prefer-regex-literals": ["error", { disallowRedundantWrapping: true }],
+      "prefer-spread": "error",
+      "prefer-template": "error",
+      radix: ["error", "as-needed"],
+      yoda: "error",
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { fixStyle: "inline-type-imports" },
+      ],
+      "simple-import-sort/imports": "error",
+      "simple-import-sort/exports": "error",
+      "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off",
+      "@typescript-eslint/no-unsafe-function-type": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
+      "@typescript-eslint/no-wrapper-object-types": "off",
+      "react/no-unescaped-entities": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          args: "all",
+          argsIgnorePattern: "^_",
+          caughtErrors: "all",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+    settings: {
+      "import/resolver": {
+        typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
+        node: { extensions: [".js", ".jsx", ".ts", ".tsx"] },
+      },
+      react: { version: "^18.0.0" },
+    },
+  },
+  { ignores: ["node_modules", "build", "dist", "release", "**/*.d.ts"] },
 ];

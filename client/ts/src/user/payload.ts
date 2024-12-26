@@ -12,17 +12,27 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 
 export const keyZ = z.string().uuid();
-
 export type Key = z.infer<typeof keyZ>;
 
-export const payloadZ = z.object({
-  key: z.string(),
-  username: z.string(),
+export const userZ = z.object({
+  key: keyZ,
+  username: z.string().min(1),
+  // defaults for firstName, lastName, and rootUser are done to give compatibility with
+  // servers running v0.30.x and earlier. These defaults should be removed in a future
+  // release.
+  firstName: z.string().default(""),
+  lastName: z.string().default(""),
+  rootUser: z.boolean().default(true),
 });
+export type User = z.infer<typeof userZ>;
 
-export type Payload = z.infer<typeof payloadZ>;
+export const newUserZ = userZ
+  .partial({ key: true, firstName: true, lastName: true })
+  .omit({ rootUser: true })
+  .extend({ password: z.string().min(1) });
+export type NewUser = z.infer<typeof newUserZ>;
 
-export const UserOntologyType = "user" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "user";
 
 export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: UserOntologyType, key });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

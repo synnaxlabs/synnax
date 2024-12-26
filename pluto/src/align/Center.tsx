@@ -9,7 +9,7 @@
 
 import "@/align/Center.css";
 
-import { type ForwardedRef, forwardRef, type ReactElement } from "react";
+import { type ForwardedRef, forwardRef, type JSX, type ReactElement } from "react";
 
 import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";

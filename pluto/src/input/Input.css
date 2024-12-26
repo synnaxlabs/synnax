@@ -11,10 +11,29 @@
 
 .pluto--warning .pluto-input__internal {
     border-color: var(--pluto-warning-z-65) !important;
+    z-index: 3;
 }
 
 .pluto--error .pluto-input__internal {
     border-color: var(--pluto-error-z-65) !important;
+    z-index: 3;
+}
+
+.pluto-input__disabled-overlay {
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: var(--pluto-gray-l2);
+    z-index: 2;
+    * {
+        color: var(--pluto-gray-l9) !important;
+        font-size: var(--pluto-small-size);
+    }
 }
 
 .pluto-input {
@@ -27,28 +46,30 @@
     & .pluto-input__internal {
         position: relative;
         height: 100%;
-        background: var(--pluto-gray-l1);
+        background: var(--pluto-gray-l2);
         flex-grow: 1;
     }
 
-    &.pluto-input--disabled {
-        & .pluto-input__placeholder * {
-            color: var(--pluto-gray-l5) !important;
-        }
+    &.pluto--disabled {
         & .pluto-input__internal {
-            background-color: var(--pluto-gray-l1);
-            opacity: 0.8;
+            background-color: var(--pluto-gray-l2);
             border-color: var(--pluto-gray-l3);
+        }
+        & :not(.pluto-input__disabled-overlay) {
+            cursor: not-allowed !important;
+            color: var(--pluto-gray-l5) !important;
         }
     }
 
     & input {
         border: none;
         background: none;
+        text-align: inherit;
         width: 100%;
         text-overflow: ellipsis;
         white-space: nowrap;
         height: 100%;
+        color: var(--pluto-input-color);
 
         padding: 0 1.5rem;
 
@@ -70,7 +91,7 @@
         }
     }
 
-    &.pluto--medium input {
+    &.pluto--medium *:is(input, .pluto-input__end-content) {
         font-size: var(--pluto-p-size);
         font-weight: var(--pluto-p-weight);
         line-height: var(--pluto-p-line-height);
@@ -124,13 +145,31 @@
     }
 }
 
+.pluto-input__end-content {
+    position: absolute;
+
+    right: -0.5rem;
+    top: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding-right: 1.5rem;
+    pointer-events: none;
+    z-index: 0;
+    font-size: inherit;
+    line-height: inherit;
+    * {
+        color: var(--pluto-gray-l6);
+    }
+}
+
 .pluto-input--shadow {
     & .pluto-input__internal {
         background: var(--pluto-bg);
     }
     &:hover {
         & > .pluto-input__internal {
-            background: var(--pluto-gray-l2) !important;
+            background: var(--pluto-gray-l3) !important;
             cursor: pointer;
             & input {
                 cursor: pointer;
@@ -148,17 +187,13 @@
     }
 }
 
-.pluto-input--natural {
+.pluto-input--natural,
+.pluto-input--preview {
     background: none !important;
     border-radius: 0 !important;
+    align-items: center;
     & > * {
-        border-color: transparent;
-    }
-
-    &:not(:hover) {
-        & > *:not(.pluto-input__internal) {
-            opacity: 0;
-        }
+        border-color: transparent !important;
     }
 
     & .pluto-input__internal {
@@ -175,6 +210,27 @@
         padding-left: 1px;
         & * {
             color: var(--pluto-gray-l5);
+        }
+    }
+}
+
+.pluto-input--button:not(.pluto--disabled) {
+    & .pluto-input__internal {
+        transition:
+            background 0.15s ease-in-out,
+            border-color 0.15s ease-in-out;
+        &:hover:not(:focus-within) {
+            --pluto-bg: var(--pluto-gray-l3);
+            background: var(--pluto-bg) !important;
+        }
+        &:active:not(:focus-within) {
+            --pluto-bg: var(--pluto-gray-l3);
+            background: var(--pluto-bg) !important;
+        }
+        &:focus-within {
+            transition:
+                background 0s ease-in-out,
+                border-color 0s ease-in-out;
         }
     }
 }

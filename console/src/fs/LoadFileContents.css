@@ -22,8 +22,4 @@
             text-overflow: ellipsis;
         }
     }
-    & > * {
-        --pluto-bg: var(--pluto-gray-l1);
-        background: var(--pluto-bg);
-    }
 }

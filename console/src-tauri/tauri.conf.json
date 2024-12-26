@@ -1,5 +1,5 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Synnax",
   "version": "../package.json",
   "build": {
@@ -20,6 +20,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "createUpdaterArtifacts": true,
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",

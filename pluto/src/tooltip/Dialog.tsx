@@ -37,11 +37,18 @@ import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
 import { isRenderProp, type RenderProp } from "@/util/renderProp";
 
+interface ChildProps {
+  id?: string;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onMouseEnter?: (e: React.MouseEvent) => void;
+  onMouseLeave?: (e: React.MouseEvent) => void;
+}
+
 export interface DialogProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   delay?: CrudeTimeSpan;
   location?: location.Outer | Partial<location.XY>;
   hide?: boolean;
-  children: [ReactNode | RenderProp<ContentProps>, ReactElement];
+  children: [ReactNode | RenderProp<ContentProps>, ReactElement<ChildProps>];
 }
 
 interface State {
@@ -96,16 +103,15 @@ export const chooseLocation = (
   const parse = location.location.safeParse(cornerOrLocation);
   const chooseRemainingLocation = (first: location.Location): location.Location => {
     let preferences: location.Location[];
-    if (first === "center") {
-      preferences = OUTER_LOCATION_PREFERENCES;
-    } else if (location.isX(first)) preferences = ["center", ...Y_LOCATION_PREFERENCES];
+    if (first === "center") preferences = OUTER_LOCATION_PREFERENCES;
+    else if (location.isX(first)) preferences = ["center", ...Y_LOCATION_PREFERENCES];
     else preferences = ["center", ...X_LOCATION_PREFERENCES];
     return location.construct(bestLocation(target, window, preferences));
   };
 
-  if (parse.success) {
+  if (parse.success)
     return location.constructXY(parse.data, chooseRemainingLocation(parse.data));
-  } else if (cornerOrLocation != null) {
+  if (cornerOrLocation != null) {
     const v = { ...(cornerOrLocation as Partial<location.XY>) };
     if (v.x == null && v.y != null)
       v.x = chooseRemainingLocation(location.construct(v.y)) as location.X;
@@ -298,8 +304,7 @@ export const Dialog = ({
 };
 
 export const formatTip = (tip: ReactNode): ReactNode => {
-  if (typeof tip === "string" || typeof tip === "number" || !isValidElement(tip)) {
+  if (typeof tip === "string" || typeof tip === "number" || !isValidElement(tip))
     return <Text.Text level="small">{tip as string | number}</Text.Text>;
-  }
   return tip;
 };

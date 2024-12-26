@@ -68,7 +68,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 				Context:  md.Context,
 				Protocol: md.Protocol,
 				Params:   make(freighter.Params),
-			}, s.handler(ctx, s.adaptStream(stream))
+			}, s.handler(md, s.adaptStream(stream))
 		}),
 	)
 	if !attachedInitialMetaData {

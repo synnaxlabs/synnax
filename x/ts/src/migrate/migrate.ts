@@ -10,45 +10,106 @@
 import { z } from "zod";
 
 import { compare } from "@/compare";
+import { type Optional } from "@/optional";
 
 export const semVerZ = z.string().regex(/^\d+\.\d+\.\d+$/);
 
 export type SemVer = z.infer<typeof semVerZ>;
+
+export interface CompareSemVerOptions {
+  /**
+   * Whether to validate that major versions are equal.
+   * @default true
+   */
+  checkMajor?: boolean;
+  /**
+   * Whether to validate that minor versions are equal.
+   * @default true
+   */
+  checkMinor?: boolean;
+  /**
+   * Whether to validate that patch versions are equal.
+   * @default true
+   */
+  checkPatch?: boolean;
+}
 
 /**
  * Compares the two semantic versions.
  *
  * @param a  The first semantic version.
  * @param b  The second semantic version.
+ * @param opts - Optional object to disable checking specific version parts
+ * (major, minor, patch).
  * @returns a number, where the the number is compare.LESS_THAN (negative) if a is OLDER
  * than B, compare.EQUAL (0) if a is the same as b, and compare.GREATER_THAN (positive)
  * if a is NEWER than b.
  */
-export const compareSemVer: compare.CompareF<string> = (a, b) => {
+export const compareSemVer = ((
+  a: SemVer,
+  b: SemVer,
+  opts: CompareSemVerOptions = {},
+) => {
+  opts.checkMajor ??= true;
+  opts.checkMinor ??= true;
+  opts.checkPatch ??= true;
   const semA = semVerZ.parse(a);
   const semB = semVerZ.parse(b);
   const [aMajor, aMinor, aPatch] = semA.split(".").map(Number);
   const [bMajor, bMinor, bPatch] = semB.split(".").map(Number);
-  if (aMajor !== bMajor) return aMajor - bMajor;
-  if (aMinor !== bMinor) return aMinor - bMinor;
-  return aPatch - bPatch;
-};
+  if (opts.checkMajor) {
+    if (aMajor < bMajor) return compare.LESS_THAN;
+    if (aMajor > bMajor) return compare.GREATER_THAN;
+  }
+  if (opts.checkMinor) {
+    if (aMinor < bMinor) return compare.LESS_THAN;
+    if (aMinor > bMinor) return compare.GREATER_THAN;
+  }
+  if (opts.checkPatch) {
+    if (aPatch < bPatch) return compare.LESS_THAN;
+    if (aPatch > bPatch) return compare.GREATER_THAN;
+  }
+  return compare.EQUAL;
+}) satisfies compare.CompareF<SemVer>;
+
+/**
+ * @returns true if the two semantic versions are equal.
+ * @param a - The first semantic version.
+ * @param b - The second semantic version.
+ * @param opts - Optional object to disable checking specific version parts
+ * (major, minor, patch).
+ */
+export const versionsEqual = (
+  a: SemVer,
+  b: SemVer,
+  opts: CompareSemVerOptions = {},
+): boolean => compare.isEqualTo(compareSemVer(a, b, opts));
 
 /**
  * @returns true if the first semantic version is newer than the second.
  * @param a The first semantic version.
  * @param b The second semantic version.
+ * @param opts - Optional object to disable checking specific version parts
+ * (major, minor, patch).
  */
-export const semVerNewer = (a: SemVer, b: SemVer): boolean =>
-  compare.isGreaterThan(compareSemVer(a, b));
+export const semVerNewer = (
+  a: SemVer,
+  b: SemVer,
+  opts: CompareSemVerOptions = {},
+): boolean => compare.isGreaterThan(compareSemVer(a, b, opts));
 
 /**
  * @returns true if the first semantic version is older than the second.
  * @param a The first semantic version.
  * @param b The second semantic version.
+ * @param opts - Optional object to disable checking specific version parts
+ * (major, minor, patch).
  */
-export const semVerOlder = (a: SemVer, b: SemVer): boolean =>
-  compare.isLessThan(compareSemVer(a, b));
+export const semVerOlder = (
+  a: SemVer,
+  b: SemVer,
+  opts: CompareSemVerOptions = {},
+): boolean => compare.isLessThan(compareSemVer(a, b, opts));
 
 export type Migratable<V extends string = string> = { version: V };
 
@@ -98,25 +159,30 @@ interface MigratorProps<O extends Migratable, ZO extends z.ZodTypeAny = z.ZodTyp
   name: string;
   migrations: Migrations;
   def: O;
+  defaultVersion?: string;
   targetSchema?: ZO;
 }
 
+export type Migrator = <I extends Optional<Migratable, "version">, O>(v: I) => O;
+
 export const migrator = <
-  I extends Migratable,
+  I extends Optional<Migratable, "version">,
   O extends Migratable,
   ZO extends z.ZodTypeAny = z.ZodTypeAny,
 >({
   name,
   migrations,
   targetSchema,
+  defaultVersion,
   def,
 }: MigratorProps<O, ZO>): ((v: I) => O) => {
   const latestMigrationVersion = Object.keys(migrations).sort(compareSemVer).pop();
   if (latestMigrationVersion == null)
-    return (v: Migratable) => {
+    return (v: I) => {
+      v.version ??= defaultVersion;
       if (v.version !== def.version) {
         console.log(
-          `${name} version ${v.version} is newer than latest version of ${def.version}. 
+          `${name} version ${v.version} is newer than latest version of ${def.version}.
           Returning default instead.
           `,
         );
@@ -156,9 +222,21 @@ export const migrator = <
       return def;
     }
   };
-  return (v: Migratable): O => {
+  return (v: I): O => {
     try {
-      return f(v) as O;
+      if (v.version == null)
+        if (defaultVersion != null) {
+          console.log(
+            `${name} version is null. Setting version to default of ${defaultVersion}`,
+          );
+          v.version = defaultVersion;
+        } else {
+          console.log(
+            `${name} version is null and no default version set. Exiting with default`,
+          );
+          return def;
+        }
+      return f(v as Migratable) as O;
     } catch (e) {
       console.log(`${name} failed to parse final result. Exiting with default`);
       console.error(e);

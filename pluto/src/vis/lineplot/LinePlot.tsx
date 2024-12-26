@@ -33,17 +33,14 @@ import { useEffectCompare } from "@/hooks";
 import { useMemoDeepEqualProps } from "@/memo";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
+import { grid } from "@/vis/grid";
 import { lineplot } from "@/vis/lineplot/aether";
-import {
-  filterGridEntries,
-  type GridEntrySpec,
-  type GridSpec,
-} from "@/vis/lineplot/aether/grid";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
 export interface LinePlotContextValue {
-  setGridEntry: (meta: GridEntrySpec) => void;
+  id: string;
+  setGridEntry: (meta: grid.Region) => void;
   removeGridEntry: (key: string) => void;
   setLine: (meta: LineSpec) => void;
   removeLine: (key: string) => void;
@@ -68,7 +65,7 @@ export const useViewport = (handle: Viewport.UseHandler): void => {
   useEffect(() => addViewportHandler(handle), [addViewportHandler, handle]);
 };
 
-export const useGridEntry = (meta: GridEntrySpec, component: string): CSSProperties => {
+export const useGridEntry = (meta: grid.Region, component: string): CSSProperties => {
   const { setGridEntry, removeGridEntry } = useContext(component);
   const { key } = meta;
   useEffectCompare(
@@ -79,9 +76,7 @@ export const useGridEntry = (meta: GridEntrySpec, component: string): CSSPropert
     ([a], [b]) => deep.equal(a, b),
     [meta],
   );
-  useEffect(() => {
-    return () => removeGridEntry(key);
-  }, []);
+  useEffect(() => () => removeGridEntry(key), []);
   const dir = direction.swap(location.direction(meta.loc));
   const gridArea =
     dir === "x"
@@ -100,7 +95,12 @@ type LineState = LineSpec[];
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Partial<Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverScan" | "hold">>,
+    Partial<
+      Pick<
+        z.input<typeof lineplot.linePlotStateZ>,
+        "clearOverScan" | "hold" | "visible"
+      >
+    >,
     HTMLDivProps {
   resizeDebounce?: number;
   onHold?: (hold: boolean) => void;
@@ -116,11 +116,12 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     children,
     hold = false,
     onHold,
+    visible,
     ...props
   }): ReactElement => {
     const [lines, setLines] = useState<LineState>([]);
 
-    const memoProps = useMemoDeepEqualProps({ clearOverScan, hold });
+    const memoProps = useMemoDeepEqualProps({ clearOverScan, hold, visible });
 
     const [{ path }, { grid }, setState] = Aether.use({
       aetherKey,
@@ -171,7 +172,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     const ref = Canvas.useRegion(handleResize, { debounce });
 
     const setGridEntry: LinePlotContextValue["setGridEntry"] = useCallback(
-      (meta: GridEntrySpec) =>
+      (meta: grid.Region) =>
         setState((prev) => ({
           ...prev,
           grid: { ...prev.grid, [meta.key]: meta },
@@ -210,6 +211,8 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [setState, onHold],
     );
 
+    const id = `line-plot-${aetherKey}`;
+
     const contextValue = useMemo<LinePlotContextValue>(
       () => ({
         lines,
@@ -220,8 +223,10 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         setViewport,
         addViewportHandler,
         setHold,
+        id,
       }),
       [
+        id,
         lines,
         setGridEntry,
         removeGridEntry,
@@ -235,6 +240,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
     return (
       <div
+        id={id}
         className={CSS.B("line-plot")}
         style={{ ...style, ...cssGrid }}
         ref={ref}
@@ -248,21 +254,22 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
   },
 );
 
-const buildPlotGrid = (grid: GridSpec): CSSProperties => {
+const buildPlotGrid = (g: grid.Grid): CSSProperties => {
   const b = CSS.newGridBuilder();
-  filterGridEntries("top", grid).forEach(({ key, size }) =>
-    b.row(`axis-start-${key}`, `axis-end-${key}`, size),
-  );
+  grid
+    .regions("top", g)
+    .forEach(({ key, size }) => b.row(`axis-start-${key}`, `axis-end-${key}`, size));
   b.row("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterGridEntries("bottom", grid).forEach(({ key, size }) =>
-    b.row(`axis-start-${key}`, `axis-end-${key}`, size),
-  );
-  filterGridEntries("left", grid).forEach(({ key, size }) =>
-    b.col(`axis-start-${key}`, `axis-end-${key}`, size),
-  );
+  grid
+    .regions("bottom", g)
+    .reverse()
+    .forEach(({ key, size }) => b.row(`axis-start-${key}`, `axis-end-${key}`, size));
+  grid
+    .regions("left", g)
+    .forEach(({ key, size }) => b.col(`axis-start-${key}`, `axis-end-${key}`, size));
   b.col("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterGridEntries("right", grid).forEach(({ key, size }) =>
-    b.col(`axis-start-${key}`, `axis-end-${key}`, size),
-  );
+  grid
+    .regions("right", g)
+    .forEach(({ key, size }) => b.col(`axis-start-${key}`, `axis-end-${key}`, size));
   return b.build();
 };

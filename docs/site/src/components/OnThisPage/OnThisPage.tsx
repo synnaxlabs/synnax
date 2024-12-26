@@ -7,82 +7,73 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect, useRef, useState } from "react";
-
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
+import { type ReactElement, useEffect, useRef, useState } from "react";
+
 import { OSSelectButton } from "@/components/platform/PlatformTabs";
 
-interface ItemOffset {
-  id: string;
-  topOffset: number;
-}
+const ON_THIS_PAGE_ID = "on-this-page-heading";
 
 export const OnThisPage = ({
   headings = [],
-  url,
 }: {
   headings?: MarkdownHeading[];
   url: string;
 }): ReactElement => {
-  const toc = useRef<HTMLDivElement | null>();
-  const onThisPageID = "on-this-page-heading";
-  const itemOffsets = useRef<ItemOffset[]>([]);
+  const toc = useRef<HTMLDivElement>(null);
   const [currentID, setCurrentID] = useState("");
 
   useEffect(() => {
     const i = setInterval(() => {
       const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-      const headerLinks = document.querySelectorAll(".on-this-page .header-link");
+      const headerLinks = document.querySelectorAll(
+        ".on-this-page .header-link",
+      ) as unknown as HTMLElement[];
       headerLinks.forEach((link) => {
         // check if there's a matching title
-        const title = Array.from(titles).find((title) => {
-          return title.id === link.id;
-        });
-        if (title == null) {
+        const title = Array.from(titles).find((title) => title.id === link.id);
+        if (title == null)
           // set the link display to none
           link.style.display = "none";
-        } else {
-          link.style.display = "block";
-        }
+        else link.style.display = "block";
       });
     }, 200);
     return () => clearInterval(i);
   }, []);
 
-  useEffect(() => {
-    const getItemOffsets = (): void => {
-      const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-      const headerLinks = document.querySelectorAll(".on-this-page .header-link");
+  // useEffect(() => {
+  //   const getItemOffsets = (): void => {
+  //     const titles = document.querySelectorAll("article :is(h1, h2, h3)");
+  //     const headerLinks = document.querySelectorAll(".on-this-page .header-link");
 
-      itemOffsets.current = Array.from(titles).map((title) => ({
-        id: title.id,
-        topOffset: title.getBoundingClientRect().top + window.scrollY,
-      }));
-    };
+  //     itemOffsets.current = Array.from(titles).map((title) => ({
+  //       id: title.id,
+  //       topOffset: title.getBoundingClientRect().top + window.scrollY,
+  //     }));
+  //   };
 
-    getItemOffsets();
-    window.addEventListener("resize", getItemOffsets);
-    return () => {
-      window.removeEventListener("resize", getItemOffsets);
-    };
-  }, []);
+  //   getItemOffsets();
+  //   window.addEventListener("resize", getItemOffsets);
+  //   return () => {
+  //     window.removeEventListener("resize", getItemOffsets);
+  //   };
+  // }, []);
 
   useEffect(() => {
     if (toc.current == null) return;
 
     const setCurrent: IntersectionObserverCallback = (entries) => {
-      for (const entry of entries) {
+      for (const entry of entries)
         if (entry.isIntersecting) {
           const { id } = entry.target;
-          if (id === onThisPageID) continue;
+          if (id === ON_THIS_PAGE_ID) continue;
           setCurrentID(entry.target.id);
           break;
         }
-      }
     };
 
     const observerOptions: IntersectionObserverInit = {
@@ -109,7 +100,7 @@ export const OnThisPage = ({
 
   return (
     <Align.Space el="nav" className="on-this-page" size={2}>
-      <Header.Header id={onThisPageID} className="heading" level="h4">
+      <Header.Header id={ON_THIS_PAGE_ID} className="heading" level="h4">
         <Header.Title>On this page</Header.Title>
       </Header.Header>
       <OSSelectButton />
@@ -117,25 +108,23 @@ export const OnThisPage = ({
         <Menu.Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth > 1 && depth <= 3)
-            .map((heading) => {
-              return (
-                <Menu.Item.Link
-                  href={`#${heading.slug}`}
-                  level="small"
-                  key={heading.slug}
-                  itemKey={heading.slug}
-                  id={heading.slug}
-                  onClick={() => {
-                    setCurrentID(heading.slug);
-                  }}
-                  className={`header-link ${heading.slug} depth-${heading.depth} ${
-                    currentID === heading.slug ? "current-header-link" : ""
-                  }`.trim()}
-                >
-                  {unescape(heading.text)}
-                </Menu.Item.Link>
-              );
-            })}
+            .map((heading) => (
+              <Menu.Item.Link
+                href={`#${heading.slug}`}
+                level="small"
+                key={heading.slug}
+                itemKey={heading.slug}
+                id={heading.slug}
+                onClick={() => {
+                  setCurrentID(heading.slug);
+                }}
+                className={`header-link ${heading.slug} depth-${heading.depth} ${
+                  currentID === heading.slug ? "current-header-link" : ""
+                }`.trim()}
+              >
+                {unescape(heading.text)}
+              </Menu.Item.Link>
+            ))}
         </Menu.Menu>
       </div>
     </Align.Space>

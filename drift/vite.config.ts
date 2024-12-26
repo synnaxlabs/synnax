@@ -42,7 +42,7 @@ export default defineConfig({
       },
     },
   },
-  // @ts-ignore
+  // @ts-expect-error - This is a valid configuration option.
   test: {
     globals: true,
     environment: "jsdom",

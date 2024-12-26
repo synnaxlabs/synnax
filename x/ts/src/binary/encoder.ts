@@ -49,7 +49,7 @@ export class JSONCodec implements Codec {
   }
 
   encode(payload: unknown): ArrayBuffer {
-    return this.encoder.encode(this.encodeString(payload)).buffer;
+    return this.encoder.encode(this.encodeString(payload)).buffer as ArrayBuffer;
   }
 
   decode<P extends z.ZodTypeAny>(
@@ -89,7 +89,7 @@ export class CSVCodec implements Codec {
 
   encode(payload: unknown): ArrayBuffer {
     const csvString = this.encodeString(payload);
-    return new TextEncoder().encode(csvString).buffer;
+    return new TextEncoder().encode(csvString).buffer as ArrayBuffer;
   }
 
   decode<P extends z.ZodTypeAny>(
@@ -101,9 +101,8 @@ export class CSVCodec implements Codec {
   }
 
   encodeString(payload: unknown): string {
-    if (!Array.isArray(payload) || payload.length === 0 || !isObject(payload[0])) {
+    if (!Array.isArray(payload) || payload.length === 0 || !isObject(payload[0]))
       throw new Error("Payload must be an array of objects");
-    }
 
     const keys = Object.keys(payload[0]);
     const csvRows = [keys.join(",")];
@@ -157,7 +156,7 @@ export class TextCodec implements Codec {
   contentType = "text/plain";
 
   encode(payload: unknown): ArrayBuffer {
-    return new TextEncoder().encode(payload as string).buffer;
+    return new TextEncoder().encode(payload as string).buffer as ArrayBuffer;
   }
 
   decode<P extends z.ZodTypeAny>(

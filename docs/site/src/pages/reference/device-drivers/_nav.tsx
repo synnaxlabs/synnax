@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
+import { labjackNav } from "@/pages/reference/device-drivers/labjack/_nav";
 import { niNav } from "@/pages/reference/device-drivers/ni/_nav";
 import { opcuaNav } from "@/pages/reference/device-drivers/opc-ua/_nav";
+
 
 export const deviceDriversNav: PageNavNode = {
   key: "device-drivers",
@@ -22,5 +24,6 @@ export const deviceDriversNav: PageNavNode = {
     },
     opcuaNav,
     niNav,
+    labjackNav,
   ],
 };

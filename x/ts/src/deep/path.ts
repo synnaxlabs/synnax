@@ -33,7 +33,7 @@ type Prev = [
   18,
   19,
   20,
-  ...Array<0>,
+  ...0[],
 ];
 
 /**
@@ -54,6 +54,7 @@ export type Key<T, D extends number = 5> = [D] extends [never]
 export interface GetOptions<O extends boolean | undefined = boolean | undefined> {
   optional: O;
   getter?: (obj: UnknownRecord, key: string) => unknown;
+  separator?: string;
 }
 
 /**
@@ -80,7 +81,7 @@ export interface Get {
   ): V | null;
 }
 
-/** A strongly typed version of the @see Get function. */
+/** A strongly typed version of the @link Get function. */
 export interface TypedGet<V = unknown, T = UnknownRecord> {
   (obj: T, path: string, options?: GetOptions<false>): V;
   (obj: T, path: string, options?: GetOptions<boolean | undefined>): V | null;
@@ -101,17 +102,18 @@ export const transformPath = (
     index: number,
     parts: string[],
   ) => string | string[] | undefined,
+  separator = ".",
 ): string => {
-  const parts = path.split(".");
+  const parts = path.split(separator);
   const result = parts
     .map((part, index) => {
       const r = replacer(part, index, parts);
       if (r == null) return null;
       if (typeof r === "string") return r;
-      return r.join(".");
+      return r.join(separator);
     })
     .filter((part) => part != null) as string[];
-  return result.join(".");
+  return result.join(separator);
 };
 
 /**
@@ -128,10 +130,11 @@ export const transformPath = (
 export const get = (<V = unknown, T = UnknownRecord>(
   obj: T,
   path: string,
-  opts: GetOptions = { optional: false },
+  opts: GetOptions = { optional: false, separator: "." },
 ): V | null => {
+  opts.separator ??= ".";
   const { optional, getter = (obj, key) => (obj as UnknownRecord)[key] } = opts;
-  const parts = path.split(".");
+  const parts = path.split(opts.separator);
   if (parts.length === 1 && parts[0] === "") return obj as unknown as V;
   let result: UnknownRecord = obj as UnknownRecord;
   for (const part of parts) {
@@ -157,10 +160,15 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
   let result: UnknownRecord = obj as UnknownRecord;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    if (result[part] == null) result[part] = {};
+    result[part] ??= {};
     result = result[part] as UnknownRecord;
   }
-  result[parts[parts.length - 1]] = value;
+  try {
+    result[parts[parts.length - 1]] = value;
+  } catch (e) {
+    console.error("failed to set value", value, "at path", path, "on object", obj);
+    throw e;
+  }
 };
 
 /**
@@ -179,7 +187,7 @@ export const remove = <V>(obj: V, path: string): void => {
   }
   // if its an array, we need to splice it
   if (Array.isArray(result)) {
-    const index = parseInt(parts[parts.length - 1], 10);
+    const index = parseInt(parts[parts.length - 1]);
     if (isNaN(index)) return;
     result.splice(index, 1);
     return;

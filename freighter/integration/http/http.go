@@ -61,6 +61,9 @@ func BindTo(f *fiber.App) {
 	slamMessagesTimeoutCheck := fhttp.UnaryServer[Message, Message](router, true, "/unary/slamMessagesTimeoutCheck")
 	slamMessagesTimeoutCheck.BindHandler(slamMessagesTimeoutCheckHandler)
 
+	streamEventuallyResponseWithMessageServer := fhttp.StreamServer[Message, Message](router, true, "/stream/eventuallyResponseWithMessage")
+	streamEventuallyResponseWithMessageServer.BindHandler(streamEventuallyResponseWithMessage)
+
 	router.BindTo(f)
 }
 
@@ -123,6 +126,18 @@ func streamSlamMessages(
 		}
 	}
 	return nil
+}
+
+func streamEventuallyResponseWithMessage(
+	_ context.Context,
+	stream ServerStream,
+) error {
+	_, err := stream.Receive()
+	if err != nil {
+		return err
+	}
+	time.Sleep(250 * time.Millisecond)
+	return stream.Send(Message{Message: "hello", ID: 1})
 }
 
 func slamMessagesTimeoutCheckHandler(

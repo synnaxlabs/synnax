@@ -1,10 +1,15 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Line Plots"
 description: "Graph data using line plots."
+prev: "Ranges"
+prevURL: "/reference/console/ranges"
+next: "Schematics"
+nextURL: "/reference/console/schematics"
 ---
+
 import { Icon } from "@synnaxlabs/media";
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
 
@@ -19,6 +24,12 @@ Click the visualize <Icon.Visualize /> button in the bottom-right corner to open
 visualization toolbar.
 
 <Video client:only="react" id="console/line-plots/toolbar" />
+
+<Note.Note variant="warning">
+  Make sure that you are working in an active
+  [workspace](/reference/console/workspaces)! If your line plot is not created in a
+  workspace, it will not be saved permanently to Synnax.
+</Note.Note>
 
 <Divider.Divider direction="x" />
 
@@ -37,25 +48,32 @@ visualization toolbar.
   </thead>
   <tbody>
     <tr>
-      <td><b>Y1</b></td>
+      <td>
+        <b>Y1</b>
+      </td>
       <td>The channels to plot along the left-hand axis.</td>
     </tr>
     <tr>
-      <td><b>Y2</b></td>
+      <td>
+        <b>Y2</b>
+      </td>
       <td>The channels to plot along the right-hand axis.</td>
     </tr>
     <tr>
-      <td><b>Ranges</b></td>
-      <td>The time ranges to plot. If you select multiple ranges, the x-axis will scale to
-        accommodate both. Rolling time ranges allow you to stream live data.</td>
+      <td>
+        <b>Ranges</b>
+      </td>
+      <td>The time ranges to plot. If you select multiple ranges, the x-axis will scale
+          to accommodate both. Rolling time ranges allow you to stream live data.</td>
     </tr>
     <tr>
-      <td><b>X1</b></td>
+      <td>
+        <b>X1</b>
+      </td>
       <td>The channel to use for the x-axis.</td>
     </tr>
   </tbody>
 </Table>
-
 
 ### Lines Tab
 
@@ -70,26 +88,33 @@ visualization toolbar.
   </thead>
   <tbody>
     <tr>
-      <td><b>Label</b></td>
-      <td>The text that appears in the legend for the channel. Changing the label does not
-        change the channel name.</td>
+      <td>
+        <b>Label</b>
+      </td>
+      <td>The text that appears in the legend for the channel. Changing the label does
+          not change the channel name.</td>
     </tr>
     <tr>
-      <td><b>Line Width</b></td>
+      <td>
+        <b>Line Width</b>
+      </td>
       <td>The thickness of the line.</td>
     </tr>
     <tr>
-      <td><b>Downsampling</b></td>
-      <td>Reduces the number of data points plotted for each channel. If downsampling is 5,
-        every 5th data point is plotted.</td>
+      <td>
+        <b>Downsampling</b>
+      </td>
+      <td>Reduces the number of data points plotted for each channel. If downsampling is
+          5, every 5th data point is plotted.</td>
     </tr>
     <tr>
-      <td><b>Color</b></td>
+      <td>
+        <b>Color</b>
+      </td>
       <td>The color of the line.</td>
     </tr>
   </tbody>
 </Table>
-
 
 ### Axes Tab
 
@@ -104,32 +129,43 @@ visualization toolbar.
   </thead>
   <tbody>
     <tr>
-      <td><b>Lower Bound</b></td>
+      <td>
+        <b>Lower Bound</b>
+      </td>
       <td>The lower bound of the axis.</td>
     </tr>
     <tr>
-      <td><b>Upper Bound</b></td>
+      <td>
+        <b>Upper Bound</b>
+      </td>
       <td>The upper bound of the axis.</td>
     </tr>
     <tr>
-      <td><b>Tick Spacing</b></td>
+      <td>
+        <b>Tick Spacing</b>
+      </td>
       <td>The distance between tick marks on the axis.</td>
     </tr>
     <tr>
-      <td><b>Label</b></td>
+      <td>
+        <b>Label</b>
+      </td>
       <td>The title of the axis.</td>
     </tr>
     <tr>
-      <td><b>Label Direction</b></td>
+      <td>
+        <b>Label Direction</b>
+      </td>
       <td>The direction of the axis title.</td>
     </tr>
     <tr>
-      <td><b>Label Size</b></td>
+      <td>
+        <b>Label Size</b>
+      </td>
       <td>The size of the axis title.</td>
     </tr>
   </tbody>
 </Table>
-
 
 ### Properties Tab
 
@@ -144,21 +180,27 @@ visualization toolbar.
   </thead>
   <tbody>
     <tr>
-      <td><b>Title</b></td>
+      <td>
+        <b>Title</b>
+      </td>
       <td>The title of the line plot.</td>
     </tr>
     <tr>
-      <td><b>Show Title</b></td>
+      <td>
+        <b>Show Title</b>
+      </td>
       <td>Whether the title is visible on the line plot.</td>
     </tr>
     <tr>
-      <td><b>Show Legend</b></td>
+      <td>
+        <b>Show Legend</b>
+      </td>
       <td>Whether the legend is visible on the line plot.</td>
     </tr>
   </tbody>
 </Table>
 
-<Divider.Divider direction="x"/>
+<Divider.Divider direction="x" />
 
 ## Navigating the Plot
 
@@ -185,7 +227,7 @@ Select data by clicking the selection <Icon.Selection /> button or by pressing
 <Icon.Keyboard.Alt /> (Windows) / <Icon.Keyboard.Option /> (MacOS) and left click. This
 box allows you to select data by dragging on the line plot. After selecting data you can
 right click and copy the time range to be used in Python, TypeScript, or ISO formats.
-You can also create a range from this selection.
+You can also create a range from this selection, or download the data as a CSV.
 
 <Video client:only="react" id="console/line-plots/select" />
 

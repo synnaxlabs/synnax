@@ -13,16 +13,17 @@
     transition: transform 0.2s ease-in-out;
     transform-origin: center;
     color: var(--pluto-gray-l6);
+    /* transform: scale(0.8); */
 
     &.pluto--left {
-        transform: rotate(270deg);
+        transform: rotate(270deg) scale(0.8);
     }
 
     &.pluto--right {
-        transform: rotate(90deg);
+        transform: rotate(90deg) scale(0.8);
     }
 
     &.pluto--bottom {
-        transform: rotate(180deg);
+        transform: rotate(180deg) scale(0.8);
     }
 }

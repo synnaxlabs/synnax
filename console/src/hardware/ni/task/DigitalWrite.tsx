@@ -19,54 +19,53 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Properties } from "@/hardware/ni/device/types";
-import { SelectDevice } from "@/hardware/ni/task/common";
+import { type Properties } from "@/hardware/ni/device/types";
+import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
+import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
-  Chan,
+  type Chan,
   DIGITAL_WRITE_TYPE,
-  DigitalWrite,
-  DigitalWriteConfig,
+  type DigitalWrite,
+  type DigitalWriteConfig,
   digitalWriteConfigZ,
-  DigitalWritePayload,
-  DigitalWriteStateDetails,
-  DigitalWriteType,
-  DOChan,
+  type DigitalWritePayload,
+  type DigitalWriteStateDetails,
+  type DigitalWriteType,
+  type DOChan,
   ZERO_DIGITAL_WRITE_PAYLOAD,
   ZERO_DO_CHAN,
-} from "@/hardware/ni/task/types";
+} from "@/hardware/ni/task/migrations";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  ParentRangeButton,
   useCreate,
   useObserveState,
-  WrappedTaskLayoutProps,
+  type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { Layout } from "@/layout";
+import {
+  checkDesiredStateMatch,
+  useDesiredState,
+} from "@/hardware/task/common/useDesiredState";
+import { type Layout } from "@/layout";
 
-interface ConfigureDigitalWriteArgs {
-  create: boolean;
-}
-
-export const configureDigitalWriteLayout = (
-  create: boolean = false,
-): Layout.State<ConfigureDigitalWriteArgs> => ({
-  name: "Configure NI Digital Write Task",
-  key: id.id(),
-  type: DIGITAL_WRITE_TYPE,
-  windowKey: DIGITAL_WRITE_TYPE,
-  location: "mosaic",
-  args: { create },
-});
+export const createDigitalWriteLayout = createLayoutCreator<DigitalWritePayload>(
+  DIGITAL_WRITE_TYPE,
+  "New NI Digital Write Task",
+);
 
 export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({ ...configureDigitalWriteLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...createDigitalWriteLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const Wrapped = ({
@@ -92,6 +91,10 @@ const Wrapped = ({
     task?.key,
     task?.state,
   );
+  const running = taskState?.details?.running;
+  const initialState =
+    running === true ? "running" : running === false ? "paused" : undefined;
+  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
 
   const createTask = useCreate<
     DigitalWriteConfig,
@@ -118,14 +121,13 @@ const Wrapped = ({
       let shouldCreateStateIndex = primitiveIsZero(
         dev.properties.digitalOutput.stateIndex,
       );
-      if (!shouldCreateStateIndex) {
+      if (!shouldCreateStateIndex)
         try {
           await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);
         } catch (e) {
           if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
           else throw e;
         }
-      }
 
       if (shouldCreateStateIndex) {
         modified = true;
@@ -173,9 +175,9 @@ const Wrapped = ({
         );
         states.forEach((s, i) => {
           const key = `${statesToCreate[i].port}l${statesToCreate[i].line}`;
-          if (!(key in dev.properties.digitalOutput.channels)) {
+          if (!(key in dev.properties.digitalOutput.channels))
             dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
-          } else dev.properties.digitalOutput.channels[key].state = s.key;
+          else dev.properties.digitalOutput.channels[key].state = s.key;
         });
       }
 
@@ -196,9 +198,9 @@ const Wrapped = ({
         );
         commands.forEach((s, i) => {
           const key = `${commandsToCreate[i].port}l${commandsToCreate[i].line}`;
-          if (!(key in dev.properties.digitalOutput.channels)) {
+          if (!(key in dev.properties.digitalOutput.channels))
             dev.properties.digitalOutput.channels[key] = { state: 0, command: s.key };
-          } else dev.properties.digitalOutput.channels[key].command = s.key;
+          else dev.properties.digitalOutput.channels[key].command = s.key;
         });
       }
 
@@ -225,6 +227,7 @@ const Wrapped = ({
         type: DIGITAL_WRITE_TYPE,
         config,
       });
+      setDesiredState("paused");
     },
   });
 
@@ -232,19 +235,28 @@ const Wrapped = ({
     mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (client == null) return;
-      await task?.executeCommand(
-        taskState?.details?.running === true ? "stop" : "start",
-      );
+      const isRunning = running === true;
+      setDesiredState(isRunning ? "paused" : "running");
+      await task?.executeCommand(isRunning ? "stop" : "start");
     },
   });
 
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
-        <Form.Form {...methods}>
-          <Form.Field<string> path="name">
-            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-          </Form.Field>
+        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
+          <Align.Space direction="x" justify="spaceBetween">
+            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
+              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+            </Form.Field>
+            <CopyButtons
+              importClass="DigitalWriteTask"
+              taskKey={task?.key}
+              getName={() => methods.get<string>("name").value}
+              getConfig={() => methods.get<DigitalWriteConfig>("config").value}
+            />
+          </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -269,6 +281,7 @@ const Wrapped = ({
             <ChannelList
               path="config.channels"
               selected={selectedChannels}
+              snapshot={task?.snapshot}
               onSelect={useCallback(
                 (v, i) => {
                   setSelectedChannels(v);
@@ -290,8 +303,14 @@ const Wrapped = ({
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
-          startingOrStopping={start.isPending}
+          startingOrStopping={
+            start.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
+          }
+          snapshot={task?.snapshot}
           configuring={configure.isPending}
           onStartStop={start.mutate}
           onConfigure={configure.mutate}
@@ -320,9 +339,15 @@ interface ChannelListProps {
   path: string;
   onSelect: (keys: string[], index: number) => void;
   selected: string[];
+  snapshot?: boolean;
 }
 
-const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
+const ChannelList = ({
+  path,
+  snapshot,
+  selected,
+  onSelect,
+}: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<DOChan>({ path });
   const handleAdd = (): void => {
     const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
@@ -336,7 +361,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }): ReactElement => (
           <ChannelListContextMenu
@@ -345,6 +370,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             value={value}
             remove={remove}
             onSelect={onSelect}
+            snapshot={snapshot}
             onDuplicate={(indices): void => {
               push(
                 indices.map((i) => ({
@@ -361,7 +387,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       >
         <List.List<string, Chan>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+          }
         >
           <List.Selector<string, Chan>
             value={selected}
@@ -373,7 +401,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => <ChannelListItem {...props} path={path} />}
+              {({ key, ...props }) => (
+                <ChannelListItem key={key} {...props} path={path} snapshot={snapshot} />
+              )}
             </List.Core>
           </List.Selector>
         </List.List>
@@ -384,9 +414,11 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 
 const ChannelListItem = ({
   path,
+  snapshot = false,
   ...props
 }: List.ItemProps<string, Chan> & {
   path: string;
+  snapshot?: boolean;
 }): ReactElement => {
   const { entry } = props;
   const hasLine = "line" in entry;
@@ -449,7 +481,7 @@ const ChannelListItem = ({
             color={(() => {
               if (cmdChannelName === "No Synnax Channel")
                 return "var(--pluto-warning-z)";
-              else if (cmdChannelValid) return undefined;
+              if (cmdChannelValid) return undefined;
               return "var(--pluto-error-z)";
             })()}
           >
@@ -462,7 +494,7 @@ const ChannelListItem = ({
             color={(() => {
               if (stateChannelName === "No Synnax Channel")
                 return "var(--pluto-warning-z)";
-              else if (stateChannelValid) return undefined;
+              if (stateChannelValid) return undefined;
               return "var(--pluto-error-z)";
             })()}
           >
@@ -473,6 +505,7 @@ const ChannelListItem = ({
       <EnableDisableButton
         value={childValues.enabled}
         onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+        snapshot={snapshot}
       />
     </List.ItemFrame>
   );

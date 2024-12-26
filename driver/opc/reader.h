@@ -14,8 +14,12 @@
 #include "driver/config/config.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/loop/loop.h"
 
 namespace opc {
+///////////////////////////////////////////////////////////////////////////////////
+//                              ReaderChannelConfig                              //
+///////////////////////////////////////////////////////////////////////////////////
 struct ReaderChannelConfig {
     /// @brief the node id.
     std::string node_id;
@@ -32,12 +36,15 @@ struct ReaderChannelConfig {
     explicit ReaderChannelConfig(
         config::Parser &parser
     ) : node_id(parser.required<std::string>("node_id")),
-        node(parseNodeId("node_id", parser)),
+        node(parse_node_id("node_id", parser)),
         channel(parser.required<ChannelKey>("channel")),
         enabled(parser.optional<bool>("enabled", true)) {
     }
 };
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                 ReaderConfig                                  //
+///////////////////////////////////////////////////////////////////////////////////
 struct ReaderConfig {
     /// @brief the device representing the OPC UA server to read from.
     std::string device;
@@ -57,7 +64,7 @@ struct ReaderConfig {
 
     explicit ReaderConfig(config::Parser &parser);
 
-    [[nodiscard]] std::vector<ChannelKey> channelKeys() const {
+    [[nodiscard]] std::vector<ChannelKey> channel_keys() const {
         auto keys = std::vector<ChannelKey>(channels.size());
         for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
         return keys;
@@ -65,12 +72,62 @@ struct ReaderConfig {
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
+//                                    Reader Source                              //
+///////////////////////////////////////////////////////////////////////////////////
+class ReaderSource final : public pipeline::Source {
+public:
+    ReaderConfig cfg;
+    std::shared_ptr<UA_Client> client;
+    std::set<ChannelKey> indexes;
+    std::shared_ptr<task::Context> ctx;
+    synnax::Task task;
+
+    UA_ReadRequest req;
+    std::vector<UA_ReadValueId> readValueIds;
+    loop::Timer timer;
+    synnax::Frame fr;
+    std::unique_ptr<int64_t[]> timestamp_buf;
+    int exceed_time_count = 0;
+    task::State curr_state;
+
+    ReaderSource(
+        ReaderConfig cfg,
+        const std::shared_ptr<UA_Client> &client,
+        std::set<ChannelKey> indexes,
+        std::shared_ptr<task::Context> ctx,
+        synnax::Task task
+    );
+
+    void initialize_read_request();
+
+    void stopped_with_err(const freighter::Error &err) override;
+
+    [[nodiscard]] freighter::Error communicate_value_error(
+        const std::string &channel,
+        const UA_StatusCode &status
+    ) const;
+
+    size_t cap_array_length(
+        const size_t i,
+        const size_t length
+    );
+
+    size_t write_to_series(
+        const UA_Variant *val,
+        const size_t i,
+        synnax::Series &s
+    );
+
+    std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+};
+
+///////////////////////////////////////////////////////////////////////////////////
 //                                    Reader Task                                //
 ///////////////////////////////////////////////////////////////////////////////////
 /// @brief a task that reads values from an OPC UA server.
-class Reader final : public task::Task {
+class ReaderTask final : public task::Task {
 public:
-    explicit Reader(
+    explicit ReaderTask(
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         ReaderConfig cfg,
@@ -79,18 +136,18 @@ public:
         synnax::WriterConfig writer_config,
         std::shared_ptr<UA_Client> ua_client,
         opc::DeviceProperties device_props
-    ): ctx(ctx),
-       task(std::move(task)),
-       cfg(std::move(cfg)),
-       breaker(breaker::Breaker(breaker_config)),
-       pipe(pipeline::Acquisition(
-           ctx->client,
-           std::move(writer_config),
-           std::move(source),
-           breaker_config
-       )),
-       ua_client(ua_client),
-       device_props(device_props) {
+    ) : ctx(ctx),
+        task(std::move(task)),
+        cfg(std::move(cfg)),
+        breaker(breaker::Breaker(breaker_config)),
+        pipe(pipeline::Acquisition(
+            ctx->client,
+            std::move(writer_config),
+            std::move(source),
+            breaker_config
+        )),
+        ua_client(ua_client),
+        device_props(device_props) {
     }
 
     std::string name() override { return task.name; }
@@ -104,7 +161,12 @@ public:
 
     void stop() override;
 
-    void start(); 
+    void stop(const std::string &cmd_key);
+
+    void start();
+
+    void start(const std::string &cmd_key);
+
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;

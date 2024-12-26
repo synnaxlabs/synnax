@@ -15,7 +15,9 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
@@ -27,13 +29,31 @@ type IteratorConfig struct {
 	AutoChunkSize int64
 }
 
+func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
+	return domain.IteratorConfig{Bounds: i.Bounds}
+}
+
+// Override implements config.Config.
+func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
+	i.Bounds = override.Zero(i.Bounds, other.Bounds)
+	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
+	return i
+}
+
+// Validate implements config.Config.
+func (i IteratorConfig) Validate() error { return nil }
+
+var (
+	_                     config.Config[IteratorConfig] = IteratorConfig{}
+	DefaultIteratorConfig                               = IteratorConfig{AutoChunkSize: 1e5}
+)
+
 func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
 var (
-	errIteratorClosed     = core.EntityClosed("unary.iterator")
-	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 1e5}
+	errIteratorClosed = core.EntityClosed("unary.iterator")
 )
 
 type Iterator struct {
@@ -47,6 +67,20 @@ type Iterator struct {
 	bounds   telem.TimeRange
 	err      error
 	closed   bool
+}
+
+func (db *DB) OpenIterator(cfgs ...IteratorConfig) *Iterator {
+	// Safe to ignore error here as Validate will always return nil
+	cfg, _ := config.New(DefaultIteratorConfig, cfgs...)
+	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
+	i := &Iterator{
+		idx:            db.index(),
+		Channel:        db.cfg.Channel,
+		internal:       iter,
+		IteratorConfig: cfg,
+	}
+	i.SetBounds(cfg.Bounds)
+	return i
 }
 
 const AutoSpan telem.TimeSpan = -1
@@ -254,6 +288,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	return
 }
 
+// Len returns the number of samples in the iterator's frame.
 func (i *Iterator) Len() (l int64) {
 	for _, series := range i.frame.Series {
 		l += series.Len()
@@ -261,6 +296,8 @@ func (i *Iterator) Len() (l int64) {
 	return
 }
 
+// Error returns the error that caused the iterator to stop moving. If the iterator is
+// still moving, Error returns nil.
 func (i *Iterator) Error() error {
 	wrap := core.NewErrorWrapper(i.Channel)
 	return wrap(i.err)
@@ -270,6 +307,11 @@ func (i *Iterator) Error() error {
 // in its current frame.
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
+// Close closes the iterator and releases any resources it holds. As with all other
+// iterator methods, Close is not safe to call concurrently with any other database
+// method.
+//
+// After close is called, the iterator should no longer be used.
 func (i *Iterator) Close() (err error) {
 	if i.closed {
 		return nil
@@ -280,18 +322,17 @@ func (i *Iterator) Close() (err error) {
 }
 
 // accumulate reads the underlying data contained in the view from OS and
-// appends them to the frame.
-// accumulate returns false if iterator must stop moving.
+// appends them to the frame. accumulate returns false if iterator must stop moving.
 func (i *Iterator) accumulate(ctx context.Context) bool {
 	if !i.internal.TimeRange().OverlapsWith(i.view) {
 		return false
 	}
-	offset, domain, size, err := i.sliceDomain(ctx)
+	offset, alignment, size, err := i.sliceDomain(ctx)
 	if err != nil {
 		i.err = err
 		return false
 	}
-	series, err := i.read(ctx, domain, offset, size)
+	series, err := i.read(ctx, alignment, offset, size)
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false
@@ -313,16 +354,15 @@ func (i *Iterator) insert(series telem.Series) {
 
 func (i *Iterator) read(
 	ctx context.Context,
-	idxDomain uint32,
+	alignment telem.AlignmentPair,
 	offset telem.Offset,
 	size telem.Size,
 ) (series telem.Series, err error) {
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
 	series.Data = make([]byte, size)
-	inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
-	series.Alignment = telem.AlignmentPair(idxDomain)<<32 | telem.AlignmentPair(inDomainAlignment)
+	series.Alignment = alignment
 	r, err := i.internal.OpenReader(ctx)
 	if err != nil {
 		return
@@ -343,13 +383,13 @@ func (i *Iterator) read(
 
 func (i *Iterator) sliceDomain(ctx context.Context) (
 	telem.Offset,
-	uint32,
+	telem.AlignmentPair,
 	telem.Size,
 	error,
 ) {
-	startApprox, domain, err := i.approximateStart(ctx)
+	startApprox, align, err := i.approximateStart(ctx)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, align, 0, err
 	}
 	startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
 	// Split into cases to determine which offsets to use. See unary/delete.go's
@@ -366,7 +406,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 	}
 	endApprox, err := i.approximateEnd(ctx)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, align, 0, err
 	}
 	endOffset := i.Channel.DataType.Density().Size(endApprox.Upper)
 	// Split into cases to determine which offsets to use. See unary/delete.go's
@@ -383,23 +423,23 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 	}
 
 	size := endOffset - startOffset
-	return startOffset, domain, size, nil
+	return startOffset, align, size, nil
 }
 
 // approximateStart approximates the number of samples between the start of the current
-// range and the start of the current iterator view. If the start of the current view is
+// domain and the start of the current iterator view. If the start of the current view is
 // before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (
 	index.DistanceApproximation,
-	uint32,
+	telem.AlignmentPair,
 	error,
 ) {
 	target := i.internal.TimeRange().Start.SpanRange(0)
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target.End = i.view.Start
 	}
-	startApprox, domainApprox, err := i.idx.Distance(ctx, target, true)
-	return startApprox, domainApprox.Lower, err
+	startApprox, alignment, err := i.idx.Distance(ctx, target, true)
+	return startApprox, alignment, err
 }
 
 // approximateEnd approximates the number of samples between the start of the current

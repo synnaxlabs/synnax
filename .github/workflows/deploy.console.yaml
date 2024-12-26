@@ -23,7 +23,10 @@ jobs:
       changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Get Version
         id: version
@@ -95,12 +98,43 @@ jobs:
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     strategy:
       fail-fast: false
       matrix:
-        platform: [ macos-12, windows-latest ]
+        platform: [macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
+      - name: MacOS - Import Apple Developer Certificate
+        # Only notarize on MacOS and on push events, not on PRs. This prevents excessive
+        # notarization requests and long CI times on PRs.
+        if: matrix.platform == 'macos-latest' && github.event_name == 'push'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+
+      - name: MacOS - Verify Certificate
+        # Same as above - only notarize on MacOS and on push events, not on PRs
+        if: matrix.platform == 'macos-latest' && github.event_name == 'push'
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          echo "Cert info"
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate imported."
+
       - name: Checkout Repository
         uses: actions/checkout@v3
 
@@ -145,47 +179,47 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
-
       - name: Build Pluto
         if: needs.setup.outputs.changed == 'true'
         run: pnpm build:pluto
-    
+
       - name: Build Drift
         if: needs.setup.outputs.changed == 'true'
         run: pnpm build:drift
 
       # We need to build the console separately WITHOUT turbo repo because of strange
       # incompatibility issues with rust builds.
-    
+
       - name: Build Console
         if: needs.setup.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         working-directory: ./console
         run: pnpm build
 
       - name: Upload MacOS Release Asset
-        if: github.event_name == 'push' &&  matrix.platform == 'macos-12'
+        if: github.event_name == 'push' &&  matrix.platform == 'macos-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64.dmg
-
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
 
       - name: Upload Windows Release Asset
         if: github.event_name == 'push' && matrix.platform == 'windows-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.zip
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.zip.sig
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.sig
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.nsis.zip
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.nsis.zip.sig
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe.sig
 
   publish-release:
     runs-on: ubuntu-latest
     if: needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id != ''
-    needs: [ create-release, build-tauri, setup ]
+    needs: [create-release, build-tauri, setup]
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
       PURE_VERSION: ${{ needs.setup.outputs.PURE_VERSION }}
@@ -233,7 +267,7 @@ jobs:
 
             const darwinURL = baseURL + "Synnax.app.tar.gz";
             const darwinSig = await github.request(`GET ${darwinURL}.sig`);
-            const windowsURL = baseURL + `Synnax_${pureVersion}_x64_en-US.msi.zip`;
+            const windowsURL = baseURL + `Synnax_${pureVersion}_x64_en-US.msi`;
             const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
             const ecd = new TextDecoder();
@@ -244,6 +278,10 @@ jobs:
               pub_date,
               platforms: {
                 "darwin-x86_64": {
+                  signature: ecd.decode(darwinSig.data),
+                  url: darwinURL,
+                },
+                "darwin-aarch64": {
                   signature: ecd.decode(darwinSig.data),
                   url: darwinURL,
                 },
@@ -281,5 +319,3 @@ jobs:
           message: "Auto Update JSON File"
           pull: "--commit --no-edit"
           push: "origin main --force"
-      
-

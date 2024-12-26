@@ -11,14 +11,16 @@ import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
 import { Group } from "@/group";
-import { Device } from "@/hardware/device";
+import { DeviceServices } from "@/hardware/device/services";
 import { Task } from "@/hardware/task";
 import { LinePlotServices } from "@/lineplot/services";
-import { Ontology } from "@/ontology";
+import { LogServices } from "@/log/services";
+import { type Ontology } from "@/ontology";
 import { Builtin } from "@/ontology/builtin";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
-import { User } from "@/user";
+import { TableServices } from "@/table/services";
+import { UserServices } from "@/user/services";
 import { Workspace } from "@/workspace";
 
 export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
@@ -37,7 +39,7 @@ export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
 export const SERVICES: Ontology.Services = {
   schematic: SchematicServices.ONTOLOGY_SERVICE,
   cluster: ClusterServices.ONTOLOGY_SERVICE,
-  user: User.ONTOLOGY_SERVICE,
+  user: UserServices.ONTOLOGY_SERVICE,
   builtin: Builtin.ONTOLOGY_SERVICE,
   node: Node.ONTOLOGY_SERVICE,
   group: Group.ONTOLOGY_SERVICE,
@@ -48,7 +50,11 @@ export const SERVICES: Ontology.Services = {
   label: EMPTY_ONTOLOGY_SERVICE,
   rack: EMPTY_ONTOLOGY_SERVICE,
   task: Task.ONTOLOGY_SERVICE,
-  device: Device.ONTOLOGY_SERVICE,
+  device: DeviceServices.ONTOLOGY_SERVICE,
   channel: ChannelServices.ONTOLOGY_SERVICE,
+  framer: EMPTY_ONTOLOGY_SERVICE,
   policy: EMPTY_ONTOLOGY_SERVICE,
+  allow_all: EMPTY_ONTOLOGY_SERVICE,
+  log: LogServices.ONTOLOGY_SERVICE,
+  table: TableServices.ONTOLOGY_SERVICE,
 };

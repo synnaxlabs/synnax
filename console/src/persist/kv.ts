@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Store } from "@tauri-apps/plugin-store";
+import { load, type Store } from "@tauri-apps/plugin-store";
 
 export const multipleWindowsOpen = new Error("[persist] - windows open");
 
@@ -18,8 +18,8 @@ export const multipleWindowsOpen = new Error("[persist] - windows open");
 export class TauriKV {
   store: Store;
 
-  constructor() {
-    this.store = new Store("~/.synnax/console/persisted-state.dat");
+  constructor(store: Store) {
+    this.store = store;
   }
 
   async get<V>(key: string): Promise<V | null> {
@@ -39,3 +39,8 @@ export class TauriKV {
     await this.store.clear();
   }
 }
+
+export const createTauriKV = async (): Promise<TauriKV> => {
+  const store = await load("~/.synnax/console/persisted-state.dat");
+  return new TauriKV(store);
+};

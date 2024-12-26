@@ -9,6 +9,7 @@
 
 import { isStringer, type Primitive } from "@/primitive";
 import { type spatial } from "@/spatial";
+import { unique } from "@/unique";
 
 export type CompareF<T> = (a: T, b: T) => number;
 
@@ -94,6 +95,15 @@ export const unorderedPrimitiveArrays = <T extends Primitive>(
   return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
 };
 
+export const uniqueUnorderedPrimitiveArrays = <T extends Primitive>(
+  a: readonly T[] | T[],
+  b: readonly T[] | T[],
+): number => {
+  const uniqueA = unique(a);
+  const uniqueB = unique(b);
+  return unorderedPrimitiveArrays(uniqueA, uniqueB);
+};
+
 export const order = (a: spatial.Order, b: spatial.Order): number => {
   if (a === b) return 0;
   if (a === "first" && b === "last") return 1;
@@ -115,11 +125,17 @@ export const LESS_THAN = -1;
 /** The greater than return value of a compare function. */
 export const GREATER_THAN = 1;
 
+/** @returns true if the result of the comparison is less than 0. */
 export const isLessThan = (n: number): boolean => n < EQUAL;
 
+/** @returns true if the result of the comparison is greater than 0. */
 export const isGreaterThan = (n: number): boolean => n > EQUAL;
 
+/** @returns true if the result of the comparison is equal to 0. */
 export const isGreaterThanEqual = (n: number): boolean => n >= EQUAL;
+
+/** @returns true if the result of the comparison is equal to 0. */
+export const isEqualTo = (n: number): boolean => n === EQUAL;
 
 export const stringsWithNumbers = (a: string, b: string): number => {
   const alphaNumericRegex = /([a-zA-Z]+)|(\d+)/g;
@@ -140,9 +156,7 @@ export const stringsWithNumbers = (a: string, b: string): number => {
     } else if (!isNaN(Number(aPart)) && !isNaN(Number(bPart))) {
       const numComparison = Number(aPart) - Number(bPart);
       if (numComparison !== 0) return numComparison;
-    } else {
-      return isNaN(Number(aPart)) ? -1 : 1;
-    }
+    } else return isNaN(Number(aPart)) ? -1 : 1;
   }
 
   return aParts.length - bParts.length;

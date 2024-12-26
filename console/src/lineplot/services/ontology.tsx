@@ -15,10 +15,11 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
+import { useExport } from "@/lineplot/file";
 import { create } from "@/lineplot/LinePlot";
 import { type State } from "@/lineplot/slice";
 import { Link } from "@/link";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -58,6 +59,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { resources } = props.selection;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
+  const handleExport = useExport(resources[0].name);
   const onSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
@@ -66,6 +68,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
+    export: () => handleExport(resources[0].id.key),
   };
   const isSingle = resources.length === 1;
   return (
@@ -82,6 +85,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
+          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
+            Export
+          </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
@@ -114,26 +120,37 @@ const handleSelect: Ontology.HandleSelect = async ({
   );
 };
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
+const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
   id,
   location,
   nodeKey,
   placeLayout,
-}): Promise<void> => {
-  const linePlot = await client.workspaces.linePlot.retrieve(id.key);
-  placeLayout(
-    create({
-      ...(linePlot.data as unknown as State),
-      key: linePlot.key,
-      name: linePlot.name,
-      location: "mosaic",
-      tab: {
-        mosaicKey: nodeKey,
-        location,
-      },
-    }),
-  );
+  addStatus,
+}): void => {
+  void (async () => {
+    try {
+      const linePlot = await client.workspaces.linePlot.retrieve(id.key);
+      placeLayout(
+        create({
+          ...(linePlot.data as unknown as State),
+          key: linePlot.key,
+          name: linePlot.name,
+          location: "mosaic",
+          tab: {
+            mosaicKey: nodeKey,
+            location,
+          },
+        }),
+      );
+    } catch (err) {
+      addStatus({
+        variant: "error",
+        message: "Failed to load line plot",
+        description: (err as Error).message,
+      });
+    }
+  })();
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

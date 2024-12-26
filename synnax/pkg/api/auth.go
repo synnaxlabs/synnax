@@ -11,46 +11,63 @@ package api
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/auth"
-	"github.com/synnaxlabs/synnax/pkg/user"
+	"go/types"
+
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/gorp"
 )
 
-// AuthService is the core authentication service for the delta API.
+// AuthService is the core authentication service for the Synnax API.
 type AuthService struct {
+	dbProvider
 	authProvider
 	userProvider
 }
 
 func NewAuthService(p Provider) *AuthService {
 	return &AuthService{
+		dbProvider:   p.db,
 		authProvider: p.auth,
 		userProvider: p.user,
 	}
 }
 
+type AuthLoginResponse struct {
+	// User is the user the token is associated with.
+	User user.User `json:"user" msgpack:"user"`
+	// Token is the JWT.
+	Token string `json:"token" msgpack:"token"`
+}
+
+type AuthLoginRequest struct {
+	auth.InsecureCredentials
+}
+
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
-func (s *AuthService) Login(ctx context.Context, cred auth.InsecureCredentials) (tr TokenResponse, err error) {
-	if err = s.authenticator.Authenticate(ctx, cred); err != nil {
-		return
+func (s *AuthService) Login(ctx context.Context, req AuthLoginRequest) (AuthLoginResponse, error) {
+	if err := s.authenticator.Authenticate(ctx, req.InsecureCredentials); err != nil {
+		return AuthLoginResponse{}, err
 	}
-	u, err := s.user.RetrieveByUsername(ctx, cred.Username)
-	if err != nil {
-		return tr, err
+	var u user.User
+	if err := s.user.NewRetrieve().WhereUsernames(req.Username).Entry(&u).Exec(ctx, nil); err != nil {
+		return AuthLoginResponse{}, err
 	}
-	return s.tokenResponse(u)
-}
-
-// TokenResponse is a response containing a valid JWT along with details about the user
-// the token is associated with.
-type TokenResponse struct {
-	// User is the user the token is associated with.
-	User user.User `json:"user"`
-	// Token is the JWT.
-	Token string `json:"token"`
-}
-
-func (s *AuthService) tokenResponse(u user.User) (TokenResponse, error) {
 	tk, err := s.token.New(u.Key)
-	return TokenResponse{User: u, Token: tk}, err
+	return AuthLoginResponse{User: u, Token: tk}, err
+}
+
+type AuthChangePasswordRequest struct {
+	auth.InsecureCredentials
+	NewPassword password.Raw `json:"new_password" msgpack:"new_password" validate:"required"`
+}
+
+// ChangePassword changes the password for the user with the provided credentials.
+func (s *AuthService) ChangePassword(ctx context.Context, req AuthChangePasswordRequest) (types.Nil, error) {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.authenticator.NewWriter(tx).
+			UpdatePassword(ctx, req.InsecureCredentials, req.NewPassword)
+	})
 }

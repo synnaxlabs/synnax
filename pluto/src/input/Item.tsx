@@ -16,7 +16,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
-import { status } from "@/status/aether";
+import { type status } from "@/status/aether";
 
 export interface ItemProps extends Align.SpaceProps {
   label?: string;
@@ -52,7 +52,9 @@ export const Item = ({
   ...props
 }: ItemProps): ReactElement => {
   let inputAndHelp: ReactElement;
-  if (showHelpText === false && showLabel === false) return <>{children}</>;
+  const showHelpText_ = showHelpText && helpText != null && helpText.length > 0;
+  const showLabel_ = showLabel && label != null && label.length > 0;
+  if (!showHelpText_ && !showLabel_) return <>{children}</>;
   if (direction === "x")
     inputAndHelp = (
       <Align.Space direction="y" size="small">
@@ -80,7 +82,7 @@ export const Item = ({
       align={maybeDefaultAlignment(align, direction)}
       {...props}
     >
-      {showLabel && <Label required={required}>{label}</Label>}
+      {showLabel_ && <Label required={required}>{label}</Label>}
       {inputAndHelp}
     </Align.Space>
   );

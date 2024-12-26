@@ -11,12 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          base-ref: main
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: 3.12
 
       - name: Install dependencies
         run: |
@@ -41,7 +45,6 @@ jobs:
               - "alamos/py/**"
               - "freighter/py/**"
               - ".github/workflows/pypi.publish.yaml"
-
 
       - name: Check Client Changes
         uses: dorny/paths-filter@v3
@@ -134,14 +137,3 @@ jobs:
           message: "Update dependencies"
           pull: "--commit --no-edit"
           push: "origin ${{ github.ref }} --force"
-
-
-
-
-
-
-
-
-
-
-

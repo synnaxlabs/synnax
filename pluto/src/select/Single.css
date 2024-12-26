@@ -27,6 +27,9 @@
 
 .pluto-select__input {
     flex-grow: 1;
+    &:not(:focus-within):not(.pluto--disabled) input {
+        cursor: pointer !important;
+    }
 }
 
 .pluto-select__input.pluto-haul-drop-region > * {

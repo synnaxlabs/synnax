@@ -38,6 +38,8 @@ export interface CSSType extends BEM {
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
   shade: (value: number) => string;
+  shadeVar: (value?: number) => string | undefined;
+  levelSizeVar: (value: string) => string;
 }
 
 const newCSS = (prefix: string): CSSType => {
@@ -53,10 +55,10 @@ const newCSS = (prefix: string): CSSType => {
   CSS.rounded = (rounded) => !(rounded === false) && CSS.M("rounded");
   CSS.bordered = (location) => {
     if (typeof location === "boolean") return location && CSS.M("bordered");
-    return location != null ? CSS.M("bordered-" + location) : CSS.M("bordered");
+    return location != null ? CSS.M(`bordered-${location}`) : CSS.M("bordered");
   };
   CSS.selected = (selected) => selected && CSS.M("selected");
-  CSS.altColor = (secondary) => secondary && CSS.M("altColor");
+  CSS.altColor = (secondary) => secondary && CSS.M("alt-color");
   CSS.editable = (editable) => editable && CSS.M("editable");
   CSS.noSelect = CSS.M("no-select");
   CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
@@ -67,6 +69,11 @@ const newCSS = (prefix: string): CSSType => {
   CSS.px = (value: number) => `${value}px`;
   CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");
   CSS.shade = (value) => CSS.M(`shade-${value}`);
+  CSS.shadeVar = (value) => {
+    if (value == null) return undefined;
+    return `var(--${prefix}-gray-l${value})`;
+  };
+  CSS.levelSizeVar = (value) => `var(--${prefix}-${value}-size)`;
   return CSS;
 };
 

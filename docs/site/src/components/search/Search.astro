@@ -10,38 +10,76 @@ import { Search as S } from "@/components/search/Search";
         left: 50%;
         z-index: 50000;
         transform: translateX(-50%);
-        --pluto-pack-br: 0.6666rem !important;
-        width: 65vw;
+        width: 65vw !important;
         max-width: 800px;
 
-        & .pluto-input {
-            --pluto-pack-br: 0.6666rem !important;
+        & button {
+            height: 5.5rem !important;
             width: 100%;
+            * {
+                color: var(--pluto-gray-l7);
+                font-size: var(--pluto-small-size);
+                font-weight: 400;
+            }
         }
 
-        .pluto-dropdown__dialog {
-            position: absolute !important;
-            left: 50% !important;
-            transform: translate(-50%, -20px);
+        & .pluto-text--keyboard {
+            font-size: 1.9rem !important;
+            & svg {
+                width: 2.1rem;
+                height: 2.1rem;
+            }
+        }
 
-            & .search-result {
-                padding: 2rem;
-                &:hover {
-                    background: var(--pluto-gray-l3);
+        & .pluto-input {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 850px) {
+        .search-box {
+            left: 45%;
+            width: 45vw !important;
+            & button {
+                justify-content: start !important;
+            }
+        }
+    }
+
+    .search-results__content {
+        width: 800px;
+        max-width: 100%;
+        height: 400px;
+        min-width: 400px;
+
+        & .search-result {
+            padding: 2rem;
+            &:hover {
+                background: var(--pluto-gray-l3);
+            }
+
+            & b {
+                background: var(--pluto-primary-z-15);
+            }
+
+            & .pluto-breadcrumb {
+                gap: 0.25rem !important;
+                margin-left: 0.25rem;
+                * {
+                    font-size: 2.1rem;
+                    line-height: 150%;
                 }
-
-                & b {
-                    background: var(--pluto-primary-z-30);
-                }
-
-                & small {
-                    color: var(--pluto-gray-l7);
+                .synnax-icon {
+                    transform: scale(0.8) translateY(0px) !important;
                 }
             }
 
-            & a:hover {
-                text-decoration: none;
+            & small {
+                color: var(--pluto-gray-l8);
             }
+        }
+        & a:hover {
+            text-decoration: none !important;
         }
     }
 </style>

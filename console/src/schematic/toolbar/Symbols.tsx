@@ -100,10 +100,10 @@ const SymbolsButton = ({
   return (
     // @ts-expect-error - generic elements
     <Align.Space
-      el="button"
       className={CSS.BE("schematic-symbols", "button")}
       justify="spaceBetween"
       align="center"
+      size={0.5}
       draggable
       {...props}
       {...dragProps}
@@ -111,7 +111,7 @@ const SymbolsButton = ({
     >
       <Text.Text level="small">{name}</Text.Text>
       <Align.Space className="preview-wrapper" align="center" justify="center">
-        <Preview {...defaultProps(theme)} scale={0.8} />
+        <Preview {...defaultProps(theme)} scale={0.75} />
       </Align.Space>
     </Align.Space>
   );

@@ -1,11 +1,16 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Streams"
 heading: "Streaming Data"
 description: "Learn the process for streaming data from a Synnax cluster."
+prev: "Writes"
+prevURL: "/reference/concepts/writes"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
+import Table from "@/components/Table.astro";
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
 
 This page walks you through the high level concepts for streaming real-time data from a
 Synnax cluster. If you'd like a practical guide on reading data using a client library,
@@ -34,6 +39,26 @@ To open a streamer, you'll need to provide a list of channels that you'd like to
 data from. The streamer will validate that the channels exists and are readable before
 starting the stream.
 
+#### Optional Arguments
+
+There are also a few optional arguments we can provide when opening a streamer:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Argument</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Downsample Factor </td>
+      {/* prettier-ignore */}
+      <td>A positive integer that determines the reduction in the stream's original data rate. A value of n means only every nth sample is retained. Defaults to 1, meaning no downsampling.</td>
+    </tr>
+  </tbody>
+</Table>
+
 ### Reading Data
 
 Once the streamer is open, you can read data from the stream using the `read` method.
@@ -50,24 +75,20 @@ receiving samples in batches and/or at different rates.
 For example, if you're reading from channel `temp_1` and `temp_2`, the frame returned
 may look like this:
 
-{/* prettier-ignore-start */}
 ```json
 {
   "temp_1": [20.0, 21.0, 22.0],
   "temp_2": [30.0, 31.0]
 }
 ```
-{/* prettier-ignore-end */}
 
 Or it may look like this:
 
-{/* prettier-ignore-start */}
 ```json
 {
   "temp_2": [30.0, 31.0, 32.0]
 }
 ```
-{/* prettier-ignore-end */}
 
 ### Updating the Streamer's Channels
 

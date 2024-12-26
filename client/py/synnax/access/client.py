@@ -7,24 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from __future__ import annotations
-
-import uuid
+from uuid import UUID
 from typing import overload
 
-from alamos import Instrumentation, NOOP, trace
-from freighter import Payload, UnaryClient
+from alamos import Instrumentation, NOOP
+from freighter import Payload, UnaryClient, send_required, Empty
 from synnax.access.payload import Policy
-from synnax.exceptions import NotFoundError
-from synnax.ontology.id import OntologyID
-
-
-class _RetrieveRequest(Payload):
-    subject: OntologyID
-
-
-class _RetrieveResponse(Payload):
-    policies: list[Policy] | None
+from synnax.ontology.payload import ID
+from synnax.util.normalize import normalize
 
 
 class _CreateRequest(Payload):
@@ -34,22 +24,28 @@ class _CreateRequest(Payload):
 _CreateResponse = _CreateRequest
 
 
+class _RetrieveRequest(Payload):
+    keys: list[UUID] | None
+    subjects: list[ID] | None
+
+
+class _RetrieveResponse(Payload):
+    policies: list[Policy] | None
+
+
 class _DeleteRequest(Payload):
-    keys: list[uuid.UUID]
+    keys: list[UUID]
 
 
-class _DeleteResponse(Payload):
-    ...
+ONTOLOGY_TYPE = ID(type="policy")
 
-
-policy_ontology_type = OntologyID(type="policy")
+_CREATE_ENDPOINT = "/access/policy/create"
+_RETRIEVE_ENDPOINT = "/access/policy/retrieve"
+_DELETE_ENDPOINT = "/access/policy/delete"
 
 
 class PolicyClient:
-    __CREATE_ENDPOINT = "/access/policy/create"
-    __RETRIEVE_ENDPOINT = "/access/policy/retrieve"
-    __DELETE_ENDPOINT = "/access/policy/delete"
-    __client: UnaryClient
+    _client: UnaryClient
     instrumentation: Instrumentation
 
     def __init__(
@@ -57,80 +53,60 @@ class PolicyClient:
         client: UnaryClient,
         instrumentation: Instrumentation = NOOP,
     ):
-        self.__client = client
+        self._client = client
         self.instrumentation = instrumentation
 
     @overload
     def create(
         self,
         *,
-        subjects: list[OntologyID] = None,
-        objects: list[OntologyID] = None,
+        subjects: list[ID] = None,
+        objects: list[ID] = None,
         actions: list[str] = None,
-    ) -> Policy:
-        ...
+    ) -> Policy: ...
 
     @overload
     def create(
         self,
         policies: Policy,
-    ) -> Policy:
-        ...
+    ) -> Policy: ...
 
     @overload
     def create(
         self,
         policies: list[Policy],
-    ) -> list[Policy]:
-        ...
+    ) -> list[Policy]: ...
 
-    @trace("debug")
     def create(
         self,
         policies: Policy | list[Policy] | None = None,
         *,
-        subjects: list[OntologyID] = None,
-        objects: list[OntologyID] = None,
+        subjects: list[ID] = None,
+        objects: list[ID] = None,
         actions: list[str] = None,
     ) -> Policy | list[Policy]:
+        is_single = not isinstance(policies, list)
         if policies is None:
-            _policies = [
-                Policy(
-                    subjects=subjects,
-                    objects=objects,
-                    actions=actions,
-                )
-            ]
-        elif isinstance(policies, Policy):
-            _policies = [policies]
-        else:
-            _policies = policies
+            policies = Policy(
+                subjects=subjects,
+                objects=objects,
+                actions=actions,
+            )
+        req = _CreateRequest(policies=normalize(policies))
+        res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
+        return res.policies[0] if is_single else res.policies
 
-        req = _CreateRequest(policies=_policies)
-        res, exc = self.__client.send(self.__CREATE_ENDPOINT, req, _CreateResponse)
-        if exc is not None:
-            raise exc
-
-        return res.policies[0] if len(res.policies) == 1 else res.policies
-
-    @trace("debug")
-    def retrieve(self, subject: OntologyID) -> list[Policy]:
-        res, exc = self.__client.send(
-            self.__RETRIEVE_ENDPOINT,
-            _RetrieveRequest(subject=subject),
+    def retrieve(
+        self, keys: list[UUID] | None = None, subjects: list[ID] | None = None
+    ) -> list[Policy]:
+        res = send_required(
+            self._client,
+            _RETRIEVE_ENDPOINT,
+            _RetrieveRequest(keys=keys, subjects=subjects),
             _RetrieveResponse,
         )
-        if exc is not None:
-            raise exc
-        return res.policies
+        return [] if res is None else res.policies
 
-    @trace("debug")
-    def delete(self, keys: uuid.UUID | list[uuid.UUID]) -> None:
-        res, exc = self.__client.send(
-            self.__DELETE_ENDPOINT,
-            _DeleteRequest(keys=[keys] if isinstance(keys, uuid.UUID) else keys),
-            _DeleteResponse,
-        )
-        if exc is not None:
-            raise exc
-        return res
+    def delete(self, keys: UUID | list[UUID]) -> None:
+        req = _DeleteRequest(keys=normalize(keys))
+        send_required(self._client, _DELETE_ENDPOINT, req, Empty)

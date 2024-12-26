@@ -14,22 +14,19 @@ import (
 
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/auth"
 )
 
 func New(router *fhttp.Router) (t api.Transport) {
 	// AUTH
-	t.AuthLogin = fhttp.UnaryServer[auth.InsecureCredentials, api.TokenResponse](router, false, "/api/v1/auth/login")
+	t.AuthLogin = fhttp.UnaryServer[api.AuthLoginRequest, api.AuthLoginResponse](router, false, "/api/v1/auth/login")
+	t.AuthChangePassword = fhttp.UnaryServer[api.AuthChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/change-password")
 
 	// USER
-	// Each endpoint has two routes since the route with /auth was used before Synnax
-	// V0.26.0, and were reclassified into the /user route after V0.26.0
-	t.UserRegistration = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/user/register")
-	t.UserRegistrationOld = fhttp.UnaryServer[api.RegistrationRequest, api.TokenResponse](router, false, "/api/v1/auth/register")
-	t.UserChangePassword = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/user/protected/change-password")
-	t.UserChangePasswordOld = fhttp.UnaryServer[api.ChangePasswordRequest, types.Nil](router, false, "/api/v1/auth/protected/change-password")
-	t.UserChangeUsername = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/user/protected/change-username")
-	t.UserChangeUsernameOld = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/protected/change-username")
+	t.UserRename = fhttp.UnaryServer[api.UserRenameRequest, types.Nil](router, false, "/api/v1/user/rename")
+	t.UserChangeUsername = fhttp.UnaryServer[api.UserChangeUsernameRequest, types.Nil](router, false, "/api/v1/user/change-username")
+	t.UserCreate = fhttp.UnaryServer[api.UserCreateRequest, api.UserCreateResponse](router, false, "/api/v1/user/create")
+	t.UserDelete = fhttp.UnaryServer[api.UserDeleteRequest, types.Nil](router, false, "/api/v1/user/delete")
+	t.UserRetrieve = fhttp.UnaryServer[api.UserRetrieveRequest, api.UserRetrieveResponse](router, false, "/api/v1/user/retrieve")
 
 	// CHANNEL
 	t.ChannelCreate = fhttp.UnaryServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, false, "/api/v1/channel/create")
@@ -78,7 +75,7 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.WorkspaceRename = fhttp.UnaryServer[api.WorkspaceRenameRequest, types.Nil](router, false, "/api/v1/workspace/rename")
 	t.WorkspaceSetLayout = fhttp.UnaryServer[api.WorkspaceSetLayoutRequest, types.Nil](router, false, "/api/v1/workspace/set-layout")
 
-	// Schematic
+	// SCHEMATIC
 	t.SchematicCreate = fhttp.UnaryServer[api.SchematicCreateRequest, api.SchematicCreateResponse](router, false, "/api/v1/workspace/schematic/create")
 	t.SchematicRetrieve = fhttp.UnaryServer[api.SchematicRetrieveRequest, api.SchematicRetrieveResponse](router, false, "/api/v1/workspace/schematic/retrieve")
 	t.SchematicDelete = fhttp.UnaryServer[api.SchematicDeleteRequest, types.Nil](router, false, "/api/v1/workspace/schematic/delete")
@@ -93,6 +90,20 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.LinePlotRename = fhttp.UnaryServer[api.LinePlotRenameRequest, types.Nil](router, false, "/api/v1/workspace/lineplot/rename")
 	t.LinePlotSetData = fhttp.UnaryServer[api.LinePlotSetDataRequest, types.Nil](router, false, "/api/v1/workspace/lineplot/set-data")
 
+	// LOG
+	t.LogCreate = fhttp.UnaryServer[api.LogCreateRequest, api.LogCreateResponse](router, false, "/api/v1/workspace/log/create")
+	t.LogRetrieve = fhttp.UnaryServer[api.LogRetrieveRequest, api.LogRetrieveResponse](router, false, "/api/v1/workspace/log/retrieve")
+	t.LogDelete = fhttp.UnaryServer[api.LogDeleteRequest, types.Nil](router, false, "/api/v1/workspace/log/delete")
+	t.LogRename = fhttp.UnaryServer[api.LogRenameRequest, types.Nil](router, false, "/api/v1/workspace/log/rename")
+	t.LogSetData = fhttp.UnaryServer[api.LogSetDataRequest, types.Nil](router, false, "/api/v1/workspace/log/set-data")
+
+	// TABLE
+	t.TableCreate = fhttp.UnaryServer[api.TableCreateRequest, api.TableCreateResponse](router, false, "/api/v1/workspace/table/create")
+	t.TableRetrieve = fhttp.UnaryServer[api.TableRetrieveRequest, api.TableRetrieveResponse](router, false, "/api/v1/workspace/table/retrieve")
+	t.TableDelete = fhttp.UnaryServer[api.TableDeleteRequest, types.Nil](router, false, "/api/v1/workspace/table/delete")
+	t.TableRename = fhttp.UnaryServer[api.TableRenameRequest, types.Nil](router, false, "/api/v1/workspace/table/rename")
+	t.TableSetData = fhttp.UnaryServer[api.TableSetDataRequest, types.Nil](router, false, "/api/v1/workspace/table/set-data")
+
 	// LABEL
 	t.LabelCreate = fhttp.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse](router, false, "/api/v1/label/create")
 	t.LabelRetrieve = fhttp.UnaryServer[api.LabelRetrieveRequest, api.LabelRetrieveResponse](router, false, "/api/v1/label/retrieve")
@@ -100,13 +111,14 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.LabelAdd = fhttp.UnaryServer[api.LabelAddRequest, types.Nil](router, false, "/api/v1/label/set")
 	t.LabelRemove = fhttp.UnaryServer[api.LabelRemoveRequest, types.Nil](router, false, "/api/v1/label/remove")
 
-	// DEVICE
+	// HARDWARE
 	t.HardwareCreateRack = fhttp.UnaryServer[api.HardwareCreateRackRequest, api.HardwareCreateRackResponse](router, false, "/api/v1/hardware/rack/create")
 	t.HardwareRetrieveRack = fhttp.UnaryServer[api.HardwareRetrieveRackRequest, api.HardwareRetrieveRackResponse](router, false, "/api/v1/hardware/rack/retrieve")
 	t.HardwareDeleteRack = fhttp.UnaryServer[api.HardwareDeleteRackRequest, types.Nil](router, false, "/api/v1/hardware/rack/delete")
 	t.HardwareCreateTask = fhttp.UnaryServer[api.HardwareCreateTaskRequest, api.HardwareCreateTaskResponse](router, false, "/api/v1/hardware/task/create")
 	t.HardwareRetrieveTask = fhttp.UnaryServer[api.HardwareRetrieveTaskRequest, api.HardwareRetrieveTaskResponse](router, false, "/api/v1/hardware/task/retrieve")
 	t.HardwareDeleteTask = fhttp.UnaryServer[api.HardwareDeleteTaskRequest, types.Nil](router, false, "/api/v1/hardware/task/delete")
+	t.HardwareCopyTask = fhttp.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse](router, false, "/api/v1/hardware/task/copy")
 	t.HardwareCreateDevice = fhttp.UnaryServer[api.HardwareCreateDeviceRequest, api.HardwareCreateDeviceResponse](router, false, "/api/v1/hardware/device/create")
 	t.HardwareRetrieveDevice = fhttp.UnaryServer[api.HardwareRetrieveDeviceRequest, api.HardwareRetrieveDeviceResponse](router, false, "/api/v1/hardware/device/retrieve")
 	t.HardwareDeleteDevice = fhttp.UnaryServer[api.HardwareDeleteDeviceRequest, types.Nil](router, false, "/api/v1/hardware/device/delete")

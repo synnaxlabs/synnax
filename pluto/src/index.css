@@ -1,0 +1,86 @@
+/*
+ * Copyright 2024 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+html {
+    overscroll-behavior: none;
+    overflow: hidden;
+    background: var(--pluto-gray-l0);
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+#root {
+    height: 100%;
+    width: 100%;
+}
+
+* {
+    *:not(:is(.pluto-text, input, label)) {
+        user-select: none !important;
+        -webkit-user-select: none !important;
+    }
+
+    box-sizing: border-box;
+}
+
+/*
+ * Copyright 2024 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+::-webkit-scrollbar {
+    width: 1rem;
+    height: 1rem;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--pluto-gray-l4);
+    border-radius: var(--pluto-border-radius);
+}
+
+.console-main-fixed--y {
+    height: calc(100vh - 6rem - 4.5rem);
+}
+.console-main-fixed--x {
+    width: calc(100vw - 8rem - 8rem);
+}
+
+.console-main--driving {
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+.console-main--driven {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+.console-main-content-drawers {
+    overflow: hidden;
+}

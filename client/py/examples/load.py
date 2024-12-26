@@ -19,7 +19,7 @@ import numpy as np
 import synnax as sy
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/python-client/get-started for more information.
+# See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
 NUM_VALVES = 50
@@ -115,8 +115,8 @@ with client.open_streamer([a.key for a in valve_commands]) as streamer:
         while True:
             time.sleep(rate)
             # If we've received a command, update the state of the corresponding valve.
-            if streamer.received:
-                f = streamer.read()
+            f = streamer.read(timeout=0)
+            if f is not None:
                 for k in f.channels:
                     # 1 is open, 0 is closed.
                     sensor_states[command_to_res[k].key] = np.uint8(f[k][-1] > 0.9)

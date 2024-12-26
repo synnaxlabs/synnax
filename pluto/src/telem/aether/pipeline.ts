@@ -27,10 +27,12 @@ import {
   type Telem,
 } from "@/telem/aether/telem";
 
-const connectionZ = z.object({
+export const connectionZ = z.object({
   from: z.string(),
   to: z.string(),
 });
+
+export type Connection = z.infer<typeof connectionZ>;
 
 export const sourcePipelinePropsZ = z.object({
   connections: z.array(connectionZ),
@@ -114,14 +116,12 @@ export class SourcePipeline<V>
 export const sourcePipeline = <V extends string>(
   valueType: V,
   props: SourcePipelineProps,
-): SourceSpec<V> => {
-  return {
-    variant: "source",
-    props,
-    type: SourcePipeline.TYPE,
-    valueType,
-  };
-};
+): SourceSpec<V> => ({
+  variant: "source",
+  props,
+  type: SourcePipeline.TYPE,
+  valueType,
+});
 
 export const sinkPipelinePropsZ = z.object({
   connections: z.array(connectionZ),
@@ -163,9 +163,7 @@ export class SinkPipeline<V>
       const fromSink = this.sinks[from];
       const toSink = this.sinks[to];
       if (fromSink == null || toSink == null) return;
-      if ("setSinks" in fromSink) {
-        fromSink.setSinks({ [to]: toSink });
-      }
+      if ("setSinks" in fromSink) fromSink.setSinks({ [to]: toSink });
     });
   }
 

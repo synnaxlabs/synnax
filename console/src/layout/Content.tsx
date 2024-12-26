@@ -11,11 +11,12 @@ import { memo, type ReactElement } from "react";
 
 import { useOptionalRenderer } from "@/layout/context";
 import { useRemover } from "@/layout/hooks";
-import { useSelect } from "@/layout/selectors";
+import { useSelect, useSelectFocused } from "@/layout/selectors";
 
 /** LayoutContentProps are the props for the LayoutContent component. */
 export interface ContentProps {
   layoutKey: string;
+  forceHidden?: boolean;
 }
 
 /**
@@ -25,12 +26,26 @@ export interface ContentProps {
  * @param props.layoutKey - The key of the layout to render. The key must exist in the store,
  * and a renderer for the layout type must be registered in the LayoutContext.
  */
-export const Content = memo(({ layoutKey }: ContentProps): ReactElement | null => {
-  const p = useSelect(layoutKey);
-  const handleClose = useRemover(layoutKey);
-  const type = p?.type ?? "";
-  const Renderer = useOptionalRenderer(type);
-  if (Renderer == null) throw new Error(`layout renderer ${type} not found`);
-  return <Renderer key={layoutKey} layoutKey={layoutKey} onClose={handleClose} />;
-});
+export const Content = memo(
+  ({ layoutKey, forceHidden }: ContentProps): ReactElement | null => {
+    const layout = useSelect(layoutKey);
+    const handleClose = useRemover(layoutKey);
+    const type = layout?.type ?? "";
+    const Renderer = useOptionalRenderer(type);
+    const { focused } = useSelectFocused();
+    if (Renderer == null) throw new Error(`layout renderer ${type} not found`);
+    const isFocused = focused === layoutKey;
+    let visible = focused == null || isFocused;
+    if (forceHidden) visible = false;
+    return (
+      <Renderer
+        key={layoutKey}
+        layoutKey={layoutKey}
+        onClose={handleClose}
+        visible={visible}
+        focused={isFocused}
+      />
+    );
+  },
+);
 Content.displayName = "LayoutContent";

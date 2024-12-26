@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { box, scale, xy } from "@synnaxlabs/x";
-import { useRef } from "react";
-import { useReactFlow } from "reactflow";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
-import { translateViewportBackward, type Viewport } from "@/vis/diagram/aether/types";
 import { render } from "@/vis/render";
 
 export const diagramStateZ = z.object({
@@ -22,6 +19,7 @@ export const diagramStateZ = z.object({
   zoom: z.number(),
   region: box.box,
   clearOverScan: xy.crudeZ.optional().default(10),
+  visible: z.boolean().optional().default(true),
 });
 
 interface ElementProps {
@@ -39,11 +37,6 @@ interface InternalState {
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
 
-export const useInitialViewport = (): Viewport => {
-  const flow = useReactFlow();
-  return useRef<Viewport>(translateViewportBackward(flow.getViewport())).current;
-};
-
 export class Diagram extends aether.Composite<
   typeof diagramStateZ,
   InternalState,
@@ -51,7 +44,6 @@ export class Diagram extends aether.Composite<
 > {
   static readonly TYPE = "Diagram";
   static readonly stateZ = diagramStateZ;
-  readonly eraser: render.Eraser = new render.Eraser();
   schema = Diagram.stateZ;
 
   async afterUpdate(): Promise<void> {
@@ -70,6 +62,8 @@ export class Diagram extends aether.Composite<
     const { renderCtx, addStatus } = this.internal;
     const { zoom, position } = this.state;
     const region = box.construct(this.state.region);
+    if (!this.state.visible)
+      return async () => renderCtx.erase(region, this.state.clearOverScan, ...CANVASES);
     const clearScissor = renderCtx.scissor(region, xy.ZERO, CANVASES);
     const viewportScale = scale.XY.magnify(xy.construct(zoom))
       .translate(box.topLeft(region))
@@ -95,7 +89,7 @@ export class Diagram extends aether.Composite<
     const { renderCtx } = this.internal;
     void renderCtx.loop.set({
       key: `${Diagram.TYPE}-${this.key}`,
-      render: async () => await this.render(),
+      render: this.render.bind(this),
       priority,
       canvases: CANVASES,
     });

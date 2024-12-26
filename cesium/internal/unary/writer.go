@@ -56,7 +56,8 @@ type WriterConfig struct {
 	// ErrOnUnauthorized controls whether the writer will return an error on open when
 	// attempting to write to a channel that is does not have authority over.
 	// [OPTIONAL] - Defaults to false
-	ErrOnUnauthorized *bool
+	ErrOnUnauthorized    *bool
+	AlignmentDomainIndex uint32
 }
 
 var (
@@ -89,6 +90,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
+	c.AlignmentDomainIndex = override.Numeric(c.AlignmentDomainIndex, other.AlignmentDomainIndex)
 	return c
 }
 
@@ -118,7 +120,7 @@ var _ controller.Entity = controlledWriter{}
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
 type Writer struct {
-	WriterConfig
+	cfg WriterConfig
 	// Channel stores information about the channel this writer is writing to, including
 	// but not limited to density and index.
 	Channel core.Channel
@@ -141,7 +143,11 @@ type Writer struct {
 	closed bool
 }
 
-func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
+func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
+	w *Writer,
+	transfer controller.Transfer,
+	err error,
+) {
 	if db.closed.Load() {
 		return nil, transfer, db.wrapError(ErrDBClosed)
 	}
@@ -150,10 +156,10 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		return nil, transfer, err
 	}
 	w = &Writer{
-		WriterConfig: cfg,
-		Channel:      db.cfg.Channel,
-		idx:          db.index(),
-		wrapError:    db.wrapError,
+		cfg:       cfg,
+		Channel:   db.cfg.Channel,
+		idx:       db.index(),
+		wrapError: db.wrapError,
 	}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
@@ -163,11 +169,15 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	var g *controller.Gate[*controlledWriter]
 	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlledWriter, error) {
 		dw, err := db.domain.OpenWriter(ctx, cfg.domain())
-		return &controlledWriter{
+		cw := &controlledWriter{
 			Writer:     dw,
 			channelKey: db.cfg.Channel.Key,
-			alignment:  telem.NewAlignmentPair(db.leadingAlignment.Add(1), 0),
-		}, err
+			alignment:  telem.NewAlignmentPair(cfg.AlignmentDomainIndex, 0),
+		}
+		if cfg.AlignmentDomainIndex == 0 {
+			cw.alignment = telem.NewAlignmentPair(db.leadingAlignment.Add(1), 0)
+		}
+		return cw, err
 	})
 	if err != nil {
 		return nil, transfer, w.wrapError(err)
@@ -226,13 +236,17 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
-	if *w.Persist {
-		dw.alignment = telem.NewAlignmentPair(dw.alignment.ArrayIndex(), uint32(w.len(dw.Writer)))
+	if *w.cfg.Persist {
+		dw.alignment = telem.NewAlignmentPair(dw.alignment.DomainIndex(), uint32(w.len(dw.Writer)))
 		_, err = dw.Write(series.Data)
 	} else {
 		dw.alignment = dw.alignment.AddSamples(uint32(series.Len()))
 	}
 	return dw.alignment, w.wrapError(err)
+}
+
+func (w *Writer) DomainIndex() uint32 {
+	return w.control.PeekEntity().alignment.DomainIndex()
 }
 
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
@@ -277,12 +291,17 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	if end.IsZero() {
 		// We're using w.len - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
+		approx, err := w.idx.Stamp(ctx, w.cfg.Start, w.len(dw.Writer)-1, true)
 		if err != nil {
 			return 0, err
 		}
 		if !approx.Exact() {
-			return 0, errors.Wrapf(validate.Error, "writer start %s cannot be resolved in the index channel %v", w.Start, w.idx.Info())
+			return 0, errors.Wrapf(
+				validate.Error,
+				"writer start %s cannot be resolved in the index channel %v",
+				w.cfg.Start,
+				w.idx.Info(),
+			)
 		}
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1

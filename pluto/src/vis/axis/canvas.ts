@@ -19,25 +19,64 @@ import {
   type ParsedAxisState,
   type RenderResult,
 } from "@/vis/axis/axis";
-import { newTickFactory,type Tick, type TickFactory } from "@/vis/axis/ticks";
+import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
 import { type render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 4;
+
+class TickTextDimensions {
+  private readonly numberDims: dimensions.Dimensions;
+  private readonly negativeWidth: number;
+  private readonly periodWidth: number;
+  private readonly colonWidth: number;
+
+  constructor(canvas: OffscreenCanvasRenderingContext2D, font: string) {
+    this.numberDims = textDimensions("0", font, canvas);
+    this.negativeWidth = textDimensions("-", font, canvas).width;
+    this.periodWidth = textDimensions(".", font, canvas).width;
+    this.colonWidth = textDimensions(":", font, canvas).width;
+  }
+
+  get(label: string): dimensions.Dimensions {
+    const dimensions: dimensions.Dimensions = {
+      width: 0,
+      height: this.numberDims.height,
+    };
+    let count = label.length;
+    if (label.includes(".")) {
+      dimensions.width += this.periodWidth;
+      count -= 1;
+    }
+    if (label.startsWith("-")) {
+      dimensions.width += this.negativeWidth;
+      count -= 1;
+    }
+    if (label.includes(":")) {
+      dimensions.width += this.colonWidth;
+      count -= 1;
+    }
+    dimensions.width += count * this.numberDims.width;
+    return dimensions;
+  }
+}
 
 export class Canvas implements Axis {
   ctx: render.Context;
   state: ParsedAxisState;
   tickFactory: TickFactory;
+  dimensions: TickTextDimensions;
 
   constructor(ctx: render.Context, state: ParsedAxisState) {
     this.ctx = ctx;
     this.state = state;
     this.tickFactory = newTickFactory(this.state);
+    this.dimensions = new TickTextDimensions(ctx.lower2d, state.font);
   }
 
   setState(state: AxisState): void {
     this.state = prettyParse(axisStateZ, state);
     this.tickFactory = newTickFactory(state);
+    this.dimensions = new TickTextDimensions(this.ctx.lower2d, this.state.font);
   }
 
   render(props: AxisProps): RenderResult {
@@ -81,7 +120,8 @@ export class Canvas implements Axis {
         p.y + 5 + d.height,
       );
     });
-    return { size: maxTickDims.height + TICK_LINE_SIZE };
+    // Add some extra padding to the bottom of the axis.
+    return { size: maxTickDims.height + TICK_LINE_SIZE + 6 };
   }
 
   drawTop(ctx: AxisProps): RenderResult {
@@ -178,7 +218,7 @@ export class Canvas implements Axis {
   ): dimensions.Dimensions {
     let maxDimensions = dimensions.ZERO;
     ticks.forEach((tick) => {
-      const d = textDimensions(tick.label, this.state.font, this.ctx.lower2d);
+      const d = this.dimensions.get(tick.label);
       maxDimensions = dimensions.max([maxDimensions, d]);
       f(d, tick);
     });

@@ -30,9 +30,6 @@ from synnax.util.interop import overload_comparison_operators
 
 
 class Series(Payload):
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(overload_comparison_operators(cls, "__array__"))
-
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
@@ -112,6 +109,10 @@ class Series(Payload):
                 data_ = b"".join(d.bytes for d in data)
             else:
                 data_ = np.array(data, dtype=data_type.np).tobytes()
+                data_type = data_type or DataType(data)
+        elif isinstance(data, str):
+            data_ = bytes(f"{data}\n", "utf-8")
+            data_type = DataType.STRING
         else:
             if data_type is None:
                 raise ValueError(
@@ -235,7 +236,9 @@ class Series(Payload):
             return False
 
 
-SampleValue = np.number | uuid.UUID | dict | str
+Series = overload_comparison_operators(Series, "__array__")
+
+SampleValue = np.number | uuid.UUID | dict | str | int | float | TimeStamp
 TypedCrudeSeries = Series | pd.Series | np.ndarray
 CrudeSeries = (
     Series
@@ -262,9 +265,6 @@ def elapsed_seconds(d: np.ndarray) -> np.ndarray:
 
 class MultiSeries:
     series: list[Series]
-
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(overload_comparison_operators(cls, "__array__"))
 
     def __init__(self, series: list[Series]):
         self.series = series
@@ -320,3 +320,6 @@ class MultiSeries:
     @property
     def size(self) -> Size:
         return Size(sum(s.size for s in self.series))
+
+
+MultiSeries = overload_comparison_operators(MultiSeries, "__array__")

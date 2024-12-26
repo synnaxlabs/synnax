@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
+import { Haul, Mosaic, type Tabs, Theming } from "@synnaxlabs/pluto";
 import { theming } from "@synnaxlabs/pluto/ether";
-import { location } from "@synnaxlabs/x";
+import { type location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const placementLocationZ = z.union([
@@ -32,6 +32,7 @@ export const stateZ = z.object({
   windowProps: z.record(z.unknown()).optional(),
   tab: z.record(z.unknown()).optional(),
   args: z.unknown(),
+  excludeFromWorkspace: z.boolean().optional(),
 });
 
 /**
@@ -86,7 +87,8 @@ export interface State<A = any | undefined> {
   /**
    * Location defines the placement location of the layout. If the location is 'mosaic',
    * the layout will be placed in the central mosaic. If the location is 'window', the
-   * layout will be placed in an external window.
+   * layout will be placed in an external window. If the location is 'modal', the layout
+   * will be placed in a modal window.
    */
   location: PlacementLocation;
   /**
@@ -95,14 +97,19 @@ export interface State<A = any | undefined> {
    */
   window?: WindowProps;
   /**
-   * Properties used when the layout is placed in a tab. If the location is 'window',
-   * these properties are ignored.
+   * Properties used when the layout is placed in a tab. If the location is 'window' or
+   * 'modal', these properties are ignored.
    */
   tab?: Partial<LayoutTabProps>;
   /**
    * A typically optional set of arguments to pass to the layout
    */
   args?: A;
+  /**
+   * excludeFromWorkspace is a flag that indicates whether the layout should be
+   * excluded from the workspace. This is typically used for modal layouts.
+   */
+  excludeFromWorkspace?: boolean;
 }
 
 export type RenderableLayout = Omit<State, "window">;
@@ -146,6 +153,7 @@ export type PartialNavState = z.infer<typeof partialNavState>;
 export const mosaicStateZ = z.object({
   activeTab: z.string().nullable(),
   root: Mosaic.nodeZ,
+  focused: z.string().optional().nullable().default(null),
 });
 
 export type MosaicState = z.infer<typeof mosaicStateZ>;
@@ -163,6 +171,7 @@ export const MAIN_LAYOUT: State = {
 
 export const ZERO_MOSAIC_STATE: MosaicState = {
   activeTab: null,
+  focused: null,
   root: {
     key: 1,
     tabs: [],

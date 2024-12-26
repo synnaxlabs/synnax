@@ -10,6 +10,7 @@
 export { Accordion } from "@/accordion";
 export { Aether } from "@/aether";
 export { Align } from "@/align";
+export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
 export { Caret } from "@/caret";
 export { Channel } from "@/channel";
@@ -36,7 +37,9 @@ export { Nav } from "@/nav";
 export { Note } from "@/note";
 export { Observe } from "@/observe";
 export { OS } from "@/os";
+export { Override } from "@/override";
 export { Pluto } from "@/pluto";
+export { Portal } from "@/portal";
 export { Progress } from "@/progress";
 export { Ranger } from "@/ranger";
 export { Resize } from "@/resize";
@@ -45,6 +48,8 @@ export { state } from "@/state";
 export { Status } from "@/status";
 export { Steps } from "@/steps";
 export { Synnax } from "@/synnax";
+export { Table } from "@/table";
+export { TableCells } from "@/table/cells";
 export { Tabs } from "@/tabs";
 export { Tag } from "@/tag";
 export { Telem } from "@/telem";
@@ -67,6 +72,7 @@ export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
 export { LinePlot } from "@/vis/lineplot";
 export { Range } from "@/vis/lineplot/range";
+export { Log } from "@/vis/log";
 export { Measure } from "@/vis/measure";
 export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
@@ -79,7 +85,6 @@ export type {
   CrudeSize,
   CrudeTimeSpan,
   CrudeTimeStamp,
-  NumericTelemValue,
   TelemValue,
   TimeStampStringFormat,
   TypedArray,

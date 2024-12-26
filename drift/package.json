@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/drift",
-  "version": "0.27.0",
+  "version": "0.36.0",
   "description": "State synchronization and Redux state synchronization for Tauri Apps",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/drift",
   "type": "module",
@@ -14,39 +14,38 @@
     "application level state"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "lint": "eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix"
+    "lint": "eslint --cache",
+    "fix": "eslint --cache --fix"
   },
   "dependencies": {
-    "@synnaxlabs/x": "workspace:*"
-  },
-  "peerDependencies": {
-    "@reduxjs/toolkit": "^2.2.3",
-    "@tauri-apps/api": "^2.0.0-beta.11",
-    "proxy-memoize": "1.2.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-redux": "^9.1.0"
+    "@reduxjs/toolkit": "^2.5.0",
+    "@synnaxlabs/x": "workspace:*",
+    "@tauri-apps/api": "^2.1.1",
+    "async-mutex": "^0.5.0",
+    "proxy-memoize": "2.0.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-redux": "^9.2.0"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@tauri-apps/api": "2.0.0-rc.0",
-    "@types/react": "^18.3.3",
-    "@vitest/coverage-v8": "^1.6.0",
-    "electron": "^31.1.0",
+    "@tauri-apps/api": "^2.1.1",
+    "@types/react": "^19.0.1",
+    "@vitest/coverage-v8": "^2.1.8",
+    "electron": "^33.2.1",
+    "eslint": "^9.17.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "proxy-memoize": "3.0.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-redux": "^9.1.2",
-    "typescript": "^5.5.3",
-    "vite": "5.3.3",
-    "vitest": "^1.6.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-redux": "^9.2.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8"
   },
   "files": [
     "dist"
@@ -56,24 +55,24 @@
   "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/src/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/src/index.d.ts"
+      "require": "./dist/index.cjs"
     },
     "./react": {
+      "types": "./dist/src/react/index.d.ts",
       "import": "./dist/react.js",
-      "require": "./dist/react.cjs",
-      "types": "./dist/src/react/index.d.ts"
+      "require": "./dist/react.cjs"
     },
     "./tauri": {
+      "types": "./dist/src/tauri/index.d.ts",
       "import": "./dist/tauri.js",
-      "require": "./dist/tauri.cjs",
-      "types": "./dist/src/tauri/index.d.ts"
+      "require": "./dist/tauri.cjs"
     },
     "./electron": {
+      "types": "./dist/src/electron/index.d.ts",
       "import": "./dist/electron.js",
-      "require": "./dist/electron.cjs",
-      "types": "./dist/src/electron/index.d.ts"
+      "require": "./dist/electron.cjs"
     }
   }
 }

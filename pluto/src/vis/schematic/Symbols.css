@@ -10,15 +10,93 @@
  */
 
 .pluto-control-state.pluto--x {
-   padding: 1rem 1rem 1rem 0;
+    padding: 0;
+    max-width: 12rem;
 }
 
 .pluto-control-state.pluto--y {
     padding: 0 1rem 1rem;
 }
 
+.pluto-grid__item {
+    border: var(--pluto-border);
+    border-color: transparent;
+    width: max-content;
+    height: max-content;
+    position: absolute;
+    --offset: 0.666rem;
+    justify-content: center;
+    align-items: center;
+
+    &.pluto-haul-drop-region {
+        background: var(--haul-background);
+        border-color: var(--haul-border-color);
+        border-radius: var(--pluto-border-radius);
+    }
+    &.pluto-dragging-over {
+        border-color: var(--pluto-primary-z);
+    }
+
+    &.pluto--y {
+        padding: 0 0.5rem;
+        min-width: 100%;
+        min-height: 3rem;
+    }
+    &.pluto--x {
+        padding: 0.5rem 0;
+        min-width: 3rem;
+        min-height: 100%;
+    }
+
+    &.pluto--top {
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, calc(-100% - var(--offset)));
+    }
+    &.pluto--bottom {
+        bottom: 0;
+        left: 50%;
+        transform: translate(-50%, calc(100% + var(--offset)));
+    }
+    &.pluto--left {
+        left: 0;
+        top: 50%;
+        transform: translate(calc(-100% - var(--offset)), -50%);
+    }
+    &.pluto--right {
+        right: 0;
+        top: 50%;
+        transform: translate(calc(100% + var(--offset)), -50%);
+    }
+}
+
 .pluto-symbol__label {
-    transform: scale(0.9);
-    max-inline-size: 150px;
+    --offset: 0.666rem;
+    -webkit-user-select: none;
+    user-select: none;
+    pointer-events: none;
     overflow-wrap: break-word;
+    width: max-content;
+    height: max-content;
+    padding: 0 !important;
+    &.pluto--y {
+        writing-mode: vertical-rl;
+    }
+}
+
+.react-flow__node {
+    .pluto-grid__rotate {
+        top: -8rem;
+        left: -8rem;
+        position: absolute;
+        z-index: 30;
+        width: 3.5rem;
+        height: 3.5rem;
+    }
+}
+
+.pluto-diagram.pluto--editable {
+    .pluto-symbol__label {
+        pointer-events: auto;
+    }
 }

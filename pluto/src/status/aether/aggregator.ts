@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { id, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type CrudeSpec,specZ } from "@/status/aether/types";
+import { type CrudeSpec, specZ } from "@/status/aether/types";
 
 export const aggregatorStateZ = z.object({
   statuses: specZ.array(),
@@ -30,10 +30,9 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   }
 
   add(spec: CrudeSpec): void {
-    const time = TimeStamp.now();
     this.setState((p) => ({
       ...p,
-      statuses: [...p.statuses, { time, key: time.toString(), ...spec }],
+      statuses: [...p.statuses, { time: TimeStamp.now(), ...spec, key: id.id() }],
     }));
   }
 }

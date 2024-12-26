@@ -2,28 +2,51 @@
 import { Align } from "@synnaxlabs/pluto/align";
 import { Icon, Logo } from "@synnaxlabs/media";
 import Search from "@/components/search/Search.astro";
+import { Button, Text } from "@synnaxlabs/pluto";
+const url = Astro.url.pathname;
 ---
 
-<Align.Space className="main-header" justify="center" align="center" el="header">
-    <Align.Space
-        className="header-content"
-        direction="x"
-        justify="spaceBetween"
-        align="center"
-    >
-        <a href="https://synnaxlabs.com">
-            <Logo variant="title" />
-        </a>
-        <Align.Space direction="x" align="center">
-            <p class="version" transition:persist></p>
-            <a href="https://github.com/synnaxlabs/synnax">
-                <Icon.Logo.Github
-                    style={{ height: "3rem", width: "3rem" }}
-                    fill="var(--pluto-text-color)"
-                />
+<Align.Space className="main-header" justify="center" align="center" el="header" empty>
+    <Align.Space className="top" justify="center" align="center">
+        <Align.Space
+            className="header-content"
+            direction="x"
+            justify="spaceBetween"
+            align="center"
+        >
+            <a href="https://synnaxlabs.com">
+                <Logo variant="title" />
             </a>
+            <Search />
+            <Button.Link
+                className="version-button"
+                variant="text"
+                href="https://github.com/synnaxlabs/synnax"
+                iconSpacing="small"
+            >
+                <Icon.Logo.Github slot="endIcon" />
+                <p class="version" transition:persist></p>
+            </Button.Link>
         </Align.Space>
-        <Search />
+    </Align.Space>
+    <Align.Space className="bottom" justify="center" align="center">
+        <Align.Space direction="x" className="header-content" size={5} justify="start">
+            <Text.Link
+                href="/reference/"
+                className={url.includes("reference") ? "active" : ""}
+                level="h5">Reference</Text.Link
+            >
+            <Text.Link
+                href="/guides/"
+                className={url.includes("guides") ? "active" : ""}
+                level="h5">Guides</Text.Link
+            >
+            <Text.Link
+                href="/releases/"
+                className={url.includes("releases") ? "active" : ""}
+                level="h5">Release Notes</Text.Link
+            >
+        </Align.Space>
     </Align.Space>
 </Align.Space>
 
@@ -31,36 +54,99 @@ import Search from "@/components/search/Search.astro";
     .main-header {
         position: sticky;
         top: 0;
-        background: var(--pluto-gray-l0-60);
+        background: var(--pluto-gray-l0-70);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         z-index: 100;
-        height: 11.5rem;
-        border-bottom: var(--pluto-border);
-        width: 100%;
 
-        & .synnax-logo--icon {
-            display: none;
-        }
+        .top {
+            height: 9rem;
+            border-bottom: var(--pluto-border);
+            width: 100%;
 
-        & .synnax-logo--title {
-            height: 6rem;
-        }
+            & .version-button {
+                & p {
+                    color: var(--pluto-gray-l7);
+                    font-weight: 400;
+                }
+                & .synnax-icon {
+                    color: var(--pluto-gray-l7);
+                    transform: scale(115%) translateY(-5%);
+                }
+            }
 
-        @media (max-width: 1100px) {
+            & .synnax-logo--icon {
+                display: none;
+            }
+
             & .synnax-logo--title {
-                margin-top: 1rem;
-                height: 7rem;
-                & text {
-                    display: none;
+                height: 5rem;
+            }
+
+            @media (max-width: 1100px) {
+                & .synnax-logo--title {
+                    margin-top: 1rem;
+                    height: 6rem;
+                    & text {
+                        display: none;
+                    }
                 }
             }
         }
-    }
 
-    .header-content {
-        width: 100%;
-        max-width: var(--max-width);
-        padding: 0 7rem;
+        @media (max-width: 1100px) {
+            .bottom {
+                .header-content {
+                    justify-content: center !important;
+                }
+            }
+        }
+
+        .bottom {
+            .header-content {
+                padding: 0 10rem;
+            }
+            height: 5.5rem;
+            border-bottom: var(--pluto-border);
+            width: 100%;
+
+            .pluto-text-link {
+                font-size: 13.5px;
+                font-weight: 425;
+                color: var(--pluto-gray-l7);
+                position: relative;
+                &:before {
+                    transition: all 0.2s ease-in-out;
+                    content: "";
+                    position: absolute;
+                    width: 0%;
+                    height: var(--pluto-border-width);
+                    bottom: -7px;
+                    left: 0%;
+                    border-bottom: var(--pluto-border);
+                    border-color: var(--pluto-primary-z);
+                    border-width: 2px;
+                }
+                &.active {
+                    color: var(--pluto-gray-l10);
+                    &:before {
+                        width: 50% !important;
+                    }
+                }
+            }
+
+            .pluto-text-link:hover {
+                text-decoration: none;
+                color: var(--pluto-gray-l10);
+                &:before {
+                    width: 50%;
+                }
+            }
+        }
+        .header-content {
+            width: 100%;
+            max-width: var(--max-width);
+            padding: 0 7rem;
+        }
     }
 </style>

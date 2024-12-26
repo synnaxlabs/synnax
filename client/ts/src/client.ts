@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { breaker } from "@synnaxlabs/x";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod";
@@ -49,6 +50,7 @@ export const synnaxPropsZ = z.object({
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   secure: z.boolean().optional().default(false),
   name: z.string().optional(),
+  retry: breaker.breakerConfig.optional(),
 });
 
 export type SynnaxProps = z.input<typeof synnaxPropsZ>;
@@ -80,6 +82,11 @@ export default class Synnax extends framer.Client {
   private readonly transport: Transport;
 
   /**
+   * The version of the client.
+   */
+  readonly clientVersion: string = __VERSION__;
+
+  /**
    * @param props.host - Hostname of a node in the cluster.
    * @param props.port - Port of the node in the cluster.
    * @param props.username - Username for authentication. Not required if the
@@ -96,15 +103,24 @@ export default class Synnax extends framer.Client {
    */
   constructor(props_: SynnaxProps) {
     const props = synnaxPropsZ.parse(props_);
-    const { host, port, username, password, connectivityPollFrequency, secure } = props;
-    const transport = new Transport(new URL({ host, port: Number(port) }), secure);
+    const {
+      host,
+      port,
+      username,
+      password,
+      connectivityPollFrequency,
+      secure,
+      retry: breaker,
+    } = props;
+    const transport = new Transport(
+      new URL({ host, port: Number(port) }),
+      breaker,
+      secure,
+    );
     transport.use(errorsMiddleware);
     let auth_: auth.Client | undefined;
     if (username != null && password != null) {
-      auth_ = new auth.Client(transport.unary, {
-        username,
-        password,
-      });
+      auth_ = new auth.Client(transport.unary, { username, password });
       transport.use(auth_.middleware());
     }
     const chRetriever = new channel.CacheRetriever(
@@ -120,6 +136,7 @@ export default class Synnax extends framer.Client {
     this.connectivity = new connection.Checker(
       transport.unary,
       connectivityPollFrequency,
+      this.clientVersion,
       props.name,
     );
     this.control = new control.Client(this);
@@ -138,7 +155,12 @@ export default class Synnax extends framer.Client {
     this.user = new user.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);
     const devices = new device.Client(this.transport.unary, this);
-    const tasks = new task.Client(this.transport.unary, this);
+    const tasks = new task.Client(
+      this.transport.unary,
+      this,
+      this.ontology,
+      this.ranges,
+    );
     const racks = new rack.Client(this.transport.unary, this, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
   }

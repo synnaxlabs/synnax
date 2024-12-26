@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Haul,
   Menu,
@@ -19,8 +19,8 @@ import {
   useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
-import { deep } from "@synnaxlabs/x";
-import { MutationFunction, useMutation } from "@tanstack/react-query";
+import { compare, deep } from "@synnaxlabs/x";
+import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
 import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
@@ -28,8 +28,8 @@ import { useStore } from "react-redux";
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import {
-  BaseProps,
-  HandleTreeRenameProps,
+  type BaseProps,
+  type HandleTreeRenameProps,
   type Services,
   type TreeContextMenuProps,
 } from "@/ontology/service";
@@ -183,6 +183,14 @@ const handleRelationshipsChange = async (
     setNodes([...nextTree]);
   });
 
+const sortFunc = (a: Core.Node, b: Core.Node) => {
+  const aIsGroup = a.key.startsWith(group.ONTOLOGY_TYPE);
+  const bIsGroup = b.key.startsWith(group.ONTOLOGY_TYPE);
+  if (aIsGroup && !bIsGroup) return -1;
+  if (!aIsGroup && bIsGroup) return 1;
+  return Core.defaultSort(a, b);
+};
+
 export const Tree = (): ReactElement => {
   const client = Synnax.use();
   const services = useServices();
@@ -290,6 +298,7 @@ export const Tree = (): ReactElement => {
     nodes,
     selected,
     onSelectedChange: setSelected,
+    sort: sortFunc,
   });
 
   const dropMutation = useMutation<
@@ -504,7 +513,7 @@ export const Tree = (): ReactElement => {
           setResources,
           expand: treeProps.expand,
           contract: treeProps.contract,
-          setLoading: setLoading,
+          setLoading,
         },
       };
 
@@ -530,7 +539,7 @@ export const Tree = (): ReactElement => {
 
   const item = useCallback(
     (props: Core.ItemProps): ReactElement => (
-      <AdapterItem {...props} key={props.entry.key} services={services} />
+      <AdapterItem {...props} key={props.entry.path} services={services} />
     ),
     [services],
   );
@@ -547,6 +556,7 @@ export const Tree = (): ReactElement => {
         onDoubleClick={handleDoubleClick}
         showRules
         loading={loading}
+        virtual={false}
         {...treeProps}
       >
         {item}
@@ -564,7 +574,7 @@ const AdapterItem = memo<AdapterItemProps>(
   ({ loading, services, ...props }): ReactElement => {
     const id = new ontology.ID(props.entry.key);
     const Item = useMemo(() => services[id.type]?.Item ?? Core.DefaultItem, [id.type]);
-    return <Item key={props.entry.key} loading={loading} {...props} />;
+    return <Item loading={loading} {...props} />;
   },
 );
 AdapterItem.displayName = "AdapterItem";

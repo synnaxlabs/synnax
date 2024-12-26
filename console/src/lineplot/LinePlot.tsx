@@ -11,10 +11,10 @@ import { type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
-  axis,
+  type axis,
   Channel,
   Color,
-  Legend,
+  type Legend,
   Menu as PMenu,
   Synnax,
   useAsyncEffect,
@@ -37,34 +37,37 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 
 import { Menu } from "@/components/menu";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
-  AxisKey,
+  type AxisKey,
   axisLocation,
-  MultiXAxisRecord,
+  type MultiXAxisRecord,
   X_AXIS_KEYS,
-  XAxisKey,
-  YAxisKey,
+  type XAxisKey,
+  type YAxisKey,
 } from "@/lineplot/axis";
 import { download } from "@/lineplot/download";
 import {
   select,
-  selectRanges,
   useSelect,
   useSelectAxisBounds,
   useSelectControlState,
+  useSelectRanges,
   useSelectSelection,
+  useSelectVersion,
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
-  AxesState,
+  type AxesState,
   type AxisState,
   internalCreate,
   type LineState,
+  selectRule,
+  setActiveToolbarTab,
   setAxis,
   setControlState,
   setLegend,
@@ -82,20 +85,25 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
-import { overviewLayout } from "@/range/external";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
   key?: string;
 }
 
-const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <PMenu.Menu level="small" iconSpacing="small">
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </PMenu.Menu>
+);
+
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const placer = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
-  const ranges = selectRanges(layoutKey);
+  const ranges = useSelectRanges(layoutKey);
   const client = Synnax.use();
   const dispatch = useDispatch();
   const syncDispatch = Workspace.useSyncComponent<SyncPayload>(
@@ -153,17 +161,16 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const handleRuleChange = useCallback<
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
-    (rule) =>
+    (rule) => {
+      if (rule.color != null) rule.color = Color.toHex(rule.color);
       syncDispatch(
         setRule({
           key: layoutKey,
-          rule: {
-            ...rule,
-            axis: rule.axis as XAxisKey,
-            color: Color.toHex(rule.color),
-          },
+          // @ts-expect-error rule.color was reassigned to be a string or undefined
+          rule,
         }),
-      ),
+      );
+    },
     [syncDispatch, layoutKey],
   );
 
@@ -229,7 +236,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             mode: "add",
           }),
         );
-      if (propsLines.length === 0 && rng != null) {
+      if (propsLines.length === 0 && rng != null)
         syncDispatch(
           setRanges({
             mode: "add",
@@ -238,7 +245,6 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             ranges: [rng.key],
           }),
         );
-      }
     },
     [syncDispatch, layoutKey, propsLines.length, rng],
   );
@@ -277,20 +283,21 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
-  const initialViewport = useMemo(() => {
-    return box.reRoot(
-      box.construct(vis.viewport.pan, vis.viewport.zoom),
-      location.BOTTOM_LEFT,
-    );
-  }, [vis.viewport.renderTrigger]);
-
-  const handleDoubleClick = useCallback(
+  const initialViewport = useMemo(
     () =>
-      dispatch(
-        Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
+      box.reRoot(
+        box.construct(vis.viewport.pan, vis.viewport.zoom),
+        location.BOTTOM_LEFT,
       ),
-    [windowKey, dispatch],
+    [vis.viewport.renderTrigger],
   );
+
+  const handleDoubleClick = useCallback(() => {
+    dispatch(
+      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
+    );
+    dispatch(setActiveToolbarTab({ tab: "data" }));
+  }, [windowKey, dispatch]);
 
   const props = PMenu.useContextMenu();
 
@@ -301,7 +308,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
-    const s = scale.Scale.scale(1).scale(bounds);
+    const s = scale.Scale.scale<number>(1).scale(bounds);
     const placer = Layout.usePlacer();
 
     const timeRange = new TimeRange(
@@ -328,7 +335,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           break;
         case "range":
           placer(
-            Range.createEditLayout({
+            Range.createLayout({
               initial: {
                 timeRange: {
                   start: Number(timeRange.start.valueOf()),
@@ -340,7 +347,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           break;
         case "download":
           if (client == null) return;
-          download({ timeRange, lines, client });
+          download({ timeRange, lines, client, name: `${name}-data` });
           break;
       }
     };
@@ -350,19 +357,21 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
-              Copy time range as ISO
+              Copy ISO Time Range
             </PMenu.Item>
             <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
-              Copy time range as Python
+              Copy Python Time Range
             </PMenu.Item>
             <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
-              Copy time range as TypeScript
+              Copy TypeScript Time Range
             </PMenu.Item>
+            <PMenu.Divider />
             <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
-              Create new range from selection
+              Create Range from Selection
             </PMenu.Item>
+            <PMenu.Divider />
             <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download data as CSV
+              Download as CSV
             </PMenu.Item>
           </>
         )}
@@ -370,7 +379,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       </PMenu.Menu>
     );
   };
-
+  const addRangeToNewPlot = Range.useAddToNewPlot();
   return (
     <PMenu.ContextMenu
       {...props}
@@ -385,6 +394,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           rules={vis.rules}
           clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={handleTitleChange}
+          visible={visible}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
           showLegend={vis.legend.visible}
@@ -398,8 +408,10 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}
+          legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
+          onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
           annotationProvider={{
             menu: ({ key, timeRange, name }) => {
@@ -410,13 +422,15 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
                     download({ client, lines, timeRange, name });
                     break;
                   case "meta-data":
-                    placer({ ...overviewLayout, name, key });
+                    placer({ ...Range.overviewLayout, name, key });
+                    break;
+                  case "line-plot":
+                    addRangeToNewPlot(key);
                     break;
                   default:
                     break;
                 }
               };
-
               return (
                 <PMenu.Menu level="small" key={key} onChange={handleSelect}>
                   <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
@@ -441,9 +455,12 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
 const buildAxes = (vis: State): Channel.AxisProps[] =>
   getEntries<AxesState["axes"]>(vis.axes.axes)
     .filter(([key]) => shouldDisplayAxis(key, vis))
-    .map(([key, axis]): Channel.AxisProps => {
-      return { location: axisLocation(key as AxisKey), ...axis };
-    });
+    .map(
+      ([key, axis]): Channel.AxisProps => ({
+        location: axisLocation(key as AxisKey),
+        ...axis,
+      }),
+    );
 
 const buildLines = (
   vis: State,
@@ -495,17 +512,9 @@ export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
-    const key = initial.key ?? uuidv4();
+    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
-    return {
-      key,
-      name,
-      location,
-      type: LAYOUT_TYPE,
-      icon: "Visualize",
-      window,
-      tab,
-    };
+    return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
   };
 
 export const LinePlot: Layout.Renderer = ({
@@ -516,7 +525,7 @@ export const LinePlot: Layout.Renderer = ({
     name: "Line Plot",
     targetVersion: ZERO_STATE.version,
     layoutKey,
-    useSelect: useSelect,
+    useSelectVersion,
     fetcher: async (client, layoutKey) => {
       const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
       return data as unknown as State;

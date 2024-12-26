@@ -133,7 +133,13 @@ func (i *Iterator) Next() bool {
 		return false
 	}
 	i.position++
-	return i.reload()
+	ok := i.reload()
+	// If we've reached the end of the iterator, back up the position so that we
+	// remain at the location of the last domain.
+	if !ok {
+		i.position--
+	}
+	return ok
 }
 
 // Prev advances the iterator to the previous domain. If the iterator has been exhausted,
@@ -141,6 +147,11 @@ func (i *Iterator) Next() bool {
 func (i *Iterator) Prev() bool {
 	if !i.valid {
 		return false
+	}
+	// Check if the position is zero to avoid uint32 underflow.
+	if i.position == 0 {
+		i.valid = false
+		return i.valid
 	}
 	i.position--
 	return i.reload()

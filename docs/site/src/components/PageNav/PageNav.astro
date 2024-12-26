@@ -9,6 +9,8 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
 <style is:global>
     .page-nav {
         width: 235px;
+        overflow: hidden;
+        height: 100%;
 
         .pluto-tabs-selector {
             position: sticky;
@@ -16,7 +18,8 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             background: var(--pluto-gray-l0);
             margin-bottom: 3rem;
             & * {
-                font-weight: 450 !important;
+                font-size: var(--pluto-small-size) !important;
+                font-weight: 400 !important;
             }
             & .pluto-tabs-selector__btn {
                 flex-grow: 1;
@@ -25,8 +28,8 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
     }
 
     .pluto-tree {
-        max-height: calc(100vh - 32rem);
-        overflow-y: auto;
+        max-height: calc(100vh - 25rem) !important;
+        overflow-y: auto !important;
         .pluto-text {
             color: var(--pluto-gray-l7);
             font-size: var(--pluto-small-size);
@@ -49,7 +52,7 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             width: unset !important;
 
             &:not(.pluto--has-children) {
-                padding-left: 4rem !important;
+                padding-left: 4.25rem !important;
             }
 
             &:hover:not(.pluto--selected) {
@@ -73,7 +76,7 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             }
 
             &:not(.pluto--has-children):not(.pluto--selected) {
-                box-shadow: inset 1px 0 0 0 var(--pluto-border-color);
+                box-shadow: inset 1px 0 0 0 var(--pluto-gray-l2);
             }
         }
 
@@ -81,7 +84,7 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             fill: var(--pluto-gray-l5) !important;
         }
     }
-    @media (max-width: 800px) {
+    @media (max-width: 880px) {
         .page-nav {
             z-index: 100;
             width: 100%;
@@ -104,18 +107,6 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
                     font-size: 2.5rem;
                 }
             }
-        }
-        .pluto-dropdown__dialog {
-            background: var(--pluto-gray-l0-70) !important;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: var(--pluto-border);
-            width: 100%;
-            height: 360px;
-            transform: translateY(1rem);
-            border-radius: 0 !important;
-            border-left: none;
-            border-right: none;
         }
         .pluto-tabs-selector__tabs {
             justify-content: center !important;

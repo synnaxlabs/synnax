@@ -29,6 +29,11 @@ export const consoleNav: PageNavNode = {
       name: "UI Overview",
     },
     {
+      key: "/reference/console/channels",
+      href: "/reference/console/channels",
+      name: "Channels",
+    },
+    {
       key: "/reference/console/workspaces",
       href: "/reference/console/workspaces",
       name: "Workspaces",
@@ -47,6 +52,21 @@ export const consoleNav: PageNavNode = {
       key: "/reference/console/schematics",
       href: "/reference/console/schematics",
       name: "Schematics",
+    },
+    {
+      key: "/reference/console/logs",
+      href: "/reference/console/logs",
+      name: "Logs",
+    },
+    {
+      key: "/reference/console/tables",
+      href: "/reference/console/tables",
+      name: "Tables",
+    },
+    {
+      key: "/reference/console/users",
+      href: "/reference/console/users",
+      name: "Users",
     },
   ],
 };

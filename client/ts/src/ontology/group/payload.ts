@@ -10,6 +10,8 @@
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Name = string;
@@ -17,10 +19,7 @@ export type Keys = Key[];
 export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
 
-export const groupZ = z.object({
-  key: keyZ,
-  name: z.string(),
-});
+export const groupZ = z.object({ key: keyZ, name: z.string() });
 
 export type Payload = z.infer<typeof groupZ>;
 
@@ -50,16 +49,19 @@ export type ParamAnalysisResult =
       actual: Names;
     };
 
-export const analyzeParams = (params: Params): ParamAnalysisResult => {
-  const normal = toArray(params) as Keys | Names;
-  if (normal.length === 0) {
-    throw new Error("No groups specified");
-  }
+export const analyzeParams = (groups: Params): ParamAnalysisResult => {
+  const normal = toArray(groups) as Keys | Names;
+  if (normal.length === 0) throw new Error("No groups specified");
   const isKey = keyZ.safeParse(normal[0]).success;
   return {
-    single: !Array.isArray(params),
+    single: !Array.isArray(groups),
     variant: isKey ? "keys" : "names",
     normalized: normal,
-    actual: params,
+    actual: groups,
   } as const as ParamAnalysisResult;
 };
+
+export const ONTOLOGY_TYPE: ontology.ResourceType = "group";
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

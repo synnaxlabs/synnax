@@ -12,15 +12,26 @@
 .pluto-notification {
     padding: 0.75rem;
     background: var(--pluto-gray-l3-70);
+    -webkit-backdrop-filter: blur(5rem);
     backdrop-filter: blur(5rem);
-    -webkit-backdrop-filter: saturate(300%) blur(4rem);
     width: 275px;
     box-shadow: var(--pluto-shadow-menu);
     border: var(--pluto-border-l4);
     border-radius: 1rem;
-    z-index: 10;
+    z-index: 20;
+    .pluto-notification__silence {
+        opacity: 0;
+    }
+    &:hover {
+        .pluto-notification__silence {
+            opacity: 1;
+        }
+    }
     .pluto-notification__content {
-        padding: 1rem;
+        padding-top: 0;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-bottom: 1rem;
     }
     .pluto-notification__message {
         font-weight: 450;

@@ -10,14 +10,13 @@
 import "@/notifications/Notifications.css";
 
 import { Status } from "@synnaxlabs/pluto";
-import { Button } from "@synnaxlabs/pluto/button";
+import { type Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
-import { notificationAdapter } from "@/hardware/device/useListenForChanges";
-import { notificationAdapter as versionAdapter } from "@/version/Updater";
 
 interface NotificationsProps {
   adapters?: NotificationAdapter[];
@@ -30,24 +29,24 @@ export interface SugaredNotification extends Status.NotificationSpec {
 
 export type NotificationAdapter = (
   status: Status.NotificationSpec,
+  silence: (key: string) => void,
 ) => null | SugaredNotification;
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
 
 export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
-  adapters = [notificationAdapter, versionAdapter];
   const { statuses, silence } = Status.useNotifications({
     expiration: DEFAULT_EXPIRATION,
   });
   const sugared = statuses.map((status) => {
     if (adapters == null || adapters.length === 0) return status;
     for (const adapter of adapters) {
-      const result = adapter(status);
+      const result = adapter(status, silence);
       if (result != null) return result;
     }
     return status;
   });
-  return (
+  return createPortal(
     <List.List<string, Status.NotificationSpec | SugaredNotification> data={sugared}>
       <List.Core<string, SugaredNotification>
         className={CSS(CSS.B("notifications"))}
@@ -64,6 +63,7 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
           </Status.Notification>
         )}
       </List.Core>
-    </List.List>
+    </List.List>,
+    document.getElementById("root") as HTMLElement,
   );
 };

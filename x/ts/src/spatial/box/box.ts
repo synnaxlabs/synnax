@@ -17,13 +17,13 @@ import * as xy from "@/spatial/xy/xy";
 
 const cssPos = z.union([z.number(), z.string()]);
 
-const cssBox = z.object({
+export const cssBox = z.object({
   top: cssPos,
   left: cssPos,
   width: cssPos,
   height: cssPos,
 });
-const domRect = z.object({
+export const domRect = z.object({
   left: z.number(),
   top: z.number(),
   right: z.number(),
@@ -60,7 +60,7 @@ export const copy = (b: Box, root?: location.CornerXY): Box => ({
  * Box represents a general box in 2D space. It typically represents a bounding box
  * for a DOM element, but can also represent a box in clip space or decimal space.
  *
- * It'simportant to note that the behavior of a Box varies depending on its coordinate
+ * It's important to note that the behavior of a Box varies depending on its coordinate
  * system.Make sure you're aware of which coordinate system you're using.
  *
  * Many of the properties and methods on a Box access the same semantic value. The
@@ -157,7 +157,11 @@ export const resize: Resize = (
  * @param inclusive - Whether the edges of the box are inclusive or exclusive.
  * @returns true if the box inclusively contains the point or box and false otherwise.
  */
-export const contains = (container: Crude, value: Box | xy.XY, inclusive: boolean = true): boolean => {
+export const contains = (
+  container: Crude,
+  value: Box | xy.XY,
+  inclusive: boolean = true,
+): boolean => {
   const b_ = construct(container);
   let comp = (a: number, b: number) => a < b;
   if (inclusive) comp = (a: number, b: number) => a <= b;
@@ -245,9 +249,8 @@ export const loc = (b: Crude, loc: location.Location): number => {
 };
 
 /** @returns true if the area of the box is 0 and false otherwise. */
-export const areaIsZero = (b: Box): boolean => {
-  return b.one.x === b.two.x && b.one.y === b.two.y;
-};
+export const areaIsZero = (b: Box): boolean =>
+  b.one.x === b.two.x && b.one.y === b.two.y;
 
 /** @returns the width of the box. */
 export const width = (b: Crude): number => dim(b, "x");
@@ -352,7 +355,7 @@ export const edgePoints = (b: Crude, loc: location.Location): [xy.XY, xy.XY] => 
  *
  * @param target The box to reposition - Only works if the root is topLeft
  * @param bound The box to reposition within - Only works if the root is topLeft
- * @returns the repsoitioned box
+ * @returns the repositioned box
  */
 export const positionInCenter = (target_: Crude, bound_: Crude): Box => {
   const target = construct(target_);
@@ -455,7 +458,7 @@ export const constructWithAlternateRoot = (
 ): Box => {
   const first = { x, y };
   const second = { x: x + width, y: y + height };
-  if (currRoot.x !== newRoot.x) {
+  if (currRoot.x !== newRoot.x)
     if (currRoot.x === "center") {
       first.x -= width / 2;
       second.x -= width / 2;
@@ -463,8 +466,7 @@ export const constructWithAlternateRoot = (
       first.x -= width;
       second.x -= width;
     }
-  }
-  if (currRoot.y !== newRoot.y) {
+  if (currRoot.y !== newRoot.y)
     if (currRoot.y === "center") {
       first.y -= height / 2;
       second.y -= height / 2;
@@ -472,6 +474,5 @@ export const constructWithAlternateRoot = (
       first.y -= height;
       second.y -= height;
     }
-  }
   return construct(first, second, undefined, undefined, newRoot);
 };

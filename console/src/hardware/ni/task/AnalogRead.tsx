@@ -7,67 +7,79 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, QueryError } from "@synnaxlabs/client";
+import { NotFoundError, QueryError, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
+import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { binary, deep, id, type migrate, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { Properties } from "@/hardware/ni/device/types";
-import { SelectDevice } from "@/hardware/ni/task/common";
+import { type Properties } from "@/hardware/ni/device/types";
+import {
+  ANALOG_INPUT_FORMS,
+  SelectChannelTypeField,
+} from "@/hardware/ni/task/ChannelForms";
+import { CopyButtons } from "@/hardware/ni/task/common";
+import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   AI_CHANNEL_TYPE_NAMES,
-  AIChan,
-  AIChanType,
+  type AIChan,
+  type AIChanType,
   ANALOG_READ_TYPE,
-  AnalogRead as AnalogRead,
-  AnalogReadPayload as AnalogReadPayload,
-  AnalogReadStateDetails as AnalogReadStateDetails,
-  AnalogReadTaskConfig as AnalogReadConfig,
+  type AnalogRead,
+  type AnalogReadPayload,
+  type AnalogReadStateDetails,
+  type AnalogReadTaskConfig as AnalogReadConfig,
   analogReadTaskConfigZ,
-  AnalogReadType,
+  type AnalogReadType,
   type Chan,
+  migrateAnalogReadTask,
   ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
-} from "@/hardware/ni/task/types";
+} from "@/hardware/ni/task/migrations";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
   ChannelListHeader,
   Controls,
   EnableDisableButton,
+  ParentRangeButton,
+  TareButton,
   useCreate,
   useObserveState,
-  WrappedTaskLayoutProps,
+  type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { Layout } from "@/layout";
+import {
+  checkDesiredStateMatch,
+  useDesiredState,
+} from "@/hardware/task/common/useDesiredState";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { type Layout } from "@/layout";
 
-import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
-
-export const configureAnalogReadLayout = (create: boolean = false): Layout.State => ({
-  name: "Configure NI Analog Read Task",
-  key: id.id(),
-  type: ANALOG_READ_TYPE,
-  windowKey: ANALOG_READ_TYPE,
-  location: "mosaic",
-  args: { create },
-});
+export const createAnalogReadLayout = createLayoutCreator<AnalogReadPayload>(
+  ANALOG_READ_TYPE,
+  "New NI Analog Read Task",
+);
 
 export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   key: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({ ...configureAnalogReadLayout(true), key: layoutKey }),
+  create: (layoutKey) => ({
+    ...createAnalogReadLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
+
+const schema = z.object({ name: z.string(), config: analogReadTaskConfigZ });
 
 const Wrapped = ({
   task,
@@ -75,13 +87,7 @@ const Wrapped = ({
   layoutKey,
 }: WrappedTaskLayoutProps<AnalogRead, AnalogReadPayload>): ReactElement => {
   const client = Synnax.use();
-  const methods = Form.use({
-    values: initialValues,
-    schema: z.object({
-      name: z.string(),
-      config: analogReadTaskConfigZ,
-    }),
-  });
+  const methods = Form.use({ values: initialValues, schema });
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>(
     initialValues.config.channels.length ? [initialValues.config.channels[0].key] : [],
@@ -96,6 +102,10 @@ const Wrapped = ({
     task?.key,
     task?.state,
   );
+  const running = taskState?.details?.running;
+  const initialState =
+    running === true ? "running" : running === false ? "paused" : undefined;
+  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
 
   const createTask = useCreate<
     AnalogReadConfig,
@@ -115,77 +125,82 @@ const Wrapped = ({
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
+      const devices = unique(config.channels.map((c) => c.device));
 
-      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
-      dev.properties = enrich(dev.model, dev.properties);
+      for (const devKey of devices) {
+        const dev = await client.hardware.devices.retrieve<Properties>(devKey);
+        dev.properties = enrich(dev.model, dev.properties);
 
-      let modified = false;
-      let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
-      if (!shouldCreateIndex) {
-        try {
-          await client.channels.retrieve(dev.properties.analogInput.index);
-        } catch (e) {
-          if (NotFoundError.matches(e)) shouldCreateIndex = true;
-          else throw e;
-        }
-      }
-
-      if (shouldCreateIndex) {
-        modified = true;
-        const aiIndex = await client.channels.create({
-          name: `${dev.properties.identifier}_ai_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        dev.properties.analogInput.index = aiIndex.key;
-        dev.properties.analogInput.channels = {};
-      }
-
-      const toCreate: AIChan[] = [];
-      for (const channel of config.channels) {
-        // check if the channel is in properties
-        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-        if (primitiveIsZero(exKey)) toCreate.push(channel);
-        else {
+        let modified = false;
+        let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
+        if (!shouldCreateIndex)
           try {
-            await client.channels.retrieve(exKey.toString());
+            await client.channels.retrieve(dev.properties.analogInput.index);
           } catch (e) {
-            if (QueryError.matches(e)) toCreate.push(channel);
+            if (NotFoundError.matches(e)) shouldCreateIndex = true;
             else throw e;
           }
+
+        if (shouldCreateIndex) {
+          modified = true;
+          const aiIndex = await client.channels.create({
+            name: `${dev.properties.identifier}_ai_time`,
+            dataType: "timestamp",
+            isIndex: true,
+          });
+          dev.properties.analogInput.index = aiIndex.key;
+          dev.properties.analogInput.channels = {};
         }
-      }
 
-      if (toCreate.length > 0) {
-        modified = true;
-        const channels = await client.channels.create(
-          toCreate.map((c) => ({
-            name: `${dev.properties.identifier}_ai_${c.port}`,
-            dataType: "float32", // TODO: also support float64 
-            index: dev.properties.analogInput.index,
-          })),
-        );
-        channels.forEach((c, i) => {
-          dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key;
+        const toCreate: AIChan[] = [];
+        for (const channel of config.channels) {
+          if (channel.device !== dev.key) continue;
+          // check if the channel is in properties
+          const exKey = dev.properties.analogInput.channels[channel.port.toString()];
+          if (primitiveIsZero(exKey)) toCreate.push(channel);
+          else
+            try {
+              await client.channels.retrieve(exKey.toString());
+            } catch (e) {
+              if (QueryError.matches(e)) toCreate.push(channel);
+              else throw e;
+            }
+        }
+
+        if (toCreate.length > 0) {
+          modified = true;
+          const channels = await client.channels.create(
+            toCreate.map((c) => ({
+              name: `${dev.properties.identifier}_ai_${c.port}`,
+              dataType: "float32", // TODO: also support float64
+              index: dev.properties.analogInput.index,
+            })),
+          );
+          channels.forEach(
+            (c, i) =>
+              (dev.properties.analogInput.channels[toCreate[i].port.toString()] =
+                c.key),
+          );
+        }
+
+        if (modified)
+          await client.hardware.devices.create({
+            ...dev,
+            properties: dev.properties,
+          });
+
+        config.channels.forEach((c) => {
+          if (c.device !== dev.key) return;
+          c.channel = dev.properties.analogInput.channels[c.port.toString()];
         });
       }
-
-      if (modified)
-        await client.hardware.devices.create({
-          ...dev,
-          properties: dev.properties,
-        });
-
-      config.channels.forEach((c) => {
-        c.channel = dev.properties.analogInput.channels[c.port.toString()];
-      });
-      if (dev == null) return;
       await createTask({
         key: task?.key,
         name,
         type: ANALOG_READ_TYPE,
         config,
       });
+      setDesiredState("paused");
     },
   });
 
@@ -193,28 +208,55 @@ const Wrapped = ({
     mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (client == null) return;
-      await task?.executeCommand(
-        taskState?.details?.running === true ? "stop" : "start",
-      );
+      const isRunning = running === true;
+      setDesiredState(isRunning ? "paused" : "running");
+      await task?.executeCommand(isRunning ? "stop" : "start");
     },
   });
+
+  const handleTare = useMutation({
+    mutationKey: [client?.key],
+    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    mutationFn: async (keys: number[]) => {
+      if (client == null) return;
+      await task?.executeCommand("tare", { keys });
+    },
+  }).mutate;
 
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space grow>
-        <Form.Form {...methods}>
-          <Form.Field<string> path="name">
-            {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-          </Form.Field>
+        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
+          <Align.Space direction="x" justify="spaceBetween">
+            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
+              {(p) => (
+                <Input.Text
+                  variant={task?.snapshot ? "preview" : "natural"}
+                  level="h1"
+                  {...p}
+                />
+              )}
+            </Form.Field>
+            <CopyButtons
+              importClass="AnalogReadTask"
+              taskKey={task?.key}
+              getName={() => methods.get<string>("name").value}
+              getConfig={() => methods.get("config").value}
+            />
+          </Align.Space>
+          <ParentRangeButton taskKey={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <SelectDevice />
             <Align.Space direction="x">
-              <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
-              <Form.Field<number> label="Stream Rate" path="config.streamRate">
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
+              <Form.NumericField
+                label="Sample Rate"
+                path="config.sampleRate"
+                inputProps={{ endContent: "Hz" }}
+              />
+              <Form.NumericField
+                label="Stream Rate"
+                path="config.streamRate"
+                inputProps={{ endContent: "Hz" }}
+              />
               <Form.SwitchField path="config.dataSaving" label="Data Saving" />
             </Align.Space>
           </Align.Space>
@@ -227,6 +269,7 @@ const Wrapped = ({
             empty
           >
             <ChannelList
+              snapshot={task?.snapshot}
               path="config.channels"
               selected={selectedChannels}
               onSelect={useCallback(
@@ -236,28 +279,70 @@ const Wrapped = ({
                 },
                 [setSelectedChannels, setSelectedChannelIndex],
               )}
+              onTare={handleTare}
+              state={taskState}
             />
-            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h4">
-                <Header.Title weight={500} wrap={false}>
-                  Details
-                </Header.Title>
-              </Header.Header>
-              <Align.Space className={CSS.B("details")}>
-                {selectedChannelIndex != null && (
-                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
-                )}
-              </Align.Space>
-            </Align.Space>
+            <ChannelDetails selectedChannelIndex={selectedChannelIndex} />
           </Align.Space>
         </Form.Form>
         <Controls
+          layoutKey={layoutKey}
           state={taskState}
-          startingOrStopping={startOrStop.isPending}
+          startingOrStopping={
+            startOrStop.isPending ||
+            (!checkDesiredStateMatch(desiredState, running) &&
+              taskState?.variant === "success")
+          }
           configuring={configure.isPending}
           onStartStop={startOrStop.mutate}
           onConfigure={configure.mutate}
+          snapshot={task?.snapshot}
         />
+      </Align.Space>
+    </Align.Space>
+  );
+};
+
+interface ChannelDetailsProps {
+  selectedChannelIndex?: number | null;
+}
+
+const ChannelDetails = ({
+  selectedChannelIndex,
+}: ChannelDetailsProps): ReactElement => {
+  const ctx = Form.useContext();
+  const copy = useCopyToClipboard();
+  const handleCopyChannelDetails = () => {
+    if (selectedChannelIndex == null) return;
+    copy(
+      binary.JSON_CODEC.encodeString(
+        ctx.get(`config.channels.${selectedChannelIndex}`).value,
+      ),
+      "Channel details",
+    );
+  };
+
+  return (
+    <Align.Space className={CSS.B("channel-form")} direction="y" grow>
+      <Header.Header level="h4">
+        <Header.Title weight={500} wrap={false}>
+          Details
+        </Header.Title>
+        <Header.Actions>
+          <Button.Icon
+            tooltip="Copy channel details as JSON"
+            tooltipLocation="left"
+            variant="text"
+            onClick={handleCopyChannelDetails}
+          >
+            <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
+          </Button.Icon>
+        </Header.Actions>
+      </Header.Header>
+      <Align.Space className={CSS.B("details")}>
+        {selectedChannelIndex != null && (
+          <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+        )}
       </Align.Space>
     </Align.Space>
   );
@@ -273,7 +358,6 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   if (type == null) return <></>;
   const TypeForm = ANALOG_INPUT_FORMS[type];
   if (selectedChannelIndex == -1) return <></>;
-
   return (
     <>
       <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
@@ -288,6 +372,9 @@ interface ChannelListProps {
   path: string;
   onSelect: (keys: string[], index: number) => void;
   selected: string[];
+  snapshot?: boolean;
+  onTare: (keys: number[]) => void;
+  state?: task.State<{ running?: boolean; message?: string }>;
 }
 
 const availablePortFinder = (channels: Chan[]): (() => number) => {
@@ -300,12 +387,19 @@ const availablePortFinder = (channels: Chan[]): (() => number) => {
   };
 };
 
-const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
+const ChannelList = ({
+  path,
+  snapshot,
+  selected,
+  onSelect,
+  state,
+  onTare,
+}: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<Chan>({ path });
   const handleAdd = (): void => {
     const key = id.id();
     push({
-      ...deep.copy(ZERO_AI_CHANNELS["ai_voltage"]),
+      ...deep.copy(ZERO_AI_CHANNELS.ai_voltage),
       port: availablePortFinder(value)(),
       key,
     });
@@ -314,7 +408,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} />
+      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
           <ChannelListContextMenu
@@ -323,6 +417,9 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
             value={value}
             remove={remove}
             onSelect={onSelect}
+            snapshot={snapshot}
+            onTare={onTare}
+            allowTare={state?.details?.running === true}
             onDuplicate={(indices) => {
               const pf = availablePortFinder(value);
               push(
@@ -340,19 +437,30 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       >
         <List.List<string, Chan>
           data={value}
-          emptyContent={<ChannelListEmptyContent onAdd={handleAdd} />}
+          emptyContent={
+            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+          }
         >
           <List.Selector<string, Chan>
             value={selected}
             allowNone={false}
-            allowMultiple={true}
+            allowMultiple
             onChange={(keys, { clickedIndex }) =>
               clickedIndex != null && onSelect(keys, clickedIndex)
             }
             replaceOnSingle
           >
             <List.Core<string, Chan> grow>
-              {(props) => <ChannelListItem {...props} path={path} />}
+              {({ key: i, ...props }) => (
+                <ChannelListItem
+                  {...props}
+                  key={i}
+                  path={path}
+                  snapshot={snapshot}
+                  state={state}
+                  onTare={(key) => onTare([key])}
+                />
+              )}
             </List.Core>
           </List.Selector>
         </List.List>
@@ -363,15 +471,30 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 
 const ChannelListItem = ({
   path: basePath,
+  snapshot = false,
+  onTare,
+  state,
   ...props
 }: List.ItemProps<string, Chan> & {
   path: string;
+  snapshot?: boolean;
+  onTare?: (channelKey: number) => void;
+  state?: task.State<{ running?: boolean; message?: string }>;
 }): ReactElement => {
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
-  const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
-  if (childValues == null) return <></>;
   const portValid = Form.useFieldValid(`${path}.port`);
+
+  // TODO: fix bug so I can refactor this to original code
+  const channels = Form.useChildFieldValues<AIChan[]>({ path: basePath });
+  if (channels == null || props?.index == null) return <></>;
+  const childValues = channels[props.index];
+  // const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
+
+  if (childValues == null) return <></>;
+  const showTareButton = childValues.channel != null && onTare != null;
+  const tareIsDisabled =
+    !childValues.enabled || snapshot || state?.details?.running !== true;
   return (
     <List.ItemFrame
       {...props}
@@ -395,12 +518,25 @@ const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <EnableDisableButton
-        value={childValues.enabled}
-        onChange={(v) => ctx.set(`${path}.enabled`, v)}
-      />
+      <Align.Pack direction="x" align="center" size="small">
+        {showTareButton && (
+          <TareButton
+            disabled={tareIsDisabled}
+            onClick={() => onTare(childValues.channel as number)}
+          />
+        )}
+        <EnableDisableButton
+          value={childValues.enabled}
+          onChange={(v) => ctx.set(`${path}.enabled`, v)}
+          snapshot={snapshot}
+        />
+      </Align.Pack>
     </List.ItemFrame>
   );
 };
 
-export const ConfigureAnalogRead = wrapTaskLayout(Wrapped, ZERO_ANALOG_READ_PAYLOAD);
+export const ConfigureAnalogRead = wrapTaskLayout(
+  Wrapped,
+  ZERO_ANALOG_READ_PAYLOAD,
+  migrateAnalogReadTask as migrate.Migrator,
+);

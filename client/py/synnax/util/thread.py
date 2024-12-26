@@ -35,22 +35,23 @@ def _cancel_all_tasks(loop):
 
 
 class AsyncThread(Thread):
+    loop: events.AbstractEventLoop
+
     def __init__(self):
         super().__init__()
 
     def run(self):
-        loop = events.new_event_loop()
+        self.loop = events.new_event_loop()
         try:
-            events.set_event_loop(loop)
-            loop.run_until_complete(self.run_async())
+            events.set_event_loop(self.loop)
+            self.loop.run_until_complete(self.run_async())
         finally:
             try:
-                _cancel_all_tasks(loop)
-                loop.run_until_complete(loop.shutdown_asyncgens())
-                loop.run_until_complete(loop.shutdown_default_executor())
+                _cancel_all_tasks(self.loop)
+                self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+                self.loop.run_until_complete(self.loop.shutdown_default_executor())
             finally:
                 events.set_event_loop(None)
-                loop.close()
+                self.loop.close()
 
-    async def run_async(self):
-        ...
+    async def run_async(self): ...

@@ -12,7 +12,7 @@ from typing import Any, Generic, Literal, Type, MutableMapping
 from warnings import warn
 
 from pydantic import BaseModel
-from websockets.client import WebSocketClientProtocol, connect
+from websockets.asyncio.client import ClientProtocol as AsyncClientProtocol, connect
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from websockets.sync.client import (
     ClientConnection as SyncClientProtocol,
@@ -28,7 +28,7 @@ from freighter.url import URL
 
 
 class _Message(Generic[P], BaseModel):
-    type: Literal["data", "close"]
+    type: Literal["data", "close", "open"]
     payload: P | None
     error: ExceptionPayload | None
 
@@ -44,7 +44,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
     """An implementation of AsyncStream that is backed by a websocket."""
 
     __encoder: Codec
-    __internal: WebSocketClientProtocol
+    __internal: AsyncClientProtocol
     __server_closed: Exception | None
     __send_closed: bool
     __res_msg_t: Type[_Message[RS]]
@@ -52,7 +52,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
     def __init__(
         self,
         encoder: Codec,
-        ws: WebSocketClientProtocol,
+        ws: AsyncClientProtocol,
         res_t: Type[RS],
     ):
         self.__encoder = encoder
@@ -103,6 +103,13 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         except ConnectionClosedOK:
             return EOF()
         return None
+
+    async def receive_open_ack(self) -> Exception | None:
+        msg = await self.__internal.recv()
+        msg = self.__encoder.decode(msg, _Message[None])
+        if msg.type == "open":
+            return None
+        return decode_exception(msg.error)
 
     async def close_send(self) -> Exception | None:
         """Implements the AsyncStream protocol."""
@@ -163,6 +170,13 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             return None, self.__server_closed
 
         return msg.payload, None
+
+    def receive_open_ack(self) -> Exception | None:
+        msg = self.__internal.recv()
+        msg = self.__encoder.decode(msg, _Message[None])
+        if msg.type == "open":
+            return None
+        return decode_exception(msg.error)
 
     def send(self, payload: RQ) -> Exception | None:
         if self.__server_closed is not None:
@@ -261,14 +275,15 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
             try:
                 ws = await connect(
                     self._endpoint.child(target).stringify(),
-                    extra_headers=self.additional_headers(ctx.params),
+                    additional_headers=self.additional_headers(ctx.params),
                     max_size=self._max_message_size,
                     **self._kwargs,
                 )
                 socket = AsyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
+                e = await socket.receive_open_ack()
+                return out_ctx, e
             except Exception as e:
                 return out_ctx, e
-            return out_ctx, None
 
         _, exc = await self.exec(Context(target, "websocket", "client"), finalizer)
         if exc is not None:
@@ -305,9 +320,10 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
                     **self._kwargs,
                 )
                 socket = SyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
+                e = socket.receive_open_ack()
+                return out_ctx, e
             except Exception as e:
                 return out_ctx, e
-            return out_ctx, None
 
         _, exc = self.exec(Context(target, "websocket", "client"), finalizer)
         if exc is not None:

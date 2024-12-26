@@ -34,7 +34,7 @@ import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 import { findParent } from "@/util/findParent";
 import { getRootElement } from "@/util/rootElement";
 
@@ -159,9 +159,8 @@ export const Dialog = ({
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
-  useClickOutside({
-    ref: dialogRef,
-    exclude: (e) => {
+  const exclude = useCallback(
+    (e: { target: EventTarget | null }) => {
       if (targetRef.current?.contains(e.target as Node)) return true;
       // If the target has a parent with the role of dialog, don't close the dialog.
       const parent = findParent(e.target as HTMLElement, (el) => {
@@ -172,8 +171,10 @@ export const Dialog = ({
       });
       return parent != null;
     },
-    onClickOutside: close,
-  });
+    [zIndex],
+  );
+
+  useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
 
   let child: ReactElement = (
     <Align.Space
@@ -194,7 +195,7 @@ export const Dialog = ({
     </Align.Space>
   );
   if (variant === "floating") child = createPortal(child, getRootElement());
-  else if (variant === "modal") {
+  else if (variant === "modal")
     child = createPortal(
       <Align.Space
         className={CSS(CSS.BE("dropdown", "bg"), CSS.visible(visible))}
@@ -208,7 +209,6 @@ export const Dialog = ({
       </Align.Space>,
       getRootElement(),
     );
-  }
 
   const ctxValue = useMemo(() => ({ close }), [close]);
   return (
@@ -216,6 +216,7 @@ export const Dialog = ({
       <C
         {...props}
         ref={combinedParentRef}
+        borderShade={4}
         className={CSS(
           className,
           CSS.B("dropdown"),
@@ -289,21 +290,11 @@ const calcConnectedDialog = ({
   initial = CONNECTED_PROPS.initial,
   prefer = CONNECTED_PROPS.prefer,
 }: CalcDialogProps): position.DialogReturn => {
-  let targetBox = box.construct(target);
+  const targetBox = box.construct(target);
   // the container is the nearest element that has a container-type or contain property
 
-  let container = box.construct(0, 0, window.innerWidth, window.innerHeight);
-  // iterate through the parent elements to find the container
-  let parent = target.parentElement;
-  while (parent != null) {
-    const style = window.getComputedStyle(parent);
-    if (style.getPropertyValue("container-type") !== "normal") {
-      container = box.construct(parent);
-      targetBox = box.translate(targetBox, xy.scale(box.topLeft(container), -1));
-      break;
-    }
-    parent = parent.parentElement;
-  }
+  const win = box.construct(0, 0, window.innerWidth, window.innerHeight);
+  let container = win;
 
   const props: position.DialogProps = {
     target: targetBox,
@@ -313,14 +304,34 @@ const calcConnectedDialog = ({
     initial,
     prefer,
   };
-
   const res = position.dialog(props);
   const { location } = res;
-  const adjustedDialog = box.translate(
+  let adjustedDialog = box.translate(
     res.adjustedDialog,
     "y",
     invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
   );
 
+  const stylePropertyValueFilter = (v: string) => ["inline-size", "size"].includes(v);
+
+  let parent: HTMLElement | null = target.parentElement;
+  while (parent != null) {
+    const style = window.getComputedStyle(parent);
+    if (stylePropertyValueFilter(style.getPropertyValue("container-type"))) {
+      container = box.construct(parent);
+      if (location.y === "bottom")
+        adjustedDialog = box.translate(
+          adjustedDialog,
+          xy.scale(box.topLeft(container), -1),
+        );
+      else
+        adjustedDialog = box.translate(adjustedDialog, {
+          x: -box.left(container),
+          y: -(box.bottom(container) - box.bottom(win)),
+        });
+      break;
+    }
+    parent = parent.parentElement;
+  }
   return { adjustedDialog, location };
 };

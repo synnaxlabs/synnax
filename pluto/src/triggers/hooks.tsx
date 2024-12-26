@@ -19,7 +19,14 @@ import {
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
 import { useContext } from "@/triggers/Provider";
-import { diff, filter, purge, type Stage, type Trigger } from "@/triggers/triggers";
+import {
+  diff,
+  filter,
+  type MatchOptions,
+  purge,
+  type Stage,
+  type Trigger,
+} from "@/triggers/triggers";
 
 export interface UseEvent {
   target: HTMLElement;
@@ -28,14 +35,21 @@ export interface UseEvent {
   cursor: xy.XY;
 }
 
-export interface UseProps {
+export interface UseProps extends MatchOptions {
   triggers?: Trigger[];
-  region?: RefObject<HTMLElement>;
-  loose?: boolean;
+  region?: RefObject<HTMLElement | null>;
   callback?: (e: UseEvent) => void;
+  regionMustBeElement?: boolean;
 }
 
-export const use = ({ triggers, callback: f, region, loose }: UseProps): void => {
+export const use = ({
+  triggers,
+  callback: f,
+  region,
+  loose,
+  double,
+  regionMustBeElement,
+}: UseProps): void => {
   const { listen } = useContext();
   const memoTriggers = useMemoCompare(
     () => triggers,
@@ -50,32 +64,33 @@ export const use = ({ triggers, callback: f, region, loose }: UseProps): void =>
   useEffect(() => {
     if (memoTriggers == null || memoTriggers.length === 0) return;
     return listen((e) => {
-      const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
-      const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);
+      const prevMatches = filter(memoTriggers, e.prev, { loose, double });
+      const nextMatches = filter(memoTriggers, e.next, { loose, double });
       const res = diff(nextMatches, prevMatches);
       let added = res[0];
       const removed = res[1];
       if (added.length === 0 && removed.length === 0) return;
-      added = filterInRegion(e.target, e.cursor, added, region);
+      added = filterInRegion(e.target, e.cursor, added, region, regionMustBeElement);
       const base = { target: e.target, cursor: e.cursor };
       if (added.length > 0) f?.({ ...base, stage: "start", triggers: added });
       if (removed.length > 0) f?.({ ...base, stage: "end", triggers: removed });
     });
-  }, [f, memoTriggers, listen, loose, region]);
+  }, [f, memoTriggers, listen, loose, region, double, regionMustBeElement]);
 };
 
 const filterInRegion = (
   target: HTMLElement,
   cursor: xy.XY,
   added: Trigger[],
-  region?: RefObject<HTMLElement>,
+  region?: RefObject<HTMLElement | null>,
+  regionMustBeElement?: boolean,
 ): Trigger[] => {
   if (region == null) return added;
   if (region.current == null) return [];
   const b = box.construct(region.current);
   return added.filter((t) => {
-    if (t.some((v) => v.includes("Mouse")))
-      return box.contains(b, cursor) && target === region.current;
+    const rg = regionMustBeElement ?? t.some((v) => v.includes("Mouse"));
+    if (rg) return box.contains(b, cursor) && target === region.current;
     return box.contains(b, cursor);
   });
 };
@@ -102,12 +117,9 @@ export const useHeldRef = ({
     triggers,
     callback: useCallback((e: UseEvent) => {
       setRef((prev) => {
-        let next: Trigger[] = [];
-        if (e.stage === "start") {
-          next = unique([...prev.triggers, ...e.triggers]);
-        } else {
-          next = purge(prev.triggers, e.triggers);
-        }
+        let next: Trigger[];
+        if (e.stage === "start") next = unique([...prev.triggers, ...e.triggers]);
+        else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };
       });
     }, []),
@@ -122,7 +134,7 @@ export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
     triggers,
     callback: useCallback((e: UseEvent) => {
       setHeld((prev) => {
-        let next: Trigger[] = [];
+        let next: Trigger[];
         if (e.stage === "start") next = unique([...prev.triggers, ...e.triggers]);
         else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };

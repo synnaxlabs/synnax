@@ -92,5 +92,4 @@ class Scheduler:
                 if res is not None:
                     res(LatestState(self.__state))
 
-    def stop(self):
-        ...
+    def stop(self): ...

@@ -13,16 +13,16 @@ import { z } from "zod";
 import { decodeError, EOF, errorZ, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
-import type { Stream, StreamClient } from "@/stream";
+import { type Stream, type StreamClient } from "@/stream";
 
 const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
   if (runtime.RUNTIME !== "node") return (t) => new WebSocket(t);
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   return (t) => new (require("ws").WebSocket)(t, { rejectUnauthorized: false });
 };
 
 const MessageSchema = z.object({
-  type: z.union([z.literal("data"), z.literal("close")]),
+  type: z.union([z.literal("data"), z.literal("close"), z.literal("open")]),
   payload: z.unknown().optional(),
   error: z.optional(errorZ),
 });
@@ -55,6 +55,15 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
     this.sendClosed = false;
     this.serverClosed = null;
     this.listenForMessages();
+  }
+
+  async receiveOpenAck(): Promise<Error | null> {
+    const msg = await this.receiveMsg();
+    if (msg.type !== "open") {
+      if (msg.error == null) throw new Error("Message error must be defined");
+      return decodeError(msg.error);
+    }
+    return null;
   }
 
   /** Implements the Stream protocol */
@@ -191,7 +200,14 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   ): Promise<WebSocketStream<RQ, RS> | Error> {
     return await new Promise((resolve) => {
       ws.onopen = () => {
-        resolve(new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema));
+        const oWs = new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema);
+        oWs
+          .receiveOpenAck()
+          .then((err) => {
+            if (err != null) resolve(err);
+            else resolve(oWs);
+          })
+          .catch((err) => resolve(err));
       };
       ws.onerror = (ev: Event) => {
         const ev_ = ev as ErrorEvent;

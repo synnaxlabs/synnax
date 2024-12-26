@@ -41,6 +41,7 @@ export {
 
 export const x = xLocation;
 export const y = yLocation;
+export const center = centerLocation;
 
 export type X = XLocation;
 export type Y = YLocation;
@@ -70,8 +71,8 @@ export type Crude = CrudeLocation;
 export const construct = (cl: Crude): Location => {
   if (cl instanceof String) return cl as Location;
   if (!DIRECTIONS.includes(cl as Direction)) return cl as Location;
-  else if (cl === "x") return "left";
-  else return "top";
+  if (cl === "x") return "left";
+  return "top";
 };
 
 export const swap = (cl: Crude): Location => SWAPPED[construct(cl)];
@@ -161,13 +162,13 @@ export const constructXY = (x: Crude | XY, y?: Crude): XY => {
       `[XYLocation] - encountered two locations with the same direction: ${parsedX.toString()} - ${parsedY.toString()}`,
     );
   const xy = { ...CENTER };
-  if (parsedX === "center") {
+  if (parsedX === "center")
     if (isX(parsedY)) [xy.x, xy.y] = [parsedY, parsedX];
     else [xy.x, xy.y] = [parsedX, parsedY];
-  } else if (parsedY === "center") {
+  else if (parsedY === "center")
     if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY];
     else [xy.x, xy.y] = [parsedY, parsedX];
-  } else if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY as YLocation];
+  else if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY as YLocation];
   else [xy.x, xy.y] = [parsedY as XLocation, parsedX as YLocation];
   return xy;
 };

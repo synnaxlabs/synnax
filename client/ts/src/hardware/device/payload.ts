@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, UnknownRecord } from "@synnaxlabs/x";
+import { binary, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { rackKeyZ } from "@/hardware/rack/payload";
@@ -47,7 +47,7 @@ export type NewDevice<P extends UnknownRecord = UnknownRecord> = Omit<
   "properties"
 > & { properties: P };
 
-export const DeviceOntologyType = "device" as ontology.ResourceType;
+export const ONTOLOGY_TYPE: ontology.ResourceType = "device";
 
 export const ontologyID = (key: DeviceKey): ontology.ID =>
-  new ontology.ID({ type: DeviceOntologyType, key: key.toString() });
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });

@@ -1,11 +1,16 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Schematics"
-heading: "Schematic Control"
-description: "Command and control hardware using schematics."
+heading: "Schematics"
+description: "Control hardware using schematics."
+prev: "Line Plots"
+prevURL: "/reference/console/line-plots"
+next: "Logs"
+nextURL: "/reference/console/logs"
 ---
+
 import { Icon } from "@synnaxlabs/media";
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
 
@@ -13,7 +18,7 @@ A schematic is used to see a diagram of your physical or simulated system. It di
 live sensor data and can be used to exercise manual control by changing the values of
 channels tied to actuators. We've added a simple example of a schematic below:
 
-<Image client:only="react" id="console/schematics/example"  />
+<Image client:only="react" id="console/schematics/example" />
 
 <Divider.Divider direction="x" />
 
@@ -23,6 +28,12 @@ Creating a schematic is as simple as adding a new tab and selecting the schemati
 visualization:
 
 <Video client:only="react" id="console/schematics/create" />
+
+<Note.Note variant="warning">
+  Make sure that you are working in an active
+  [workspace](/reference/console/workspaces)! If your schematic is not created in a
+  workspace, it will not be saved permanently to Synnax.
+</Note.Note>
 
 <Divider.Divider direction="x" />
 
@@ -40,15 +51,22 @@ the controls in the bottom-left hand corner of the schematic.
   </thead>
   <tbody>
     <tr>
-      <td><b>Edit</b></td>
+      <td>
+        <b>Edit</b>
+      </td>
       <td>Symbols can be added and moved, and their properties can be edited.</td>
     </tr>
     <tr>
-      <td><b>View</b></td>
-      <td>Live data from the cluster is displayed on the schematic. Symbols are not editable and the user cannot change the system state.</td>
+      <td>
+        <b>View</b>
+      </td>
+      <td>Live data from the cluster is displayed on the schematic. Symbols are not
+          editable and the user cannot change the system state.</td>
     </tr>
     <tr>
-      <td><b>Control</b></td>
+      <td>
+        <b>Control</b>
+      </td>
       <td>The user can click on symbols such as valves and buttons to control them.</td>
     </tr>
   </tbody>
@@ -87,36 +105,60 @@ other visual properties.
   </thead>
   <tbody>
     <tr>
-      <td><b>Label</b></td>
+      <td>
+        <b>Label</b>
+      </td>
       <td>The text that appears by the symbol.</td>
     </tr>
     <tr>
-      <td><b>Label Size</b></td>
+      <td>
+        <b>Label Size</b>
+      </td>
       <td>The size of the label.</td>
     </tr>
     <tr>
-      <td><b>Color</b></td>
+      <td>
+        <b>Color</b>
+      </td>
       <td>The color of the symbol.</td>
     </tr>
     <tr>
-      <td><b>Normally Open</b></td>
-      <td>Causes the body of the solenoid valve to look different when it is open or closed.</td>
+      <td>
+        <b>Normally Open</b>
+      </td>
+      <td>Causes the body of the solenoid valve to look different when it is open or
+          closed.</td>
     </tr>
     <tr>
-      <td><b>Width</b></td>
+      <td>
+        <b>Width</b>
+      </td>
       <td>Changes the size of a tank.</td>
     </tr>
     <tr>
-      <td><b>Height</b></td>
+      <td>
+        <b>Height</b>
+      </td>
       <td>Changes the size of a tank.</td>
     </tr>
     <tr>
-      <td><b>Units</b></td>
+      <td>
+        <b>Scale</b>
+      </td>
+      <td>Changes the size of an element.</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Units</b>
+      </td>
       <td>Determines what units a value symbol is displaying.</td>
     </tr>
     <tr>
-      <td><b>Orientation</b></td>
-      <td>Determines the orientation of the symbol and the relative placement of the label.</td>
+      <td>
+        <b>Orientation</b>
+      </td>
+      <td>Determines the orientation of the symbol and the relative placement of the
+          label.</td>
     </tr>
   </tbody>
 </Table>
@@ -138,17 +180,23 @@ The telemetry tab can have the following properties:
   </thead>
   <tbody>
     <tr>
-      <td><b>Input Channel</b></td>
+      <td>
+        <b>Input Channel</b>
+      </td>
       <td>The channel to stream data from.</td>
     </tr>
     <tr>
-      <td><b>Precision</b></td>
+      <td>
+        <b>Precision</b>
+      </td>
       <td>The number of decimal places to display.</td>
     </tr>
     <tr>
-      <td><b>Averaging Window</b></td>
-      <td>Can be used to display a rolling average. For example, a value of 2 will cause 
-      the screen to display the average of the last 2 samples.</td>
+      <td>
+        <b>Averaging Window</b>
+      </td>
+      <td>Can be used to display a rolling average. For example, a value of 2 will cause
+          the screen to display the average of the last 2 samples.</td>
     </tr>
   </tbody>
 </Table>
@@ -169,16 +217,20 @@ two main properties:
   </thead>
   <tbody>
     <tr>
-      <td><b>State Channel</b></td>
-      <td>Represents the display state of the symbol. If the input channel has
-a value of 1, the symbol will be display as activated.</td>
+      <td>
+        <b>State Channel</b>
+      </td>
+      <td>Represents the display state of the symbol. If the input channel has a value
+          of 1, the symbol will be display as activated.</td>
     </tr>
     <tr>
-      <td><b>Command Channel</b></td>
-      <td>Will be written to when you click on the symbol. If the symbol is
-de-activated, clicking on it will write 1 to the output channel (an activation command).
-If the symbol is activated, clicking on it will write 0 to the output channel (a
-deactivation command)</td>
+      <td>
+        <b>Command Channel</b>
+      </td>
+      <td>Will be written to when you click on the symbol. If the symbol is de-activated,
+          clicking on it will write 1 to the output channel (an activation command). If
+          the symbol is activated, clicking on it will write 0 to the output channel (a
+          deactivation command).</td>
     </tr>
   </tbody>
 </Table>
@@ -192,8 +244,8 @@ There are many ways that you can change the visuals of a schematic.
 ### Connection Lines
 
 Every symbol has locations to attach connection lines. When hovering over an symbol,
-these attachement points appear. To draw a connection line, click on an attachement
-point and drag the line to a different symbol:
+these attachment points appear. To draw a connection line, click on an attachment point
+and drag the line to a different symbol:
 
 <Video client:only="react" id="console/schematics/connections" />
 
@@ -226,6 +278,17 @@ The color of the bar indicates what is controlling the elements on the Schematic
 is a legend on the display indicating what controlling node is what color.
 
 <Video client:only="react" id="console/schematics/valve" />
+
+<Divider.Divider direction="x" />
+
+## Snapshotting a Schematic
+
+Oftentimes, you will want to save the configuration of a schematic to a particular
+range, so you can see exactly how a schematic looked at a certain point in time. To do
+this, you can snapshot a schematic to a range by finding the schematic in the resources
+toolbar, opening the context menu, and snapshotting the schematic to a range.
+
+<Video client:only="react" id="console/schematics/snapshot" />
 
 <Divider.Divider direction="x" />
 

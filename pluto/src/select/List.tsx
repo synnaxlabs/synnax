@@ -71,13 +71,16 @@ export const Core = <K extends Key, E extends Keyed<K>>({
     </CoreList.Hover>
   );
 
-  if (variant !== "connected") {
+  if (variant !== "connected")
     dialogContent = (
-      <Align.Pack direction="y" className={CSS.B("select-dialog-content")}>
+      <Align.Pack
+        direction="y"
+        borderShade={4}
+        className={CSS.B("select-dialog-content")}
+      >
         {dialogContent}
       </Align.Pack>
     );
-  }
 
   return (
     <CoreList.List<K, E> data={data} emptyContent={emptyContent} omit={omit}>

@@ -11,7 +11,7 @@ import { Icon as MediaIcon } from "@synnaxlabs/media";
 import clsx from "clsx";
 import { cloneElement, forwardRef, type ReactElement } from "react";
 
-import type { BaseProps } from "@/button/Button";
+import { type BaseProps } from "@/button/Button";
 import { color } from "@/button/color";
 import { CSS } from "@/css";
 import { Tooltip } from "@/tooltip";
@@ -22,7 +22,7 @@ interface ChildProps {
 }
 
 /** The props for the {@link Icon} */
-export interface IconProps extends BaseProps {
+export interface IconProps extends BaseProps, Tooltip.WrapProps {
   children: ReactElement<ChildProps> | string;
   loading?: boolean;
 }
@@ -38,11 +38,13 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
       disabled = false,
       loading = false,
       onClick,
+      color: propColor,
       ...props
     },
     ref,
   ): ReactElement => {
     if (loading) children = <MediaIcon.Loading />;
+    const isDisabled = disabled || loading;
     return (
       <button
         ref={ref}
@@ -53,15 +55,15 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
           CSS.size(size),
           CSS.sharp(sharp),
           CSS.BM("btn", variant),
-          CSS.disabled(disabled),
+          CSS.disabled(isDisabled),
         )}
-        onClick={disabled ? undefined : onClick}
+        onClick={isDisabled ? undefined : onClick}
         {...props}
       >
         {typeof children === "string"
           ? children
           : cloneElement(children, {
-              color: color(variant, disabled, props.color),
+              color: color(variant, isDisabled, propColor),
               fill: "currentColor",
               ...children.props,
             })}
@@ -81,5 +83,7 @@ CoreIcon.displayName = "ButtonIcon";
  * @param props.variant - The variant of button to render. Options are "filled" (default),
  * "outlined", and "text".
  * @param props.children - A ReactElement representing the icon to render.
+ * @param props.loading - Whether the button is in a loading state. This will cause the
+ * button to render a loading spinner.
  */
 export const Icon = Tooltip.wrap(CoreIcon);

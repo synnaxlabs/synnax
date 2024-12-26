@@ -1,13 +1,17 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "UI Overview"
 heading: "Console UI Overview"
 description: "Navigate the Synnax Console UI."
+prev: "Clusters"
+prevURL: "/reference/console/clusters"
+next: "Channels"
+nextURL: "/reference/console/channels"
 ---
+
 import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
-import Note from "@/components/Note.astro";
 import Table from "@/components/Table.astro";
 
 The Synnax Console provides a flexible environment to display and interact with data
@@ -22,9 +26,9 @@ controls.
 
 ## Toolbars
 
-To kick things off, we'll walk you through each of the toolbars and their functionality. 
+To kick things off, we'll walk you through each of the toolbars and their functionality.
 
-### <Icon.Resources /> Resources 
+### <Icon.Resources /> Resources
 
 The resource toolbar displays a file tree with folders for channels, ranges, users, and
 workspaces.
@@ -72,7 +76,7 @@ workspaces.
 ### <Icon.Range /> Ranges
 
 The [range toolbar](/reference/console/ranges) allows you to create, view, and access
-the ranges you're interested in visualizing. 
+the ranges you're interested in visualizing.
 
 <Video client:only="react" id="console/ui-overview/range-toolbar" />
 
@@ -121,7 +125,7 @@ You can also have multiple visualizations displayed at the same time:
 ## Getting Help
 
 The Synnax documentation website can be opened from within the console by clicking the
-<Icon.QuestionMark/> icon.
+<Icon.QuestionMark /> icon.
 
 <Video client:only="react" id="console/ui-overview/documentation" />
 
@@ -131,13 +135,11 @@ The Synnax documentation website can be opened from within the console by clicki
 
 The search and command palette at the top can be used to search for resources or to
 activate commands. Searching for resouces can be done by searching or pressing
-<Icon.Keyboard.Control/>+`P` (Windows) / <Icon.Keyboard.Command />+`P` (MacOS). As an
+<Icon.Keyboard.Control />+`P` (Windows) / <Icon.Keyboard.Command />+`P` (MacOS). As an
 example of searching for resources, you could search for a test range and then
 automatically add it as the active range:
 
 <Video client:only="react" id="console/ui-overview/palette-search" />
-
-<Icon.Keyboard.Return />
 
 The search and command palette can run commands by entering a `>` into the toolbar or by
 pressing <Icon.Keyboard.Control />+<Icon.Keyboard.Shift />+`P` (Windows) /

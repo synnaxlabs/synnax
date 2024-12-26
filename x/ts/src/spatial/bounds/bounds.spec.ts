@@ -9,7 +9,7 @@
 
 import { describe, expect, it, test } from "vitest";
 
-import { type NumberCouple } from "@/spatial/base";
+import { type numeric } from "@/numeric";
 import * as bounds from "@/spatial/bounds/bounds";
 
 describe("Bounds", () => {
@@ -232,234 +232,146 @@ describe("Bounds", () => {
       });
     });
   });
-  describe("insert", () => {
-    describe("formal cases", () => {
-      interface Spec {
-        name: string;
-        b: Array<NumberCouple<bigint | number>>;
-        v: NumberCouple<bigint | number>;
-        result: Array<bounds.Bounds<bigint | number>>;
-        focus?: boolean;
-      }
 
-      const SPECS: Spec[] = [
-        {
-          name: "insert before adjacent upper",
-          b: [
-            [2, 3],
-            [3, 4],
-            [5, 6],
-          ],
-          v: [1, 2],
-          result: [
-            { lower: 1, upper: 2 },
-            { lower: 2, upper: 3 },
-            { lower: 3, upper: 4 },
-            { lower: 5, upper: 6 },
-          ],
-        },
-        {
-          name: "insert in-between with no overlap",
-          b: [
-            [2, 3],
-            [3, 4],
-            [7, 8],
-          ],
-          v: [5, 6],
-          result: [
-            { lower: 2, upper: 3 },
-            { lower: 3, upper: 4 },
-            { lower: 5, upper: 6 },
-            { lower: 7, upper: 8 },
-          ],
-        },
-        {
-          name: "insert in-between adjacent lower and upper",
-          b: [
-            [2, 3],
-            [3, 4],
-            [5, 6],
-          ],
-          v: [4, 5],
-          result: [
-            { lower: 2, upper: 3 },
-            { lower: 3, upper: 4 },
-            { lower: 4, upper: 5 },
-            { lower: 5, upper: 6 },
-          ],
-        },
-        {
-          name: "insert in-between adjacent lower and upper",
-          b: [
-            [2, 3],
-            [3, 4],
-            [5, 6],
-          ],
-          v: [4, 5],
-          result: [
-            { lower: 2, upper: 3 },
-            { lower: 3, upper: 4 },
-            { lower: 4, upper: 5 },
-            { lower: 5, upper: 6 },
-          ],
-        },
-        {
-          name: "insert in-between adjacent lower not upper",
-          b: [
-            [2, 3],
-            [3, 4],
-            [7, 8],
-          ],
-          v: [4, 6],
-          result: [
-            { lower: 2, upper: 3 },
-            { lower: 3, upper: 4 },
-            { lower: 4, upper: 6 },
-            { lower: 7, upper: 8 },
-          ],
-        },
-        {
-          name: "insert in-between overlap lower adjacent upper",
-          b: [
-            [2, 4],
-            [5, 6],
-            [7, 8],
-          ],
-          v: [3, 5],
-          result: [
-            { lower: 2, upper: 4 },
-            { lower: 4, upper: 5 },
-            { lower: 5, upper: 6 },
-            { lower: 7, upper: 8 },
-          ],
-        },
-        {
-          name: "insert in-between adjacent lower contain 1 adjacent upper",
-          b: [
-            [2, 4],
-            [5, 6],
-            [7, 8],
-          ],
-          v: [4, 7],
-          result: [
-            { lower: 2, upper: 4 },
-            { lower: 4, upper: 7 },
-            { lower: 7, upper: 8 },
-          ],
-        },
-        {
-          name: "insert in-between overlap lower consume 1 adjacent upper",
-          b: [
-            [2, 4],
-            [5, 6],
-            [7, 8],
-          ],
-          v: [3, 7],
-          result: [
-            { lower: 2, upper: 4 },
-            { lower: 4, upper: 7 },
-            { lower: 7, upper: 8 },
-          ],
-        },
-        {
-          name: "insert in-between replace 1",
-          b: [
-            [2, 4],
-            [5, 6],
-            [7, 8],
-          ],
-          v: [5, 6],
-          result: [
-            { lower: 2, upper: 4 },
-            { lower: 5, upper: 6 },
-            { lower: 7, upper: 8 },
-          ],
-        },
-        {
-          name: "insert before overlap first",
-          b: [[3, 7]],
-          v: [1, 4],
-          result: [
-            { lower: 1, upper: 3 },
-            { lower: 3, upper: 7 },
-          ],
-        },
-        {
-          name: "insert before no adjacent",
-          b: [[3, 7]],
-          v: [1, 2],
-          result: [
-            { lower: 1, upper: 2 },
-            { lower: 3, upper: 7 },
-          ],
-        },
-        {
-          name: "insert after no adjacent",
-          b: [[3, 7]],
-          v: [8, 9],
-          result: [
-            { lower: 3, upper: 7 },
-            { lower: 8, upper: 9 },
-          ],
-        },
-        {
-          name: "insert after adjacent upper",
-          b: [[3, 7]],
-          v: [7, 9],
-          result: [
-            { lower: 3, upper: 7 },
-            { lower: 7, upper: 9 },
-          ],
-        },
-        {
-          name: "insert after overlap last",
-          b: [[3, 7]],
-          v: [5, 9],
-          result: [
-            { lower: 3, upper: 7 },
-            { lower: 7, upper: 9 },
-          ],
-        },
-        {
-          name: "regression 1",
-          b: [
-            [0, 47040],
-            [47040, 47240],
-            [47240, 47280],
-            [47280, 47320],
-            [47320, 47400],
-          ],
-          v: [47066, 47066 + 354],
-          result: [
-            { lower: 0, upper: 47040 },
-            { lower: 47040, upper: 47240 },
-            { lower: 47240, upper: 47066 + 354 },
-          ],
-        },
-      ];
+  describe("traverse", () => {
+    interface Spec<T extends numeric.Value> {
+      bounds: Array<bounds.Crude<T>>;
+      start: T;
+      dist: T;
+      expected: T;
+    }
 
-      describe("number", () => {
-        SPECS.forEach(({ name, b, v, result, focus }) => {
-          (focus === true ? test.only : test)(name, () => {
-            expect(bounds.insert(b, v)).toEqual(result);
-          });
-        });
-      });
-      describe("bigint", () => {
-        SPECS.forEach(({ name, b, v, result, focus }) => {
-          (focus === true ? test.only : test)(name, () => {
-            b = b.map(([l, u]) => [BigInt(l), BigInt(u)]);
-            v = [BigInt(v[0]), BigInt(v[1])];
-            result = result.map(({ lower, upper }) => ({
-              lower: BigInt(lower),
-              upper: BigInt(upper),
-            }));
-            expect(bounds.insert(b, v)).toEqual(result);
-          });
-        });
+    const SPECS: Spec<numeric.Value>[] = [
+      {
+        bounds: [
+          [0, 10],
+          [10, 20],
+        ],
+        start: 5,
+        dist: 5,
+        expected: 10,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 12,
+        dist: 3,
+        expected: 18,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 12,
+        dist: -3,
+        expected: 7,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 10,
+        dist: -3,
+        expected: 7,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 15,
+        dist: -3,
+        expected: 7,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 16,
+        dist: -3,
+        expected: 8,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 16,
+        dist: 12,
+        expected: 20,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 16,
+        dist: -20,
+        expected: 0,
+      },
+      {
+        bounds: [[620n, 726n]],
+        start: 724n,
+        dist: -6n,
+        expected: 718n,
+      },
+    ];
+    SPECS.forEach(({ bounds: b, start, dist, expected }) => {
+      test(`should return ${expected} for ${b} and ${start} and ${dist}`, () => {
+        expect(bounds.traverse(b, start, dist)).toEqual(expected);
       });
     });
   });
+
+  describe("distance", () => {
+    interface Spec<T extends numeric.Value> {
+      bounds: Array<bounds.Crude<T>>;
+      start: T;
+      end: T;
+      expected: T;
+    }
+
+    const SPECS: Spec<numeric.Value>[] = [
+      {
+        bounds: [
+          [0, 10],
+          [10, 20],
+        ],
+        start: 5,
+        end: 15,
+        expected: 10,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 12,
+        end: 18,
+        expected: 3,
+      },
+      {
+        bounds: [
+          [0, 10],
+          [15, 20],
+        ],
+        start: 10,
+        end: 5,
+        expected: 5,
+      },
+    ];
+    SPECS.forEach(({ bounds: b, start, end, expected }) => {
+      test(`should return ${expected} for ${b} and ${start} and ${end}`, () => {
+        expect(bounds.distance(b, start, end)).toEqual(expected);
+      });
+    });
+  });
+
   describe("linspace", () => {
     it("should generate the correct array", () => {
       const b = bounds.construct([1, 3]);
@@ -475,51 +387,10 @@ describe("Bounds", () => {
       expect(bounds.clamp(b, 4)).toEqual(2);
     });
   });
-  describe("exposure", () => {
-    interface Spec {
-      name: string;
-      bg: bounds.Crude;
-      filter: bounds.Crude;
-      result: number;
-    }
-    const SPECS: Spec[] = [
-      {
-        name: "full exposure",
-        bg: [1, 3],
-        filter: [1, 3],
-        result: 1,
-      },
-      {
-        name: "no exposure",
-        bg: [1, 3],
-        filter: [4, 5],
-        result: 0,
-      },
-      {
-        name: "partial exposure",
-        bg: [1, 3],
-        filter: [2, 4],
-        result: 0.5,
-      },
-      {
-        name: "partial exposure",
-        bg: [1, 3],
-        filter: [0, 2],
-        result: 0.5,
-      },
-      {
-        name: "full exposure",
-        bg: [1, 3],
-        filter: [0, 4],
-        result: 1,
-      },
-    ];
-    SPECS.forEach(({ name, bg, filter, result }) => {
-      test(name, () => {
-        expect(bounds.exposure(bounds.construct(bg), bounds.construct(filter))).toEqual(
-          result,
-        );
-      });
+  describe("mean", () => {
+    it("should return the mean of the bounds", () => {
+      const b = bounds.construct([1, 3]);
+      expect(bounds.mean(b)).toEqual(2);
     });
   });
 });

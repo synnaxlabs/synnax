@@ -1,14 +1,18 @@
 ---
-layout: "@/layouts/MainLayout.astro"
+layout: "@/layouts/Reference.astro"
 title: "Troubleshooting"
 heading: "Troubleshooting Guide"
 description: "Solve common issues when working with Synnax in Python."
+next: "Building a Custom Driver"
+nextURL: "/reference/python-client/custom-driver"
+prev: "Examples"
+prevURL: "/reference/python-client/examples"
 ---
+
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
-import { PlatformTabs } from "@/components/platform/PlatformTabs"
-import Note from "@/components/Note.astro";
-import { Divider } from "@synnaxlabs/pluto"
+import { PlatformTabs } from "@/components/platform/PlatformTabs";
+import { Divider, Note } from "@synnaxlabs/pluto";
 
 The following sections outline common issues our users encounter when working
 with the Synnax Python client. To get started, select your operating system
@@ -32,7 +36,7 @@ Alternatively, if you have [Windows Subsystem for Linux](https://docs.microsoft.
 installed and plan to use Synnax inside WSL, follow the instructions for Linux
 instead.
 
-<Divider.Divider direction="x"/>
+<Divider.Divider direction="x" />
 
 ## Incorrect Python Version or Command Not Found
 
@@ -305,10 +309,10 @@ We can check that Python 3.11 is installed by running:
 python3.11 --version
 ```
 
-<Note variant="info">
-If you have multiple versions of Python installed, running the `python` command
-may point to an older version than the most recent one available.
-</Note>
+<Note.Note variant="info">
+  If you have multiple versions of Python installed, running the `python` command may
+  point to an older version than the most recent one available.
+</Note.Note>
 
 <Divider.Divider direction="x" />
 

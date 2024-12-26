@@ -10,34 +10,37 @@
 import "@/fs/LoadFileContents.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Input } from "@synnaxlabs/pluto";
+import { Align, Button, type Input } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
-import { open } from "@tauri-apps/plugin-dialog";
+import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { ReactElement, useEffect, useState } from "react";
-import { z } from "zod";
+import { type ReactElement, useEffect, useState } from "react";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 
 export interface InputFilePathProps
   extends Input.Control<string>,
-    Omit<Align.PackProps, "value" | "onChange"> {}
+    Omit<Align.PackProps, "value" | "onChange"> {
+  filters?: DialogFilter[];
+}
 
 export const InputFilePath = ({
   value,
   onChange,
+  filters,
   ...props
 }: InputFilePathProps): ReactElement => {
   const path = value;
   const handleClick = () => {
     void (async () => {
-      const path = await open({ directory: false });
+      const path = await open({ directory: false, filters });
       if (path == null) return;
-      onChange(path.path);
+      onChange(path);
     })();
   };
   return (
-    <Align.Pack className={CSS.B("input-file-path")} {...props}>
+    <Align.Pack className={CSS.B("input-file-path")} borderShade={4} {...props}>
       <Button.Button
         level="p"
         className={CSS.B("path")}

@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef,type ReactNode } from "react";
+import { type ComponentPropsWithoutRef, type ReactNode } from "react";
 
+import { type Align } from "@/align";
 import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
@@ -27,7 +28,7 @@ type HTMLInputProps = Omit<
   "size" | "onChange" | "value" | "children" | "placeholder"
 >;
 
-export type Variant = "outlined" | "shadow" | "natural";
+export type Variant = "outlined" | "shadow" | "natural" | "preview" | "button";
 
 export interface ExtensionProps<I extends Value = Value, O extends Value = I>
   extends Control<I, O> {
@@ -37,8 +38,14 @@ export interface ExtensionProps<I extends Value = Value, O extends Value = I>
   placeholder?: ReactNode;
   children?: ReactNode;
   level?: Text.Level;
+  shade?: Text.Shade;
+  weight?: Text.Weight;
+  endContent?: ReactNode;
+  disabledOverlay?: ReactNode;
+  onlyChangeOnBlur?: boolean;
 }
 
 export interface BaseProps<I extends Value = Value, O extends Value = I>
   extends HTMLInputProps,
-    ExtensionProps<I, O> {}
+    ExtensionProps<I, O>,
+    Pick<Align.PackProps, "borderWidth" | "borderShade"> {}

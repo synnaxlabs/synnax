@@ -31,10 +31,11 @@ import {
   type UseSelectProps,
 } from "@/list/useSelect";
 import { Core } from "@/select/List";
+import { type ComponentSize } from "@/util/component";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export interface ButtonOptionProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends Pick<CoreButton.ButtonProps, "onClick"> {
+  extends Pick<CoreButton.ButtonProps, "onClick" | "size"> {
   key: K;
   selected: boolean;
   entry: E;
@@ -45,10 +46,14 @@ export type ButtonProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Om
   UseSelectProps<K, E>,
   "data"
 > &
-  Omit<Align.PackProps, "children" | "onChange"> & {
-    data: E[];
+  Omit<Align.PackProps, "children" | "onChange" | "size"> & {
+    data?: E[];
     children?: RenderProp<ButtonOptionProps<K, E>>;
     entryRenderKey?: keyof E;
+    size?: ComponentSize;
+    actions?: Align.PackProps["children"];
+    pack?: boolean;
+    variant?: Input.Variant;
   };
 
 export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
@@ -61,8 +66,12 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   data,
   replaceOnSingle,
   className,
+  size = "small",
+  actions,
+  pack = true,
+  variant,
   ...props
-}: ButtonProps<K, E>): JSX.Element => {
+}: ButtonProps<K, E>): ReactElement => {
   const { onSelect } = useSelect<K, E>({
     allowMultiple,
     allowNone,
@@ -72,31 +81,48 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     onChange,
   } as const as UseSelectProps<K, E>);
 
+  const handleClick = (key: E["key"]) => {
+    if (variant === "preview") return;
+    onSelect(key);
+  };
+
+  const mapped = data?.map((e) =>
+    children({
+      key: e.key,
+      onClick: () => handleClick(e.key),
+      size,
+      selected: e.key === value,
+      entry: e,
+      title: e[entryRenderKey],
+    }),
+  );
+
+  if (!pack) return <>{mapped}</>;
+
   return (
-    <Align.Pack className={CSS(CSS.B("select-button"), className)} {...props}>
-      {data.map((e) => {
-        return children({
-          key: e.key,
-          onClick: () => onSelect(e.key),
-          selected: e.key === value,
-          entry: e,
-          title: e[entryRenderKey],
-        });
-      })}
+    <Align.Pack
+      borderShade={4}
+      className={CSS(CSS.B("select-button"), className)}
+      size={size}
+      {...props}
+    >
+      {mapped}
+      {actions}
     </Align.Pack>
   );
 };
 
 const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  entry,
+  key,
   onClick,
   selected,
   title,
-}: ButtonOptionProps<K, E>): JSX.Element => (
+}: ButtonOptionProps<K, E>): ReactElement => (
   <CoreButton.Button
-    key={entry.key}
+    key={key}
     onClick={onClick}
     variant={selected ? "filled" : "outlined"}
+    size="small"
   >
     {title as ReactNode}
   </CoreButton.Button>
@@ -111,13 +137,17 @@ export interface DropdownButtonButtonProps<K extends Key, E extends Keyed<K>>
 }
 
 export interface DropdownButtonProps<K extends Key, E extends Keyed<K>>
-  extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children" | "close">,
+  extends Omit<
+      Dropdown.DialogProps,
+      "onChange" | "visible" | "children" | "close" | "variant"
+    >,
     Input.Control<K>,
     Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<CoreButton.ButtonProps, "disabled"> {
+    Pick<CoreButton.ButtonProps, "disabled" | "variant"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   children?: RenderProp<DropdownButtonButtonProps<K, E>>;
   entryRenderKey?: keyof E;
+  dropdownVariant?: Dropdown.Variant;
   allowNone?: boolean;
   hideColumnHeader?: boolean;
   disabled?: boolean;
@@ -158,6 +188,8 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
   onChange,
   disabled,
   hideColumnHeader = true,
+  variant,
+  dropdownVariant,
   ...props
 }: DropdownButtonProps<K, E>): ReactElement => {
   const { close, visible, toggle } = Dropdown.use();
@@ -183,6 +215,15 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
     [onChange, value, close, setSelected],
   );
 
+  const childrenProps: DropdownButtonButtonProps<K, E> = {
+    selected,
+    renderKey: entryRenderKey,
+    toggle,
+    visible,
+    disabled,
+  };
+  if (variant != null) childrenProps.variant = variant;
+
   return (
     <Core<K, E>
       close={close}
@@ -194,17 +235,8 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
       allowNone={allowNone}
       columns={columns}
       hideColumnHeader={hideColumnHeader}
-      trigger={
-        <>
-          {children({
-            selected,
-            renderKey: entryRenderKey,
-            toggle,
-            visible,
-            disabled,
-          })}
-        </>
-      }
+      variant={dropdownVariant}
+      trigger={<>{children(childrenProps)}</>}
       {...props}
     />
   );

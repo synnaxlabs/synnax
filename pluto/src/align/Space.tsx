@@ -14,11 +14,13 @@ import {
   type CSSProperties,
   type ForwardedRef,
   forwardRef,
+  type JSX,
   type ReactElement,
 } from "react";
 
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
+import { type Theming } from "@/theming";
 import { type ComponentSize } from "@/util/component";
 
 /** All possible alignments for the cross axis of a space */
@@ -65,7 +67,10 @@ export interface SpaceExtensionProps {
   wrap?: boolean;
   el?: SpaceElementType;
   bordered?: boolean;
+  borderShade?: Theming.Shade;
+  borderWidth?: number;
   rounded?: boolean;
+  background?: Theming.Shade;
 }
 
 export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
@@ -91,8 +96,11 @@ const CoreSpace = <E extends SpaceElementType>(
     direction: direction_ = "y",
     wrap = false,
     bordered = false,
+    borderShade,
+    borderWidth,
     rounded = false,
     el = "div",
+    background,
     ...props
   }: SpaceProps<E>,
   ref: ForwardedRef<JSX.IntrinsicElements[E]>,
@@ -110,11 +118,14 @@ const CoreSpace = <E extends SpaceElementType>(
     justifyContent: justifications[justify],
     alignItems: align,
     flexWrap: wrap ? "wrap" : "nowrap",
+    borderWidth,
+    borderColor: CSS.shadeVar(borderShade),
     ...style,
   };
 
   if (grow != null) style.flexGrow = Number(grow);
   if (shrink != null) style.flexShrink = Number(shrink);
+  if (background != null) style.backgroundColor = CSS.shadeVar(background);
 
   return (
     // @ts-expect-error - TODO: fix generic element props
@@ -171,7 +182,7 @@ const flexDirection = (
   reverse: boolean,
 ): FlexDirection => {
   const base = direction === "x" ? "row" : "column";
-  return reverse ? ((base + "-reverse") as FlexDirection) : base;
+  return reverse ? (`${base}-reverse` as FlexDirection) : base;
 };
 
 const justifications: Record<Justification, CSSProperties["justifyContent"]> = {

@@ -7,25 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+
 from __future__ import annotations
-
-import uuid
-
+from uuid import UUID
 from freighter import Payload
-from synnax.ontology.id import OntologyID
+from synnax.ontology.payload import ID
+
+ALLOW_ALL = ID(type="allow_all", key="")
 
 
 class Policy(Payload):
-    key: uuid.UUID | None = None
-    subjects: list[OntologyID] = None
-    objects: list[OntologyID] = None
+    key: UUID | None = None
+    subjects: list[ID] = None
+    objects: list[ID] = None
     actions: list[str] = None
-
-    def __str__(self):
-        return (
-            f"Policy with subjects {self.subjects}, objects {self.objects},"
-            f"actions {self.actions}"
-        )
-
-    def __hash__(self) -> int:
-        return hash(self.key)

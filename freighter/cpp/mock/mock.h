@@ -24,26 +24,32 @@ public:
     MockUnaryClient(
         std::vector<RS> responses,
         std::vector<freighter::Error> response_errors
-    ): responses(responses), response_errors(response_errors) {
+    ) : responses(responses), response_errors(response_errors) {
     }
 
     MockUnaryClient(
         RS response,
         freighter::Error response_error
-    ): responses({response}), response_errors({response_error}) {
+    ) : responses({response}), response_errors({response_error}) {
     }
 
-    void use(std::shared_ptr<freighter::Middleware> middleware) override { mw.use(middleware); }
+    void use(std::shared_ptr<freighter::Middleware> middleware) override {
+        mw.use(middleware);
+    }
 
-    std::pair<RS, freighter::Error> send(const std::string &target, RQ &request) override {
+    std::pair<RS, freighter::Error>
+    send(const std::string &target, RQ &request) override {
         requests.push_back(request);
-        if (responses.empty()) throw std::runtime_error("mock unary client has no responses left!");
-        const auto ctx = freighter::Context("mock", target, freighter::TransportVariant::STREAM);
+        if (responses.empty())
+            throw std::runtime_error("mock unary client has no responses left!");
+        const auto ctx = freighter::Context("mock", target,
+                                            freighter::TransportVariant::STREAM);
         auto [res, err] = mw.exec(ctx, this, request);
         return {res, err};
     }
 
-    freighter::FinalizerReturn<RS> operator()(freighter::Context outboundContext, RQ &req) override {
+    freighter::FinalizerReturn<RS>
+    operator()(freighter::Context outboundContext, RQ &req) override {
         auto response_error = response_errors.front();
         response_errors.erase(response_errors.begin());
         auto res = responses.front();

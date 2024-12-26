@@ -20,10 +20,10 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { FC, useState } from "react";
+import { type FC, useState } from "react";
 
 import { Layout } from "@/layout";
-import { createEditLayout, overviewLayout } from "@/range/external";
+import { createLayout, overviewLayout } from "@/range/external";
 
 export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
   const { entry } = props;
@@ -31,25 +31,23 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
   return (
     <List.ItemFrame
       onClick={() => placer({ ...overviewLayout, name: entry.name, key: entry.key })}
-      direction="y"
+      direction="x"
       size={0.5}
+      justify="spaceBetween"
+      align="center"
       style={{ padding: "1.5rem" }}
       {...props}
     >
       <Text.WithIcon
-        startIcon={
-          <Icon.Range
-            style={{ transform: "scale(0.9)", color: "var(--pluto-gray-l9)" }}
-          />
-        }
+        startIcon={<Icon.Range style={{ color: "var(--pluto-gray-l9)" }} />}
         level="p"
         weight={450}
         shade={9}
         size="small"
       >
-        {entry.name}{" "}
+        {entry.name}
       </Text.WithIcon>
-      <Ranger.TimeRangeChip level="small" timeRange={entry.timeRange} />
+      <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
     </List.ItemFrame>
   );
 };
@@ -71,6 +69,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
       if (client == null) return;
       const rng = await client.ranges.retrieve(rangeKey);
       const childRanges = await rng.retrieveChildren();
+      childRanges.sort(ranger.sort);
       setChildRanges(childRanges);
       const tracker = await rng.openChildRangeTracker();
       tracker.onChange((ranges) => setChildRanges(ranges));
@@ -87,7 +86,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
 
   return (
     <Align.Space direction="y">
-      <Text.Text level="h4" shade={8} weight={500}>
+      <Text.Text level="h4" shade={9} weight={450}>
         Child Ranges
       </Text.Text>
       <List.List data={childRanges}>
@@ -99,8 +98,9 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         weight={500}
         startIcon={<Icon.Add />}
         style={{ width: "fit-content" }}
+        iconSpacing="small"
         variant="text"
-        onClick={() => placer(createEditLayout({ initial: { parent: rangeKey } }))}
+        onClick={() => placer(createLayout({ initial: { parent: rangeKey } }))}
       >
         Add Child Range
       </Button.Button>
