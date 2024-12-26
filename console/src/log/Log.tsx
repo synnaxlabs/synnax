@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitiveIsZero, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
@@ -142,7 +142,7 @@ export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Log", location = "mosaic", window, tab, ...rest } = initial;
-    const key = initial.key ?? uuidv4();
+    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,
