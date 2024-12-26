@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.36.1"
+version = "0.36.2"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
@@ -30,7 +30,6 @@ profile = "black"
 python = "^3.12"
 pandas = "^2.2.3"
 rich = "^13.9.4"
-pick = "^2.4.0"
 pydantic = "^1.10.9"
 synnax-freighter = { path = "../../freighter/py", develop = true }
 alamos = { path = "../../alamos/py", develop = true }
