@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.36.0"
+version = "0.36.1"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
@@ -37,7 +37,7 @@ alamos = { path = "../../alamos/py", develop = true }
 keyring = "^25.5.0"
 click = "^8.1.7"
 urllib3 = "^2.2.3"
-numpy = "^1.24.3"
+numpy = "^2.2.1"
 nptdms = "^1.9.0"
 
 [build-system]

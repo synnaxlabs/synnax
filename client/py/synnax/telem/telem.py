@@ -966,10 +966,12 @@ class DataType(str):
 
             raise TypeError(f"Cannot convert {type(value)} to DataType")
 
-        if np.issctype(value):
+        try:
             value = DataType._FROM_NUMPY.get(np.dtype(value), None)
             if value is not None:
                 return value
+        except Exception:
+            pass
 
         if isinstance(value, dict):
             return DataType.JSON
