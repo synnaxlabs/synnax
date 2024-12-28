@@ -84,7 +84,7 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             fill: var(--pluto-gray-l5) !important;
         }
     }
-    @media (max-width: 880px) {
+    /* @media (max-width: 880px) and (hover: hover) {
         .page-nav {
             z-index: 100;
             width: 100%;
@@ -112,8 +112,12 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             justify-content: center !important;
         }
         .pluto-tree {
-            height: 310px !important;
             overflow-y: scroll;
+        }
+    } */
+    @media (max-width: 880px) {
+        .page-nav {
+            display: none;
         }
     }
 </style>

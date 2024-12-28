@@ -11,26 +11,16 @@ import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement } from "react";
 
 import { componentsPages, guidesPages } from "@/pages/_nav";
+import { Align } from "@synnaxlabs/pluto";
 
 export type PageNavNode = Tree.Node;
 
 export interface TOCProps {
   currentPage: string;
 }
-
-export const useDocumentSize = (): number | null => {
-  const [width, setWidth] = useState<number | null>(null);
-  useEffect(() => {
-    const handleResize = (): void => setWidth(document.documentElement.clientWidth);
-    window.addEventListener("resize", handleResize);
-    handleResize();
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  return width;
-};
 
 interface ReferenceTreeProps {
   currentPage: string;
@@ -77,33 +67,36 @@ const Guides = ({ currentPage }: TOCProps): ReactElement => {
 };
 
 export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
-  const width = useDocumentSize();
-
-  // Split the current page by slashes and remove and get the first part
   const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
-
-  const { visible, toggle, close } = Dropdown.use({ initialVisible: false });
-
   let tree = <Reference currentPage={currentPage} />;
   if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
+  return tree;
+};
 
-  if (width == null) return null;
-  if (width > 865) return tree;
+export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
+  const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
+  let tree = <Reference currentPage={currentPage} />;
+  if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
+  const { visible, toggle, close } = Dropdown.use({ initialVisible: false });
   return (
-    <Dropdown.Dialog visible={visible} close={close} variant="floating">
-      <Button.Button
-        justify="spaceBetween"
-        endIcon={<Icon.Menu />}
-        variant="text"
-        onClick={() => toggle(!visible)}
-        size="medium"
+    <Dropdown.Dialog visible={visible} close={close} variant="modal" location="top">
+      <Button.Icon variant="text" onClick={() => toggle(!visible)} size="large">
+        <Icon.Menu />
+      </Button.Icon>
+      <Align.Space
+        borderShade={4}
+        bordered
+        rounded
         style={{
-          border: "none",
+          width: "100vw",
+          maxWidth: "450px",
+          height: "80vh",
+          overflow: "hidden",
+          borderRadius: "1rem",
         }}
       >
-        Menu
-      </Button.Button>
-      {tree}
+        {tree}
+      </Align.Space>
     </Dropdown.Dialog>
   );
 };

@@ -10,7 +10,7 @@ import { Search as S } from "@/components/search/Search";
         left: 50%;
         z-index: 50000;
         transform: translateX(-50%);
-        width: 65vw !important;
+        width: 50vw !important;
         max-width: 800px;
 
         & button {
@@ -38,10 +38,29 @@ import { Search as S } from "@/components/search/Search";
 
     @media (max-width: 850px) {
         .search-box {
-            left: 45%;
             width: 45vw !important;
+            transform: none !important;
+            position: relative;
+            left: 0;
             & button {
                 justify-content: start !important;
+            }
+        }
+    }
+
+    @media (max-width: 600px) {
+        .search-box {
+            width: 5.5rem !important;
+            padding: 0 !important;
+
+            & button {
+                justify-content: center !important;
+            }
+            .pluto-text {
+                display: none;
+            }
+            .pluto-btn__end-content {
+                display: none;
             }
         }
     }

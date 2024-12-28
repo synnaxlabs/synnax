@@ -15,7 +15,6 @@ const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
 <style is:global>
     article {
         position: relative;
-        padding: 5rem 8rem;
         flex-basis: 840px;
         flex-shrink: 1;
         flex-grow: 1;
@@ -27,17 +26,14 @@ const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
 
         & .pluto-breadcrumb {
             & .pluto-text-link {
+                color: var(--pluto-gray-l6) !important;
+                font-weight: 375 !important;
                 &:last-child {
-                    & .pluto-text {
-                        color: var(--pluto-gray-l9);
-                    }
+                    color: var(--pluto-gray-l9) !important;
+                    font-weight: 450 !important;
                 }
-                & .pluto-text {
-                    font-weight: 375;
-                    color: var(--pluto-gray-l6);
-                    &:hover {
-                        color: var(--pluto-gray-l9) !important;
-                    }
+                &:hover {
+                    color: var(--pluto-gray-l9) !important;
                 }
                 &:hover {
                     text-decoration: none !important;
@@ -55,8 +51,9 @@ const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
             }
         }
 
+        padding: 5rem 8rem;
         @media (max-width: 700px) {
-            padding: 2rem;
+            padding: 5rem 2rem;
         }
 
         .article-title::after {

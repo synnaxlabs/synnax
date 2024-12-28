@@ -7,6 +7,7 @@ import PostHog from "@/components/PostHog.astro";
 import { ViewTransitions } from "astro:transitions";
 import { SEO } from "astro-seo";
 import Footer from "@/components/Footer.astro";
+import { Align } from "@synnaxlabs/pluto";
 const {
     frontmatter: { title, description, url },
 } = Astro.props;
@@ -37,15 +38,15 @@ const {
         />
         <ViewTransitions />
     </head>
-    <Header url={url} />
-    <main>
-        <section>
-            <slot />
-        </section>
-    </main>
-    <Footer />
-
-    <script>
+    <body>
+        <Header url={url} />
+        <main>
+            <section>
+                <slot />
+            </section>
+        </main>
+        <Footer />
+    </body><script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
         import { getVersion } from "@/util/fetchVersion";
@@ -104,7 +105,7 @@ const {
             --pluto-h5-text-transform: none;
             --pluto-p-size: 2.666rem;
             --pluto-p-weight: 350;
-            --pluto-p-line-height: 4.666rem;
+            --pluto-p-line-height: 175%;
             --pluto-small-size: 2.333rem;
             --pluto-small-weight: 350;
             --pluto-small-line-height: 150%;
@@ -984,6 +985,20 @@ const {
                 --pluto-text-color-rgb: 28, 28, 28;
                 --pluto-text-on-primary: #fcfcfc;
                 --pluto-border-color: #ededed;
+            }
+
+            @media (max-width: 800px) {
+                --pluto-h1-size: 5rem;
+                --pluto-h2-size: 4rem;
+                --pluto-h3-size: 3.25rem;
+                --pluto-h4-size: 2.75rem;
+                --pluto-h5-size: 2.5rem;
+                --pluto-p-size: 2.3333rem;
+                --pluto-small-size: 2rem;
+
+                section {
+                    padding: 0 1rem;
+                }
             }
         }
 

@@ -176,7 +176,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
       }
     >
       <List.Selector<string, SearchResult>
-        value={[]}
+        value={""}
         allowMultiple={false}
         onChange={(k: string) => {
           document.getElementById(k)?.click();

@@ -238,10 +238,12 @@ const wrapIcon = (
   name: string,
   { className }: WrapIconOpts = {},
 ): IconFC => {
+  const ariaLabel = `synnax-icon-${name}`;
   const O: IconFC = (props) => (
     <Icon
       {...props}
-      className={clsx(props.className, `synnax-icon-${name}`, className, "synnax-icon")}
+      className={clsx(props.className, ariaLabel, className, "synnax-icon")}
+      aria-label={ariaLabel}
     />
   );
   O.displayName = Icon.displayName || Icon.name;

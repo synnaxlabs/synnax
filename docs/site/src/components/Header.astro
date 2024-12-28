@@ -3,6 +3,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Icon, Logo } from "@synnaxlabs/media";
 import Search from "@/components/search/Search.astro";
 import { Button, Text } from "@synnaxlabs/pluto";
+import { PageNavMobile } from "@/components/PageNav/PageNav";
 const url = Astro.url.pathname;
 ---
 
@@ -17,16 +18,19 @@ const url = Astro.url.pathname;
             <a href="https://synnaxlabs.com">
                 <Logo variant="title" />
             </a>
-            <Search />
-            <Button.Link
-                className="version-button"
-                variant="text"
-                href="https://github.com/synnaxlabs/synnax"
-                iconSpacing="small"
-            >
-                <Icon.Logo.Github slot="endIcon" />
-                <p class="version" transition:persist></p>
-            </Button.Link>
+            <Align.Space direction="x" align="center" justify="center">
+                <Search />
+                <Button.Link
+                    className="version-button"
+                    variant="text"
+                    href="https://github.com/synnaxlabs/synnax"
+                    iconSpacing="small"
+                >
+                    <Icon.Logo.Github slot="endIcon" />
+                    <p class="version" transition:persist></p>
+                </Button.Link>
+                <PageNavMobile client:only="react" currentPage={Astro.url.pathname} />
+            </Align.Space>
         </Align.Space>
     </Align.Space>
     <Align.Space className="bottom" justify="center" align="center">
@@ -75,30 +79,8 @@ const url = Astro.url.pathname;
                 }
             }
 
-            & .synnax-logo--icon {
-                display: none;
-            }
-
             & .synnax-logo--title {
                 height: 5rem;
-            }
-
-            @media (max-width: 1100px) {
-                & .synnax-logo--title {
-                    margin-top: 1rem;
-                    height: 6rem;
-                    & text {
-                        display: none;
-                    }
-                }
-            }
-        }
-
-        @media (max-width: 1100px) {
-            .bottom {
-                .header-content {
-                    justify-content: center !important;
-                }
             }
         }
 
@@ -147,6 +129,35 @@ const url = Astro.url.pathname;
             width: 100%;
             max-width: var(--max-width);
             padding: 0 7rem;
+        }
+    }
+    @media (max-width: 880px) {
+        .main-header {
+            flex-direction: column-reverse !important;
+            position: fixed;
+            bottom: 0px;
+            top: unset;
+            width: 100%;
+            border-top: var(--pluto-border-l4);
+            .top {
+                .header-content {
+                    padding: 0 2rem;
+                }
+            }
+            .bottom {
+                justify-content: center;
+
+                .header-content {
+                    width: fit-content;
+                    border-bottom: none;
+                }
+            }
+            .synnax-logo--title {
+                display: none;
+            }
+            .version-button {
+                display: none;
+            }
         }
     }
 </style>
