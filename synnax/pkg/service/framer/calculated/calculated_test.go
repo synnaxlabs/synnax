@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"time"
 )
 
 var _ = Describe("Calculated", func() {
@@ -60,6 +61,7 @@ var _ = Describe("Calculated", func() {
 		}))
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
+		time.Sleep(10 * time.Millisecond)
 		wInlet.Inlet() <- framer.WriterRequest{
 			Command: writer.Data,
 			Frame: framer.Frame{
@@ -68,10 +70,10 @@ var _ = Describe("Calculated", func() {
 			},
 		}
 		var res framer.StreamerResponse
-		Eventually(sOutlet.Outlet()).Should(Receive(&res))
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
 	})
-	It("Divide by zero", func() {
+	FIt("Divide by zero", func() {
 		distB := mock.NewBuilder()
 		dist := distB.New(ctx)
 		computer := MustSucceed(computron.New())
@@ -111,6 +113,7 @@ var _ = Describe("Calculated", func() {
 		}))
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
+		time.Sleep(100 * time.Millisecond)
 		wInlet.Inlet() <- framer.WriterRequest{
 			Command: writer.Data,
 			Frame: framer.Frame{

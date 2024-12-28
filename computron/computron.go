@@ -15,6 +15,8 @@ package computron
 #include <stdlib.h>
 #include <string.h>
 
+static PyObject* warning_module;
+static char* current_warning;
 
 static int init_numpy() { import_array1(-1); return 0;  }
 
@@ -111,6 +113,77 @@ static char* get_py_error() {
 }
 
 
+static void warning_callback(const char* message) {
+    if (current_warning != NULL) {
+        free(current_warning);
+    }
+    current_warning = strdup(message);
+}
+
+static PyObject* custom_warning_handler(PyObject *self, PyObject *args, PyObject *kwargs) {
+    PyObject *message, *category, *filename, *lineno, *file, *line;
+
+    // Accept all 6 arguments but only require the first 4
+    if (!PyArg_UnpackTuple(args, "custom_warning_handler", 4, 6,
+                          &message, &category, &filename, &lineno, &file, &line)) {
+        return NULL;
+    }
+
+    // Convert to string
+    PyObject* str_message = PyObject_Str(message);
+    PyObject* str_filename = PyObject_Str(filename);
+    PyObject* str_lineno = PyObject_Str(lineno);
+    PyObject* str_category = PyObject_Str(category);
+
+    if (str_message != NULL && str_filename != NULL && str_lineno != NULL && str_category != NULL) {
+        const char* warning_text = PyUnicode_AsUTF8(str_message);
+        const char* fname = PyUnicode_AsUTF8(str_filename);
+        const char* lno = PyUnicode_AsUTF8(str_lineno);
+        const char* cat = PyUnicode_AsUTF8(str_category);
+
+        if (warning_text != NULL && fname != NULL && lno != NULL && cat != NULL) {
+            // Format warning string similar to Python's warning format
+            char* formatted = malloc(strlen(warning_text) + strlen(fname) + strlen(lno) + strlen(cat) + 50);
+            sprintf(formatted, "%s:%s: %s: %s", fname, lno, cat, warning_text);
+            warning_callback(formatted);
+            free(formatted);
+        }
+
+        Py_DECREF(str_message);
+        Py_DECREF(str_filename);
+        Py_DECREF(str_lineno);
+        Py_DECREF(str_category);
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyMethodDef warning_handler_def = {
+    "custom_warning_handler",
+    (PyCFunction)custom_warning_handler,
+    METH_VARARGS | METH_KEYWORDS,
+    NULL
+};
+
+static void setup_warning_handler(void) {
+    warning_module = PyImport_ImportModule("warnings");
+    if (warning_module != NULL) {
+        PyObject* new_handler = PyCFunction_New(&warning_handler_def, NULL);
+        if (new_handler != NULL) {
+            PyObject_SetAttrString(warning_module, "showwarning", new_handler);
+            Py_DECREF(new_handler);
+        }
+    }
+}
+
+static const char* get_current_warning(void) {
+    if (current_warning != NULL) {
+        const char* warning = current_warning;
+        current_warning = NULL;  // Clear the warning after reading
+        return warning;
+    }
+    return NULL;
+}
 
 
 */
@@ -258,6 +331,7 @@ func (s *Interpreter) initPython() error {
 
 	C.Py_Initialize()
 	// Threads are automatically initialized for python interpreter for python 3.11+
+	C.setup_warning_handler()
 
 	if res := C.init_numpy(); res != 0 {
 		return errors.New("failed to initialize NumPy")
@@ -340,8 +414,14 @@ func compile(code string) (*C.PyObject, error) {
 	return compiledCode, nil
 }
 
-// Run executes Python code and returns a telem.Series
 func (c *Calculation) Run(vars map[string]interface{}) (telem.Series, error) {
+	series, _, err := c.RunWarning(vars)
+	return series, err
+}
+
+// Run executes Python code and returns a telem.Series
+func (c *Calculation) RunWarning(vars map[string]interface{}) (telem.Series, string,
+	error) {
 	var s telem.Series
 
 	unlock := lockThreadAndGIL()
@@ -349,7 +429,7 @@ func (c *Calculation) Run(vars map[string]interface{}) (telem.Series, error) {
 
 	localsC := C.PyDict_New()
 	if localsC == nil {
-		return s, errors.Newf("failed to create Python locals dictionary")
+		return s, "", errors.Newf("failed to create Python locals dictionary")
 	}
 	defer C.py_decref(localsC)
 
@@ -370,7 +450,7 @@ func (c *Calculation) Run(vars map[string]interface{}) (telem.Series, error) {
 				for j := 0; j <= i; j++ {
 					C.free(unsafe.Pointer(keys[j]))
 				}
-				return s, errors.Newf("value for key %s is not a *C.PyObject", k)
+				return s, "", errors.Newf("value for key %s is not a *C.PyObject", k)
 			}
 			values[i] = pyObj
 			i++
@@ -386,9 +466,9 @@ func (c *Calculation) Run(vars map[string]interface{}) (telem.Series, error) {
 	if ret == nil {
 		if errStr := C.get_py_error(); errStr != nil {
 			defer C.free(unsafe.Pointer(errStr))
-			return s, errors.Newf("Python error: %s", C.GoString(errStr))
+			return s, "", errors.Newf("Python error: %s", C.GoString(errStr))
 		}
-		return s, errors.New("failed to execute code")
+		return s, "", errors.New("failed to execute code")
 	}
 	C.py_decref(ret) // Decrease ref count for the result of execution
 
@@ -399,13 +479,15 @@ func (c *Calculation) Run(vars map[string]interface{}) (telem.Series, error) {
 	if r == nil {
 		// If 'result' not in locals, check in globals (in case code modifies globals)
 		r = C.PyDict_GetItemString(c.globals, cr)
-		return s, errors.New("no 'result' variable in vars or locals")
+		return s, "", errors.New("no 'result' variable in vars or locals")
 	}
 	// Increase reference count since we are going to use r
 	C.py_incref(r)
 	series, err := ToSeries(r)
 	C.py_decref(r) // Decrease ref count after use
-	return series, err
+
+	warning := getCurrentWarning()
+	return series, warning, err
 }
 
 // Map telem.DataType to NumPy data types
@@ -504,4 +586,12 @@ func ToSeries(pyArray *C.PyObject) (telem.Series, error) {
 	s.DataType = dt
 	s.Data = dataBytes
 	return s, nil
+}
+
+func getCurrentWarning() string {
+	warning := C.get_current_warning()
+	if warning != nil {
+		return C.GoString(warning)
+	}
+	return ""
 }

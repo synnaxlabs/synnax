@@ -208,8 +208,6 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 	return s.releaseEntryCloser(key), nil
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Stream Calculator
-
 type streamCalculator struct {
 	internal *calculator
 	cfg      Config
@@ -217,8 +215,7 @@ type streamCalculator struct {
 }
 
 func (s *streamCalculator) transform(_ context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
-
-	frame, err := s.internal.calculate(i.Frame)
+	frame, warning, err := s.internal.calculate(i.Frame)
 	if err != nil {
 		fmt.Printf("Calculation error occurred: %v\n", err)
 		// Log the full error including Python traceback
@@ -229,10 +226,15 @@ func (s *streamCalculator) transform(_ context.Context, i framer.StreamerRespons
 		return framer.WriterRequest{}, false, err
 	}
 
+	if warning != "" {
+		s.cfg.L.Warn("Python runtime warning",
+			zap.String("warning", warning),
+			zap.String("channel_name", s.internal.ch.Name),
+			zap.String("expression", s.internal.ch.Expression))
+	}
+
 	return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Calculator
 
 type calculator struct {
 	ch          channel.Channel
@@ -241,7 +243,7 @@ type calculator struct {
 	locals      map[string]interface{}
 }
 
-func (c calculator) calculate(fr framer.Frame) (of framer.Frame, err error) {
+func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string, err error) {
 	var alignment telem.AlignmentPair
 	for _, k := range c.ch.Requires {
 		s := fr.Get(k)
@@ -251,7 +253,7 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame, err error) {
 		alignment = s[0].Alignment
 		obj, err := computron.NewSeries(s[0])
 		if err != nil {
-			return of, err
+			return of, "", err
 		}
 		ch, found := c.requires[k]
 		if !found {
@@ -259,12 +261,13 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame, err error) {
 		}
 		c.locals[ch.Name] = obj
 	}
-	os, err := c.calculation.Run(c.locals)
+	os, warning, err := c.calculation.RunWarning(c.locals)
 	if err != nil {
-		return of, err
+		return of, "", err
 	}
+
 	os.Alignment = alignment
 	of.Keys = []channel.Key{c.ch.Key()}
 	of.Series = []telem.Series{os}
-	return of, nil
+	return of, warning, nil
 }
