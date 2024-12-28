@@ -11,6 +11,7 @@ package kv
 
 import (
 	"context"
+	"github.com/samber/lo"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/signal"
 	"go/types"
@@ -153,17 +154,13 @@ func (r *gossipRecoveryTransform) transform(
 ) (out TxRequest, ok bool, err error) {
 	out.Context = in.Context
 	for _, op := range in.Operations {
-		key, err := kvx.CompositeKey(op.Key, op.Version)
-		if err != nil {
-			panic(err)
-		}
-		strKey := string(key)
-		if r.repetitions[strKey] > r.RecoveryThreshold {
+		key := string(lo.Must(kvx.CompositeKey(op.Key, op.Version)))
+		if r.repetitions[key] > r.RecoveryThreshold {
 			op.state = recovered
 			out.Operations = append(out.Operations, op)
-			delete(r.repetitions, strKey)
+			delete(r.repetitions, key)
 		}
-		r.repetitions[strKey]++
+		r.repetitions[key]++
 	}
 	return out, true, nil
 }

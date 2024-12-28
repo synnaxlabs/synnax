@@ -43,3 +43,10 @@ func New(msg string) error { return errors.New(msg) }
 func Newf(format string, args ...interface{}) error { return errors.Newf(format, args...) }
 
 func As(err error, target interface{}) bool { return errors.As(err, target) }
+
+func Skip(err error, targets ...error) error {
+	if errors.IsAny(err, targets...) {
+		return nil
+	}
+	return err
+}

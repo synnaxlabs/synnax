@@ -108,3 +108,17 @@ type TxReader interface {
 
 // Observable allows the caller to observe changes to key-value pairs in the DB.
 type Observable = observe.Observable[TxReader]
+
+// WithTx executes a function with a transaction on the given DB. If the function
+// returns an error, the transaction will be rolled back. If the function returns
+// nil, the transaction will be committed.
+func WithTx(ctx context.Context, db DB, f func(tx Tx) error) (err error) {
+	txn := db.OpenTx()
+	defer func() {
+		err = errors.CombineErrors(err, txn.Close())
+	}()
+	if err = f(txn); err == nil {
+		err = txn.Commit(ctx)
+	}
+	return
+}

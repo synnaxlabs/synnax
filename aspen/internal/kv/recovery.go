@@ -11,13 +11,13 @@ package kv
 
 import (
 	"context"
-	"fmt"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/version"
+	"go.uber.org/zap"
 )
 
 type RecoveryRequest struct {
@@ -39,11 +39,11 @@ type recoveryServer struct{ Config }
 
 func newRecoveryServer(cfg Config) *recoveryServer {
 	rs := &recoveryServer{Config: cfg}
-	rs.RecoveryTransportServer.BindHandler(rs.recover)
+	rs.RecoveryTransportServer.BindHandler(rs.recoverPeer)
 	return rs
 }
 
-func (r *recoveryServer) recover(
+func (r *recoveryServer) recoverPeer(
 	ctx context.Context,
 	stream RecoveryTransportServerStream,
 ) error {
@@ -77,10 +77,10 @@ func (r *recoveryServer) recover(
 		op.Leaseholder = dig.Leaseholder
 		op.Variant = dig.Variant
 		op.Value = v
-		if err := stream.Send(RecoveryResponse{Operations: []Operation{op}}); err != nil {
+		if err = stream.Send(RecoveryResponse{Operations: []Operation{op}}); err != nil {
 			return err
 		}
-		if err := closer.Close(); err != nil {
+		if err = closer.Close(); err != nil {
 			return err
 		}
 	}
@@ -88,11 +88,10 @@ func (r *recoveryServer) recover(
 }
 
 func runRecovery(ctx context.Context, cfg Config) error {
+	cfg.Instrumentation = cfg.Instrumentation.Child("recovery")
 	nodes := cfg.Cluster.Nodes()
-	sCtx := signal.Wrap(
-		ctx,
-		signal.WithInstrumentation(cfg.Instrumentation.Child("recovery")),
-	)
+	sCtx := signal.Wrap(ctx, signal.WithInstrumentation(cfg.Instrumentation))
+	cfg.L.Info("recovering lost key-value operations", zap.Int("nodes", len(nodes)))
 	for _, n := range nodes {
 		if n.Key == cfg.Cluster.HostKey() {
 			continue
@@ -101,7 +100,34 @@ func runRecovery(ctx context.Context, cfg Config) error {
 			return runSingleNodeRecovery(ctx, cfg, n)
 		}, signal.WithKeyf("node-%v", n.Key))
 	}
-	return sCtx.Wait()
+	err := sCtx.Wait()
+	if err != nil {
+		cfg.L.Error("recovery failed", zap.Error(err))
+	}
+	return err
+
+}
+
+func loadHighWater(ctx context.Context, cfg Config) (highWater version.Counter, err error) {
+	iter, err := cfg.Engine.OpenIterator(kv.IterPrefix([]byte(digestPrefix)))
+	if err != nil {
+		return
+	}
+	defer func() {
+		err = errors.CombineErrors(err, iter.Close())
+	}()
+
+	var dig Digest
+	for iter.First(); iter.Valid(); iter.Next() {
+		v := iter.Value()
+		if err = codec.Decode(ctx, v, &dig); err != nil {
+			return
+		}
+		if highWater.NewerThan(dig.Version) {
+			highWater = dig.Version
+		}
+	}
+	return
 }
 
 func runSingleNodeRecovery(
@@ -109,51 +135,35 @@ func runSingleNodeRecovery(
 	cfg Config,
 	node node.Node,
 ) error {
-	iter, err := cfg.Engine.OpenIterator(kv.IterPrefix([]byte("--dig/")))
-	defer func() {
-		err = errors.CombineErrors(err, iter.Close())
-	}()
+	hw, err := loadHighWater(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	var highWater version.Counter
-	var dig Digest
-	for iter.First(); iter.Valid(); iter.Next() {
-		v := iter.Value()
-		if err = codec.Decode(ctx, v, &dig); err != nil {
-			return err
-		}
-		if dig.Leaseholder != node.Key {
-			continue
-		}
-		if highWater.NewerThan(dig.Version) {
-			highWater = dig.Version
-		}
-	}
-	req := RecoveryRequest{HighWater: highWater}
 	stream, err := cfg.RecoveryTransportClient.Stream(ctx, node.Address)
 	if err != nil {
 		return err
 	}
-	if err := stream.Send(req); err != nil {
+	if err = stream.Send(RecoveryRequest{HighWater: hw}); err != nil {
 		return err
 	}
-	for {
-		resp, err := stream.Receive()
-		if err != nil {
-			if errors.Is(err, freighter.EOF) {
-				return nil
-			}
-			return err
-		}
-		for _, op := range resp.Operations {
-			res := make(map[string]interface{})
-			if err = codec.Decode(ctx, op.Value, &res); err != nil {
-				fmt.Print(err.Error())
-			}
-			if err := op.apply(ctx, cfg.Engine); err != nil {
+	return kv.WithTx(ctx, cfg.Engine, func(tx kv.Tx) error {
+		count := 0
+		for {
+			resp, err := stream.Receive()
+			if err != nil {
+				if errors.Is(err, freighter.EOF) {
+					break
+				}
 				return err
 			}
+			count += len(resp.Operations)
+			for _, op := range resp.Operations {
+				if err = op.apply(ctx, tx); err != nil {
+					return err
+				}
+			}
 		}
-	}
+		cfg.L.Info("successfully recovered lost key-value operations", zap.Stringer("node", node.Key), zap.Int("operations", count))
+		return nil
+	})
 }
