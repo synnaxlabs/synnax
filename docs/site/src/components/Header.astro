@@ -58,9 +58,9 @@ const url = Astro.url.pathname;
     .main-header {
         position: sticky;
         top: 0;
-        background: var(--pluto-gray-l0-70);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: var(--pluto-gray-l0-90);
+        backdrop-filter: blur(3rem);
+        -webkit-backdrop-filter: blur(3rem);
         z-index: 100;
 
         .top {
@@ -130,8 +130,30 @@ const url = Astro.url.pathname;
             max-width: var(--max-width);
             padding: 0 7rem;
         }
+
+        .page-nav-mobile {
+            display: none;
+        }
     }
-    @media (max-width: 880px) {
+
+    @media (max-width: 800px) {
+        .main-header {
+            .bottom .header-content {
+                justify-content: center !important;
+            }
+            .top .header-content {
+                padding: 0 3rem;
+            }
+            .version-button {
+                display: none;
+            }
+            .page-nav-mobile {
+                display: flex;
+            }
+        }
+    }
+
+    @media (max-width: 800px) and (hover: none) {
         .main-header {
             flex-direction: column-reverse !important;
             position: fixed;
@@ -139,25 +161,6 @@ const url = Astro.url.pathname;
             top: unset;
             width: 100%;
             border-top: var(--pluto-border-l4);
-            .top {
-                .header-content {
-                    padding: 0 2rem;
-                }
-            }
-            .bottom {
-                justify-content: center;
-
-                .header-content {
-                    width: fit-content;
-                    border-bottom: none;
-                }
-            }
-            .synnax-logo--title {
-                display: none;
-            }
-            .version-button {
-                display: none;
-            }
         }
     }
 </style>

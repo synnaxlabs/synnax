@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
+import { Icon, Logo } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Tree } from "@synnaxlabs/pluto/tree";
@@ -79,22 +79,27 @@ export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
   if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
   const { visible, toggle, close } = Dropdown.use({ initialVisible: false });
   return (
-    <Dropdown.Dialog visible={visible} close={close} variant="modal" location="top">
-      <Button.Icon variant="text" onClick={() => toggle(!visible)} size="large">
+    <Dropdown.Dialog
+      visible={visible}
+      close={close}
+      variant="modal"
+      location="top"
+      className="page-nav-mobile"
+    >
+      <Button.Icon variant="text" onClick={() => toggle(!visible)} size="medium">
         <Icon.Menu />
       </Button.Icon>
-      <Align.Space
-        borderShade={4}
-        bordered
-        rounded
-        style={{
-          width: "100vw",
-          maxWidth: "450px",
-          height: "80vh",
-          overflow: "hidden",
-          borderRadius: "1rem",
-        }}
-      >
+      <Align.Space borderShade={4} bordered rounded className="page-nav-mobile-content">
+        <Align.Space
+          style={{
+            width: "100%",
+            padding: "2rem 2rem",
+            borderBottom: "var(--pluto-border)",
+          }}
+          direction="x"
+        >
+          <Logo variant="title" />
+        </Align.Space>
         {tree}
       </Align.Space>
     </Dropdown.Dialog>

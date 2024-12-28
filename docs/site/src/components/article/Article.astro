@@ -52,8 +52,13 @@ const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
         }
 
         padding: 5rem 8rem;
-        @media (max-width: 700px) {
+        @media (max-width: 1100px) {
+            padding-right: 2rem;
+        }
+
+        @media (max-width: 800px) {
             padding: 5rem 2rem;
+            margin-bottom: 0;
         }
 
         .article-title::after {

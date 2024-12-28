@@ -39,7 +39,7 @@ const {
         <ViewTransitions />
     </head>
     <body>
-        <Header url={url} />
+        <Header url={url} transition:persist />
         <main>
             <section>
                 <slot />
@@ -994,10 +994,26 @@ const {
                 --pluto-h4-size: 2.75rem;
                 --pluto-h5-size: 2.5rem;
                 --pluto-p-size: 2.3333rem;
-                --pluto-small-size: 2rem;
+                --pluto-p-weight: 375;
 
                 section {
+                    padding: 0 1rem !important;
+                }
+
+                article {
+                    ul {
+                        padding-left: 2rem;
+                    }
+                }
+
+                .pluto-tabs-selector__btn--uneditable {
                     padding: 0 1rem;
+                }
+            }
+
+            @media (max-width: 600px) {
+                .pluto-tabs-selector__tabs {
+                    justify-content: center !important;
                 }
             }
         }
