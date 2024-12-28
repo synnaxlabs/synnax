@@ -2,6 +2,7 @@ package calculated
 
 import (
 	"context"
+	"fmt"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/computron"
@@ -62,7 +63,9 @@ func (c Config) Override(other Config) Config {
 }
 
 type entry struct {
+	// count is the number of requests for the channel.
 	count int
+	// Input stream for calculation pipeline
 	inlet confluence.Inlet[framer.StreamerRequest]
 }
 
@@ -123,6 +126,9 @@ func (s *Service) Close() error {
 
 const defaultPipelineBufferSize = 50
 
+// Request starts calculating values for the channel identified by key and returns a closer
+// that must be called when the calculation is no longer needed. If the same channel is
+// requested multiple times, the calculations are shared between requests.
 func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -171,7 +177,10 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 		}),
 		locals: make(map[string]interface{}, len(requires)),
 	}
-	sc := &streamCalculator{internal: c}
+	sc := &streamCalculator{
+		internal: c,
+		cfg:      s.cfg,
+	}
 	sc.Transform = sc.transform
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](p, "calculator", sc)
 
@@ -187,7 +196,6 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 		)
 	})
 	plumber.SetSink[framer.WriterResponse](p, "obs", o)
-
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](p, "calculator", sc)
 	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "calculator", defaultPipelineBufferSize)
 	plumber.MustConnect[framer.WriterRequest](p, "calculator", "writer", defaultPipelineBufferSize)
@@ -200,15 +208,31 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 	return s.releaseEntryCloser(key), nil
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Stream Calculator
+
 type streamCalculator struct {
 	internal *calculator
+	cfg      Config
 	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]
 }
 
 func (s *streamCalculator) transform(_ context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
-	i.Frame = s.internal.calculate(i.Frame)
-	return framer.WriterRequest{Command: writer.Data, Frame: i.Frame}, true, nil
+
+	frame, err := s.internal.calculate(i.Frame)
+	if err != nil {
+		fmt.Printf("Calculation error occurred: %v\n", err)
+		// Log the full error including Python traceback
+		s.cfg.L.Error("Python calculation error",
+			zap.Error(err),
+			zap.String("channel_name", s.internal.ch.Name),
+			zap.String("expression", s.internal.ch.Expression))
+		return framer.WriterRequest{}, false, err
+	}
+
+	return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Calculator
 
 type calculator struct {
 	ch          channel.Channel
@@ -217,7 +241,7 @@ type calculator struct {
 	locals      map[string]interface{}
 }
 
-func (c calculator) calculate(fr framer.Frame) (of framer.Frame) {
+func (c calculator) calculate(fr framer.Frame) (of framer.Frame, err error) {
 	var alignment telem.AlignmentPair
 	for _, k := range c.ch.Requires {
 		s := fr.Get(k)
@@ -227,7 +251,7 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame) {
 		alignment = s[0].Alignment
 		obj, err := computron.NewSeries(s[0])
 		if err != nil {
-			continue
+			return of, err
 		}
 		ch, found := c.requires[k]
 		if !found {
@@ -237,10 +261,10 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame) {
 	}
 	os, err := c.calculation.Run(c.locals)
 	if err != nil {
-		return
+		return of, err
 	}
 	os.Alignment = alignment
 	of.Keys = []channel.Key{c.ch.Key()}
 	of.Series = []telem.Series{os}
-	return
+	return of, nil
 }

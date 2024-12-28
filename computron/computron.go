@@ -15,6 +15,7 @@ package computron
 #include <stdlib.h>
 #include <string.h>
 
+
 static int init_numpy() { import_array1(-1); return 0;  }
 
 static int is_array(PyObject* obj) { return PyArray_Check(obj); }
@@ -47,6 +48,70 @@ static npy_intp* wrapped_PyArray_DIMS(PyArrayObject* arr) { return PyArray_DIMS(
 static int wrapped_PyArray_ITEMSIZE(PyArrayObject* arr) { return PyArray_ITEMSIZE(arr); }
 
 static void* wrapped_PyArray_DATA(PyArrayObject* arr) { return PyArray_DATA(arr); }
+
+static char* get_py_error() {
+    PyObject *ptype, *pvalue, *ptraceback;
+    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+    if (!pvalue) {
+        return NULL;
+    }
+
+    // Normalize the exception
+    PyErr_NormalizeException(&ptype, &pvalue, &ptraceback);
+
+    // Get the string representation of the error
+    PyObject* str = PyObject_Str(pvalue);
+    if (!str) {
+        return NULL;
+    }
+
+    // Convert PyUnicode to C string
+    const char* error = PyUnicode_AsUTF8(str);
+    if (!error) {
+        Py_DECREF(str);
+        return NULL;
+    }
+
+    // Make a copy of the error string
+    char* result = strdup(error);
+
+    // Clean up
+    Py_DECREF(str);
+    if (ptraceback) {
+        PyObject* module = PyImport_ImportModule("traceback");
+        if (module != NULL) {
+            PyObject* format_tb = PyObject_GetAttrString(module, "format_tb");
+            if (format_tb != NULL) {
+                PyObject* tb_list = PyObject_CallFunctionObjArgs(format_tb, ptraceback, NULL);
+                if (tb_list != NULL) {
+                    // Convert traceback list to string
+                    PyObject* tb_str = PyObject_Str(tb_list);
+                    if (tb_str != NULL) {
+                        const char* tb_chars = PyUnicode_AsUTF8(tb_str);
+                        if (tb_chars != NULL) {
+                            char* new_result = malloc(strlen(result) + strlen(tb_chars) + 2);
+                            sprintf(new_result, "%s\n%s", result, tb_chars);
+                            free(result);
+                            result = new_result;
+                        }
+                        Py_DECREF(tb_str);
+                    }
+                    Py_DECREF(tb_list);
+                }
+                Py_DECREF(format_tb);
+            }
+            Py_DECREF(module);
+        }
+    }
+
+    // Restore the error state
+    PyErr_Restore(ptype, pvalue, ptraceback);
+
+    return result;
+}
+
+
+
 
 */
 import "C"
@@ -212,18 +277,19 @@ func (s *Interpreter) initGlobals() error {
 	if s.globals == nil {
 		return errors.Newf("failed to create Python globals dictionary")
 	}
-	// Import NumPy and add it to globals
 	numpyName := C.CString("numpy")
 	defer C.free(unsafe.Pointer(numpyName))
 	numpyModule := C.PyImport_ImportModule(numpyName)
 	if numpyModule == nil {
-		C.PyErr_Print()
-		return errors.Newf("failed to import numpy")
+		if errStr := C.get_py_error(); errStr != nil {
+			defer C.free(unsafe.Pointer(errStr))
+			return errors.Newf("Python error importing numpy: %s", C.GoString(errStr))
+		}
+		return errors.New("failed to import numpy")
 	}
 	npKey := C.CString("np")
 	defer C.free(unsafe.Pointer(npKey))
 	C.PyDict_SetItemString(s.globals, npKey, numpyModule)
-	// Decrease ref count since PyDict_SetItemString increases it
 	C.py_decref(numpyModule)
 	return nil
 }
@@ -262,8 +328,11 @@ func compile(code string) (*C.PyObject, error) {
 	defer C.free(unsafe.Pointer(filename))
 	compiledCode := C.wrapped_PyCompileString(cCode, filename, C.Py_file_input)
 	if compiledCode == nil {
-		C.PyErr_Print()
-		return nil, errors.Newf("failed to compile code")
+		if errStr := C.get_py_error(); errStr != nil {
+			defer C.free(unsafe.Pointer(errStr))
+			return nil, errors.Newf("Python compilation error: %s", C.GoString(errStr))
+		}
+		return nil, errors.New("failed to compile code")
 	}
 	// Increase the reference count to keep it in the cache
 	C.py_incref(compiledCode)
@@ -315,7 +384,10 @@ func (c *Calculation) Run(vars map[string]interface{}) (telem.Series, error) {
 	// Execute the compiled code object with locals
 	ret := C.PyEval_EvalCode(c.compiled, c.globals, localsC)
 	if ret == nil {
-		C.PyErr_Print()
+		if errStr := C.get_py_error(); errStr != nil {
+			defer C.free(unsafe.Pointer(errStr))
+			return s, errors.Newf("Python error: %s", C.GoString(errStr))
+		}
 		return s, errors.New("failed to execute code")
 	}
 	C.py_decref(ret) // Decrease ref count for the result of execution

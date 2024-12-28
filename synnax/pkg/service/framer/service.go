@@ -29,6 +29,7 @@ import (
 
 type Config struct {
 	alamos.Instrumentation
+	// Distribution layer framer service.
 	Framer  *framer.Service
 	Channel channel.Readable
 }
