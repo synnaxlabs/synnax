@@ -47,6 +47,12 @@ const schema = channel.newPayload
   .extend({
     name: z.string().min(1, "Name must not be empty"),
     dataType: DataType.z.transform((v) => v.toString()),
+    expression: z
+      .string()
+      .refine((v) => v.includes("result =") || v.includes("result="), {
+        message:
+          'Expression must assign calculation to result (i.e. must include a "result =" expression)',
+      }),
   })
   .refine((v) => !v.isIndex || new DataType(v.dataType).equals(DataType.TIMESTAMP), {
     message: "Index channel must have data type TIMESTAMP",
@@ -55,6 +61,10 @@ const schema = channel.newPayload
   .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
     message: "Data channel must have an index",
     path: ["index"],
+  })
+  .refine((v) => v.requires?.length > 0, {
+    message: "Expression must use at least one synnax channel",
+    path: ["requires"],
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -134,7 +144,13 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const [createMore, setCreateMore] = useState(false);
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
-      if (!methods.validate() || client == null) return;
+      if (client == null) throw new Error("Client not available");
+
+      const isValid = await methods.validate();
+      if (!isValid) {
+        throw new Error("Validation failed: " + JSON.stringify(methods.errors));
+      }
+
       const d = methods.value();
       await client.channels.create(d);
       if (!createMore) onClose();
