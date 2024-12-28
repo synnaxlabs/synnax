@@ -1552,21 +1552,9 @@ export const VacuumPump = ({
   >
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={96.875}
-        top={50}
-        id="2"
-      />
+      <Handle location="right" orientation={orientation} left={96.875} top={50} id="2" />
       <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={96.875}
-        id="4"
-      />
+      <Handle location="bottom" orientation={orientation} left={50} top={96.875} id="4" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 64, height: 64 }}
@@ -3194,3 +3182,241 @@ export const HeatExchangerStraightTube = ({
     </Div>
   );
 };
+
+export interface DiaphragmPumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const DiaphragmPump = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: DiaphragmPumpProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("pump"), className)}
+    orientation={orientation}
+    >
+
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={96.875} top={50} id="2"/>
+        <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={96.875} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 64, height: 64 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+      <Path d="M62 32C62 48.5685 48.5685 62 32 62M62 32C62 15.4315 48.5685 2 32 2C15.4315 2 2 15.4315 2 32C2 48.5685 15.4315 62 32 62M62 32L32 62M32 2.00269L62.0025 32.0052" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      <Path d="M31 62C29.2204 62 27.3855 61.332 25.5927 59.9086C23.791 58.4782 22.0952 56.3316 20.6377 53.5381C19.1829 50.7496 18.0147 47.4106 17.214 43.7054C16.4137 40.0021 16 36.0237 16 32C16 27.9763 16.4137 23.9979 17.214 20.2946C18.0147 16.5895 19.1829 13.2504 20.6377 10.4619C22.0952 7.66841 23.791 5.52179 25.5927 4.09136C27.3855 2.66801 29.2204 2 31 2" stroke="white" stroke-width="2"/>
+      </InternalSVG>
+  </Toggle>
+);
+
+export interface EjectionPumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const EjectionPump = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: EjectionPumpProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("pump"), className)}
+    orientation={orientation}
+    >
+
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={96.875} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={96.875} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 64, height: 64 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+      <Path d="M62 32C62 48.5685 48.5685 62 32 62M62 32C62 15.4315 48.5685 2 32 2C15.4315 2 2 15.4315 2 32C2 48.5685 15.4315 62 32 62M62 32L32 62M32 2.00269L62.0025 32.0052" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      <Path d="M50.3827 20.3601C47.1902 21.7605 43.4002 22.8046 39.2752 23.4077C35.1519 24.0105 30.8103 24.1557 26.5584 23.8319C22.3057 23.508 18.2597 22.7238 14.7044 21.5418C11.1449 20.3584 8.19358 18.8149 6.03181 17.0454M6.02374 46.9613C8.18198 45.1925 11.129 43.6491 14.6841 42.465C18.2349 41.2824 22.2765 40.4968 26.5256 40.1707C30.774 39.8447 35.113 39.9871 39.2353 40.5866C43.3592 41.1864 47.15 42.2268 50.3455 43.6237" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </InternalSVG>
+  </Toggle>
+);
+
+export interface TurboCompressorProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const TurboCompressor = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: TurboCompressorProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("pump"), className)}
+    orientation={orientation}
+    >
+
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={95.45} top={50} id="2"/>
+        <Handle location="top" orientation={orientation} left={50} top={4.55} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={95.45} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 66, height: 66 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+        <Path d="M17 7.59998L59.5394 18.9984M17 58.3984L59.5394 47M63 33C63 36.9397 62.224 40.8407 60.7164 44.4805C59.2087 48.1203 56.999 51.4274 54.2132 54.2132C51.4274 56.999 48.1203 59.2087 44.4805 60.7164C40.8407 62.224 36.9397 63 33 63C29.0603 63 25.1593 62.224 21.5195 60.7164C17.8797 59.2087 14.5726 56.999 11.7868 54.2132C9.00104 51.4274 6.79125 48.1203 5.28361 44.4805C3.77597 40.8407 3 36.9397 3 33C3 29.0603 3.77597 25.1593 5.28362 21.5195C6.79126 17.8797 9.00104 14.5726 11.7868 11.7868C14.5726 9.00104 17.8797 6.79125 21.5195 5.28361C25.1593 3.77597 29.0603 3 33 3C36.9397 3 40.8407 3.77597 44.4805 5.28362C48.1203 6.79126 51.4274 9.00104 54.2132 11.7868C56.999 14.5726 59.2087 17.8797 60.7164 21.5195C62.224 25.1593 63 29.0603 63 33Z"/>
+        <Circle cx="33" cy="33" r="14.5"/>
+      </InternalSVG>
+  </Toggle>
+);
+
+export interface RollerVaneCompressorProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const RollerVaneCompressor = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: RollerVaneCompressorProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("pump"), className)}
+    orientation={orientation}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={95.45} top={50} id="2"/>
+        <Handle location="top" orientation={orientation} left={50} top={4.55} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={95.45} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 66, height: 66 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+        <Path d="M17 7.59998L59.5394 18.9984M17 58.3984L59.5394 47M63 33C63 36.9397 62.224 40.8407 60.7164 44.4805C59.2087 48.1203 56.999 51.4274 54.2132 54.2132C51.4274 56.999 48.1203 59.2087 44.4805 60.7164C40.8407 62.224 36.9397 63 33 63C29.0603 63 25.1593 62.224 21.5195 60.7164C17.8797 59.2087 14.5726 56.999 11.7868 54.2132C9.00104 51.4274 6.79125 48.1203 5.28361 44.4805C3.77597 40.8407 3 36.9397 3 33C3 29.0603 3.77597 25.1593 5.28362 21.5195C6.79126 17.8797 9.00104 14.5726 11.7868 11.7868C14.5726 9.00104 17.8797 6.79125 21.5195 5.28361C25.1593 3.77597 29.0603 3 33 3C36.9397 3 40.8407 3.77597 44.4805 5.28362C48.1203 6.79126 51.4274 9.00104 54.2132 11.7868C56.999 14.5726 59.2087 17.8797 60.7164 21.5195C62.224 25.1593 63 29.0603 63 33Z"/>
+        <Path d="M35 12.4V20.4"/>
+        <Path d="M3 33H16"/>
+        <Path d="M35 53.6V45.6"/>
+      </InternalSVG>
+  </Toggle>
+);
+
+export interface LiquidRingCompressorProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const LiquidRingCompressor = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: LiquidRingCompressorProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("pump"), className)}
+    orientation={orientation}
+    >
+
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={95.45} top={50} id="2"/>
+        <Handle location="top" orientation={orientation} left={50} top={4.55} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={95.45} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 66, height: 66 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+        <Path d="M17 7.59998L59.5394 18.9984M17 58.3984L59.5394 47M63 33C63 36.9397 62.224 40.8407 60.7164 44.4805C59.2087 48.1203 56.999 51.4274 54.2132 54.2132C51.4274 56.999 48.1203 59.2087 44.4805 60.7164C40.8407 62.224 36.9397 63 33 63C29.0603 63 25.1593 62.224 21.5195 60.7164C17.8797 59.2087 14.5726 56.999 11.7868 54.2132C9.00104 51.4274 6.79125 48.1203 5.28361 44.4805C3.77597 40.8407 3 36.9397 3 33C3 29.0603 3.77597 25.1593 5.28362 21.5195C6.79126 17.8797 9.00104 14.5726 11.7868 11.7868C14.5726 9.00104 17.8797 6.79125 21.5195 5.28361C25.1593 3.77597 29.0603 3 33 3C36.9397 3 40.8407 3.77597 44.4805 5.28362C48.1203 6.79126 51.4274 9.00104 54.2132 11.7868C56.999 14.5726 59.2087 17.8797 60.7164 21.5195C62.224 25.1593 63 29.0603 63 33Z"/>
+        <Path d="M39 33C39 33.7879 38.8448 34.5681 38.5433 35.2961C38.2417 36.0241 37.7998 36.6855 37.2426 37.2426C36.6855 37.7998 36.0241 38.2417 35.2961 38.5433C34.5681 38.8448 33.7879 39 33 39C32.2121 39 31.4319 38.8448 30.7039 38.5433C29.9759 38.2417 29.3145 37.7998 28.7574 37.2426C28.2002 36.6855 27.7583 36.0241 27.4567 35.2961C27.1552 34.5681 27 33.7879 27 33C27 32.2121 27.1552 31.4319 27.4567 30.7039C27.7583 29.9759 28.2002 29.3145 28.7574 28.7574C29.3145 28.2002 29.9759 27.7583 30.7039 27.4567C31.4319 27.1552 32.2121 27 33 27C33.7879 27 34.5681 27.1552 35.2961 27.4567C36.0241 27.7583 36.6855 28.2002 37.2426 28.7574C37.7998 29.3145 38.2417 29.9759 38.5433 30.7039C38.8448 31.4319 39 32.2121 39 33L39 33Z"/>
+        <Path d="M39 33H47"/>
+        <Path d="M27 33H19"/>
+        <Path d="M36 27.804L40 20.8758"/>
+        <Path d="M30 27.804L26 20.8758"/>
+        <Path d="M30 38.196L26 45.1242"/>
+        <Path d="M36 38.196L40 45.1242"/>
+      </InternalSVG>
+  </Toggle>
+);
+
+export interface EjectorCompressorProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const EjectorCompressor = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: EjectorCompressorProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("pump"), className)}
+    orientation={orientation}
+    >
+
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={95.45} top={50} id="2"/>
+        <Handle location="top" orientation={orientation} left={50} top={4.55} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={95.45} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 66, height: 66 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+        <Path d="M17 7.59998L59.5394 18.9984M17 58.3984L59.5394 47M63 33C63 36.9397 62.224 40.8407 60.7164 44.4805C59.2087 48.1203 56.999 51.4274 54.2132 54.2132C51.4274 56.999 48.1203 59.2087 44.4805 60.7164C40.8407 62.224 36.9397 63 33 63C29.0603 63 25.1593 62.224 21.5195 60.7164C17.8797 59.2087 14.5726 56.999 11.7868 54.2132C9.00104 51.4274 6.79125 48.1203 5.28361 44.4805C3.77597 40.8407 3 36.9397 3 33C3 29.0603 3.77597 25.1593 5.28362 21.5195C6.79126 17.8797 9.00104 14.5726 11.7868 11.7868C14.5726 9.00104 17.8797 6.79125 21.5195 5.28361C25.1593 3.77597 29.0603 3 33 3C36.9397 3 40.8407 3.77597 44.4805 5.28362C48.1203 6.79126 51.4274 9.00104 54.2132 11.7868C56.999 14.5726 59.2087 17.8797 60.7164 21.5195C62.224 25.1593 63 29.0603 63 33Z"/>
+        <Path d="M49.1214 16.2515C43.5325 21.3055 36.2463 24.0711 28.7115 23.9986C21.1766 23.9262 13.945 21.0209 8.45428 15.8604M8.4838 50.112C13.9718 44.968 21.1918 42.0733 28.7133 42.0014C36.2348 41.9295 43.5089 44.6858 49.0942 49.7239"/>
+      </InternalSVG>
+  </Toggle>
+);
+
+export interface CentrifugalCompressorProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const CentrifugalCompressor = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: CentrifugalCompressorProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("pump"), className)}
+    orientation={orientation}
+    >
+
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={4.55} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={95.45} top={50} id="2"/>
+        <Handle location="top" orientation={orientation} left={50} top={4.55} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={95.45} id="4" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 66, height: 66 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+      <Path d="M17 7.59998L59.5394 18.9984M17 58.3984L59.5394 47M63 33C63 36.9397 62.224 40.8407 60.7164 44.4805C59.2087 48.1203 56.999 51.4274 54.2132 54.2132C51.4274 56.999 48.1203 59.2087 44.4805 60.7164C40.8407 62.224 36.9397 63 33 63C29.0603 63 25.1593 62.224 21.5195 60.7164C17.8797 59.2087 14.5726 56.999 11.7868 54.2132C9.00104 51.4274 6.79125 48.1203 5.28361 44.4805C3.77597 40.8407 3 36.9397 3 33C3 29.0603 3.77597 25.1593 5.28362 21.5195C6.79126 17.8797 9.00104 14.5726 11.7868 11.7868C14.5726 9.00104 17.8797 6.79125 21.5195 5.28361C25.1593 3.77597 29.0603 3 33 3C36.9397 3 40.8407 3.77597 44.4805 5.28362C48.1203 6.79126 51.4274 9.00104 54.2132 11.7868C56.999 14.5726 59.2087 17.8797 60.7164 21.5195C62.224 25.1593 63 29.0603 63 33Z"/>
+      <Path d="M3 33H63"/>
+      </InternalSVG>
+  </Toggle>
+);

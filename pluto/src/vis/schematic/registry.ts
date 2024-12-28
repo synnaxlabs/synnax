@@ -82,6 +82,20 @@ import {
   type HeatExchangerMProps,
   HeatExchangerStraightTube,
   type HeatExchangerStraightTubeProps,
+  type TurboCompressorProps,
+  TurboCompressor,
+  type RollerVaneCompressorProps,
+  RollerVaneCompressor,
+  type LiquidRingCompressorProps,
+  LiquidRingCompressor,
+  type EjectorCompressorProps,
+  EjectorCompressor,
+  type CentrifugalCompressorProps,
+  CentrifugalCompressor,
+  type DiaphragmPumpProps,
+  DiaphragmPump,
+  type EjectionPumpProps,
+  EjectionPump,
   FlowmeterNozzle,
   type FlowmeterNozzleProps,
   FlowmeterVenturi,
@@ -249,6 +263,13 @@ const VARIANTS = [
   "heatExchangerGeneral",
   "heatExchangerM",
   "heatExchangerStraightTube",
+  "diaphragmPump",
+  "ejectionPump",
+  "turboCompressor",
+  "rollerVaneCompressor",
+  "liquidRingCompressor",
+  "ejectorCompressor",
+  "centrifugalCompressor",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1259,6 +1280,104 @@ const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const turboCompressor: Spec<TurboCompressorProps> = {
+  name: "Turbo Compressor",
+  key: "turboCompressor",
+  Form: CommonToggleForm,
+  Symbol: TurboCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Turbo Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.TurboCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const rollerVaneCompressor: Spec<RollerVaneCompressorProps> = {
+  name: "Roller Vane Compressor",
+  key: "rollerVaneCompressor",
+  Form: CommonToggleForm,
+  Symbol: RollerVaneCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Roller Vane Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.RollerVaneCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const liquidRingCompressor: Spec<LiquidRingCompressorProps> = {
+  name: "Liquid Ring Compressor",
+  key: "liquidRingCompressor",
+  Form: CommonToggleForm,
+  Symbol: LiquidRingCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Liquid Ring Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.LiquidRingCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const ejectorCompressor: Spec<EjectorCompressorProps> = {
+  name: "Ejector Compressor",
+  key: "ejectorCompressor",
+  Form: CommonToggleForm,
+  Symbol: EjectorCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Ejector Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.EjectorCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const centrifugalCompressor: Spec<CentrifugalCompressorProps> = {
+  name: "Centrifugal Compressor",
+  key: "centrifugalCompressor",
+  Form: CommonToggleForm,
+  Symbol: CentrifugalCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Centrifugal Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.CentrifugalCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const diaphragmPump: Spec<DiaphragmPumpProps> = {
+  name: "Diaphragm Pump",
+  key: "diaphragmPump",
+  Form: CommonToggleForm,
+  Symbol: DiaphragmPump,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Diaphragm Pump"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.DiaphragmPump,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const ejectionPump: Spec<EjectionPumpProps> = {
+  name: "Ejection Pump",
+  key: "ejectionPump",
+  Form: CommonToggleForm,
+  Symbol: EjectionPump,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Ejection Pump"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.EjectionPump,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -1323,5 +1442,13 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   flowmeterFloatSensor,
   heatExchangerGeneral,
   heatExchangerM,
-  heatExchangerStraightTube
+  heatExchangerStraightTube,
+  diaphragmPump,
+  ejectionPump,
+  turboCompressor,
+  rollerVaneCompressor,
+  liquidRingCompressor,
+  ejectorCompressor,
+  centrifugalCompressor,
 };
+

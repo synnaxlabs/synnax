@@ -385,6 +385,20 @@ export const HeatExchangerM = createLabeled(Primitives.HeatExchangerM);
 export type HeatExchangerMProps = LabeledProps<Primitives.HeatExchangerMProps>;
 export const HeatExchangerStraightTube = createLabeled(Primitives.HeatExchangerStraightTube);
 export type HeatExchangerStraightTubeProps = LabeledProps<Primitives.HeatExchangerStraightTubeProps>;
+export const DiaphragmPump = createLabeled(Primitives.DiaphragmPump);
+export type DiaphragmPumpProps = LabeledProps<Primitives.DiaphragmPumpProps>;
+export const EjectionPump = createLabeled(Primitives.EjectionPump);
+export type EjectionPumpProps = LabeledProps<Primitives.EjectionPumpProps>;
+export const TurboCompressor = createLabeled(Primitives.TurboCompressor);
+export type TurboCompressorProps = LabeledProps<Primitives.TurboCompressorProps>;
+export const RollerVaneCompressor = createLabeled(Primitives.RollerVaneCompressor);
+export type RollerVaneCompressorProps = LabeledProps<Primitives.RollerVaneCompressorProps>;
+export const LiquidRingCompressor = createLabeled(Primitives.LiquidRingCompressor);
+export type LiquidRingCompressorProps = LabeledProps<Primitives.LiquidRingCompressorProps>;
+export const EjectorCompressor = createLabeled(Primitives.EjectorCompressor);
+export type EjectorCompressorProps = LabeledProps<Primitives.EjectorCompressorProps>;
+export const CentrifugalCompressor = createLabeled(Primitives.CentrifugalCompressor);
+export type CentrifugalCompressorProps = LabeledProps<Primitives.CentrifugalCompressorProps>;
 
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);
