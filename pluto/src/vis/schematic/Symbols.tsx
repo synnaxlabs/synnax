@@ -320,6 +320,17 @@ export const ScrewPump = createToggle(Primitives.ScrewPump);
 export type ScrewPumpProps = ToggleProps<Primitives.ScrewPumpProps>;
 export const Compressor = createToggle(Primitives.Compressor);
 export type CompressorProps = ToggleProps<Primitives.CompressorProps>;
+export const TurboCompressor = createToggle(Primitives.TurboCompressor);
+export type TurboCompressorProps = ToggleProps<Primitives.TurboCompressorProps>;
+export const RollerVaneCompressor = createToggle(Primitives.RollerVaneCompressor);
+export type RollerVaneCompressorProps = ToggleProps<Primitives.RollerVaneCompressorProps>;
+export const LiquidRingCompressor = createToggle(Primitives.LiquidRingCompressor);
+export type LiquidRingCompressorProps = ToggleProps<Primitives.LiquidRingCompressorProps>;
+export const EjectorCompressor = createToggle(Primitives.EjectorCompressor);
+export type EjectorCompressorProps = ToggleProps<Primitives.EjectorCompressorProps>;
+export const CentrifugalCompressor = createToggle(Primitives.CentrifugalCompressor);
+export type CentrifugalCompressorProps = ToggleProps<Primitives.CentrifugalCompressorProps>;
+
 
 // |||||||| STATIC + LABELED ||||||||
 
@@ -389,16 +400,6 @@ export const DiaphragmPump = createLabeled(Primitives.DiaphragmPump);
 export type DiaphragmPumpProps = LabeledProps<Primitives.DiaphragmPumpProps>;
 export const EjectionPump = createLabeled(Primitives.EjectionPump);
 export type EjectionPumpProps = LabeledProps<Primitives.EjectionPumpProps>;
-export const TurboCompressor = createLabeled(Primitives.TurboCompressor);
-export type TurboCompressorProps = LabeledProps<Primitives.TurboCompressorProps>;
-export const RollerVaneCompressor = createLabeled(Primitives.RollerVaneCompressor);
-export type RollerVaneCompressorProps = LabeledProps<Primitives.RollerVaneCompressorProps>;
-export const LiquidRingCompressor = createLabeled(Primitives.LiquidRingCompressor);
-export type LiquidRingCompressorProps = LabeledProps<Primitives.LiquidRingCompressorProps>;
-export const EjectorCompressor = createLabeled(Primitives.EjectorCompressor);
-export type EjectorCompressorProps = LabeledProps<Primitives.EjectorCompressorProps>;
-export const CentrifugalCompressor = createLabeled(Primitives.CentrifugalCompressor);
-export type CentrifugalCompressorProps = LabeledProps<Primitives.CentrifugalCompressorProps>;
 
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);
