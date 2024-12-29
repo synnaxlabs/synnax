@@ -17,12 +17,13 @@ import {
   clamp,
   dimensions,
   type location,
+  primitiveIsZero,
   type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 
 import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
@@ -361,8 +362,8 @@ interface CellContainerProps {
 export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   ({ dispatch }) => {
-    const key = initial.key ?? uuidv4();
     const { name = "Table", location = "mosaic", window, tab, ...rest } = initial;
+    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...ZERO_STATE, ...rest, key }));
     return {
       key,
