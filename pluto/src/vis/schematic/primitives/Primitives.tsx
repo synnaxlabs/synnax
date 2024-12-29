@@ -3353,3 +3353,169 @@ export const CentrifugalCompressor = ({
   </Toggle>
 );
 
+export interface FlameArrestorProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const FlameArrestor = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: FlameArrestorProps): ReactElement => (
+  <Div
+    {...props}
+    className={CSS(CSS.B("flame-arrestor"), className)}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={7.575} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={92.425} top={50} id="2"/>
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 33, height: 69 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+      <Path d="M16.5 2.5L16.5 66.5M2.5 34.5H30.5M2.5 18.9848H30.5M2.5 50.0152H30.5M5.3 66.5H27.7C29.2464 66.5 30.5 65.1976 30.5 63.5909V5.40909C30.5 3.80244 29.2464 2.5 27.7 2.5H5.3C3.7536 2.5 2.5 3.80245 2.5 5.40909V63.5909C2.5 65.1976 3.7536 66.5 5.3 66.5Z" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    </InternalSVG>
+  </Div>
+);
+
+export interface FlameArrestorDetonationProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const FlameArrestorDetonation = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: FlameArrestorDetonationProps): ReactElement => (
+  <Div
+    {...props}
+    className={CSS(CSS.B("flame-arrestor"), className)}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={3.333} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={96.667} top={50} id="2"/>
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 63, height: 69 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+          <Rect x="2" y="2.5" width="28" height="64" rx="3"/>
+          <Path d="M16 2.5L16 66.5"/>
+          <Path d="M2 34.5H30"/>
+          <Path d="M2 19H30"/>
+          <Path d="M2 50H30"/>
+          <Path d="M29.121 3.37903L61 34.5"/>
+          <Path d="M29.12 65.62L61 34.5"/>
+      </InternalSVG>
+  </Div>
+);
+
+export interface FlameArrestorExplosionProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const FlameArrestorExplosion = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: FlameArrestorExplosionProps): ReactElement => (
+  <Div
+    {...props}
+    className={CSS(CSS.B("flame-arrestor"), className)}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={3.333} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={96.667} top={50} id="2"/>
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 60, height: 69 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+          <Rect x="2" y="2.5" width="56" height="64" rx="3"/>
+          <Path d="M30 2.5L30 66.5"/>
+          <Path d="M16 2.5L16 66.5"/>
+          <Path d="M2 34.5H30"/>
+          <Path d="M2 19H30"/>
+          <Path d="M2 50H30"/>
+      </InternalSVG>
+  </Div>
+);
+
+export interface FlameArrestorFireResProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const FlameArrestorFireRes = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: FlameArrestorFireResProps): ReactElement => (
+  <Div
+    {...props}
+    className={CSS(CSS.B("flame-arrestor"), className)}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={3.333} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={96.667} top={50} id="2"/>
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 63, height: 69 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+        <Rect x="2" y="2.5" width="28" height="64" rx="3"/>
+        <Path d="M16 2.5L16 66.5"/>
+        <Path d="M2 34.5H30"/>
+        <Path d="M2 19H30"/>
+        <Path d="M2 50H30"/>
+        <Path d="M29 2.5C33.2023 2.5 37.3635 3.3277 41.2459 4.93586C45.1283 6.54401 48.656 8.90111 51.6274 11.8726C54.5989 14.8441 56.956 18.3717 58.5642 22.2541C60.1723 26.1366 61 30.2977 61 34.5C61 38.7023 60.1723 42.8635 58.5642 46.7459C56.956 50.6283 54.5989 54.1559 51.6274 57.1274C48.6559 60.0989 45.1283 62.456 41.2459 64.0641C37.3635 65.6723 33.2023 66.5 29 66.5" stroke="white" stroke-width="2" stroke-linecap="square"/>
+        <Line x1="27" y1="66.5" x2="29" y2="66.5"/>
+        <Line x1="27" y1="2.5" x2="29" y2="2.5"/>
+      </InternalSVG>
+  </Div>
+);
+
+export interface FlameArrestorFireResDetonationProps extends DivProps, SVGBasedPrimitiveProps {}
+
+export const FlameArrestorFireResDetonation = ({
+  color,
+  className,
+  orientation = 'left',
+  scale,
+  ...props
+}: FlameArrestorFireResDetonationProps): ReactElement => (
+  <Div
+    {...props}
+    className={CSS(CSS.B("flame-arrestor"), className)}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={3.333} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={96.667} top={50} id="2"/>
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 63, height: 69 }}
+        color={color}
+        orientation={orientation}
+        scale={scale}
+        >
+        <Rect x="2" y="2.5" width="28" height="64" rx="3"/>
+        <Path d="M16 2.5L16 66.5"/>
+        <Path d="M2 34.5H30"/>
+        <Path d="M2 19H30"/>
+        <Path d="M2 50H30"/>
+        <Path d="M29.121 3.37903L61 34.5"/>
+        <Path d="M29.12 65.62L61 34.5"/>
+        <Path d="M29 2.5C33.2023 2.5 37.3635 3.3277 41.2459 4.93586C45.1283 6.54401 48.656 8.90111 51.6274 11.8726C54.5989 14.8441 56.956 18.3717 58.5642 22.2541C60.1723 26.1366 61 30.2977 61 34.5C61 38.7023 60.1723 42.8635 58.5642 46.7459C56.956 50.6283 54.5989 54.1559 51.6274 57.1274C48.6559 60.0989 45.1283 62.456 41.2459 64.0641C37.3635 65.6723 33.2023 66.5 29 66.5"/>
+        <Line x1="27" y1="66.5" x2="29" y2="66.5"/>
+        <Line x1="27" y1="2.5" x2="29" y2="2.5"/>
+      </InternalSVG>
+  </Div>
+);

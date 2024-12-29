@@ -183,6 +183,16 @@ import {
   type ValveProps,
   Vent,
   type VentProps,
+  FlameArrestor,
+  type FlameArrestorProps,
+  FlameArrestorDetonation,
+  type FlameArrestorDetonationProps,
+  FlameArrestorExplosion,
+  type FlameArrestorExplosionProps,
+  FlameArrestorFireRes,
+  type FlameArrestorFireResProps,
+  FlameArrestorFireResDetonation,
+  type FlameArrestorFireResDetonationProps,
 } from "@/vis/schematic/Symbols";
 
 export interface Spec<P extends object> {
@@ -270,6 +280,11 @@ const VARIANTS = [
   "liquidRingCompressor",
   "ejectorCompressor",
   "centrifugalCompressor",
+  "flameArrestor",
+  "flameArrestorDetonation",
+  "flameArrestorExplosion",
+  "flameArrestorFireRes",
+  "flameArrestorFireResDetonation",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1378,6 +1393,76 @@ const ejectionPump: Spec<EjectionPumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const flameArrestor: Spec<FlameArrestorProps> = {
+  name: "Flame Arrestor",
+  key: "flameArrestor",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flameArrestorExplosion: Spec<FlameArrestorExplosionProps> = {
+  name: "Flame Arrestor (Explosion-Proof)",
+  key: "flameArrestorExplosion",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestorExplosion,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor (Explosion-Proof)"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestorExplosion,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flameArrestorDetonation: Spec<FlameArrestorDetonationProps> = {
+  name: "Flame Arrestor (Detonation-Proof)",
+  key: "flameArrestorDetonation",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestorDetonation,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor (Detonation-Proof)"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestorDetonation,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flameArrestorFireRes: Spec<FlameArrestorFireResProps> = {
+  name: "Flame Arrestor (Fire Resistant)",
+  key: "flameArrestorFireRes",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestorFireRes,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor (Fire Resistant)"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestorFireRes,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flameArrestorFireResDetonation: Spec<FlameArrestorFireResDetonationProps> = {
+  name: "Flame Arrestor (Fire Resistant and Detonation-Proof)",
+  key: "flameArrestorFireResDetonation",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestorFireResDetonation,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor (Fire Resistant and Detonation-Proof)"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestorFireResDetonation,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -1450,5 +1535,10 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   liquidRingCompressor,
   ejectorCompressor,
   centrifugalCompressor,
+  flameArrestor,
+  flameArrestorExplosion,
+  flameArrestorDetonation,
+  flameArrestorFireRes,
+  flameArrestorFireResDetonation,
 };
 
