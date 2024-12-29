@@ -12,10 +12,11 @@ import process from "process";
 dotenv.config();
 
 import algoliasearch from "algoliasearch";
-// const client = algoliasearch(
-//   process.env.DOCS_ALGOLIA_APP_ID,
-//   process.env.DOCS_ALGOLIA_WRITE_API_KEY,
-// );
+
+const client = algoliasearch(
+  process.env.DOCS_ALGOLIA_APP_ID,
+  process.env.DOCS_ALGOLIA_WRITE_API_KEY,
+);
 
 // 1. Build a dataset
 import fs from "fs";
