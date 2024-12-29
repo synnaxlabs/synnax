@@ -29,7 +29,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, xy } from "@synnaxlabs/x";
+import { box, deep, id, primitiveIsZero, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -445,7 +445,7 @@ export const create =
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     const newTab = canEditSchematic ? tab : { ...tab, editable: false };
-    const key = initial.key ?? uuid();
+    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,
