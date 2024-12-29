@@ -42,6 +42,18 @@ import {
   type AngledSpringLoadedReliefValveProps,
   AngledValve,
   type AngledValveProps,
+  BallValve,
+  type BallValveProps,
+  ThreeWayBallValve,
+  type ThreeWayBallValveProps,
+  GateValve,
+  type GateValveProps,
+  ButterflyValveOne,
+  type ButterflyValveOneProps,
+  ButterflyValveTwo,
+  type ButterflyValveTwoProps,
+  BreatherValve,
+  type BreatherValveProps,
   Box,
   BoxPreview,
   type BoxProps,
@@ -213,6 +225,12 @@ const VARIANTS = [
   "angledReliefValve",
   "angledSpringLoadedReliefValve",
   "angledValve",
+  "ballValve",
+  "threeWayBallValve",
+  "gateValve",
+  "butterflyValveOne",
+  "butterflyValveTwo",
+  "breatherValve",
   "offPageReference",
   "box",
   "burstDisc",
@@ -441,6 +459,90 @@ const angledValve: Spec<AngledValveProps> = {
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: Primitives.AngledValve,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const ballValve: Spec<BallValveProps> = {
+  name: "Ball Valve",
+  key: "ballValve",
+  Form: CommonDummyToggleForm,
+  Symbol: BallValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Ball Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.BallValve(props),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const threeWayBallValve: Spec<ThreeWayBallValveProps> = {
+  name: "Three-Way Ball Valve",
+  key: "threeWayBallValve",
+  Form: CommonDummyToggleForm,
+  Symbol: ThreeWayBallValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Three-Way Ball Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.ThreeWayBallValve(props),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const gateValve: Spec<GateValveProps> = {
+  name: "Gate Valve",
+  key: "gateValve",
+  Form: CommonDummyToggleForm,
+  Symbol: GateValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Gate Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.GateValve(props),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const butterflyValveOne: Spec<ButterflyValveOneProps> = {
+  name: "Butterfly Valve",
+  key: "butterflyValveOne",
+  Form: CommonDummyToggleForm,
+  Symbol: ButterflyValveOne,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Butterfly Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.ButterflyValveOne(props),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
+  name: "Butterfly Valve",
+  key: "butterflyValveTwo",
+  Form: CommonDummyToggleForm,
+  Symbol: ButterflyValveTwo,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Butterfly Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.ButterflyValveTwo(props),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const breatherValve: Spec<BreatherValveProps> = {
+  name: "Breather Valve",
+  key: "breatherValve",
+  Form: CommonDummyToggleForm,
+  Symbol: BreatherValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Breather Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.BreatherValve(props),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -1480,6 +1582,12 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   threeWayValve,
   fourWayValve,
   angledValve,
+  ballValve,
+  threeWayBallValve,
+  gateValve,
+  butterflyValveOne,
+  butterflyValveTwo,
+  breatherValve,
   manualValve,
   needleValve,
   reliefValve,

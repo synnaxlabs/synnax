@@ -433,6 +433,20 @@ export const AngledReliefValve = createDummyToggle(Primitives.AngledReliefValve)
 export type AngledReliefValveProps =
   DummyToggleProps<Primitives.AngledReliefValveProps>;
 
+export const BallValve = createDummyToggle(Primitives.BallValve);
+export type BallValveProps = DummyToggleProps<Primitives.BallValveProps>;
+export const ThreeWayBallValve = createDummyToggle(Primitives.ThreeWayBallValve);
+export type ThreeWayBallValveProps = DummyToggleProps<Primitives.ThreeWayBallValveProps>;
+export const GateValve = createDummyToggle(Primitives.GateValve);
+export type GateValveProps = DummyToggleProps<Primitives.GateValveProps>;
+export const ButterflyValveOne = createDummyToggle(Primitives.ButterflyValveOne);
+export type ButterflyValveOneProps = DummyToggleProps<Primitives.ButterflyValveOneProps>;
+export const ButterflyValveTwo = createDummyToggle(Primitives.ButterflyValveTwo);
+export type ButterflyValveTwoProps = DummyToggleProps<Primitives.ButterflyValveTwoProps>;
+export const BreatherValve = createDummyToggle(Primitives.BreatherValve);
+export type BreatherValveProps = DummyToggleProps<Primitives.BreatherValveProps>;
+  
+
 // ||||||||| CUSTOM ||||||||
 
 export interface TankProps extends Omit<Primitives.TankProps, "boxBorderRadius"> {

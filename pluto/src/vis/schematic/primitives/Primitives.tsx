@@ -645,6 +645,283 @@ export const AngledValve = ({
   </Toggle>
 );
 
+export interface BallValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const BallValve = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  enabled = false,
+  ...props
+}: BallValveProps): ReactElement => (
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("ball-valve"), className)}
+    enabled={enabled}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={2.2989}
+        top={50}
+        id="1"
+      />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={50}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 42 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="43.5978" cy="20.972" r="19"/>
+      <Path d="M26.5 12.8472L6.35452 2.17563C4.35901 1.16585 2 2.61598 2 4.85243V37.0918C2 39.3283 4.35901 40.7784 6.35453 39.7686L26.5 29.3472"/>
+      <Path d="M60.5 28.8486L80.6455 39.5202C82.641 40.5299 85 39.0798 85 36.8434V4.60396C85 2.36751 82.641 0.917381 80.6455 1.92716L60.5 12.3486"/>
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface ThreeWayBallValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const ThreeWayBallValve = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  enabled = false,
+  ...props
+}: ThreeWayBallValveProps): ReactElement => (
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("three-way-ball-valve"), className)}
+    enabled={enabled}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={95.8}
+        id="1"
+      />
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={2.2989}
+        top={33.1308}
+        id="2"
+      />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={33.1308}
+        id="3"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 66 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="43.5978" cy="21.722" r="19"/>
+      <Path d="M26.5 13.5972L6.35452 2.92563C4.35901 1.91585 2 3.36598 2 5.60243V37.8418C2 40.0783 4.35901 41.5284 6.35453 40.5186L26.5 30.0972"/>
+      <Path d="M60.5 29.5986L80.6455 40.2702C82.641 41.2799 85 39.8298 85 37.5934V5.35396C85 3.11751 82.641 1.66738 80.6455 2.67716L60.5 13.0986"/>
+      <Path d="M35.3737 38.7499L24.7021 58.8954C23.6923 60.8909 25.1425 63.2499 27.3789 63.2499H59.6183C61.8548 63.2499 63.3049 60.8909 62.2951 58.8954L51.8737 38.7499"/>
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface GateValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const GateValve = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  enabled = false,
+  ...props
+}: GateValveProps): ReactElement => (
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("gate-valve"), className)}
+    enabled={enabled}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={2.2989}
+        top={50}
+        id="1"
+      />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={50}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 42 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z"/>
+      <Path d="M43.5 2 L43.5 39.7965"/>
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface ButterflyValveOneProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const ButterflyValveOne = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  enabled = false,
+  ...props
+}: ButterflyValveOneProps): ReactElement => (
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("butterfly-valve-one"), className)}
+    enabled={enabled}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={2.2989}
+        top={50}
+        id="1"
+      />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={50}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 42 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z"/>
+      <Path d="M43.5 2V40"/>
+      <Circle cx="43.5" cy="21" r="10" fill={Color.cssString(color)}/>
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface ButterflyValveTwoProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const ButterflyValveTwo = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  enabled = false,
+  ...props
+}: ButterflyValveTwoProps): ReactElement => (
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("butterfly-valve-two"), className)}
+    enabled={enabled}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={2.2989}
+        top={50}
+        id="1"
+      />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={50}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 42 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="43.5" cy="21" r="10" fill={Color.cssString(color)}/>
+      <Rect x="2" y="2" width="83" height="38" rx="1"/>
+      <Path d="M2.29001 2.29004L84.7069 39.676"/>
+    </InternalSVG>
+  </Toggle>
+);
+
+export interface BreatherValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
+
+export const BreatherValve = ({
+  color,
+  className,
+  orientation = "left",
+  scale,
+  enabled = false,
+  ...props
+}: BreatherValveProps): ReactElement => (
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("breather-valve"), className)} 
+    enabled={enabled}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle
+        location="left"
+        orientation={orientation}
+        left={2.2989}
+        top={50}
+        id="1"
+      />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={97.7011}
+        top={50}
+        id="2"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 42 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="94" cy="49" r="10" fill="white"/>
+      <Circle cx="11" cy="11" r="10" fill="white"/>
+      <Path d="M52.5 30L15.3545 11.2035C13.359 10.1937 11 11.6438 11 13.8803V46.1197C11 48.3562 13.359 49.8063 15.3545 48.7965L52.5 30ZM52.5 30L89.6455 11.2035C91.641 10.1937 94 11.6438 94 13.8803V46.1197C94 48.3562 91.641 49.8063 89.6455 48.7965L52.5 30Z" stroke="white" stroke-width="2"/>
+    </InternalSVG>
+  </Toggle>
+);
+
 export interface PumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const Pump = ({
