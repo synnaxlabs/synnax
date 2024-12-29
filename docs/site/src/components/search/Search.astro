@@ -101,4 +101,20 @@ import { Search as S } from "@/components/search/Search";
             text-decoration: none !important;
         }
     }
+
+    @media (max-width: 600px) {
+        .search-results__content {
+            height: 100vh !important;
+            .pluto-input__internal {
+                border-radius: 0 !important;
+                border: none !important;
+                border-bottom: var(--pluto-border-l4) !important;
+            }
+            .pluto-list__container {
+                border-radius: 0 !important;
+                border: none !important;
+                height: 100vh !important;
+            }
+        }
+    }
 </style>

@@ -55,10 +55,10 @@ export const Search = (): ReactElement => {
   }, []);
   return (
     <Triggers.Provider>
-      <Dropdown.Dialog variant="modal" zIndex={1000} {...d} className="search-box">
+      <Dropdown.Dialog variant="modal" {...d} className="search-box">
         <Button.Button
           startIcon={<Icon.Search />}
-          onClick={d.open}
+          onClick={d.toggle}
           variant="outlined"
           justify="center"
           size="small"
