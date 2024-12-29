@@ -185,7 +185,6 @@ static const char* get_current_warning(void) {
     return NULL;
 }
 
-
 */
 import "C"
 import (

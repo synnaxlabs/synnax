@@ -2,7 +2,6 @@ package calculated
 
 import (
 	"context"
-	"fmt"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/computron"
@@ -211,19 +210,22 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 type streamCalculator struct {
 	internal *calculator
 	cfg      Config
+	lastErr  error
 	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]
 }
 
 func (s *streamCalculator) transform(_ context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
 	frame, warning, err := s.internal.calculate(i.Frame)
-	if err != nil {
-		fmt.Printf("Calculation error occurred: %v\n", err)
-		// Log the full error including Python traceback
+
+	if err != nil && !errors.Is(err, s.lastErr) {
 		s.cfg.L.Error("Python calculation error",
 			zap.Error(err),
 			zap.String("channel_name", s.internal.ch.Name),
 			zap.String("expression", s.internal.ch.Expression))
-		return framer.WriterRequest{}, false, err
+		s.lastErr = err
+	}
+	if err != nil {
+		return framer.WriterRequest{}, false, nil
 	}
 
 	if warning != "" {

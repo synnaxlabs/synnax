@@ -73,7 +73,8 @@ var _ = Describe("Calculated", func() {
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
 	})
-	FIt("Divide by zero", func() {
+
+	It("Divide by zero", func() {
 		distB := mock.NewBuilder()
 		dist := distB.New(ctx)
 		computer := MustSucceed(computron.New())
@@ -126,7 +127,7 @@ var _ = Describe("Calculated", func() {
 		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
 	})
 
-	It("Handle undefined symbols", func() {
+	FIt("Handle undefined symbols", func() {
 		distB := mock.NewBuilder()
 		dist := distB.New(ctx)
 		computer := MustSucceed(computron.New())
