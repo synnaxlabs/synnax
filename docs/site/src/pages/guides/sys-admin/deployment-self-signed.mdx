@@ -6,7 +6,7 @@ description: "Deploy a single node cluster with self-signed certificates."
 ---
 
 import { Icon } from "@synnaxlabs/media";
-import { Tabs } from "@/components/Tabs";
+import { PlatformTabs } from "@/components/platform/PlatformTabs";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -54,13 +54,9 @@ In order to connect to the secure cluster, you'll need to add the CA certificate
 trusted store on your local machine. You'll need to do this for any machine you want to
 connect to the cluster from. See the operating system specific instructions below:
 
-<Tabs
-    client:load
-    tabs={[
-        { name: "Linux", tabKey: "linux" },
-        { name: "MacOS", tabKey: "macos" },
-        { name: "Windows", tabKey: "windows" }
-    ]}
+<PlatformTabs
+    client:only="react"
+    exclude={["docker"]}
 >
 <Icon.OS.Linux slot="linux-icon" />
 <Fragment slot="linux">
@@ -122,7 +118,7 @@ Import-Certificate -FilePath C:\Users\LOCAL_USER\Downloads\synnax-ca.crt -CertSt
 ```
 
 </Fragment>
-</Tabs>
+</PlatformTabs>
 
 ## Configuring a Local Host Alias
 
@@ -134,13 +130,10 @@ you used when generating it.
 
 To do this, follow the operating system specific instructions below:
 
-<Tabs
-    client:load
-    tabs={[
-        { name: "Linux", tabKey: "linux" },
-        { name: "MacOS", tabKey: "macos" },
-        { name: "Windows", tabKey: "windows" }
-    ]}
+<PlatformTabs
+    client:only="react"
+    priority={["linux", "macos", "windows"]}
+    exclude={["docker"]}
 >
 <Icon.OS.Linux slot="linux-icon" />
 <Fragment slot="linux">
@@ -176,4 +169,4 @@ REMOTE_IP synnax.example.com
 ```
 
 </Fragment>
-</Tabs>
+</PlatformTabs>
