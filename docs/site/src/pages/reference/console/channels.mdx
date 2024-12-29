@@ -12,8 +12,10 @@ nextURL: "/reference/console/workspaces"
 import { Divider } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
-A [channel](/reference/concepts/channels) is a  collection of time-ordered data in
+A [channel](/reference/concepts/channels) is a collection of time-ordered data in
 Synnax. Channels are commonly used to store data from sources such as sensors, but can
 also be used to store data as disparate as actuator commands, post-processed analysis
 results, or any other time-ordered data.
@@ -46,25 +48,33 @@ When creating a channel, you will be prompted to fill in the following fields:
     </tr>
     <tr>
       <td>Virtual</td>
-      <td>If true, the channel will be
-      [virtual](/reference/concepts/channels#virtual-channels), meaning no data will be
-      permanently stored.</td>
+      <td>
+        If true, the channel will be
+        [virtual](/reference/concepts/channels#virtual-channels), meaning no data will
+        be permanently stored.
+      </td>
     </tr>
     <tr>
       <td>Is Index</td>
-      <td>If true, the channel will be an [index
-      channel](/reference/concepts/channels#index-channels). Otherwise, the channel will
-      be a [data channel](/reference/concepts/channels#data-channels).</td>
+      <td>
+        If true, the channel will be an [index
+        channel](/reference/concepts/channels#index-channels). Otherwise, the channel
+        will be a [data channel](/reference/concepts/channels#data-channels).
+      </td>
     </tr>
     <tr>
       <td>Data Type</td>
-      <td>What data type the channel stores. If the channel is an index channel, then
-      the data type must be a timestamp.</td>
+      <td>
+        What data type the channel stores. If the channel is an index channel, then the
+        data type must be a timestamp.
+      </td>
     </tr>
     <tr>
       <td>Index</td>
-      <td>For data channels, the index channel used to store timestamps for the data
-      channels.</td>
+      <td>
+        For data channels, the index channel used to store timestamps for the data
+        channels.
+      </td>
     </tr>
   </tbody>
 </Table>

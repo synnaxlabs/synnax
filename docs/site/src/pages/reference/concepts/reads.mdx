@@ -11,6 +11,8 @@ prevURL: "/reference/concepts/ranges"
 
 import { Divider } from "@synnaxlabs/pluto";
 import { Table } from "@/components/Table";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 This page walks you through the lifecycle of a read operation. If you'd like a practical
 guide on reading data using a client library, take a look at the respective pages for
@@ -26,58 +28,53 @@ example, if our desired range is from `1677433720970863400` to `1677433721870863
 would retrieve the following subset from the shown domain:
 
 <Table
-    client:only="react"
-    columns={[
-        { key: "time" },
-        { key: "thermocouple-01" },
-        { key: "strain-gauge-01" },
-        { key: "pressure-transducer-05" },
-    ]}
-    highlights={[
-        {
-            key: "one",
-            columns: [
-                "time",
-                "thermocouple-01",
-                "strain-gauge-01",
-                "pressure-transducer-05",
-            ],
-            color: "var(--pluto-primary-z)",
-            rows: { lower: 1, upper: 4 },
-        },
-    ]}
-    data={[
-        {
-            time: 1677433720770863800,
-            "thermocouple-01": 19.2,
-            "strain-gauge-01": 350.78,
-            "pressure-transducer-05": 19.22,
-        },
-        {
-            time: 1677433720970863400,
-            "thermocouple-01": 19.2,
-            "strain-gauge-01": 350.78,
-            "pressure-transducer-05": 19.22,
-        },
-        {
-            time: 1677433721270868900,
-            "thermocouple-01": 19.2,
-            "strain-gauge-01": 350.78,
-            "pressure-transducer-05": 19.22,
-        },
-        {
-            time: 1677433721470863800,
-            "thermocouple-01": 19.2,
-            "strain-gauge-01": 350.78,
-            "pressure-transducer-05": 19.22,
-        },
-        {
-            time: 1677433721870863400,
-            "thermocouple-01": 19.2,
-            "strain-gauge-01": 350.78,
-            "pressure-transducer-05": 19.22,
-        },
-    ]}
+  client:only="react"
+  columns={[
+    { key: "time" },
+    { key: "thermocouple-01" },
+    { key: "strain-gauge-01" },
+    { key: "pressure-transducer-05" },
+  ]}
+  highlights={[
+    {
+      key: "one",
+      columns: ["time", "thermocouple-01", "strain-gauge-01", "pressure-transducer-05"],
+      color: "var(--pluto-primary-z)",
+      rows: { lower: 1, upper: 4 },
+    },
+  ]}
+  data={[
+    {
+      time: 1677433720770863800,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+    {
+      time: 1677433720970863400,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+    {
+      time: 1677433721270868900,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+    {
+      time: 1677433721470863800,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+    {
+      time: 1677433721870863400,
+      "thermocouple-01": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22,
+    },
+  ]}
 />
 
 <Divider.Divider direction="x" />
@@ -102,9 +99,9 @@ considered _invalid_ if it:
 1. Has accumulated an error. This typically happens when the iterator is unable to reach
    the cluster.
 2. Is not pointing at a valid sample. This can occur if the iterator has:
-    - Exhausted its data, meaning the end of the range is reached during forward
-      iteration, or the start of the range is reached during reverse iteration.
-    - Has not been positioned yet with a seeking call.
+   - Exhausted its data, meaning the end of the range is reached during forward
+     iteration, or the start of the range is reached during reverse iteration.
+   - Has not been positioned yet with a seeking call.
 
 An iterator that has been opened but not yet positioned is invalid. To position the
 iterator, you must call a seeking operation.
@@ -115,39 +112,39 @@ Seeking moves the iterator to a new position in the range. All seeking calls ret
 `boolean` indicating the validity state after executing the operation.
 
 <table>
-    <thead>
-        <tr>
-            <th style="width: 130px;">Operation</th>
-            <th style="width: 100px;">Arguments</th>
-            <th>Description</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>`seek-lt`</td>
-            <td>timestamp</td>
-            {/* prettier-ignore */}
-            <td>Seeks to the first sample whose timestamp is strictly less than the
+  <thead>
+    <tr>
+      <th style="width: 130px;">Operation</th>
+      <th style="width: 100px;">Arguments</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`seek-lt`</td>
+      <td>timestamp</td>
+      {/* prettier-ignore */}
+      <td>Seeks to the first sample whose timestamp is strictly less than the
                 provided timestamp.</td>
-        </tr>
-        <tr>
-            <td>`seek-ge`</td>
-            <td>timestamp</td>
-            {/* prettier-ignore */}
-            <td>Seeks to the first sample whose timestamp is greater than or equal to
+    </tr>
+    <tr>
+      <td>`seek-ge`</td>
+      <td>timestamp</td>
+      {/* prettier-ignore */}
+      <td>Seeks to the first sample whose timestamp is greater than or equal to
             the provided timestamp.</td>
-        </tr>
-        <tr>
-            <td>`seek-first`</td>
-            <td>None</td>
-            <td>Seeks to the first sample in the range.</td>
-        </tr>
-        <tr>
-            <td>`seek-last`</td>
-            <td>None</td>
-            <td>Seeks to the last sample in the range.</td>
-        </tr>
-    </tbody>
+    </tr>
+    <tr>
+      <td>`seek-first`</td>
+      <td>None</td>
+      <td>Seeks to the first sample in the range.</td>
+    </tr>
+    <tr>
+      <td>`seek-last`</td>
+      <td>None</td>
+      <td>Seeks to the last sample in the range.</td>
+    </tr>
+  </tbody>
 </table>
 
 Seeking calls can be used to **revalidate** an iterator after it has been exhausted or
@@ -170,31 +167,31 @@ As with seeking operations, all reads return a `boolean` indicating the validity
 after executing the operation.
 
 <table>
-    <thead>
-        <tr>
-            <th>Operation</th>
-            <th style="width: 180px;">Arguments</th>
-            <th>Description</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>`next`</td>
-            <td>timespan or nothing</td>
-            {/* prettier-ignore */}
-            <td>If no timespan is provided, reads the next frame of data specified by
+  <thead>
+    <tr>
+      <th>Operation</th>
+      <th style="width: 180px;">Arguments</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`next`</td>
+      <td>timespan or nothing</td>
+      {/* prettier-ignore */}
+      <td>If no timespan is provided, reads the next frame of data specified by
                 the chunk size. If a timespan is provided, reads the next frame of data
                 across the span.</td>
-        </tr>
-        <tr>
-            <td>`prev`</td>
-            <td>timespan or nothng</td>
-            {/* prettier-ignore */}
-            <td>Reads the previous chunk of data whose timespan is less than or equal to
+    </tr>
+    <tr>
+      <td>`prev`</td>
+      <td>timespan or nothng</td>
+      {/* prettier-ignore */}
+      <td>Reads the previous chunk of data whose timespan is less than or equal to
                 the provided timespan. If no timespan is provided, reads the previous
                 chunk of data specified by the chunk size.</td>
-        </tr>
-    </tbody>
+    </tr>
+  </tbody>
 </table>
 
 ### Accessing the Iterator Value

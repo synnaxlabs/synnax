@@ -5,11 +5,14 @@ heading: "Control Hardware"
 next: "Sequence Basics"
 nextURL: "/reference/control/sequence-basics"
 ---
+
 import { Divider } from "@synnaxlabs/pluto";
 import { Image } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
-Synnax allows you to control hardware both manually through our 
-[operator console](/reference/console/get-started) and programmatically through our 
+Synnax allows you to control hardware both manually through our
+[operator console](/reference/console/get-started) and programmatically through our
 Python control module.
 
 <Divider.Divider direction="x" />
@@ -17,13 +20,13 @@ Python control module.
 ## Using Channels for Control
 
 Synnax controls hardware through its channel streaming system. In Synnax, channels are
-simply pipes that pass samples from one place to another. Internally, Synnax treats 
+simply pipes that pass samples from one place to another. Internally, Synnax treats
 channels that are used for data acquisition and channels used for control the same way.
 While this may seem strange at first, it allows for high-degrees of flexibility in how
 your configure your system.
 
-If you haven't already, we recommend that you read the 
-[channels](/reference/concepts/channels) documentation to get a better understanding of 
+If you haven't already, we recommend that you read the
+[channels](/reference/concepts/channels) documentation to get a better understanding of
 just what channels are.
 
 <Divider.Divider direction="x" />
@@ -42,7 +45,7 @@ with the name `daq`. We'd create a command channel called `daq_do_1_cmd` with a 
 If you're using one of Synnax's [built-in device drivers](/reference/device-drivers/get-started),
 these channels will be created automatically when you start a control/digital output task.
 
-The following diagram illustrates what a basic control flow might look like when 
+The following diagram illustrates what a basic control flow might look like when
 commanding the digital output from a Python script:
 
 <Image client:only="react" id="control/get-started/basic-control" themed={false} />
@@ -50,10 +53,10 @@ commanding the digital output from a Python script:
 The general flow is as follows:
 
 1. The Python script writes the command value of `1` to the `daq_do_1_cmd` channel.
-2. The Synnax database node receives the command value and forwards it to a device 
-driver. This device driver can be either Synnax's built-in driver or a driver for a custom
-device.
+2. The Synnax database node receives the command value and forwards it to a device
+   driver. This device driver can be either Synnax's built-in driver or a driver for a custom
+   device.
 3. The device driver receives and executes the command, sending an acknowledgement value
-of `1` to the `daq_do_1_state` channel.
+   of `1` to the `daq_do_1_state` channel.
 4. The Synnax database node receives the state value and forwards it to the Python script.
 5. The Python script acknowledges the state value and continues executing.

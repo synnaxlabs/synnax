@@ -8,11 +8,14 @@ nextURL: "/reference/device-drivers/opc-ua/write-task"
 prev: "Connect Server"
 prevURL: "/reference/device-drivers/opc-ua/connect-server"
 ---
+
 import { Icon } from "@synnaxlabs/media";
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import { StepText } from "@/components/StepText";
 import Table from "@/components/Table.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Read tasks are the primary method for acquiring data from an OPC UA server and storing
 it in Synnax.
@@ -44,7 +47,7 @@ multiple tasks for different purposes.
 ### Sample Rates and Timing
 
 All channels in a read task are sampled at the same rate. If you'd like to sample
-different channels at different rates, create a separate task to do so. 
+different channels at different rates, create a separate task to do so.
 
 Synnax uses software timing to read from your OPC UA server, and typically delivers
 precision on the order of 100 microseconds. Under heavy load, this timing precision may
@@ -90,47 +93,53 @@ from the resources toolbar.
 ## Task Configuration Parameters
 
 <Table>
-    <thead>
-        <tr>
-            <th>Field</th>
-            <th>Description</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Name</td>
-            <td>A name for your read task.</td>
-        </tr>
-        <tr>
-            <td>OPC UA Server</td>
-            <td>Which OPC UA server the task will read from.</td>
-        </tr>
-        <tr>
-            <td>Data Saving</td>
-            <td>Data saving defines whether acquired data will be permanently stored in
-            Synnax. When enabled, Synnax will both stream and store data. When disabled,
-            Synnax will only stream data for real-time visualization. Historical data
-            will not be available for review.</td>
-        </tr>
-        <tr>
-            <td>Sample Rate</td>
-            <td>How often, in Hz, Synnax polls data from the OPC UA server.</td>
-        </tr>
-        <tr>
-            <td>Array Sampling</td>
-            <td>Whether to use array sampling mode for this task.</td>
-        </tr>
-        <tr>
-            <td>Stream Rate</td>
-            <td>How often, in Hz, Synnax streams data to the Synnax database. This
-            option is only available when array sampling is off.</td>
-        </tr>
-        <tr>
-            <td>Array Size</td>
-            <td>The number of samples to read in bulk from the OPC UA server. This
-            option is only available when array sampling is on.</td>
-        </tr>
-    </tbody>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Name</td>
+      <td>A name for your read task.</td>
+    </tr>
+    <tr>
+      <td>OPC UA Server</td>
+      <td>Which OPC UA server the task will read from.</td>
+    </tr>
+    <tr>
+      <td>Data Saving</td>
+      <td>
+        Data saving defines whether acquired data will be permanently stored in Synnax.
+        When enabled, Synnax will both stream and store data. When disabled, Synnax will
+        only stream data for real-time visualization. Historical data will not be
+        available for review.
+      </td>
+    </tr>
+    <tr>
+      <td>Sample Rate</td>
+      <td>How often, in Hz, Synnax polls data from the OPC UA server.</td>
+    </tr>
+    <tr>
+      <td>Array Sampling</td>
+      <td>Whether to use array sampling mode for this task.</td>
+    </tr>
+    <tr>
+      <td>Stream Rate</td>
+      <td>
+        How often, in Hz, Synnax streams data to the Synnax database. This option is
+        only available when array sampling is off.
+      </td>
+    </tr>
+    <tr>
+      <td>Array Size</td>
+      <td>
+        The number of samples to read in bulk from the OPC UA server. This option is
+        only available when array sampling is on.
+      </td>
+    </tr>
+  </tbody>
 </Table>
 
 ### Sample Rate vs. Stream Rate
@@ -141,7 +150,7 @@ new data, while the stream rate defines how often the task will stream data into
 
 For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax
 will poll the OPC UA server every 100 ms, collect 10 samples, and then forward these
-samples to the server. 
+samples to the server.
 
 For very low rate tasks (&lt;50 Hz), we recommend setting the stream rate to the same
 value as the sample rate. For higher rate tasks, lowering the stream rate can
@@ -161,16 +170,16 @@ single samples from the server, Synnax will read many samples in bulk. Array sam
 requires a little bit of tuning to set up.
 
 <Note.Note variant="info">
-When experimenting with array based sampling, we recommend running a separate [Synnax
-database](/reference/cluster/quick-start) with a memory-backed data store. This will
-allow you to quickly test different configurations without writing a large amount of
-experimental data to your production database.
+  When experimenting with array based sampling, we recommend running a separate [Synnax
+  database](/reference/cluster/quick-start) with a memory-backed data store. This will
+  allow you to quickly test different configurations without writing a large amount of
+  experimental data to your production database.
 </Note.Note>
 
 Running a task with array sampling enabled can result in both **oversampling** and
 **undersampling**. Oversampling occurs when the OPC UA server doesn't completely replace
 all values in the array before Synnax reads it. Undersampling can occur when the OPC UA
-server is rewriting the array faster than Synnax can read it. 
+server is rewriting the array faster than Synnax can read it.
 
 We recommend setting the sampling rate to the same sampling rate as the OPC UA server
 and setting the array size to be an integer factor of the sampling rate. For very high

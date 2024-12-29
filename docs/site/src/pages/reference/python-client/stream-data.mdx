@@ -10,8 +10,8 @@ prevURL: "/reference/python-client/write-data"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Streaming data is useful for real-time processing, visualization, and
 monitoring. This page guides you through using the Python client to stream data

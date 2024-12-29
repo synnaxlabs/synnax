@@ -7,19 +7,19 @@ prevURL: "/reference/pluto/theming"
 next: "Example App"
 nextURL: "/reference/pluto/example-app"
 ---
-import { Divider } from "@synnaxlabs/pluto"
-import { RealTimePlot, HistoricalPlot } from "@/components/pluto/Plot"
-import Code from "@/components/code/Code.astro";
-import Table from "@/components/Table.astro";
-export const components = { pre: Code, table: Table };
+
+import { Divider } from "@synnaxlabs/pluto";
+import { RealTimePlot, HistoricalPlot } from "@/components/pluto/Plot";
 import ComponentFrame from "@/components/pluto/ComponentFrame.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 <Divider.Divider direction="x" />
 
 ## Real-Time Plot
 
 To display live data from a channel or set of channels, use the `Channel.LinePlot`
-component and provide it with a line whose `variant` is set to `"dynamic"`. This will 
+component and provide it with a line whose `variant` is set to `"dynamic"`. This will
 continuously update the plot with new data as it arrives.
 
 ### Example
@@ -28,7 +28,7 @@ Here's a simple example that pulls the most recent 30 seconds of data from a cha
 and displays it in a line plot.
 
 <ComponentFrame>
-    <RealTimePlot client:only="react" />
+  <RealTimePlot client:only="react" />
 </ComponentFrame>
 
 ### Code
@@ -36,40 +36,40 @@ and displays it in a line plot.
 Here's the code for that example.
 
 ```tsx
-import { Channel, TimeSpan } from "@synnaxlabs/pluto"
+import { Channel, TimeSpan } from "@synnaxlabs/pluto";
 
 const MyDynamicLinePLot = () => (
-    <Channel.LinePlot 
-        style={{ width: 800, height: 500 }}
-        lines={[
-            {
-                key: "line1",
-                axes: { x: "x1", y: "y1" },
-                channels: {
-                    x: "stream_write_example_time",
-                    y: "stream_write_example_data_1"
-                },
-                color: "#3774d0",
-                label: "Line 1",
-                variant: "dynamic",
-                strokeWidth: 2,
-                timeSpan: TimeSpan.seconds(30),
-            }
-        ]}
-        axes={[
-            {
-                key: "x1",
-                label: "Time",
-                location: "bottom",
-                type: "time",
-            },
-            {
-                key: "y1",
-                label: "Values",
-                location: "left",
-            }
-        ]}
-    />
+  <Channel.LinePlot
+    style={{ width: 800, height: 500 }}
+    lines={[
+      {
+        key: "line1",
+        axes: { x: "x1", y: "y1" },
+        channels: {
+          x: "stream_write_example_time",
+          y: "stream_write_example_data_1",
+        },
+        color: "#3774d0",
+        label: "Line 1",
+        variant: "dynamic",
+        strokeWidth: 2,
+        timeSpan: TimeSpan.seconds(30),
+      },
+    ]}
+    axes={[
+      {
+        key: "x1",
+        label: "Time",
+        location: "bottom",
+        type: "time",
+      },
+      {
+        key: "y1",
+        label: "Values",
+        location: "left",
+      },
+    ]}
+  />
 );
 ```
 
@@ -84,41 +84,41 @@ example that displays data from a specific time range.
 
 ```tsx
 const MyHistoricalLinePlot = () => (
-    <Channel.LinePlot
-        style={{ width: 800, height: 500 }}
-        lines={[
-            {
-                key: "line1",
-                axes: { x: "x1", y: "y1" },
-                channels: {
-                    x: "stream_write_example_time",
-                    y: "stream_write_example_data_1"
-                },
-                color: "#3774d0",
-                label: "Line 1",
-                variant: "static",
-                strokeWidth: 2,
-                timeRange: {
-                    start: new Date("2022-01-01T00:00:00Z"),
-                    end: new Date("2022-01-02T00:00:00Z"),
-                },
-            }
-        ]}
-        axes={[
-            {
-                key: "x1",
-                label: "Time",
-                location: "bottom",
-                type: "time",
-            },
-            {
-                key: "y1",
-                label: "Values",
-                location: "left",
-            }
-        ]}
-    />
-)
+  <Channel.LinePlot
+    style={{ width: 800, height: 500 }}
+    lines={[
+      {
+        key: "line1",
+        axes: { x: "x1", y: "y1" },
+        channels: {
+          x: "stream_write_example_time",
+          y: "stream_write_example_data_1",
+        },
+        color: "#3774d0",
+        label: "Line 1",
+        variant: "static",
+        strokeWidth: 2,
+        timeRange: {
+          start: new Date("2022-01-01T00:00:00Z"),
+          end: new Date("2022-01-02T00:00:00Z"),
+        },
+      },
+    ]}
+    axes={[
+      {
+        key: "x1",
+        label: "Time",
+        location: "bottom",
+        type: "time",
+      },
+      {
+        key: "y1",
+        label: "Values",
+        location: "left",
+      },
+    ]}
+  />
+);
 ```
 
 <Divider.Divider direction="x" />
@@ -169,7 +169,7 @@ Here's a summary of the props available for the `Channel.LinePlot` component.
     </tbody>
 </Table>
 
-### `lines` 
+### `lines`
 
 The `lines` prop is an array of objects that defines the lines that will be displayed on
 the plot. There are two types of lines, those with `variant="static"` and those with
@@ -263,7 +263,7 @@ prop. Here is a summary of the props available for each type of line.
 
 ### `axes`
 
-The `axes` prop is an array of objects that define the axes to display on the plot. 
+The `axes` prop is an array of objects that define the axes to display on the plot.
 
 <Table>
     <thead>

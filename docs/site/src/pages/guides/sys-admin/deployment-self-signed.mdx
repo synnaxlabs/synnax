@@ -4,27 +4,28 @@ title: "Deployment"
 heading: "Deploy with Self-Signed Certificates"
 description: "Deploy a single node cluster with self-signed certificates."
 ---
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+
 import { Icon } from "@synnaxlabs/media";
 import { Tabs } from "@/components/Tabs";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
-This guide will walk you through every step of deploying a single-node cluster using 
-self-signed certificates. We'll assume you have a remote server with a reachable IP 
-address (and an optional domain name), and you have a local machine you'd like to use to 
+This guide will walk you through every step of deploying a single-node cluster using
+self-signed certificates. We'll assume you have a remote server with a reachable IP
+address (and an optional domain name), and you have a local machine you'd like to use to
 connect to the cluster.
 
 ## Prerequisites
 
 #### Install the Synnax Node binary
 
-This guide assumes you've installed the Synnax node binary onto the remote machine, and 
-it's available in your `PATH` via the `synnax` command. For operating system-specific 
+This guide assumes you've installed the Synnax node binary onto the remote machine, and
+it's available in your `PATH` via the `synnax` command. For operating system-specific
 instructions, see the [installation guide](/reference/cluster/installation).
 
 #### Install the Synnax Console
 
-This guide assumes you've installed the [Synnax Console](/reference/console/get-started) 
+This guide assumes you've installed the [Synnax Console](/reference/console/get-started)
 on your local machine. You can find the latest release [here](https://github.com/synnaxlabs/synnax/releases).
 
 ## Starting the Node
@@ -40,11 +41,11 @@ its data in the `/usr/local/synnax/data` directory, and automatically generates 
 certificates in the `/usr/local/synnax/certs` directory.
 
 The host name is important, as it will be the reachable domain authorized by the self-signed
-certificate (the common name). If you have a domain name pointing to the remote machine, 
-you can use that instead of `synnax.example.com`. 
+certificate (the common name). If you have a domain name pointing to the remote machine,
+you can use that instead of `synnax.example.com`.
 
-If you don't have a domain name, don't use the IP address, as the certificate will not 
-be valid for an IP address. Instead, stick with `synnax.example.com` or something similar. 
+If you don't have a domain name, don't use the IP address, as the certificate will not
+be valid for an IP address. Instead, stick with `synnax.example.com` or something similar.
 We'll configure a local host alias for this domain on the local machine in a [later step](#configuring-a-local-host-alias).
 
 ## Installing the CA Certificate Locally
@@ -161,6 +162,7 @@ following command:
 ```bash
 echo "REMOTE_IP synnax.example.com" | sudo tee -a /etc/hosts
 ```
+
 </Fragment>
 <Icon.OS.Windows slot="windows-icon" />
 <Fragment slot="windows">
@@ -172,8 +174,6 @@ adding the following line:
 ```
 REMOTE_IP synnax.example.com
 ```
+
 </Fragment>
 </Tabs>
-
-
-

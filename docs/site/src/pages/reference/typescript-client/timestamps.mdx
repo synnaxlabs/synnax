@@ -7,9 +7,10 @@ nextURL: "/reference/typescript-client/examples"
 prev: "Series and Frames"
 prevURL: "/reference/typescript-client/series-and-frames"
 ---
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
-import { Divider } from "@synnaxlabs/pluto"
+
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Working with high-resolution timestamps in JavaScript is tricky. We provide
 several utility classes to make it easier.
@@ -29,7 +30,7 @@ timestamps expressed as floating point numbers can lead to rounding errors.
 
 <Divider.Divider direction="x" />
 
-## TimeStamp 
+## TimeStamp
 
 Synnax provides the `TimeStamp` utility class to effectively work with
 nanosecond timestamps in JavaScript. It wraps a `bigint` to store a unix
@@ -42,7 +43,7 @@ There are several easy ways to construct a `TimeStamp`:
 ```typescript
 import { TimeStamp } from "@synnaxlabs/client";
 // From the current time
-const now = TimeStamp.now(); 
+const now = TimeStamp.now();
 // From a Date object
 const ts = new TimeStamp(new Date("2021-01-01T00:00:00Z"));
 // From a string
@@ -163,8 +164,8 @@ const end = start.add(TimeStamp.seconds(1));
 const range = new TimeRange(start, end);
 // From dates
 const range = new TimeRange(
-    new Date("2021-01-01T00:00:00Z"), 
-    new Date("2021-01-01T00:00:01Z")
+  new Date("2021-01-01T00:00:00Z"),
+  new Date("2021-01-01T00:00:01Z"),
 );
 // From strings
 const range = new TimeRange("2021-01-01T00:00:00Z", "2021-01-01T00:00:01Z");
@@ -176,8 +177,8 @@ const range = new TimeRange(BigInt(1000000000), BigInt(2000000000));
 const range = new TimeRange(BigInt(1000000000), "2021-01-01T00:00:01Z");
 // From an object
 const range = TimeRange.from({
-    start: TimeStamp.now(),
-    end: TimeStamp.now().add(TimeStamp.seconds(1))
+  start: TimeStamp.now(),
+  end: TimeStamp.now().add(TimeStamp.seconds(1)),
 });
 ```
 
@@ -187,8 +188,8 @@ You can check if a `TimeStamp` is in a `TimeRange` using the `contains` method:
 
 ```typescript
 const range = new TimeRange(
-    new Date("2021-01-01T00:00:00Z"), 
-    new Date("2021-01-01T00:00:01Z")
+  new Date("2021-01-01T00:00:00Z"),
+  new Date("2021-01-01T00:00:01Z"),
 );
 const ts = new TimeStamp("2021-01-01T00:00:00.5Z");
 const isIn = range.contains(ts);
@@ -201,12 +202,12 @@ You can check if two `TimeRange` objects overlap using the `overlaps` method:
 
 ```typescript
 const range1 = new TimeRange(
-    new Date("2021-01-01T00:00:00Z"), 
-    new Date("2021-01-01T00:00:01Z")
+  new Date("2021-01-01T00:00:00Z"),
+  new Date("2021-01-01T00:00:01Z"),
 );
 const range2 = new TimeRange(
-    new Date("2021-01-01T00:00:00.5Z"), 
-    new Date("2021-01-01T00:00:01.5Z")
+  new Date("2021-01-01T00:00:00.5Z"),
+  new Date("2021-01-01T00:00:01.5Z"),
 );
 const doesOverlap = range1.overlapsWith(range2);
 console.log(doesOverlap); // true
@@ -218,8 +219,8 @@ You can get the `TimeSpan` of a `TimeRange` using the `span` property:
 
 ```typescript
 const range = new TimeRange(
-    new Date("2021-01-01T00:00:00Z"), 
-    new Date("2021-01-01T00:00:01Z")
+  new Date("2021-01-01T00:00:00Z"),
+  new Date("2021-01-01T00:00:01Z"),
 );
 const span = range.span;
 console.log(span.seconds); // 1

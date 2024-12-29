@@ -4,7 +4,7 @@ import "@synnaxlabs/pluto/dist/pluto.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@fontsource/geist-mono";
 import PostHog from "@/components/PostHog.astro";
-import { ViewTransitions } from "astro:transitions";
+import { ClientRouter } from "astro:transitions";
 import { SEO } from "astro-seo";
 import Footer from "@/components/Footer.astro";
 import { Align } from "@synnaxlabs/pluto";
@@ -36,7 +36,8 @@ const {
                 ],
             }}
         />
-        <ViewTransitions />
+        <ClientRouter />
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     </head>
     <body>
         <Header url={url} transition:persist />
@@ -59,6 +60,7 @@ const {
                 });
             });
         };
+
         updateVersion();
         addCodeButtonListeners();
         startUpdatingIframeHref();
@@ -1178,12 +1180,12 @@ const {
             h6,
             p,
             table {
-                margin: 3rem 0;
+                margin: 3rem 0 !important;
             }
 
             video,
             img {
-                margin: 5rem 0;
+                margin: 5rem 0 !important;
             }
 
             ul {
@@ -1191,7 +1193,7 @@ const {
             }
 
             h2 {
-                margin: 4rem 0;
+                margin: 4rem 0 !important;
             }
         }
     </style>

@@ -8,9 +8,9 @@ prev: "Read Data"
 prevURL: "/reference/typescript-client/read-data"
 ---
 
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
 import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 The Synnax TypeScript client supports multiple methods for writing data to a cluster. We
 can write directly to a channel, or we can write to multiple channels in a streaming
