@@ -7,30 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
+import { Icon, Logo } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement } from "react";
 
 import { componentsPages, guidesPages } from "@/pages/_nav";
+import { Align } from "@synnaxlabs/pluto";
 
 export type PageNavNode = Tree.Node;
 
 export interface TOCProps {
   currentPage: string;
 }
-
-export const useDocumentSize = (): number | null => {
-  const [width, setWidth] = useState<number | null>(null);
-  useEffect(() => {
-    const handleResize = (): void => setWidth(document.documentElement.clientWidth);
-    window.addEventListener("resize", handleResize);
-    handleResize();
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  return width;
-};
 
 interface ReferenceTreeProps {
   currentPage: string;
@@ -77,33 +67,41 @@ const Guides = ({ currentPage }: TOCProps): ReactElement => {
 };
 
 export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
-  const width = useDocumentSize();
-
-  // Split the current page by slashes and remove and get the first part
   const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
-
-  const { visible, toggle, close } = Dropdown.use({ initialVisible: false });
-
   let tree = <Reference currentPage={currentPage} />;
   if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
+  return tree;
+};
 
-  if (width == null) return null;
-  if (width > 865) return tree;
+export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
+  const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
+  let tree = <Reference currentPage={currentPage} />;
+  if (selectedTab === "guides") tree = <Guides currentPage={currentPage} />;
+  const { visible, toggle, close } = Dropdown.use({ initialVisible: false });
   return (
-    <Dropdown.Dialog visible={visible} close={close} variant="floating">
-      <Button.Button
-        justify="spaceBetween"
-        endIcon={<Icon.Menu />}
-        variant="text"
-        onClick={() => toggle(!visible)}
-        size="medium"
-        style={{
-          border: "none",
-        }}
-      >
-        Menu
-      </Button.Button>
-      {tree}
+    <Dropdown.Dialog
+      visible={visible}
+      close={close}
+      variant="modal"
+      location="top"
+      className="page-nav-mobile"
+    >
+      <Button.Icon onClick={toggle} size="large" variant="outlined">
+        <Icon.Menu />
+      </Button.Icon>
+      <Align.Space borderShade={4} bordered rounded className="page-nav-mobile-content">
+        <Align.Space
+          style={{
+            width: "100%",
+            padding: "2rem 2rem",
+            borderBottom: "var(--pluto-border)",
+          }}
+          direction="x"
+        >
+          <Logo variant="title" />
+        </Align.Space>
+        {tree}
+      </Align.Space>
     </Dropdown.Dialog>
   );
 };

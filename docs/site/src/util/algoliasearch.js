@@ -12,10 +12,10 @@ import process from "process";
 dotenv.config();
 
 import algoliasearch from "algoliasearch";
-const client = algoliasearch(
-  process.env.DOCS_ALGOLIA_APP_ID,
-  process.env.DOCS_ALGOLIA_WRITE_API_KEY,
-);
+// const client = algoliasearch(
+//   process.env.DOCS_ALGOLIA_APP_ID,
+//   process.env.DOCS_ALGOLIA_WRITE_API_KEY,
+// );
 
 // 1. Build a dataset
 import fs from "fs";
@@ -46,11 +46,20 @@ const data = filenames
   .filter((f) => f.endsWith("mdx"))
   .map((filename) => {
     try {
-      const markdownWithMeta = fs.readFileSync(`./src/pages/${  filename}`);
+      const markdownWithMeta = fs.readFileSync(`./src/pages/${filename}`);
       const { data: frontmatter, content } = matter(markdownWithMeta);
+      let href = `/${filename.replace(".mdx", "").replace("index", "")}`;
+      if (filename.includes("releases") && !filename.includes("index")) {
+        href = `/releases/#${filename
+          .replace(".mdx", "")
+          .replaceAll("-", "")
+          .slice(0, -1)
+          .replace("releases/", "")}`;
+      }
+      console.log(frontmatter.heading ?? frontmatter.title);
       return {
         objectID: filename,
-        href: `/${  filename.replace(".mdx", "").replace("index", "")}`,
+        href: `/${filename.replace(".mdx", "").replace("index", "")}`,
         title: frontmatter.heading ?? frontmatter.title,
         description: frontmatter.description,
         content: removeMd(purgeImports(content)).replace(/\n/g, " "),
