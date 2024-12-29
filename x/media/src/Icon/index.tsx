@@ -91,6 +91,7 @@ import {
   MdKeyboardTab,
   MdLabel,
   MdLink,
+  MdNewReleases,
   MdOutlineAccessTimeFilled,
   MdOutlineDeviceHub,
   MdOutlineMotionPhotosOff,
@@ -238,10 +239,12 @@ const wrapIcon = (
   name: string,
   { className }: WrapIconOpts = {},
 ): IconFC => {
+  const ariaLabel = `synnax-icon-${name}`;
   const O: IconFC = (props) => (
     <Icon
       {...props}
-      className={clsx(props.className, `synnax-icon-${name}`, className, "synnax-icon")}
+      className={clsx(props.className, ariaLabel, className, "synnax-icon")}
+      aria-label={props["aria-label"] ?? ariaLabel}
     />
   );
   O.displayName = Icon.displayName || Icon.name;
@@ -410,6 +413,7 @@ export const Icon: IconType = {
   Text: wrapIcon(MdTextFields, "text"),
   Value: wrapIcon(GoNumber, "value"),
   Calendar: wrapIcon(MdCalendarToday, "calendar"),
+  Release: wrapIcon(MdNewReleases, "release"),
 };
 
 export interface IconType {
@@ -562,4 +566,5 @@ export interface IconType {
   Text: IconFC;
   Value: IconFC;
   Calendar: IconFC;
+  Release: IconFC;
 }
