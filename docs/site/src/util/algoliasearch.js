@@ -57,10 +57,9 @@ const data = filenames
           .slice(0, -1)
           .replace("releases/", "")}`;
       }
-      console.log(frontmatter.heading ?? frontmatter.title);
       return {
         objectID: filename,
-        href: `/${filename.replace(".mdx", "").replace("index", "")}`,
+        href,
         title: frontmatter.heading ?? frontmatter.title,
         description: frontmatter.description,
         content: removeMd(purgeImports(content)).replace(/\n/g, " "),
