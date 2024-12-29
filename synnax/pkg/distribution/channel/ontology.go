@@ -43,14 +43,16 @@ func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
 var _schema = &ontology.Schema{
 	Type: OntologyType,
 	Fields: map[string]schema.Field{
-		"key":       {Type: schema.Uint32},
-		"name":      {Type: schema.String},
-		"node_key":  {Type: schema.Uint32},
-		"rate":      {Type: schema.Float64},
-		"is_index":  {Type: schema.Bool},
-		"index":     {Type: schema.String},
-		"data_type": {Type: schema.String},
-		"internal":  {Type: schema.Bool},
+		"key":        {Type: schema.Uint32},
+		"name":       {Type: schema.String},
+		"node_key":   {Type: schema.Uint32},
+		"rate":       {Type: schema.Float64},
+		"is_index":   {Type: schema.Bool},
+		"index":      {Type: schema.String},
+		"data_type":  {Type: schema.String},
+		"internal":   {Type: schema.Bool},
+		"virtual":    {Type: schema.Bool},
+		"expression": {Type: schema.String},
 	},
 }
 
@@ -64,6 +66,8 @@ func newResource(c Channel) schema.Resource {
 	schema.Set(e, "index", c.Index().String())
 	schema.Set(e, "data_type", string(c.DataType))
 	schema.Set(e, "internal", c.Internal)
+	schema.Set(e, "virtual", c.Virtual)
+	schema.Set(e, "expression", c.Expression)
 	return e
 }
 

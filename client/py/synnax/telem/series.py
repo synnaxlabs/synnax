@@ -79,6 +79,7 @@ class Series(Payload):
             data_type = data_type or data.data_type
             data_ = data.data
             time_range = data.time_range if time_range is None else time_range
+            alignment = data.alignment
         elif isinstance(data, MultiSeries):
             if len(data.series) == 1:
                 data_type = data_type or data.series[0].data_type
@@ -86,6 +87,7 @@ class Series(Payload):
                 time_range = (
                     data.series[0].time_range if time_range is None else time_range
                 )
+                alignment = data.series[0].alignment
             else:
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be converted to a Series"

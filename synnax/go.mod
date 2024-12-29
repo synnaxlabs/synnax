@@ -1,8 +1,6 @@
 module github.com/synnaxlabs/synnax
 
-go 1.22.7
-
-toolchain go1.23.0
+go 1.23.0
 
 require (
 	github.com/blevesearch/bleve/v2 v2.4.2
@@ -14,11 +12,13 @@ require (
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
 	github.com/samber/lo v1.47.0
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e
 	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0
+	github.com/synnaxlabs/computron v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
 	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/uptrace/uptrace-go v1.31.0
@@ -38,6 +38,8 @@ replace github.com/synnaxlabs/freighter => ../freighter/go
 replace github.com/synnaxlabs/x => ../x/go
 
 replace github.com/synnaxlabs/alamos => ../alamos/go
+
+replace github.com/synnaxlabs/computron => ../computron
 
 require (
 	github.com/DataDog/zstd v1.5.6 // indirect

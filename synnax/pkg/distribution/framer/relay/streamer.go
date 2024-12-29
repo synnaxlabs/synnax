@@ -33,19 +33,13 @@ type streamer struct {
 type StreamerConfig = Request
 
 func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
-	keys := lo.Uniq(cfg.Keys)
-	// Check that all keys exist.
-	if err := r.cfg.ChannelReader.
-		NewRetrieve().
-		WhereKeys(keys...).Exec(ctx, nil); err != nil {
-		return nil, err
-	}
+	err := r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil)
 	return &streamer{
-		keys:    keys,
+		keys:    cfg.Keys,
 		addr:    address.Rand(),
 		demands: r.demands,
 		relay:   r,
-	}, nil
+	}, err
 }
 
 // Flow implements confluence.Flow.

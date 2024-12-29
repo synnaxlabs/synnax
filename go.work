@@ -4,6 +4,7 @@ use (
 	./alamos/go
 	./aspen
 	./cesium
+	./computron
 	./freighter/go
 	./freighter/integration
 	./integration
