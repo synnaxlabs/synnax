@@ -61,7 +61,7 @@ export const Search = (): ReactElement => {
           onClick={d.toggle}
           variant="outlined"
           justify="center"
-          size="small"
+          size="large"
           endContent={<Triggers.Text level="small" trigger={["Control", "K"]} />}
         >
           Search
@@ -161,6 +161,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
   }, []);
 
   useEffect(() => {
+    handleSearch("");
     inputRef.current?.focus();
   }, [d.visible]);
 
@@ -186,9 +187,10 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
         <List.Hover>
           <Align.Pack className="search-results__content" direction="y" borderShade={4}>
             <Input.Text
+              className="search-results__input"
               ref={inputRef}
               placeholder={
-                <Text.WithIcon level="small" startIcon={<Icon.Search />}>
+                <Text.WithIcon level="h2" startIcon={<Icon.Search />}>
                   Search
                 </Text.WithIcon>
               }
@@ -197,7 +199,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
               onChange={(v: string) => {
                 void handleSearch(v);
               }}
-              size="large"
+              size="huge"
             />
             <List.Core<string, SearchResult> className="styled-scrollbar">
               {searchListItem}

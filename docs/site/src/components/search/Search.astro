@@ -8,38 +8,31 @@ import { Search as S } from "@/components/search/Search";
     .search-box {
         position: absolute;
         left: 50%;
-        z-index: 50000;
+        top: 1.5rem;
         transform: translateX(-50%);
-        width: 50vw !important;
+        width: 50vw;
         max-width: 800px;
 
-        & button {
-            height: 5.5rem !important;
-            width: 100%;
-            * {
-                color: var(--pluto-gray-l7);
-                font-size: var(--pluto-small-size);
-                font-weight: 400;
-            }
+        & button * {
+            color: var(--pluto-gray-l7);
+            font-size: var(--pluto-small-size);
+            font-weight: 400;
         }
 
         & .pluto-text--keyboard {
-            font-size: 1.9rem !important;
+            font-size: 1.9rem;
             & svg {
                 width: 2.1rem;
                 height: 2.1rem;
             }
         }
-
-        & .pluto-input {
-            width: 100%;
-        }
     }
 
     @media (max-width: 800px) {
         .search-box {
-            width: 45vw !important;
-            transform: none !important;
+            width: 45vw;
+            top: unset;
+            transform: none;
             position: relative;
             left: 0;
             & button {
@@ -50,15 +43,11 @@ import { Search as S } from "@/components/search/Search";
 
     @media (max-width: 600px) {
         .search-box {
-            width: 5.5rem !important;
-            padding: 0 !important;
-
+            width: 6rem;
             & button {
                 justify-content: center !important;
             }
-            .pluto-text {
-                display: none;
-            }
+            .pluto-text,
             .pluto-btn__end-content {
                 display: none;
             }
@@ -66,6 +55,9 @@ import { Search as S } from "@/components/search/Search";
     }
 
     .search-results__content {
+        & .search-results__input {
+            --pluto-h2-size: 3.5rem;
+        }
         width: 800px;
         max-width: 100%;
         height: 400px;
@@ -99,22 +91,6 @@ import { Search as S } from "@/components/search/Search";
         }
         & a:hover {
             text-decoration: none !important;
-        }
-    }
-
-    @media (max-width: 600px) {
-        .search-results__content {
-            height: 100vh !important;
-            .pluto-input__internal {
-                border-radius: 0 !important;
-                border: none !important;
-                border-bottom: var(--pluto-border-l4) !important;
-            }
-            .pluto-list__container {
-                border-radius: 0 !important;
-                border: none !important;
-                height: 100vh !important;
-            }
         }
     }
 </style>

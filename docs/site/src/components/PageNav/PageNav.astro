@@ -95,40 +95,20 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             display: none;
         }
         padding-top: 2rem;
-        width: 100vw !important;
-        max-width: 450px !important;
-        height: 80vh !important;
+        width: calc(100vw - 5rem);
+        height: 70vh !important;
         overflow: hidden !important;
         border-radius: 1rem !important;
     }
 
+    .pluto-dropdown__bg {
+        backdrop-filter: blur(0.5rem);
+        -webkit-backdrop-filter: blur(0.5rem);
+    }
     @media (max-width: 600px) and (hover: none) {
-        .pluto-dropdown__bg {
-            background: none !important;
-            justify-content: start !important;
-            left: 0 !important;
-            padding: 0;
-            .pluto-dropdown__dialog {
-                top: 0 !important;
-                left: 0 !important;
-                transform: none !important;
-                width: 100% !important;
-                height: 100% !important;
-                max-width: 100vw !important;
-            }
-            .page-nav-mobile-content {
-                width: 100vw;
-                max-width: 100vw;
-                height: 100vh;
-                border-radius: 0;
-                border: none;
-                & div:first-child {
-                    display: block;
-                }
-            }
-            .synnax-logo {
-                height: 5rem;
-            }
+        .pluto-dropdown__dialog {
+            top: 5rem !important;
+            transform: none !important;
         }
     }
 </style>

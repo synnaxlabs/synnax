@@ -19,7 +19,13 @@ const url = Astro.url.pathname;
                 <Logo variant="title" />
             </a>
             <Align.Space direction="x" align="center" justify="center">
-                <Search />
+                <Align.Space direction="x" size="small">
+                    <Search />
+                    <PageNavMobile
+                        client:only="react"
+                        currentPage={Astro.url.pathname}
+                    />
+                </Align.Space>
                 <Button.Link
                     className="version-button"
                     variant="text"
@@ -29,7 +35,6 @@ const url = Astro.url.pathname;
                     <Icon.Logo.Github slot="endIcon" />
                     <p class="version" transition:persist></p>
                 </Button.Link>
-                <PageNavMobile client:only="react" currentPage={Astro.url.pathname} />
             </Align.Space>
         </Align.Space>
     </Align.Space>
@@ -56,12 +61,12 @@ const url = Astro.url.pathname;
 
 <style is:global>
     .main-header {
+        z-index: 4;
         position: sticky;
         top: 0;
         background: var(--pluto-gray-l0-90);
         backdrop-filter: blur(3rem);
         -webkit-backdrop-filter: blur(3rem);
-        z-index: 100;
 
         .top {
             height: 9rem;
@@ -155,6 +160,7 @@ const url = Astro.url.pathname;
 
     @media (max-width: 800px) and (hover: none) {
         .main-header {
+            z-index: 100;
             flex-direction: column-reverse !important;
             position: fixed;
             bottom: 0px;

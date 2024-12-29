@@ -86,7 +86,7 @@ export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
       location="top"
       className="page-nav-mobile"
     >
-      <Button.Icon variant="text" onClick={() => toggle(!visible)} size="medium">
+      <Button.Icon onClick={toggle} size="large" variant="outlined">
         <Icon.Menu />
       </Button.Icon>
       <Align.Space borderShade={4} bordered rounded className="page-nav-mobile-content">

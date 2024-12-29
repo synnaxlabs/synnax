@@ -20,9 +20,6 @@
             z-index: calc(var(--pluto-dropdown-z-index, 6) + 1);
         }
     }
-    &:not(.pluto--connected) {
-        width: max-content;
-    }
 }
 
 .pluto-dropdown__bg {
