@@ -28,11 +28,11 @@ describe("Breadcrumb", () => {
       expect(c.getByText("Profile")).toBeTruthy();
       expect(c.getAllByLabelText("synnax-icon-caret-right")).toHaveLength(3);
       const home = c.getByText("Home");
-      expect(home.getAttribute("href")).toBe("home");
+      expect(home.getAttribute("href")).toBe("/home");
       const settings = c.getByText("Settings");
-      expect(settings.getAttribute("href")).toBe("home/settings");
+      expect(settings.getAttribute("href")).toBe("/home/settings");
       const profile = c.getByText("Profile");
-      expect(profile.getAttribute("href")).toBe("home/settings/profile");
+      expect(profile.getAttribute("href")).toBe("/home/settings/profile");
     });
   });
 });

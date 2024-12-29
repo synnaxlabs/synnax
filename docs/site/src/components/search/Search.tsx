@@ -87,6 +87,7 @@ const ICONS: Record<string, ReactElement> = {
   ni: <Icon.Logo.NI />,
   "device-drivers": <Icon.Device />,
   pluto: <Icon.Table />,
+  releases: <Icon.Release />,
 };
 
 export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
