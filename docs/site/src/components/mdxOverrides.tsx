@@ -35,9 +35,6 @@ export const mdxOverrides = {
   h1: textFactory({ level: "h1", includeAnchor: true }),
   h2: textFactory({ level: "h2", includeAnchor: true }),
   h3: textFactory({ level: "h3", includeAnchor: true }),
-  h4: textFactory({ level: "h4" }),
-  h5: textFactory({ level: "h5" }),
-  small: textFactory({ level: "small" }),
   details: Details,
   summary: Summary,
 };

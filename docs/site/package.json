@@ -24,11 +24,8 @@
     "@synnaxlabs/x": "workspace:*",
     "@types/offscreencanvas": "^2019.7.3",
     "astro": "^5.1.1",
-    "astro-embed": "^0.7.4",
     "astro-seo": "^0.8.4",
     "clsx": "^2.1.1",
-    "dotenv": "^16.4.5",
-    "html-escaper": "^3.0.3",
     "posthog-js": "^1.174.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -39,9 +36,11 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "algoliasearch": "^4.23.3",
+    "dotenv": "^16.4.5",
     "eslint": "^9.16.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "gray-matter": "^4.0.3",
+    "html-escaper": "^3.0.3",
     "remove-markdown": "^0.5.5",
     "typescript": "^5.7.2"
   }
