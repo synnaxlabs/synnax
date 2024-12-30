@@ -100,3 +100,4 @@ export {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
+export { type ComponentSize } from "@/util/component";
