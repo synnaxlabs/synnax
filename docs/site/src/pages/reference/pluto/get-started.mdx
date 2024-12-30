@@ -5,25 +5,26 @@ description: "Use Pluto components to build custom user interfaces."
 next: "Provider and Canvas"
 nextURL: "/reference/pluto/provider-and-canvas"
 ---
-import { Divider, Note } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
 
-Powering the inner workings of the [Synnax Console](/reference/console/get-started), 
-Pluto is a [React](https://react.dev/) component library designed to build high-performance, 
-real-time user interfaces on top of Synnax. It provides a number of components from simple 
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Powering the inner workings of the [Synnax Console](/reference/console/get-started),
+Pluto is a [React](https://react.dev/) component library designed to build high-performance,
+real-time user interfaces on top of Synnax. It provides a number of components from simple
 buttons to complex data visualizations.
 
 <Note.Note variant="warning">
-Pluto is currently in beta and it's API is subject to changes before reaching V1.
+  Pluto is currently in beta and it's API is subject to changes before reaching V1.
 </Note.Note>
- 
+
 <Divider.Divider direction="x" />
 
 ## Installation
 
-Pluto is available on [npm](https://www.npmjs.com/package/@synnaxlabs/pluto), and can 
-be installed with your package manager of choice. We'll be using `npm` in our documentation, 
+Pluto is available on [npm](https://www.npmjs.com/package/@synnaxlabs/pluto), and can
+be installed with your package manager of choice. We'll be using `npm` in our documentation,
 but feel free to use `yarn`, `pnpm`, or any other package manager you prefer.
 
 ```bash
@@ -40,16 +41,16 @@ cost of ease of use. We're working hard to improve user friendliness!
 ### Browser Compatibility
 
 Pluto leverages **Web Workers** and the `OffscreenCanvas` API. These features are
-generally available on the latest versions of all major browsers, but may not be 
-compatible with older versions. 
+generally available on the latest versions of all major browsers, but may not be
+compatible with older versions.
 
 See [here](https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas#browser_compatibility)
 for the `OffscreenCanvas` compatibility table.
 
 ### Bundle Size and Import Structure
 
-Pluto is relatively large at around ~500kb minified and gzipped. We don't recommend deploying 
-applications that use Pluto in serverless environments or when building interfaces 
+Pluto is relatively large at around ~500kb minified and gzipped. We don't recommend deploying
+applications that use Pluto in serverless environments or when building interfaces
 designed to serve users with a slow network.
 
 The component library is designed to be tree-shakeable, so you can import only the
@@ -73,7 +74,7 @@ do use Strict Mode, you may encounter errors or unexpected behavior.
 
 ### Components as Modules
 
-When you import the `Button` above, you're not actually importing the `Button` component 
+When you import the `Button` above, you're not actually importing the `Button` component
 itself. Instead, you're importing a module that exports the `Button`, along
 with other useful utilities. You'll see this syntax with almost every component in Pluto:
 
@@ -84,7 +85,7 @@ const regularButton = <Button.Button>Click me!</Button.Button>;
 const onlyIconButton = <Button.Icon>🚀</Button.Icon>;
 ```
 
-We're accessing the `Button` or the `Icon` component from the `Button` module. We like 
+We're accessing the `Button` or the `Icon` component from the `Button` module. We like
 this syntax as it adds clarity to the codebase. Some of our users don't like it. If you
 prefer to access the components directly, we recommend destructuring the module:
 

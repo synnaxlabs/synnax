@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Breadcrumb } from "@synnaxlabs/pluto";
+import { Breadcrumb, componentRenderProp } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
@@ -132,9 +132,7 @@ export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
   );
 };
 
-const searchListItem = (props: List.ItemProps<string, SearchResult>) => (
-  <SearchListItem {...props} />
-);
+const searchListItem = componentRenderProp(SearchListItem);
 
 const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
   const [results, setResults] = useState<SearchResult[]>([]);

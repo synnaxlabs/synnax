@@ -9,9 +9,9 @@ prev: "Write Data"
 prevURL: "/reference/typescript-client/write-data"
 ---
 
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Streaming data is useful for real-time processing, visualization, and
 monitoring. This page guides you through using the TypeScript client to stream
