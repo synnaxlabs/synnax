@@ -253,9 +253,7 @@ temperature = {
 ```
 
 When we write to both the `time` and `temperature` channels, we must provide timestamps
-for the time channel in the same frame as the temperature channel. This frame is
-
-<b style="color: var(--pluto-secondary-z);">valid</b>.
+for the time channel in the same frame as the temperature channel. This frame is <b style="color: var(--pluto-secondary-z);">valid</b>.
 
 ```json
 {
@@ -351,9 +349,7 @@ pressure = {
 ```
 
 When we open a writer on all three channels, we must write frames that contain the
-same number of samples for each channel. For example, this frame is
-
-<b style="color: var(--pluto-secondary-z);">valid</b>.
+same number of samples for each channel. For example, this frame is <b style="color: var(--pluto-secondary-z);">valid</b>.
 
 ```json
 {
@@ -363,9 +359,7 @@ same number of samples for each channel. For example, this frame is
 }
 ```
 
-Omitting a sample from the `pressure` channel would violate Rule 2. This frame is
-
-<b style="color: var(--pluto-error-z);">invalid</b>.
+Omitting a sample from the `pressure` channel would violate Rule 2. This frame is <b style="color: var(--pluto-error-z);">invalid</b>.
 
 ```json
 {
@@ -376,9 +370,7 @@ Omitting a sample from the `pressure` channel would violate Rule 2. This frame i
 }
 ```
 
-Entirely omitting a channel from the frame would also violate Rule 2. This frame is
-
-<b style="color: var(--pluto-error-z);">invalid</b>.
+Entirely omitting a channel from the frame would also violate Rule 2. This frame is <b style="color: var(--pluto-error-z);">invalid</b>.
 
 ```json
 {
@@ -390,7 +382,11 @@ Entirely omitting a channel from the frame would also violate Rule 2. This frame
 
 ### Rule 3
 
-<Rule title="Rule 3">Rules 1 and 2 do not apply to virtual channels.</Rule>
+<Rule title="Rule 3">
+
+Rules 1 and 2 do not apply to virtual channels.
+
+</Rule>
 
 As [virtual channels](/reference/concepts/channels#virtual-channels)
 do not store data, they have far more flexibility in how they can be
@@ -416,7 +412,11 @@ by consequence cannot share the same index.
 
 ### Implication 2
 
-<Rule>Command channels almost always require separate indexes.</Rule>
+<Rule>
+
+Command channels almost always require separate indexes.
+
+</Rule>
 
 Channels that are used to send commands to actuators are typically used quite differently
 to channels that record from sensors. It's common for a single device to sample from many
