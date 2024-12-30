@@ -14,29 +14,32 @@ timestamp channel.
 
 import synnax as sy
 
-# We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+# We've logged in via the command-line interface, so there's no need to provide
+# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
-NUM_CHANNELS = 1000
+CHANNEL_COUNT = 1000
 
-# We need to create the time channel first, so it has a key assigned.
+# Create an index channel that will be used to store our timestamps.
 time_channel = client.channels.create(
-    name="create_many_channels_time",
+    name="create_channels.time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
 )
 
-# Define our data channels with the correct index key set.
+# Create data channels to store our data. Since we did not call client.channels.create
+# here, the channels are not actually created in the Synnax cluster yet. We will do that
+# in the next step.
 data_channels = [
     sy.Channel(
-        name=f"create_many_channels_data_{i}",
+        name=f"create_channels.data_{i}",
         data_type=sy.DataType.FLOAT64,
         index=time_channel.key,
     )
-    for i in range(NUM_CHANNELS)
+    for i in range(CHANNEL_COUNT)
 ]
 
-# Notice how we reassign the result of the create call to the channels variable, this
-# ensures that our data channels have the correct keys assigned to them.
+# Notice how we reassign the result of the create call to the data_channels variable.
+# This means that all of the channels will have the correct key given to the channel by
+# the server.
 data_channels = client.channels.create(data_channels)

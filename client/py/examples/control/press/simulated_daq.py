@@ -7,19 +7,24 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import math
+"""
+This example sets up a simulated data acquisition system (DAQ) that has a press valve
+(valve_command_0) and vent valve (valve_command_1) connected to a pressure reading
+(sensor_0). When the press valve is open, the pressure increases, and when the vent
+valve is open, the pressure decreases. The pressure is written to the sensor_0 channel.
+
+This script can be run in conjuction with the `control_sequence.py` script to demonstrate how a
+control sequence can be written in Synnax.
+"""
 
 import synnax as sy
 
-# We've logged in via the CLI, so there's no need to provide credentials. here. See 
+# We've logged in via the CLI, so there's no need to provide credentials. here. See
 # https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
 daq_time_ch = client.channels.create(
-    name="daq_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
+    name="daq_time", is_index=True, retrieve_if_name_exists=True
 )
 
 press_pt = client.channels.create(

@@ -16,7 +16,7 @@ from scipy.signal import find_peaks
 
 client = sy.Synnax()
 
-from common import (
+from .common import (
     OX_MPV_CMD,
     OX_PRESS_CMD,
     GAS_BOOSTER_ISO_CMD,
