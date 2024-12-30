@@ -183,8 +183,6 @@ class ScopedChannel:
         """Converts the scoped channel to a numpy array. This method is necessary
         for numpy interop."""
         self.__guard()
-        # if len(self.__internal) == 0:
-        #     return np.array([])
         return self.__internal[0].__array__(*args, **kwargs)
 
     def __getitem__(self, index: int) -> SampleValue:

@@ -10,10 +10,10 @@
 import synnax as sy
 
 """
-This is a simple simulated data acquisition computer that has two valves and a single
-pressure sensor. When the press valve is open (press_vlv), the pressure increases. When
-the vent valve is open (vent_vlv), the pressure decreases. The pressure (sensor_0) is
-sampled at a rate of 50 Hz.
+This is a simple simulated data acquisition computer (DAQ) that has two valves and a
+single pressure sensor. When the press valve is open (press_vlv), the pressure
+increases. When the vent valve is open (vent_vlv), the pressure decreases. The pressure
+(sensor_0) is sampled at a rate of 50 Hz.
 
 Valves (or any commanded actuator), typically have three associated channels:
 

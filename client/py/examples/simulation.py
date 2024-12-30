@@ -15,8 +15,6 @@ running, you could open a schematic in the Synnax Console to control valves and 
 sensors.
 """
 
-import time
-
 import numpy as np
 import synnax as sy
 
@@ -24,8 +22,8 @@ import synnax as sy
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
-NUM_VALVES = 50
-NUM_SENSORS = 250
+NUM_VALVES = 10
+NUM_SENSORS = 10
 
 # Some lists to store our channels.
 valve_commands = list()
@@ -105,7 +103,7 @@ read_from = [v.key for v in valve_commands]
 loop = sy.Loop(sy.Rate.HZ * 100)
 
 # Set up the initial state of the valves to 0 (closed).
-sensor_states = {v.key: np.uint8(False) for v in valve_responses}  # TODO
+sensor_states = {v.key: np.uint8(False) for v in valve_responses}
 
 # Open a streamer to listen for incoming valve commands.
 with client.open_streamer([channel.key for channel in valve_commands]) as streamer:
@@ -116,7 +114,6 @@ with client.open_streamer([channel.key for channel in valve_commands]) as stream
     ) as writer:
         start = sy.TimeStamp.now()
         while loop.wait():
-            print(f"Writing frame {i}")
             # If we've received a command, update the state of the corresponding valve.
             frame = streamer.read(timeout=0)
             if frame is not None:
