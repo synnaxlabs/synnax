@@ -205,6 +205,12 @@ import {
   type FlameArrestorFireResProps,
   FlameArrestorFireResDetonation,
   type FlameArrestorFireResDetonationProps,
+  Thruster,
+  type ThrusterProps,
+  Strainer,
+  type StrainerProps,
+  StrainerCone,
+  type StrainerConeProps,
 } from "@/vis/schematic/Symbols";
 
 export interface Spec<P extends object> {
@@ -303,6 +309,9 @@ const VARIANTS = [
   "flameArrestorExplosion",
   "flameArrestorFireRes",
   "flameArrestorFireResDetonation",
+  "thruster",
+  "strainer",
+  "strainerCone",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1565,6 +1574,48 @@ const flameArrestorFireResDetonation: Spec<FlameArrestorFireResDetonationProps> 
   zIndex: Z_INDEX_UPPER,
 };
 
+const thruster: Spec<ThrusterProps> = {
+  name: "Thruster",
+  key: "thruster",
+  Form: CommonToggleForm,
+  Symbol: Thruster,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Thruster"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.Thruster,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const strainer: Spec<StrainerProps> = {
+  name: "Strainer",
+  key: "strainer",
+  Form: CommonStyleForm,
+  Symbol: Strainer,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Strainer"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.Strainer,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const strainerCone: Spec<StrainerConeProps> = {
+  name: "Strainer Cone",
+  key: "strainerCone",
+  Form: CommonStyleForm,
+  Symbol: StrainerCone,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Strainer Cone"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.StrainerCone,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
@@ -1648,5 +1699,8 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   flameArrestorDetonation,
   flameArrestorFireRes,
   flameArrestorFireResDetonation,
+  thruster,
+  strainer,
+  strainerCone,
 };
 

@@ -296,6 +296,10 @@ export const AngledValve = createToggle(Primitives.AngledValve);
 export type AngledValveProps = ToggleProps<Primitives.AngledValveProps>;
 export const Pump = createToggle(Primitives.Pump);
 export type PumpProps = ToggleProps<Primitives.PumpProps>;
+export const DiaphragmPump = createToggle(Primitives.DiaphragmPump);
+export type DiaphragmPumpProps = ToggleProps<Primitives.DiaphragmPumpProps>;
+export const EjectionPump = createToggle(Primitives.EjectionPump);
+export type EjectionPumpProps = ToggleProps<Primitives.EjectionPumpProps>;
 export const VacuumPump = createToggle(Primitives.VacuumPump);
 export type VacuumPumpProps = ToggleProps<Primitives.VacuumPumpProps>;
 export const CavityPump = createToggle(Primitives.CavityPump);
@@ -396,10 +400,6 @@ export const HeatExchangerM = createLabeled(Primitives.HeatExchangerM);
 export type HeatExchangerMProps = LabeledProps<Primitives.HeatExchangerMProps>;
 export const HeatExchangerStraightTube = createLabeled(Primitives.HeatExchangerStraightTube);
 export type HeatExchangerStraightTubeProps = LabeledProps<Primitives.HeatExchangerStraightTubeProps>;
-export const DiaphragmPump = createLabeled(Primitives.DiaphragmPump);
-export type DiaphragmPumpProps = LabeledProps<Primitives.DiaphragmPumpProps>;
-export const EjectionPump = createLabeled(Primitives.EjectionPump);
-export type EjectionPumpProps = LabeledProps<Primitives.EjectionPumpProps>;
 export const FlameArrestor = createLabeled(Primitives.FlameArrestor);
 export type FlameArrestorProps = LabeledProps<Primitives.FlameArrestorProps>;
 export const FlameArrestorExplosion = createLabeled(Primitives.FlameArrestorExplosion);
@@ -410,7 +410,12 @@ export const FlameArrestorFireRes = createLabeled(Primitives.FlameArrestorFireRe
 export type FlameArrestorFireResProps = LabeledProps<Primitives.FlameArrestorFireResProps>;
 export const FlameArrestorFireResDetonation = createLabeled(Primitives.FlameArrestorFireResDetonation);
 export type FlameArrestorFireResDetonationProps = LabeledProps<Primitives.FlameArrestorFireResDetonationProps>;
-
+export const Thruster = createLabeled(Primitives.Thruster);
+export type ThrusterProps = LabeledProps<Primitives.ThrusterProps>;
+export const Strainer = createLabeled(Primitives.Strainer);
+export type StrainerProps = LabeledProps<Primitives.StrainerProps>;
+export const StrainerCone = createLabeled(Primitives.StrainerCone);
+export type StrainerConeProps = LabeledProps<Primitives.StrainerConeProps>;
 
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);
