@@ -7,9 +7,10 @@ nextURL: "/reference/typescript-client/write-data"
 prev: "Channels"
 prevURL: "/reference/typescript-client/channels"
 ---
-import { Divider } from "@synnaxlabs/pluto"
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 The TypeScript client supports several different methods for reading data from a
 cluster. We can read directly from a channel, read from multiple channels at
@@ -24,8 +25,8 @@ The simplest way to read data from Synnax is to use the `read` method on a
 
 ```typescript
 const channel = await client.channels.retrieve("temperature");
-const start = new Date('2023-02-12T12:30:00Z');
-const end = new Date('2022-02-12T14:30:00Z');
+const start = new Date("2023-02-12T12:30:00Z");
+const end = new Date("2022-02-12T14:30:00Z");
 
 const series = await channel.read(start, end);
 ```
@@ -82,20 +83,20 @@ const start = TimeStamp.now();
 const end = start.add(TimeStamp.seconds(10));
 
 const iterator = await client.openIterator(
-    { start, end },
-    ["temperature", "humidity"],
-    {
-        chunkSize: 100,
-    },
+  { start, end },
+  ["temperature", "humidity"],
+  {
+    chunkSize: 100,
+  },
 );
 try {
-    for await (const frame of iterator) {
-        const temperature = frame.get("temperature");
-        const humidity = frame.get("humidity");
-        // Process the data
-    }
+  for await (const frame of iterator) {
+    const temperature = frame.get("temperature");
+    const humidity = frame.get("humidity");
+    // Process the data
+  }
 } finally {
-    iterator.close();
+  iterator.close();
 }
 ```
 

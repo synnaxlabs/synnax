@@ -7,6 +7,8 @@ description: "Learn how to create your own device drivers for Synnax."
 import { Image, Video } from "@/components/Media";
 import { StepText } from "@/components/StepText";
 import Code from "@/components/code/Code.astro";
+import Details from "@/components/details/Details.astro";
+import Summary from "@/components/details/Summary.astro";
 export const components = { pre: Code };
 
 While our [pre-built drivers](/reference/device-drivers) are great for the
@@ -19,10 +21,10 @@ but the process is very similar for other devices.
 
 We'll split this guide into four sections:
 
-1. [Setup and Installation](#phase-0---setup-and-installation)
-2. [Making a Read-Only Driver](#phase-1---acquiring-data-and-writing-to-synnax)
-3. [Making a Write-Only Driver](#phase-2---receiving-commands-from-synnax-and-writing-to-the-arduino)
-4. [Making a Read-Write Driver](#phase-3---receiving-data-and-controlling-the-arduino)
+1. [Setup and Installation](#setup-and-installation)
+2. [Making a Read-Only Driver](#read-only-driver)
+3. [Making a Write-Only Driver](#write-only-driver)
+4. [Making a Read-Write Driver](#read-write-driver)
 
 ## <StepText step={1} level="h2">Setup and Installation</StepText>
 
@@ -325,8 +327,8 @@ with client.open_writer(
 Once we've finished these modifications, we can run the script and see the values
 pouring in from the Arduino. Here's the entire script for reference:
 
-<details>
-<summary>`driver.py`</summary>
+<Details>
+<Summary>`driver.py`</Summary>
 
 ```python
 import synnax as sy
@@ -382,7 +384,7 @@ with client.open_writer(
         })
 ```
 
-</details>
+</Details>
 
 ### <StepText step={"2.6"} level="h3">Visualizing the Data</StepText>
 
@@ -507,8 +509,8 @@ commands from Synnax to control the digital output on the Arduino. We'll run our
 script before we move into setting up the console. Here's the entire `driver_write.py`
 script for reference:
 
-<details>
-<summary>`driver_write.py`</summary>
+<Details>
+<Summary>`driver_write.py`</Summary>
 
 ```python
 import synnax as sy
@@ -539,7 +541,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
         ser.write(command.encode("utf-8"))
 ```
 
-</details>
+</Details>
 
 ### <StepText step={"3.5"} level="h3">Controlling the Arduino from the Console</StepText>
 
@@ -715,8 +717,8 @@ the digital output on the Arduino and read the analog input. We'll run our updat
 before we move into setting up the console. Here's the entire `driver_readwrite.py`
 script for reference:
 
-<details>
-<summary>`driver_readwrite.py`</summary>
+<Details>
+<Summary>`driver_readwrite.py`</Summary>
 
 ```python
 import synnax as sy
@@ -783,7 +785,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
                 })
 ```
 
-</details>
+</Details>
 
 ### <StepText step={"4.4"} level="h3">Controlling the Arduino from the Console</StepText>
 

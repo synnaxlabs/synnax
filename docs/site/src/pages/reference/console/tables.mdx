@@ -12,6 +12,8 @@ import { Divider, Note } from "@synnaxlabs/pluto";
 
 import { Video, Image } from "@/components/Media";
 import Diagram from "@/components/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 <Diagram style="height: 300px" preview>
   <Image

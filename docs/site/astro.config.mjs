@@ -9,7 +9,7 @@
 
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
-import vercel from "@astrojs/vercel/serverless";
+import vercel from "@astrojs/vercel";
 import { defineConfig } from "astro/config";
 const shikiResourcePaths = Object.keys(
   import.meta.glob([

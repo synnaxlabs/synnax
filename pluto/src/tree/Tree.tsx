@@ -216,11 +216,19 @@ export const DefaultItem = memo(
     const startIcons: ReactElement<PIcon.BaseProps>[] = [];
     if (actuallyHasChildren)
       startIcons.push(
-        <Caret.Animated enabled={expanded} enabledLoc="bottom" disabledLoc="right" />,
+        <Caret.Animated
+          key="caret"
+          enabled={expanded}
+          enabledLoc="bottom"
+          disabledLoc="right"
+        />,
       );
     if (icon != null) startIcons.push(icon);
     const endIcons: ReactElement<PIcon.BaseProps>[] = [];
-    if (loading) endIcons.push(<Icon.Loading className={CSS.B("loading-indicator")} />);
+    if (loading)
+      endIcons.push(
+        <Icon.Loading key="loading-indicator" className={CSS.B("loading-indicator")} />,
+      );
 
     const [draggingOver, setDraggingOver] = useState(false);
 
