@@ -13,7 +13,8 @@ write them to a new set of channels in Synnax in a streaming fashion. These chan
 typically referred to as "calculated" or "derived" channels, are useful for storing
 values that are calculated from other channels.
 
-For this example to run, you'll need to run the "stream_write.py" before you run this script.
+For this example to run, you'll need to run the `stream_write.py` script before you run
+this script.
 """
 
 import synnax as sy

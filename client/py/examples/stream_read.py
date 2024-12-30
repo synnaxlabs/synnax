@@ -12,7 +12,7 @@ This example demonstrates how to stream live data from a channel in Synnax.
 Live-streaming is useful for real-time data processing and analysis, and is an integral
 part of Synnax's control sequence and data streaming capabilities.
 
-This example requires the stream_write.py file to be running in a separate terminal.
+This example requires the `stream_write.py` file to be running in a separate terminal.
 """
 
 import synnax as sy
@@ -22,7 +22,7 @@ import synnax as sy
 client = sy.Synnax()
 
 # We can just specify the names of the channels we'd like to stream from. These channels
-# were created by running the stream_write.py script.
+# were created by running the `stream_write.py`` script.
 channels = ["stream_write_time", "stream_write_data_1", "stream_write_data_2"]
 
 count = 1000
