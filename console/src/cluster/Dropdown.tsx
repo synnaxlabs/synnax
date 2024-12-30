@@ -16,6 +16,7 @@ import {
   Dropdown as Core,
   List as CoreList,
   Menu as PMenu,
+  Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
@@ -38,17 +39,32 @@ import { Link } from "@/link";
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
-  const allClusters = useSelectMany();
+  const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const active = useSelect();
   const openWindow = Layout.usePlacer();
   const selected = active?.key ?? null;
+  const addStatus = Status.useAggregator();
 
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
   };
 
+  const validateName = useCallback(
+    (name: string): boolean => {
+      const allNames = allClusters.map((c) => c.name);
+      if (!allNames.includes(name)) return true;
+      addStatus({
+        variant: "error",
+        message: `Cannot rename cluster to ${name}`,
+        description: `A cluster with name "${name}" already exists.`,
+      });
+      return false;
+    },
+    [allClusters, addStatus],
+  );
+
   const handleRemove = (key: string): void => {
-    dispatch(remove({ keys: [key] }));
+    dispatch(remove(key));
     if (key === active?.key) dispatch(setActive(null));
   };
 
@@ -151,7 +167,9 @@ export const List = (): ReactElement => {
             onChange={handleConnect}
           >
             <CoreList.Core<string, Cluster> style={{ height: "100%", width: "100%" }}>
-              {({ key, ...p }) => <ListItem key={key} {...p} />}
+              {({ key, ...p }) => (
+                <ListItem key={key} {...p} validateName={validateName} />
+              )}
             </CoreList.Core>
           </CoreList.Selector>
         </CoreList.List>
@@ -160,9 +178,14 @@ export const List = (): ReactElement => {
   );
 };
 
-const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
+interface ListItemProps extends CoreList.ItemProps<string, Cluster> {
+  validateName: (name: string) => boolean;
+}
+
+const ListItem = ({ validateName, ...props }: ListItemProps): ReactElement => {
   const dispatch = useDispatch();
   const handleChange = (value: string) => {
+    if (!validateName(value)) return;
     dispatch(rename({ key: props.entry.key, name: value }));
   };
 
@@ -183,7 +206,7 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
           allowDoubleClick={false}
         />
         <Text.Text level="p" shade={6}>
-          {props.entry.props.host}:{props.entry.props.port}
+          {props.entry.host}:{props.entry.port}
         </Text.Text>
       </Align.Space>
     </CoreList.ItemFrame>

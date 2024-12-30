@@ -5,12 +5,12 @@ description: "Run an example visualization UI built with Pluto."
 prev: "Line Plot"
 prevURL: "/reference/pluto/line-plot"
 ---
-import { Divider } from "@synnaxlabs/pluto"
-import { RealTimePlot, HistoricalPlot } from "@/components/pluto/Plot"
-import Code from "@/components/code/Code.astro";
-import Table from "@/components/Table.astro";
-export const components = { pre: Code, table: Table };
+
+import { Divider } from "@synnaxlabs/pluto";
+import { RealTimePlot, HistoricalPlot } from "@/components/pluto/Plot";
 import ComponentFrame from "@/components/pluto/ComponentFrame.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 We've put together a simple typescript app built with [Vite](https://vitejs.dev/) and
 Pluto. It's available in the [`pluto/examples`](https://github.com/synnaxlabs/synnax/tree/main/pluto/examples) directory of the [Synnax](https://github.com/synnaxlabs/synnax)
@@ -21,7 +21,7 @@ repository. In this guide, we'll show you how to clone the repo and run the app 
 First, clone the Synnax repository to your local machine:
 
 ```bash
-git clone https://github.com/synnaxlabs/synnax 
+git clone https://github.com/synnaxlabs/synnax
 ```
 
 ## Install Dependencies

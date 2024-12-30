@@ -57,6 +57,7 @@ const SideEffect = (): null => {
     dispatch(Layout.maybeCreateGetStartedTab());
   }, []);
   Version.useLoadTauri();
+  Cluster.useSyncClusterKey();
   Device.useListenForChanges();
   Workspace.useSyncLayout();
   Link.useDeep({ handlers: LINK_HANDLERS });

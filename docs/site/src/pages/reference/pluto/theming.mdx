@@ -1,4 +1,4 @@
---- 
+---
 layout: "@/layouts/Reference.astro"
 title: "Theming"
 description: "Configure the appearance of Pluto components."
@@ -7,12 +7,13 @@ nextURL: "/reference/pluto/line-plot"
 prev: "Provider and Canvas"
 prevURL: "/reference/pluto/provider-and-canvas"
 ---
-import { Divider } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
 
-Pluto comes with a theming system that allows you to change the appearance of 
-components. 
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Pluto comes with a theming system that allows you to change the appearance of
+components.
 
 <Divider.Divider direction="x" />
 
@@ -28,10 +29,10 @@ To customize the default themes, pass arguments to the `theming` prop of the
 import { Pluto } from "@synnaxlabs/pluto";
 
 const App = () => (
-    // Set the primary color to a nice lavender
-    <Pluto.Provider theming={{ theme: { colors: { primary: "#b57edc" } }}}>
-      <Pluto.Button>Click me</Pluto.Button>
-    </Pluto.Provider>
+  // Set the primary color to a nice lavender
+  <Pluto.Provider theming={{ theme: { colors: { primary: "#b57edc" } } }}>
+    <Pluto.Button>Click me</Pluto.Button>
+  </Pluto.Provider>
 );
 ```
 
@@ -41,89 +42,90 @@ const App = () => (
 
 Here is the structure of the `theming.theme` prop:
 
-```typescript 
+```typescript
 // Colors can be hexadecimal strings, RGB arrays, or RGBA arrays
 type Color = string | [number, number, number] | [number, number, number, number];
 
 // Specification for a particular typography element e.g. h1, h2, etc.
 type TypographySpec = {
-    // Size in rem
-    size?: number;
-    // Font weight
-    weight?: number;
-    // Line height in rem
-    lineHeight?: number;
-    // Optional text transforms to apply
-    textTransform?: string;
-}
+  // Size in rem
+  size?: number;
+  // Font weight
+  weight?: number;
+  // Line height in rem
+  lineHeight?: number;
+  // Optional text transforms to apply
+  textTransform?: string;
+};
 
 // A color scale where m2 has the lowest contrast with the background
 // and p2 has the highest contrast.
 type Scale = {
-    // Lowest contrast
-    m2: Color;
-    // Low contrast
-    m1: Color;
-    // Base
-    z: Color;
-    // High contrast
-    p1: Color;
-    // Highest contrast
-    p2: Color;
-}
+  // Lowest contrast
+  m2: Color;
+  // Low contrast
+  m1: Color;
+  // Base
+  z: Color;
+  // High contrast
+  p1: Color;
+  // Highest contrast
+  p2: Color;
+};
 
 interface Theme {
-    // Sets the color palette.
-    colors?: {
-        // Border color to use on tabs, buttons, etc.
-        border?: Color;
-        // Primary accent color. If one color is provided, 
-        // the scale will get generated automatically.
-        primary?: Color | Scale;
-        // Secondary accent color. If one color is provided,
-        // the scale will get generated automatically.
-        secondary?: Color | Scale;
-        // Error color. If one color is provided, the scale
-        // will get generated automatically.
-        error?: Color | Scale;
-        // White color, regardless of theme
-        white?: Color;
-        // Black color, regardless of theme
-        black?: Color;
-        // Text color
-        text?: Color;
-        // Inverted text color to use on dark elements.
-        textInverted?: Color;
-        // Text color to use on top of primary elements. If not provided,
-        // it will be automatically chosen from the highest contrast of text and
-        // textInverted.
-        textOnPrimary?: Color;
-    },
-    // Sets sizing parameters
-    sizes: {
-        // Defines the rem base size. Defaults to 6px. Increase this value to 
-        // increase the size of all components.
-        base?: number,
-        border: {
-            // Border radius in px for (almost) all components
-            radius?: number;
-            // Border width in px for (almost) all components
-            width?: number;
-        }
-    },
-    // Sets typography parameters
-    typography: {
-        // The font family to use.
-        family?: string;
-        // H1 typography
-        h1: TypographySpec;
-        // H2 typography
-        h2: TypographySpec;
-        // H3 typography
-        h3: TypographySpec;
-        // H4 typography
-        h4: TypographySpec;
-        // H5 typography
-        h5: TypographySpec;
-    }
+  // Sets the color palette.
+  colors?: {
+    // Border color to use on tabs, buttons, etc.
+    border?: Color;
+    // Primary accent color. If one color is provided,
+    // the scale will get generated automatically.
+    primary?: Color | Scale;
+    // Secondary accent color. If one color is provided,
+    // the scale will get generated automatically.
+    secondary?: Color | Scale;
+    // Error color. If one color is provided, the scale
+    // will get generated automatically.
+    error?: Color | Scale;
+    // White color, regardless of theme
+    white?: Color;
+    // Black color, regardless of theme
+    black?: Color;
+    // Text color
+    text?: Color;
+    // Inverted text color to use on dark elements.
+    textInverted?: Color;
+    // Text color to use on top of primary elements. If not provided,
+    // it will be automatically chosen from the highest contrast of text and
+    // textInverted.
+    textOnPrimary?: Color;
+  };
+  // Sets sizing parameters
+  sizes: {
+    // Defines the rem base size. Defaults to 6px. Increase this value to
+    // increase the size of all components.
+    base?: number;
+    border: {
+      // Border radius in px for (almost) all components
+      radius?: number;
+      // Border width in px for (almost) all components
+      width?: number;
+    };
+  };
+  // Sets typography parameters
+  typography: {
+    // The font family to use.
+    family?: string;
+    // H1 typography
+    h1: TypographySpec;
+    // H2 typography
+    h2: TypographySpec;
+    // H3 typography
+    h3: TypographySpec;
+    // H4 typography
+    h4: TypographySpec;
+    // H5 typography
+    h5: TypographySpec;
+  };
 }
+```

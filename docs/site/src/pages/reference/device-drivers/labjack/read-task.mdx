@@ -14,6 +14,8 @@ import { Divider, Note } from "@synnaxlabs/pluto";
 
 import { StepText } from "@/components/StepText";
 import { Video, Image } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 The read task is used for acquiring analog and digital data from LabJack devices. In
 this guide, we'll walk you through the steps to create a LabJack read task in Synnax.

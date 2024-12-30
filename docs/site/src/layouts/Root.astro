@@ -4,7 +4,7 @@ import "@synnaxlabs/pluto/dist/pluto.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@fontsource/geist-mono";
 import PostHog from "@/components/PostHog.astro";
-import { ViewTransitions } from "astro:transitions";
+import { ClientRouter } from "astro:transitions";
 import { SEO } from "astro-seo";
 import Footer from "@/components/Footer.astro";
 const {
@@ -35,17 +35,18 @@ const {
                 ],
             }}
         />
-        <ViewTransitions />
+        <ClientRouter />
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     </head>
-    <Header url={url} />
-    <main>
-        <section>
-            <slot />
-        </section>
-    </main>
-    <Footer />
-
-    <script>
+    <body>
+        <Header url={url} transition:persist />
+        <main>
+            <section>
+                <slot />
+            </section>
+        </main>
+        <Footer />
+    </body><script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
         import { getVersion } from "@/util/fetchVersion";
@@ -58,13 +59,29 @@ const {
                 });
             });
         };
+
+        const bindClickHandlersToHeadingAnchors = () => {
+            const anchors = document.querySelectorAll(".heading-anchor");
+            anchors.forEach((anchor) => {
+                anchor.addEventListener("click", () => {
+                    const url = window.location.href;
+                    const newUrl = url.split("#")[0];
+                    const hash = anchor.getAttribute("href");
+                    console.log(newUrl + hash);
+                    navigator.clipboard.writeText(newUrl + hash);
+                });
+            });
+        };
+
         updateVersion();
         addCodeButtonListeners();
         startUpdatingIframeHref();
+        bindClickHandlersToHeadingAnchors();
         document.addEventListener("astro:after-swap", () => {
             updateVersion();
             addCodeButtonListeners();
             startUpdatingIframeHref();
+            bindClickHandlersToHeadingAnchors();
         });
     </script>
 
@@ -104,7 +121,7 @@ const {
             --pluto-h5-text-transform: none;
             --pluto-p-size: 2.666rem;
             --pluto-p-weight: 350;
-            --pluto-p-line-height: 4.666rem;
+            --pluto-p-line-height: 175%;
             --pluto-small-size: 2.333rem;
             --pluto-small-weight: 350;
             --pluto-small-line-height: 150%;
@@ -985,6 +1002,36 @@ const {
                 --pluto-text-on-primary: #fcfcfc;
                 --pluto-border-color: #ededed;
             }
+
+            @media (max-width: 800px) {
+                --pluto-h1-size: 5rem;
+                --pluto-h2-size: 4rem;
+                --pluto-h3-size: 3.25rem;
+                --pluto-h4-size: 2.75rem;
+                --pluto-h5-size: 2.5rem;
+                --pluto-p-size: 2.3333rem;
+                --pluto-p-weight: 375;
+
+                section {
+                    padding: 0 1rem !important;
+                }
+
+                article {
+                    ul {
+                        padding-left: 2rem;
+                    }
+                }
+
+                .pluto-tabs-selector__btn--uneditable {
+                    padding: 0 1rem;
+                }
+            }
+
+            @media (max-width: 600px) {
+                .pluto-tabs-selector__tabs {
+                    justify-content: center !important;
+                }
+            }
         }
 
         * {
@@ -1150,6 +1197,10 @@ const {
                 margin: 3rem 0;
             }
 
+            :is(h1, h3).pluto-text {
+                margin: 3rem 0;
+            }
+
             video,
             img {
                 margin: 5rem 0;
@@ -1159,8 +1210,31 @@ const {
                 padding-left: 5rem;
             }
 
-            h2 {
+            h2.pluto-text {
                 margin: 4rem 0;
+            }
+
+            :is(h1, h2, h3).pluto-text {
+                & a {
+                    color: var(--pluto-gray-l7);
+                    opacity: 0;
+                    margin-left: 2rem;
+                    position: relative;
+                    transition: all 0.2s;
+                    & svg {
+                        position: absolute;
+                        top: 50%;
+                        transform: translateY(-50%);
+                    }
+                }
+                &:hover {
+                    & a {
+                        opacity: 1;
+                        &:hover {
+                            color: var(--pluto-gray-l9);
+                        }
+                    }
+                }
             }
         }
     </style>

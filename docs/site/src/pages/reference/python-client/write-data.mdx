@@ -9,8 +9,8 @@ prevURL: "/reference/python-client/read-data"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Synnax supports multiple methods for writing data to a cluster. We can write directly to
 a channel, fetch a range and set its data, or leverage writers for writing large volumes

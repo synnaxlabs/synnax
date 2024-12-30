@@ -10,6 +10,8 @@ prevURL: "/reference/concepts/channels"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 A range (short for _time range_) is a named time interval that labels interesting
 events in your cluster's data. Ranges are the primary means for organizing and accessing

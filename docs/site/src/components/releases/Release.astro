@@ -41,7 +41,7 @@ const firstPart = version.split(".").slice(0, 2).join(".");
             </Text.Link>
         </Align.Space>
     </Align.Space>
-    <Align.Space direction="y" className="details" size="large">
+    <Align.Space direction="y" className="details">
         <Text.Text level="h2" className="title">{title}</Text.Text>
         <article>
             <slot />
@@ -88,7 +88,7 @@ const firstPart = version.split(".").slice(0, 2).join(".");
             }
         }
     }
-    @media (max-width: 750px) {
+    @media (max-width: 800px) {
         .release {
             flex-direction: column !important;
             .meta {

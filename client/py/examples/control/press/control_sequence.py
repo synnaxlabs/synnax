@@ -14,9 +14,9 @@ import synnax as sy
 client = sy.Synnax()
 
 # Define the control channel names
-PRESS_VALVE = "valve_command_0"
-VENT_VALVE = "valve_command_1"
-PRESSURE = "sensor_0"
+PRESS_VALVE = "press_vlv_cmd"
+VENT_VALVE = "vent_vlv_cmd"
+PRESSURE = "press_pt"
 
 # Open a control sequence under a context manager, so that the control is released when
 # the block exits

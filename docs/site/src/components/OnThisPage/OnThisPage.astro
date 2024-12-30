@@ -3,7 +3,7 @@ import { OnThisPage as OTP } from "@/components/OnThisPage/OnThisPage";
 const props = Astro.props;
 ---
 
-<OTP client:idle {...props} />
+<OTP client:only="react" {...props} />
 
 <style is:global>
     .on-this-page {
