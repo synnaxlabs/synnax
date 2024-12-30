@@ -28,12 +28,12 @@ client = sy.Synnax()
 # These will store the same timestamps as the raw time channel, but will be used to
 # index the calculated values.
 time_channel = client.channels.create(
-    name="simple_average-time", is_index=True, retrieve_if_name_exists=True
+    name="simple_average_time", is_index=True, retrieve_if_name_exists=True
 )
 
 # We'll store the average in this channel
 data_channel = client.channels.create(
-    name="simple_average-data",
+    name="simple_average_data",
     index=time_channel.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
@@ -46,7 +46,7 @@ current_values = dict()
 
 with client.open_writer(
     start=sy.TimeStamp.now(),
-    channels=["simple_average-time", "simple_average-data"],
+    channels=["simple_average_time", "simple_average_data"],
     enable_auto_commit=True,
 ) as writer:
     with client.open_streamer(TO_READ) as streamer:
@@ -63,4 +63,4 @@ with client.open_writer(
 
             # Caluclate and write the average.
             avg = (current_values["data_ch_1"] + current_values["data_ch_2"]) / 2
-            writer.write({"simple_average-time": time, "simple_average-data": avg})
+            writer.write({"simple_average_time": time, "simple_average_data": avg})

@@ -30,12 +30,12 @@ client = sy.Synnax()
 # These will store the same timestamps as the raw time channel, but will be used to
 # index the calculated values.
 time_channel = client.channels.create(
-    name="interpolation-time", is_index=True, retrieve_if_name_exists=True
+    name="interpolation_time", is_index=True, retrieve_if_name_exists=True
 )
 
 # We'll store the average in this channel
 data_channel = client.channels.create(
-    name="interpolation-data",
+    name="interpolation_data",
     index=time_channel.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
@@ -74,7 +74,7 @@ def interpolate(data_ch_1_time, data_ch_1, data_ch_2_time, data_ch_2):
 
 with client.open_writer(
     start=sy.TimeStamp.now(),
-    channels=["interpolation-time", "interpolation-data"],
+    channels=["interpolation_time", "interpolation_data"],
     enable_auto_commit=True,
 ) as writer:
     with client.open_streamer(TO_READ) as streamer:
@@ -99,4 +99,4 @@ with client.open_writer(
                 continue
             # Calculate the average of the two sensors
             avg = (sensor_1 + sensor_2) / 2
-            writer.write({"interpolation-time": time, "interpolation-data": avg})
+            writer.write({"interpolation_time": time, "interpolation_data": avg})

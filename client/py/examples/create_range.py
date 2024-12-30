@@ -33,14 +33,14 @@ data = np.sin(time_data - start)
 
 # Create an index channel that will be used to store our timestamps.
 time_channel = client.channels.create(
-    name="create_range-time",
+    name="create_range_time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
 )
 
 # Create a data channel that will be used to store our fake sensor data.
 data_channel = client.channels.create(
-    name="create_range-data",
+    name="create_range_data",
     data_type=sy.DataType.FLOAT64,
     index=time_channel.key,
 )
@@ -52,7 +52,7 @@ data_channel.write(start, data)
 
 # Create a range that spans the start and end of the data.
 example_range = client.ranges.create(
-    name="create_range-range",
+    name="create_range_range",
     time_range=sy.TimeRange(start, end),
 )
 
@@ -61,8 +61,8 @@ example_range = client.ranges.create(
 plt.plot(
     # The elapsed_seconds method converts the timestamps to seconds since the start of
     # the range.
-    sy.elapsed_seconds(example_range["create_range-time"]),
-    example_range["create_range-data"],
+    sy.elapsed_seconds(example_range["create_range_time"]),
+    example_range["create_range_data"],
 )
 plt.xlabel("Time")
 plt.ylabel("Value")

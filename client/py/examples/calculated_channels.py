@@ -26,14 +26,14 @@ client = sy.Synnax()
 # These will store the same timestamps as the raw time channel, but will be used to
 # index the calculated values.
 time_channel = client.channels.create(
-    name="calculated_channels-time",
+    name="calculated_channels_time",
     is_index=True,
     retrieve_if_name_exists=True,
 )
 
 # We'll store the squared value of "stream_write.data_1" in this channel.
 squared_data_channel = client.channels.create(
-    name="calculated_channels-squared_data",
+    name="calculated_channels_squared_data",
     index=time_channel.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
@@ -42,7 +42,7 @@ squared_data_channel = client.channels.create(
 # We'll store the average of "stream_write.data_1" and "stream_write.data_2" in this
 # channel.
 averaged_data_channel = client.channels.create(
-    name="calculated_channels-averaged_data",
+    name="calculated_channels_averaged_data",
     index=time_channel.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
@@ -51,27 +51,27 @@ averaged_data_channel = client.channels.create(
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=[
-        "calculated_channels-time",
-        "calculated_channels-squared_data",
-        "calculated_channels-averaged_data",
+        "calculated_channels_time",
+        "calculated_channels_squared_data",
+        "calculated_channels_averaged_data",
     ],
     enable_auto_commit=True,
 ) as writer:
     with client.open_streamer(
-        ["stream_write-time", "stream_write-data_1", "stream_write-data_2"],
+        ["stream_write_time", "stream_write_data_1", "stream_write_data_2"],
     ) as streamer:
         for frame in streamer:
-            time = frame["stream_write-time"]
+            time = frame["stream_write_time"]
             # Square
-            squared = frame["stream_write-data_1"] ** 2
+            squared = frame["stream_write_data_1"] ** 2
             # Average
-            avg = (frame["stream_write-data_1"] + frame["stream_write-data_2"]) / 2
+            avg = (frame["stream_write_data_1"] + frame["stream_write_data_2"]) / 2
             writer.write(
                 {
                     # Write back the same timestamps as raw data so they align
                     # correctly.
-                    "calculated_channels-time": time,
-                    "calculated_channels-squared_data": squared,
-                    "calculated_channels-averaged_data": avg,
+                    "calculated_channels_time": time,
+                    "calculated_channels_squared_data": squared,
+                    "calculated_channels_averaged_data": avg,
                 }
             )
