@@ -110,10 +110,8 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-      console.log("keydown", e.key);
       if (onlyChangeOnBlur && e.key === "Enter") e.currentTarget.blur();
       else if (e.key === "Escape") {
-        console.log("escape");
         e.currentTarget.blur();
         e.stopPropagation();
       }

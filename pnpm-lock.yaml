@@ -193,7 +193,7 @@ importers:
         version: 5.1.0
       '@reduxjs/toolkit':
         specifier: ^2.5.0
-        version: 2.5.0(react-redux@9.2.0(@types/react@19.0.1)(react@19.0.0)(redux@5.0.1))(react@19.0.0)
+        version: 2.5.0(react-redux@9.2.0(@types/react@19.0.1)(react@19.0.0))(react@19.0.0)
       '@synnaxlabs/client':
         specifier: workspace:*
         version: link:../client/ts
@@ -405,7 +405,7 @@ importers:
     dependencies:
       '@reduxjs/toolkit':
         specifier: ^2.5.0
-        version: 2.5.0(react-redux@9.2.0(@types/react@19.0.1)(react@19.0.0)(redux@5.0.1))(react@19.0.0)
+        version: 2.5.0(react-redux@9.2.0(@types/react@19.0.1)(react@19.0.0))(react@19.0.0)
       '@synnaxlabs/x':
         specifier: workspace:*
         version: link:../x/ts
@@ -463,7 +463,7 @@ importers:
     dependencies:
       '@reduxjs/toolkit':
         specifier: ^2.5.0
-        version: 2.5.0(react-redux@9.2.0(@types/react@19.0.1)(react@19.0.0)(redux@5.0.1))(react@19.0.0)
+        version: 2.5.0(react-redux@9.2.0(@types/react@19.0.1)(react@19.0.0))(react@19.0.0)
       '@synnaxlabs/drift':
         specifier: workspace:*
         version: link:../..
@@ -623,6 +623,9 @@ importers:
       d3-scale:
         specifier: ^4.0.2
         version: 4.0.2
+      focus-trap-react:
+        specifier: ^11.0.1
+        version: 11.0.1(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       fuse.js:
         specifier: ^7.0.0
         version: 7.0.0
@@ -3359,6 +3362,17 @@ packages:
     resolution: {integrity: sha512-9UbaD6XdAL97+k/n+N7JwX46K/M6Zc6KcFYskrYL8wbBV/Uyk0CTAMY0VT+qiK5PM7AIc9aTWYtq65U7T+aCNQ==}
     engines: {node: '>=8'}
 
+  focus-trap-react@11.0.1:
+    resolution: {integrity: sha512-vxv2lglW41sBgREiVbWUMf0QzCDn84lCQhfdyELNPkfsH2VdB3XheEYBk2HK/XhpghBtbkXCGORPX6otehi+uw==}
+    peerDependencies:
+      '@types/react': ^19.0.1
+      '@types/react-dom': ^19.0.2
+      react: ^19.0.0
+      react-dom: ^19.0.0
+
+  focus-trap@7.6.2:
+    resolution: {integrity: sha512-9FhUxK1hVju2+AiQIDJ5Dd//9R2n2RAfJ0qfhF4IHGHgcoEUTMpbTeG/zbEuwaiYXfuAH6XE0/aCyxDdRM+W5w==}
+
   for-each@0.3.3:
     resolution: {integrity: sha512-jqYfLp7mo9vIyQf8ykW2v7A+2N4QjeCeI5+Dz9XraiO1ign81wjiH7Fb9vSOWvQfNtmSa4H2RoQTrrXivdUZmw==}
 
@@ -5045,6 +5059,9 @@ packages:
 
   symbol-tree@3.2.4:
     resolution: {integrity: sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==}
+
+  tabbable@6.2.0:
+    resolution: {integrity: sha512-Cat63mxsVJlzYvN51JmVXIgNoUokrIaT2zLclCXjRd8boZ0004U4KCs/sToJ75C6sdlByWxpYnb5Boif1VSFew==}
 
   table@6.9.0:
     resolution: {integrity: sha512-9kY+CygyYM6j02t5YFHbNz2FN5QmYGv9zAjVp4lCDjlCw7amdckXlEt/bjMhUIfj4ThGRE4gCUH5+yGnNuPo5A==}
@@ -6768,7 +6785,7 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
-  '@reduxjs/toolkit@2.5.0(react-redux@9.2.0(@types/react@19.0.1)(react@19.0.0)(redux@5.0.1))(react@19.0.0)':
+  '@reduxjs/toolkit@2.5.0(react-redux@9.2.0(@types/react@19.0.1)(react@19.0.0))(react@19.0.0)':
     dependencies:
       immer: 10.1.1
       redux: 5.0.1
@@ -8655,6 +8672,19 @@ snapshots:
   flatted@3.3.2: {}
 
   flattie@1.1.1: {}
+
+  focus-trap-react@11.0.1(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
+    dependencies:
+      '@types/react': 19.0.1
+      '@types/react-dom': 19.0.2(@types/react@19.0.1)
+      focus-trap: 7.6.2
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
+      tabbable: 6.2.0
+
+  focus-trap@7.6.2:
+    dependencies:
+      tabbable: 6.2.0
 
   for-each@0.3.3:
     dependencies:
@@ -10893,6 +10923,8 @@ snapshots:
   svg-tags@1.0.0: {}
 
   symbol-tree@3.2.4: {}
+
+  tabbable@6.2.0: {}
 
   table@6.9.0:
     dependencies:

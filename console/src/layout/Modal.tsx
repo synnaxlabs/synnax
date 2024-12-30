@@ -45,6 +45,7 @@ export const Modal = ({ state, remove, centered, root }: ModalProps) => {
         close={() => remove(key)}
         style={layoutCSS(window)}
         root={root}
+        trapFocus
       >
         {window?.navTop && (
           <Nav.Bar location="top" size="6rem">

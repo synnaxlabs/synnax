@@ -26,6 +26,7 @@
     "compromise": "^14.14.3",
     "compromise-dates": "^3.7.0",
     "d3-scale": "^4.0.2",
+    "focus-trap-react": "^11.0.1",
     "fuse.js": "^7.0.0",
     "mathjs": "^14.0.1",
     "proxy-memoize": "2.0.3",
