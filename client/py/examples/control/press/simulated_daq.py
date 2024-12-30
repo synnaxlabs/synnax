@@ -7,19 +7,24 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import math
+"""
+This example sets up a simulated data acquisition system (DAQ) that has a press valve
+(press_vlv_cmd) and vent valve (vent_vlv_cmd) connected to a pressure transducer
+(press_pt). When the press valve is open, the pressure increases, and when the vent
+valve is open, the pressure decreases. The pressure is written to the press_pt channel.
+
+This script can be run in conjuction with the `control_sequence.py` script to
+demonstrate how a control sequence can be written in Synnax.
+"""
 
 import synnax as sy
 
-# We've logged in via the CLI, so there's no need to provide credentials. here. See 
-# https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+# We've logged in via the command-line interface, so there's no need to provide
+# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
 daq_time_ch = client.channels.create(
-    name="daq_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
+    name="daq_time", is_index=True, retrieve_if_name_exists=True
 )
 
 press_pt = client.channels.create(
@@ -68,8 +73,8 @@ state = {
 
 # The first thing we do is open a streamer to read commands issued to the valves, either
 # from the Synnax console or from a control sequence. This ensures that we can
-# adequately respond to commands by setting states of valves and increasing/
-# decreasing pressure.
+# adequately respond to commands by setting states of valves and increasing/ decreasing
+# pressure.
 with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
     # We open a writer to write the state of the system back to Synnax, so it is
     # permanently stored and visualized by the Synnax console and control sequences.
@@ -106,8 +111,8 @@ with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
                 if len(vent_vlv_cmd) > 0:
                     state["vent_vlv_state"] = vent_vlv_cmd[-1]
 
-                # Check if there are 1 or more commands issued to the press valve. If so,
-                # set the press valve state to the latest command.
+                # Check if there are 1 or more commands issued to the press valve. If
+                # so, set the press valve state to the latest command.
                 press_vlv_cmd = frame.get("press_vlv_cmd")
                 if len(press_vlv_cmd) > 0:
                     state["press_vlv_state"] = press_vlv_cmd[-1]
