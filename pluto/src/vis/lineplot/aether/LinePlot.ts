@@ -124,15 +124,11 @@ export class LinePlot extends aether.Composite<
     await Promise.all(this.tooltips.map(async (t) => await t.render(p)));
   }
 
-  private async renderMeasures(
-    region: box.Box,
-    canvases: render.CanvasVariant[],
-  ): Promise<void> {
-    const p = {
+  private async renderMeasures(region: box.Box): Promise<void> {
+    const p: measure.MeasureProps = {
       findByXDecimal: this.findByXDecimal.bind(this),
       findByXValue: this.findByXValue.bind(this),
       region,
-      canvases,
     };
     await Promise.all(this.measures.map(async (m) => await m.render(p)));
   }
@@ -182,7 +178,7 @@ export class LinePlot extends aether.Composite<
     try {
       await this.renderAxes(plot, canvases);
       await this.renderTooltips(plot, canvases);
-      await this.renderMeasures(plot, canvases);
+      await this.renderMeasures(plot);
       renderCtx.gl.finish();
       renderCtx.gl.flush();
       renderCtx.gl.finish();
