@@ -474,42 +474,42 @@ const angledValve: Spec<AngledValveProps> = {
 const ballValve: Spec<BallValveProps> = {
   name: "Ball Valve",
   key: "ballValve",
-  Form: CommonDummyToggleForm,
+  Form: CommonToggleForm,
   Symbol: BallValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Ball Valve"),
-    ...ZERO_DUMMY_TOGGLE_PROPS,
+    ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.BallValve(props),
+  Preview: Primitives.BallValve,
   zIndex: Z_INDEX_UPPER,
 };
 
 const threeWayBallValve: Spec<ThreeWayBallValveProps> = {
   name: "Three-Way Ball Valve",
   key: "threeWayBallValve",
-  Form: CommonDummyToggleForm,
+  Form: CommonToggleForm,
   Symbol: ThreeWayBallValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Three-Way Ball Valve"),
-    ...ZERO_DUMMY_TOGGLE_PROPS,
+    ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.ThreeWayBallValve(props),
+  Preview: Primitives.ThreeWayBallValve,
   zIndex: Z_INDEX_UPPER,
 };
 
 const gateValve: Spec<GateValveProps> = {
   name: "Gate Valve",
   key: "gateValve",
-  Form: CommonDummyToggleForm,
+  Form: CommonToggleForm,
   Symbol: GateValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Gate Valve"),
-    ...ZERO_DUMMY_TOGGLE_PROPS,
+    ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.GateValve(props),
+  Preview: Primitives.GateValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -551,7 +551,7 @@ const breatherValve: Spec<BreatherValveProps> = {
     ...zeroLabel("Breather Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.BreatherValve(props),
+  Preview: Primitives.BreatherValve,
   zIndex: Z_INDEX_UPPER,
 };
 

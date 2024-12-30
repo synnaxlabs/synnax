@@ -336,7 +336,12 @@ export const CentrifugalCompressor = createToggle(Primitives.CentrifugalCompress
 export type CentrifugalCompressorProps = ToggleProps<Primitives.CentrifugalCompressorProps>;
 export const ButterflyValveOne = createToggle(Primitives.ButterflyValveOne);
 export type ButterflyValveOneProps = ToggleProps<Primitives.ButterflyValveOneProps>;
-
+export const BallValve = createToggle(Primitives.BallValve);
+export type BallValveProps = ToggleProps<Primitives.BallValveProps>;
+export const ThreeWayBallValve = createToggle(Primitives.ThreeWayBallValve);
+export type ThreeWayBallValveProps = ToggleProps<Primitives.ThreeWayBallValveProps>;
+export const GateValve = createToggle(Primitives.GateValve);
+export type GateValveProps = ToggleProps<Primitives.GateValveProps>;
 
 // |||||||| STATIC + LABELED ||||||||
 
@@ -437,20 +442,12 @@ export type AngledSpringLoadedReliefValveProps =
 export const ManualValve = createDummyToggle(Primitives.ManualValve);
 export type ManualValveProps = DummyToggleProps<Primitives.ManualValveProps>;
 export const AngledReliefValve = createDummyToggle(Primitives.AngledReliefValve);
-export type AngledReliefValveProps =
-  DummyToggleProps<Primitives.AngledReliefValveProps>;
-
-export const BallValve = createDummyToggle(Primitives.BallValve);
-export type BallValveProps = DummyToggleProps<Primitives.BallValveProps>;
-export const ThreeWayBallValve = createDummyToggle(Primitives.ThreeWayBallValve);
-export type ThreeWayBallValveProps = DummyToggleProps<Primitives.ThreeWayBallValveProps>;
-export const GateValve = createDummyToggle(Primitives.GateValve);
-export type GateValveProps = DummyToggleProps<Primitives.GateValveProps>;
+export type AngledReliefValveProps =DummyToggleProps<Primitives.AngledReliefValveProps>;
 export const ButterflyValveTwo = createDummyToggle(Primitives.ButterflyValveTwo);
 export type ButterflyValveTwoProps = DummyToggleProps<Primitives.ButterflyValveTwoProps>;
 export const BreatherValve = createDummyToggle(Primitives.BreatherValve);
 export type BreatherValveProps = DummyToggleProps<Primitives.BreatherValveProps>;
-  
+
 
 // ||||||||| CUSTOM ||||||||
 

@@ -897,27 +897,27 @@ export const BreatherValve = ({
       <Handle
         location="left"
         orientation={orientation}
-        left={10.476}
+        left={8.081}
         top={50}
         id="1"
       />
       <Handle
         location="right"
         orientation={orientation}
-        left={89.524}
+        left={91.919}
         top={50}
         id="2"
       />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 105, height: 60 }}
+      dimensions={{ width: 99, height: 57 }}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="94" cy="49" r="10" fill={Color.cssString(color)}/>
-      <Circle cx="11" cy="11" r="10" fill={Color.cssString(color)}/>
-      <Path d="M52.5 30L15.3545 11.2035C13.359 10.1937 11 11.6438 11 13.8803V46.1197C11 48.3562 13.359 49.8063 15.3545 48.7965L52.5 30ZM52.5 30L89.6455 11.2035C91.641 10.1937 94 11.6438 94 13.8803V46.1197C94 48.3562 91.641 49.8063 89.6455 48.7965L52.5 30Z" stroke-width="2"/>
+      <Circle cx="91" cy="49.5" r="6" fill={Color.cssString(color)}/>
+      <Circle cx="8" cy="7.5" r="6" fill={Color.cssString(color)}/>
+      <Path d="M49.5 28.5L12.3545 9.70349C10.359 8.69372 8 10.1438 8 12.3803V44.6197C8 46.8562 10.359 48.3063 12.3545 47.2965L49.5 28.5ZM49.5 28.5L86.6455 9.70349C88.641 8.69372 91 10.1438 91 12.3803V44.6197C91 46.8562 88.641 48.3063 86.6455 47.2965L49.5 28.5Z"/>
     </InternalSVG>
   </Toggle>
 );
@@ -2810,6 +2810,8 @@ export const FlowmeterGeneral = ({
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 71, height: 35 }}
@@ -2849,6 +2851,8 @@ export const FlowmeterElectromagnetic = ({
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 71, height: 35 }}
@@ -2893,6 +2897,8 @@ export const FlowmeterVariableArea = ({
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 71, height: 35 }}
@@ -2938,6 +2944,8 @@ export const FlowmeterCoriolis = ({
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 71, height: 35 }}
@@ -2988,6 +2996,8 @@ export const FlowmeterNozzle = ({
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 71, height: 35 }}
@@ -3034,6 +3044,8 @@ export const FlowmeterVenturi = ({
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 71, height: 35 }}
@@ -3080,6 +3092,8 @@ export const FlowmeterRingPiston = ({
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 71, height: 35 }}
@@ -3124,6 +3138,8 @@ export const FlowmeterPositiveDisplacement = ({
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 71, height: 35 }}
@@ -3168,6 +3184,8 @@ export const FlowmeterTurbine = ({
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 71, height: 35 }}
@@ -3217,6 +3235,8 @@ export const FlowmeterPulse = ({
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={94.386} id="3" />
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 71, height: 35 }}
@@ -3308,19 +3328,19 @@ export const HeatExchangerGeneral = ({
   return (
     <Div {...props} className={CSS(CSS.B('heat-exchanger-general'), className)}>
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={98.3333} top={50} id="2" />
-        <Handle location="top" orientation={orientation} left={50} top={1.6667} id="3" />
-        <Handle location="bottom" orientation={orientation} left={50} top={98.3333} id="4" />
+        <Handle location="left" orientation={orientation} left={4.545} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={95.454} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={4.545} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={95.454} id="4" />
       </HandleBoundary>
       <InternalSVG
-        dimensions={{ width: 50, height: 50 }}
+        dimensions={{ width: 66, height: 66 }}
         color={color}
         orientation={orientation}
         scale={scale}
       >
-        <Path d="M48 25C48 28.0204 47.4051 31.0112 46.2492 33.8017C45.0934 36.5922 43.3992 39.1277 41.2635 41.2635C39.1277 43.3992 36.5922 45.0934 33.8017 46.2492C31.0112 47.4051 28.0204 48 25 48C21.9796 48 18.9888 47.4051 16.1983 46.2492C13.4078 45.0934 10.8723 43.3992 8.73654 41.2635C6.6008 39.1277 4.90663 36.5922 3.75077 33.8017C2.59491 31.0112 2 28.0204 2 25C2 21.9796 2.59491 18.9888 3.75077 16.1983C4.90663 13.4078 6.6008 10.8723 8.73655 8.73654C10.8723 6.60079 13.4078 4.90663 16.1983 3.75077C18.9888 2.59491 21.9796 2 25 2C28.0204 2 31.0112 2.59491 33.8017 3.75077C36.5922 4.90663 39.1277 6.6008 41.2635 8.73655C43.3992 10.8723 45.0934 13.4078 46.2492 16.1983C47.4051 18.9888 48 21.9796 48 25L48 25Z" stroke-width="2"/>
-        <Path d="M2 25.4098H13.8033L25.0984 14.1147M25.3278 36.705L36.623 25.4098H48M25.2131 36.8197V14" stroke-linecap="round"/>
+        <Path d="M3 33H18.3956L33.1284 18.1508M33.4276 47.8492L48.1604 33H63M33.278 48V18"/>
+        <Path d="M63 33C63 36.9397 62.224 40.8407 60.7164 44.4805C59.2087 48.1203 56.999 51.4274 54.2132 54.2132C51.4274 56.999 48.1203 59.2087 44.4805 60.7164C40.8407 62.224 36.9397 63 33 63C29.0603 63 25.1593 62.224 21.5195 60.7164C17.8797 59.2087 14.5726 56.999 11.7868 54.2132C9.00104 51.4274 6.79125 48.1203 5.28361 44.4805C3.77597 40.8407 3 36.9397 3 33C3 29.0603 3.77597 25.1593 5.28362 21.5195C6.79126 17.8797 9.00104 14.5726 11.7868 11.7868C14.5726 9.00104 17.8797 6.79125 21.5195 5.28361C25.1593 3.77597 29.0603 3 33 3C36.9397 3 40.8407 3.77597 44.4805 5.28362C48.1203 6.79126 51.4274 9.00104 54.2132 11.7868C56.999 14.5726 59.2087 17.8797 60.7164 21.5195C62.224 25.1593 63 29.0603 63 33L63 33Z"/>
       </InternalSVG>
     </Div>
   );
@@ -3340,19 +3360,20 @@ export const HeatExchangerM = ({
   return (
     <Div {...props} className={CSS(CSS.B('heat-exchanger-M'), className)}>
       <HandleBoundary orientation={orientation}>
-        <Handle location="right" orientation={orientation} left={92} top={26} id="1" />
-        <Handle location="right" orientation={orientation} left={92} top={74} id="2" />
-        <Handle location="top" orientation={orientation} left={50} top={1.6667} id="3" />
-        <Handle location="bottom" orientation={orientation} left={50} top={98.3333} id="4" />
+        <Handle location="right" orientation={orientation} left={89} top={27.27} id="1" />
+        <Handle location="right" orientation={orientation} left={89} top={72.73} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={4.545} id="3" />
+        <Handle location="bottom" orientation={orientation} left={50} top={95.455} id="4" />
+        <Handle location="left" orientation={orientation} left={4.545} top={50} id="5" />
       </HandleBoundary>
       <InternalSVG
-        dimensions={{ width: 50, height: 50 }}
+        dimensions={{ width: 66, height: 66 }}
         color={color}
         orientation={orientation}
         scale={scale}
       >
-        <Path d="M44.5 13H16.1721L28.1739 25.0018M28.1739 24.9982L16.1721 37H44.5" stroke-linecap="round"/>
-        <Path d="M48 25C48 28.0204 47.4051 31.0112 46.2492 33.8017C45.0934 36.5922 43.3992 39.1277 41.2635 41.2635C39.1277 43.3992 36.5922 45.0934 33.8017 46.2492C31.0112 47.4051 28.0204 48 25 48C21.9796 48 18.9888 47.4051 16.1983 46.2492C13.4078 45.0934 10.8723 43.3992 8.73654 41.2635C6.6008 39.1277 4.90663 36.5922 3.75077 33.8017C2.59491 31.0112 2 28.0204 2 25C2 21.9796 2.59491 18.9888 3.75077 16.1983C4.90663 13.4078 6.6008 10.8723 8.73655 8.73654C10.8723 6.60079 13.4078 4.90663 16.1983 3.75077C18.9888 2.59491 21.9796 2 25 2C28.0204 2 31.0112 2.59491 33.8017 3.75077C36.5922 4.90663 39.1277 6.6008 41.2635 8.73655C43.3992 10.8723 45.0934 13.4078 46.2492 16.1983C47.4051 18.9888 48 21.9796 48 25L48 25Z" stroke-width="2"/>
+        <Path d="M63 33C63 36.9397 62.224 40.8407 60.7164 44.4805C59.2087 48.1203 56.999 51.4274 54.2132 54.2132C51.4274 56.999 48.1203 59.2087 44.4805 60.7164C40.8407 62.224 36.9397 63 33 63C29.0603 63 25.1593 62.224 21.5195 60.7164C17.8797 59.2087 14.5726 56.999 11.7868 54.2132C9.00104 51.4274 6.79125 48.1203 5.28361 44.4805C3.77597 40.8407 3 36.9397 3 33C3 29.0603 3.77597 25.1593 5.28362 21.5195C6.79126 17.8797 9.00104 14.5726 11.7868 11.7868C14.5726 9.00104 17.8797 6.79125 21.5195 5.28361C25.1593 3.77597 29.0603 3 33 3C36.9397 3 40.8407 3.77597 44.4805 5.28362C48.1203 6.79126 51.4274 9.00104 54.2132 11.7868C56.999 14.5726 59.2087 17.8797 60.7164 21.5195C62.224 25.1593 63 29.0603 63 33L63 33Z"/>
+        <Path d="M58.9698 18H23.56L38.5623 33.0023M38.5623 32.9977L23.56 48H58.9698"/>
       </InternalSVG>
     </Div>
   );
@@ -3372,13 +3393,15 @@ export const HeatExchangerStraightTube = ({
   return (
     <Div {...props} className={CSS(CSS.B('heat-exchanger-M'), className)}>
       <HandleBoundary orientation={orientation}>
-        <Handle location="top" orientation={orientation} left={9} top={5} id="1" />
-        <Handle location="bottom" orientation={orientation} left={24} top={95} id="2" />
-        <Handle location="top" orientation={orientation} left={76} top={5} id="3" />
-        <Handle location="bottom" orientation={orientation} left={91} top={95} id="4" />
+        <Handle location="top" orientation={orientation} left={9} top={6.25} id="1" />
+        <Handle location="bottom" orientation={orientation} left={24} top={93.75} id="2" />
+        <Handle location="top" orientation={orientation} left={76} top={6.25} id="3" />
+        <Handle location="bottom" orientation={orientation} left={91} top={93.75} id="4" />
+        <Handle location="left" orientation={orientation} left={1.508} top={50} id="5" />
+        <Handle location="right" orientation={orientation} left={98.492} top={50} id="6" />
       </HandleBoundary>
       <InternalSVG
-        dimensions={{ width: 199, height: 49 }}
+        dimensions={{ width: 199, height: 48 }}
         color={color}
         orientation={orientation}
         scale={scale}
