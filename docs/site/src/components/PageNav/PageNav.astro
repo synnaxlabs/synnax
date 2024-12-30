@@ -84,36 +84,31 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             fill: var(--pluto-gray-l5) !important;
         }
     }
-    @media (max-width: 880px) {
+    @media (max-width: 800px) {
         .page-nav {
-            z-index: 100;
-            width: 100%;
-            position: fixed !important;
-            bottom: 0;
-            left: 0;
-            height: unset;
-            top: unset;
-            border-top: var(--pluto-border);
-            background: var(--pluto-gray-l0-70);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            & button {
-                height: 7rem;
-                & svg {
-                    height: 3.5rem;
-                    width: 3.5rem;
-                }
-                & h5 {
-                    font-size: 2.5rem;
-                }
-            }
+            display: none;
         }
-        .pluto-tabs-selector__tabs {
-            justify-content: center !important;
+    }
+
+    .page-nav-mobile-content {
+        & div:first-child {
+            display: none;
         }
-        .pluto-tree {
-            height: 310px !important;
-            overflow-y: scroll;
+        padding-top: 2rem;
+        width: calc(100vw - 5rem);
+        height: 70vh !important;
+        overflow: hidden !important;
+        border-radius: 1rem !important;
+    }
+
+    .pluto-dropdown__bg {
+        backdrop-filter: blur(0.5rem);
+        -webkit-backdrop-filter: blur(0.5rem);
+    }
+    @media (max-width: 600px) and (hover: none) {
+        .pluto-dropdown__dialog {
+            top: 5rem !important;
+            transform: none !important;
         }
     }
 </style>

@@ -11,6 +11,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Write tasks are the primary method for acquiring data from an OPC UA server and starting
 it in Synnax.
@@ -129,10 +131,12 @@ top right corner and select "OPC write Task".
     </tr>
     <tr>
       <td>Data Saving</td>
-      <td>Data saving defines whether acquired data will be permanently stored in Synnax.
+      <td>
+        Data saving defines whether acquired data will be permanently stored in Synnax.
         When enabled, Synnax will both stream and store data. When disabled, Synnax will
         only stream data for real-time visualization. Historical data will not be
-        available for review.</td>
+        available for review.
+      </td>
     </tr>
   </tbody>
 </Table>

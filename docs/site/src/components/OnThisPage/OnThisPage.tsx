@@ -15,6 +15,8 @@ import { unescape } from "html-escaper";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { OSSelectButton } from "@/components/platform/PlatformTabs";
+import { Icon } from "@synnaxlabs/media";
+import { transform } from "node_modules/@synnaxlabs/x/dist/src/spatial/scale/scale";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
@@ -44,24 +46,6 @@ export const OnThisPage = ({
     }, 200);
     return () => clearInterval(i);
   }, []);
-
-  // useEffect(() => {
-  //   const getItemOffsets = (): void => {
-  //     const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-  //     const headerLinks = document.querySelectorAll(".on-this-page .header-link");
-
-  //     itemOffsets.current = Array.from(titles).map((title) => ({
-  //       id: title.id,
-  //       topOffset: title.getBoundingClientRect().top + window.scrollY,
-  //     }));
-  //   };
-
-  //   getItemOffsets();
-  //   window.addEventListener("resize", getItemOffsets);
-  //   return () => {
-  //     window.removeEventListener("resize", getItemOffsets);
-  //   };
-  // }, []);
 
   useEffect(() => {
     if (toc.current == null) return;
@@ -100,8 +84,13 @@ export const OnThisPage = ({
 
   return (
     <Align.Space el="nav" className="on-this-page" size={2}>
-      <Header.Header id={ON_THIS_PAGE_ID} className="heading" level="h4">
-        <Header.Title>On this page</Header.Title>
+      <Header.Header id={ON_THIS_PAGE_ID} className="heading" level="h5">
+        <Header.Title
+          size="small"
+          startIcon={<Icon.Log style={{ transform: "scale(0.8)" }} />}
+        >
+          On this page
+        </Header.Title>
       </Header.Header>
       <OSSelectButton />
       <div ref={toc}>

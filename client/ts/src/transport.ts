@@ -15,7 +15,7 @@ import {
   unaryWithBreaker,
   WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { breaker } from "@synnaxlabs/x";
+import { type breaker } from "@synnaxlabs/x";
 import { binary } from "@synnaxlabs/x/binary";
 import { type URL } from "@synnaxlabs/x/url";
 
@@ -31,11 +31,11 @@ export class Transport {
     this.secure = secure;
     this.url = url.child(baseAPIEndpoint);
     const codec = new binary.JSONCodec();
-    (this.unary = unaryWithBreaker(
+    this.unary = unaryWithBreaker(
       new HTTPClient(this.url, codec, this.secure),
       breakerCfg,
-    )),
-      (this.stream = new WebSocketClient(this.url, codec, this.secure));
+    );
+    this.stream = new WebSocketClient(this.url, codec, this.secure);
   }
 
   use(...middleware: Middleware[]): void {

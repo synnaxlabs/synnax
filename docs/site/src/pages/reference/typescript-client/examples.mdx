@@ -8,7 +8,10 @@ nextURL: "/reference/typescript-client/troubleshooting"
 prev: "Timestamps"
 prevURL: "/reference/typescript-client/timestamps"
 ---
-import { Divider } from "@synnaxlabs/pluto"
+
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 One of the best ways to learn how to use the Synnax TypeScript client is to look
 over and run examples. This page contains a list of links to examples that
@@ -18,8 +21,8 @@ demonstrate how to perform various tasks.
 
 ## Examples
 
-| Name | Description |
-| ------ | ----------- |
-| [Basic Read and Write](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/basicReadWrite.js) | Demonstrates a basic read and write of channel data. |
-| [Stream Write](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/streamWrite.js) | Shows how to stream simulated sensor data to a set of channels. |
-| [Live Stream](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/liveStream.js) | Shows how to live stream sensor data to a set of channels. Use this in conjunction with the `streamWrite.js` example. |
+| Name                                                                                                             | Description                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [Basic Read and Write](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/basicReadWrite.js) | Demonstrates a basic read and write of channel data.                                                                  |
+| [Stream Write](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/streamWrite.js)            | Shows how to stream simulated sensor data to a set of channels.                                                       |
+| [Live Stream](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/liveStream.js)              | Shows how to live stream sensor data to a set of channels. Use this in conjunction with the `streamWrite.js` example. |

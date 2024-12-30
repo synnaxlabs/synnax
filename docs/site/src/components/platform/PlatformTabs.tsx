@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Select, Text } from "@synnaxlabs/pluto";
-import { useEffect, useState } from "react";
+import { OS, Select, Text } from "@synnaxlabs/pluto";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 import { Tabs as Core } from "@/components/Tabs";
+import { runtime } from "@synnaxlabs/x";
 
 const TABS = [
   { key: "docker", name: "Docker", tabKey: "docker", icon: <Icon.OS.Docker /> },
@@ -25,6 +26,20 @@ export interface PlatformTabsProps {
   priority?: string[];
 }
 
+const getOSFromURL = (detect: boolean): runtime.OS | null => {
+  const url = new URL(window.location.href);
+  const p = url.searchParams.get("platform");
+  const os = runtime.osZ.safeParse(p);
+  if (!os.success) return detect ? runtime.getOS() : null;
+  return os.data;
+};
+
+const setOSInURL = (os: runtime.OS) => {
+  const url = new URL(window.location.href);
+  url.searchParams.set("platform", os.toLowerCase());
+  window.history.pushState({}, "", url.toString());
+};
+
 export const PlatformTabs = ({ exclude = [], priority = [], ...props }) => {
   let tabs = [
     { name: "Docker", tabKey: "docker", icon: <Icon.OS.Docker /> },
@@ -32,6 +47,11 @@ export const PlatformTabs = ({ exclude = [], priority = [], ...props }) => {
     { name: "MacOS", tabKey: "macos", icon: <Icon.OS.MacOS /> },
     { name: "Windows", tabKey: "windows", icon: <Icon.OS.Windows /> },
   ].filter((tab) => !exclude.includes(tab.tabKey));
+
+  useLayoutEffect(() => {
+    const os = getOSFromURL(true);
+    if (os != null) setOSInURL(os);
+  }, []);
 
   if (priority.length > 0)
     tabs = tabs.sort((a, b) => {
@@ -48,17 +68,15 @@ export const OSSelectButton = () => {
   const [value, onChange] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    setInterval(() => {
-      const url = new URL(window.location.href);
-      const os = url.searchParams.get("platform");
-      if (os != null) onChange(os);
+    const i = setInterval(() => {
+      const os = getOSFromURL(false);
+      if (os != null) onChange(os.toLowerCase());
     }, 200);
+    return () => clearInterval(i);
   }, []);
 
-  const handleChange = (value) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("platform", value);
-    window.history.pushState({}, "", url.toString());
+  const handleChange = (value: runtime.OS) => {
+    setOSInURL(value);
     onChange(value);
   };
 

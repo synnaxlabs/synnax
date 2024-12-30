@@ -26,6 +26,7 @@ import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
+import { type ComponentSize } from "@/util/component";
 import { type Button as CoreButton } from "@/vis/button";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
 import {
@@ -35,7 +36,6 @@ import {
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
-import { ComponentSize } from "@/util/component";
 
 export interface SymbolFormProps {}
 
@@ -60,34 +60,39 @@ interface SymbolOrientation {
   orientation?: location.Outer;
 }
 
+interface ShowOrientationProps {
+  hideOuter?: boolean;
+  hideInner?: boolean;
+}
+
 const OrientationControl = ({
-  showOuter,
-  showInner,
+  hideOuter,
+  hideInner,
   ...props
-}: Form.FieldProps<SymbolOrientation> & {
-  showOuter?: boolean;
-  showInner?: boolean;
-}): ReactElement => (
-  <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...props}>
-    {({ value, onChange }) => (
-      <SelectOrientation
-        value={{
-          inner: value.orientation ?? "top",
-          outer: value.label?.orientation ?? "top",
-        }}
-        showInner={showInner}
-        showOuter={showOuter}
-        onChange={(v) =>
-          onChange({
-            ...value,
-            orientation: v.inner,
-            label: { ...value.label, orientation: v.outer },
-          })
-        }
-      />
-    )}
-  </Form.Field>
-);
+}: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement | null => {
+  if (hideInner && hideOuter) return null;
+  return (
+    <Form.Field<SymbolOrientation> label="Orientation" padHelpText={false} {...props}>
+      {({ value, onChange }) => (
+        <SelectOrientation
+          value={{
+            inner: value.orientation ?? "top",
+            outer: value.label?.orientation ?? "top",
+          }}
+          hideInner={hideInner}
+          hideOuter={hideOuter}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              orientation: v.inner,
+              label: { ...value.label, orientation: v.outer },
+            })
+          }
+        />
+      )}
+    </Form.Field>
+  );
+};
 
 interface LabelControlsProps {
   path: string;
@@ -170,9 +175,15 @@ const ScaleControl: Form.FieldT<number> = (props): ReactElement => (
 
 interface CommonStyleFormProps {
   omit?: string[];
+  hideInnerOrientation?: boolean;
+  hideOuterOrientation?: boolean;
 }
 
-export const CommonStyleForm = ({ omit }: CommonStyleFormProps): ReactElement => (
+export const CommonStyleForm = ({
+  omit,
+  hideInnerOrientation,
+  hideOuterOrientation,
+}: CommonStyleFormProps): ReactElement => (
   <FormWrapper direction="x" align="stretch">
     <Align.Space direction="y" grow>
       <LabelControls omit={omit} path="label" />
@@ -190,7 +201,11 @@ export const CommonStyleForm = ({ omit }: CommonStyleFormProps): ReactElement =>
         <ScaleControl path="scale" />
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" />
+    <OrientationControl
+      path=""
+      hideInner={hideInnerOrientation}
+      hideOuter={hideOuterOrientation}
+    />
   </FormWrapper>
 );
 
@@ -275,16 +290,24 @@ const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "control", name: "Control" },
 ];
 
-export const CommonToggleForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "control":
-        return <ToggleControlForm path="" />;
-      default:
-        return <CommonStyleForm />;
-    }
-  }, []);
+interface CommonToggleFormProps {
+  hideInnerOrientation?: boolean;
+}
 
+export const CommonToggleForm = ({
+  hideInnerOrientation,
+}: CommonToggleFormProps): ReactElement => {
+  const content: Tabs.RenderProp = useCallback(
+    ({ tabKey }) => {
+      switch (tabKey) {
+        case "control":
+          return <ToggleControlForm path="" />;
+        default:
+          return <CommonStyleForm hideInnerOrientation={hideInnerOrientation} />;
+      }
+    },
+    [hideInnerOrientation],
+  );
   const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
   return <Tabs.Tabs {...props} />;
 };
@@ -383,7 +406,7 @@ export const TankForm = ({
         </Form.Field>
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" showInner={false} />
+    <OrientationControl path="" hideInner />
   </FormWrapper>
 );
 
@@ -437,7 +460,7 @@ export const ValueForm = (): ReactElement => {
                 </Form.Field>
               </Align.Space>
             </Align.Space>
-            <OrientationControl path="" showInner={false} />
+            <OrientationControl path="" hideInner />
           </FormWrapper>
         );
     }
@@ -604,7 +627,13 @@ export const ButtonForm = (): ReactElement => {
       case "control":
         return <ButtonTelemForm path="" />;
       default:
-        return <CommonStyleForm omit={["align", "maxInlineSize"]} />;
+        return (
+          <CommonStyleForm
+            omit={["align", "maxInlineSize"]}
+            hideInnerOrientation
+            hideOuterOrientation
+          />
+        );
     }
   }, []);
 
@@ -620,22 +649,8 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
       disabled?: boolean;
     }
   >({ path });
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
-    sourceP.segments.valueStream.props,
-  );
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
-
-  const handleSourceChange = (v: channel.Key | null): void => {
-    v ??= 0;
-    const t = telem.sourcePipeline("number", {
-      connections: [],
-      segments: { valueStream: telem.streamChannelValue({ channel: v }) },
-      outlet: "valueStream",
-    });
-    onChange({ ...value, source: t });
-  };
 
   const handleSinkChange = (v: channel.Key | null): void => {
     v ??= 0;
@@ -703,7 +718,7 @@ export const SetpointForm = (): ReactElement => {
                 <ColorControl path="color" />
               </Align.Space>
             </Align.Space>
-            <OrientationControl path="" showInner={false} />
+            <OrientationControl path="" hideInner />
           </FormWrapper>
         );
     }
@@ -781,7 +796,7 @@ export const OffPageReferenceForm = (): ReactElement => (
       <LabelControls path="label" omit={["maxInlineSize", "align", "direction"]} />
       <ColorControl path="color" />
     </Align.Space>
-    <OrientationControl path="" showOuter={false} />
+    <OrientationControl path="" hideOuter />
   </FormWrapper>
 );
 
@@ -816,7 +831,7 @@ export const CylinderForm = (): ReactElement => (
         </Form.Field>
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" showInner={false} />
+    <OrientationControl path="" hideInner />
   </FormWrapper>
 );
 
@@ -835,3 +850,5 @@ export const CommonDummyToggleForm = (): ReactElement => (
 );
 
 export const BoxForm = (): ReactElement => <TankForm includeBorderRadius />;
+
+export const SwitchForm = (): ReactElement => <CommonToggleForm hideInnerOrientation />;

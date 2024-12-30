@@ -13,6 +13,7 @@ import { z } from "zod";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
+import { removeProps } from "@/util/removeProps";
 import {
   BoxForm,
   ButtonForm,
@@ -23,6 +24,7 @@ import {
   LightForm,
   OffPageReferenceForm,
   SetpointForm,
+  SwitchForm,
   type SymbolFormProps,
   TankForm,
   TextBoxForm,
@@ -455,7 +457,7 @@ const reliefValve: Spec<ReliefValveProps> = {
     ...zeroLabel("Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.ReliefValve,
+  Preview: removeProps(Primitives.ReliefValve, ["clickable"]),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -469,7 +471,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
     ...zeroLabel("Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.SpringLoadedReliefValve,
+  Preview: removeProps(Primitives.SpringLoadedReliefValve, ["clickable"]),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -483,7 +485,7 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.AngledSpringLoadedReliefValve,
+  Preview: removeProps(Primitives.AngledSpringLoadedReliefValve, ["clickable"]),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -581,7 +583,7 @@ const manualValve: Spec<ManualValveProps> = {
     ...zeroLabel("Manual Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.ManualValve,
+  Preview: removeProps(Primitives.ManualValve, ["clickable"]),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -637,7 +639,7 @@ const needleValve: Spec<NeedleValveProps> = {
     ...zeroLabel("Needle Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.NeedleValve,
+  Preview: removeProps(Primitives.NeedleValve, ["clickable"]),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -679,7 +681,7 @@ const angledReliefValve: Spec<ReliefValveProps> = {
     ...zeroLabel("Angled Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.AngledReliefValve,
+  Preview: removeProps(Primitives.AngledReliefValve, ["clickable"]),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -721,7 +723,7 @@ const switch_: Spec<SwitchProps> = {
   name: "Switch",
   key: "switch",
   Symbol: Switch,
-  Form: CommonToggleForm,
+  Form: SwitchForm,
   defaultProps: () => ({
     ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,

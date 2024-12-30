@@ -50,6 +50,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
   }
 
   async render(): Promise<render.Cleanup | undefined> {
+    if (this.deleted) return;
     const eraseRegion = box.copy(this.state.region);
     if (!this.state.visible)
       return async () =>
