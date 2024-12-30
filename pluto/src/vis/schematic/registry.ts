@@ -824,7 +824,7 @@ const setpoint: Spec<SetpointProps> = {
   Form: SetpointForm,
   defaultProps: (t) => ({
     units: "mV",
-    color: t.colors.gray.l4.rgba255,
+    color: t.colors.gray.l9.rgba255,
     size: "small",
     ...zeroLabel("Setpoint"),
     ...ZERO_NUMERIC_SOURCE_PROPS,
