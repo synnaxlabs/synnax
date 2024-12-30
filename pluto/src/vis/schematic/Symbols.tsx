@@ -327,13 +327,16 @@ export type CompressorProps = ToggleProps<Primitives.CompressorProps>;
 export const TurboCompressor = createToggle(Primitives.TurboCompressor);
 export type TurboCompressorProps = ToggleProps<Primitives.TurboCompressorProps>;
 export const RollerVaneCompressor = createToggle(Primitives.RollerVaneCompressor);
-export type RollerVaneCompressorProps = ToggleProps<Primitives.RollerVaneCompressorProps>;
+export type RollerVaneCompressorProps =
+  ToggleProps<Primitives.RollerVaneCompressorProps>;
 export const LiquidRingCompressor = createToggle(Primitives.LiquidRingCompressor);
-export type LiquidRingCompressorProps = ToggleProps<Primitives.LiquidRingCompressorProps>;
+export type LiquidRingCompressorProps =
+  ToggleProps<Primitives.LiquidRingCompressorProps>;
 export const EjectorCompressor = createToggle(Primitives.EjectorCompressor);
 export type EjectorCompressorProps = ToggleProps<Primitives.EjectorCompressorProps>;
 export const CentrifugalCompressor = createToggle(Primitives.CentrifugalCompressor);
-export type CentrifugalCompressorProps = ToggleProps<Primitives.CentrifugalCompressorProps>;
+export type CentrifugalCompressorProps =
+  ToggleProps<Primitives.CentrifugalCompressorProps>;
 export const ButterflyValveOne = createToggle(Primitives.ButterflyValveOne);
 export type ButterflyValveOneProps = ToggleProps<Primitives.ButterflyValveOneProps>;
 export const BallValve = createToggle(Primitives.BallValve);
@@ -381,10 +384,14 @@ export const StaticMixer = createLabeled(Primitives.StaticMixer);
 export type StaticMixerProps = LabeledProps<Primitives.StaticMixerProps>;
 export const FlowmeterGeneral = createLabeled(Primitives.FlowmeterGeneral);
 export type FlowmeterGeneralProps = LabeledProps<Primitives.FlowmeterGeneralProps>;
-export const FlowmeterElectromagnetic = createLabeled(Primitives.FlowmeterElectromagnetic);
-export type FlowmeterElectromagneticProps = LabeledProps<Primitives.FlowmeterElectromagneticProps>;
+export const FlowmeterElectromagnetic = createLabeled(
+  Primitives.FlowmeterElectromagnetic,
+);
+export type FlowmeterElectromagneticProps =
+  LabeledProps<Primitives.FlowmeterElectromagneticProps>;
 export const FlowmeterVariableArea = createLabeled(Primitives.FlowmeterVariableArea);
-export type FlowmeterVariableAreaProps = LabeledProps<Primitives.FlowmeterVariableAreaProps>;
+export type FlowmeterVariableAreaProps =
+  LabeledProps<Primitives.FlowmeterVariableAreaProps>;
 export const FlowmeterCoriolis = createLabeled(Primitives.FlowmeterCoriolis);
 export type FlowmeterCoriolisProps = LabeledProps<Primitives.FlowmeterCoriolisProps>;
 export const FlowmeterNozzle = createLabeled(Primitives.FlowmeterNozzle);
@@ -392,31 +399,48 @@ export type FlowmeterNozzleProps = LabeledProps<Primitives.FlowmeterNozzleProps>
 export const FlowmeterVenturi = createLabeled(Primitives.FlowmeterVenturi);
 export type FlowmeterVenturiProps = LabeledProps<Primitives.FlowmeterVenturiProps>;
 export const FlowmeterRingPiston = createLabeled(Primitives.FlowmeterRingPiston);
-export type FlowmeterRingPistonProps = LabeledProps<Primitives.FlowmeterRingPistonProps>;
-export const FlowmeterPositiveDisplacement = createLabeled(Primitives.FlowmeterPositiveDisplacement);
-export type FlowmeterPositiveDisplacementProps = LabeledProps<Primitives.FlowmeterPositiveDisplacementProps>;
+export type FlowmeterRingPistonProps =
+  LabeledProps<Primitives.FlowmeterRingPistonProps>;
+export const FlowmeterPositiveDisplacement = createLabeled(
+  Primitives.FlowmeterPositiveDisplacement,
+);
+export type FlowmeterPositiveDisplacementProps =
+  LabeledProps<Primitives.FlowmeterPositiveDisplacementProps>;
 export const FlowmeterTurbine = createLabeled(Primitives.FlowmeterTurbine);
 export type FlowmeterTurbineProps = LabeledProps<Primitives.FlowmeterTurbineProps>;
 export const FlowmeterPulse = createLabeled(Primitives.FlowmeterPulse);
 export type FlowmeterPulseProps = LabeledProps<Primitives.FlowmeterPulseProps>;
 export const FlowmeterFloatSensor = createLabeled(Primitives.FlowmeterFloatSensor);
-export type FlowmeterFloatSensorProps = LabeledProps<Primitives.FlowmeterFloatSensorProps>;
+export type FlowmeterFloatSensorProps =
+  LabeledProps<Primitives.FlowmeterFloatSensorProps>;
 export const HeatExchangerGeneral = createLabeled(Primitives.HeatExchangerGeneral);
-export type HeatExchangerGeneralProps = LabeledProps<Primitives.HeatExchangerGeneralProps>;
+export type HeatExchangerGeneralProps =
+  LabeledProps<Primitives.HeatExchangerGeneralProps>;
 export const HeatExchangerM = createLabeled(Primitives.HeatExchangerM);
 export type HeatExchangerMProps = LabeledProps<Primitives.HeatExchangerMProps>;
-export const HeatExchangerStraightTube = createLabeled(Primitives.HeatExchangerStraightTube);
-export type HeatExchangerStraightTubeProps = LabeledProps<Primitives.HeatExchangerStraightTubeProps>;
+export const HeatExchangerStraightTube = createLabeled(
+  Primitives.HeatExchangerStraightTube,
+);
+export type HeatExchangerStraightTubeProps =
+  LabeledProps<Primitives.HeatExchangerStraightTubeProps>;
 export const FlameArrestor = createLabeled(Primitives.FlameArrestor);
 export type FlameArrestorProps = LabeledProps<Primitives.FlameArrestorProps>;
 export const FlameArrestorExplosion = createLabeled(Primitives.FlameArrestorExplosion);
-export type FlameArrestorExplosionProps = LabeledProps<Primitives.FlameArrestorExplosionProps>;
-export const FlameArrestorDetonation = createLabeled(Primitives.FlameArrestorDetonation);
-export type FlameArrestorDetonationProps = LabeledProps<Primitives.FlameArrestorDetonationProps>;
+export type FlameArrestorExplosionProps =
+  LabeledProps<Primitives.FlameArrestorExplosionProps>;
+export const FlameArrestorDetonation = createLabeled(
+  Primitives.FlameArrestorDetonation,
+);
+export type FlameArrestorDetonationProps =
+  LabeledProps<Primitives.FlameArrestorDetonationProps>;
 export const FlameArrestorFireRes = createLabeled(Primitives.FlameArrestorFireRes);
-export type FlameArrestorFireResProps = LabeledProps<Primitives.FlameArrestorFireResProps>;
-export const FlameArrestorFireResDetonation = createLabeled(Primitives.FlameArrestorFireResDetonation);
-export type FlameArrestorFireResDetonationProps = LabeledProps<Primitives.FlameArrestorFireResDetonationProps>;
+export type FlameArrestorFireResProps =
+  LabeledProps<Primitives.FlameArrestorFireResProps>;
+export const FlameArrestorFireResDetonation = createLabeled(
+  Primitives.FlameArrestorFireResDetonation,
+);
+export type FlameArrestorFireResDetonationProps =
+  LabeledProps<Primitives.FlameArrestorFireResDetonationProps>;
 export const Thruster = createLabeled(Primitives.Thruster);
 export type ThrusterProps = LabeledProps<Primitives.ThrusterProps>;
 export const Strainer = createLabeled(Primitives.Strainer);
@@ -442,12 +466,13 @@ export type AngledSpringLoadedReliefValveProps =
 export const ManualValve = createDummyToggle(Primitives.ManualValve);
 export type ManualValveProps = DummyToggleProps<Primitives.ManualValveProps>;
 export const AngledReliefValve = createDummyToggle(Primitives.AngledReliefValve);
-export type AngledReliefValveProps =DummyToggleProps<Primitives.AngledReliefValveProps>;
+export type AngledReliefValveProps =
+  DummyToggleProps<Primitives.AngledReliefValveProps>;
 export const ButterflyValveTwo = createDummyToggle(Primitives.ButterflyValveTwo);
-export type ButterflyValveTwoProps = DummyToggleProps<Primitives.ButterflyValveTwoProps>;
+export type ButterflyValveTwoProps =
+  DummyToggleProps<Primitives.ButterflyValveTwoProps>;
 export const BreatherValve = createDummyToggle(Primitives.BreatherValve);
 export type BreatherValveProps = DummyToggleProps<Primitives.BreatherValveProps>;
-
 
 // ||||||||| CUSTOM ||||||||
 

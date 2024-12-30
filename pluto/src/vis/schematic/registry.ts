@@ -1703,4 +1703,3 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   strainer,
   strainerCone,
 };
-
