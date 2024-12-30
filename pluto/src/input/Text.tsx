@@ -110,8 +110,11 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-      if (!onlyChangeOnBlur) return;
-      if (e.key === "Enter") e.currentTarget.blur();
+      if (onlyChangeOnBlur && e.key === "Enter") e.currentTarget.blur();
+      else if (e.key === "Escape") {
+        e.currentTarget.blur();
+        e.stopPropagation();
+      }
     };
 
     const combinedRef = useCombinedRefs(ref, internalRef);
