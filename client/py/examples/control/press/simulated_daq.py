@@ -9,9 +9,9 @@
 
 """
 This example sets up a simulated data acquisition system (DAQ) that has a press valve
-(valve_command_0) and vent valve (valve_command_1) connected to a pressure reading
-(sensor_0). When the press valve is open, the pressure increases, and when the vent
-valve is open, the pressure decreases. The pressure is written to the sensor_0 channel.
+(press_vlv_cmd) and vent valve (vent_vlv_cmd) connected to a pressure transducer
+(press_pt). When the press valve is open, the pressure increases, and when the vent
+valve is open, the pressure decreases. The pressure is written to the press_pt channel.
 
 This script can be run in conjuction with the `control_sequence.py` script to
 demonstrate how a control sequence can be written in Synnax.

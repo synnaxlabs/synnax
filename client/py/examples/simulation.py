@@ -34,7 +34,7 @@ command_to_response = {}
 
 # Stores the timestamps for both the sensors and the valve responses.
 sensor_time_channel = client.channels.create(
-    name="simulation.time",
+    name="simulation-time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
@@ -46,7 +46,7 @@ for i in range(NUM_VALVES):
     # was sent. We need to have separate indexes for each command channel so that these
     # channels can be written to independently.
     cmd_index_channel = client.channels.create(
-        name=f"simulation.valve_command_{i}_time",
+        name=f"simulation-valve_command_{i}_time",
         is_index=True,
         data_type=sy.DataType.TIMESTAMP,
         retrieve_if_name_exists=True,
@@ -55,14 +55,14 @@ for i in range(NUM_VALVES):
         [
             # The command channel is used to send a command to the valve.
             sy.Channel(
-                name=f"simulation.valve_command_{i}",
+                name=f"simulation-valve_command_{i}",
                 index=cmd_index_channel.key,
                 data_type=sy.DataType.UINT8,
             ),
             # The response channel is used to acknowledge the response from our simulated
             # DAQ.
             sy.Channel(
-                name=f"simulation.valve_response_{i}",
+                name=f"simulation-valve_response_{i}",
                 index=sensor_time_channel.key,
                 data_type=sy.DataType.UINT8,
             ),
@@ -78,7 +78,7 @@ for i in range(NUM_VALVES):
 # Defining the sensor channels to create.
 sensors = [
     sy.Channel(
-        name=f"simulation.sensor_{i}",
+        name=f"simulation-sensor_{i}",
         index=sensor_time_channel.key,
         data_type=sy.DataType.FLOAT32,
     )

@@ -22,7 +22,7 @@ client = sy.Synnax()
 
 # Create an index channel that will be used to store our timestamps.
 time_channel = client.channels.create(
-    name="stream_write.time",
+    name="stream_write-time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
@@ -31,13 +31,13 @@ time_channel = client.channels.create(
 # Create two data channels that will be used to store our data values. We'll need to
 # pass in the key of the time channel to these data channels when they are created
 data_channel_1 = client.channels.create(
-    name="stream_write.data_1",
+    name="stream_write-data_1",
     index=time_channel.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
 data_channel_2 = client.channels.create(
-    name="stream_write.data_2",
+    name="stream_write-data_2",
     index=time_channel.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,

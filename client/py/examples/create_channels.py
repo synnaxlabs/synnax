@@ -22,7 +22,7 @@ CHANNEL_COUNT = 1000
 
 # Create an index channel that will be used to store our timestamps.
 time_channel = client.channels.create(
-    name="create_channels.time",
+    name="create_channels-time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
 )
@@ -32,7 +32,7 @@ time_channel = client.channels.create(
 # in the next step.
 data_channels = [
     sy.Channel(
-        name=f"create_channels.data_{i}",
+        name=f"create_channels-data_{i}",
         data_type=sy.DataType.FLOAT64,
         index=time_channel.key,
     )

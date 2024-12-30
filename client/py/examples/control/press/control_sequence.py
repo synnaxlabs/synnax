@@ -9,15 +9,15 @@
 
 """
 This example simulates a basic control sequence where a tank with pressure represented
-by sensor_0 is pressurized in 20 psi increments. The tank is then vented after holding
+by press_pt is pressurized in 20 psi increments. The tank is then vented after holding
 down to 5 psi after a period of time.
 
 This script requires the `simulated_daq.py` script to be running in order to simulate
 the data acquisition system (DAQ).
 
-This script can be visualized in the Synnax Console by connecting the sensor_0 channel
-to a line plot and making a schematic that shows valves representing valve_command_0 and
-valve_command_1 and a tank with a value representing sensor_0.
+This script can be visualized in the Synnax Console by connecting the press_pt channel
+to a line plot and making a schematic that shows valves representing press_vlv_cmd and
+vent_vlv_cmd and a tank with a value representing press_pt.
 """
 
 import synnax as sy
