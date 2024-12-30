@@ -334,6 +334,8 @@ export const EjectorCompressor = createToggle(Primitives.EjectorCompressor);
 export type EjectorCompressorProps = ToggleProps<Primitives.EjectorCompressorProps>;
 export const CentrifugalCompressor = createToggle(Primitives.CentrifugalCompressor);
 export type CentrifugalCompressorProps = ToggleProps<Primitives.CentrifugalCompressorProps>;
+export const ButterflyValveOne = createToggle(Primitives.ButterflyValveOne);
+export type ButterflyValveOneProps = ToggleProps<Primitives.ButterflyValveOneProps>;
 
 
 // |||||||| STATIC + LABELED ||||||||
@@ -444,8 +446,6 @@ export const ThreeWayBallValve = createDummyToggle(Primitives.ThreeWayBallValve)
 export type ThreeWayBallValveProps = DummyToggleProps<Primitives.ThreeWayBallValveProps>;
 export const GateValve = createDummyToggle(Primitives.GateValve);
 export type GateValveProps = DummyToggleProps<Primitives.GateValveProps>;
-export const ButterflyValveOne = createDummyToggle(Primitives.ButterflyValveOne);
-export type ButterflyValveOneProps = DummyToggleProps<Primitives.ButterflyValveOneProps>;
 export const ButterflyValveTwo = createDummyToggle(Primitives.ButterflyValveTwo);
 export type ButterflyValveTwoProps = DummyToggleProps<Primitives.ButterflyValveTwoProps>;
 export const BreatherValve = createDummyToggle(Primitives.BreatherValve);
