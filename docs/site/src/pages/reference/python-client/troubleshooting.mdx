@@ -9,10 +9,10 @@ prev: "Examples"
 prevURL: "/reference/python-client/examples"
 ---
 
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
 import { PlatformTabs } from "@/components/platform/PlatformTabs";
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 The following sections outline common issues our users encounter when working
 with the Synnax Python client. To get started, select your operating system

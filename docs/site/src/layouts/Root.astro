@@ -4,10 +4,9 @@ import "@synnaxlabs/pluto/dist/pluto.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@fontsource/geist-mono";
 import PostHog from "@/components/PostHog.astro";
-import { ViewTransitions } from "astro:transitions";
+import { ClientRouter } from "astro:transitions";
 import { SEO } from "astro-seo";
 import Footer from "@/components/Footer.astro";
-import { Align } from "@synnaxlabs/pluto";
 const {
     frontmatter: { title, description, url },
 } = Astro.props;
@@ -36,7 +35,8 @@ const {
                 ],
             }}
         />
-        <ViewTransitions />
+        <ClientRouter />
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     </head>
     <body>
         <Header url={url} transition:persist />
@@ -59,13 +59,29 @@ const {
                 });
             });
         };
+
+        const bindClickHandlersToHeadingAnchors = () => {
+            const anchors = document.querySelectorAll(".heading-anchor");
+            anchors.forEach((anchor) => {
+                anchor.addEventListener("click", () => {
+                    const url = window.location.href;
+                    const newUrl = url.split("#")[0];
+                    const hash = anchor.getAttribute("href");
+                    console.log(newUrl + hash);
+                    navigator.clipboard.writeText(newUrl + hash);
+                });
+            });
+        };
+
         updateVersion();
         addCodeButtonListeners();
         startUpdatingIframeHref();
+        bindClickHandlersToHeadingAnchors();
         document.addEventListener("astro:after-swap", () => {
             updateVersion();
             addCodeButtonListeners();
             startUpdatingIframeHref();
+            bindClickHandlersToHeadingAnchors();
         });
     </script>
 
@@ -1181,6 +1197,10 @@ const {
                 margin: 3rem 0;
             }
 
+            :is(h1, h3).pluto-text {
+                margin: 3rem 0;
+            }
+
             video,
             img {
                 margin: 5rem 0;
@@ -1190,8 +1210,31 @@ const {
                 padding-left: 5rem;
             }
 
-            h2 {
+            h2.pluto-text {
                 margin: 4rem 0;
+            }
+
+            :is(h1, h2, h3).pluto-text {
+                & a {
+                    color: var(--pluto-gray-l7);
+                    opacity: 0;
+                    margin-left: 2rem;
+                    position: relative;
+                    transition: all 0.2s;
+                    & svg {
+                        position: absolute;
+                        top: 50%;
+                        transform: translateY(-50%);
+                    }
+                }
+                &:hover {
+                    & a {
+                        opacity: 1;
+                        &:hover {
+                            color: var(--pluto-gray-l9);
+                        }
+                    }
+                }
             }
         }
     </style>

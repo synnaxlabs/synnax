@@ -6,6 +6,8 @@ import Release from "@/components/releases/Release.astro";
 import { Image, Video } from "@/components/Media";
 import Diagram from "@/components/Diagram.astro";
 import LabJack from "@/pages/releases/LabJack.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 <Release
     version="0.36.0"

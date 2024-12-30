@@ -5,6 +5,8 @@ title: "Version 0.32 Release Notes"
 import Release from "@/components/releases/Release.astro";
 import { Image } from "@/components/Media";
 import Diagram from "@/components/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 <Release 
 version="0.32.0" 

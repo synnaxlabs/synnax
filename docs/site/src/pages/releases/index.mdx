@@ -9,6 +9,8 @@ import Release0340 from "@/pages/releases/0-34-0.mdx";
 import Release0330 from "@/pages/releases/0-33-0.mdx";
 import Release0320 from "@/pages/releases/0-32-0.mdx";
 import Release0310 from "@/pages/releases/0-31-0.mdx";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 import { Divider } from "@synnaxlabs/pluto";
 
@@ -17,6 +19,7 @@ import { Divider } from "@synnaxlabs/pluto";
   ###### 0.36
   <Release0360 />
 </div>
+<Divider.Divider direction="x" />
 <div class="release-wrapper">
   ###### 0.35
   <Release0350 />
