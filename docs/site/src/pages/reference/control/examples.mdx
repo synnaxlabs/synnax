@@ -7,7 +7,6 @@ prevURL: "/reference/control/sequence-basics"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -18,46 +17,9 @@ Synnax.
 
 ## Examples
 
-<Table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>
-        [Scheduled
-        Commands](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/simple_auto.py)
-      </td>
-      <td>Control sequence that schedules a series of commands to valves.</td>
-    </tr>
-    <tr>
-      <td>
-        [Press](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control/press)
-      </td>
-      <td>A simulated tank pressurization sequence.</td>
-    </tr>
-    <tr>
-      <td>
-        [Tank Pressurization
-        Control](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control/tpc)
-      </td>
-      <td>
-        A set of control sequences for automatic tank pressurization, which include
-        sequences for automated analysis and test optimization.
-      </td>
-    </tr>
-    <tr>
-      <td>
-        [Abort
-        Sequence](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control/abort)
-      </td>
-      <td>
-        A pair of control sequences that show a normal sequence and an abort sequence
-        that takes control when certain conditions are met.
-      </td>
-    </tr>
-  </tbody>
-</Table>
+| Name                                                                                                           | Description                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [Scheduled Commands](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/simple_auto.py) | Control sequence that schedules a series of commands to valves.                                                                     |
+| [Press](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control/press)                       | A simulated tank pressurization sequence.                                                                                           |
+| [Tank Pressurization Control](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control/tpc)   | A set of control sequences for automatic tank pressurization, which include sequences for automated analysis and test optimization. |
+| [Abort Sequence](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control/abort)              | A pair of control sequences that show a normal sequence and an abort sequence that takes control when certain conditions are met.   |
