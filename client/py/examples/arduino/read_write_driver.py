@@ -57,9 +57,9 @@ with client.open_streamer(["arduino_command"]) as streamer:
         enable_auto_commit=True,
     ) as writer:
         while True:
-            fr = streamer.read(timeout=0)
-            if fr is not None:
-                command = str(fr["arduino_command"][0])
+            frame = streamer.read(timeout=0)
+            if frame is not None:
+                command = str(frame["arduino_command"][0])
                 ser.write(command.encode("utf-8"))
             data = ser.readline().decode("utf-8").rstrip()
             if data:
