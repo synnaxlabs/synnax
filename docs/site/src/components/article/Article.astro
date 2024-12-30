@@ -118,28 +118,5 @@ const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
                 line-height: calc(var(--pluto-small-line-height) * 1.2);
             }
         }
-
-        :is(h1, h2, h3).pluto-text {
-            & a {
-                color: var(--pluto-gray-l7);
-                opacity: 0;
-                margin-left: 2rem;
-                position: relative;
-                transition: all 0.2s;
-                & svg {
-                    position: absolute;
-                    top: 50%;
-                    transform: translateY(-50%);
-                }
-            }
-            &:hover {
-                & a {
-                    opacity: 1;
-                    &:hover {
-                        color: var(--pluto-gray-l9);
-                    }
-                }
-            }
-        }
     }
 </style>
