@@ -198,10 +198,8 @@ export class Color {
    */
   get grayness(): number {
     const [r, g, b] = this.rgb1;
-    const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(b - r));
-    const brightness = (r + g + b) / 3;
-    const graynessFromSimilarity = 1 - maxDiff; // Similarity-based grayness
-    return graynessFromSimilarity * brightness;
+    const deviation = Math.max(r, g, b) - Math.min(r, g, b);
+    return 1 - deviation;
   }
 
   /**
