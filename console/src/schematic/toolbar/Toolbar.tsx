@@ -9,7 +9,16 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Button, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Breadcrumb,
+  Button,
+  Status,
+  Synnax,
+  Tabs,
+  Text,
+} from "@synnaxlabs/pluto";
+import { useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -91,6 +100,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [layoutKey, state?.editable],
   );
+  const client = Synnax.use();
+  const queryResult = useQuery({
+    queryKey: [layoutKey, client?.key],
+    queryFn: async () => await client?.workspaces.schematic.retrieve(layoutKey),
+  });
+  const existsOnServer = queryResult.isSuccess && queryResult.data?.key === layoutKey;
 
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -123,6 +138,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 
   const activeRange = Range.useSelect();
   const hasActiveRange = activeRange != null;
+  const activeRangeIsPersisted = activeRange?.persisted ?? false;
+  const canSnapshot = existsOnServer && hasActiveRange && activeRangeIsPersisted;
 
   if (state == null) return null;
 
@@ -143,9 +160,17 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Align.Space direction="x" empty style={{ height: "100%", width: 93 }}>
             <Button.Icon
               sharp
-              disabled={!hasActiveRange}
+              disabled={!canSnapshot}
               tooltip={
-                hasActiveRange ? `Snapshot to ${activeRange.name}` : "No active range"
+                canSnapshot
+                  ? `Snapshot to ${activeRange.name}`
+                  : !hasActiveRange
+                    ? "No active range"
+                    : !activeRangeIsPersisted
+                      ? `${activeRange.name} is not persisted`
+                      : !existsOnServer
+                        ? `${name} does not exist on ${client?.props.name ?? "server"}`
+                        : `Cannot snapshot ${name}`
               }
               onClick={handleRangeSnapshot}
               size="medium"
