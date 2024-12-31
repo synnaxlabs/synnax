@@ -103,7 +103,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   const client = Synnax.use();
   useAsyncEffect(async () => {
-    if (client == null || existsOnServer) return;
+    if (client == null) {
+      setExistsOnServer(false);
+      return;
+    }
     try {
       const schematic = await client.workspaces.schematic.retrieve(layoutKey);
       setExistsOnServer(schematic.key === layoutKey);
