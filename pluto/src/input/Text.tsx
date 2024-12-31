@@ -132,8 +132,6 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
 
     const C = variant === "natural" ? Align.Space : Align.Pack;
 
-    if (color != null) console.log(Color.cssString(color));
-
     return (
       <C
         direction="x"
