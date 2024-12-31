@@ -35,7 +35,6 @@ import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-import { isDisabled } from "@testing-library/user-event/dist/cjs/utils/index.js";
 
 interface PathProps extends ComponentPropsWithoutRef<"path"> {}
 
