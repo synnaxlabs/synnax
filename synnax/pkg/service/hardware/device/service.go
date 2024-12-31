@@ -50,14 +50,14 @@ func (c Config) Validate() error {
 	v := validate.New("workspace")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "RootGroup", c.Group)
 	return v.Error()
 }
 
 type Service struct {
 	Config
 	shutdownSignals io.Closer
-	group           group.Group
+	RootGroup       group.Group
 }
 
 const groupName = "Devices"
@@ -71,7 +71,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if err != nil {
 		return
 	}
-	s = &Service{Config: cfg, group: g}
+	s = &Service{Config: cfg, RootGroup: g}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
@@ -95,7 +95,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:    gorp.OverrideTx(s.DB, tx),
 		otg:   s.Ontology.NewWriter(tx),
-		group: s.group,
+		group: s.RootGroup,
 	}
 }
 
