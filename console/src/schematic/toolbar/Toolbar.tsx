@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -17,9 +17,9 @@ import {
   Synnax,
   Tabs,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader } from "@/components";
@@ -88,7 +88,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const state = useSelectOptional(layoutKey);
   const handleExport = useExport(name);
   const selectedNames = useSelectSelectedElementNames(layoutKey);
-  const [existsOnServer, setExistsOnServer] = useState(false);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       if (!state?.editable) return <NotEditableContent layoutKey={layoutKey} />;
@@ -102,19 +101,14 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [layoutKey, state?.editable],
   );
   const client = Synnax.use();
-  useAsyncEffect(async () => {
-    if (client == null) {
-      setExistsOnServer(false);
-      return;
-    }
-    try {
-      const schematic = await client.workspaces.schematic.retrieve(layoutKey);
-      setExistsOnServer(schematic.key === layoutKey);
-    } catch (e) {
-      if (NotFoundError.matches(e)) setExistsOnServer(false);
-      else throw e;
-    }
-  }, [client]);
+  const queryResult = useQuery({
+    queryKey: [layoutKey],
+    queryFn: async () => await client?.workspaces.schematic.retrieve(layoutKey),
+  });
+  const existsOnServer = useMemo(
+    () => queryResult.isSuccess && queryResult.data?.key === layoutKey,
+    [queryResult.data?.key, queryResult.isSuccess, layoutKey],
+  );
 
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
