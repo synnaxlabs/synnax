@@ -21,18 +21,14 @@ features our team has built over the past year.
 
 ### More Schematic Symbols
 
-We've added a number of new schematic symbols to the Synnax Console. These include
-flow meters, flame arrestors, new valves, pumps, heat exchangers, strainers, and a
-thruster.
+We've added a number of new schematic symbols to the Synnax Console. These include flow
+meters, flame arresters, new valves, pumps, heat exchangers, strainers, and a thruster.
 
 <Image
   client:only="react"
   id="releases/0-37-0/schematic-symbols"
   themed={false}
-  style={{
-    overflow: "hidden",
-    padding: "2rem",
-  }}
+  style={{ overflow: "hidden", padding: "2rem" }}
 />
 
 ### Minor Improvements
@@ -41,24 +37,23 @@ thruster.
   being considered a valid input value.
 - Groups are now positioned above all other items within the resources toolbar, making
   it easier to navigate the tree.
-- Upgraded a number of dependencies to make the Synnax Python client compatible
-  with Python 3.13.
+- Upgraded a number of dependencies to make the Synnax Python client compatible with
+  Python 3.13.
 
 ### Bug Fixes
 
-- Fixed line plot annotations not displaying correctly when a title is also
-  visible on a plot.
+- Fixed line plot annotations not displaying correctly when a title is also visible on a
+  plot.
 - Made it impossible to configure an OPC UA read task when the sample rate is less than
-  than the array size when in array mode.
+  than the array size.
 - Fixed an issue where importing a schematic would mistakenly create a new window.
-- Removed orientation selectors from the schematic switch and button components, as
-  they cannot be reoriented.
+- Removed needless orientation selectors from the schematic switch and button components.
 - Fixed an issue where modals would not clear correctly when switching between
   workspaces.
 - Blocked the user from selecting variable length data types when creating a non-virtual
   channel from within the Synnax Console.
 - Fixed issue where schematic snapshots could not be renamed from their tab name.
-- Fixed an issue where a deleted table would continue to render it's values over an
+- Fixed an issue where a deleted table would continue to render its values over an
   existing visualization.
 
 </Release>
