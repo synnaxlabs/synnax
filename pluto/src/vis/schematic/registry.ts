@@ -45,6 +45,18 @@ import {
   type AngledSpringLoadedReliefValveProps,
   AngledValve,
   type AngledValveProps,
+  BallValve,
+  type BallValveProps,
+  ThreeWayBallValve,
+  type ThreeWayBallValveProps,
+  GateValve,
+  type GateValveProps,
+  ButterflyValveOne,
+  type ButterflyValveOneProps,
+  ButterflyValveTwo,
+  type ButterflyValveTwoProps,
+  BreatherValve,
+  type BreatherValveProps,
   Box,
   BoxPreview,
   type BoxProps,
@@ -59,8 +71,6 @@ import {
   type CavityPumpProps,
   CheckValve,
   type CheckValveProps,
-  Compressor,
-  type CompressorProps,
   CrossBeamAgitator,
   type CrossBeamAgitatorProps,
   Cylinder,
@@ -71,6 +81,50 @@ import {
   type FilterProps,
   FlatBladeAgitator,
   type FlatBladeAgitatorProps,
+  FlowmeterGeneral,
+  type FlowmeterGeneralProps,
+  FlowmeterElectromagnetic,
+  type FlowmeterElectromagneticProps,
+  FlowmeterVariableArea,
+  type FlowmeterVariableAreaProps,
+  FlowmeterCoriolis,
+  type FlowmeterCoriolisProps,
+  HeatExchangerGeneral,
+  type HeatExchangerGeneralProps,
+  HeatExchangerM,
+  type HeatExchangerMProps,
+  HeatExchangerStraightTube,
+  type HeatExchangerStraightTubeProps,
+  Compressor,
+  type CompressorProps,
+  type TurboCompressorProps,
+  TurboCompressor,
+  type RollerVaneCompressorProps,
+  RollerVaneCompressor,
+  type LiquidRingCompressorProps,
+  LiquidRingCompressor,
+  type EjectorCompressorProps,
+  EjectorCompressor,
+  type CentrifugalCompressorProps,
+  CentrifugalCompressor,
+  type DiaphragmPumpProps,
+  DiaphragmPump,
+  type EjectionPumpProps,
+  EjectionPump,
+  FlowmeterNozzle,
+  type FlowmeterNozzleProps,
+  FlowmeterVenturi,
+  type FlowmeterVenturiProps,
+  FlowmeterRingPiston,
+  type FlowmeterRingPistonProps,
+  FlowmeterPositiveDisplacement,
+  type FlowmeterPositiveDisplacementProps,
+  FlowmeterTurbine,
+  type FlowmeterTurbineProps,
+  FlowmeterPulse,
+  type FlowmeterPulseProps,
+  FlowmeterFloatSensor,
+  type FlowmeterFloatSensorProps,
   FourWayValve,
   type FourWayValveProps,
   HelicalAgitator,
@@ -133,6 +187,8 @@ import {
   type ThreeWayValveProps,
   TJunction,
   type TJunctionProps,
+  CrossJunction,
+  type CrossJunctionProps,
   VacuumPump,
   type VacuumPumpProps,
   Value,
@@ -142,6 +198,22 @@ import {
   type ValveProps,
   Vent,
   type VentProps,
+  FlameArrestor,
+  type FlameArrestorProps,
+  FlameArrestorDetonation,
+  type FlameArrestorDetonationProps,
+  FlameArrestorExplosion,
+  type FlameArrestorExplosionProps,
+  FlameArrestorFireRes,
+  type FlameArrestorFireResProps,
+  FlameArrestorFireResDetonation,
+  type FlameArrestorFireResDetonationProps,
+  Thruster,
+  type ThrusterProps,
+  Strainer,
+  type StrainerProps,
+  StrainerCone,
+  type StrainerConeProps,
 } from "@/vis/schematic/Symbols";
 
 export interface Spec<P extends object> {
@@ -162,6 +234,12 @@ const VARIANTS = [
   "angledReliefValve",
   "angledSpringLoadedReliefValve",
   "angledValve",
+  "ballValve",
+  "threeWayBallValve",
+  "gateValve",
+  "butterflyValveOne",
+  "butterflyValveTwo",
+  "breatherValve",
   "offPageReference",
   "box",
   "burstDisc",
@@ -171,11 +249,21 @@ const VARIANTS = [
   "cavityPump",
   "checkValve",
   "cylinder",
-  "compressor",
   "crossBeamAgitator",
   "electricRegulator",
   "filter",
   "flatBladeAgitator",
+  "flowmeterGeneral",
+  "flowmeterElectromagnetic",
+  "flowmeterVariableArea",
+  "flowmeterCoriolis",
+  "flowmeterNozzle",
+  "flowmeterVenturi",
+  "flowmeterRingPiston",
+  "flowmeterPositiveDisplacement",
+  "flowmeterTurbine",
+  "flowmeterPulse",
+  "flowmeterFloatSensor",
   "fourWayValve",
   "helicalAgitator",
   "isoCap",
@@ -207,6 +295,26 @@ const VARIANTS = [
   "valve",
   "vent",
   "tJunction",
+  "crossJunction",
+  "heatExchangerGeneral",
+  "heatExchangerM",
+  "heatExchangerStraightTube",
+  "diaphragmPump",
+  "ejectionPump",
+  "compressor",
+  "turboCompressor",
+  "rollerVaneCompressor",
+  "liquidRingCompressor",
+  "ejectorCompressor",
+  "centrifugalCompressor",
+  "flameArrestor",
+  "flameArrestorDetonation",
+  "flameArrestorExplosion",
+  "flameArrestorFireRes",
+  "flameArrestorFireResDetonation",
+  "thruster",
+  "strainer",
+  "strainerCone",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -363,6 +471,90 @@ const angledValve: Spec<AngledValveProps> = {
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: Primitives.AngledValve,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const ballValve: Spec<BallValveProps> = {
+  name: "Ball Valve",
+  key: "ballValve",
+  Form: CommonToggleForm,
+  Symbol: BallValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Ball Valve"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.BallValve,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const threeWayBallValve: Spec<ThreeWayBallValveProps> = {
+  name: "Three-Way Ball Valve",
+  key: "threeWayBallValve",
+  Form: CommonToggleForm,
+  Symbol: ThreeWayBallValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Three-Way Ball Valve"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.ThreeWayBallValve,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const gateValve: Spec<GateValveProps> = {
+  name: "Gate Valve",
+  key: "gateValve",
+  Form: CommonToggleForm,
+  Symbol: GateValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Gate Valve"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.GateValve,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const butterflyValveOne: Spec<ButterflyValveOneProps> = {
+  name: "Butterfly Valve (Remote)",
+  key: "butterflyValveOne",
+  Form: CommonToggleForm,
+  Symbol: ButterflyValveOne,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Butterfly Valve (Remote)"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.ButterflyValveOne,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
+  name: "Butterfly Valve (Manual)",
+  key: "butterflyValveTwo",
+  Form: CommonDummyToggleForm,
+  Symbol: ButterflyValveTwo,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Butterfly Valve (Manual)"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: ({ clickable, ...props }) => Primitives.ButterflyValveTwo(props),
+  zIndex: Z_INDEX_UPPER,
+};
+
+const breatherValve: Spec<BreatherValveProps> = {
+  name: "Breather Valve",
+  key: "breatherValve",
+  Form: CommonDummyToggleForm,
+  Symbol: BreatherValve,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Breather Valve"),
+    ...ZERO_DUMMY_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.BreatherValve,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -747,6 +939,20 @@ const vacuumPump: Spec<VacuumPumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const compressor: Spec<CompressorProps> = {
+  name: "Compressor",
+  key: "compressor",
+  Symbol: Compressor,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.Compressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
 const cavityPump: Spec<CavityPumpProps> = {
   name: "Cavity Pump",
   key: "cavityPump",
@@ -918,20 +1124,6 @@ const helicalAgitator: Spec<HelicalAgitatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const compressor: Spec<CompressorProps> = {
-  name: "Compressor",
-  key: "compressor",
-  Symbol: Compressor,
-  Form: CommonToggleForm,
-  defaultProps: (t) => ({
-    color: t.colors.gray.l9.rgba255,
-    ...zeroLabel("Compressor"),
-    ...ZERO_TOGGLE_PROPS,
-  }),
-  Preview: Primitives.Compressor,
-  zIndex: Z_INDEX_UPPER,
-};
-
 const textBox: Spec<TextBoxProps> = {
   name: "Text Box",
   key: "textBox",
@@ -1008,11 +1200,432 @@ const tJunction: Spec<TJunctionProps> = {
   zIndex: Z_INDEX_UPPER + 20,
 };
 
+const crossJunction: Spec<CrossJunctionProps> = {
+  name: "Cross Junction",
+  key: "crossJunction",
+  Form: CommonStyleForm,
+  Symbol: CrossJunction,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel(""),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.CrossJunction,
+  zIndex: Z_INDEX_UPPER + 20,
+};
+
+const flowmeterGeneral: Spec<FlowmeterGeneralProps> = {
+  name: "Flowmeter General",
+  key: "flowmeterGeneral",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterGeneral,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("General Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterGeneral,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterElectromagnetic: Spec<FlowmeterElectromagneticProps> = {
+  name: "Flowmeter Electromagnetic",
+  key: "flowmeterElectromagnetic",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterElectromagnetic,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Electromagnetic Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterElectromagnetic,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterVariableArea: Spec<FlowmeterVariableAreaProps> = {
+  name: "Flowmeter Variable Area",
+  key: "flowmeterVariableArea",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterVariableArea,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Variable Area Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterVariableArea,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterCoriolis: Spec<FlowmeterCoriolisProps> = {
+  name: "Flowmeter Coriolis",
+  key: "flowmeterCoriolis",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterCoriolis,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Coriolis Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterCoriolis,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterNozzle: Spec<FlowmeterNozzleProps> = {
+  name: "Flowmeter Nozzle",
+  key: "flowmeterNozzle",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterNozzle,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Nozzle Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterNozzle,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterVenturi: Spec<FlowmeterVenturiProps> = {
+  name: "Flowmeter Venturi",
+  key: "flowmeterVenturi",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterVenturi,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Venturi Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterVenturi,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterRingPiston: Spec<FlowmeterRingPistonProps> = {
+  name: "Flowmeter Ring Piston",
+  key: "flowmeterRingPiston",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterRingPiston,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Ring Piston Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterRingPiston,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterPositiveDisplacement: Spec<FlowmeterPositiveDisplacementProps> = {
+  name: "Flowmeter Positive Displacement",
+  key: "flowmeterPositiveDisplacement",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterPositiveDisplacement,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Positive Displacement Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterPositiveDisplacement,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterTurbine: Spec<FlowmeterTurbineProps> = {
+  name: "Flowmeter Turbine",
+  key: "flowmeterTurbine",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterTurbine,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Turbine Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterTurbine,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterPulse: Spec<FlowmeterPulseProps> = {
+  name: "Flowmeter Pulse",
+  key: "flowmeterPulse",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterPulse,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Pulse Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterPulse,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
+  name: "Flowmeter Float Sensor",
+  key: "flowmeterFloatSensor",
+  Form: CommonStyleForm,
+  Symbol: FlowmeterFloatSensor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Float Sensor Flowmeter"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlowmeterFloatSensor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const heatExchangerGeneral: Spec<HeatExchangerGeneralProps> = {
+  name: "Heat Exchanger General",
+  key: "heatExchangerGeneral",
+  Form: CommonStyleForm,
+  Symbol: HeatExchangerGeneral,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("General Heat Exchanger"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.HeatExchangerGeneral,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const heatExchangerM: Spec<HeatExchangerMProps> = {
+  name: "Heat Exchanger M",
+  key: "heatExchangerM",
+  Form: CommonStyleForm,
+  Symbol: HeatExchangerM,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("M Heat Exchanger"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.HeatExchangerM,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
+  name: "Heat Exchanger Straight Tube",
+  key: "heatExchangerStraightTube",
+  Form: CommonStyleForm,
+  Symbol: HeatExchangerStraightTube,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Straight Tube Heat Exchanger"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.HeatExchangerStraightTube,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const turboCompressor: Spec<TurboCompressorProps> = {
+  name: "Turbo Compressor",
+  key: "turboCompressor",
+  Form: CommonToggleForm,
+  Symbol: TurboCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Turbo Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.TurboCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const rollerVaneCompressor: Spec<RollerVaneCompressorProps> = {
+  name: "Roller Vane Compressor",
+  key: "rollerVaneCompressor",
+  Form: CommonToggleForm,
+  Symbol: RollerVaneCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Roller Vane Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.RollerVaneCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const liquidRingCompressor: Spec<LiquidRingCompressorProps> = {
+  name: "Liquid Ring Compressor",
+  key: "liquidRingCompressor",
+  Form: CommonToggleForm,
+  Symbol: LiquidRingCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Liquid Ring Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.LiquidRingCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const ejectorCompressor: Spec<EjectorCompressorProps> = {
+  name: "Ejector Compressor",
+  key: "ejectorCompressor",
+  Form: CommonToggleForm,
+  Symbol: EjectorCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Ejector Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.EjectorCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const centrifugalCompressor: Spec<CentrifugalCompressorProps> = {
+  name: "Centrifugal Compressor",
+  key: "centrifugalCompressor",
+  Form: CommonToggleForm,
+  Symbol: CentrifugalCompressor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Centrifugal Compressor"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.CentrifugalCompressor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const diaphragmPump: Spec<DiaphragmPumpProps> = {
+  name: "Diaphragm Pump",
+  key: "diaphragmPump",
+  Form: CommonToggleForm,
+  Symbol: DiaphragmPump,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Diaphragm Pump"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.DiaphragmPump,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const ejectionPump: Spec<EjectionPumpProps> = {
+  name: "Ejection Pump",
+  key: "ejectionPump",
+  Form: CommonToggleForm,
+  Symbol: EjectionPump,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Ejection Pump"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.EjectionPump,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flameArrestor: Spec<FlameArrestorProps> = {
+  name: "Flame Arrestor",
+  key: "flameArrestor",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestor,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestor,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flameArrestorExplosion: Spec<FlameArrestorExplosionProps> = {
+  name: "Flame Arrestor (Explosion-Proof)",
+  key: "flameArrestorExplosion",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestorExplosion,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor (Explosion-Proof)"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestorExplosion,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flameArrestorDetonation: Spec<FlameArrestorDetonationProps> = {
+  name: "Flame Arrestor (Detonation-Proof)",
+  key: "flameArrestorDetonation",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestorDetonation,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor (Detonation-Proof)"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestorDetonation,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flameArrestorFireRes: Spec<FlameArrestorFireResProps> = {
+  name: "Flame Arrestor (Fire Resistant)",
+  key: "flameArrestorFireRes",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestorFireRes,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor (Fire Resistant)"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestorFireRes,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const flameArrestorFireResDetonation: Spec<FlameArrestorFireResDetonationProps> = {
+  name: "Flame Arrestor (Fire Resistant and Detonation-Proof)",
+  key: "flameArrestorFireResDetonation",
+  Form: CommonStyleForm,
+  Symbol: FlameArrestorFireResDetonation,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Flame Arrestor (Fire Resistant and Detonation-Proof)"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.FlameArrestorFireResDetonation,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const thruster: Spec<ThrusterProps> = {
+  name: "Thruster",
+  key: "thruster",
+  Form: CommonToggleForm,
+  Symbol: Thruster,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Thruster"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.Thruster,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const strainer: Spec<StrainerProps> = {
+  name: "Strainer",
+  key: "strainer",
+  Form: CommonStyleForm,
+  Symbol: Strainer,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Strainer"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.Strainer,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const strainerCone: Spec<StrainerConeProps> = {
+  name: "Strainer Cone",
+  key: "strainerCone",
+  Form: CommonStyleForm,
+  Symbol: StrainerCone,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Strainer Cone"),
+    ...ZERO_PROPS,
+  }),
+  Preview: Primitives.StrainerCone,
+  zIndex: Z_INDEX_UPPER,
+};
+
 export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   button,
   tank,
   tJunction,
+  crossJunction,
   switch: switch_,
   offPageReference,
   light,
@@ -1024,6 +1637,12 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   threeWayValve,
   fourWayValve,
   angledValve,
+  ballValve,
+  threeWayBallValve,
+  gateValve,
+  butterflyValveOne,
+  butterflyValveTwo,
+  breatherValve,
   manualValve,
   needleValve,
   reliefValve,
@@ -1031,11 +1650,21 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   checkValve,
   regulator,
   electricRegulator,
+  springLoadedReliefValve,
+  angledSpringLoadedReliefValve,
   pump,
   pistonPump,
   screwPump,
   cavityPump,
+  diaphragmPump,
+  ejectionPump,
   vacuumPump,
+  compressor,
+  turboCompressor,
+  rollerVaneCompressor,
+  liquidRingCompressor,
+  ejectorCompressor,
+  centrifugalCompressor,
   staticMixer,
   rotaryMixer,
   burstDisc,
@@ -1052,10 +1681,29 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   paddleAgitator,
   crossBeamAgitator,
   helicalAgitator,
-  compressor,
   isoCheckValve,
   vent,
   cylinder,
-  springLoadedReliefValve,
-  angledSpringLoadedReliefValve,
+  flowmeterGeneral,
+  flowmeterElectromagnetic,
+  flowmeterVariableArea,
+  flowmeterCoriolis,
+  flowmeterNozzle,
+  flowmeterVenturi,
+  flowmeterRingPiston,
+  flowmeterPositiveDisplacement,
+  flowmeterTurbine,
+  flowmeterPulse,
+  flowmeterFloatSensor,
+  heatExchangerGeneral,
+  heatExchangerM,
+  heatExchangerStraightTube,
+  flameArrestor,
+  flameArrestorExplosion,
+  flameArrestorDetonation,
+  flameArrestorFireRes,
+  flameArrestorFireResDetonation,
+  thruster,
+  strainer,
+  strainerCone,
 };
