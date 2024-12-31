@@ -1704,7 +1704,7 @@ export const Setpoint = ({
         showDragHandle={false}
         selectOnFocus
         endContent={units}
-        color={color}
+        outlineColor={color}
         borderWidth={1}
       >
         <CoreButton.Button
