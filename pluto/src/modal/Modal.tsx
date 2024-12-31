@@ -18,7 +18,6 @@ import { type Dialog as Core } from "@/dialog";
 import { useClickOutside } from "@/hooks";
 import { Triggers } from "@/triggers";
 import { findParent } from "@/util/findParent";
-import { FocusTrap } from "@/util/FocusTrap";
 import { getRootElement } from "@/util/rootElement";
 
 export interface ModalProps
@@ -26,7 +25,6 @@ export interface ModalProps
     Align.SpaceProps {
   centered?: boolean;
   enabled?: boolean;
-  trapFocus?: boolean;
   root?: string;
 }
 
@@ -35,7 +33,6 @@ export const Dialog = ({
   centered,
   visible,
   enabled = true,
-  trapFocus = true,
   close,
   style,
   ...props
@@ -82,11 +79,9 @@ export const Dialog = ({
         {...props}
         style={{ zIndex: enabled ? 11 : undefined, ...style }}
       >
-        <FocusTrap disabled={!trapFocus || !enabled}>
-          <Align.Space className={CSS(CSS.BE("modal", "content"))} empty>
-            {children}
-          </Align.Space>
-        </FocusTrap>
+        <Align.Space className={CSS(CSS.BE("modal", "content"))} empty>
+          {children}
+        </Align.Space>
       </Align.Space>
     </Align.Space>
   );
