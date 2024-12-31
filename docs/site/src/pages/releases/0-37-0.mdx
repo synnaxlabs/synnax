@@ -1,0 +1,63 @@
+---
+title: "Version 0.37 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image, Video } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import Thumbnail from "@/pages/releases/Thumbnail0370.astro";
+export const components = mdxOverrides;
+
+<Release
+    version="0.37.0"
+    date="Dec 31, 2024"
+    title="Goodbye 2024 - Touch Ups"
+>
+
+<Thumbnail />
+
+Synnax v0.37.0 is our final release for 2024, and is focused on touching up many of the
+features our team has built over the past year.
+
+### More Schematic Symbols
+
+We've added a number of new schematic symbols to the Synnax Console. These include flow
+meters, flame arresters, new valves, pumps, heat exchangers, strainers, and a thruster.
+
+<Image
+  client:only="react"
+  id="releases/0-37-0/schematic-symbols"
+  themed={false}
+  style={{
+    overflow: "hidden",
+    padding: "2rem",
+    background: "var(--pluto-dark-gray-l0)",
+  }}
+/>
+
+### Minor Improvements
+
+- Cleaned up the look of the schematic set point component, and prevented `NaN` from
+  being considered a valid input value.
+- Groups are now positioned above all other items within the resources toolbar, making
+  it easier to navigate the tree.
+- Upgraded a number of dependencies to make the Synnax Python client compatible with
+  Python 3.13.
+
+### Bug Fixes
+
+- Fixed line plot annotations not displaying correctly when a title is also visible on a
+  plot.
+- Made it impossible to configure an OPC UA read task when the sample rate is less than
+  than the array size.
+- Fixed an issue where importing a schematic would mistakenly create a new window.
+- Removed needless orientation selectors from the schematic switch and button components.
+- Fixed an issue where modals would not clear correctly when switching between
+  workspaces.
+- Blocked the user from selecting variable length data types when creating a non-virtual
+  channel from within the Synnax Console.
+- Fixed issue where schematic snapshots could not be renamed from their tab name.
+- Fixed an issue where a deleted table would continue to render its values over an
+  existing visualization.
+
+</Release>
