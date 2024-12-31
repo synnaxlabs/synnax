@@ -2231,7 +2231,7 @@ export const PropellerAgitator = ({
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M43.5 69.573L14.9534 55.6147C8.97428 52.6911 2 57.0443 2 63.6999V75.4462C2 82.1018 8.97429 86.455 14.9534 83.5314L43.5 69.573ZM43.5 69.573L72.0466 55.6147C78.0257 52.6911 85 57.0443 85 63.6999V75.4462C85 82.1018 78.0257 86.455 72.0466 83.5314L43.5 69.573Z" />{" "}
+      <Path d="M43.5 69.573L14.9534 55.6147C8.97428 52.6911 2 57.0443 2 63.6999V75.4462C2 82.1018 8.97429 86.455 14.9534 83.5314L43.5 69.573ZM43.5 69.573L72.0466 55.6147C78.0257 52.6911 85 57.0443 85 63.6999V75.4462C85 82.1018 78.0257 86.455 72.0466 83.5314L43.5 69.573Z" />
       <Path d="M43.5 69.6L43.5 2" strokeLinecap="round" />
     </InternalSVG>
   </Toggle>
@@ -2263,7 +2263,7 @@ export const FlatBladeAgitator = ({
       scale={scale}
     >
       <Line x1="43" y1="1" x2="43" y2="49" />
-      <Rect x="3" y="49" width="80" height="34" rx="3" strokeLinecap="round" />{" "}
+      <Rect x="3" y="49" width="80" height="34" rx="3" strokeLinecap="round" />
     </InternalSVG>
   </Toggle>
 );
