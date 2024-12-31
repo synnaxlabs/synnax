@@ -19,7 +19,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader } from "@/components";
@@ -102,13 +102,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   const client = Synnax.use();
   const queryResult = useQuery({
-    queryKey: [layoutKey],
+    queryKey: [layoutKey, client?.key],
     queryFn: async () => await client?.workspaces.schematic.retrieve(layoutKey),
   });
-  const existsOnServer = useMemo(
-    () => queryResult.isSuccess && queryResult.data?.key === layoutKey,
-    [queryResult.data?.key, queryResult.isSuccess, layoutKey],
-  );
+  const existsOnServer = queryResult.isSuccess && queryResult.data?.key === layoutKey;
 
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -141,7 +138,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 
   const activeRange = Range.useSelect();
   const hasActiveRange = activeRange != null;
-  const canSnapshot = existsOnServer && hasActiveRange;
+  const activeRangeIsPersisted = activeRange?.persisted ?? false;
+  const canSnapshot = existsOnServer && hasActiveRange && activeRangeIsPersisted;
 
   if (state == null) return null;
 
@@ -168,9 +166,11 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                   ? `Snapshot to ${activeRange.name}`
                   : !hasActiveRange
                     ? "No active range"
-                    : !existsOnServer
-                      ? `${name} does not exist on ${client?.props.name ?? "server"}`
-                      : `Cannot snapshot ${name}`
+                    : !activeRangeIsPersisted
+                      ? `${activeRange.name} is not persisted`
+                      : !existsOnServer
+                        ? `${name} does not exist on ${client?.props.name ?? "server"}`
+                        : `Cannot snapshot ${name}`
               }
               onClick={handleRangeSnapshot}
               size="medium"
