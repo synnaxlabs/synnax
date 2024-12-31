@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Button, Status, Tabs, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import {
+  Align,
+  Breadcrumb,
+  Button,
+  Status,
+  Synnax,
+  Tabs,
+  Text,
+  useAsyncEffect,
+} from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader } from "@/components";
@@ -79,6 +88,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const state = useSelectOptional(layoutKey);
   const handleExport = useExport(name);
   const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const [existsOnServer, setExistsOnServer] = useState(false);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       if (!state?.editable) return <NotEditableContent layoutKey={layoutKey} />;
@@ -91,6 +101,17 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [layoutKey, state?.editable],
   );
+  const client = Synnax.use();
+  useAsyncEffect(async () => {
+    if (client == null || existsOnServer) return;
+    try {
+      const schematic = await client.workspaces.schematic.retrieve(layoutKey);
+      setExistsOnServer(schematic.key === layoutKey);
+    } catch (e) {
+      if (NotFoundError.matches(e)) setExistsOnServer(false);
+      else throw e;
+    }
+  }, [client]);
 
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -124,7 +145,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 
   const activeRange = Range.useSelect();
   const hasActiveRange = activeRange != null;
-
+  const canSnapshot = existsOnServer && hasActiveRange;
   return (
     <Tabs.Provider
       value={{
@@ -142,9 +163,15 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Align.Space direction="x" empty style={{ height: "100%", width: 93 }}>
             <Button.Icon
               sharp
-              disabled={!hasActiveRange}
+              disabled={!canSnapshot}
               tooltip={
-                hasActiveRange ? `Snapshot to ${activeRange.name}` : "No active range"
+                canSnapshot
+                  ? `Snapshot to ${activeRange.name}`
+                  : !hasActiveRange
+                    ? "No active range"
+                    : !existsOnServer
+                      ? `${name} does not exist on ${client?.props.name ?? "server"}`
+                      : `Cannot snapshot ${name}`
               }
               onClick={handleRangeSnapshot}
               size="medium"
