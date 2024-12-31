@@ -194,6 +194,17 @@ export class Color {
   }
 
   /**
+   * @returns the grayness of the color, between 0 and 1.
+   */
+  get grayness(): number {
+    const [r, g, b] = this.rgb1;
+    const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(b - r));
+    const brightness = (r + g + b) / 3;
+    const graynessFromSimilarity = 1 - maxDiff; // Similarity-based grayness
+    return graynessFromSimilarity * brightness;
+  }
+
+  /**
    * @returns the contrast ratio between this color and the given color. The contrast
    * ratio is a number between 1 and 21, where 1 is the lowest contrast and 21 is the
    * highest.
