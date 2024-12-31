@@ -92,6 +92,8 @@ import {
   type HeatExchangerMProps,
   HeatExchangerStraightTube,
   type HeatExchangerStraightTubeProps,
+  Compressor,
+  type CompressorProps,
   type TurboCompressorProps,
   TurboCompressor,
   type RollerVaneCompressorProps,
@@ -296,6 +298,7 @@ const VARIANTS = [
   "heatExchangerStraightTube",
   "diaphragmPump",
   "ejectionPump",
+  "compressor",
   "turboCompressor",
   "rollerVaneCompressor",
   "liquidRingCompressor",
@@ -920,16 +923,30 @@ const switch_: Spec<SwitchProps> = {
 };
 
 const vacuumPump: Spec<VacuumPumpProps> = {
-  name: "Compressor",
+  name: "Vacuum Pump",
   key: "vacuumPump",
   Symbol: VacuumPump,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    ...zeroLabel("Vacuum Pump"),
+    ...ZERO_TOGGLE_PROPS,
+  }),
+  Preview: Primitives.VacuumPump,
+  zIndex: Z_INDEX_UPPER,
+};
+
+const compressor: Spec<CompressorProps> = {
+  name: "Compressor",
+  key: "compressor",
+  Symbol: Compressor,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     ...zeroLabel("Compressor"),
     ...ZERO_TOGGLE_PROPS,
   }),
-  Preview: Primitives.VacuumPump,
+  Preview: Primitives.Compressor,
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -1638,6 +1655,7 @@ export const SYMBOLS: Record<Variant, Spec<any>> = {
   diaphragmPump,
   ejectionPump,
   vacuumPump,
+  compressor,
   turboCompressor,
   rollerVaneCompressor,
   liquidRingCompressor,
