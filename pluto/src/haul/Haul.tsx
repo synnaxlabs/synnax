@@ -74,8 +74,13 @@ export const FILE_TYPE = "file";
 
 export const FILE: Item = { key: "file", type: FILE_TYPE };
 
+// Effects that indicate a file is being dragged. Downside is that this also
+// allows dragging links, but that's not a huge deal.
+const ALLOWED_FILE_DRAG_EFFECTS = new Set(["all", "copyLink"]);
+
 export const isFileDrag = (event: DragEvent, dragging: DraggingState): boolean =>
-  event.dataTransfer.effectAllowed === "all" && dragging.items.length === 0;
+  ALLOWED_FILE_DRAG_EFFECTS.has(event.dataTransfer.effectAllowed) &&
+  dragging.items.length === 0;
 
 type DragEndInterceptor = (state: DraggingState, cursor: xy.XY) => DropProps | null;
 export interface ContextValue {
