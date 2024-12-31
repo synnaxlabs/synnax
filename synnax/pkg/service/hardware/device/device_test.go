@@ -62,11 +62,11 @@ var _ = Describe("Device", Ordered, func() {
 		It("Should not recreate the device in the ontology if it already exists", func() {
 			d := device.Device{Key: "device3", Rack: 1, Location: "dev3", Name: "Bird"}
 			Expect(w.Create(ctx, d)).To(Succeed())
-			Expect(otg.NewWriter(tx).DeleteRelationship(ctx, svc.RootGroup.OntologyID(), ontology.ParentOf, d.OntologyID())).To(Succeed())
+			Expect(otg.NewWriter(tx).DeleteRelationship(ctx, svc.RootGroup().OntologyID(), ontology.ParentOf, d.OntologyID())).To(Succeed())
 			Expect(w.Create(ctx, d)).To(Succeed())
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(svc.RootGroup.OntologyID()).
+				WhereIDs(svc.RootGroup().OntologyID()).
 				TraverseTo(ontology.Children).
 				Entry(&res).
 				Exec(ctx, tx),
