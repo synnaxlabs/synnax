@@ -91,18 +91,9 @@ export class Controller
     this.internal.addStatus = status.useAggregate(this.ctx);
 
     // Acquire or release control if necessary.
-<<<<<<< Updated upstream
-    if (this.state.acquireTrigger > this.internal.prevTrigger) {
-      void this.acquire();
-      this.internal.prevTrigger = this.state.acquireTrigger;
-    } else if (this.state.acquireTrigger < this.internal.prevTrigger) {
-      void this.release();
-      this.internal.prevTrigger = this.state.acquireTrigger;
-    }
-=======
-    if (this.state.acquireTrigger > this.internal.prevTrigger) void this.acquire();
-    else if (this.state.acquireTrigger < this.internal.prevTrigger) void this.release();
->>>>>>> Stashed changes
+    if (this.state.acquireTrigger > this.internal.prevTrigger) await this.acquire();
+    else if (this.state.acquireTrigger < this.internal.prevTrigger)
+      await this.release();
   }
 
   async afterDelete(): Promise<void> {
