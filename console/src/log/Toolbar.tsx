@@ -28,9 +28,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const d = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);
-  if (state == null) return null;
   const handleChannelChange = (v: channel.Key) =>
     d(setChannels({ key: layoutKey, channels: [v ?? 0] }));
+  if (state == null) return null;
   return (
     <>
       <ToolbarHeader>

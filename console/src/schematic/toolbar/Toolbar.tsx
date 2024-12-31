@@ -122,7 +122,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   }, [snapshot, name, layoutKey]);
 
   const canEdit = useSelectHasPermission();
-  if (state == null) return null;
   const breadCrumbSegments: Breadcrumb.Segments = [
     {
       label: name,
@@ -143,6 +142,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const activeRange = Range.useSelect();
   const hasActiveRange = activeRange != null;
   const canSnapshot = existsOnServer && hasActiveRange;
+
+  if (state == null) return null;
+
   return (
     <Tabs.Provider
       value={{

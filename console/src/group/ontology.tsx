@@ -70,13 +70,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const UngroupMenuItem = (): ReactElement => (
-  <PMenu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
-    Ungroup
-  </PMenu.Item>
-);
-
-const createNewID = (): ontology.ID => new ontology.ID({ type: "group", key: uuid() });
+const createNewID = (): ontology.ID => group.ontologyID(uuid());
 
 export interface GroupMenuItemProps {
   selection: Ontology.TreeContextMenuProps["selection"];
