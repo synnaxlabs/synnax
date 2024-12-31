@@ -24,6 +24,7 @@ export interface TextExtraProps {
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: Status.Variant;
+  outlineColor?: Color.Crude;
   color?: Color.Crude;
 }
 
@@ -66,6 +67,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       shade,
       weight,
       style,
+      outlineColor,
       color,
       onlyChangeOnBlur = false,
       endContent,
@@ -119,12 +121,12 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
 
     const combinedRef = useCombinedRefs(ref, internalRef);
 
-    const res = Color.Color.z.safeParse(color);
-    const hasCustomColor = res.success && variant == "outlined";
+    const parsedOutlineColor = Color.Color.z.safeParse(outlineColor);
+    const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
 
     if (variant === "preview") disabled = true;
     if (hasCustomColor)
-      style = { ...style, [CSS.var("input-color")]: res.data.rgbString };
+      style = { ...style, [CSS.var("input-color")]: parsedOutlineColor.data.rgbString };
 
     const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
@@ -181,7 +183,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
             disabled={disabled}
             placeholder={typeof placeholder === "string" ? placeholder : undefined}
-            style={{ fontWeight: weight }}
+            style={{ fontWeight: weight, color: Color.cssString(color) }}
             {...props}
           />
           {endContent != null && (
