@@ -143,7 +143,8 @@ export class Controller
 
       // Subtracting 1 millisecond makes sure that we avoid accidentally
       // setting the start timestamp over the writer earlier than the first
-      // sample we write, preventing a validation error when releasing control.
+      // sample we write, preventing a validation error when releasing control. We
+      // choose 1 ms because it is the resolution of a JS timestamp.
       const start = TimeStamp.now().sub(TimeSpan.milliseconds(1));
       this.writer = await client.openWriter({
         start,
