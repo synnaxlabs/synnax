@@ -219,7 +219,7 @@ const Wrapped = ({
           stateChannel: pair.state,
         };
       });
-      methods.set("config", config);
+      methods.set("config.channels", config.channels);
 
       await createTask({
         key: task?.key,
@@ -416,7 +416,7 @@ const ChannelListItem = ({
   path,
   snapshot = false,
   ...props
-}: List.ItemProps<string, Chan> & {
+}: List.ItemProps<string, DOChan> & {
   path: string;
   snapshot?: boolean;
 }): ReactElement => {
@@ -427,12 +427,9 @@ const ChannelListItem = ({
     path: `${path}.${props.index}`,
     optional: true,
   });
-  const cmdChannelName = Channel.useName(
-    childValues?.cmdChannel ?? 0,
-    "No Command Channel",
-  );
+  const cmdChannelName = Channel.useName(entry?.cmdChannel ?? 0, "No Command Channel");
   const stateChannelName = Channel.useName(
-    childValues?.stateChannel ?? 0,
+    entry?.stateChannel ?? 0,
     "No State Channel",
   );
 
