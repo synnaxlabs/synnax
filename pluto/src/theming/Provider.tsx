@@ -11,7 +11,7 @@ import "@/theming/theme.css";
 
 import geistMono from "@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2";
 import interWoff from "@fontsource-variable/inter/files/inter-latin-standard-normal.woff2";
-import { deep } from "@synnaxlabs/x";
+import { caseconv, deep } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -121,6 +121,14 @@ export interface ProviderProps extends PropsWithChildren<unknown>, UseProviderPr
   defaultTheme?: string;
 }
 
+const CLASS_PREFIX = "pluto-theme-";
+
+const setThemeClass = (el: HTMLElement, theme: theming.Theme): void => {
+  const existing = Array.from(el.classList).find((c) => c.startsWith(CLASS_PREFIX));
+  if (existing != null) el.classList.remove(existing);
+  el.classList.add(`${CLASS_PREFIX}${caseconv.toKebab(theme.key)}`);
+};
+
 export const Provider = Aether.wrap<ProviderProps>(
   theming.Provider.TYPE,
   ({ children, aetherKey, applyCSSVars = true, ...props }): ReactElement => {
@@ -147,8 +155,10 @@ export const Provider = Aether.wrap<ProviderProps>(
     useEffect(() => setAetherTheme((p) => ({ ...p, theme: ret.theme })), [ret.theme]);
 
     useLayoutEffect(() => {
-      if (applyCSSVars) CSS.applyVars(document.documentElement, toCSSVars(ret.theme));
-      else CSS.removeVars(document.documentElement, "--pluto");
+      const el = document.documentElement;
+      setThemeClass(el, ret.theme);
+      if (applyCSSVars) CSS.applyVars(el, toCSSVars(ret.theme));
+      else CSS.removeVars(el, "--pluto");
     }, [ret.theme]);
     return (
       <Context.Provider value={ret}>

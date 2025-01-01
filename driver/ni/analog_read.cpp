@@ -117,7 +117,7 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     if (channel_type == "ai_strain_gauge")
         return std::make_shared<StrainGage>(
             parser, this->task_handle, channel_name);
-    if (channel_type == "ai_temp_built_in")
+    if (channel_type == "ai_temp_builtin")
         return std::make_shared<
             TemperatureBuiltInSensor>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_thermocouple")

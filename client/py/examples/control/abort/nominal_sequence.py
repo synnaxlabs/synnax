@@ -10,8 +10,8 @@
 import synnax as sy
 import time
 
-# We've logged in via the CLI, so there's no need to provide credentials here. See
-# https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+# We've logged in via the command-line interface, so there's no need to provide
+# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
 # Define the control channel names
@@ -25,11 +25,10 @@ with client.control.acquire(
     name="Press Sequence",
     # Defines the authorities at which the sequence controls the valve channels.
     #
-    # ####
     # Notice that we take a higher control authority here than we do at the start of the
-    # abort sequence (which is at 100). This means that the abort sequence will take
-    # control OVER this sequence.
-    # ####
+    # abort sequence (which is at 100). This means that nominal_sequence will have
+    # higher priority than the abort sequence, until the abort sequence changes its own
+    # value to be higher than 200.
     write_authorities=[200],
     # We need to set the channels we'll be writing to and reading from.
     write=[PRESS_VALVE, VENT_VALVE],

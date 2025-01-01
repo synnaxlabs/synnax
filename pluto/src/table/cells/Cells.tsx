@@ -75,6 +75,7 @@ export const Text = ({
         onChange={handleValueChange}
         style={{ justifyContent: align }}
         allowEmpty
+        outline={false}
       />
     </Core>
   );

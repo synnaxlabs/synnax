@@ -37,7 +37,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 
 import { Menu } from "@/components/menu";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -512,7 +512,7 @@ export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
-    const key = initial.key ?? uuidv4();
+    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
   };

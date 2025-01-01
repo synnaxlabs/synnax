@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.36.0"
+version = "0.37.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
@@ -30,14 +30,13 @@ profile = "black"
 python = "^3.12"
 pandas = "^2.2.3"
 rich = "^13.9.4"
-pick = "^2.4.0"
 pydantic = "^1.10.9"
 synnax-freighter = { path = "../../freighter/py", develop = true }
 alamos = { path = "../../alamos/py", develop = true }
 keyring = "^25.5.0"
 click = "^8.1.7"
 urllib3 = "^2.2.3"
-numpy = "^1.24.3"
+numpy = "^2.2.1"
 nptdms = "^1.9.0"
 
 [tool.black]

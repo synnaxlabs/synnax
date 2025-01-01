@@ -16,7 +16,6 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { Range } from "@/range";
 import { useExport } from "@/schematic/file";
 import {
   useSelectControlStatus,
@@ -29,7 +28,6 @@ import {
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
-import { useRangeSnapshot } from "@/schematic/useRangeSnapshot";
 
 const TABS = [
   { tabKey: "symbols", name: "Symbols" },
@@ -91,20 +89,13 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [layoutKey, state?.editable],
   );
-
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
     },
     [dispatch],
   );
-  const snapshot = useRangeSnapshot();
-  const handleRangeSnapshot = useCallback(() => {
-    snapshot({ key: layoutKey, name });
-  }, [snapshot, name, layoutKey]);
-
   const canEdit = useSelectHasPermission();
-  if (state == null) return null;
   const breadCrumbSegments: Breadcrumb.Segments = [
     {
       label: name,
@@ -121,10 +112,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       shade: 7,
       level: "p",
     });
-
-  const activeRange = Range.useSelect();
-  const hasActiveRange = activeRange != null;
-
+  if (state == null) return null;
   return (
     <Tabs.Provider
       value={{
@@ -139,19 +127,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         </Align.Space>
         <Align.Space direction="x" align="center" empty>
-          <Align.Space direction="x" empty style={{ height: "100%", width: 93 }}>
-            <Button.Icon
-              sharp
-              disabled={!hasActiveRange}
-              tooltip={
-                hasActiveRange ? `Snapshot to ${activeRange.name}` : "No active range"
-              }
-              onClick={handleRangeSnapshot}
-              size="medium"
-              style={{ height: "100%" }}
-            >
-              <Icon.Range />
-            </Button.Icon>
+          <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
             <Button.Icon
               tooltip={"Export"}
               sharp

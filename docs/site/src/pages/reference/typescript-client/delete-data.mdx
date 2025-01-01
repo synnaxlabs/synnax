@@ -7,9 +7,10 @@ nextURL: "/reference/typescript-client/series-and-frames"
 prev: "Stream Data"
 prevURL: "/reference/typescript-client/stream-data"
 ---
-import { Divider, Note } from "@synnaxlabs/pluto"
-import Code from "@/components/code/Code.astro"
-export const components = { pre: Code }
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 The Synnax client allows deletion of time ranges of data in any channel: after each
 deletion operation is complete, all future reads will no longer include the deleted data.
@@ -49,8 +50,8 @@ await client.delete(
 ```
 
 <Note.Note variant="warning">
-    Using channel name(s) to delete data will delete data in <b>all</b> channels with the
-    given name(s). Using keys to delete is more preferable to prevent accidental deletion!
+  Using channel name(s) to delete data will delete data in <b>all</b> channels with the
+  given name(s). Using keys to delete is more preferable to prevent accidental deletion!
 </Note.Note>
 
 Note that `delete` is idempotent, meaning consecutive calls to `delete` on overlapping
@@ -59,15 +60,15 @@ time ranges are allowed:
 ```typescript
 // no additional data deleted
 await client.delete(
-    ["my_index_timestamps", "my_precise_tc"],
-    TimeStamp.seconds(1).range(TimeStamp.seconds(3))
-)
+  ["my_index_timestamps", "my_precise_tc"],
+  TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
+);
 
 // 00:01 to 00:10 deleted
 await client.delete(
-    ["my_index_timestamps", "my_precise_tc"],
-    TimeStamp.seconds(1).range(TimeStamp.seconds(10))
-)
+  ["my_index_timestamps", "my_precise_tc"],
+  TimeStamp.seconds(1).range(TimeStamp.seconds(10)),
+);
 ```
 
 <Divider.Divider direction="x" />
@@ -81,7 +82,7 @@ in the database, the entirety of the `delete` operation fails, no data is delete
 ```typescript
 // Suppose 111 and 112 are keys to channels that do exist, since 113 does not
 // exist, none of these channels' data get deleted.
-await client.delete([111, 112, 113], time_range_to_delete)
+await client.delete([111, 112, 113], time_range_to_delete);
 ```
 
 In the case where a requested channel is not found, `delete` is atomic: no data will be
@@ -96,16 +97,16 @@ on data in the requested time range, an error is returned:
 // If my_precise_tc is indexed by my_index_timestamps from 1 second to
 // 3 seconds, we cannot delete my_index_timestamps. This call returns an error.
 await client.delete(
-    ["my_index_timestamps"],
-    TimeStamp.seconds(1).range(TimeStamp.seconds(3))
-)
+  ["my_index_timestamps"],
+  TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
+);
 
 // If we delete my_precise_tc, the dependent, at the same time as
 // my_index_timestamps, no errors are returned.
 await client.delete(
-    ["my_precise_tc", "my_index_timestamps"],
-    TimeStamp.seconds(1).range(TimeStamp.seconds(3))
-)
+  ["my_precise_tc", "my_index_timestamps"],
+  TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
+);
 ```
 
 Last but not least, `delete` calls on any channel with a writer whose start time is
@@ -114,16 +115,16 @@ deleter do not contend over data in the same region.
 
 ```typescript
 const writer = await client.openWriter({
-    start: TimeStamp.seconds(10),
-    channels: ["my_precise_tc"],
+  start: TimeStamp.seconds(10),
+  channels: ["my_precise_tc"],
 });
 
 // error returned since writer start 00:10 is before deleting
 // time range [00:12 - 00:30)
 await client.delete(
-    ["my_precise_tc"],
-    TimeStamp.seconds(12).range(TimeStamp.seconds(30))
-)
+  ["my_precise_tc"],
+  TimeStamp.seconds(12).range(TimeStamp.seconds(30)),
+);
 ```
 
 Once writers starting before the deleting time range are closed, calls to `delete` may

@@ -7,26 +7,39 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+"""
+This example simulates a basic control sequence where a tank with pressure represented
+by press_pt is pressurized in 20 psi increments. The tank is then vented after holding
+down to 5 psi after a period of time.
+
+This script requires the `simulated_daq.py` script to be running in order to simulate
+the data acquisition system (DAQ).
+
+This script can be visualized in the Synnax Console by connecting the press_pt channel
+to a line plot and making a schematic that shows valves representing press_vlv_cmd and
+vent_vlv_cmd and a tank with a value representing press_pt.
+"""
+
 import synnax as sy
 
-# We've logged in via the CLI, so there's no need to provide credentials here. See
-# https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+# We've logged in via the command-line interface, so there's no need to provide
+# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
 # Define the control channel names
-PRESS_VALVE = "valve_command_0"
-VENT_VALVE = "valve_command_1"
-PRESSURE = "sensor_0"
+PRESS_VALVE = "press_vlv_cmd"
+VENT_VALVE = "vent_vlv_cmd"
+PRESSURE = "press_pt"
 
 # Open a control sequence under a context manager, so that the control is released when
 # the block exits
 with client.control.acquire(
     # A useful name that identifies the sequence to the rest of the system. We highly
     # recommend keeping these names unique across your sequences.
-    name="Press Sequence",
+    name="Pressurization Sequence",
     # Defines the authorities at which the sequence controls the valve channels. This is
-    # a number from 0 to 255, where 0 is the lowest and 255 is the highest. It's up to
-    # you to define what these mean in your system.
+    # a number from 0 to 255. A writer with a higher control authority can override a
+    # writer with a lower control control authority.
     write_authorities=[200],
     # We need to set the channels we'll be writing to and reading from.
     write=[PRESS_VALVE, VENT_VALVE],
@@ -35,11 +48,11 @@ with client.control.acquire(
     # Mark the start of the sequence
     start = sy.TimeStamp.now()
 
+    # Set the initial target pressure
+    target_pressure = 20
+
     # Close the vent valve
     ctrl[VENT_VALVE] = False
-
-    # Set the initial target pressure
-    curr_target = 20
 
     # Pressurize the system five times in 20 psi increments
     for i in range(5):
@@ -47,7 +60,7 @@ with client.control.acquire(
         ctrl[PRESS_VALVE] = True
         if ctrl.wait_until(
             # Wait until the pressure is greater than the current target
-            lambda c: c[PRESSURE] > curr_target,
+            lambda c: c[PRESSURE] > target_pressure,
             # If the pressure doesn't reach the target in 20 seconds, break the loop and
             # vent the system
             timeout=20 * sy.TimeSpan.SECOND,
@@ -57,7 +70,7 @@ with client.control.acquire(
             # Wait for 2 seconds
             ctrl.sleep(2)
             # Increment the target
-            curr_target += 20
+            target_pressure += 20
         else:
             break
 

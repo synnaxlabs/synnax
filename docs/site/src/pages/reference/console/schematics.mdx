@@ -13,6 +13,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 A schematic is used to see a diagram of your physical or simulated system. It displays
 live sensor data and can be used to exercise manual control by changing the values of
@@ -60,8 +62,10 @@ the controls in the bottom-left hand corner of the schematic.
       <td>
         <b>View</b>
       </td>
-      <td>Live data from the cluster is displayed on the schematic. Symbols are not
-          editable and the user cannot change the system state.</td>
+      <td>
+        Live data from the cluster is displayed on the schematic. Symbols are not
+        editable and the user cannot change the system state.
+      </td>
     </tr>
     <tr>
       <td>
@@ -126,8 +130,10 @@ other visual properties.
       <td>
         <b>Normally Open</b>
       </td>
-      <td>Causes the body of the solenoid valve to look different when it is open or
-          closed.</td>
+      <td>
+        Causes the body of the solenoid valve to look different when it is open or
+        closed.
+      </td>
     </tr>
     <tr>
       <td>
@@ -157,8 +163,10 @@ other visual properties.
       <td>
         <b>Orientation</b>
       </td>
-      <td>Determines the orientation of the symbol and the relative placement of the
-          label.</td>
+      <td>
+        Determines the orientation of the symbol and the relative placement of the
+        label.
+      </td>
     </tr>
   </tbody>
 </Table>
@@ -195,8 +203,10 @@ The telemetry tab can have the following properties:
       <td>
         <b>Averaging Window</b>
       </td>
-      <td>Can be used to display a rolling average. For example, a value of 2 will cause
-          the screen to display the average of the last 2 samples.</td>
+      <td>
+        Can be used to display a rolling average. For example, a value of 2 will cause
+        the screen to display the average of the last 2 samples.
+      </td>
     </tr>
   </tbody>
 </Table>
@@ -220,17 +230,21 @@ two main properties:
       <td>
         <b>State Channel</b>
       </td>
-      <td>Represents the display state of the symbol. If the input channel has a value
-          of 1, the symbol will be display as activated.</td>
+      <td>
+        Represents the display state of the symbol. If the input channel has a value of
+        1, the symbol will be display as activated.
+      </td>
     </tr>
     <tr>
       <td>
         <b>Command Channel</b>
       </td>
-      <td>Will be written to when you click on the symbol. If the symbol is de-activated,
-          clicking on it will write 1 to the output channel (an activation command). If
-          the symbol is activated, clicking on it will write 0 to the output channel (a
-          deactivation command).</td>
+      <td>
+        Will be written to when you click on the symbol. If the symbol is de-activated,
+        clicking on it will write 1 to the output channel (an activation command). If
+        the symbol is activated, clicking on it will write 0 to the output channel (a
+        deactivation command).
+      </td>
     </tr>
   </tbody>
 </Table>

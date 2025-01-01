@@ -9,8 +9,8 @@ prevURL: "/reference/python-client/get-started"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 The Python client provides interfaces for creating, retrieving, and deleting channels.
 We'll cover the details of each of these operations in this guide.

@@ -24,6 +24,7 @@ export interface TextExtraProps {
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: Status.Variant;
+  outlineColor?: Color.Crude;
   color?: Color.Crude;
 }
 
@@ -66,6 +67,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       shade,
       weight,
       style,
+      outlineColor,
       color,
       onlyChangeOnBlur = false,
       endContent,
@@ -110,15 +112,21 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-      if (!onlyChangeOnBlur) return;
-      if (e.key === "Enter") e.currentTarget.blur();
+      if (onlyChangeOnBlur && e.key === "Enter") e.currentTarget.blur();
+      else if (e.key === "Escape") {
+        e.currentTarget.blur();
+        e.stopPropagation();
+      }
     };
 
     const combinedRef = useCombinedRefs(ref, internalRef);
 
+    const parsedOutlineColor = Color.Color.z.safeParse(outlineColor);
+    const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
+
     if (variant === "preview") disabled = true;
-    if (color != null)
-      style = { ...style, [CSS.var("input-color")]: Color.cssString(color) };
+    if (hasCustomColor)
+      style = { ...style, [CSS.var("input-color")]: parsedOutlineColor.data.rgbString };
 
     const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
@@ -136,6 +144,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           shade != null && CSS.shade(shade),
           CSS.BM("input", variant),
           CSS.sharp(sharp),
+          hasCustomColor && CSS.BM("input", "custom-color"),
           status != null && CSS.M(status),
           className,
         )}
@@ -158,14 +167,6 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
               )}
             </div>
           )}
-          {endContent != null && (
-            <div className={CSS.BE("input", "end-content")}>
-              {CoreText.formatChildren(
-                level ?? CoreText.ComponentSizeLevels[size],
-                endContent,
-              )}
-            </div>
-          )}
 
           <input
             ref={combinedRef}
@@ -182,9 +183,17 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
             className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
             disabled={disabled}
             placeholder={typeof placeholder === "string" ? placeholder : undefined}
-            style={{ fontWeight: weight }}
+            style={{ fontWeight: weight, color: Color.cssString(color) }}
             {...props}
           />
+          {endContent != null && (
+            <div className={CSS.BE("input", "end-content")}>
+              {CoreText.formatChildren(
+                level ?? CoreText.ComponentSizeLevels[size],
+                endContent,
+              )}
+            </div>
+          )}
         </div>
         {children}
       </C>

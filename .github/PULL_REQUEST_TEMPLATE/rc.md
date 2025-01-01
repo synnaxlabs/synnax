@@ -95,10 +95,6 @@ I can successfully:
     - [ ] Delete a channel.
     - [ ] Delete multiple channels.
     - [ ] Group channels.
-    - [ ] Add a channel to an active plot.
-    - [ ] Add multiple channels to an active plot.
-    - [ ] Add a channel to a new plot.
-    - [ ] Add multiple channels to a new plot.
     - [ ] Set an alias for a channel under a range.
     - [ ] Clear an alias for a channel under a range.
     - [ ] Copy a link to a channel.
@@ -479,6 +475,7 @@ I can successfully:
     - [ ] Create a new schematic in a workspace.
     - [ ] Import a line plot.
     - [ ] Import a schematic.
+    - [ ] Create a new table in a workspace.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
   - [ ] Open the "Create Workspace" dialog.

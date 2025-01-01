@@ -36,7 +36,7 @@ export const FocusMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement =
       itemKey="focus"
       startIcon={<Icon.Focus />}
       onClick={() => dispatch(setFocus({ windowKey, key: layoutKey }))}
-      trigger={["Control", "F"]}
+      trigger={["Control", "L"]}
     >
       Focus
     </Menu.Item>
@@ -49,12 +49,7 @@ export const useOpenInNewWindow = () => {
   return (layoutKey: string) => {
     const { key } = placer(createMosaicWindow({}));
     dispatch(
-      moveMosaicTab({
-        windowKey: key,
-        key: 1,
-        tabKey: layoutKey,
-        loc: "center",
-      }),
+      moveMosaicTab({ windowKey: key, key: 1, tabKey: layoutKey, loc: "center" }),
     );
   };
 };
@@ -63,11 +58,7 @@ export const useMoveIntoMainWindow = () => {
   const store = useStore();
   return (layoutKey: string) => {
     store.dispatch(
-      moveMosaicTab({
-        windowKey: MAIN_WINDOW,
-        tabKey: layoutKey,
-        loc: "center",
-      }),
+      moveMosaicTab({ windowKey: MAIN_WINDOW, tabKey: layoutKey, loc: "center" }),
     );
   };
 };
@@ -126,7 +117,7 @@ export const RenameMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement 
     itemKey="rename"
     startIcon={<Icon.Rename />}
     onClick={() => Text.edit(`pluto-tab-${layoutKey}`)}
-    trigger={["Control", "R"]}
+    trigger={["Control", "E"]}
   >
     Rename
   </Menu.Item>

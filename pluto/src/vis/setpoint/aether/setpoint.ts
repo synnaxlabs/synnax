@@ -30,6 +30,7 @@ interface InternalState {
   sink: telem.NumberSink;
   addStatus: status.Aggregate;
   stopListening: Destructor;
+  prevTrigger: number;
 }
 
 // Setpoint is a component that acts as a switch, commanding a boolean telemetry sink to
@@ -46,8 +47,8 @@ export class Setpoint
   async afterUpdate(): Promise<void> {
     this.internal.addStatus = status.useOptionalAggregate(this.ctx);
     const { sink: sinkProps, source: sourceProps, trigger, command } = this.state;
-    const { trigger: prevTrigger } = this.prevState;
     const { internal: i } = this;
+    i.prevTrigger ??= trigger;
     this.internal.source = await telem.useSource(
       this.ctx,
       sourceProps,
@@ -55,7 +56,9 @@ export class Setpoint
     );
     i.sink = await telem.useSink(this.ctx, sinkProps, i.sink);
 
-    if (trigger !== prevTrigger && command != null) this.internal.sink.set(command);
+    const prevTrigger = i.prevTrigger;
+    i.prevTrigger = trigger;
+    if (trigger > prevTrigger && command != null) this.internal.sink.set(command);
 
     await this.updateValue();
     i.stopListening?.();
@@ -74,18 +77,15 @@ export class Setpoint
 
   private async updateValue(): Promise<void> {
     const nextValue = await this.internal.source.value();
-    if (nextValue !== this.state.value)
-      this.setState((p) => ({ ...p, value: nextValue, triggered: false }));
+    if (nextValue === this.state.value) return;
+    this.setState((p) => ({ ...p, value: nextValue, triggered: false }));
   }
 
   async afterDelete(): Promise<void> {
-    await this.internalAfterDelete();
-  }
-
-  private async internalAfterDelete(): Promise<void> {
-    this.internal.stopListening();
-    await this.internal.source.cleanup?.();
-    await this.internal.sink.cleanup?.();
+    const { internal: i } = this;
+    i.stopListening();
+    await i.source.cleanup?.();
+    await i.sink.cleanup?.();
   }
 
   async render(): Promise<void> {}

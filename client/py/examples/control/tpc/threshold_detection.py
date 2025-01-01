@@ -8,20 +8,19 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from common import DAQ_TIME, FUEL_PT_1
 
 client = sy.Synnax()
 
-with client.open_streamer(["fuel_pt_1", "daq_time"]) as s:
+with client.open_streamer([FUEL_PT_1, DAQ_TIME]) as streamer:
     above_threshold = None
-    for value in s:
-        if value["fuel_pt_1"] > 20 and not above_threshold:
-            above_threshold = sy.TimeStamp(value["daq_time"][-1])
-        elif value["fuel_pt_1"] < 20 and above_threshold:
+    for frame in streamer:
+        if frame[FUEL_PT_1] > 20 and not above_threshold:
+            above_threshold = sy.TimeStamp(frame[DAQ_TIME][-1])
+        elif frame[FUEL_PT_1] < 20 and above_threshold:
             client.ranges.create(
                 name=f"Fuel Above Threshold - " + str(above_threshold)[11:19],
-                time_range=sy.TimeRange(
-                    start=above_threshold, end=value["daq_time"][-1]
-                ),
+                time_range=sy.TimeRange(start=above_threshold, end=frame[DAQ_TIME][-1]),
                 color="#BADA55",
             )
             above_threshold = None

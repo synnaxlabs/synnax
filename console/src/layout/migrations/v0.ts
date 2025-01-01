@@ -32,6 +32,7 @@ export const stateZ = z.object({
   windowProps: z.record(z.unknown()).optional(),
   tab: z.record(z.unknown()).optional(),
   args: z.unknown(),
+  excludeFromWorkspace: z.boolean().optional(),
 });
 
 /**
@@ -104,6 +105,11 @@ export interface State<A = any | undefined> {
    * A typically optional set of arguments to pass to the layout
    */
   args?: A;
+  /**
+   * excludeFromWorkspace is a flag that indicates whether the layout should be
+   * excluded from the workspace. This is typically used for modal layouts.
+   */
+  excludeFromWorkspace?: boolean;
 }
 
 export type RenderableLayout = Omit<State, "window">;

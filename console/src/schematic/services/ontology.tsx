@@ -14,6 +14,7 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
+import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -106,6 +107,7 @@ const useSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
+    selection,
     selection: { resources },
   } = props;
   const activeRange = Range.useSelect();
@@ -131,6 +133,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <Menu.RenameItem />
           <Menu.DeleteItem />
+          <Group.GroupMenuItem selection={selection} />
           <PMenu.Divider />
         </>
       )}

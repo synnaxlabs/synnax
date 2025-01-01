@@ -87,7 +87,6 @@ const configureStoreInternal = async <
   store.dispatch(
     internalSetInitial({ enablePrerender, defaultWindowProps, debug, label }),
   );
-  console.log("Setting created");
   store.dispatch(setWindowStage({ stage: "created" }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
   return store;

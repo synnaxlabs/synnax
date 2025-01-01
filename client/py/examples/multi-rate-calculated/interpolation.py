@@ -7,34 +7,36 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 
 """
 This example demonstrates how to calculate the average of two sensor channels that are
 being sampled at different rates, using numpy's interpolation function to correctly
 align the timestamps of the two channels. This example is more complex than the
-'calculate_simple.py' example, and requires more computational resources to run.
+`simple_average.py` example, and requires more computational resources to run.
 
-This example must be run in conjunction with the 'simulated_daq.py' file in this
-directory. Run the 'simulated_daq.py' file first, and then run this file.
+This example must be run in conjunction with the `simulated_daq.py` file in this
+directory. Run the `simulated_daq.py` file first, and then run this file.
 """
 
-# We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+import numpy as np
+import synnax as sy
+
+
+# We've logged in via the command-line interface, so there's no need to provide
+# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
 # We create a separate index channel to store the timestamps for the calculated values.
 # These will store the same timestamps as the raw time channel, but will be used to
 # index the calculated values.
-derived_time_ch = client.channels.create(
-    name="derived_time", is_index=True, retrieve_if_name_exists=True
+time_channel = client.channels.create(
+    name="interpolation_time", is_index=True, retrieve_if_name_exists=True
 )
 
-# We'll store the average of "stream_write_example_data_1" and "stream_write_example_data_2"
-# in this channel.
-average_example_data_1 = client.channels.create(
-    name="average_example_data_1",
-    index=derived_time_ch.key,
+# We'll store the average in this channel
+data_channel = client.channels.create(
+    name="interpolation_data",
+    index=time_channel.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
@@ -42,8 +44,6 @@ average_example_data_1 = client.channels.create(
 current_values = dict()
 
 TO_READ = ["time_ch_1", "time_ch_2", "data_ch_1", "data_ch_2"]
-
-import numpy as np
 
 
 def interpolate(data_ch_1_time, data_ch_1, data_ch_2_time, data_ch_2):
@@ -64,6 +64,7 @@ def interpolate(data_ch_1_time, data_ch_1, data_ch_2_time, data_ch_2):
     avg_timestamps = combined_timestamps[
         (combined_timestamps >= start_time) & (combined_timestamps <= end_time)
     ]
+
     # Interpolate the values for each channel
     sensor1_values_interp = np.interp(avg_timestamps, data_ch_1_time, data_ch_1)
     sensor2_values_interp = np.interp(avg_timestamps, data_ch_2_time, data_ch_2)
@@ -73,14 +74,14 @@ def interpolate(data_ch_1_time, data_ch_1, data_ch_2_time, data_ch_2):
 
 with client.open_writer(
     start=sy.TimeStamp.now(),
-    channels=["derived_time", "average_example_data_1"],
+    channels=["interpolation_time", "interpolation_data"],
     enable_auto_commit=True,
 ) as writer:
-    with client.open_streamer(TO_READ) as s:
-        for fr in s:
-            time = fr["time_ch_1"][-1]
-            for k, v in fr.items():
-                current_values[k] = fr[k]
+    with client.open_streamer(TO_READ) as streamer:
+        for frame in streamer:
+            time = frame["time_ch_1"][-1]
+            for k, _ in frame.items():
+                current_values[k] = frame[k]
             # If we still don't have data yet from all four channels, skip and wait for
             # the next frame.
             if len(current_values.items()) < 4:
@@ -98,4 +99,4 @@ with client.open_writer(
                 continue
             # Calculate the average of the two sensors
             avg = (sensor_1 + sensor_2) / 2
-            writer.write({"derived_time": time, "average_example_data_1": avg})
+            writer.write({"interpolation_time": time, "interpolation_data": avg})

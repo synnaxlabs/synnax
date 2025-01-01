@@ -12,7 +12,7 @@ This example demonstrates how to stream live data from a channel in Synnax.
 Live-streaming is useful for real-time data processing and analysis, and is an
 integral part of Synnax's control sequence and data streaming capabilities.
 
-This example is meant to be used in conjunction with the stream_write.py example, and
+This example is meant to be used in conjunction with the `stream_write.py` example, and
 assumes that example is running in a separate terminal.
 """
 

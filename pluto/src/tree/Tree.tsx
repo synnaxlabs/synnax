@@ -35,7 +35,7 @@ import {
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { flatten, type FlattenedNode, type Node } from "@/tree/core";
+import { flatten, SortOption, type FlattenedNode, type Node } from "@/tree/core";
 import { Triggers } from "@/triggers";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
@@ -53,7 +53,7 @@ export interface UseProps {
   onSelectedChange?: state.Set<string[]>;
   initialExpanded?: string[];
   nodes: Node[];
-  sort?: boolean;
+  sort?: SortOption;
 }
 
 export interface UseReturn {
@@ -73,7 +73,7 @@ export const use = (props: UseProps): UseReturn => {
     onExpand,
     nodes,
     initialExpanded = [],
-    sort = true,
+    sort,
     selected: propsSelected,
     onSelectedChange,
   } = props ?? {};
@@ -216,11 +216,19 @@ export const DefaultItem = memo(
     const startIcons: ReactElement<PIcon.BaseProps>[] = [];
     if (actuallyHasChildren)
       startIcons.push(
-        <Caret.Animated enabled={expanded} enabledLoc="bottom" disabledLoc="right" />,
+        <Caret.Animated
+          key="caret"
+          enabled={expanded}
+          enabledLoc="bottom"
+          disabledLoc="right"
+        />,
       );
     if (icon != null) startIcons.push(icon);
     const endIcons: ReactElement<PIcon.BaseProps>[] = [];
-    if (loading) endIcons.push(<Icon.Loading className={CSS.B("loading-indicator")} />);
+    if (loading)
+      endIcons.push(
+        <Icon.Loading key="loading-indicator" className={CSS.B("loading-indicator")} />,
+      );
 
     const [draggingOver, setDraggingOver] = useState(false);
 
