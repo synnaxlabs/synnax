@@ -27,10 +27,6 @@
       "dependsOn": ["^build"],
       "cache": false
     },
-    "cov": {
-      "dependsOn": ["^build"],
-      "cache": false
-    },
     "devtools": {
       "cache": false
     },

@@ -44,17 +44,8 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: go test -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
+        run: go test -v ./...  --ginkgo.label-filter="!integration && !performance"
         working-directory: ./freighter/go
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./freighter/go
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freightergo
 
   build-integration-image:
     runs-on: ubuntu-latest
@@ -122,17 +113,8 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: pytest --cov=freighter --cov-report xml:coverage.xml
+        run: pytest
         working-directory: ./freighter/py
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./freighter/py
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freighterpy
 
     services:
       integration:
@@ -178,16 +160,7 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm cov:freighter
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./freighter/ts
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freighterts
+        run: pnpm test:freighter
 
     services:
       integration:

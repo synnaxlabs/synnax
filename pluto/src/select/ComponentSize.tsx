@@ -1,6 +1,7 @@
 import { type ReactElement } from "react";
-import { ComponentSize as BaseComponentSize } from "@/util/component";
+
 import { Button, type ButtonProps } from "@/select/Button";
+import { type ComponentSize as BaseComponentSize } from "@/util/component";
 
 interface SizeEntry {
   key: BaseComponentSize;

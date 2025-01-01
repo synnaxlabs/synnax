@@ -49,13 +49,4 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm cov:drift
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./drift
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: drift
+        run: pnpm test:drift
