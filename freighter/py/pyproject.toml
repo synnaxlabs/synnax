@@ -3,9 +3,7 @@ name = "synnax-freighter"
 version = "0.37.0"
 description = ""
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
-packages = [
-    { include = "freighter/**/*.py" }
-]
+packages = [{ include = "freighter/**/*.py" }]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -37,8 +35,5 @@ build-backend = "poetry.core.masonry.api"
 markers = [
     "ws: mark test as a websocket test",
     "http: mark test as an http test",
-    "sync: mark test as a sync test"
+    "sync: mark test as a sync test",
 ]
-
-
-

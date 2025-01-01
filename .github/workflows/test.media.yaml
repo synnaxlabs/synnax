@@ -1,4 +1,4 @@
-name: Test - Drift
+name: Test - Media
 
 on:
   push:
@@ -28,11 +28,12 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/test.drift.yaml
+              - .github/workflows/test.media.yaml
               - configs/eslint/**
+              - configs/stylelint/**
               - configs/ts/**
               - configs/vite/**
-              - drift/**
+              - x/media/**
               - x/ts/**
 
   test:
@@ -66,11 +67,8 @@ jobs:
         run: pnpm install
 
       - name: Build
-        run: pnpm build:drift
-
-      - name: Test
-        run: pnpm test:drift
+        run: pnpm build:media
 
       - name: Lint
         if: matrix.lint
-        run: pnpm lint:drift
+        run: pnpm lint:media

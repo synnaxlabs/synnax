@@ -9,8 +9,8 @@
 
 export * from "@/select/Alignment";
 export * from "@/select/Button";
+export * from "@/select/ComponentSize";
 export * from "@/select/DataType";
 export * from "@/select/Direction";
 export * from "@/select/Multiple";
 export * from "@/select/Single";
-export * from "@/select/ComponentSize";

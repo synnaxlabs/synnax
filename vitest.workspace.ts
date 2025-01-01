@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lib } from "@synnaxlabs/vite-plugin";
-import { defineConfig } from "vite";
+import { defineWorkspace } from "vitest/config";
 
-export default defineConfig({
-  plugins: [lib({ name: "integration" })],
-  build: { outDir: "dist", sourcemap: true },
-});
+export default defineWorkspace(["**/*/vite.config.ts"]);

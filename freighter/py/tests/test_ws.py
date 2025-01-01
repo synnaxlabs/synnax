@@ -205,9 +205,3 @@ class TestSyncWebsocket:
                 cycle_count += 1
                 pass
         assert cycle_count < max_cycles, "test timed out"
-
-
-
-
-
-
