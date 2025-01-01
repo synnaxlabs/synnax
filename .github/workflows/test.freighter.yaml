@@ -44,7 +44,7 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: go test -v ./...  --ginkgo.label-filter="!integration && !performance"
+        run: go test -v ./... --ginkgo.label-filter="!integration && !performance"
         working-directory: ./freighter/go
 
   build-integration-image:

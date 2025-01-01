@@ -20,7 +20,7 @@ objc = "0.2.7"
 rand = "0.8.5"
 
 [dependencies]
-tauri = { version = "2.1.1" }
+tauri = { version = "2.1.1", features = ["devtools"] }
 tauri-plugin-store = "2.2.0"
 tauri-plugin-deep-link = "2.2.0"
 tauri-plugin-fs = "2.2.0"
