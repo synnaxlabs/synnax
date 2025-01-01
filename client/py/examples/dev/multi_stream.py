@@ -28,7 +28,12 @@ with client.open_writer(
     for i in range(count):
         time.sleep(0.1)
         print(np.round(i / count * count))
-        writer.write({idx.key: sy.TimeStamp.now(), data.key: np.sin(i)})
+        writer.write(
+            {
+                idx.key: sy.TimeStamp.now(),
+                data.key: np.sin(i),
+            }
+        )
 
 
 time.sleep(1)

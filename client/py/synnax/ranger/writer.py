@@ -35,7 +35,9 @@ class RangeWriter:
     instrumentation: Instrumentation
 
     def __init__(
-        self, client: UnaryClient, instrumentation: Instrumentation = NOOP
+        self,
+        client: UnaryClient,
+        instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
         self.instrumentation = instrumentation

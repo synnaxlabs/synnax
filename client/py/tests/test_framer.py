@@ -23,7 +23,11 @@ class TestChannelWriteRead:
     def test_write_read(self, client: sy.Synnax):
         """Should create a channel and write then read from it"""
         channel = client.channels.create(
-            sy.Channel(name="test", rate=1 * sy.Rate.HZ, data_type=sy.DataType.INT64)
+            sy.Channel(
+                name="test",
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.INT64,
+            )
         )
         d = np.array([1, 2, 3, 4, 5], dtype=np.int64)
         start = 1 * sy.TimeSpan.SECOND
@@ -156,7 +160,9 @@ class TestWriter:
             w.commit()
 
     def test_write_frame_unknown_channel_name(
-        self, channel: sy.Channel, client: sy.Synnax
+        self,
+        channel: sy.Channel,
+        client: sy.Synnax,
     ):
         """Should throw a validation error when writing to an unknown channel"""
         with client.open_writer(0, channel.key) as w:
@@ -165,7 +171,9 @@ class TestWriter:
                 w.write(pd.DataFrame({"missing": data}))
 
     def test_write_frame_unknown_channel_key(
-        self, channel: sy.Channel, client: sy.Synnax
+        self,
+        channel: sy.Channel,
+        client: sy.Synnax,
     ):
         """Should throw a validation error when writing an unknown frame by key"""
         with client.open_writer(0, channel.key) as w:
@@ -174,7 +182,9 @@ class TestWriter:
                 w.write(pd.DataFrame({123: data}))
 
     def test_write_frame_idx_no_timestamps(
-        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
     ):
         """Should throw a validation error on close when writing an indexed frame
         w/o the correct timing
@@ -245,7 +255,9 @@ class TestWriter:
 
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(
-        self, channel: sy.Channel, client: sy.Synnax
+        self,
+        channel: sy.Channel,
+        client: sy.Synnax,
     ):
         """Should not stream written data"""
         with client.open_writer(0, channel.key, mode=sy.WriterMode.PERSIST) as w:
@@ -258,8 +270,16 @@ class TestWriter:
 
     def test_write_persist_stream_regression(self, client: sy.Synnax):
         """Should work"""
-        idx = client.channels.create(name="idx", is_index=True, data_type="timestamp")
-        data = client.channels.create(name="data", data_type="float64", index=idx.key)
+        idx = client.channels.create(
+            name="idx",
+            is_index=True,
+            data_type="timestamp",
+        )
+        data = client.channels.create(
+            name="data",
+            data_type="float64",
+            index=idx.key,
+        )
         # Write some data
         start = sy.TimeStamp.now()
         with client.open_writer(
@@ -275,10 +295,14 @@ class TestWriter:
         assert len(f) == 1
 
         data_2 = client.channels.create(
-            name="data_2", data_type="float64", index=idx.key
+            name="data_2",
+            data_type="float64",
+            index=idx.key,
         )
         data_3 = client.channels.create(
-            name="data_3", data_type="float64", index=idx.key
+            name="data_3",
+            data_type="float64",
+            index=idx.key,
         )
         with client.open_writer(
             next_start,
@@ -501,7 +525,10 @@ class TestDeleter:
             w.write(pd.DataFrame({channel.key: data}))
             w.commit()
 
-        client.delete([channel.key], TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)))
+        client.delete(
+            [channel.key],
+            TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)),
+        )
 
         data = channel.read(TimeRange.MAX)
         assert data.to_numpy().size == 26
@@ -515,7 +542,10 @@ class TestDeleter:
             w.write(pd.DataFrame({channel.key: data}))
             w.commit()
 
-        client.delete([channel.name], TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)))
+        client.delete(
+            [channel.name],
+            TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)),
+        )
 
         data = channel.read(TimeRange.MAX)
         assert data.size == 26 * 8
@@ -558,7 +588,11 @@ class TestDeleter:
             sy.Channel(name="index", data_type=sy.DataType.TIMESTAMP, is_index=True)
         )
 
-        ch2 = sy.Channel(name="data", data_type=sy.DataType.FLOAT32, index=ch1.key)
+        ch2 = sy.Channel(
+            name="data",
+            data_type=sy.DataType.FLOAT32,
+            index=ch1.key,
+        )
 
         ch2 = client.channels.create(ch2)
         timestamps = [

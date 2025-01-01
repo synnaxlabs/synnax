@@ -139,12 +139,19 @@ class EOF(Exception):
         return "EOF"
 
 
-_EXCEPTIONS = [Unreachable, StreamClosed, EOF]
+_EXCEPTIONS = [
+    Unreachable,
+    StreamClosed,
+    EOF,
+]
 
 
 def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
     if isinstance(exc, Unreachable):
-        return ExceptionPayload(type=Unreachable.TYPE, data=exc.message)
+        return ExceptionPayload(
+            type=Unreachable.TYPE,
+            data=exc.message,
+        )
     if isinstance(exc, StreamClosed):
         return ExceptionPayload(type=StreamClosed.TYPE, data=str(exc))
 

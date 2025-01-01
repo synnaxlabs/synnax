@@ -24,10 +24,14 @@ class TestChannel:
         return client.channels.create(
             [
                 sy.Channel(
-                    name="test", rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64
+                    name="test",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
-                    name="test2", rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64
+                    name="test2",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
                 ),
             ]
         )
@@ -42,7 +46,11 @@ class TestChannel:
     def test_create_single(self, client: sy.Synnax):
         """Should create a single valid channel"""
         channel = client.channels.create(
-            sy.Channel(name="test", rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64)
+            sy.Channel(
+                name="test",
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            )
         )
         assert channel.name == "test"
         assert channel.key != ""
@@ -52,7 +60,9 @@ class TestChannel:
     def test_create_from_kwargs(self, client: sy.Synnax):
         """Should create a single valid channel"""
         channel = client.channels.create(
-            name="test", rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64
+            name="test",
+            rate=1 * sy.Rate.HZ,
+            data_type=sy.DataType.FLOAT64,
         )
         assert channel.name == "test"
         assert channel.key != ""
@@ -132,7 +142,9 @@ class TestChannel:
         assert result_channel.name == "test1"
 
     def test_retrieve_single_multiple_found(
-        self, client: sy.Synnax, two_channels: list[sy.Channel]
+        self,
+        client: sy.Synnax,
+        two_channels: list[sy.Channel],
     ):
         """Should raise QueryError when retrieving a single channel with
         multiple matches"""
@@ -163,10 +175,14 @@ class TestChannel:
         channels = client.channels.create(
             [
                 sy.Channel(
-                    name="test", rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64
+                    name="test",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
-                    name="test2", rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64
+                    name="test2",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
                 ),
             ]
         )
@@ -201,7 +217,11 @@ class TestChannel:
         name."""
         name = str(uuid.uuid4())
         ch = client.channels.create(
-            sy.Channel(name=name, rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64),
+            sy.Channel(
+                name=name,
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            ),
             retrieve_if_name_exists=True,
         )
         ch_retrieved = client.channels.retrieve(name)
@@ -210,7 +230,11 @@ class TestChannel:
         with pytest.raises(sy.NotFoundError):
             client.channels.retrieve(ch.key)
         ch2 = client.channels.create(
-            sy.Channel(name=name, rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64),
+            sy.Channel(
+                name=name,
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            ),
             retrieve_if_name_exists=True,
         )
         assert ch2.key != ch.key
@@ -224,7 +248,11 @@ class TestChannel:
         """Should rename a single channel"""
         name = str(uuid.uuid4())
         channel = client.channels.create(
-            sy.Channel(name=name, rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64)
+            sy.Channel(
+                name=name,
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            )
         )
         new_name = str(uuid.uuid4())
         client.channels.rename(channel.key, new_name)
@@ -238,10 +266,14 @@ class TestChannel:
         channels = client.channels.create(
             [
                 sy.Channel(
-                    name="test", rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64
+                    name="test",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
-                    name="test2", rate=1 * sy.Rate.HZ, data_type=sy.DataType.FLOAT64
+                    name="test2",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
                 ),
             ]
         )

@@ -90,7 +90,10 @@ class Task:
 
     def to_payload(self) -> TaskPayload:
         return TaskPayload(
-            key=self.key, name=self.name, type=self.type, config=self.config
+            key=self.key,
+            name=self.name,
+            type=self.type,
+            config=self.config,
         )
 
     def set_internal(self, task: Task):
@@ -119,7 +122,10 @@ class Task:
         return str(key)
 
     def execute_command_sync(
-        self, type_: str, args: dict | None = None, timeout: float | TimeSpan = 5
+        self,
+        type_: str,
+        args: dict | None = None,
+        timeout: float | TimeSpan = 5,
     ) -> str:
         """Executes a command on the task and waits for the driver to acknowledge the
         command with a state.

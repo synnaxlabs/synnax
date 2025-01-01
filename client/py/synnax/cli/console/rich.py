@@ -54,7 +54,11 @@ class RichConsole:
         print(f"[{self.success_color}]{message}[/]")
         return None
 
-    def table(self, columns: list[str], rows: list[dict]) -> None:
+    def table(
+        self,
+        columns: list[str],
+        rows: list[dict],
+    ) -> None:
         from rich.table import Table
 
         table = Table(show_header=True, header_style="bold magenta")
@@ -84,7 +88,10 @@ class RichConsole:
                 type_ = str  # type: ignore
         if type_ == bool:
             return Confirm.ask(
-                question, default=default, show_default=True, show_choices=True
+                question,
+                default=default,
+                show_default=True,
+                show_choices=True,
             )  # type: ignore
         if type_ == int:
             return IntPrompt.ask(
@@ -93,7 +100,10 @@ class RichConsole:
                 choices=[str(choice) for choice in choices] if choices else None,  # type: ignore
             )  # type: ignore
         if type_ == float:
-            return FloatPrompt.ask(question, default=default)  # type: ignore
+            return FloatPrompt.ask(
+                question,
+                default=default,
+            )  # type: ignore
         return Prompt.ask(
             question,
             choices=choices,  # type: ignore

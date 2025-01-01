@@ -67,7 +67,11 @@ class RemainsTrueFor(Processor):
     actual: float = 0
     count: int = 0
 
-    def __init__(self, callback: Callable[[Controller], bool], percentage: float):
+    def __init__(
+        self,
+        callback: Callable[[Controller], bool],
+        percentage: float,
+    ):
         self.event = Event()
         self.callback = callback
         self.exc = None
@@ -184,16 +188,22 @@ class Controller:
         self._writer.write(to_write)
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool: ...
-
-    @overload
     def set_authority(
-        self, value: dict[ChannelKey | ChannelName, CrudeAuthority]
+        self,
+        value: CrudeAuthority,
     ) -> bool: ...
 
     @overload
     def set_authority(
-        self, ch: ChannelKey | ChannelName, value: CrudeAuthority
+        self,
+        value: dict[ChannelKey | ChannelName, CrudeAuthority],
+    ) -> bool: ...
+
+    @overload
+    def set_authority(
+        self,
+        ch: ChannelKey | ChannelName,
+        value: CrudeAuthority,
     ) -> bool: ...
 
     def set_authority(
@@ -216,7 +226,9 @@ class Controller:
         return self._writer.set_authority(value)
 
     def wait_until(
-        self, cond: Callable[[Controller], bool], timeout: float | int | TimeSpan = None
+        self,
+        cond: Callable[[Controller], bool],
+        timeout: float | int | TimeSpan = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
         received by the controller. Once the callback returns True, the method will
@@ -242,7 +254,9 @@ class Controller:
         return self._internal_wait_until(cond, timeout)
 
     def wait_while(
-        self, cond: Callable[[Controller], bool], timeout: CrudeTimeSpan = None
+        self,
+        cond: Callable[[Controller], bool],
+        timeout: CrudeTimeSpan = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
         received. The controller will continue to block until the

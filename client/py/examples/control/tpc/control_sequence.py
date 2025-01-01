@@ -113,7 +113,14 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 time_range=sy.TimeRange(sy.TimeStamp.now(), sy.TimeStamp.now()),
             )
             log(ctrl, "Starting TPC Test. Setting initial system state.")
-            ctrl.set({TPC_CMD: 0, MPV_CMD: 0, SUPPLY_CMD: 0, VENT_CMD: 1})
+            ctrl.set(
+                {
+                    TPC_CMD: 0,
+                    MPV_CMD: 0,
+                    SUPPLY_CMD: 0,
+                    VENT_CMD: 1,
+                }
+            )
 
             ctrl.sleep(2)
 

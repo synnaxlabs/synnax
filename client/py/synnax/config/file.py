@@ -19,7 +19,11 @@ class ConfigFile:
     file: pathlib.Path
     config: dict
 
-    def __init__(self, config_dir: pathlib.Path, file_name: str = "config.json"):
+    def __init__(
+        self,
+        config_dir: pathlib.Path,
+        file_name: str = "config.json",
+    ):
         self.config_file = config_dir / file_name
         self.config = {}
         self.load()
@@ -35,7 +39,10 @@ class ConfigFile:
 
     def save(self):
         """Saves the config file to disk."""
-        self.config_file.parent.mkdir(parents=True, exist_ok=True)
+        self.config_file.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
         with open(self.config_file, "w") as f:
             json.dump(self.config, f)
 

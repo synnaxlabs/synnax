@@ -62,7 +62,10 @@ class BaseReader(File, Protocol):
     """
 
     def __init__(
-        self, path: Path, keys: list[str] | None = None, chunk_size: int | None = None
+        self,
+        path: Path,
+        keys: list[str] | None = None,
+        chunk_size: int | None = None,
     ): ...
 
     def channels(self) -> list[ChannelMeta]:
@@ -142,7 +145,10 @@ class DataFrameWriter(Closer, Protocol):
 class FileWriter(File, DataFrameWriter, Protocol):
     """A file protocol for writing dataframes"""
 
-    def __init__(self, path: Path):
+    def __init__(
+        self,
+        path: Path,
+    ):
         """Creates a new file writer.
 
         :param path: The path to the file to write.

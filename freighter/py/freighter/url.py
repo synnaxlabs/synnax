@@ -48,7 +48,11 @@ class URL:
         return URL(host, port, path, protocol)
 
     def replace(
-        self, host: str = None, port: int = None, path: str = None, protocol: str = None
+        self,
+        host: str = None,
+        port: int = None,
+        path: str = None,
+        protocol: str = None,
     ) -> URL:
         """Replace returns a new URL with the specified fields replaced."""
         return URL(

@@ -78,7 +78,9 @@ def normalize_channel_params(
             )
         except ValueError:
             return NormalizedChannelNameResult(
-                single=single, variant="names", channels=cast(ChannelNames, normalized)
+                single=single,
+                variant="names",
+                channels=cast(ChannelNames, normalized),
             )
     elif isinstance(normalized[0], ChannelPayload):
         return NormalizedChannelNameResult(
@@ -87,5 +89,7 @@ def normalize_channel_params(
             channels=cast(ChannelNames, [c.key for c in normalized]),
         )
     return NormalizedChannelKeyResult(
-        single=single, variant="keys", channels=cast(ChannelKeys, normalized)
+        single=single,
+        variant="keys",
+        channels=cast(ChannelKeys, normalized),
     )

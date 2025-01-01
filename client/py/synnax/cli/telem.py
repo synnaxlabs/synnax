@@ -15,7 +15,10 @@ from synnax.cli.flow import Context
 from synnax.telem import DataType, TimeSpan, TimeSpanUnits
 
 
-def select_data_type(ctx: Context, **kwargs: Unpack[AskKwargs[str]]) -> DataType | None:
+def select_data_type(
+    ctx: Context,
+    **kwargs: Unpack[AskKwargs[str]],
+) -> DataType | None:
     """Prompts the user to select a data type from a list of all available data
     types.
 
@@ -33,7 +36,9 @@ def select_data_type(ctx: Context, **kwargs: Unpack[AskKwargs[str]]) -> DataType
 
 
 def ask_time_units_select(
-    ctx: Context, question: str | None = None, **kwargs: Unpack[AskKwargs[str]]
+    ctx: Context,
+    question: str | None = None,
+    **kwargs: Unpack[AskKwargs[str]],
 ) -> TimeSpanUnits:
     """Prompts the user to select a time unit from a list of all available time
     units.

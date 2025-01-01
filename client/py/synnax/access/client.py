@@ -48,7 +48,11 @@ class PolicyClient:
     _client: UnaryClient
     instrumentation: Instrumentation
 
-    def __init__(self, client: UnaryClient, instrumentation: Instrumentation = NOOP):
+    def __init__(
+        self,
+        client: UnaryClient,
+        instrumentation: Instrumentation = NOOP,
+    ):
         self._client = client
         self.instrumentation = instrumentation
 
@@ -62,10 +66,16 @@ class PolicyClient:
     ) -> Policy: ...
 
     @overload
-    def create(self, policies: Policy) -> Policy: ...
+    def create(
+        self,
+        policies: Policy,
+    ) -> Policy: ...
 
     @overload
-    def create(self, policies: list[Policy]) -> list[Policy]: ...
+    def create(
+        self,
+        policies: list[Policy],
+    ) -> list[Policy]: ...
 
     def create(
         self,
@@ -77,7 +87,11 @@ class PolicyClient:
     ) -> Policy | list[Policy]:
         is_single = not isinstance(policies, list)
         if policies is None:
-            policies = Policy(subjects=subjects, objects=objects, actions=actions)
+            policies = Policy(
+                subjects=subjects,
+                objects=objects,
+                actions=actions,
+            )
         req = _CreateRequest(policies=normalize(policies))
         res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
         return res.policies[0] if is_single else res.policies

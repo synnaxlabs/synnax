@@ -30,7 +30,7 @@ class TestOPCUATask:
                     "channel": 1234,
                     "enabled": True,
                     "use_as_index": False,
-                }
+                },
             ],
         }
         ReadTaskConfig.parse_obj(data)

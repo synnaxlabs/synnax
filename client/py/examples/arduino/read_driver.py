@@ -14,7 +14,12 @@ PORT = "/dev/cu.usbmodem21401"
 BAUD_RATE = 9600
 
 # Create the Synnax client
-client = sy.Synnax(host="localhost", port=9090, username="synnax", password="seldon")
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
 
 # Create the index channel
 index_channel = client.channels.create(

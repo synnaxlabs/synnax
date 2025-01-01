@@ -37,7 +37,13 @@ class HTTPClient(MiddlewareCollector):
     __codec: Codec
     __secure: bool
 
-    def __init__(self, url: URL, codec: Codec, secure: bool = False, **kwargs):
+    def __init__(
+        self,
+        url: URL,
+        codec: Codec,
+        secure: bool = False,
+        **kwargs,
+    ):
         """
         :param url: The base URL for the client.
         :param codec: The encoder/decoder to use for the client.
@@ -59,7 +65,11 @@ class HTTPClient(MiddlewareCollector):
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """Implements the UnaryClient protocol."""
         return self.request(
-            "POST", self.__endpoint.child(target).stringify(), "client", req, res_t
+            "POST",
+            self.__endpoint.child(target).stringify(),
+            "client",
+            req,
+            res_t,
         )
 
     @property

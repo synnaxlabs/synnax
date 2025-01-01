@@ -15,7 +15,12 @@ BAUD_RATE = 9600
 
 ser = serial.Serial(PORT, BAUD_RATE)
 
-client = sy.Synnax(host="localhost", port=9090, username="synnax", password="seldon")
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
 
 arduino_command = client.channels.create(
     name="arduino_command",

@@ -103,7 +103,10 @@ class Client:
         if single:
             users = [user]
         res = send_required(
-            self.client, _CREATE_ENDPOINT, _CreateRequest(users=users), _CreateResponse
+            self.client,
+            _CREATE_ENDPOINT,
+            _CreateRequest(users=users),
+            _CreateResponse,
         ).users
         if single:
             return res[0]
@@ -160,5 +163,8 @@ class Client:
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         send_required(
-            self.client, _DELETE_ENDPOINT, _DeleteRequest(keys=normalize(keys)), Empty
+            self.client,
+            _DELETE_ENDPOINT,
+            _DeleteRequest(keys=normalize(keys)),
+            Empty,
         )

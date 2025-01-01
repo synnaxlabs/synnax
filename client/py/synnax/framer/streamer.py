@@ -61,7 +61,10 @@ class Streamer:
     _adapter: ReadFrameAdapter
 
     def __init__(
-        self, client: StreamClient, adapter: ReadFrameAdapter, downsample_factor: int
+        self,
+        client: StreamClient,
+        adapter: ReadFrameAdapter,
+        downsample_factor: int,
     ) -> None:
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._adapter = adapter
@@ -210,7 +213,10 @@ class AsyncStreamer:
     async def _open(self):
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(
-            _Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor)
+            _Request(
+                keys=self._adapter.keys,
+                downsample_factor=self._downsample_factor,
+            )
         )
         _, exc = await self._stream.receive()
         if exc is not None:

@@ -161,7 +161,11 @@ class TestWriteFrameAdapter:
     def test_adaptation_of_dict_float(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt a dict of channel names to floats."""
         adapter, ch = adapter
-        o = adapter.adapt({ch.name: 1.0})
+        o = adapter.adapt(
+            {
+                ch.name: 1.0,
+            }
+        )
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key
@@ -187,7 +191,11 @@ class TestWriteFrameAdapter:
     def test_adaptation_of_channel_dict(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt a dict of channels to series."""
         adapter, ch = adapter
-        o = adapter.adapt({ch: 1.0})
+        o = adapter.adapt(
+            {
+                ch: 1.0,
+            }
+        )
         assert len(o.channels) == 1
         assert len(o.series) == 1
         assert o.channels[0] == ch.key
@@ -203,7 +211,8 @@ class TestWriteFrameAdapter:
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adaptation_of_multiple_payloads(
-        self, adapter: [WriteFrameAdapter, sy.Channel]
+        self,
+        adapter: [WriteFrameAdapter, sy.Channel],
     ):
         """Should correctly adapt multiple channels and a single list of values"""
         adapter, ch = adapter
@@ -212,7 +221,10 @@ class TestWriteFrameAdapter:
         assert o.series[0].data_type == sy.DataType.FLOAT64
         assert o.series[0][0] == 1.0
 
-    def test_adaptation_of_list(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_list(
+        self,
+        adapter: [WriteFrameAdapter, sy.Channel],
+    ):
         """Should correctly adapt a channel and a list of values"""
         adapter, ch = adapter
         o = adapter.adapt(ch, [1.0, 2.0, 3.0])

@@ -18,7 +18,10 @@ class Client:
     racks: rack.Client
 
     def __init__(
-        self, devices: device.Client, racks: rack.Client, tasks: task.Client
+        self,
+        devices: device.Client,
+        racks: rack.Client,
+        tasks: task.Client,
     ) -> None:
         self.tasks = tasks
         self.racks = racks

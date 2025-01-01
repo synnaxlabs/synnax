@@ -50,7 +50,10 @@ class TestTimeStamp:
             (1000, 1000),
             (TimeSpan.MILLISECOND * 2500, 2500000000),
             (105 * TimeSpan.MILLISECOND, 105 * TimeSpan.MILLISECOND),
-            (datetime.fromtimestamp(105, UTC), TimeStamp(105 * TimeSpan.SECOND)),
+            (
+                datetime.fromtimestamp(105, UTC),
+                TimeStamp(105 * TimeSpan.SECOND),
+            ),
             (_now, _now),
             (timedelta(seconds=105), TimeStamp(105 * TimeSpan.SECOND)),
             (np.datetime64(1000, "ms"), TimeStamp(1000 * TimeSpan.MILLISECOND)),
@@ -329,9 +332,18 @@ class TestTimeSpan:
     @pytest.mark.parametrize(
         "span, expected",
         [
-            (1.0, 1 * TimeSpan.SECOND),
-            (1, 1 * TimeSpan.SECOND),
-            (1 * TimeSpan.SECOND, 1 * TimeSpan.SECOND),
+            (
+                1.0,
+                1 * TimeSpan.SECOND,
+            ),
+            (
+                1,
+                1 * TimeSpan.SECOND,
+            ),
+            (
+                1 * TimeSpan.SECOND,
+                1 * TimeSpan.SECOND,
+            ),
         ],
     )
     def test_from_seconds(self, span, expected):
@@ -340,7 +352,12 @@ class TestTimeSpan:
         assert abc == TimeSpan(1 * TimeSpan.SECOND)
 
     @pytest.mark.parametrize(
-        "span, expected", [(1.0, 1.0), (1, 1), (1 * TimeSpan.MILLISECOND, 0.001)]
+        "span, expected",
+        [
+            (1.0, 1.0),
+            (1, 1),
+            (1 * TimeSpan.MILLISECOND, 0.001),
+        ],
     )
     def test_to_seconds(self, span, expected):
         """It should evaluate pure floats or integers as seconds"""
@@ -351,7 +368,11 @@ class TestTimeSpan:
 @pytest.mark.telem
 class TestRate:
     @pytest.mark.parametrize(
-        "crude, expected", [(TimeSpan.MILLISECOND, Rate(1000)), (1000, Rate(1000.0))]
+        "crude, expected",
+        [
+            (TimeSpan.MILLISECOND, Rate(1000)),
+            (1000, Rate(1000.0)),
+        ],
     )
     def test_construction(self, crude: CrudeRate, expected: Rate):
         assert Rate(crude) == expected
@@ -435,6 +456,9 @@ class TestSize:
     ],
 )
 def test_convert_time_units(
-    data: np.ndarray, from_: TimeSpanUnits, to: TimeSpanUnits, expected: int | float
+    data: np.ndarray,
+    from_: TimeSpanUnits,
+    to: TimeSpanUnits,
+    expected: int | float,
 ):
     assert convert_time_units(data, from_, to)[0] == expected

@@ -19,12 +19,22 @@ from synnax.io.tdms import TDMSReader
 
 BASE_DIR = pathlib.Path("./tests/testdata/io")
 
-VALID_FILE_CHANNELS = ["thermoCouple01", "gseTimestamp01", "autoOn", "strainGauge22"]
+VALID_FILE_CHANNELS = [
+    "thermoCouple01",
+    "gseTimestamp01",
+    "autoOn",
+    "strainGauge22",
+]
 
 
 @pytest.mark.io
 @pytest.mark.parametrize(
-    "path", ["valid.csv", "valid_extra_headers.csv", "valid_semicolon_separated.csv"]
+    "path",
+    [
+        "valid.csv",
+        "valid_extra_headers.csv",
+        "valid_semicolon_separated.csv",
+    ],
 )
 class TestRowFileReaders:
     @pytest.fixture

@@ -47,6 +47,8 @@ with client.open_streamer(read_from) as s:
             end = frame["stream_write_example_time"][0]
             tr = sy.TimeRange(start, end)
             client.ranges.create(
-                name="Data Exceeds Threshold", time_range=tr, color="#BA55D3"
+                name="Data Exceeds Threshold",
+                time_range=tr,
+                color="#BA55D3",
             )
             over_threshold = False

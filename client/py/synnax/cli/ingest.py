@@ -97,7 +97,10 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     cli.client.ranges.create(name=cli.name, time_range=TimeRange(cli.start, engine.end))
 
 
-def initialize_reader(ctx: Context, cli: IngestionCLI) -> str | None:
+def initialize_reader(
+    ctx: Context,
+    cli: IngestionCLI,
+) -> str | None:
     ctx.console.info("Welcome to the Synnax ingestion CLI! Let's get started.")
     if cli.path is None:
         ctx.console.info("Please select a file to ingest.")
@@ -219,7 +222,9 @@ def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
     cli.db_channels = list()
     for channel in cli.filtered_channels:
         ch = maybe_select_channel(
-            ctx, cli.client.channels.retrieve([channel.name]), channel.name
+            ctx,
+            cli.client.channels.retrieve([channel.name]),
+            channel.name,
         )
         if ch is None:
             cli.not_found.append(channel)
@@ -268,7 +273,9 @@ def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
 
 
 def create_indexes(
-    ctx: Context, cli: IngestionCLI, options: list[ChannelMeta]
+    ctx: Context,
+    cli: IngestionCLI,
+    options: list[ChannelMeta],
 ) -> list[ChannelMeta]:
     """Prompts the user to create index channels."""
     assert cli.client is not None
@@ -293,14 +300,18 @@ DATA_TYPE_OPTIONS = [
 
 
 def assign_data_type(
-    ctx: Context, cli: IngestionCLI
+    ctx: Context,
+    cli: IngestionCLI,
 ) -> dict[DataType, list[ChannelMeta]] | None:
     assert cli.not_found is not None
 
     grouped = {GROUP_ALL: cli.db_channels}
     assigned = {}
     ctx.console.info("Please select an option for assigning data types:")
-    opt, _ = ctx.console.select(rows=DATA_TYPE_OPTIONS, default=DATA_TYPE_OPTIONS[0])
+    opt, _ = ctx.console.select(
+        rows=DATA_TYPE_OPTIONS,
+        default=DATA_TYPE_OPTIONS[0],
+    )
     if opt == DATA_TYPE_OPTIONS[0]:
         data_types = read_data_types(ctx, cli)
         assigned = {}
@@ -327,7 +338,8 @@ def assign_data_type(
 
 
 def assign_index_or_rate(
-    ctx: Context, cli: IngestionCLI
+    ctx: Context,
+    cli: IngestionCLI,
 ) -> dict[Rate | str, list[ChannelMeta]] | None:
     """Prompts the user to assign an index/rate to the channels in the given
     group"""

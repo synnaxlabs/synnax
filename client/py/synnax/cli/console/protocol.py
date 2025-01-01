@@ -40,35 +40,51 @@ class Prompt(Protocol):
 class Print(Protocol):
     """A protocol class for an entity that can print messages to the console."""
 
-    def info(self, message: str) -> None:
+    def info(
+        self,
+        message: str,
+    ) -> None:
         """Prints an informational message to the console.
 
         :param message: The message to print.
         """
         ...
 
-    def warn(self, message: str) -> None:
+    def warn(
+        self,
+        message: str,
+    ) -> None:
         """Prints a warning message to the console.
 
         :param message: The message to print.
         """
         ...
 
-    def error(self, message: str) -> None:
+    def error(
+        self,
+        message: str,
+    ) -> None:
         """Prints an error message to the console.
 
         :param message: The message to print.
         """
         ...
 
-    def success(self, message: str) -> None:
+    def success(
+        self,
+        message: str,
+    ) -> None:
         """Prints a success message to the console.
 
         :param message: The message to print.
         """
         ...
 
-    def table(self, columns: list[str], rows: list[dict]):
+    def table(
+        self,
+        columns: list[str],
+        rows: list[dict],
+    ):
         """Prints a table to the console.
 
         :param columns: A list of column names.

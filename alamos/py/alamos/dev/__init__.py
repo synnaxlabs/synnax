@@ -22,12 +22,15 @@ def instrumentation() -> Instrumentation:
     a testing environment, such as using a session scoped fixture in conftest.py.
     """
     uptrace.configure_opentelemetry(
-        dsn=DEV_DSN, service_name="synnax", deployment_environment="dev"
+        dsn=DEV_DSN,
+        service_name="synnax",
+        deployment_environment="dev",
     )
     return Instrumentation(
         key="dev",
         service_name="synnax",
         tracer=Tracer(
-            otel_provider=get_tracer_provider(), otel_propagator=get_global_textmap()
+            otel_provider=get_tracer_provider(),
+            otel_propagator=get_global_textmap(),
         ),
     )

@@ -43,7 +43,9 @@ client.hardware.create_task(
             type="opcuaReader",
             config=json.dumps(
                 {
-                    "connection": {"endpoint": "opc.tcp://0.0.0.0:4840"},
+                    "connection": {
+                        "endpoint": "opc.tcp://0.0.0.0:4840",
+                    },
                     "rate": 1,
                     "channels": [{"ns": 1, "node": "the.answer", "key": ch_data.key}],
                 }

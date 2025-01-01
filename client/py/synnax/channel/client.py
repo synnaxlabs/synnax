@@ -104,10 +104,17 @@ class Channel(ChannelPayload):
         self.__client = _client
 
     @overload
-    def read(self, start_or_range: TimeRange) -> Series: ...
+    def read(
+        self,
+        start_or_range: TimeRange,
+    ) -> Series: ...
 
     @overload
-    def read(self, start_or_range: CrudeTimeStamp, end: CrudeTimeStamp) -> Series: ...
+    def read(
+        self,
+        start_or_range: CrudeTimeStamp,
+        end: CrudeTimeStamp,
+    ) -> Series: ...
 
     def read(
         self,
@@ -293,7 +300,10 @@ class ChannelClient:
     def retrieve(self, channel: ChannelKey | ChannelName) -> Channel: ...
 
     @overload
-    def retrieve(self, channel: ChannelKeys | ChannelNames) -> list[Channel]: ...
+    def retrieve(
+        self,
+        channel: ChannelKeys | ChannelNames,
+    ) -> list[Channel]: ...
 
     def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.
@@ -369,7 +379,8 @@ class ChannelClient:
 
 
 def _multiple_results_error(
-    channel: ChannelParams, results: list[ChannelPayload]
+    channel: ChannelParams,
+    results: list[ChannelPayload],
 ) -> MultipleFoundError:
     msg = f"""
 

@@ -12,7 +12,12 @@ from typing import List, Literal, Union, Optional, Dict
 from uuid import uuid4
 
 from synnax import ValidationError
-from synnax.hardware.task import Task, MetaTask, StarterStopperMixin, JSONConfigMixin
+from synnax.hardware.task import (
+    Task,
+    MetaTask,
+    StarterStopperMixin,
+    JSONConfigMixin,
+)
 from synnax.telem import CrudeRate
 import json
 

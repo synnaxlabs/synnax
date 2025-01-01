@@ -12,9 +12,13 @@ from pathlib import Path
 from synnax.io.csv import CSVReader, CSVWriter
 from synnax.io.protocol import FileWriter, RowFileReader
 
-READERS: list[type[RowFileReader]] = [CSVReader]
+READERS: list[type[RowFileReader]] = [
+    CSVReader,
+]
 
-WRITERS: list[type[FileWriter]] = [CSVWriter]
+WRITERS: list[type[FileWriter]] = [
+    CSVWriter,
+]
 
 
 class IOFactory:

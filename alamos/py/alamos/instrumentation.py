@@ -9,7 +9,13 @@
 
 from __future__ import annotations
 
-from typing import Callable, TypeVar, Protocol, Concatenate, ParamSpec
+from typing import (
+    Callable,
+    TypeVar,
+    Protocol,
+    Concatenate,
+    ParamSpec,
+)
 
 from alamos.environment import Environment
 from alamos.log import Logger, NOOP_LOGGER
@@ -52,7 +58,11 @@ class Instrumentation:
         logger: Logger = NOOP_LOGGER,
         tracer: Tracer = NOOP_TRACER,
     ):
-        self.Meta = InstrumentationMeta(key=key, path=key, service_name=service_name)
+        self.Meta = InstrumentationMeta(
+            key=key,
+            path=key,
+            service_name=service_name,
+        )
         self.L = logger
         self.L.meta = self.Meta
         self.T = tracer
@@ -69,7 +79,9 @@ class Instrumentation:
         """
         meta = self.Meta.child_(key)
         ins = Instrumentation(
-            key=meta.key, logger=self.L.child_(meta), tracer=self.T.child_(meta)
+            key=meta.key,
+            logger=self.L.child_(meta),
+            tracer=self.T.child_(meta),
         )
         ins.Meta = meta
         return ins
