@@ -35,7 +35,6 @@ struct WriterChannelConfig {
     UA_NodeId node;
     /// @brief the corresponding channel key to write the variable for the node from.
     ChannelKey cmd_channel;
-    ChannelKey state_channel;
     bool enabled;
     /// @brief the channel fetched from the Synnax server. This does not need to
     /// be provided via the JSON configuration.
