@@ -182,12 +182,10 @@ export const URL = ({
         .split("-")
         .map((el) => caseconv.capitalize(el))
         .join(" "),
-      href:
-        "/" +
-        url
-          .split(separator)
-          .slice(0, idx + 1)
-          .join("/"),
+      href: `/${url
+        .split(separator)
+        .slice(0, idx + 1)
+        .join("/")}`,
     }),
   });
   return (

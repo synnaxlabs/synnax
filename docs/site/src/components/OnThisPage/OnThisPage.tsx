@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/media";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
@@ -15,8 +16,6 @@ import { unescape } from "html-escaper";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { OSSelectButton } from "@/components/platform/PlatformTabs";
-import { Icon } from "@synnaxlabs/media";
-import { transform } from "node_modules/@synnaxlabs/x/dist/src/spatial/scale/scale";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 

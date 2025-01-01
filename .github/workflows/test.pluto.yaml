@@ -45,4 +45,4 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm cov:pluto
+        run: pnpm test:pluto

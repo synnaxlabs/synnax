@@ -101,18 +101,9 @@ jobs:
         working-directory: ./client/py
 
       - name: Test
-        run: pytest --cov=freighter --cov-report xml:coverage.xml
+        run: pytest
         if: steps.filter.outputs.changed == 'true'
         working-directory: ./client/py
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./client/py
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: clientpy
 
     services:
       synnax:
@@ -170,16 +161,7 @@ jobs:
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm cov:client
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./client/ts
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: clientts
+        run: pnpm test:client
 
     services:
       synnax:
