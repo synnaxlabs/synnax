@@ -87,8 +87,6 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		return d, err
 	}
 
-	d.Ontology.RegisterService(d.Group)
-
 	nodeOntologySvc := &cluster.NodeOntologyService{
 		Ontology: d.Ontology,
 		Cluster:  d.Cluster,

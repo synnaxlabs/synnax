@@ -25,10 +25,19 @@ type Writer struct {
 }
 
 func (w Writer) Create(ctx context.Context, d Device) (err error) {
-	if err := d.Validate(); err != nil {
-		return err
+	if err = d.Validate(); err != nil {
+		return
+	}
+	exists, err := gorp.NewRetrieve[string, Device]().WhereKeys(d.Key).Exists(ctx, w.tx)
+	if err != nil {
+		return
 	}
 	if err = gorp.NewCreate[string, Device]().Entry(&d).Exec(ctx, w.tx); err != nil {
+		return
+	}
+	// If the device already exists, don't redefine the resource and relationship in
+	// the ontology, as to not mess with existing groups or relationships.
+	if exists {
 		return
 	}
 	otgID := OntologyID(d.Key)

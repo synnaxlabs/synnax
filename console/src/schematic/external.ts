@@ -17,6 +17,7 @@ export * from "@/schematic/Schematic";
 export * from "@/schematic/selectors";
 export * from "@/schematic/slice";
 export * from "@/schematic/toolbar";
+export * from "@/schematic/useRangeSnapshot";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Schematic,

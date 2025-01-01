@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/alamos",
-  "version": "0.36.0",
+  "version": "0.37.0",
   "type": "module",
   "description": "Distributed instrumentation for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
@@ -27,18 +27,13 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/context-zone": "^1.26.0",
-    "@opentelemetry/instrumentation-document-load": "^0.40.0",
-    "@opentelemetry/sdk-trace-web": "^1.26.0",
-    "@synnaxlabs/x": "workspace:*",
-    "@uptrace/node": "^1.21.0",
-    "@uptrace/web": "^1.21.0"
+    "@synnaxlabs/x": "workspace:*"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@vitest/coverage-v8": "^2.1.8",
-    "eslint": "^9.16.0",
+    "eslint": "^9.17.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",

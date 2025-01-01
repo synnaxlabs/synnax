@@ -9,8 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Button, Header, Status, Tabs } from "@synnaxlabs/pluto";
-import { Text } from "@synnaxlabs/pluto/text";
+import { Align, Breadcrumb, Button, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -19,9 +18,9 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { useExport } from "@/schematic/file";
 import {
-  useSelect,
   useSelectControlStatus,
   useSelectHasPermission,
+  useSelectIsSnapshot,
   useSelectOptional,
   useSelectSelectedElementNames,
   useSelectToolbar,
@@ -31,14 +30,8 @@ import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
 
 const TABS = [
-  {
-    tabKey: "symbols",
-    name: "Symbols",
-  },
-  {
-    tabKey: "properties",
-    name: "Properties",
-  },
+  { tabKey: "symbols", name: "Symbols" },
+  { tabKey: "properties", name: "Properties" },
 ];
 
 interface NotEditableContentProps extends ToolbarProps {}
@@ -46,16 +39,17 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const canEdit = useSelectHasPermission();
+  const hasEditingPermissions = useSelectHasPermission();
+  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
-
   return (
     <Align.Center direction="x" size="small">
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
-        {canEdit ? " To make changes," : ""}
+        {isEditable ? " To make changes," : ""}
       </Status.Text>
-      {canEdit && (
+      {isEditable && (
         <Text.Link
           onClick={(e) => {
             e.stopPropagation();
@@ -83,7 +77,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const state = useSelectOptional(layoutKey);
   const handleExport = useExport(name);
   const selectedNames = useSelectSelectedElementNames(layoutKey);
-
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       if (!state?.editable) return <NotEditableContent layoutKey={layoutKey} />;
@@ -96,16 +89,13 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [layoutKey, state?.editable],
   );
-
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
     },
     [dispatch],
   );
-
   const canEdit = useSelectHasPermission();
-  if (state == null) return null;
   const breadCrumbSegments: Breadcrumb.Segments = [
     {
       label: name,
@@ -122,7 +112,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       shade: 7,
       level: "p",
     });
-
+  if (state == null) return null;
   return (
     <Tabs.Provider
       value={{
@@ -136,11 +126,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <Align.Space direction="x" empty>
           <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         </Align.Space>
-
         <Align.Space direction="x" align="center" empty>
           <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
             <Button.Icon
-              tooltip={`Export ${name}`}
+              tooltip={"Export"}
               sharp
               size="medium"
               style={{ height: "100%" }}

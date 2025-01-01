@@ -8,15 +8,16 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { toArray } from "@synnaxlabs/x";
 
 import * as latest from "@/cluster/migrations";
 
+export const clusterZ = latest.clusterZ;
 export type Cluster = latest.Cluster;
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
-export const LOCAL_CLUSTER_KEY = latest.LOCAL_CLUSTER_KEY;
-export const isLocalCluster = latest.isLocalCluster;
+const getPredefinedClusterKey = latest.getPredefinedClusterKey;
 
 export const SLICE_NAME = "cluster";
 
@@ -29,24 +30,30 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = `${SLICE_NAME}.localState.status`;
-
 /** Signature for the setCluster action. */
 export type SetPayload = Cluster;
 
 /** Signature for the setActiveCluster action. */
 export type SetActivePayload = string | null;
 
-export interface RemovePayload {
-  keys: string[];
-}
+export type RemovePayload = string | string[];
 
 export interface RenamePayload {
   key: string;
   name: string;
 }
 
-export const {
+export interface ChangeKeyPayload {
+  oldKey: string;
+  newKey: string;
+}
+
+const checkName = (state: SliceState, name: string) => {
+  if (Object.values(state.clusters).some((c) => c.name === name))
+    throw new Error(`A cluster with the name ${name} already exists.`);
+};
+
+const {
   actions,
   /**
    * The reducer for the cluster slice.
@@ -57,20 +64,29 @@ export const {
   initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (state, { payload: cluster }: PayloadAction<SetPayload>) => {
+      checkName(state, cluster.name);
+      const predefinedKey = getPredefinedClusterKey(cluster);
+      if (predefinedKey != null) delete state.clusters[predefinedKey];
       state.clusters[cluster.key] = cluster;
       state.activeCluster ??= cluster.key;
     },
-    remove: ({ clusters }, { payload: { keys } }: PayloadAction<RemovePayload>) => {
-      for (const key of keys) delete clusters[key];
-    },
+    remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) =>
+      toArray(keys).forEach((key) => delete clusters[key]),
     setActive: (state, { payload: key }: PayloadAction<SetActivePayload>) => {
       state.activeCluster = key;
     },
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
-      const cluster = state.clusters[key];
-      if (cluster == null) return;
-      cluster.name = name;
-      if (cluster.props != null) cluster.props.name = name;
+      checkName(state, name);
+      state.clusters[key].name = name;
+    },
+    changeKey: (
+      state,
+      { payload: { oldKey, newKey } }: PayloadAction<ChangeKeyPayload>,
+    ) => {
+      const cluster = state.clusters[oldKey];
+      delete state.clusters[oldKey];
+      state.clusters[newKey] = { ...cluster, key: newKey };
+      if (state.activeCluster === oldKey) state.activeCluster = newKey;
     },
   },
 });
@@ -88,8 +104,9 @@ export const {
   setActive,
   remove,
   rename,
+  changeKey,
 } = actions;
 
-export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
+export { reducer };
 
-export type Payload = Action["payload"];
+export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

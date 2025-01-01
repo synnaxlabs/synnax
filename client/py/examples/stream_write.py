@@ -1,4 +1,4 @@
-#  Copyright 2023 Synnax Labs, Inc.
+#  Copyright 2024 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -7,39 +7,38 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-
 """
 This example demonstrates how to write data to an index channel and its corresponding
-data channel in Synnax in a streaming fashion. Streaming data is ideal for live
-applications (such as data acquisition from a sensor) or for very large datasets that
-cannot be written all at once.
+data channels in Synnax in a streaming fashion. Streaming data is ideal for live
+applications, such as data acquisition from a sensor.
 """
 
 import numpy as np
 import synnax as sy
 
-# We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+# We've logged in via the command-line interface, so there's no need to provide
+# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
 # Create an index channel that will be used to store our timestamps.
-time_ch = client.channels.create(
-    name="stream_write_example_time",
+time_channel = client.channels.create(
+    name="stream_write_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 
-# Create two data channels that will be used to store our data values. We'll write to
-data_ch_1 = client.channels.create(
-    name="stream_write_example_data_1",
-    index=time_ch.key,
+# Create two data channels that will be used to store our data values. We'll need to
+# pass in the key of the time channel to these data channels when they are created
+data_channel_1 = client.channels.create(
+    name="stream_write_data_1",
+    index=time_channel.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
-data_ch_2 = client.channels.create(
-    name="stream_write_example_data_2",
-    index=time_ch.key,
+data_channel_2 = client.channels.create(
+    name="stream_write_data_2",
+    index=time_channel.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
@@ -48,26 +47,27 @@ data_ch_2 = client.channels.create(
 # just before the first timestamp we write.
 start = sy.TimeStamp.now()
 
-# Set a rough data rate of 20 Hz. This won't be exact because we're sleeping for a
-# fixed amount of time, but it's close enough for demonstration purposes.
+# Set a data rate of 20 Hz. This won't be an exact loop and could drift over long
+# periods of time, but it works well for a demonstration.
 loop = sy.Loop(sy.Rate.HZ * 20)
 
-# Open the writer as a context manager. This will make sure the writer is properly
-# closed when we're done writing. We'll write to both the time and data channels. In
-# this example, we provide the keys of the channels we want to write to, but you can
-# also provide the names and write that way.
-start = sy.TimeStamp.now()
+# Open the writer as a context manager. Using a context manager is recommended as the
+# context manager will automatically close the writer when we are done writing. We will
+# write to both the time and data channels. To choose the channels to write to, you can
+# use either the keys or the names of the channels (here, we're using the keys).
 with client.open_writer(
-    start, [time_ch.key, data_ch_1.key, data_ch_2.key], enable_auto_commit=True
+    start,
+    [time_channel.key, data_channel_1.key, data_channel_2.key],
+    enable_auto_commit=True,
 ) as writer:
     i = 0
     while loop.wait():
-        # Write the data to the writer
+        # Write the data to the Synnax cluster using the writer.
         writer.write(
             {
-                time_ch.key: np.int64(sy.TimeStamp.now()),
-                data_ch_1.key: np.float32(np.sin(i / 10)) * 25 + 12.5,
-                data_ch_2.key: i % 2,
+                time_channel.key: sy.TimeStamp.now(),
+                data_channel_1.key: np.sin(i / 10) * 25 + 12.5,
+                data_channel_2.key: i % 2,
             }
         )
         i += 1

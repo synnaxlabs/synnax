@@ -90,13 +90,16 @@ const useSyncComponent = (
     layoutKey,
     async (ws, store, client) => {
       const storeState = store.getState();
+      if (!selectHasPermission(storeState)) return;
       const data = select(storeState, layoutKey);
-      if (data == null || data.snapshot) return;
+      if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
-      const setData = { ...data, key: undefined, snapshot: undefined };
+      if (data.snapshot) {
+        await client.workspaces.schematic.rename(layoutKey, layout.name);
+        return;
+      }
+      const setData = { ...data, key: undefined };
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      const canSave = selectHasPermission(storeState);
-      if (!canSave) return;
       await client.workspaces.schematic.create(ws, {
         key: layoutKey,
         name: layout.name,

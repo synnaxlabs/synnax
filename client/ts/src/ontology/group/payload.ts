@@ -9,6 +9,7 @@
 
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
+
 import { ontology } from "@/ontology";
 
 export const keyZ = z.string().uuid();

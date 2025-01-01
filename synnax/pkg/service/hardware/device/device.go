@@ -12,6 +12,7 @@
 package device
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -46,6 +47,9 @@ func (d Device) GorpKey() string { return d.Key }
 
 // SetOptions implements gorp.Entry.
 func (d Device) SetOptions() []interface{} { return nil }
+
+// OntologyID returns the unique ID for the device within the ontology.
+func (d Device) OntologyID() ontology.ID { return OntologyID(d.Key) }
 
 // Validate validates the device for creation.
 func (d Device) Validate() error {

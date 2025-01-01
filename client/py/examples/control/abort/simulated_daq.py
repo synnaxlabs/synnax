@@ -8,28 +8,28 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-import time
 
 """
-This is a simple simulated data acquisition computer that has two valves and a single
-pressure sensor. When the press valve is open (press_vlv), the pressure increases. When
-the vent valve is open (vent_vlv), the pressure decreases. The pressure is sampled at a
+This is a simple simulated data acquisition computer (DAQ) that has two valves and a
+single pressure sensor. When the press valve is open (press_vlv), the pressure
+increases. When the vent valve is open (vent_vlv), the pressure decreases. The pressure
+(sensor_0) is sampled at a rate of 50 Hz.
 
-Valves (or any commanded actuator), typically has three associated channels:
+Valves (or any commanded actuator), typically have three associated channels:
 
 1. The command channel - this is where commands are sent down to actuate the valve.
 2. The command channel time - stores the timestamps for the command channel,
 and 'indexes' the command channel.
 3. The state channel - this is where the state of the valve is stored. The DAQ updates
-this value when a command is executed. The state channel is indexed by the regular
-DAQ timestamp channel.
+this value when a command is executed. The state channel is indexed by the regular DAQ
+timestamp channel.
 
 If you want to add another valve to your simulation, follow the same pattern explained
 above using the code below as reference.
 """
 
-# We've logged in via the CLI, so there's no need to provide credentials here. See
-# https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+# We've logged in via the command-line interface, so there's no need to provide
+# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
 # This will store the timestamps for the samples recorded by the simulated DAQ.
@@ -52,9 +52,9 @@ pressure = client.channels.create(
 # Stores the state of the press valve.
 press_vlv_state = client.channels.create(
     name="press_vlv_state",
-    # Again, notice that we're storing the timestamps in the 'daq_time' channel. This
-    # is because the DAQ samples from the pressure, vent valve state, and press valve
-    # state channels at the same time.
+    # Again, notice that we're storing the timestamps in the 'daq_time' channel. This is
+    # because the DAQ samples from the pressure, vent valve state, and press valve state
+    # channels at the same time.
     index=daq_time_ch.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
@@ -78,8 +78,8 @@ press_vlv_cmd_time_ch = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# An independent time channel for the vent valve command, because it doesn't
-# necessarily get emitted in sync with any other channels.
+# An independent time channel for the vent valve command, because it doesn't necessarily
+# get emitted in sync with any other channels.
 vent_vlv_cmd_time_ch = client.channels.create(
     name="vent_vlv_cmd_time",
     is_index=True,
@@ -97,11 +97,11 @@ vent_vlv_cmd_ch = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# Channel for the press valve command. This is the index channel for the press valve
-# command, completely independent of the
+# Channel for the press valve command.
 press_vlv_cmd_ch = client.channels.create(
     name="press_vlv_cmd",
     # This is the index channel for the press valve command, completely independent of
+    # the other channels
     index=press_vlv_cmd_time_ch.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
@@ -120,28 +120,23 @@ loop = sy.Loop(sy.Rate.HZ * 50)
 with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
     with client.open_writer(
         sy.TimeStamp.now(),
-        channels=[
-            "daq_time",
-            "pressure",
-            "press_vlv_state",
-            "vent_vlv_state",
-        ],
+        channels=["daq_time", "pressure", "press_vlv_state", "vent_vlv_state"],
         name="Simulated DAQ",
         enable_auto_commit=True,
     ) as writer:
         while loop.wait():
             while True:
                 # Read incoming commands with a non-blocking timeout.
-                f = streamer.read(0)
+                frame = streamer.read(0)
                 # Means we don't have any new data.
-                if f is None:
+                if frame is None:
                     break
                 # If the press valve has been commanded, update its state.
-                if "press_vlv_cmd" in f:
-                    state["press_vlv_state"] = f["press_vlv_cmd"][-1]
+                if "press_vlv_cmd" in frame:
+                    state["press_vlv_state"] = frame["press_vlv_cmd"][-1]
                 # If the vent valve has been commanded, update its state.
-                if "vent_vlv_cmd" in f:
-                    state["vent_vlv_state"] = f["vent_vlv_cmd"][-1]
+                if "vent_vlv_cmd" in frame:
+                    state["vent_vlv_state"] = frame["vent_vlv_cmd"][-1]
 
             state["daq_time"] = sy.TimeStamp.now()
 

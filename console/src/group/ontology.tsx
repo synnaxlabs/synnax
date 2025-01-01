@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, group } from "@synnaxlabs/client";
+import { group, NotFoundError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
@@ -70,13 +70,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const UngroupMenuItem = (): ReactElement => (
-  <PMenu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
-    Ungroup
-  </PMenu.Item>
-);
-
-const createNewID = (): ontology.ID => new ontology.ID({ type: "group", key: uuid() });
+const createNewID = (): ontology.ID => group.ontologyID(uuid());
 
 export interface GroupMenuItemProps {
   selection: Ontology.TreeContextMenuProps["selection"];

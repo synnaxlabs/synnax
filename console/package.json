@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.36.2",
+  "version": "0.37.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -21,9 +21,9 @@
     "@reduxjs/toolkit": "^2.5.0",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/drift": "workspace:*",
+    "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
-    "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
     "@tauri-apps/api": "^2.1.1",
@@ -46,14 +46,14 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@eslint/compat": "^1.2.0",
+    "@eslint/compat": "^1.2.4",
     "@synnaxlabs/tsconfig": "workspace:*",
     "@tauri-apps/cli": "^2.1.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "eslint": "^9.16.0",
+    "eslint": "^9.17.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.7.2",

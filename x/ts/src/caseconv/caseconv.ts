@@ -77,6 +77,13 @@ const camelToSnakeStr = (str: string): string =>
   // Don't convert the first character and don't convert a character that is after a
   // non-alphanumeric character
   str.replace(/([a-z0-9])([A-Z])/g, (_, p1, p2) => `${p1}_${p2.toLowerCase()}`);
+
+/**
+ * Converts a camelCase string to snake_case.
+ *
+ * @param str - The string to convert
+ * @returns The converted string in snake_case
+ */
 export const camelToSnake = createConverter(camelToSnakeStr);
 
 /**
@@ -109,22 +116,44 @@ export interface Options {
 /**
  * Default options for convert function. This option is not recursive.
  */
-export const defaultOptions: Options = {
+const defaultOptions: Options = {
   recursive: true,
   recursiveInArray: true,
   keepTypesOnRecursion: [Number, String, Uint8Array],
 };
 
-export const validateOptions = (opt: Options = defaultOptions): Options => {
+const validateOptions = (opt: Options = defaultOptions): Options => {
   if (opt.recursive == null) opt = defaultOptions;
   else opt.recursiveInArray ??= false;
   return opt;
 };
 
-export const isArrayObject = (obj: any): boolean => obj != null && Array.isArray(obj);
+const isArrayObject = (obj: any): boolean => obj != null && Array.isArray(obj);
 
-export const isValidObject = (obj: any): boolean =>
+const isValidObject = (obj: any): boolean =>
   obj != null && typeof obj === "object" && !Array.isArray(obj);
 
-export const belongToTypes = (obj: any, types?: any[]): boolean =>
+const belongToTypes = (obj: any, types?: any[]): boolean =>
   (types || []).some((Type) => obj instanceof Type);
+
+/**
+ * Converts a string to kebab-case.
+ * Handles spaces, camelCase, and uppercase characters.
+ *
+ * @param str - The string to convert
+ * @returns The converted string in kebab-case
+ */
+const toKebabStr = (str: string): string =>
+  str
+    .replace(/\s+/g, "-")
+    .replace(/([a-z0-9])([A-Z])/g, (_, p1, p2) => `${p1}-${p2.toLowerCase()}`)
+    .toLowerCase();
+
+/**
+ * Converts a string to kebab-case.
+ * Handles spaces, camelCase, and uppercase characters.
+ *
+ * @param str - The string to convert
+ * @returns The converted string in kebab-case
+ */
+export const toKebab = createConverter(toKebabStr);
