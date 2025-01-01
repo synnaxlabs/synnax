@@ -3,9 +3,7 @@ name = "synnax-freighter"
 version = "0.37.0"
 description = ""
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
-packages = [
-    { include = "freighter/**/*.py" }
-]
+packages = [{ include = "freighter/**/*.py" }]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -14,9 +12,6 @@ pytest-cov = "^5.0.0"
 black = "^24.10.0"
 mypy = "^1.3.0"
 isort = "^5.10.1"
-
-[tool.black]
-skip-magic-trailing-comma = true
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -40,8 +35,5 @@ build-backend = "poetry.core.masonry.api"
 markers = [
     "ws: mark test as a websocket test",
     "http: mark test as an http test",
-    "sync: mark test as a sync test"
+    "sync: mark test as a sync test",
 ]
-
-
-
