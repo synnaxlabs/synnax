@@ -230,7 +230,14 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
         except KeyboardInterrupt:
             log(ctrl, "Test interrupted. Safeing System")
-            ctrl.set({TPC_CMD: 1, SUPPLY_CMD: 0, VENT_CMD: 0, MPV_CMD: 1})
+            ctrl.set(
+                {
+                    TPC_CMD: 1,
+                    SUPPLY_CMD: 0,
+                    VENT_CMD: 0,
+                    MPV_CMD: 1,
+                }
+            )
 
 
 def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:

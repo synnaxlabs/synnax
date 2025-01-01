@@ -373,4 +373,10 @@ class Client:
         return sug[0] if is_single else sug
 
     def sugar(self, tasks: list[Payload]):
-        return [Task(**t.dict(), _frame_client=self._frame_client) for t in tasks]
+        return [
+            Task(
+                **t.dict(),
+                _frame_client=self._frame_client,
+            )
+            for t in tasks
+        ]
