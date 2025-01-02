@@ -32,7 +32,7 @@ export const importLinePlotCommand: Command = {
     const activeWorkspaceKey = Workspace.selectActiveKey(state);
     importPlot({
       activeWorkspaceKey,
-      placer: placeLayout,
+      place: placeLayout,
       dispatch: store.dispatch,
       ...props,
     });

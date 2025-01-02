@@ -150,7 +150,7 @@ export const Mosaic = memo((): ReactElement => {
   const store = useStore();
   const activeTab = useSelectActiveMosaicTabKey();
   const client = Synnax.use();
-  const placer = usePlacer();
+  const place = usePlacer();
   const dispatch = useDispatch();
   const addStatus = Status.useAggregator();
 
@@ -164,7 +164,7 @@ export const Mosaic = memo((): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        placer(
+        place(
           createSelector({
             tab: { mosaicKey, location },
             location: "mosaic",
@@ -183,11 +183,11 @@ export const Mosaic = memo((): ReactElement => {
             id,
             nodeKey: mosaicKey,
             location,
-            placeLayout: placer,
+            placeLayout: place,
             addStatus,
           });
         } else
-          placer(
+          place(
             createSelector({
               tab: { mosaicKey, location },
               location: "mosaic",
@@ -195,7 +195,7 @@ export const Mosaic = memo((): ReactElement => {
           );
       });
     },
-    [placer, store, client, addStatus],
+    [place, store, client, addStatus],
   );
 
   LinePlot.useTriggerHold({
@@ -253,7 +253,7 @@ export const Mosaic = memo((): ReactElement => {
               if (
                 await fileHandler({
                   file: fileAsJSON,
-                  placer,
+                  place,
                   name,
                   store,
                   confirm,

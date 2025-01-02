@@ -15,7 +15,7 @@ export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
-  placer,
+  place,
   addStatus,
 }): Promise<boolean> => {
   if (resource !== "table") return false;
@@ -26,7 +26,7 @@ export const linkHandler: Link.Handler = async ({
       key: table.key,
       name: table.name,
     });
-    placer(layoutCreator);
+    place(layoutCreator);
   } catch (e) {
     addStatus({
       variant: "error",

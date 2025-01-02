@@ -34,7 +34,7 @@ export const importSchematicCommand: Command = {
     const activeWorkspaceKey = Workspace.selectActiveKey(state);
     importSchematic({
       activeWorkspaceKey,
-      placer: placeLayout,
+      place: placeLayout,
       dispatch: store.dispatch,
       ...props,
     });

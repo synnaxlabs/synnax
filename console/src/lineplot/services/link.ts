@@ -15,7 +15,7 @@ export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
-  placer,
+  place,
   addStatus,
 }): Promise<boolean> => {
   if (resource !== "lineplot") return false;
@@ -26,7 +26,7 @@ export const linkHandler: Link.Handler = async ({
       key: linePlot.key,
       name: linePlot.name,
     });
-    placer(layoutCreator);
+    place(layoutCreator);
   } catch (e) {
     addStatus({
       variant: "error",

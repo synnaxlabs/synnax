@@ -100,7 +100,7 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
   const ranges = useSelectRanges(layoutKey);
@@ -309,7 +309,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
     const s = scale.Scale.scale<number>(1).scale(bounds);
-    const placer = Layout.usePlacer();
+    const place = Layout.usePlacer();
 
     const timeRange = new TimeRange(
       s.pos(box.left(selection)),
@@ -334,7 +334,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           );
           break;
         case "range":
-          placer(
+          place(
             Range.createLayout({
               initial: {
                 timeRange: {
@@ -422,7 +422,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                     download({ client, lines, timeRange, name });
                     break;
                   case "meta-data":
-                    placer({ ...Range.overviewLayout, name, key });
+                    place({ ...Range.overviewLayout, name, key });
                     break;
                   case "line-plot":
                     addRangeToNewPlot(key);

@@ -113,7 +113,7 @@ interface SetHaulingPayload extends Haul.DraggingState {}
 export interface FileHandlerProps {
   file: any;
   name: string;
-  placer: Placer;
+  place: Placer;
   store: Store;
   confirm: CreateConfirmModal;
   client: Synnax | null;

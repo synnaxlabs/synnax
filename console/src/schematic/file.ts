@@ -25,7 +25,7 @@ import { Workspace } from "@/workspace";
 
 export const fileHandler: Layout.FileHandler = async ({
   file,
-  placer,
+  place,
   tab,
   dispatch,
   client,
@@ -71,7 +71,7 @@ export const fileHandler: Layout.FileHandler = async ({
     dispatch(Layout.remove({ keys: [key] }));
     dispatch(remove({ keys: [key] }));
   }
-  placer(creator);
+  place(creator);
   if (client == null) return true;
 
   // Logic for changing the schematic in the cluster
@@ -147,7 +147,7 @@ export const importSchematic = async ({
   workspaceKey,
   activeWorkspaceKey,
   store,
-  placer,
+  place,
   confirm,
   client,
   dispatch,
@@ -181,7 +181,7 @@ export const importSchematic = async ({
     if (
       !(await fileHandler({
         file,
-        placer,
+        place,
         name: fileName,
         store,
         confirm,
@@ -209,7 +209,7 @@ export const useImport = (workspaceKey?: string): (() => void) => {
         workspaceKey,
         activeWorkspaceKey,
         store,
-        placer: placeLayout,
+        place: placeLayout,
         confirm,
         client,
         dispatch,

@@ -25,7 +25,7 @@ import { Workspace } from "@/workspace";
 
 export const fileHandler: Layout.FileHandler = async ({
   file,
-  placer,
+  place,
   tab,
   dispatch,
   client,
@@ -66,7 +66,7 @@ export const fileHandler: Layout.FileHandler = async ({
     dispatch(Layout.remove({ keys: [key] }));
     dispatch(remove({ keys: [key] }));
   }
-  placer(creator);
+  place(creator);
   if (client == null) return true;
 
   // Logic for changing the line plot in the cluster
@@ -140,7 +140,7 @@ export const importPlot = async ({
   dispatch,
   confirm,
   client,
-  placer,
+  place,
 }: ImportPlotProps) => {
   const paths = await open({
     title: "Import line plot",
@@ -172,7 +172,7 @@ export const importPlot = async ({
     if (
       !(await fileHandler({
         file,
-        placer,
+        place,
         name: fileName,
         store,
         confirm,
@@ -203,7 +203,7 @@ export const useImport = (workspaceKey?: string): (() => void) => {
         dispatch,
         confirm,
         client,
-        placer: placeLayout,
+        place: placeLayout,
       });
     },
     onError: (err) =>
