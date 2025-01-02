@@ -111,10 +111,11 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		// If our store isn't valid, and we haven't received peers, assume we're
 		// bootstrapping a new Cluster.
 		c.SetHost(ctx, node.Node{Key: 1, Address: c.HostAddress})
-		c.SetClusterKey(ctx, uuid.New())
-		c.L.Info("no peers provided, bootstrapping new cluster")
+		clusterKey := uuid.New()
+		c.SetClusterKey(ctx, clusterKey)
+		c.L.Info("no peers provided, bootstrapping new cluster", zap.Stringer("cluster_key", clusterKey))
 		c.Pledge.ClusterKey = c.Key()
-		if err := pledge_.Arbitrate(c.Pledge); err != nil {
+		if err = pledge_.Arbitrate(c.Pledge); err != nil {
 			return c, err
 		}
 	}
