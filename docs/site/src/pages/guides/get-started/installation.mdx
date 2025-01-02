@@ -1,0 +1,255 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Installing Synnax"
+description: "Install the Synnax core components."
+---
+
+import { Align, Note, Divider } from "@synnaxlabs/pluto";
+import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
+import { Image, Video } from "@/components/Media";
+import { PlatformTabs } from "@/components/platform/PlatformTabs";
+import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
+import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The first step to getting started with Synnax is to install the three key components:
+the [Console](/reference/console/get-started),
+[Cluster](/reference/cluster/quick-start),
+and [Python Client](/reference/python-client/get-started).
+
+<Divider.Divider direction="x" />
+
+## Install the Console
+
+The console is our primary user interface for interacting with a Synnax deployment.
+We can set up visualizations to observe data, integrate and configure data acquisition
+devices, and manually control actuators on our system. Here's the link to download the
+latest version of the console for your OS:
+
+<br />
+<br />
+<Align.Space direction="y" justify="center" align="center">
+  <SynnaxConsoleDownloadButton client:load />
+</Align.Space>
+<br />
+<br />
+
+After downloading and running the installer, you'll see a splash screen that looks like this:
+
+<Image id="console/get-started/window" client:only="react" />
+
+### Plotting Demo Data
+
+To make sure everything is working correctly, we'll plot some live data. Our team has
+a demo cluster running in the cloud that we can connect to. Head to the cluster
+dropdown in the bottom left corner, and select the cluster named `Demo`.
+
+<Video client:only="react" id="console/clusters/switch" />
+
+You'll see the connection status badge on the right turn blue, indicating that the
+connection is healthy.
+
+Next, click on the workspace selector in the top right corner of the screen. This
+will open a dropdown menu where we can select the workspace we want to use. Choose
+the "Demo" workspace. You'll see the console automatically re-configure it's layout
+to match the workspace, and a new plot will appear with a live stream of data.
+
+<Divider.Divider direction="x" />
+
+## Installing the Cluster
+
+Now that the console is up and running, we'll install our own Synnax cluster locally.
+The cluster is the core of Synnax. It's where sensor and actuator data is stored,
+where device configurations are managed. All of our control and sensor data processing
+logic moves through this component.
+
+<PlatformTabs 
+    priority={["linux", "macos", "windows"]}
+    client:only="react"
+>
+
+<Fragment slot="docker">
+
+### Using Docker
+
+The simplest way to start a single node cluster is by using the
+`synnaxlabs/synnax` Docker image, simply run:
+
+```bash
+docker run -p 9090:9090 synnaxlabs/synnax --listen=localhost:9090 --mem --insecure
+```
+
+This will pull the latest version of Synnax from Docker Hub and start a single
+node cluster with the following parameters:
+
+`-p 9090:9090` - This maps port 9090 on the host to port 9090 in the container.
+This allows access to the Synnax node from the host machine.
+
+`--listen=localhost:9090` - This sets the address that the node will listen on.
+This is the reachable adress of the node, and is also the address that other
+nodes will use to connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for
+learning and development.
+
+`--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI Reference](cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
+</Fragment>
+
+<Fragment slot="linux">
+
+### Using Linux
+
+To start a single node cluster on Linux, first download the latest Synnax binary
+by running:
+
+<SynnaxDownloadURL os="linux" />
+
+Then, move the binary to `/usr/local/bin`:
+
+<SynnaxMoveCommand os="linux" />
+
+Next, give execution permissions to the binary:
+
+```bash
+chmod +x /usr/local/bin/synnax
+```
+
+<Note.Note variant="info">
+  You'll need to make sure that `/usr/local/bin` is in your `PATH` environment variable.
+  You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
+</Note.Note>
+
+Finally, start the node:
+
+```bash
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+This will start a single node cluster with the following parameters:
+
+`--listen=localhost:9090` - This sets the address that the node will listen on.
+This is the reachable address of the node, and is also the address that other
+nodes will use to connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for
+learning and development.
+
+`--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI Reference](cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
+</Fragment>
+
+<Fragment slot="macos">
+
+### Using MacOS
+
+To start a single node cluster on macOS, first download the latest Synnax binary
+by running:
+
+<SynnaxDownloadURL os="macos" />
+
+Next, move the binary to `usr/local/bin`:
+
+<SynnaxMoveCommand os="macos" />
+
+Then, give execution permissions to the binary:
+
+```bash
+chmod +x /usr/local/bin/synnax
+```
+
+<Note.Note variant="info">
+  You'll need to make sure that `/usr/local/bin` is in your `PATH` environment variable.
+  You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
+</Note.Note>
+
+Finally, start the node:
+
+```bash
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+This will start a single node cluster with the following parameters:
+
+`--listen=localhost:9090` - This sets the address that the node will listen on.
+This is the reachable adress of the node, and is also the address that other
+nodes will use to connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for
+learning and development.
+
+`--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI Reference](cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
+</Fragment>
+
+<Fragment slot="windows">
+
+### Using Windows
+
+To start a single node cluster on Windows, use the following script to download
+the latest Synnax binary and move it into your `PATH`:
+
+<SynnaxDownloadURL os="windows" />
+
+<Note.Note variant="info">
+  We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which
+  will allow you to execute synnax commands from any shell. See [Microsoft's Environment
+  Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
+  documentation for more.
+</Note.Note>
+
+To start the node, run this:
+
+```powershell
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+This will start a single node cluster with the following parameters:
+
+`--listen=localhost:9090` - This sets the address that the node will listen on.
+This is the reachable address of the node, and is also the address that other
+nodes will use to connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for
+learning and development.
+
+`--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI
+Reference](cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
+</Fragment>
+
+</PlatformTabs>
+
+### Connecting the Console to the Cluster
+
+Now that we have a local cluster running, we'll disconnect the console from the demo
+cluster and connect it to our own. To do this, we'll go back to the cluster dropdown
+in the bottom left corner of the console and select the cluster named `Local`.
+
+<Video client:only="react" id="console/clusters/switch" />
+
+Again, you'll see the connection status badge on the right turn blue, indicating
+that the connection is healthy.
+
+## Next Steps
+
+Now that we have a local cluster running, it's time to start acquiring data from a
+device. Check out our [Device Drivers](/reference/device-drivers/get-started) to start
+integrating your own hardware.

@@ -1,11 +1,12 @@
 ---
 import Breadcrumb from "@/components/article/Breadcrumb.astro";
 import NextPrev from "@/components/NextPrev.astro";
-const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
+const { title, description, url, next, prev, nextURL, prevURL, showBreadcrumb } =
+    Astro.props;
 ---
 
 <article transition:animate="none">
-    <Breadcrumb url={url} />
+    {showBreadcrumb && <Breadcrumb url={url} />}
     <h1 class="article-title">{title}</h1>
     <h4 class="article-description">{description}</h4>
     <slot />
