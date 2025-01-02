@@ -1,21 +1,15 @@
 ---
 import Root from "@/layouts/Root.astro";
 import OneBillionRowsTile from "@/pages/guides/comparison/performance/one-billion-rows/OneBillionRowsTile.astro";
-import ReleaseTile from "@/pages/guides/ReleaseTile.astro";
+import ReleaseTile from "@/components/releases/ReleaseTile.astro";
 import Tile from "@/pages/guides/Tile.astro";
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Align, Text } from "@synnaxlabs/pluto";
 ---
 
-<Root frontmatter={{ title: "Guides" }}>
-    <Align.Space direction="y" className="guides" el="article" grow size={10}>
-        <Align.Space
-            className="hero-parent"
-            direction="y"
-            size={10}
-            justify="center"
-            align="center"
-        >
+<Root frontmatter={{ title: "Docs Home" }}>
+    <Align.Space direction="y" el="article" grow size={10}>
+        <Align.Space className="hero-parent" direction="y" align="center">
             <Align.Space className="hero" direction="x" size={10}>
                 <Align.Space direction="y" grow size={6}>
                     <Align.Space direction="y" align="start" size="large">
@@ -81,12 +75,10 @@ import { Align, Text } from "@synnaxlabs/pluto";
                             bordered
                         >
                             <Logo variant="icon" color="white" />
+                            <Text.Text level="h3" shade={10}> Get Started</Text.Text>
                             <Text.Text level="h5" shade={7}>
-                                Community Edition
+                                Start acquiring data in minutes
                             </Text.Text>
-                            <Text.WithIcon level="h3" shade={10} size="medium">
-                                Download Synnax</Text.WithIcon
-                            >
                             <Align.Space className="download">
                                 <Icon.Download />
                             </Align.Space>
@@ -95,11 +87,6 @@ import { Align, Text } from "@synnaxlabs/pluto";
                 </Align.Space>
             </Align.Space>
         </Align.Space>
-        <Align.Space direction="x" grow>
-            <Tile />
-            <ReleaseTile />
-        </Align.Space>
-        <OneBillionRowsTile />
     </Align.Space>
 
     <style is:global>
@@ -141,6 +128,8 @@ import { Align, Text } from "@synnaxlabs/pluto";
         }
         .hero-parent {
             height: 75vh;
+            padding-top: 20rem;
+            min-height: 700px;
             .hero {
                 width: 1100px;
             }
