@@ -9,7 +9,7 @@
 
 import "@/text/Keyboard.css";
 
-import { CSSProperties, type ReactElement } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type text } from "@/text/core";
@@ -24,7 +24,7 @@ export const Keyboard = <L extends text.Level = "p">({
   style,
   ...props
 }: KeyboardProps<L>): ReactElement => {
-  let iStyle: CSSProperties = {
+  const iStyle: CSSProperties = {
     height: `calc(var(--pluto-${level}-size) * 1.7)`,
   };
 

@@ -32,7 +32,7 @@ describe("Tree", () => {
         { key: "2", name: "2" },
         { key: "3", name: "3" },
       ];
-      const result = sortAndSplice(nodes, true);
+      const result = sortAndSplice(nodes);
       expect(result).toEqual([
         { key: "2", name: "2" },
         { key: "1", name: "1", forcePosition: 1 },

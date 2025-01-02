@@ -232,7 +232,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     addToActivePlot: () => addToActivePlot(props),
     addToNewPlot: () => addToNewPlot(props),
     group: () => groupFromSelection(props),
-    viewDetails: () => viewDetails(props),
+    details: () => viewDetails(props),
     link: () =>
       handleLink({
         name: resources[0].name,

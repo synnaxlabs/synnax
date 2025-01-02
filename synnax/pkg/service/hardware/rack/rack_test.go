@@ -48,7 +48,7 @@ var _ = Describe("Rack", Ordered, func() {
 	AfterEach(func() {
 		Expect(tx.Close()).To(Succeed())
 	})
-	Describe("Task", func() {
+	Describe("Key", func() {
 		It("Should correctly construct and deconstruct key from its components", func() {
 			k := rack.NewKey(1, 2)
 			Expect(k.Node()).To(Equal(core.NodeKey(1)))

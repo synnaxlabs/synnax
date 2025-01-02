@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { usePrevious, useSyncedRef } from "@/hooks";
+import { useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { type text } from "@/text/core";
@@ -35,6 +35,7 @@ export type EditableProps<L extends text.Level = "h1"> = Omit<
     useEditableState?: state.PureUse<boolean>;
     allowDoubleClick?: boolean;
     allowEmpty?: boolean;
+    outline?: boolean;
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
@@ -98,6 +99,7 @@ export const Editable = <L extends text.Level = text.Level>({
   onDoubleClick,
   allowEmpty = false,
   style,
+  outline = true,
   ...props
 }: EditableProps<L>): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
@@ -194,7 +196,11 @@ export const Editable = <L extends text.Level = text.Level>({
     // @ts-expect-error - TODO: generic element behavior is funky
     <Text<L>
       ref={ref}
-      className={CSS(className, CSS.BM("text", "editable"))}
+      className={CSS(
+        className,
+        CSS.BM("text", "editable"),
+        outline && CSS.M("outline"),
+      )}
       onBlur={() => {
         setEditable(false);
         const el = ref.current;

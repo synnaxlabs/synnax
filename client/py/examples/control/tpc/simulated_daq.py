@@ -46,17 +46,12 @@ from common import (
 client = sy.Synnax()
 
 daq_time = client.channels.create(
-    name=DAQ_TIME,
-    data_type=sy.DataType.TIMESTAMP,
-    is_index=True,
-    retrieve_if_name_exists=True,
+    name=DAQ_TIME, is_index=True, retrieve_if_name_exists=True
 )
 
 for cmd, state in VALVES.items():
-    CMD_TIME = f"{cmd}_time"
     cmd_time = client.channels.create(
-        name=CMD_TIME,
-        data_type=sy.DataType.TIMESTAMP,
+        name=f"{cmd}_time",
         is_index=True,
         retrieve_if_name_exists=True,
     )
@@ -111,10 +106,9 @@ PREV_STATE = DAQ_STATE.copy()
 
 def introduce_randomness(state: dict[str, float]):
     now = sy.TimeStamp.now()
-    for a in SENSORS:
-        state[a] = (
-            state[a]
-            + np.random.uniform(-0.1, 0.1)
+    for sensor in SENSORS:
+        state[sensor] += (
+            np.random.uniform(-0.1, 0.1)
             + np.sin(now / 1e9 + np.random.uniform(-0.1, 300)) * 0.1
         )
     return state
@@ -143,17 +137,15 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
         sy.TimeStamp.now(),
         channels=[*SENSORS, *[state for state in VALVES.values()], DAQ_TIME],
         enable_auto_commit=True,
-    ) as w:
-        i = 0
+    ) as writer:
         while loop.wait():
-            i += 1
             try:
                 while True:
-                    f = streamer.read(0)
-                    if f is None:
+                    frame = streamer.read(0)
+                    if frame is None:
                         break
-                    for k in f.channels:
-                        DAQ_STATE[k] = f[k][0]
+                    for ch in frame.channels:
+                        DAQ_STATE[ch] = frame[ch][0]
 
                 if DAQ_STATE[OX_MPV_CMD] == 1 and OX_MPV_LAST_OPEN is None:
                     OX_MPV_LAST_OPEN = sy.TimeStamp.now()
@@ -186,7 +178,7 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
                         DAQ_STATE[PRESS_PT_1] -= 1
                         DAQ_STATE[PRESS_PT_2] -= 1
 
-                # If the ox vent is open
+                # If the vents are open
                 if DAQ_STATE[OX_VENT_CMD] == 0:
                     DAQ_STATE[OX_PT_1] -= 0.5
                     DAQ_STATE[OX_PT_2] -= 0.5
@@ -213,7 +205,7 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
                 randomized = introduce_randomness(clamped)
                 translated = translate_valves(randomized)
                 translated[DAQ_TIME] = sy.TimeStamp.now()
-                ok = w.write(translated)
+                writer.write(translated)
 
             except Exception as e:
                 print(e)

@@ -9,6 +9,7 @@
 
 # Time
 DAQ_TIME = "daq_time"
+
 # OX
 OX_TPC_CMD = "ox_tpc_cmd"
 OX_TPC_ACK = "ox_tpc_state"
@@ -22,6 +23,7 @@ OX_TC_1 = "ox_tc_1"
 OX_TC_2 = "ox_tc_2"
 OX_PT_1 = "ox_pt_1"
 OX_PT_2 = "ox_pt_2"
+
 # FUEL
 FUEL_TPC_CMD = "fuel_tpc_cmd"
 FUEL_TPC_STATE = "fuel_tpc_state"
@@ -75,14 +77,4 @@ PTS = (
     PNEUMATICS_PT,
 )
 
-SENSORS = (
-    OX_TC_1,
-    OX_TC_2,
-    FUEL_TC_1,
-    FUEL_TC_2,
-    PRES_TC_1,
-    PRES_TC_2,
-    SUPPLY_PT,
-    PNEUMATICS_PT,
-    *PTS,
-)
+SENSORS = (OX_TC_1, OX_TC_2, FUEL_TC_1, FUEL_TC_2, PRES_TC_1, PRES_TC_2, *PTS)

@@ -14,6 +14,7 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
+import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { useExport } from "@/lineplot/file";
 import { create } from "@/lineplot/LinePlot";
@@ -56,7 +57,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { resources } = props.selection;
+  const {
+    selection,
+    selection: { resources },
+  } = props;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
   const handleExport = useExport(resources[0].name);
@@ -64,10 +68,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
+      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
     export: () => handleExport(resources[0].id.key),
   };
   const isSingle = resources.length === 1;
@@ -79,6 +80,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
+      <Group.GroupMenuItem selection={selection} />
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
@@ -137,10 +139,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           key: linePlot.key,
           name: linePlot.name,
           location: "mosaic",
-          tab: {
-            mosaicKey: nodeKey,
-            location,
-          },
+          tab: { mosaicKey: nodeKey, location },
         }),
       );
     } catch (err) {
@@ -157,12 +156,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "lineplot",
   icon: <Icon.Visualize />,
   hasChildren: false,
-  haulItems: (r) => [
-    {
-      type: Mosaic.HAUL_CREATE_TYPE,
-      key: r.id.toString(),
-    },
-  ],
+  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
   canDrop: () => false,

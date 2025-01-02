@@ -24,24 +24,25 @@
     "@synnaxlabs/x": "workspace:*",
     "@types/offscreencanvas": "^2019.7.3",
     "astro": "^5.1.1",
+    "astro-embed": "^0.9.0",
     "astro-seo": "^0.8.4",
     "clsx": "^2.1.1",
-    "posthog-js": "^1.174.2",
+    "posthog-js": "^1.201.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "shiki": "^1.22.0"
+    "shiki": "^1.24.2"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "algoliasearch": "^4.23.3",
-    "dotenv": "^16.4.5",
-    "eslint": "^9.16.0",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "algoliasearch": "^4.24.0",
+    "dotenv": "^16.4.7",
+    "eslint": "^9.17.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
-    "remove-markdown": "^0.5.5",
+    "remove-markdown": "^0.6.0",
     "typescript": "^5.7.2"
   }
 }

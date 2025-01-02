@@ -127,4 +127,20 @@ describe("caseconv", () => {
       });
     });
   });
+  describe("toKebab", () => {
+    const SPECS: [string, string][] = [
+      ["fooBar", "foo-bar"],
+      ["fooBarBaz", "foo-bar-baz"],
+      ["foo bar", "foo-bar"],
+      ["foo bar baz", "foo-bar-baz"],
+      ["foo.bar", "foo.bar"],
+      ["foo.bar.baz", "foo.bar.baz"],
+      ["Foo Bar", "foo-bar"],
+    ];
+    SPECS.forEach(([input, expected]) => {
+      it(`should convert ${input} to ${expected}`, () => {
+        expect(caseconv.toKebab(input)).toBe(expected);
+      });
+    });
+  });
 });
