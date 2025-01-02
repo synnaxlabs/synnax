@@ -38,7 +38,7 @@ export const componentsPages = [
 
 export const guidesPages = [
   {
-    name: "Get Started",
+    name: "Why Synnax?",
     key: "/guides/",
     href: "/guides/",
   },
