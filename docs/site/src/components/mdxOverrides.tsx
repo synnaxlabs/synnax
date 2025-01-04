@@ -1,10 +1,11 @@
+import { Icon } from "@synnaxlabs/media";
+import { Text } from "@synnaxlabs/pluto";
+import { type FC } from "react";
+
 import pre from "@/components/code/Code.astro";
 import Details from "@/components/details/Details.astro";
 import Summary from "@/components/details/Summary.astro";
 import table from "@/components/Table.astro";
-import { Icon } from "@synnaxlabs/media";
-import { Text } from "@synnaxlabs/pluto";
-import { FC } from "react";
 
 interface TextFactoryProps {
   level: Text.Level;
@@ -16,18 +17,16 @@ export const textFactory =
     level,
     includeAnchor = false,
   }: TextFactoryProps): FC<Omit<Text.TextProps, "level">> =>
-  ({ children, id, ...p }) => {
-    return (
-      <Text.Text id={id} level={level} {...p}>
-        {children}
-        {includeAnchor && (
-          <a href={`#${id}`} className="heading-anchor">
-            <Icon.Link />
-          </a>
-        )}
-      </Text.Text>
-    );
-  };
+  ({ children, id, ...p }) => (
+    <Text.Text id={id} level={level} {...p}>
+      {children}
+      {includeAnchor && (
+        <a href={`#${id}`} className="heading-anchor">
+          <Icon.Link />
+        </a>
+      )}
+    </Text.Text>
+  );
 
 export const mdxOverrides = {
   pre,

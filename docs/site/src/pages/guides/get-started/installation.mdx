@@ -8,15 +8,14 @@ import { Align, Note, Divider } from "@synnaxlabs/pluto";
 import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
 import { Image, Video } from "@/components/Media";
 import { PlatformTabs } from "@/components/platform/PlatformTabs";
+import Details from "@/components/details/Details.astro";
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The first step to getting started with Synnax is to install the three key components:
-the [Console](/reference/console/get-started),
-[Cluster](/reference/cluster/quick-start),
-and [Python Client](/reference/python-client/get-started).
+The first step to getting started with Synnax is to install two key components:
+the [Console](/reference/console/get-started) and [Cluster](/reference/cluster/quick-start).
 
 <Divider.Divider direction="x" />
 
@@ -52,17 +51,17 @@ connection is healthy.
 
 Next, click on the workspace selector in the top right corner of the screen. This
 will open a dropdown menu where we can select the workspace we want to use. Choose
-the "Demo" workspace. You'll see the console automatically re-configure it's layout
+the "Demo" workspace. You'll see the console automatically re-configure its layout
 to match the workspace, and a new plot will appear with a live stream of data.
 
 <Divider.Divider direction="x" />
 
 ## Installing the Cluster
 
-Now that the console is up and running, we'll install our own Synnax cluster locally.
-The cluster is the core of Synnax. It's where sensor and actuator data is stored,
-where device configurations are managed. All of our control and sensor data processing
-logic moves through this component.
+Now that the Console is up and running, we'll install our own Synnax cluster locally.
+The cluster is the core of every Synnax deployment. It's where all sensor and actuator data is stored,
+and it serves as a central hub where all of our devices, operator consoles, and control
+sequences will communicate.
 
 <PlatformTabs 
     priority={["linux", "macos", "windows"]}
@@ -72,6 +71,13 @@ logic moves through this component.
 <Fragment slot="docker">
 
 ### Using Docker
+
+<Note.Note variant="error">
+  A Synnax cluster within a container has an isolated runtime, which means that it's not
+  currently able to access devices attached to the host machine. If you're interested in
+  connecting data acquisition devices using our built-in drivers, we recommend
+  installing Synnax directly on the host OS using one of the other installation methods.
+</Note.Note>
 
 The simplest way to start a single node cluster is by using the
 `synnaxlabs/synnax` Docker image, simply run:
@@ -199,17 +205,61 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 ### Using Windows
 
-To start a single node cluster on Windows, use the following script to download
-the latest Synnax binary and move it into your `PATH`:
+To start a local cluster on Windows, use the following command in a **PowerShell** terminal
+to download the latest Synnax cluster.
+
+<Align.Pack direction="y">
 
 <SynnaxDownloadURL os="windows" />
+<Details>
+<div slot="summary">
+<small>Explanation of this command</small>
+</div>
 
-<Note.Note variant="info">
-  We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which
-  will allow you to execute synnax commands from any shell. See [Microsoft's Environment
-  Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
-  documentation for more.
-</Note.Note>
+This command is intimidating, so here's a breakdown of what it does:
+
+1. **Set Error Handling**:
+
+   - `$ErrorActionPreference="Stop";`
+   - Configures PowerShell to stop execution immediately when an error is encountered.
+
+2. **Set Security Protocol**:
+
+   - `[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;`
+   - Ensures that the TLS 1.2 protocol is used for secure connections, which is a modern and secure standard.
+
+3. **Disable Progress Display**:
+
+   - `$ProgressPreference='SilentlyContinue';`
+   - Suppresses the display of progress bars during script execution.
+
+4. **Create Directory for Synnax**:
+
+   - `$null=New-Item -Type Directory -Force $env:appdata/synnax;`
+   - Creates a directory named `synnax` in the `%APPDATA%` folder (user's application data folder). The `-Force` flag ensures the directory is created even if it already exists.
+
+5. **Download the Synnax Executable**:
+
+   - `Invoke-WebRequest -Uri github.com/synnaxlabs/synnax/releases/download/synnax-v0.37.0/synnax-v0.37.0-windows -OutFile synnax.exe;`
+   - Downloads the `synnax-v0.37.0-windows` executable file from the specified GitHub URL and saves it as `synnax.exe` in the current directory.
+
+6. **Copy Executable to AppData**:
+
+   - `Copy-Item -Force "synnax.exe" -Destination $env:appdata/synnax;`
+   - Copies the downloaded `synnax.exe` file to the newly created `%APPDATA%\synnax` directory. The `-Force` flag overwrites any existing file with the same name.
+
+7. **Update the User PATH Variable**:
+
+   - `if (-not [Environment]::GetEnvironmentVariable("Path", "User").Contains("%APPDATA%synnax")) { [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";%APPDATA%synnax", "User"); };`
+   - Checks if the `%APPDATA%\synnax` directory is already in the user's PATH environment variable. If not, appends it to the PATH.
+
+8. **Update Current Session PATH**:
+   - `$env:PATH += ";$env:appdatasynnax"`
+   - Updates the current PowerShell session's PATH variable to include `%APPDATA%\synnax`, allowing the Synnax executable to be run without restarting the session.
+
+</Details>
+
+</Align.Pack>
 
 To start the node, run this:
 
@@ -240,13 +290,38 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 ### Connecting the Console to the Cluster
 
 Now that we have a local cluster running, we'll disconnect the console from the demo
-cluster and connect it to our own. To do this, we'll go back to the cluster dropdown
-in the bottom left corner of the console and select the cluster named `Local`.
+cluster and connect it to our own. We've pre-populated the console with a connection
+for the default admin user on a local cluster. To connect, head to the cluster dropdown
+in the bottom right corner of the console and select the cluster named `Local`.
 
 <Video client:only="react" id="console/clusters/switch" />
 
 Again, you'll see the connection status badge on the right turn blue, indicating
-that the connection is healthy.
+that the connection is healthy. If you've changed the username or password, or removed
+the connection, you'll need to re-add it. Here are the connection details:
+
+<table>
+  <tr>
+    <th>Host</th>
+    <td>localhost</td>
+  </tr>
+  <tr>
+    <th>Port</th>
+    <td>9090</td>
+  </tr>
+  <tr>
+    <th>Username</th>
+    <td>synnax</td>
+  </tr>
+  <tr>
+    <th>Password</th>
+    <td>seldon</td>
+  </tr>
+  <tr>
+    <th>Secure</th>
+    <td>false</td>
+  </tr>
+</table>
 
 ## Next Steps
 
