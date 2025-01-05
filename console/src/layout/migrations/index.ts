@@ -7,31 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate } from "@synnaxlabs/x";
+import { migrate, zodutil } from "@synnaxlabs/x";
 
 import * as v0 from "@/layout/migrations/v0";
+import * as v1 from "@/layout/migrations/v1";
+import * as v2 from "@/layout/migrations/v2";
 import * as v3 from "@/layout/migrations/v3";
 import * as v4 from "@/layout/migrations/v4";
 
-export type State<A = any> = v0.State<A>;
+export type State<A = unknown> = v0.State<A>;
 export type SliceState = v4.SliceState;
 export type NavDrawerLocation = v0.NavDrawerLocation;
 export type NavDrawerEntryState = v0.NavDrawerEntryState;
 export type WindowProps = v0.WindowProps;
-export type AnyState<A = any> = v0.State<A>;
+export type AnyState<A = unknown> = v0.State<A>;
 export type AnySliceState =
   | v0.SliceState
+  | v1.SliceState
+  | v2.SliceState
   | v3.SliceState
-  | (Omit<v3.SliceState, "version"> & { version: "0.2.0" })
-  | (Omit<v3.SliceState, "version"> & { version: "0.1.0" })
   | v4.SliceState;
 
 export const SLICE_MIGRATIONS: migrate.Migrations = {
-  "0.0.0": v3.sliceMigration,
-  "0.1.0": v3.sliceMigration,
-  "0.2.0": v3.sliceMigration,
-  "0.3.0": v3.sliceMigration,
-  "3.0.0": v4.sliceMigration,
+  [v0.VERSION]: v1.sliceMigration,
+  [v1.VERSION]: v2.sliceMigration,
+  [v2.VERSION]: v3.sliceMigration,
+  [v3.VERSION]: v4.sliceMigration,
 };
 
 export const ZERO_SLICE_STATE = v4.ZERO_SLICE_STATE;
@@ -39,7 +40,15 @@ export const ZERO_MOSAIC_STATE = v0.ZERO_MOSAIC_STATE;
 export const MAIN_LAYOUT = v0.MAIN_LAYOUT;
 
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
-  name: "layout.slice",
+  name: v1.SLICE_MIGRATION_NAME,
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
 });
+
+export const parser = zodutil.transformer<AnySliceState, SliceState>(migrateSlice, [
+  v4.sliceStateZ,
+  v3.sliceStateZ,
+  v2.sliceStateZ,
+  v1.sliceStateZ,
+  v0.sliceStateZ,
+]);

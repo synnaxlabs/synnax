@@ -11,17 +11,13 @@ import {
   createSlice,
   type Dispatch,
   type PayloadAction,
-  type Store,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { type Synnax } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
-import { type CreateConfirmModal } from "@/confirm/Confirm";
-import { type Placer } from "@/layout/hooks";
 import * as latest from "@/layout/migrations";
 
 export type State<A = any> = latest.State<A>;
@@ -109,23 +105,6 @@ interface SetFocusPayload {
 }
 
 interface SetHaulingPayload extends Haul.DraggingState {}
-
-export interface FileHandlerProps {
-  file: any;
-  name: string;
-  place: Placer;
-  store: Store;
-  confirm: CreateConfirmModal;
-  client: Synnax | null;
-  workspaceKey?: string;
-  dispatch: Dispatch<UnknownAction>;
-  tab?: {
-    mosaicKey: number;
-    location: location.Location;
-  };
-}
-
-export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;
 
 export interface SetNavDrawerPayload extends NavDrawerEntryState {
   location: NavDrawerLocation;

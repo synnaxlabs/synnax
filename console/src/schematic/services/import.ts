@@ -11,19 +11,20 @@ import { NotFoundError, UnexpectedError } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type DialogFilter, open, save } from "@tauri-apps/plugin-dialog";
-import { readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
 import { useDispatch, useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
+import { type File } from "@/file";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/Schematic";
 import { select, selectHasPermission } from "@/schematic/selectors";
-import { parser, remove, type State, type StateWithName } from "@/schematic/slice";
+import { parser, remove } from "@/schematic/slice";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-export const fileHandler: Layout.FileHandler = async ({
+export const fileHandler: File.FileHandler = async ({
   file,
   place,
   tab,
@@ -42,19 +43,14 @@ export const fileHandler: Layout.FileHandler = async ({
       "You do not have permission to create a schematic. Please contact an admin to change your permissions.",
     );
   const key = state.key;
-  let name = file?.name;
-  if (typeof name !== "string" || name.length === 0)
-    name = fileName.split(".").slice(0, -1).join(".");
+  let name = "";
+  if (typeof file?.name === "string") name = file.name;
+  if (name.length === 0) name = fileName.split(".").slice(0, -1).join(".");
   if (name.length === 0) name = "New Schematic";
 
   const existingState = select(store.getState(), key);
   const existingName = Layout.select(store.getState(), key)?.name;
-
-  const creator = create({
-    ...state,
-    tab,
-    name,
-  });
+  const creator = create({ ...state, tab, name });
 
   if (existingState != null) {
     if (
@@ -95,50 +91,7 @@ export const fileHandler: Layout.FileHandler = async ({
 
 const filters: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const useExport = (name: string = "schematic"): ((key: string) => void) => {
-  const client = Synnax.use();
-  const addStatus = Status.useAggregator();
-  const store = useStore<RootState>();
-
-  return useMutation<void, Error, string>({
-    mutationFn: async (key) => {
-      const storeState = store.getState();
-      let state = select(storeState, key);
-      let name = Layout.select(storeState, key)?.name;
-      if (state == null) {
-        if (client == null) throw new Error("Cannot reach cluster");
-        const schematic = await client.workspaces.schematic.retrieve(key);
-        state = {
-          ...(schematic.data as unknown as State),
-          snapshot: schematic.snapshot,
-          key: schematic.key,
-        };
-        name = schematic.name;
-      }
-      if (name == null)
-        throw new UnexpectedError("Cannot find name of schematic to export");
-      const savePath = await save({
-        title: `Export ${name}`,
-        defaultPath: `${name}.json`,
-        filters,
-      });
-      if (savePath == null) return;
-      const schematicData: StateWithName = { ...state, name };
-      await writeFile(
-        savePath,
-        new TextEncoder().encode(JSON.stringify(schematicData)),
-      );
-    },
-    onError: (err) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to export ${name}`,
-        description: err.message,
-      }),
-  }).mutate;
-};
-
-interface ImportPlotProps extends Omit<Layout.FileHandlerProps, "file" | "name"> {
+interface ImportPlotProps extends Omit<File.FileHandlerProps, "file" | "name"> {
   workspaceKey?: string;
   activeWorkspaceKey: string | null;
 }

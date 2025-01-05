@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
@@ -85,7 +86,7 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
-import { Workspace } from "@/workspace";
+import { useSyncComponent as coreUseSyncComponent } from "@/workspace/useSyncComponent";
 
 interface SyncPayload {
   key?: string;
@@ -97,16 +98,8 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   </PMenu.Menu>
 );
 
-const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
-  const windowKey = useSelectWindowKey() as string;
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const place = Layout.usePlacer();
-  const vis = useSelect(layoutKey);
-  const prevVis = usePrevious(vis);
-  const ranges = useSelectRanges(layoutKey);
-  const client = Synnax.use();
-  const dispatch = useDispatch();
-  const syncDispatch = Workspace.useSyncComponent<SyncPayload>(
+const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
+  coreUseSyncComponent<SyncPayload>(
     "Line Plot",
     layoutKey,
     async (ws, store, client) => {
@@ -122,6 +115,17 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
       });
     },
   );
+
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
+  const windowKey = useSelectWindowKey() as string;
+  const { name } = Layout.useSelectRequired(layoutKey);
+  const place = Layout.usePlacer();
+  const vis = useSelect(layoutKey);
+  const prevVis = usePrevious(vis);
+  const ranges = useSelectRanges(layoutKey);
+  const client = Synnax.use();
+  const dispatch = useDispatch();
+  const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
 

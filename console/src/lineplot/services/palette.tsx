@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { importPlot } from "@/lineplot/file";
 import { create } from "@/lineplot/LinePlot";
 import { ImportIcon } from "@/lineplot/services/Icon";
+import { importPlot } from "@/lineplot/services/import";
 import { type Command } from "@/palette/Palette";
 import { Workspace } from "@/workspace";
 

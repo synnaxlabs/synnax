@@ -50,7 +50,8 @@ import {
 } from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { Schematic } from "@/schematic";
+import { LinePlotServices } from "@/lineplot/services";
+import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
@@ -65,7 +66,7 @@ const emptyContent = <EmptyContent />;
 
 export const MOSAIC_TYPE = "mosaic";
 
-const FILE_HANDLERS = [Schematic.fileHandler, LinePlot.fileHandler];
+const FILE_HANDLERS = [SchematicServices.fileHandler, LinePlotServices.fileHandler];
 
 export const ContextMenu = ({
   keys,

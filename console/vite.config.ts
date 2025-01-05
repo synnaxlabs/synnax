@@ -9,31 +9,29 @@
 
 import react from "@vitejs/plugin-react";
 import * as path from "path";
-import { defineConfig } from "vite";
+import { type AliasOptions, defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 const isDev = process.env.TAURI_ENV_DEBUG === "true";
 
+const alias: AliasOptions = isDev
+  ? {
+      "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
+      "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
+      "@synnaxlabs/x/dist": path.resolve(__dirname, "../x/ts/dist"),
+      "@synnaxlabs/x": path.resolve(__dirname, "../x/ts/src"),
+      "@synnaxlabs/drift/dist": path.resolve(__dirname, "../drift/dist"),
+      "@synnaxlabs/drift": path.resolve(__dirname, "../drift/src"),
+      "@synnaxlabs/media/dist": path.resolve(__dirname, "../x/media/dist"),
+      "@synnaxlabs/media": path.resolve(__dirname, "../x/media/src"),
+    }
+  : {};
+alias.path = "rollup-plugin-node-polyfills/polyfills/path";
+
 export default defineConfig({
   clearScreen: false,
-  server: {
-    port: 5173,
-    strictPort: true,
-  },
-  resolve: {
-    alias: isDev
-      ? {
-          "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
-          "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
-          "@synnaxlabs/x/dist": path.resolve(__dirname, "../x/ts/dist"),
-          "@synnaxlabs/x": path.resolve(__dirname, "../x/ts/src"),
-          "@synnaxlabs/drift/dist": path.resolve(__dirname, "../drift/dist"),
-          "@synnaxlabs/drift": path.resolve(__dirname, "../drift/src"),
-          "@synnaxlabs/media/dist": path.resolve(__dirname, "../x/media/dist"),
-          "@synnaxlabs/media": path.resolve(__dirname, "../x/media/src"),
-        }
-      : {},
-  },
+  server: { port: 5173, strictPort: true },
+  resolve: { alias },
   envPrefix: ["VITE_", "TAURI_"],
   plugins: [react(), tsconfigPaths()],
   build: {
@@ -44,7 +42,5 @@ export default defineConfig({
     // is loaded directly from disc instead of OTN
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: {
-    IS_DEV: isDev,
-  },
+  define: { IS_DEV: isDev },
 });

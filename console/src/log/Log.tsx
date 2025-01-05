@@ -11,7 +11,7 @@ import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
-import { deep, primitiveIsZero, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, primitiveIsZero, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { v4 as uuid } from "uuid";
 
@@ -19,7 +19,7 @@ import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
-import { Workspace } from "@/workspace";
+import { useSyncComponent as coreUseSyncComponent } from "@/workspace/useSyncComponent";
 
 export type LayoutType = "log";
 export const LAYOUT_TYPE = "log";
@@ -31,27 +31,19 @@ interface SyncPayload {
 export const useSyncComponent = (
   layoutKey: string,
 ): Dispatch<PayloadAction<SyncPayload>> =>
-  Workspace.useSyncComponent<SyncPayload>(
-    "Log",
-    layoutKey,
-    async (ws, store, client) => {
-      const storeState = store.getState();
-      const data = select(storeState, layoutKey);
-      if (data == null) return;
-      const layout = Layout.selectRequired(storeState, layoutKey);
-      const setData = {
-        ...data,
-        key: undefined,
-        snapshot: undefined,
-      } as unknown as UnknownRecord;
-      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      await client.workspaces.log.create(ws, {
-        key: layoutKey,
-        name: layout.name,
-        data: setData,
-      });
-    },
-  );
+  coreUseSyncComponent<SyncPayload>("Log", layoutKey, async (ws, store, client) => {
+    const storeState = store.getState();
+    const data = select(storeState, layoutKey);
+    if (data == null) return;
+    const layout = Layout.selectRequired(storeState, layoutKey);
+    const setData = { ...data, key: undefined };
+    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
+    await client.workspaces.log.create(ws, {
+      key: layoutKey,
+      name: layout.name,
+      data: setData,
+    });
+  });
 
 const DEFAULT_RETENTION = TimeSpan.days(1);
 const PRELOAD = TimeSpan.seconds(30);

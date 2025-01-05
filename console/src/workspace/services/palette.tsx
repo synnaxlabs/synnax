@@ -10,14 +10,14 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
-
-import { createWindowLayout } from "./Create";
+import { Workspace } from "@/workspace";
 
 export const createCommand: Command = {
   key: "workspace-create",
   name: "Create a Workspace",
   icon: <Icon.Workspace />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createWindowLayout()),
+  onSelect: ({ placeLayout: layoutPlacer }) =>
+    layoutPlacer(Workspace.createWindowLayout()),
 };
 
 export const COMMANDS = [createCommand];

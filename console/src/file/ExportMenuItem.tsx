@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/schematic/services/Icon";
-export * from "@/schematic/services/import";
-export * from "@/schematic/services/link";
-export * from "@/schematic/services/ontology";
-export * from "@/schematic/services/palette";
+import { Icon } from "@synnaxlabs/media";
+import { Menu } from "@synnaxlabs/pluto";
+
+export const ExportMenuItem = () => (
+  <Menu.Item itemKey="export" startIcon={<Icon.Export />}>
+    Export
+  </Menu.Item>
+);

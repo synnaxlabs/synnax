@@ -73,7 +73,7 @@ import {
   ZERO_STATE,
 } from "@/schematic/slice";
 import { type RootState } from "@/store";
-import { Workspace } from "@/workspace";
+import { useSyncComponent as coreUseSyncComponent } from "@/workspace/useSyncComponent";
 
 interface SyncPayload {
   key?: string;
@@ -85,7 +85,7 @@ const useSyncComponent = (
   layoutKey: string,
   dispatch?: Dispatch<PayloadAction<SyncPayload>>,
 ): Dispatch<PayloadAction<SyncPayload>> =>
-  Workspace.useSyncComponent<SyncPayload>(
+  coreUseSyncComponent<SyncPayload>(
     "Schematic",
     layoutKey,
     async (ws, store, client) => {

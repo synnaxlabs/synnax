@@ -10,6 +10,7 @@
 import { type Layout } from "@/layout";
 import { LAYOUT_TYPE, Log, SELECTABLE } from "@/log/Log";
 
+export * from "@/log/export";
 export * from "@/log/Log";
 export * from "@/log/selectors";
 export * from "@/log/slice";

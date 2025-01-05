@@ -21,6 +21,7 @@ import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Menu } from "@/components/menu";
+import { File } from "@/file";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -35,6 +36,7 @@ import { SchematicServices } from "@/schematic/services";
 import { type RootState } from "@/store";
 import { Table } from "@/table";
 import { TableServices } from "@/table/services";
+import { useExport } from "@/workspace/export";
 import { select, selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
@@ -288,10 +290,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createPlot = useCreateLinePlot();
   const createLog = useCreateLog();
   const createTable = useCreateTable();
-  const importPlot = LinePlot.useImport(selection.resources[0].id.key);
+  const importPlot = LinePlotServices.useImport(selection.resources[0].id.key);
   const createSchematic = useCreateSchematic();
-  const importSchematic = Schematic.useImport(selection.resources[0].id.key);
+  const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
   const handleLink = Link.useCopyToClipboard();
+  const handleExport = useExport();
   const handleSelect = {
     delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
@@ -302,6 +305,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     importPlot: () => importPlot(),
     createSchematic: () => createSchematic(props),
     importSchematic: () => importSchematic(),
+    export: () => handleExport(resources[0].id.key),
     link: () =>
       handleLink({
         name: resources[0].name,
@@ -352,6 +356,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             </>
           )}
           <PMenu.Divider />
+          <File.ExportMenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>

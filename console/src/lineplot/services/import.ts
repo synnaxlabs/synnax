@@ -11,19 +11,20 @@ import { NotFoundError, UnexpectedError } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type DialogFilter, open, save } from "@tauri-apps/plugin-dialog";
-import { readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
 import { useDispatch, useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
+import { type File } from "@/file";
 import { Layout } from "@/layout";
 import { create } from "@/lineplot/LinePlot";
 import { select } from "@/lineplot/selectors";
-import { parser, remove, type State, type StateWithName } from "@/lineplot/slice";
+import { parser, remove } from "@/lineplot/slice";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-export const fileHandler: Layout.FileHandler = async ({
+export const fileHandler: File.FileHandler = async ({
   file,
   place,
   tab,
@@ -37,16 +38,12 @@ export const fileHandler: Layout.FileHandler = async ({
   const linePlot = parser(file);
   if (linePlot == null) return false;
   const key = linePlot.key;
-  let name = file?.name;
-  if (typeof name !== "string" || name.length === 0)
-    name = fileName.split(".").slice(0, -1).join(".");
-  if (name.length === 0) name = "New Line Plot";
+  let name = "";
+  if (typeof file?.name === "string") name = file.name;
+  if (name.length === 0) name = fileName.split(".").slice(0, -1).join(".");
+  if (name.length === 0) name = "New Schematic";
 
-  const creator = create({
-    ...linePlot,
-    tab,
-    name,
-  });
+  const creator = create({ ...linePlot, tab, name });
 
   const existingState = select(store.getState(), key);
   const existingName = Layout.select(store.getState(), key)?.name;
@@ -89,46 +86,7 @@ export const fileHandler: Layout.FileHandler = async ({
 
 const filters: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const useExport = (name: string = "line plot"): ((key: string) => void) => {
-  const client = Synnax.use();
-  const addStatus = Status.useAggregator();
-  const store = useStore<RootState>();
-
-  return useMutation<void, Error, string>({
-    mutationFn: async (key) => {
-      const storeState = store.getState();
-      let state = select(storeState, key);
-      let name = Layout.select(storeState, key)?.name;
-      if (state == null) {
-        if (client == null) throw new Error("Cannot reach cluster");
-        const linePlot = await client.workspaces.linePlot.retrieve(key);
-        state = {
-          ...(linePlot.data as unknown as State),
-          key: linePlot.key,
-        };
-        name = linePlot.name;
-      }
-      if (name == null)
-        throw new UnexpectedError("Cannot find name of line plot to export");
-      const savePath = await save({
-        title: `Export ${name}`,
-        defaultPath: `${name}.json`,
-        filters,
-      });
-      if (savePath == null) return;
-      const linePlotData: StateWithName = { ...state, name };
-      await writeFile(savePath, new TextEncoder().encode(JSON.stringify(linePlotData)));
-    },
-    onError: (err) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to export ${name}`,
-        description: err.message,
-      }),
-  }).mutate;
-};
-
-interface ImportPlotProps extends Omit<Layout.FileHandlerProps, "file" | "name"> {
+interface ImportPlotProps extends Omit<File.FileHandlerProps, "file" | "name"> {
   workspaceKey?: string;
   activeWorkspaceKey: string | null;
 }
