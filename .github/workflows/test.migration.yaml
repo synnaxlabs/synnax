@@ -65,7 +65,7 @@ jobs:
         working-directory: ./client/py
 
       - name: Python Test with Main Server
-        run: pytest --cov=freighter --cov-report xml:coverage.xml
+        run: pytest
         working-directory: ./client/py
 
       - name: Exit Poetry Shell
@@ -108,7 +108,7 @@ jobs:
         working-directory: ./client/py
 
       - name: Python Test with Current Server
-        run: pytest --cov=freighter --cov-report xml:coverage.xml
+        run: pytest
         working-directory: ./client/py
 
       - name: Stop Current Server
