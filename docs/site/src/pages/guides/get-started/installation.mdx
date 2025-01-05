@@ -4,7 +4,7 @@ title: "Installing Synnax"
 description: "Install the Synnax core components."
 ---
 
-import { Align, Note, Divider } from "@synnaxlabs/pluto";
+import { Align, Note, Divider, Video as PVideo } from "@synnaxlabs/pluto";
 import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
 import { Image, Video } from "@/components/Media";
 import { PlatformTabs } from "@/components/platform/PlatformTabs";
@@ -13,6 +13,16 @@ import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+<iframe
+  className="yt-video"
+  src="https://www.youtube.com/embed/PYlPwOoucCY?si=F7Ko9i-JhPtC3E5L"
+  title="YouTube video player"
+  frameborder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allowfullscreen
+></iframe>
 
 The first step to getting started with Synnax is to install two key components:
 the [Console](/reference/console/get-started) and [Cluster](/reference/cluster/quick-start).
