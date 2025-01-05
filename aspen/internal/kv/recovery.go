@@ -131,7 +131,7 @@ func loadHighWater(ctx context.Context, cfg Config) (highWater version.Counter, 
 		if err = codec.Decode(ctx, v, &dig); err != nil {
 			return
 		}
-		if highWater.NewerThan(dig.Version) {
+		if dig.Version.NewerThan(highWater) {
 			highWater = dig.Version
 		}
 	}
