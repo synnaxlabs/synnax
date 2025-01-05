@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layouts/Mosaic.css";
-
 import { ontology } from "@synnaxlabs/client";
 import { selectWindowKey } from "@synnaxlabs/drift";
 import { Icon, Logo } from "@synnaxlabs/media";
