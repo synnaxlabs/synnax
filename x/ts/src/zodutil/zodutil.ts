@@ -60,13 +60,10 @@ export const getFieldSchema: deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny> = ((
 export const transformer =
   <Input, Output>(
     transform: (input: Input) => Output,
-    schemas: ZodSchema<Input>[],
+    schemas: ZodSchema<Input, z.ZodTypeDef, unknown>[],
   ): ((value: unknown) => Output | null) =>
   (value) => {
-    const matchingSchema = schemas.find((schema) => {
-      const res = schema.safeParse(value);
-      return res.success;
-    });
+    const matchingSchema = schemas.find((schema) => schema.safeParse(value).success);
     if (matchingSchema == null) return null;
     return transform(matchingSchema.parse(value));
   };
