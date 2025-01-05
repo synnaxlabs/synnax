@@ -7,12 +7,12 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-import { File } from "@/file";
+import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { select } from "@/lineplot/selectors";
 import { type State } from "@/lineplot/slice";
 
-export const extract: File.Extractor = async (key, { store, client }) => {
+export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();
   let state = select(storeState, key);
   let name = Layout.select(storeState, key)?.name;
@@ -26,4 +26,4 @@ export const extract: File.Extractor = async (key, { store, client }) => {
   return { file: JSON.stringify(stateWithName), name };
 };
 
-export const useExport = () => File.useExport(extract);
+export const useExport = () => Export.useExport(extract);

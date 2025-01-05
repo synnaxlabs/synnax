@@ -13,7 +13,7 @@ import { Align, Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { File } from "@/file";
+import { Export } from "@/export";
 import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -39,7 +39,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Log />}>{name}</ToolbarTitle>
         <Align.Space direction="x" style={{ width: 66 }} empty>
-          <File.ExportToolbarButton onExport={() => handleExport(state.key)} />
+          <Export.ToolbarButton onExport={() => handleExport(state.key)} />
           <Link.ToolbarCopyButton name={name} ontologyID={log.ontologyID(state.key)} />
         </Align.Space>
       </ToolbarHeader>

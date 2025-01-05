@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 
-export const ExportMenuItem = () => (
+export const MenuItem = () => (
   <Menu.Item itemKey="export" startIcon={<Icon.Export />}>
     Export
   </Menu.Item>

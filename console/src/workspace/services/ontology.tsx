@@ -21,7 +21,7 @@ import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Menu } from "@/components/menu";
-import { File } from "@/file";
+import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -356,7 +356,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             </>
           )}
           <PMenu.Divider />
-          <File.ExportMenuItem />
+          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>

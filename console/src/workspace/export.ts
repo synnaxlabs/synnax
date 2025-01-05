@@ -15,7 +15,7 @@ import { sep } from "path";
 import { useStore } from "react-redux";
 
 import { EXTRACTORS } from "@/extractors";
-import { type File } from "@/file";
+import { type Export } from "@/export";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { convertLayout } from "@/workspace/convertLayout";
@@ -64,7 +64,7 @@ export const useExport = (): ((key: string) => Promise<void>) => {
         await join(directory, `${removeDirectory(name)}.json`),
         JSON.stringify(toExport),
       );
-      const fileInfos: File.ExtractorReturn[] = [];
+      const fileInfos: Export.ExtractorReturn[] = [];
       await Promise.all(
         Object.values(toExport.layouts).map(async ({ type, key }) => {
           const extractor = EXTRACTORS[type];

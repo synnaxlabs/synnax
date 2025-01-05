@@ -14,7 +14,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader } from "@/components";
-import { File } from "@/file";
+import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { useExport } from "@/schematic/export";
@@ -129,7 +129,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         </Align.Space>
         <Align.Space direction="x" align="center" empty>
           <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
-            <File.ExportToolbarButton onExport={() => handleExport(state.key)} />
+            <Export.ToolbarButton onExport={() => handleExport(state.key)} />
             <Link.ToolbarCopyButton
               name={name}
               ontologyID={schematic.ontologyID(state.key)}

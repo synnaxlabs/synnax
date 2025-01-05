@@ -10,15 +10,12 @@
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
 
-export interface ExportToolbarButtonProps
+export interface ToolbarButtonProps
   extends Omit<Button.IconProps, "onClick" | "children"> {
   onExport: NonNullable<Button.IconProps["onClick"]>;
 }
 
-export const ExportToolbarButton = ({
-  onExport,
-  ...props
-}: ExportToolbarButtonProps) => (
+export const ToolbarButton = ({ onExport, ...props }: ToolbarButtonProps) => (
   <Button.Icon
     tooltip={"Export"}
     sharp

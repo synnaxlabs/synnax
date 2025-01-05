@@ -26,7 +26,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { ToolbarHeader } from "@/components";
-import { File } from "@/file";
+import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { selectTheme } from "@/layout/selectors";
 import { Link } from "@/link";
@@ -92,7 +92,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           )}
         </Align.Space>
         <Align.Space direction="x" style={{ width: 66 }} empty>
-          <File.ExportToolbarButton onExport={() => handleExport(layoutKey)} />
+          <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
           <Link.ToolbarCopyButton
             name={name}
             ontologyID={table.ontologyID(layoutKey)}

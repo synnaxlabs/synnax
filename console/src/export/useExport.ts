@@ -12,7 +12,7 @@ import { type DialogFilter, save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
-import { type Extractor } from "@/file/extractors";
+import { type Extractor } from "@/export/Extractor";
 import { type RootState } from "@/store";
 
 const FILTERS: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];

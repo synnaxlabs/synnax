@@ -16,7 +16,7 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { useDispatch, useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
-import { type File } from "@/file";
+import { type Import } from "@/import";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/Schematic";
 import { select, selectHasPermission } from "@/schematic/selectors";
@@ -24,7 +24,7 @@ import { parser, remove } from "@/schematic/slice";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-export const fileHandler: File.FileHandler = async ({
+export const fileHandler: Import.FileHandler = async ({
   file,
   place,
   tab,
@@ -80,7 +80,7 @@ export const fileHandler: File.FileHandler = async ({
     if (workspaceKey != null)
       await client.workspaces.schematic.create(workspaceKey, {
         ...state,
-        data: state as unknown as UnknownRecord,
+        data: { ...state },
         name,
         snapshot: state.snapshot,
         key,
@@ -91,7 +91,7 @@ export const fileHandler: File.FileHandler = async ({
 
 const filters: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-interface ImportPlotProps extends Omit<File.FileHandlerProps, "file" | "name"> {
+interface ImportPlotProps extends Omit<Import.FileHandlerProps, "file" | "name"> {
   workspaceKey?: string;
   activeWorkspaceKey: string | null;
 }
