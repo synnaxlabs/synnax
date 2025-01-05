@@ -11,6 +11,7 @@ package kv
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/errors"
@@ -51,13 +52,13 @@ func (r *recoveryServer) recoverPeer(
 	if err != nil {
 		return err
 	}
-	iter, err := r.Engine.OpenIterator(kv.IterPrefix([]byte("--dig/")))
-	defer func() {
-		err = errors.CombineErrors(err, iter.Close())
-	}()
+	iter, err := r.Engine.OpenIterator(kv.IterPrefix([]byte(digestPrefix)))
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = errors.CombineErrors(err, iter.Close())
+	}()
 	var dig Digest
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value()
@@ -105,7 +106,6 @@ func runRecovery(ctx context.Context, cfg Config) error {
 		cfg.L.Error("recovery failed", zap.Error(err))
 	}
 	return err
-
 }
 
 func loadHighWater(ctx context.Context, cfg Config) (highWater version.Counter, err error) {

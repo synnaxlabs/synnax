@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/query"
 	"io"
 	"time"
 
@@ -41,7 +42,11 @@ type State = store.State
 type Change = store.Change
 
 // NodeNotFound is returned when a node cannot be found in the Cluster.
-var NodeNotFound = errors.New("[Cluster] - node not found")
+var NodeNotFound = errors.Wrap(query.NotFound, "node not found")
+
+func nodeNotFoundErr(key node.Key) error {
+	return errors.Wrapf(NodeNotFound, "node %d", key)
+}
 
 // Open joins the host node to the Cluster and begins gossiping its state. The
 // node will spread addr as its listening address. A set of peer addresses
@@ -166,7 +171,7 @@ func (c *Cluster) Nodes() node.Group {
 func (c *Cluster) Node(key node.Key) (node.Node, error) {
 	n, ok := c.Store.GetNode(key)
 	if !ok {
-		return n, NodeNotFound
+		return n, nodeNotFoundErr(key)
 	}
 	return n, nil
 }

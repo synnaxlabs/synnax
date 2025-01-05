@@ -47,6 +47,7 @@ func (c createMessageTranslator) Forward(
 			LocalIndex:  int32(ch.LocalIndex),
 			Concurrency: uint32(ch.Concurrency),
 			Internal:    ch.Internal,
+			Virtual:     ch.Virtual,
 		})
 	}
 	return tr, nil

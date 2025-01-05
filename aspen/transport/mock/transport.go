@@ -28,6 +28,7 @@ type Network struct {
 	operations *fmock.Network[kv.TxRequest, kv.TxRequest]
 	lease      *fmock.Network[kv.TxRequest, types.Nil]
 	feedback   *fmock.Network[kv.FeedbackMessage, types.Nil]
+	recovery   *fmock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 }
 
 func NewNetwork() *Network {
@@ -37,6 +38,7 @@ func NewNetwork() *Network {
 		operations: fmock.NewNetwork[kv.TxRequest, kv.TxRequest](),
 		lease:      fmock.NewNetwork[kv.TxRequest, types.Nil](),
 		feedback:   fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
+		recovery:   fmock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
 	}
 }
 
@@ -55,6 +57,8 @@ type transport struct {
 	leaseClient    *fmock.UnaryClient[kv.TxRequest, types.Nil]
 	feedbackServer *fmock.UnaryServer[kv.FeedbackMessage, types.Nil]
 	feedbackClient *fmock.UnaryClient[kv.FeedbackMessage, types.Nil]
+	recoveryServer *fmock.StreamServer[kv.RecoveryRequest, kv.RecoveryResponse]
+	recoveryClient *fmock.StreamClient[kv.RecoveryRequest, kv.RecoveryResponse]
 }
 
 // Configure implements aspen.transport.
@@ -69,6 +73,8 @@ func (t *transport) Configure(ctx signal.Context, addr address.Address, external
 	t.leaseClient = t.net.lease.UnaryClient()
 	t.feedbackServer = t.net.feedback.UnaryServer(addr)
 	t.feedbackClient = t.net.feedback.UnaryClient()
+	t.recoveryServer = t.net.recovery.StreamServer(addr)
+	t.recoveryClient = t.net.recovery.StreamClient()
 	return nil
 }
 
@@ -91,6 +97,10 @@ func (t *transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer
 func (t *transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
 
 func (t *transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
+
+func (t *transport) RecoveryClient() kv.RecoveryTransportClient { return t.recoveryClient }
+
+func (t *transport) RecoveryServer() kv.RecoveryTransportServer { return t.recoveryServer }
 
 func (t *transport) Use(middleware ...freighter.Middleware) {
 	t.pledgeClient.Use(middleware...)
