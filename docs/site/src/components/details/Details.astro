@@ -1,5 +1,15 @@
+---
+import { Icon } from "@synnaxlabs/media";
+---
+
 <details>
-    <slot />
+    <summary>
+        <slot name="summary" />
+        <Icon.Caret.Left className="indicator" />
+    </summary>
+    <div class="content">
+        <slot />
+    </div>
 </details>
 
 <style is:global>
@@ -12,10 +22,14 @@
         max-height: 10rem;
         transition: max-height 0.3s ease;
 
+        .content {
+            padding: 0 2rem;
+        }
+
         &[open] {
             max-height: 1200px;
             summary {
-                border-bottom: var(--pluto-border-l4);
+                border-bottom: var(--pluto-border);
                 & .indicator {
                     transform: rotate(-90deg);
                 }

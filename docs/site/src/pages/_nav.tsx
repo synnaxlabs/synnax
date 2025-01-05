@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { analystNav } from "@/pages/guides/analyst/_nav";
+import { getStartedNav } from "@/pages/guides/get-started/_nav";
 import { operationsNav } from "@/pages/guides/operations/_nav";
 import { sysAdminNav } from "@/pages/guides/sys-admin/_nav";
 import { clusterNav } from "@/pages/reference/cluster/_nav";
@@ -37,10 +38,11 @@ export const componentsPages = [
 
 export const guidesPages = [
   {
-    name: "Get Started",
+    name: "Why Synnax?",
     key: "/guides/",
     href: "/guides/",
   },
+  getStartedNav,
   analystNav,
   sysAdminNav,
   operationsNav,
