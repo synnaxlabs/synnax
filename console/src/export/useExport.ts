@@ -12,12 +12,12 @@ import { type DialogFilter, save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
-import { type Extractor } from "@/export/Extractor";
+import { type FileExtractor } from "@/export/FileExtractor";
 import { type RootState } from "@/store";
 
 const FILTERS: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const useExport = (extract: Extractor): ((key: string) => Promise<void>) => {
+export const useExport = (extract: FileExtractor): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
   const store = useStore<RootState>();
   const addStatus = Status.useAggregator();

@@ -12,7 +12,7 @@ import { Layout } from "@/layout";
 import { select } from "@/lineplot/selectors";
 import { type State } from "@/lineplot/slice";
 
-export const extract: Export.Extractor = async (key, { store, client }) => {
+export const extract: Export.FileExtractor = async (key, { store, client }) => {
   const storeState = store.getState();
   let state = select(storeState, key);
   let name = Layout.select(storeState, key)?.name;

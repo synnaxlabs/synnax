@@ -13,7 +13,7 @@ import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 
-export const EXTRACTORS: Record<string, Export.Extractor> = {
+export const EXTRACTORS: Record<string, Export.FileExtractor> = {
   [LinePlot.LAYOUT_TYPE]: LinePlot.extract,
   [Log.LAYOUT_TYPE]: Log.extract,
   [Schematic.LAYOUT_TYPE]: Schematic.extract,
