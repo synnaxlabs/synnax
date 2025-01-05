@@ -11,6 +11,8 @@ package kv
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/change"
+	"io"
 
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
@@ -61,28 +63,34 @@ func (r *recoveryServer) recoverPeer(
 	}()
 	var dig Digest
 	for iter.First(); iter.Valid(); iter.Next() {
-		v := iter.Value()
-		if err = codec.Decode(ctx, v, &dig); err != nil {
+		encodedDig := iter.Value()
+		if err = codec.Decode(ctx, encodedDig, &dig); err != nil {
 			return err
 		}
 		if dig.Version.OlderThan(req.HighWater) {
 			continue
 		}
-		v, closer, err := r.Engine.Get(ctx, dig.Key)
-		if err != nil {
-			return err
-		}
+
 		op := Operation{}
 		op.Key = dig.Key
 		op.Version = dig.Version
 		op.Leaseholder = dig.Leaseholder
 		op.Variant = dig.Variant
-		op.Value = v
+
+		var closer io.Closer
+		if op.Variant == change.Set {
+			if op.Value, closer, err = r.Engine.Get(ctx, dig.Key); err != nil {
+				return err
+			}
+		}
+
 		if err = stream.Send(RecoveryResponse{Operations: []Operation{op}}); err != nil {
 			return err
 		}
-		if err = closer.Close(); err != nil {
-			return err
+		if closer != nil {
+			if err = closer.Close(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -278,6 +278,19 @@ var _ = Describe("txn", func() {
 				Expect(closer.Close()).To(Succeed())
 			})
 		})
+
+		It("Should correctly recover delete operations", func() {
+			kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
+			kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			Eventually(func(g Gomega) {
+				v, closer, err := kv2.Get(ctx, []byte("key"))
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(v).To(Equal([]byte("value")))
+				Expect(closer.Close()).To(Succeed())
+			})
+		})
 	})
 })
 
