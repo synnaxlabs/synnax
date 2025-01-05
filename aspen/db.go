@@ -12,7 +12,6 @@ package aspen
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/aspen/transport"
@@ -97,5 +96,5 @@ func (db *DB) Close() error {
 	c.Exec(db.transportCloser.Close)
 	c.Exec(db.Cluster.Close)
 	c.Exec(db.DB.Close)
-	return lo.Ternary(errors.Is(c.Error(), context.Canceled), nil, c.Error())
+	return errors.Skip(c.Error(), context.Canceled)
 }
