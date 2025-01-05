@@ -68,6 +68,9 @@ func (b *tx) Close() error {
 
 // Commit implements kv.Tx.
 func (b *tx) Commit(ctx context.Context, _ ...interface{}) error {
+	if ctx == nil {
+		b.L.DPanic("aspen encountered a nil context when committing transaction")
+	}
 	ctx, span := b.T.Prod(ctx, "tx-commit")
 	data, err := b.toRequests(ctx)
 	if err != nil {
