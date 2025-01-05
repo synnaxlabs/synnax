@@ -1,0 +1,23 @@
+{
+  "name": "videos",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@remotion/cli": "^4.0.244",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.244",
+    "@synnaxlabs/pluto": "workspace:*",
+    "@synnaxlabs/media": "workspace:*",
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "eslint-config-synnaxlabs": "workspace:*",
+    "stylelint-config-synnaxlabs": "workspace:*"
+  }
+}
