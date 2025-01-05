@@ -13,6 +13,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 The Synnax Console provides a flexible environment to display and interact with data
 stored and streamed through a Synnax cluster. It's interface is designed around two main
@@ -57,18 +59,24 @@ workspaces.
     </tr>
     <tr>
       <td>[Tasks](/reference/device-drivers)</td>
-      <td>The current data acquisition and controls tasks running on devices connected
-      to the cluster.</td>
+      <td>
+        The current data acquisition and controls tasks running on devices connected to
+        the cluster.
+      </td>
     </tr>
     <tr>
       <td>Users</td>
-      <td>A list of all users registered in the cluster. The workspaces
-      created by the users can be found underneath their name.</td>
+      <td>
+        A list of all users registered in the cluster. The workspaces created by the
+        users can be found underneath their name.
+      </td>
     </tr>
     <tr>
       <td>[Workspaces](/reference/console/workspaces)</td>
-      <td>All created workspaces in the cluster. This tree includes
-      workspaces created by all users.</td>
+      <td>
+        All created workspaces in the cluster. This tree includes workspaces created by
+        all users.
+      </td>
     </tr>
   </tbody>
 </Table>
@@ -125,6 +133,7 @@ You can also have multiple visualizations displayed at the same time:
 ## Getting Help
 
 The Synnax documentation website can be opened from within the console by clicking the
+
 <Icon.QuestionMark /> icon.
 
 <Video client:only="react" id="console/ui-overview/documentation" />
@@ -135,16 +144,19 @@ The Synnax documentation website can be opened from within the console by clicki
 
 The search and command palette at the top can be used to search for resources or to
 activate commands. Searching for resouces can be done by searching or pressing
-<Icon.Keyboard.Control />+`P` (Windows) / <Icon.Keyboard.Command />+`P` (MacOS). As an
-example of searching for resources, you could search for a test range and then
-automatically add it as the active range:
+
+<Icon.Keyboard.Control />
++`P` (Windows) / <Icon.Keyboard.Command />
++`P` (MacOS). As an example of searching for resources, you could search for a test
+range and then automatically add it as the active range:
 
 <Video client:only="react" id="console/ui-overview/palette-search" />
 
 The search and command palette can run commands by entering a `>` into the toolbar or by
 pressing <Icon.Keyboard.Control />+<Icon.Keyboard.Shift />+`P` (Windows) /
-<Icon.Keyboard.Command />+<Icon.Keyboard.Shift />+`P` (MacOS). This allows you to run
-commands such as toggling the color theme, creating a visualization, adding a range, or
-opening the documentation:
+
+<Icon.Keyboard.Command />+<Icon.Keyboard.Shift />
++`P` (MacOS). This allows you to run commands such as toggling the color theme, creating
+a visualization, adding a range, or opening the documentation:
 
 <Video client:only="react" id="console/ui-overview/palette-command" />

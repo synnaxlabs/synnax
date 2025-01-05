@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/media";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
@@ -45,24 +46,6 @@ export const OnThisPage = ({
     return () => clearInterval(i);
   }, []);
 
-  // useEffect(() => {
-  //   const getItemOffsets = (): void => {
-  //     const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-  //     const headerLinks = document.querySelectorAll(".on-this-page .header-link");
-
-  //     itemOffsets.current = Array.from(titles).map((title) => ({
-  //       id: title.id,
-  //       topOffset: title.getBoundingClientRect().top + window.scrollY,
-  //     }));
-  //   };
-
-  //   getItemOffsets();
-  //   window.addEventListener("resize", getItemOffsets);
-  //   return () => {
-  //     window.removeEventListener("resize", getItemOffsets);
-  //   };
-  // }, []);
-
   useEffect(() => {
     if (toc.current == null) return;
 
@@ -100,8 +83,13 @@ export const OnThisPage = ({
 
   return (
     <Align.Space el="nav" className="on-this-page" size={2}>
-      <Header.Header id={ON_THIS_PAGE_ID} className="heading" level="h4">
-        <Header.Title>On this page</Header.Title>
+      <Header.Header id={ON_THIS_PAGE_ID} className="heading" level="h5">
+        <Header.Title
+          size="small"
+          startIcon={<Icon.Log style={{ transform: "scale(0.8)" }} />}
+        >
+          On this page
+        </Header.Title>
       </Header.Header>
       <OSSelectButton />
       <div ref={toc}>

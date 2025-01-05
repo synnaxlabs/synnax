@@ -10,7 +10,23 @@
 import { z } from "zod";
 
 export const OPERATING_SYSTEMS = ["MacOS", "Windows", "Linux", "Docker"] as const;
-export const osZ = z.enum(OPERATING_SYSTEMS);
+const LOWERCASE_OPERATING_SYSTEMS = ["macos", "windows", "linux", "docker"] as const;
+const LOWER_TO_UPPER_OPERATING_SYSTEMS: Record<
+  (typeof LOWERCASE_OPERATING_SYSTEMS)[number],
+  (typeof OPERATING_SYSTEMS)[number]
+> = {
+  macos: "MacOS",
+  windows: "Windows",
+  linux: "Linux",
+  docker: "Docker",
+};
+export const osZ = z
+  .enum(OPERATING_SYSTEMS)
+  .or(
+    z
+      .enum(LOWERCASE_OPERATING_SYSTEMS)
+      .transform((s) => LOWER_TO_UPPER_OPERATING_SYSTEMS[s]),
+  );
 export type OS = (typeof OPERATING_SYSTEMS)[number];
 
 export type RequiredGetOSProps = {

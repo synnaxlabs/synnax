@@ -14,6 +14,7 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
+import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -56,6 +57,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
+    selection,
     selection: { resources },
   } = props;
   const del = useDelete();
@@ -64,16 +66,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
+      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
   });
   const isSingle = resources.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Menu.RenameItem />
       <Menu.DeleteItem />
+      <Group.GroupMenuItem selection={selection} />
       <PMenu.Divider />
       {isSingle && (
         <>
@@ -128,10 +128,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           ...(log.data as unknown as Log.State),
           key: id.key,
           location: "mosaic",
-          tab: {
-            mosaicKey: nodeKey,
-            location,
-          },
+          tab: { mosaicKey: nodeKey, location },
         }),
       );
     } catch (err) {
@@ -148,12 +145,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "log",
   icon: <Icon.Log />,
   hasChildren: false,
-  haulItems: (r) => [
-    {
-      type: Mosaic.HAUL_CREATE_TYPE,
-      key: r.id.toString(),
-    },
-  ],
+  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
   canDrop: () => false,

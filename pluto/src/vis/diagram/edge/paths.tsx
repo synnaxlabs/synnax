@@ -69,7 +69,7 @@ const JackedPipe = ({ points, color, ...props }: PathProps): ReactElement => {
   );
 };
 
-const JOINT_REMOVE_THRESHOLD = 15;
+const JOINT_REMOVE_THRESHOLD = 5;
 
 const computeSymbolPositions = (points: xy.XY[], interval: number): SymbolProps[] => {
   const positions: SymbolProps[] = [];
@@ -188,7 +188,7 @@ const createSymbolLine = (C: FC<SymbolProps>) => {
     const positions = computeSymbolPositions(points, 40); // Adjust the interval as needed
     return (
       <>
-        <BaseEdge path={path} {...props} color={Color.cssString(color)} />
+        <BaseEdge path={path} {...props} style={{ stroke: Color.cssString(color) }} />
         {positions.map(({ position, direction }, index) => (
           <C key={index} position={position} direction={direction} color={color} />
         ))}

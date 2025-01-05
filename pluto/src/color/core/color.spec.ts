@@ -133,4 +133,23 @@ describe("color.Color", () => {
       expect(c.pickByContrast(c1, c2)).toEqual(c1);
     });
   });
+  describe("grayness", () => {
+    const tests: Array<[string, number]> = [
+      ["#000000", 1],
+      ["#ffffff", 1],
+      ["#0000ff", 0],
+      ["#00ff00", 0],
+      ["#ff0000", 0],
+      ["#ffff00", 0],
+      ["#fefed4", 0.834],
+      ["#5c6670", 0.92],
+      ["#d3c5c5", 0.945],
+    ];
+    tests.forEach(([hex, expected]) => {
+      test(hex, () => {
+        const c = new color.Color(hex);
+        expect(c.grayness).toBeCloseTo(expected);
+      });
+    });
+  });
 });

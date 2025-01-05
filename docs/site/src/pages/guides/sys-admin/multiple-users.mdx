@@ -6,9 +6,9 @@ description: "Register multiple users to a Synnax cluster and manage their permi
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
 import { Video } from "@/components/Media";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 This guide walks through how to register multiple users to a Synnax cluster and manage
 their permissions.

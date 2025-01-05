@@ -7,9 +7,10 @@ prevURL: "/reference/pluto/get-started"
 next: "Theming"
 nextURL: "/reference/pluto/theming"
 ---
+
 import { Divider } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Pluto requires a bit of scaffolding to get up and running. In this guide we'll walk
 you through setting up a web worker to handle data fetching and rendering and wrapping
@@ -20,8 +21,8 @@ your application in the `Pluto.Provider` and `Pluto.Canvas` components.
 ## The Web Worker Script
 
 Pluto uses a Web Worker to handle data fetching and rendering. This keeps the rest of the
-user interface smooth even under heavy load. To set up the Web Worker, you need to 
-configure a script and start the pluto worker process. Create a file called 
+user interface smooth even under heavy load. To set up the Web Worker, you need to
+configure a script and start the pluto worker process. Create a file called
 `pluto-worker.ts` and add the following code:
 
 ```typescript
@@ -32,7 +33,7 @@ pluto.render();
 
 <Divider.Divider direction="x" />
 
-## The Provider 
+## The Provider
 
 The `Pluto.Provider` component is necessary for the library to work, and should be used
 at the root of your application. We also need to import the url of the worker script we
@@ -40,89 +41,88 @@ crated and provide it to the `Pluto.Provider` component. Here's a simple example
 [vite](https://vitejs.dev/) for importing the worker script. We also need to import the
 relevant css file for the components to render correctly.
 
-
 ```tsx
 import { Pluto } from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
 import WorkerUrl from "./pluto-worker?worker&url";
 
 const App = () => {
-    return (
-        <div>
-            <h1>Hello Pluto!</h1>
-        </div>
-    )
-}
+  return (
+    <div>
+      <h1>Hello Pluto!</h1>
+    </div>
+  );
+};
 
 const Main = () => (
-    <Pluto.Provider
-        // Worker url so components can communicate with the worker thread.
-        workerUrl={WorkerUrl}
-        // Connection parameters to your Synnax cluster so that 
-        // components can fetch data when needed.
-        connParams={{
-            host: "demo.synnaxlabs.com",
-            port: 9090,
-            username: "synnax",
-            password: "seldon",
-            secure: true,
-        }}
-    >
-        <App />
-    </Pluto.Provider>
-)
+  <Pluto.Provider
+    // Worker url so components can communicate with the worker thread.
+    workerUrl={WorkerUrl}
+    // Connection parameters to your Synnax cluster so that
+    // components can fetch data when needed.
+    connParams={{
+      host: "demo.synnaxlabs.com",
+      port: 9090,
+      username: "synnax",
+      password: "seldon",
+      secure: true,
+    }}
+  >
+    <App />
+  </Pluto.Provider>
+);
 ```
 
 <Divider.Divider direction="x" />
 
 ## The Canvas
 
-If you're using visualization components such as line plots, you'll need to set up a 
+If you're using visualization components such as line plots, you'll need to set up a
 rendering canvas for them to display on. This comes in the form of the `Pluto.Canvas`
 component.
 
 To increase performance, Pluto re-uses the canvas element across all visualizations. You
 should only use one `Pluto.Canvas` component in your application, and we recommend placing
-it as a fixed element that stretches across the display. Here's our previous example 
+it as a fixed element that stretches across the display. Here's our previous example
 edited to include the rendering canvas:
 
 ```tsx
 import { Pluto, Canvas } from "@synnaxlabs/pluto";
 
 const App = () => {
-    return (
-        <div>
-            <h1>Hello Pluto!</h1>
-        </div>
-    )
-}
+  return (
+    <div>
+      <h1>Hello Pluto!</h1>
+    </div>
+  );
+};
 
 const Main = () => {
-    return (
-        <Pluto.Provider
-            workerUrl={WorkerUrl}
-            connParams={{
-                host: "demo.synnaxlabs.com",
-                port: 9090,
-                username: "synnax",
-                password: "seldon",
-                secure: true,
-            }}
-        >
-            <Canvas.Canvas
-                style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%"
-                }}
-            >
-                <App />
-            </Canvas.Canvas>
-        </Pluto.Provider>
-    )
-}
+  return (
+    <Pluto.Provider
+      workerUrl={WorkerUrl}
+      connParams={{
+        host: "demo.synnaxlabs.com",
+        port: 9090,
+        username: "synnax",
+        password: "seldon",
+        secure: true,
+      }}
+    >
+      <Canvas.Canvas
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+        }}
+      >
+        <App />
+      </Canvas.Canvas>
+    </Pluto.Provider>
+  );
+};
 ```
 
 ## Next Steps

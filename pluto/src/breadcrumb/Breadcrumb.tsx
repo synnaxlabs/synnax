@@ -24,6 +24,7 @@ export interface Segment {
   icon?: string | ReactElement<PIcon.BaseProps>;
   weight?: Text.Weight;
   level?: Text.Level;
+  href?: string;
 }
 
 export type Segments = string | Segment | (string | Segment)[];
@@ -69,7 +70,7 @@ interface GetContentArgs {
   level: Text.Level;
   weight?: Text.Weight;
   separator: string;
-  transform?: (segment: Segment) => Segment;
+  transform?: (segment: Segment, index: number) => Segment;
 }
 
 const getContent = ({
@@ -84,32 +85,30 @@ const getContent = ({
   let content: Segment[] = normalized;
   if (transform != null) content = content.map(transform);
   return content
-    .map((el, index) => {
+    .map(({ label, icon, href, ...overrides }, index) => {
       const base: ReactElement[] = [
         <Icon.Caret.Right
-          key={`${el}-${index}`}
+          key={`${label}-${index}`}
           style={{
             transform: "scale(0.8) translateY(1px)",
             color: CSS.shade(shade),
           }}
         />,
       ];
-      if (el.icon != null) {
-        const icon = PIcon.resolve(el.icon);
-        if (icon != null) base.push(icon);
+      if (icon != null) {
+        const iconComponent = PIcon.resolve(icon);
+        if (iconComponent != null) base.push(iconComponent);
       }
-      base.push(
-        <Text.Text
-          style={{ marginLeft: el.icon != null ? "0.5rem" : "0" }}
-          key={el.label}
-          weight={weight}
-          shade={shade}
-          level={level}
-          {...el}
-        >
-          {el.label}
-        </Text.Text>,
-      );
+      const baseProps: Omit<Text.TextProps, "ref"> = {
+        weight,
+        shade,
+        level,
+        style: { marginLeft: icon != null ? "0.5rem" : "0" },
+        children: label,
+        ...overrides,
+      };
+      if (href != null) base.push(<Text.Link key={label} {...baseProps} href={href} />);
+      else base.push(<Text.Text key={label} {...baseProps} />);
       return base;
     })
     .flat();
@@ -128,7 +127,7 @@ export const Breadcrumb = <
   E extends Align.SpaceElementType = "div",
   L extends Text.Level = Text.Level,
 >({
-  children,
+  children: segments,
   icon,
   shade = 7,
   weight,
@@ -140,8 +139,8 @@ export const Breadcrumb = <
   hideFirst = true,
   ...props
 }: BreadcrumbProps<E, L>): ReactElement => {
-  if (url != null) children = url;
-  const content = getContent({ segments: children, separator, shade, level, weight });
+  if (url != null) segments = url;
+  const content = getContent({ segments, separator, shade, level, weight });
   if (hideFirst) content.shift();
   return (
     <Text.WithIcon
@@ -177,17 +176,21 @@ export const URL = ({
     shade,
     level,
     weight,
-    transform: (el) => ({
+    transform: (el, idx) => ({
       ...el,
       label: el.label
         .split("-")
         .map((el) => caseconv.capitalize(el))
         .join(" "),
+      href: `/${url
+        .split(separator)
+        .slice(0, idx + 1)
+        .join("/")}`,
     }),
   });
   return (
     <Align.Space
-      className={CSS(className, CSS.B("breadcrumb"))}
+      className={CSS(className, CSS.B("breadcrumb"), CSS.BM("breadcrumb", "url"))}
       direction="x"
       size="small"
       align="center"

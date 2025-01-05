@@ -82,11 +82,14 @@ export class Value
   }
 
   async afterDelete(): Promise<void> {
-    const { requestRender, telem, render: renderCtx } = this.internal;
-    await telem.cleanup?.();
-    if (requestRender == null)
-      renderCtx.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
-    else requestRender(render.REASON_LAYOUT);
+    const { internal: i } = this;
+    i.stopListening?.();
+    i.stopListeningBackground?.();
+    await i.telem.cleanup?.();
+    await i.backgroundTelem.cleanup?.();
+    if (i.requestRender == null)
+      i.render.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
+    else i.requestRender(render.REASON_LAYOUT);
   }
 
   private requestRender(): void {
