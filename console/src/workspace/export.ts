@@ -8,20 +8,19 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { join } from "@tauri-apps/api/path";
+import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
-import { sep } from "path";
 import { useStore } from "react-redux";
 
-import { EXTRACTORS } from "@/extractors";
 import { type Export } from "@/export";
+import { EXTRACTORS } from "@/extractors";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { convertLayout } from "@/workspace/convertLayout";
 import { select, selectActiveKey } from "@/workspace/selectors";
 
-const removeDirectory = (name: string): string => name.split(sep).join("_");
+const removeDirectory = (name: string): string => name.split(sep()).join("_");
 
 export const useExport = (): ((key: string) => Promise<void>) => {
   const client = Synnax.use();

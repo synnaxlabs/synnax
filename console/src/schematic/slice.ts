@@ -237,7 +237,7 @@ export const { actions, reducer } = createSlice({
         ...ZERO_STATE,
         ...latest.migrateState(payload),
         key: layoutKey,
-      }) as State;
+      });
       if (schematic.snapshot) {
         schematic.editable = false;
         clearSelections(schematic);
