@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
+  linePlot as clientLinePlot,
   log as clientLog,
-  ontology,
   schematic as clientSchematic,
   table as clientTable,
 } from "@synnaxlabs/client";
@@ -115,7 +115,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
         data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
       });
       const otg = await client.ontology.retrieve(
-        new ontology.ID({ key: schematic.key, type: clientSchematic.ONTOLOGY_TYPE }),
+        clientSchematic.ontologyID(schematic.key),
       );
       maybeChangeWorkspace(workspace);
       placeLayout(
@@ -158,10 +158,10 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       const workspace = selection.resources[0].id.key;
       const linePlot = await client.workspaces.linePlot.create(workspace, {
         name: "New Line Plot",
-        data: deep.copy(LinePlot.ZERO_SLICE_STATE) as unknown as UnknownRecord,
+        data: deep.copy(LinePlot.ZERO_SLICE_STATE),
       });
       const otg = await client.ontology.retrieve(
-        new ontology.ID({ key: linePlot.key, type: "lineplot" }),
+        clientLinePlot.ontologyID(linePlot.key),
       );
       maybeChangeWorkspace(workspace);
       placeLayout(
@@ -205,17 +205,9 @@ const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
         name: "New Log",
         data: deep.copy(Log.ZERO_STATE),
       });
-      const otg = await client.ontology.retrieve(
-        new ontology.ID({ key: log.key, type: clientLog.ONTOLOGY_TYPE }),
-      );
+      const otg = await client.ontology.retrieve(clientLog.ontologyID(log.key));
       maybeChangeWorkspace(workspace);
-      placeLayout(
-        Log.create({
-          ...log.data,
-          key: log.key,
-          name: log.name,
-        }),
-      );
+      placeLayout(Log.create({ ...log.data, key: log.key, name: log.name }));
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
         tree: nodes,
@@ -250,17 +242,9 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
         name: "New Table",
         data: deep.copy(Table.ZERO_STATE),
       });
-      const otg = await client.ontology.retrieve(
-        new ontology.ID({ key: table.key, type: clientTable.ONTOLOGY_TYPE }),
-      );
+      const otg = await client.ontology.retrieve(clientTable.ontologyID(table.key));
       maybeChangeWorkspace(workspace);
-      placeLayout(
-        Table.create({
-          ...table.data,
-          key: table.key,
-          name: table.name,
-        }),
-      );
+      placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
         tree: nodes,
@@ -366,17 +350,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   );
 };
 
-const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
-  void (async () => {
-    const workspace = await client.workspaces.retrieve(selection[0].id.key);
-    store.dispatch(add({ workspaces: [workspace] }));
-    store.dispatch(
-      Layout.setWorkspace({
-        slice: workspace.layout as unknown as Layout.SliceState,
-        keepNav: false,
-      }),
-    );
-  })();
+const handleSelect: Ontology.HandleSelect = async ({ selection, client, store }) => {
+  const workspace = await client.workspaces.retrieve(selection[0].id.key);
+  store.dispatch(add({ workspaces: [workspace] }));
+  store.dispatch(
+    Layout.setWorkspace({
+      slice: workspace.layout as unknown as Layout.SliceState,
+      keepNav: false,
+    }),
+  );
 };
 
 const handleRename: Ontology.HandleTreeRename = {
