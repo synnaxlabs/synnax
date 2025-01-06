@@ -23,7 +23,7 @@ export const extract: Export.FileExtractor = async (key, { store, client }) => {
     name ??= table.name;
   }
   const stateWithName = { ...state, name };
-  return { file: JSON.stringify(stateWithName), name };
+  return { data: JSON.stringify(stateWithName), name };
 };
 
 export const useExport = () => Export.useExport(extract);

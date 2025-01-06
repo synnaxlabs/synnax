@@ -32,7 +32,7 @@ export const useExport = (extract: FileExtractor): ((key: string) => Promise<voi
         filters: FILTERS,
       });
       if (savePath == null) return;
-      await writeTextFile(savePath, extractorReturn.file);
+      await writeTextFile(savePath, extractorReturn.data);
     } catch (e) {
       if (!(e instanceof Error)) throw e;
       addStatus({

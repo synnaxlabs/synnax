@@ -16,7 +16,7 @@ export interface FileExtractorContext {
 }
 
 export interface FileExtractorReturn {
-  file: string;
+  data: string;
   name: string;
 }
 

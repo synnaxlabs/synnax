@@ -80,8 +80,8 @@ export const useExport = (): ((key: string) => Promise<void>) => {
         names.add(fileInfo.name);
       }
       await Promise.all(
-        fileInfos.map(async ({ file, name }) => {
-          await writeTextFile(await join(directory, `${name}.json`), file);
+        fileInfos.map(async ({ data, name }) => {
+          await writeTextFile(await join(directory, `${name}.json`), data);
         }),
       );
     } catch (e) {
