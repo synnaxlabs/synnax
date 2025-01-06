@@ -15,7 +15,6 @@
   "scripts": {
     "build": "vite build",
     "watch": "vite build --watch",
-    "test": "vitest",
     "lint": "eslint --cache",
     "fix": "eslint --cache --fix"
   },
@@ -34,8 +33,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^9.17.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "vite": "^6.0.6",
-    "vitest": "^2.1.8"
+    "vite": "^6.0.6"
   },
   "files": [
     "dist"

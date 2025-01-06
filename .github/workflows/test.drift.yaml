@@ -1,52 +1,76 @@
-name: "Test - Drift"
+name: Test - Drift
+
 on:
-  pull_request:
-    branches:
-      - rc
-      - main
   push:
     branches:
-      - rc
       - main
+      - rc
+  pull_request:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
+
 jobs:
-  test:
-    name: "Run Tests"
+  changes:
+    name: Changes
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref }}
           filters: |
             changed:
-              - "drift/**"
-              - ".github/workflows/test.drift.yaml"
+              - .github/workflows/test.drift.yaml
+              - configs/eslint/**
+              - configs/ts/**
+              - configs/vite/**
+              - drift/**
+              - x/ts/**
+
+  test:
+    name: Test (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up pnpm
-        if: steps.filter.outputs.changed == 'true'
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+        uses: pnpm/action-setup@v4
 
-      - name: Set up Node
-        if: steps.filter.outputs.changed == 'true'
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: package.json
           cache: pnpm
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
-      - name: Build Drift
-        if: steps.filter.outputs.changed == 'true'
+      - name: Lint
+        if: matrix.lint
+        run: pnpm lint:drift
+
+      - name: Build
         run: pnpm build:drift
 
       - name: Test
-        if: steps.filter.outputs.changed == 'true'
         run: pnpm test:drift

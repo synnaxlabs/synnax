@@ -33,6 +33,9 @@ importers:
       turbo:
         specifier: ^2.3.3
         version: 2.3.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.8(@types/node@22.10.3)(jsdom@25.0.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
 
   alamos/ts:
     dependencies:
@@ -802,9 +805,6 @@ importers:
       vite:
         specifier: ^6.0.6
         version: 6.0.6(@types/node@22.10.3)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
-      vitest:
-        specifier: ^2.1.8
-        version: 2.1.8(@types/node@22.10.3)(jsdom@25.0.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
 
   x/ts:
     dependencies:

@@ -28,9 +28,7 @@
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "lint": "eslint --cache",
-    "fix": "eslint --cache --fix",
-    "genApi": "tsc --noEmit && vite build && npx api-extractor run --local",
-    "checkApi": "tsc --noEmit && vite build && npx api-extractor run"
+    "fix": "eslint --cache --fix"
   },
   "dependencies": {
     "@synnaxlabs/freighter": "workspace:*",
