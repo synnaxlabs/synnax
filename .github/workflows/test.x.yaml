@@ -65,13 +65,13 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
-      - name: Test
-        run: go test -v -shuffle=on ./...
-        working-directory: x/go
-
       - name: Check Formatting
         if: matrix.format
         run: scripts/gofmt-check.sh x/go
+
+      - name: Test
+        run: go test -v -shuffle=on ./...
+        working-directory: x/go
 
   ts:
     name: TypeScript (${{ matrix.os }})
@@ -103,12 +103,12 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Lint
+        if: matrix.lint
+        run: pnpm lint:x
+
       - name: Build
         run: pnpm build:x
 
       - name: Test
         run: pnpm test:x
-
-      - name: Lint
-        if: matrix.lint
-        run: pnpm lint:x

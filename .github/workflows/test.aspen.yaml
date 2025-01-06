@@ -58,10 +58,10 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
-      - name: Test
-        run: go test -v -shuffle=on ./...
-        working-directory: aspen
-
       - name: Format
         if: matrix.format
         run: scripts/gofmt-check.sh aspen
+
+      - name: Test
+        run: go test -v -shuffle=on ./...
+        working-directory: aspen

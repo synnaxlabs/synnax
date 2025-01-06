@@ -163,12 +163,12 @@ jobs:
         run: poetry install
         working-directory: client/py
 
-      - name: Test
-        run: poetry run pytest
-        working-directory: client/py
-
       - name: Format
         run: poetry run black --check --diff --color .
+        working-directory: client/py
+
+      - name: Test
+        run: poetry run pytest
         working-directory: client/py
 
   ts:
@@ -206,11 +206,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Lint
+        run: pnpm lint:client
+
       - name: Build
         run: pnpm build:client
 
       - name: Test
         run: pnpm test:client
-
-      - name: Lint
-        run: pnpm lint:client

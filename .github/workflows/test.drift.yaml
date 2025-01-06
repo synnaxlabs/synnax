@@ -65,12 +65,12 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Lint
+        if: matrix.lint
+        run: pnpm lint:drift
+
       - name: Build
         run: pnpm build:drift
 
       - name: Test
         run: pnpm test:drift
-
-      - name: Lint
-        if: matrix.lint
-        run: pnpm lint:drift

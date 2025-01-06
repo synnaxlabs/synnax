@@ -112,13 +112,13 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
-      - name: Test
-        run: go test -v -shuffle=on ./...
-        working-directory: freighter/go
-
       - name: Check Formatting
         if: matrix.format
         run: scripts/gofmt-check.sh freighter/go
+
+      - name: Test
+        run: go test -v -shuffle=on ./...
+        working-directory: freighter/go
 
   integration:
     runs-on: ubuntu-latest
@@ -181,12 +181,12 @@ jobs:
         run: poetry install
         working-directory: freighter/py
 
-      - name: Test
-        run: poetry run pytest
-        working-directory: freighter/py
-
       - name: Format
         run: poetry run black --check --diff --color .
+        working-directory: freighter/py
+
+      - name: Test
+        run: poetry run pytest
         working-directory: freighter/py
 
   ts:
@@ -218,11 +218,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Lint
+        run: pnpm lint:freighter
+
       - name: Build
         run: pnpm build:freighter
 
       - name: Test
         run: pnpm test:freighter
-
-      - name: Lint
-        run: pnpm lint:freighter

@@ -70,13 +70,13 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
-      - name: Test
-        run: go test -v -shuffle=on ./...
-        working-directory: alamos/go
-
       - name: Format
         if: matrix.format
         run: scripts/gofmt-check.sh alamos/go
+
+      - name: Test
+        run: go test -v -shuffle=on ./...
+        working-directory: alamos/go
 
   py:
     name: Python (${{ matrix.os }})
@@ -110,13 +110,13 @@ jobs:
         run: poetry install
         working-directory: alamos/py
 
-      - name: Test
-        run: poetry run pytest
-        working-directory: alamos/py
-
       - name: Format
         if: matrix.format
         run: poetry run black --check --diff --color .
+        working-directory: alamos/py
+
+      - name: Test
+        run: poetry run pytest
         working-directory: alamos/py
 
   ts:
@@ -149,12 +149,12 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Lint
+        if: matrix.lint
+        run: pnpm lint:alamos
+
       - name: Build
         run: pnpm build:alamos
 
       - name: Test
         run: pnpm test:alamos
-
-      - name: Lint
-        if: matrix.lint
-        run: pnpm lint:alamos
