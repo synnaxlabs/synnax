@@ -1,4 +1,4 @@
-name: Test - Console
+name: Test - Media
 
 on:
   push:
@@ -28,17 +28,11 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/test.console.yaml
-              - alamos/ts/**
-              - client/ts/**
+              - .github/workflows/test.media.yaml
               - configs/eslint/**
               - configs/stylelint/**
               - configs/ts/**
               - configs/vite/**
-              - console/**
-              - drift/**
-              - freighter/ts/**
-              - pluto/**
               - x/media/**
               - x/ts/**
 
@@ -74,10 +68,7 @@ jobs:
 
       - name: Lint
         if: matrix.lint
-        run: pnpm lint:console
+        run: pnpm lint:media
 
       - name: Build
-        run: pnpm build:console-vite
-
-      - name: Test
-        run: pnpm test:console
+        run: pnpm build:media

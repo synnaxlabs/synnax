@@ -1,4 +1,4 @@
-name: Test - X
+name: Test - Alamos
 
 on:
   push:
@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.filter.outputs.go }}
+      py: ${{ steps.filter.outputs.py }}
       ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
@@ -29,13 +30,17 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             shared: &shared
-              - .github/workflows/test.x.yaml
+              - .github/workflows/test.alamos.yaml
             go:
               - *shared
               - alamos/go/**
               - x/go/**
+            py:
+              - *shared
+              - alamos/py/**
             ts:
               - *shared
+              - alamos/ts/**
               - configs/eslint/**
               - configs/ts/**
               - configs/vite/**
@@ -65,13 +70,54 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
-      - name: Check Formatting
+      - name: Format
         if: matrix.format
-        run: scripts/gofmt-check.sh x/go
+        run: scripts/gofmt-check.sh alamos/go
 
       - name: Test
         run: go test -v -shuffle=on ./...
-        working-directory: x/go
+        working-directory: alamos/go
+
+  py:
+    name: Python (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.py == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: alamos/py/pyproject.toml
+          cache: poetry
+
+      - name: Install Dependencies
+        run: poetry install
+        working-directory: alamos/py
+
+      - name: Format
+        if: matrix.format
+        run: poetry run black --check --diff --color .
+        working-directory: alamos/py
+
+      - name: Test
+        run: poetry run pytest
+        working-directory: alamos/py
 
   ts:
     name: TypeScript (${{ matrix.os }})
@@ -105,10 +151,10 @@ jobs:
 
       - name: Lint
         if: matrix.lint
-        run: pnpm lint:x
+        run: pnpm lint:alamos
 
       - name: Build
-        run: pnpm build:x
+        run: pnpm build:alamos
 
       - name: Test
-        run: pnpm test:x
+        run: pnpm test:alamos

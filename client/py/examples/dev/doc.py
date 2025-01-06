@@ -14,24 +14,26 @@ time_index = client.channels.create(
 
 sensor_one = sy.Channel(
     name="sensor_one",
-    data_type=np.float32, # You can use numpy to define data types
+    data_type=np.float32,  # You can use numpy to define data types
     index=time_index.key,
 )
 
 sensor_two = sy.Channel(
     name="sensor_two",
-    data_type="float32", # Or you can use strings
+    data_type="float32",  # Or you can use strings
     index=time_index.key,
 )
 
 sensor_three = sy.Channel(
     name="sensor_three",
-    data_type=sy.DataType.FLOAT32, # Or you can use Synnax data types
+    data_type=sy.DataType.FLOAT32,  # Or you can use Synnax data types
     index=time_index.key,
 )
 
-data_channels = client.channels.create([
-    sensor_one,
-    sensor_two,
-    sensor_three,
-])
+data_channels = client.channels.create(
+    [
+        sensor_one,
+        sensor_two,
+        sensor_three,
+    ]
+)
