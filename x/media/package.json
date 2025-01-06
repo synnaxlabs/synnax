@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/media",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "type": "module",
   "description": "Media Assets for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/media",
@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@synnaxlabs/x": "workspace:*",
-    "@types/react": "^19.0.1",
+    "@types/react": "^19.0.2",
     "clsx": "^2.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -29,11 +29,11 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.10.3",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^9.17.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "vite": "^6.0.3"
+    "vite": "^6.0.6"
   },
   "files": [
     "dist"
