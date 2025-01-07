@@ -312,33 +312,40 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       {singleResource && (
         <>
           <PMenu.Item itemKey="createPlot" startIcon={<LinePlotServices.CreateIcon />}>
-            Create New Line Plot
-          </PMenu.Item>
-          <PMenu.Item itemKey="importPlot" startIcon={<LinePlotServices.ImportIcon />}>
-            Import Line Plot
+            Create Line Plot
           </PMenu.Item>
           <PMenu.Item itemKey="createLog" startIcon={<LogServices.CreateIcon />}>
-            Create New Log
+            Create Log
           </PMenu.Item>
           <PMenu.Item itemKey="createTable" startIcon={<TableServices.CreateIcon />}>
-            Create New Table
+            Create Table
           </PMenu.Item>
           {canCreateSchematic && (
-            <>
-              <PMenu.Item
-                itemKey="createSchematic"
-                startIcon={<SchematicServices.CreateIcon />}
-              >
-                Create New Schematic
-              </PMenu.Item>
-              <PMenu.Item
-                itemKey="importSchematic"
-                startIcon={<SchematicServices.ImportIcon />}
-              >
-                Import Schematic
-              </PMenu.Item>
-            </>
+            <PMenu.Item
+              itemKey="createSchematic"
+              startIcon={<SchematicServices.CreateIcon />}
+            >
+              Create Schematic
+            </PMenu.Item>
           )}
+          <PMenu.Divider />
+          <PMenu.Item itemKey="importPlot" startIcon={<LinePlotServices.ImportIcon />}>
+            Import Line Plot(s)
+          </PMenu.Item>
+          <PMenu.Item itemKey="importLog" startIcon={<LogServices.ImportIcon />}>
+            Import Log(s)
+          </PMenu.Item>
+          {canCreateSchematic && (
+            <PMenu.Item
+              itemKey="importSchematic"
+              startIcon={<SchematicServices.ImportIcon />}
+            >
+              Import Schematic(s)
+            </PMenu.Item>
+          )}
+          <PMenu.Item itemKey="importTable" startIcon={<TableServices.ImportIcon />}>
+            Import Table(s)
+          </PMenu.Item>
           <PMenu.Divider />
           <Export.MenuItem />
           <Link.CopyMenuItem />

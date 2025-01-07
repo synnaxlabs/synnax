@@ -7,5 +7,14 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-export * from "@/import/import";
-export * from "@/import/ingestor";
+import { type Store } from "@reduxjs/toolkit";
+
+import { type Layout } from "@/layout";
+
+export type Ingestor = (args: {
+  data: string;
+  name: string;
+  store: Store;
+  key?: string;
+  layout?: Partial<Layout.State>;
+}) => Layout.PlacerArgs;

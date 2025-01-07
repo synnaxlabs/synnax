@@ -30,11 +30,12 @@ import {
 import { type location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
+import { ZodError } from "zod";
 
 import { Controls } from "@/components";
 import { Menu } from "@/components/menu";
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
-import { Confirm } from "@/confirm";
+import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
@@ -50,8 +51,6 @@ import {
 } from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { LinePlotServices } from "@/lineplot/services";
-import { SchematicServices } from "@/schematic/services";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
@@ -65,8 +64,6 @@ const EmptyContent = (): ReactElement => (
 const emptyContent = <EmptyContent />;
 
 export const MOSAIC_TYPE = "mosaic";
-
-const FILE_HANDLERS = [SchematicServices.fileHandler, LinePlotServices.fileHandler];
 
 export const ContextMenu = ({
   keys,
@@ -232,9 +229,6 @@ export const Mosaic = memo((): ReactElement => {
     [dispatch, windowKey],
   );
 
-  const workspaceKey = Workspace.useSelectActiveKey();
-  const confirm = Confirm.useModal();
-
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
       void (async () => {
@@ -245,28 +239,23 @@ export const Mosaic = memo((): ReactElement => {
             if (file.type !== "application/json")
               throw Error(`${name} is not a JSON file`);
             const buffer = await file.arrayBuffer();
-            const fileAsJSON = JSON.parse(new TextDecoder().decode(buffer));
-
-            let handlerFound = false;
-            for (const fileHandler of FILE_HANDLERS)
-              if (
-                await fileHandler({
-                  file: fileAsJSON,
-                  place,
+            const data = new TextDecoder().decode(buffer);
+            for (const ingest of Object.values(INGESTORS))
+              try {
+                const placerArg = ingest({
+                  data,
                   name,
                   store,
-                  confirm,
-                  client,
-                  workspaceKey: workspaceKey ?? undefined,
-                  dispatch,
-                  tab: { mosaicKey: nodeKey, location: loc },
-                })
-              ) {
-                handlerFound = true;
-                break;
+                  key: undefined,
+                  layout: { tab: { mosaicKey: nodeKey, location: loc } },
+                });
+                place(placerArg);
+                return;
+              } catch (e) {
+                if (e instanceof ZodError) continue;
+                else throw e;
               }
-            if (!handlerFound)
-              throw Error(`${name} is not recognized as a Synnax object`);
+            throw Error(`Failed to parse ${name}`);
           } catch (e) {
             if (e instanceof Error)
               addStatus({

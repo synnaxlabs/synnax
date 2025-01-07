@@ -15,6 +15,7 @@ import * as latest from "@/table/migrations";
 import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/migrations/v0";
 
 export type State = latest.State;
+export const stateZ = latest.stateZ;
 export const ZERO_STATE: State = latest.ZERO_STATE;
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
