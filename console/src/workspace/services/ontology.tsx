@@ -88,7 +88,7 @@ const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
       if (client == null) throw new Error("Cannot reach cluster");
       ws = await client.workspaces.retrieve(key);
     }
-    dispatch(add({ workspaces: [ws] }));
+    dispatch(add(ws));
     dispatch(
       Layout.setWorkspace({
         slice: ws.layout as unknown as Layout.SliceState,
@@ -352,7 +352,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
 
 const handleSelect: Ontology.HandleSelect = async ({ selection, client, store }) => {
   const workspace = await client.workspaces.retrieve(selection[0].id.key);
-  store.dispatch(add({ workspaces: [workspace] }));
+  store.dispatch(add(workspace));
   store.dispatch(
     Layout.setWorkspace({
       slice: workspace.layout as unknown as Layout.SliceState,

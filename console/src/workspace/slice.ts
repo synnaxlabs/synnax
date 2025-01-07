@@ -9,6 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type workspace } from "@synnaxlabs/client";
+import { toArray } from "@synnaxlabs/x";
 
 import * as latest from "@/workspace/migrations";
 
@@ -24,9 +25,7 @@ export interface StoreState {
 
 type SetActivePayload = string | null;
 
-export interface AddPayload {
-  workspaces: workspace.Workspace[];
-}
+export type AddPayload = workspace.Workspace | workspace.Workspace[];
 
 export interface RemovePayload {
   keys: string[];
@@ -44,8 +43,8 @@ export const { actions, reducer } = createSlice({
     setActive: (state, { payload }: PayloadAction<SetActivePayload>) => {
       state.active = payload;
     },
-    add: (state, { payload: { workspaces } }: PayloadAction<AddPayload>) => {
-      workspaces.forEach((workspace) => {
+    add: (state, { payload: workspaces }: PayloadAction<AddPayload>) => {
+      toArray(workspaces).forEach((workspace) => {
         state.workspaces[workspace.key] = workspace;
         state.active = workspace.key;
       });
