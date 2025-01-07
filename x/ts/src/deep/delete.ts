@@ -9,8 +9,7 @@
 
 import { type Key } from "@/deep/path";
 
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
-export const deleteD = <T extends any, D extends number = 5>(
+export const deleteD = <T, D extends number = 5>(
   target: T,
   ...keys: Array<Key<T, D>>
 ): T => {
