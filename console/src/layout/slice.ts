@@ -29,6 +29,7 @@ export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_MOSAIC_STATE = latest.ZERO_MOSAIC_STATE;
 export const MAIN_LAYOUT = latest.MAIN_LAYOUT;
 export const migrateSlice = latest.migrateSlice;
+export const anySliceStateZ = latest.anySliceStateZ;
 
 /**
  * The name of the layout slice in a larger store.

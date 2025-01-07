@@ -23,7 +23,7 @@ import { select, selectActiveKey } from "@/workspace/selectors";
 
 const removeDirectory = (name: string): string => name.split(sep()).join("_");
 
-const LAYOUT_FILE_NAME = "LAYOUT.json";
+export const LAYOUT_FILE_NAME = "LAYOUT.json";
 
 export const useExport = (): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
