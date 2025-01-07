@@ -14,7 +14,12 @@ import { Align, Text } from "@synnaxlabs/pluto";
                 <Align.Space direction="y" grow size={6}>
                     <Align.Space direction="y" align="start" size="large">
                         <Text.Text level="h1" className="title">Synnax Docs</Text.Text>
-                        <Text.Text level="p" shade={7} style={{ maxWidth: "500px" }}>
+                        <Text.Text
+                            level="h4"
+                            shade={7}
+                            style={{ maxWidth: "500px" }}
+                            weight={350}
+                        >
                             Guides and references to instrument and operate hardware
                             with Synnax.
                         </Text.Text>
@@ -40,6 +45,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
                                     Thorough walkthroughs to teach every aspect of the
                                     Synnax platform.
                                 </Text.Text>
+                                <Icon.OpenExternal />
                             </Align.Space>
                         </Align.Space>
                         <Align.Space
@@ -61,6 +67,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
                                     In-depth documentation on Synnax concepts and
                                     components.
                                 </Text.Text>
+                                <Icon.OpenExternal />
                             </Align.Space>
                         </Align.Space>
                     </Align.Space>
@@ -77,13 +84,11 @@ import { Align, Text } from "@synnaxlabs/pluto";
                             bordered
                         >
                             <Logo variant="icon" color="white" />
-                            <Text.Text level="h3" shade={10}> Get Started</Text.Text>
+                            <Text.Text level="h3" shade={10}>Get Started</Text.Text>
                             <Text.Text level="h5" shade={7}>
                                 Start acquiring data in minutes
                             </Text.Text>
-                            <Align.Space className="download">
-                                <Icon.Download />
-                            </Align.Space>
+                            <Icon.OpenExternal />
                         </Align.Space>
                     </Align.Space>
                 </Align.Space>
@@ -128,18 +133,20 @@ import { Align, Text } from "@synnaxlabs/pluto";
             height: 3px;
             background: var(--pluto-primary-z);
         }
+
         .hero-parent {
-            height: 75vh;
-            padding-top: 20rem;
+            padding-top: 16rem;
             min-height: 700px;
-            .hero {
-                width: 1100px;
+            & h1 {
+                margin: 0 !important;
             }
         }
+
         .guides {
             margin: 0 auto;
             max-width: 1100px;
         }
+
         .get {
             text-decoration: none !important;
 
@@ -151,22 +158,8 @@ import { Align, Text } from "@synnaxlabs/pluto";
                 fill: var(--pluto-gray-l10);
             }
 
-            & .download {
-                border-radius: var(--root-border-radius);
-                height: 5rem;
-                width: 5rem;
-                & svg {
-                    height: 5rem;
-                    width: 5rem;
-                    fill: var(--pluto-gray-l10);
-                }
-                position: absolute;
-                bottom: 3rem;
-                right: 3rem;
-            }
-
             position: relative;
-            height: 425px;
+            height: 400px;
             aspect-ratio: 1;
             border-radius: var(--root-border-radius);
             border: var(--pluto-border-l4);
@@ -199,8 +192,23 @@ import { Align, Text } from "@synnaxlabs/pluto";
             &:hover {
                 border-color: var(--pluto-gray-l5);
             }
+
+            & h3 {
+                margin: 0 !important;
+            }
         }
+
+        .synnax-icon-open-external {
+            position: absolute;
+            height: 3.5rem;
+            width: 3.5rem;
+            color: var(--pluto-gray-l7);
+            top: 1.5rem;
+            right: 1.5rem;
+        }
+
         .chip {
+            position: relative;
             text-decoration: none !important;
             border-radius: var(--root-border-radius);
             background-color: var(--pluto-gray-l1);
@@ -209,7 +217,8 @@ import { Align, Text } from "@synnaxlabs/pluto";
             cursor: pointer;
             border-color: var(--pluto-gray-l4);
             box-shadow: var(--root-box-shadow);
-            padding-left: 5rem;
+            padding: 2.5rem 4rem;
+
             &.guide {
                 background-size: cover;
                 background-position: center center;
@@ -218,6 +227,43 @@ import { Align, Text } from "@synnaxlabs/pluto";
             &:hover {
                 background-color: var(--pluto-gray-l2);
                 border-color: var(--pluto-gray-l5);
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .hero {
+                gap: 4rem !important;
+            }
+        }
+
+        @media (max-width: 950px) {
+            .hero-parent {
+                padding-bottom: 10rem;
+                padding-top: 10rem;
+                height: 100vh;
+                .hero {
+                    flex-direction: column !important;
+                    padding: 0 3rem;
+                    gap: 4rem !important;
+                }
+
+                .get {
+                    height: min-content;
+                    gap: 1rem !important;
+                    aspect-ratio: unset;
+                    align-items: start !important;
+                    padding: 4rem;
+
+                    .synnax-logo {
+                        display: none;
+                    }
+                }
+            }
+        }
+
+        @media (max-width: 600px) and (hover: none) {
+            .hero-parent {
+                padding-top: 3rem;
             }
         }
     </style>

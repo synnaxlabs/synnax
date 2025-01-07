@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { analystNav } from "@/pages/guides/analyst/_nav";
+import { comparisonNav } from "@/pages/guides/comparison/_nav";
 import { getStartedNav } from "@/pages/guides/get-started/_nav";
 import { operationsNav } from "@/pages/guides/operations/_nav";
 import { sysAdminNav } from "@/pages/guides/sys-admin/_nav";
