@@ -20,7 +20,7 @@ import { type ComponentType } from "react";
 
 import * as latest from "@/layout/migrations";
 
-export type State<A = any> = latest.State<A>;
+export type State<A = unknown> = latest.State<A>;
 export type SliceState = latest.SliceState;
 export type NavDrawerLocation = latest.NavDrawerLocation;
 export type NavDrawerEntryState = latest.NavDrawerEntryState;
