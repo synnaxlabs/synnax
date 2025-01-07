@@ -1,6 +1,6 @@
 import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto";
-import { type FC } from "react";
+import { type FC, isValidElement } from "react";
 
 import pre from "@/components/code/Code.astro";
 import Details from "@/components/details/Details.astro";
@@ -12,12 +12,11 @@ interface TextFactoryProps {
   includeAnchor?: boolean;
 }
 
-export const textFactory =
-  ({
-    level,
-    includeAnchor = false,
-  }: TextFactoryProps): FC<Omit<Text.TextProps, "level">> =>
-  ({ children, id, ...p }) => (
+export const textFactory = ({
+  level,
+  includeAnchor = false,
+}: TextFactoryProps): FC<Omit<Text.TextProps, "level">> => {
+  const Component = ({ children, id, ...p }: Omit<Text.TextProps, "level">) => (
     <Text.Text id={id} level={level} {...p}>
       {children}
       {includeAnchor && (
@@ -27,6 +26,9 @@ export const textFactory =
       )}
     </Text.Text>
   );
+  Component.displayName = `Text.${level}`;
+  return Component;
+};
 
 export const mdxOverrides = {
   pre,

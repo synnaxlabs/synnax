@@ -23,11 +23,11 @@ export const getStartedNav: PageNavNode = {
       href: "/guides/get-started/installation",
       name: "Installation",
     },
-    // {
-    //   key: "/guides/get-started/acquiring-data",
-    //   href: "/guides/get-started/acquiring-data",
-    //   name: "Acquiring Data",
-    // },
+    {
+      key: "/guides/get-started/acquiring-data",
+      href: "/guides/get-started/acquiring-data",
+      name: "Acquiring Data",
+    },
     // {
     //   key: "/guides/get-started/manual-control",
     //   href: "/guides/get-started/manual-control",

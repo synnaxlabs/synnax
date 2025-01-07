@@ -63,11 +63,13 @@ const {
         const bindClickHandlersToHeadingAnchors = () => {
             const anchors = document.querySelectorAll(".heading-anchor");
             anchors.forEach((anchor) => {
+                if (anchor.previousElementSibling?.classList.contains("no-link")) {
+                    anchor.style.display = "none";
+                }
                 anchor.addEventListener("click", () => {
                     const url = window.location.href;
                     const newUrl = url.split("#")[0];
                     const hash = anchor.getAttribute("href");
-                    console.log(newUrl + hash);
                     navigator.clipboard.writeText(newUrl + hash);
                 });
             });
