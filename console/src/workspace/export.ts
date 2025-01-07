@@ -10,9 +10,10 @@
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
-import { mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
+import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
+import { Confirm } from "@/confirm";
 import { type Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Layout } from "@/layout";
@@ -28,6 +29,7 @@ export const useExport = (): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
   const store = useStore<RootState>();
+  const confirm = Confirm.useModal();
   return async (key: string) => {
     let name: string = "workspace"; // default name for error message
     try {
@@ -35,18 +37,15 @@ export const useExport = (): ((key: string) => Promise<void>) => {
       const activeKey = selectActiveKey(storeState);
       let toExport: Layout.SliceState;
       if (activeKey === key) {
-        // active workspace is the current workspace
         const file = Layout.selectSliceState(storeState);
         toExport = convertLayout(file);
         name = select(storeState, key)?.name ?? "workspace";
       } else {
         const existingWorkspace = select(storeState, key);
         if (existingWorkspace != null) {
-          // key exists in store
           toExport = existingWorkspace.layout as Layout.SliceState;
           name = existingWorkspace.name;
         } else {
-          // fetch workspace from cluster
           if (client == null) throw new Error("Cannot reach cluster");
           const ws = await client.workspaces.retrieve(key);
           toExport = ws.layout as Layout.SliceState;
@@ -60,6 +59,16 @@ export const useExport = (): ((key: string) => Promise<void>) => {
       });
       if (parentDir == null) return;
       const directory = await join(parentDir, removeDirectory(name));
+      if (
+        (await exists(directory)) &&
+        !(await confirm({
+          message: `A file or directory already exists at ${directory}`,
+          description: "Replacing will cause the old data to be deleted.",
+          cancel: { label: "Cancel" },
+          confirm: { label: "Replace", variant: "error" },
+        }))
+      )
+        return;
       await mkdir(directory, { recursive: true });
       await writeTextFile(
         await join(directory, LAYOUT_FILE_NAME),
