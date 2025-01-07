@@ -22,8 +22,7 @@ export const extract: Export.FileExtractor = async (key, { store, client }) => {
     state ??= { ...(linePlot.data as unknown as State), key: linePlot.key };
     name ??= linePlot.name;
   }
-  const stateWithName = { ...state, name };
-  return { data: JSON.stringify(stateWithName), name };
+  return { data: JSON.stringify(state), name };
 };
 
-export const useExport = () => Export.useExport(extract);
+export const useExport = () => Export.useExport(extract, "lineplot");

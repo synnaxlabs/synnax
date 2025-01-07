@@ -26,8 +26,7 @@ export const extract: Export.FileExtractor = async (key, { store, client }) => {
     };
     name ??= schematic.name;
   }
-  const stateWithName = { ...state, name };
-  return { data: JSON.stringify(stateWithName), name };
+  return { data: JSON.stringify(state), name };
 };
 
-export const useExport = () => Export.useExport(extract);
+export const useExport = () => Export.useExport(extract, "schematic");
