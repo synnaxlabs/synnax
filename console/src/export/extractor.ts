@@ -10,17 +10,17 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 
-export interface FileExtractorContext {
+export interface ExtractorContext {
   store: Store;
   client: Synnax | null;
 }
 
-export interface FileExtractorReturn {
+export interface ExtractorReturn {
   data: string;
   name: string;
 }
 
-export type FileExtractor = (
+export type Extractor = (
   key: string,
-  context: FileExtractorContext,
-) => Promise<FileExtractorReturn>;
+  context: ExtractorContext,
+) => Promise<ExtractorReturn>;

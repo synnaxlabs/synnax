@@ -12,7 +12,7 @@ import { Layout } from "@/layout";
 import { select } from "@/schematic/selectors";
 import { type State } from "@/schematic/slice";
 
-export const extract: Export.FileExtractor = async (key, { store, client }) => {
+export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();
   let state = select(storeState, key);
   let name = Layout.select(storeState, key)?.name;
