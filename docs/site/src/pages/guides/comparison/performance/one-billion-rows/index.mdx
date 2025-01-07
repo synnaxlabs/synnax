@@ -1,0 +1,1056 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Performance Compared: Synnax vs. Timescale vs. Influx"
+description: "See how Synnax compares in performance to other time series databases."
+published: "Oct 15, 2024"
+---
+
+import { Divider, Note, Text, Align } from "@synnaxlabs/pluto";
+import Table from "@/components/Table.astro";
+import Diagram from "@/components/Diagram.astro";
+import { Image } from "@/components/Media";
+import { Tabs } from "@/components/Tabs";
+import { StepText } from "@/components/StepText";
+import Details from "@/components/details/Details.astro";
+import Summary from "@/components/details/Summary.astro";
+import { Icon } from "@synnaxlabs/media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Diagram style={{ padding: "20rem" }} variant="boxes">
+  <svg
+    width="592"
+    height="100"
+    viewBox="0 0 592 100"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M27.7792 89.1642C26.4056 89.1649 25.056 88.8038 23.8662 88.1173C22.6765 87.4308 21.6885 86.4431 21.0016 85.2536C20.3148 84.064 19.9533 82.7146 19.9535 81.341C19.9538 79.9674 20.3157 78.6181 21.003 77.4287L49.7555 27.64C52.766 22.4219 60.3185 22.4219 63.4346 27.8618L90.7769 75.2211C91.0923 75.7654 91.5437 76.2186 92.0868 76.5362L100.231 81.2367C100.914 81.6318 101.708 81.7902 102.491 81.6873C103.273 81.5844 104 81.226 104.557 80.6677C105.115 80.1094 105.473 79.3826 105.575 78.6001C105.677 77.8177 105.517 77.0234 105.122 76.3407L63.3026 3.91548C62.6171 2.72526 61.6301 1.73668 60.4409 1.0493C59.2518 0.361915 57.9025 0 56.529 0C55.1555 0 53.8063 0.361915 52.6171 1.0493C51.428 1.73668 50.441 2.72526 49.7555 3.91548L1.04946 88.2664C0.362196 89.4557 0.000238377 90.805 1.17702e-07 92.1786C-0.000238141 93.5522 0.361251 94.9017 1.04811 96.0912C1.73496 97.2808 2.72296 98.2685 3.91271 98.955C5.10247 99.6415 6.45203 100.003 7.82563 100.002H89.9847C90.7722 99.9993 91.5369 99.7375 92.1608 99.257C92.7847 98.7765 93.2331 98.104 93.4368 97.3434C93.6405 96.5827 93.5881 95.7761 93.2878 95.0481C92.9875 94.3202 92.4559 93.7113 91.7752 93.3155L85.4109 89.6184C84.8662 89.305 84.249 89.1393 83.6205 89.1378L27.7792 89.1642Z"
+      fill="#FCFCFC"
+    />
+    <path
+      d="M162.972 58.6436L167.63 42.9814H172.024L165.415 62.001H162.673L162.972 58.6436ZM159.403 42.9814L164.149 58.7139L164.378 62.001H161.636L154.991 42.9814H159.403ZM185.313 56.8506C185.313 56.4287 185.208 56.0479 184.997 55.708C184.786 55.3564 184.382 55.04 183.784 54.7588C183.198 54.4775 182.331 54.2197 181.183 53.9854C180.175 53.7627 179.249 53.499 178.405 53.1943C177.573 52.8779 176.858 52.4971 176.261 52.0518C175.663 51.6064 175.2 51.0791 174.872 50.4697C174.544 49.8604 174.38 49.1572 174.38 48.3604C174.38 47.5869 174.55 46.8545 174.89 46.1631C175.229 45.4717 175.716 44.8623 176.349 44.335C176.981 43.8076 177.749 43.3916 178.651 43.0869C179.565 42.7822 180.585 42.6299 181.71 42.6299C183.304 42.6299 184.669 42.8994 185.806 43.4385C186.954 43.9658 187.833 44.6865 188.442 45.6006C189.052 46.5029 189.356 47.5225 189.356 48.6592H185.12C185.12 48.1553 184.991 47.6865 184.733 47.2529C184.487 46.8076 184.112 46.4502 183.608 46.1807C183.104 45.8994 182.472 45.7588 181.71 45.7588C180.983 45.7588 180.38 45.876 179.899 46.1104C179.431 46.333 179.079 46.626 178.845 46.9893C178.622 47.3525 178.511 47.751 178.511 48.1846C178.511 48.501 178.569 48.7881 178.687 49.0459C178.815 49.292 179.026 49.5205 179.319 49.7314C179.612 49.9307 180.011 50.1182 180.515 50.2939C181.03 50.4697 181.675 50.6396 182.448 50.8037C183.901 51.1084 185.149 51.501 186.192 51.9814C187.247 52.4502 188.056 53.0596 188.618 53.8096C189.181 54.5479 189.462 55.4854 189.462 56.6221C189.462 57.4658 189.28 58.2393 188.917 58.9424C188.565 59.6338 188.05 60.2373 187.37 60.7529C186.69 61.2568 185.876 61.6494 184.927 61.9307C183.989 62.2119 182.935 62.3525 181.763 62.3525C180.04 62.3525 178.581 62.0479 177.386 61.4385C176.19 60.8174 175.282 60.0264 174.661 59.0654C174.052 58.0928 173.747 57.085 173.747 56.042H177.843C177.89 56.8271 178.106 57.4541 178.493 57.9229C178.892 58.3799 179.384 58.7139 179.97 58.9248C180.567 59.124 181.183 59.2236 181.815 59.2236C182.577 59.2236 183.216 59.124 183.731 58.9248C184.247 58.7139 184.64 58.4326 184.909 58.0811C185.179 57.7178 185.313 57.3076 185.313 56.8506ZM193.347 59.8916C193.347 59.2354 193.569 58.6846 194.015 58.2393C194.46 57.7822 195.063 57.5537 195.825 57.5537C196.599 57.5537 197.202 57.7822 197.636 58.2393C198.081 58.6846 198.304 59.2354 198.304 59.8916C198.304 60.5479 198.081 61.0986 197.636 61.5439C197.202 61.9893 196.599 62.2119 195.825 62.2119C195.063 62.2119 194.46 61.9893 194.015 61.5439C193.569 61.0986 193.347 60.5479 193.347 59.8916Z"
+      fill="white"
+    />
+    <path
+      d="M348.917 60.3422L339.388 18.848C338.847 16.5774 336.788 14.3069 334.517 13.648L290.964 0.212742C290.423 0.000976927 289.776 0.000976562 289.117 0.000976562C287.27 0.000976562 285.329 0.753917 284.023 1.84804L252.823 30.8833C251.094 32.401 250.223 35.4363 250.764 37.601L260.952 82.0245C261.494 84.2951 263.552 86.5775 265.823 87.2245L306.552 99.7892C307.094 100.001 307.741 100.001 308.4 100.001C310.247 100.001 312.188 99.248 313.494 98.1539L346.858 67.1774C348.6 65.5539 349.458 62.6245 348.917 60.3422ZM295.517 10.0716L325.411 19.2833C326.6 19.6127 326.6 20.1539 325.411 20.4716L309.705 24.048C308.517 24.3774 306.894 23.8363 306.023 22.9657L295.082 11.1539C294.105 10.1892 294.317 9.75392 295.517 10.0716ZM314.141 63.7069C314.47 64.8951 313.705 65.5539 312.517 65.2245L280.235 55.2598C279.047 54.9304 278.823 53.9539 279.694 53.0951L304.4 30.1186C305.27 29.248 306.247 29.5774 306.564 30.7657L314.141 63.7069ZM260.952 34.448L287.176 10.0716C288.047 9.20098 289.447 9.31862 290.317 10.1774L303.423 24.3774C304.294 25.248 304.176 26.648 303.317 27.5186L277.094 51.8951C276.223 52.7657 274.823 52.648 273.952 51.7892L260.847 37.601C259.976 36.6245 260.094 35.2127 260.952 34.448ZM267.352 73.1304L260.423 42.6833C260.094 41.4951 260.635 41.2716 261.4 42.1422L272.341 53.9539C273.211 54.8245 273.529 56.5539 273.211 57.7422L268.435 73.1304C268.105 74.3186 267.564 74.3186 267.352 73.1304ZM305.694 90.8951L271.458 80.3892C270.27 80.0598 269.611 78.7657 269.941 77.5775L275.682 59.1539C276.011 57.9657 277.305 57.3069 278.494 57.6363L312.729 68.1422C313.917 68.4716 314.576 69.7657 314.247 70.9539L308.505 89.3774C308.082 90.5774 306.894 91.2245 305.694 90.8951ZM336.023 65.9774L313.176 87.2127C312.305 88.0833 311.882 87.7539 312.2 86.5657L316.964 71.1774C317.294 69.9892 318.588 68.7892 319.776 68.5775L335.482 65.001C336.682 64.6833 336.894 65.2245 336.023 65.9774ZM338.517 61.4363L319.67 65.7657C318.482 66.0951 317.282 65.3304 316.964 64.1422L308.952 29.2598C308.623 28.0716 309.388 26.8716 310.576 26.5539L329.423 22.2245C330.611 21.8951 331.811 22.6598 332.129 23.848L340.141 58.7304C340.47 60.0245 339.717 61.2127 338.517 61.4363Z"
+      fill="#22ADF6"
+    />
+    <path
+      d="M406.445 58.6436L411.104 42.9814H415.498L408.889 62.001H406.146L406.445 58.6436ZM402.877 42.9814L407.623 58.7139L407.852 62.001H405.109L398.465 42.9814H402.877ZM428.787 56.8506C428.787 56.4287 428.682 56.0479 428.471 55.708C428.26 55.3564 427.855 55.04 427.258 54.7588C426.672 54.4775 425.805 54.2197 424.656 53.9854C423.648 53.7627 422.723 53.499 421.879 53.1943C421.047 52.8779 420.332 52.4971 419.734 52.0518C419.137 51.6064 418.674 51.0791 418.346 50.4697C418.018 49.8604 417.854 49.1572 417.854 48.3604C417.854 47.5869 418.023 46.8545 418.363 46.1631C418.703 45.4717 419.189 44.8623 419.822 44.335C420.455 43.8076 421.223 43.3916 422.125 43.0869C423.039 42.7822 424.059 42.6299 425.184 42.6299C426.777 42.6299 428.143 42.8994 429.279 43.4385C430.428 43.9658 431.307 44.6865 431.916 45.6006C432.525 46.5029 432.83 47.5225 432.83 48.6592H428.594C428.594 48.1553 428.465 47.6865 428.207 47.2529C427.961 46.8076 427.586 46.4502 427.082 46.1807C426.578 45.8994 425.945 45.7588 425.184 45.7588C424.457 45.7588 423.854 45.876 423.373 46.1104C422.904 46.333 422.553 46.626 422.318 46.9893C422.096 47.3525 421.984 47.751 421.984 48.1846C421.984 48.501 422.043 48.7881 422.16 49.0459C422.289 49.292 422.5 49.5205 422.793 49.7314C423.086 49.9307 423.484 50.1182 423.988 50.2939C424.504 50.4697 425.148 50.6396 425.922 50.8037C427.375 51.1084 428.623 51.501 429.666 51.9814C430.721 52.4502 431.529 53.0596 432.092 53.8096C432.654 54.5479 432.936 55.4854 432.936 56.6221C432.936 57.4658 432.754 58.2393 432.391 58.9424C432.039 59.6338 431.523 60.2373 430.844 60.7529C430.164 61.2568 429.35 61.6494 428.4 61.9307C427.463 62.2119 426.408 62.3525 425.236 62.3525C423.514 62.3525 422.055 62.0479 420.859 61.4385C419.664 60.8174 418.756 60.0264 418.135 59.0654C417.525 58.0928 417.221 57.085 417.221 56.042H421.316C421.363 56.8271 421.58 57.4541 421.967 57.9229C422.365 58.3799 422.857 58.7139 423.443 58.9248C424.041 59.124 424.656 59.2236 425.289 59.2236C426.051 59.2236 426.689 59.124 427.205 58.9248C427.721 58.7139 428.113 58.4326 428.383 58.0811C428.652 57.7178 428.787 57.3076 428.787 56.8506ZM436.82 59.8916C436.82 59.2354 437.043 58.6846 437.488 58.2393C437.934 57.7822 438.537 57.5537 439.299 57.5537C440.072 57.5537 440.676 57.7822 441.109 58.2393C441.555 58.6846 441.777 59.2354 441.777 59.8916C441.777 60.5479 441.555 61.0986 441.109 61.5439C440.676 61.9893 440.072 62.2119 439.299 62.2119C438.537 62.2119 437.934 61.9893 437.488 61.5439C437.043 61.0986 436.82 60.5479 436.82 59.8916Z"
+      fill="white"
+    />
+    <path
+      d="M536.293 45.1671L536.288 37.1404C536.288 36.6626 536.098 36.2043 535.76 35.8662L528.812 28.9041L523.964 34.2525L535.293 45.5812C535.662 45.9504 536.293 45.6884 536.293 45.1664L536.293 45.1671Z"
+      fill="url(#paint0_linear_1678_1279)"
+    />
+    <path
+      d="M520.942 64.5191L507.287 50.893L502.406 56.1943L520.471 74.2417C520.84 74.6102 521.471 74.3489 521.471 73.8269V65.7939C521.471 65.3155 521.28 64.8571 520.942 64.5191Z"
+      fill="url(#paint1_linear_1678_1279)"
+    />
+    <path
+      d="M539.134 1.62223C514.624 3.31538 495.036 23.6028 494.113 48.1531C493.212 72.1234 509.696 92.4045 531.951 97.3796L502.281 67.7056C501.856 67.2804 501.617 66.7031 501.619 66.1016L501.641 56.5151C501.642 56.1148 502.126 55.9143 502.409 56.1978L507.289 50.8964C506.983 50.5901 506.983 50.0931 507.289 49.7875L511.984 45.1042C512.29 44.7986 512.786 44.7993 513.091 45.1042L528.951 60.9641C529.625 61.6381 530.003 62.5521 530.003 63.5048V80.0526C530.003 82.4364 530.951 84.7228 532.636 86.4083L544.729 98.501C547.8 98.3696 550.795 97.9493 553.69 97.2703L538.371 81.9463C537.613 81.1885 537.187 80.1605 537.187 79.0889V63.0976C537.187 60.476 536.146 57.9615 534.292 56.1079L518.195 40.0109C517.889 39.7046 517.889 39.2075 518.196 38.9013L522.857 34.2539C523.164 33.9483 523.659 33.949 523.965 34.2546L528.813 28.9062C528.722 28.8025 528.637 28.6891 528.551 28.5716C527.167 26.7035 526.325 23.6228 527.306 20.1487C527.894 17.9246 529.114 16.2473 531.364 14.2092C531.562 14.0301 531.874 14.0212 532.075 14.1954L539.049 20.24C539.49 20.6223 540.017 20.8933 540.585 21.0281L558.752 25.3464C558.964 25.3962 559.159 25.5047 559.312 25.654L577.973 44.2697C578.299 44.5815 578.484 45.0164 578.484 45.4685V49.4266C578.484 50.035 578.33 50.6344 578.037 51.1674L568.803 67.9925C568.4 68.7295 567.5 69.0378 566.731 68.7025L562.474 66.8476H546.917C545.917 66.8476 545.108 67.6578 545.108 68.6569V75.5933C545.108 76.5481 545.485 77.4648 546.158 78.1424L562.271 94.3784C579.24 86.8238 591.074 69.8052 591.074 50.0225C591.074 22.0838 567.473 -0.337782 539.131 1.62016L539.134 1.62223Z"
+      fill="#F5FF80"
+    />
+    <defs>
+      <linearGradient
+        id="paint0_linear_1678_1279"
+        x1="591.982"
+        y1="50.3556"
+        x2="530.198"
+        y2="49.0998"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop stop-color="#F5FF80" stop-opacity="0" />
+        <stop offset="1" stop-color="#F5FF80" />
+      </linearGradient>
+      <linearGradient
+        id="paint1_linear_1678_1279"
+        x1="590.236"
+        y1="49.9991"
+        x2="540.435"
+        y2="49.9991"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop stop-color="#F5FF80" stop-opacity="0" />
+        <stop offset="0.96" stop-color="#F5FF80" />
+      </linearGradient>
+    </defs>
+  </svg>
+</Diagram>
+
+In this article we'll compare the performance of Synnax to two other leading
+time-series databases: [TimescaleDB](https://www.timescale.com/) and
+[InfluxDB](https://www.influxdata.com/index/).
+
+Performance is one of many factors to consider when evaluating the time-series
+database for your use case: scalability, reliability, and query language are also important
+to consider. Synnax, Timescale, and Influx all have their strengths and weaknesses. This
+article is the first in a larger series comparing Synnax to other software tools.
+
+We'll start off with a high-level overview of the three databases, explaining their
+architecture and ideal use cases. We'll briefly overview our test methodology and setup,
+and then dive into the results.
+
+<Divider.Divider direction="x" />
+
+## Database Overviews
+
+TimeScale, Influx, and Synnax are all designed to store and query time-series data, but
+the authors had different workloads and feature priorities in mind when building them.
+
+### Synnax
+
+[Synnax](https://synnaxlabs.com) is specifically built for storing and streaming
+hardware sensor data. Unlike the other two databases, it is not designed for general
+purpose time-series workloads, such as user analytics, log data, or financial tracking.
+
+#### Data Model
+
+It follows a [channel](/reference/concepts/overview) based data model, where every sensor,
+actuator, or data source has its own named bucket of data called a _channel_. Synnax's
+query model is much simpler than the the other two databases, and focuses on quality
+integration with programming languages through client libraries. It's well suited for
+scientific and industrial applications.
+
+Synnax supports real-time streaming of data, much like you would find in a tool like
+[Apache Kafka](https://kafka.apache.org/) or a protocol like [MQTT](https://mqtt.org/).
+This makes Synnax ideal for industrial applications requiring real-time control,
+monitoring, and data processing.
+
+#### Performance Characteristics
+
+The Synnax storage engine, [Cesium](https://github.com/synnaxlabs/synnax/tree/main/cesium),
+is designed for high performance and extremely low latency for limited cardinality data. As
+we'll show in the results, Synnax dramatically outperforms Timescale and Influx when
+ingesting, reading, and streaming large volumes of data from small numbers of sensors
+(1 - 10,000 channels at KHz rates).
+
+Synnax performs comparably worse than Timescale and Influx when dealing with large numbers
+of sensors (millions of channels) at very low data rates (1Hz or lower).
+
+Synnax is so fast and reliable that teams often use it in high-performance, mission
+critical environments such as firing rocket and jet engines.
+
+### Timescale
+
+[TimescaleDB](https://www.timescale.com/) is a general-purpose time-series database
+built on top of PostgreSQL. Its flexibility allows it to serve a number of workloads
+including IoT, user analytics, and financial data.
+
+#### Data Model
+
+Timescale uses a traditional, [relational](https://en.wikipedia.org/wiki/Relational_model?ref=timescale.com)
+data model where each row in a table represents a single event or measurement.
+
+Because it extends Postgres, Timescale integrates well with existing SQL applications
+and makes it easy to link metadata with real-time telemetry. The Postgres database
+engine is one of the most widely used in the world, and is known for its reliability
+a variety of workloads.
+
+The relational data model is not without its challenges. Timescale requires the user to
+understand the scheme of their data before ingestion, and modifying it can be challenging.
+Timescale also requires knowledge of SQL to query data, which can be a barrier for
+engineering teams that are familiar with scientific analysis tools like Matlab and Numpy.
+
+#### Performance Characteristics
+
+Timescale uses [hypertables](https://docs.timescale.com/timescaledb/latest/overview/concepts/hypertables)
+to increase query performance and reduce storage overhead when compared to Postgres. While
+a large step up from vanilla Postgres, Timescale follows a row-based storage model, which
+struggles when ingesting and querying data at very high rates.
+
+### Influx
+
+[InfluxDB](https://www.influxdata.com) is a NoSQL time-series database also built for
+general purpose time-series workloads. It's primary focus is on ease of use, allowing
+users to quickly ingest and query data without needing to define a schema upfront. It
+also integrates well with popular analytics tools, such as [Grafana](https://grafana.com/).
+
+#### Data Model
+
+InfluxDB uses a [tagset](https://docs.influxdata.com/influxdb/cloud-serverless/write-data/best-practices/schema-design/)
+data model. Each measurement has a set of tags, which are key-value pairs that describe
+the data. This makes Influx ideal for storing and querying data with many dimensions,
+such as user analytics.
+
+<Divider.Divider direction="x" />
+
+## Test Summary
+
+We'll be comparing the performance of Synnax, Timescale, and Influx across four separate
+tests. The first three tests focus on ingestion performance, while the fourth test focuses
+on read performance. We'll be running the tests on a single machine with the following
+specifications:
+
+<Table>
+  <tr>
+    <td>
+      <b>Processor</b>
+    </td>
+    <td>12 Core Apple M2 Max</td>
+  </tr>
+  <tr>
+    <td>
+      <b>Memory</b>
+    </td>
+    <td>64GB DDR4</td>
+  </tr>
+  <tr>
+    <td>
+      <b>Storage</b>
+    </td>
+    <td>2TB Apple SSD</td>
+  </tr>
+</Table>
+
+We'll pull the latest open source versions of each database, which, at the time of writing,
+are:
+
+- [Synnax v0.32](reference/cluster/installation?platform=linux)
+- [InfluxDB v2.7.10](https://www.influxdata.com/downloads/)
+- [Timescale v2.17.1](https://github.com/timescale/timescaledb/releases)
+
+### Disclaimer
+
+Performance benchmarks are often controversial, as companies cherry pick workloads
+optimized for their database architecture. **We're doing the same here**. Our goal is to
+illustrate the scenarios in which Synnax shines: high-speed, low-latency data ingestion
+from relatively small numbers of sensors.
+
+That being said, we'll also show where Synnax falls short, and where Timescale and Influx
+are better suited. As always, we recommend running your own benchmarks on workloads
+suitable to your use case - it's the best way to evaluate the performance of a database.
+
+<Divider.Divider direction="x" />
+
+## <StepText level="h2" name="Test" step={1}>Varying Batch Size</StepText>
+
+In the first test, we'll keep the number of channels constant at 20, and vary the batch
+size of data we insert into each database. This table shows the configuration of each test:
+
+<Table>
+  <tbody>
+    <tr>
+      <td>
+        <b>Configuration</b>
+      </td>
+      <td>
+        <b>1</b>
+      </td>
+      <td>
+        <b>2</b>
+      </td>
+      <td>
+        <b>3</b>
+      </td>
+      <td>
+        <b>4</b>
+      </td>
+      <td>
+        <b>5</b>
+      </td>
+      <td>
+        <b>6</b>
+      </td>
+      <td>
+        <b>7</b>
+      </td>
+      <td>
+        <b>8</b>
+      </td>
+      <td>
+        <b>9</b>
+      </td>
+      <td>
+        <b>10</b>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <b>Channel Count</b>
+      </td>
+      <td>20</td>
+      <td>20</td>
+      <td>20</td>
+      <td>20</td>
+      <td>20</td>
+      <td>20</td>
+      <td>20</td>
+      <td>20</td>
+      <td>20</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Batch Size</b>
+      </td>
+      <td>10</td>
+      <td>50</td>
+      <td>100</td>
+      <td>500</td>
+      <td>1K</td>
+      <td>5K</td>
+      <td>10K</td>
+      <td>50K</td>
+      <td>100K</td>
+      <td>1M</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Batch Count</b>
+      </td>
+      <td>5K</td>
+      <td>2K</td>
+      <td>1K</td>
+      <td>500</td>
+      <td>250</td>
+      <td>100</td>
+      <td>50</td>
+      <td>20</td>
+      <td>20</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Total Samples</b>
+      </td>
+      <td>1M</td>
+      <td>2M</td>
+      <td>2M</td>
+      <td>55M</td>
+      <td>5M</td>
+      <td>10M</td>
+      <td>10M</td>
+      <td>20M</td>
+      <td>40M</td>
+      <td>400M</td>
+    </tr>
+  </tbody>
+</Table>
+
+We'll also measure the average memory and CPU usage of each database during the test.
+
+### Throughput
+
+<figure>
+  <Image
+    client:only="react"
+    id="guides/comparison/performance/batch-throughput"
+    themed={false}
+  />
+  {/* prettier-ignore */}
+  <figcaption>Throughput Comparison: Synnax dramatically outperforms alternatives at large batch    sizes.  </figcaption>
+</figure>
+
+<Details>
+  {/* prettier-ignore */}
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Throughput in Samples/s</Text.WithIcon></Summary>
+  <Table>
+    <tbody>
+      <tr>
+        <td>
+          <b>Configuration</b>
+        </td>
+        <td>1</td>
+        <td>2</td>
+        <td>3</td>
+        <td>4</td>
+        <td>5</td>
+        <td>6</td>
+        <td>7</td>
+        <td>8</td>
+        <td>9</td>
+        <td>10</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Synnax</b>
+        </td>
+        <td>271K</td>
+        <td>1.3M</td>
+        <td>2.5M</td>
+        <td>11.9M</td>
+        <td>22.9M</td>
+        <td>64.1M</td>
+        <td>73.7M</td>
+        <td>30.8M</td>
+        <td>30.9M</td>
+        <td>63.6M</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Timescale</b>
+        </td>
+        <td>96K</td>
+        <td>490K</td>
+        <td>895K</td>
+        <td>2.2M</td>
+        <td>2.7M</td>
+        <td>7.1M</td>
+        <td>8.9M</td>
+        <td>4.0M</td>
+        <td>4.3M</td>
+        <td>8.6M</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Influx</b>
+        </td>
+        <td>270K</td>
+        <td>776K</td>
+        <td>1M</td>
+        <td>1.4M</td>
+        <td>1.5M</td>
+        <td>3M</td>
+        <td>3.9M</td>
+        <td>1.4M</td>
+        <td>1.5M</td>
+        <td>2.9M</td>
+      </tr>
+    </tbody>
+  </Table>
+</Details>
+
+At 10 samples per batch, all three databases perform comparably. As the batch size
+increases, Synnax's performance increases dramatically, outpacing the capabilities
+of the other two databases.
+
+### Memory Usage
+
+<figure>
+  <Image
+    client:only="react"
+    id="guides/comparison/performance/batch-memory"
+    themed={false}
+  />
+  {/* prettier-ignore */}
+  <figcaption>Memory Comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes. </figcaption>
+</figure>
+<Details>
+<Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory usage in GB</Text.WithIcon></Summary>
+<Table>
+  <tbody>
+    <tr>
+      <td>
+        <b>Configuration</b>
+      </td>
+      <td>
+        <b>1</b>
+      </td>
+      <td>
+        <b>2</b>
+      </td>
+      <td>
+        <b>3</b>
+      </td>
+      <td>
+        <b>4</b>
+      </td>
+      <td>
+        <b>5</b>
+      </td>
+      <td>
+        <b>6</b>
+      </td>
+      <td>
+        <b>7</b>
+      </td>
+      <td>
+        <b>8</b>
+      </td>
+      <td>
+        <b>9</b>
+      </td>
+      <td>
+        <b>10</b>
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        <b>Synnax</b>
+      </td>
+      <td>0.32</td>
+      <td>0.305</td>
+      <td>0.290</td>
+      <td>0.290</td>
+      <td>0.290</td>
+      <td>0.310</td>
+      <td>0.330</td>
+      <td>0.330</td>
+      <td>0.520</td>
+      <td>1.1</td>
+    </tr>
+
+    <tr>
+      <td>
+        <b>Timescale</b>
+      </td>
+      <td>0.25</td>
+      <td>0.25</td>
+      <td>0.25</td>
+      <td>0.38</td>
+      <td>0.38</td>
+      <td>0.36</td>
+      <td>0.36</td>
+      <td>0.7</td>
+      <td>1</td>
+      <td>3.5</td>
+    </tr>
+
+    <tr>
+      <td>
+        <b>Influx</b>
+      </td>
+      <td>0.076</td>
+      <td>0.086</td>
+      <td>0.084</td>
+      <td>0.088</td>
+      <td>0.086</td>
+      <td>0.089</td>
+      <td>0.25</td>
+      <td>0.23</td>
+      <td>0.23</td>
+      <td>0.5</td>
+    </tr>
+
+  </tbody>
+</Table>
+</Details>
+
+### CPU Usage
+
+<figure>
+  <Image
+    client:only="react"
+    id="guides/comparison/performance/batch-cpu"
+    themed={false}
+  />
+  {/* prettier-ignore */}
+  <figcaption>CPU Usage: Synnax uses more CPU at small batch sizes, and comparable CPU at large batch sizes.</figcaption>
+</figure>
+
+<Details>
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - CPU Usage</Text.WithIcon></Summary>
+  <Table>
+    <tbody>
+      <tr>
+        <td>
+          <b>Configuration</b>
+        </td>
+        <td>
+          <b>1</b>
+        </td>
+        <td>
+          <b>2</b>
+        </td>
+        <td>
+          <b>3</b>
+        </td>
+        <td>
+          <b>4</b>
+        </td>
+        <td>
+          <b>5</b>
+        </td>
+        <td>
+          <b>6</b>
+        </td>
+        <td>
+          <b>7</b>
+        </td>
+        <td>
+          <b>8</b>
+        </td>
+        <td>
+          <b>9</b>
+        </td>
+        <td>
+          <b>10</b>
+        </td>
+      </tr>
+
+      <tr>
+        <td>
+          <b>Synnax</b>
+          <td>63%</td>
+          <td>65%</td>
+          <td>67%</td>
+          <td>68%</td>
+          <td>70%</td>
+          <td>72%</td>
+          <td>74%</td>
+          <td>76%</td>
+          <td>78%</td>
+          <td>80%</td>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <b>Timescale</b>
+          <td>25%</td>
+          <td>23%</td>
+          <td>26%</td>
+          <td>25%</td>
+          <td>27%</td>
+          <td>35%</td>
+          <td>50%</td>
+          <td>65%</td>
+          <td>75%</td>
+          <td>83%</td>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <b>Influx</b>
+          <td>47%</td>
+          <td>37%</td>
+          <td>49%</td>
+          <td>48%</td>
+          <td>43%</td>
+          <td>42%</td>
+          <td>86%</td>
+          <td>78%</td>
+          <td>82%</td>
+          <td>83%</td>
+        </td>
+      </tr>
+
+    </tbody>
+
+  </Table>
+</Details>
+
+<Divider.Divider direction="x" />
+
+## <StepText level="h2" name="Test" step={2}>Varying Channel Count</StepText>
+
+In the second test, we'll keep the batch size constant at 1,000, and vary the number of
+channels we insert data for.
+
+<Table>
+  <tbody>
+    <tr>
+      <td>
+        <b>Configuration</b>
+      </td>
+      <td>
+        <b>1</b>
+      </td>
+      <td>
+        <b>2</b>
+      </td>
+      <td>
+        <b>3</b>
+      </td>
+      <td>
+        <b>4</b>
+      </td>
+      <td>
+        <b>5</b>
+      </td>
+      <td>
+        <b>6</b>
+      </td>
+      <td>
+        <b>7</b>
+      </td>
+      <td>
+        <b>8</b>
+      </td>
+      <td>
+        <b>9</b>
+      </td>
+      <td>
+        <b>10</b>
+      </td>
+      <td>
+        <b>11</b>
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        <b>Channel Count</b>
+      </td>
+      <td>2</td>
+      <td>5</td>
+      <td>10</td>
+      <td>20</td>
+      <td>50</td>
+      <td>100</td>
+      <td>200</td>
+      <td>500</td>
+      <td>1K</td>
+      <td>5K</td>
+      <td>10K</td>
+    </tr>
+
+    <tr>
+      <td>
+        <b>Batch Size</b>
+        <td>1K</td>
+        <td>1K</td>
+        <td>1K</td>
+        <td>1K</td>
+        <td>1K</td>
+        <td>1K</td>
+        <td>1K</td>
+        <td>1K</td>
+        <td>1K</td>
+        <td>1K</td>
+        <td>1K</td>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <b>Batch Count</b>
+        <td>3000</td>
+        <td>2500</td>
+        <td>2000</td>
+        <td>1500</td>
+        <td>500</td>
+        <td>250</td>
+        <td>200</td>
+        <td>150</td>
+        <td>100</td>
+        <td>50</td>
+        <td>20</td>
+      </td>
+    </tr>
+
+  </tbody>
+</Table>
+
+### Throughput
+
+<figure>
+  <Image
+    client:only="react"
+    id="guides/comparison/performance/channel-throughput"
+    themed={false}
+  />
+  {/* prettier-ignore */}
+  <figcaption>Throughput: Synnax outperforms alternatives at low channel counts, but starts to lose ground as the channel count increases.</figcaption>
+</figure>
+
+<Details>
+  {/* prettier-ignore */}
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Throughput in Samples/s</Text.WithIcon></Summary>
+<Table>
+  <tbody>
+    <tr>
+        <td>
+          <b>Configuration</b>
+        </td>
+        <td>
+          <b>1</b>
+        </td>
+        <td>
+          <b>2</b>
+        </td>
+        <td>
+          <b>3</b>
+        </td>
+        <td>
+          <b>4</b>
+        </td>
+        <td>
+          <b>5</b>
+        </td>
+        <td>
+          <b>6</b>
+        </td>
+        <td>
+          <b>7</b>
+        </td>
+        <td>
+          <b>8</b>
+        </td>
+        <td>
+          <b>9</b>
+        </td>
+        <td>
+          <b>10</b>
+        </td>
+        <td>
+          <b>11</b>
+        </td>
+      </tr>
+
+    <tr>
+      <td>
+        <b>Synnax</b>
+      </td>
+      <td>12.8M</td>
+      <td>27.25M</td>
+      <td>28.9M</td>
+      <td>79.6M</td>
+      <td>65.3M</td>
+      <td>92.6M</td>
+      <td>95.1M</td>
+      <td>94.6M</td>
+      <td>94.3M</td>
+      <td>72.3M</td>
+      <td>47.5M</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Timescale</b>
+      </td>
+      <td>610K</td>
+      <td>1.7M</td>
+      <td>2.3M</td>
+      <td>9.4M</td>
+      <td>7.9M</td>
+      <td>15.7M</td>
+      <td>18.8M</td>
+      <td>28.5M</td>
+      <td>44.8M</td>
+      <td>44.9M</td>
+      <td>27.1M</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Influx</b>
+      </td>
+      <td>233K</td>
+      <td>680K</td>
+      <td>981K</td>
+      <td>3.85M</td>
+      <td>3.7M</td>
+      <td>7.7M</td>
+      <td>10.2M</td>
+      <td>15.8M</td>
+      <td>24.6M</td>
+      <td>28.6M</td>
+      <td>22.4M</td>
+    </tr>
+
+  </tbody>
+</Table>
+</Details>
+
+At low channel counts, Synnax outperforms both Timescale and Influx by a wide margin. As
+the counts increase past 1000, Synnax's performance begins to degrade, while Timescale and
+Influx remain relatively stable.
+
+### Memory Usage
+
+<figure>
+  <Image
+    client:only="react"
+    id="guides/comparison/performance/channel-memory"
+    themed={false}
+  />
+  {/* prettier-ignore */}
+  <figcaption>Memory Usage: Synnax uses more memory than alternatives.</figcaption>
+</figure>
+
+<Details>
+  {/* prettier-ignore */}
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory Usage in GB</Text.WithIcon></Summary>
+<Table>
+  <tbody>
+    <tr>
+      <td>
+        <b>Configuration</b>
+      </td>
+      <td>
+        <b>1</b>
+      </td>
+      <td>
+        <b>2</b>
+      </td>
+      <td>
+        <b>3</b>
+      </td>
+      <td>
+        <b>4</b>
+      </td>
+      <td>
+        <b>5</b>
+      </td>
+      <td>
+        <b>6</b>
+      </td>
+      <td>
+        <b>7</b>
+      </td>
+      <td>
+        <b>8</b>
+      </td>
+      <td>
+        <b>9</b>
+      </td>
+      <td>
+        <b>10</b>
+      </td>
+      <td>
+        <b>11</b>
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        <b>Synnax</b>
+      </td>
+      <td>0.21</td>
+      <td>0.205</td>
+      <td>0.212</td>
+      <td>0.205</td>
+      <td>0.210</td>
+      <td>0.230</td>
+      <td>0.260</td>
+      <td>0.280</td>
+      <td>0.320</td>
+      <td>0.380</td>
+      <td>0.540</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Timescale</b>
+      </td>
+      <td>0.280</td>
+      <td>0.220</td>
+      <td>0.180</td>
+      <td>0.170</td>
+      <td>0.170</td>
+      <td>0.170</td>
+      <td>0.160</td>
+      <td>0.210</td>
+      <td>0.240</td>
+      <td>0.260</td>
+      <td>0.230</td>
+    </tr>
+    <tr>
+      <td>
+        <b>Influx</b>
+      </td>
+      <td>0.050</td>
+      <td>0.060</td>
+      <td>0.070</td>
+      <td>0.045</td>
+      <td>0.048</td>
+      <td>0.047</td>
+      <td>0.039</td>
+      <td>0.050</td>
+      <td>0.060</td>
+      <td>0.090</td>
+      <td>0.120</td>
+    </tr>
+
+  </tbody>
+</Table>
+
+</Details>
+
+### CPU Usage
+
+<figure>
+  <Image
+    client:only="react"
+    id="guides/comparison/performance/channel-cpu"
+    themed={false}
+  />
+  {/* prettier-ignore */}
+  <figcaption>CPU Usage: Synnax consistently uses more CPU than alternatives.</figcaption>
+</figure>
+
+<Details>
+  {/* prettier-ignore */}
+  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - CPU Usage</Text.WithIcon></Summary>
+  <Table>
+    <tbody>
+      <tr>
+        <td>
+          <b>Configuration</b>
+        </td>
+        <td>1</td>
+        <td>2</td>
+        <td>3</td>
+        <td>4</td>
+        <td>5</td>
+        <td>6</td>
+        <td>7</td>
+        <td>8</td>
+        <td>9</td>
+        <td>10</td>
+      </tr>
+      <tr>
+        <td>
+          <b>Synnax</b>
+          <td>63%</td>
+          <td>65%</td>
+          <td>67%</td>
+          <td>68%</td>
+          <td>70%</td>
+          <td>72%</td>
+          <td>74%</td>
+          <td>76%</td>
+          <td>78%</td>
+          <td>80%</td>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <b>Timescale</b>
+          <td>25%</td>
+          <td>23%</td>
+          <td>26%</td>
+          <td>25%</td>
+          <td>27%</td>
+          <td>35%</td>
+          <td>50%</td>
+          <td>65%</td>
+          <td>75%</td>
+          <td>83%</td>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <b>Influx</b>
+          <td>47%</td>
+          <td>37%</td>
+          <td>49%</td>
+          <td>48%</td>
+          <td>43%</td>
+          <td>42%</td>
+          <td>86%</td>
+          <td>78%</td>
+          <td>82%</td>
+          <td>83%</td>
+        </td>
+      </tr>
+    </tbody>
+  </Table>
+</Details>
+
+<Divider.Divider direction="x" />
+
+{/* prettier-ignore */}
+<StepText level="h2" name="Test" step={3}>  One Billion Row Ingestion</StepText>
+
+Inspired by the [1 billion row challenge](https://1brc.dev/), we'll be inserting 1 billion
+rows of data into each database to see how they handle the load.
+
+We'll use 50 channels, each with a batch size of 50,000 rows per channel to insert the
+data.
+
+<figure>
+  <Image
+    client:only="react"
+    id="guides/comparison/performance/one-billion-row-ingestion"
+    themed={false}
+    style={{ padding: "5rem" }}
+  />
+  {/* prettier-ignore */}
+  <figcaption>Synnax Ingests 1 Billion Rows in 44 seconds, 12x faster than Timescale and 17x faster than Influx.</figcaption>
+</figure>
+
+## Synnax Architecture
+
+Why is Synnax so much faster than Timescale and Influx for ingesting large volumes of
+data? The anw

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { OS, Select, Text } from "@synnaxlabs/pluto";
+import { Select, Text } from "@synnaxlabs/pluto";
+import { runtime } from "@synnaxlabs/x";
 import { useEffect, useLayoutEffect, useState } from "react";
 
 import { Tabs as Core } from "@/components/Tabs";
-import { runtime } from "@synnaxlabs/x";
 
 const TABS = [
   { key: "docker", name: "Docker", tabKey: "docker", icon: <Icon.OS.Docker /> },
