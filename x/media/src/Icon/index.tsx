@@ -35,7 +35,6 @@ import {
   FaAlignRight,
   FaApple,
   FaBezierCurve,
-  FaBookOpen,
   FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
@@ -64,7 +63,9 @@ import {
   MdAlignVerticalCenter,
   MdAlignVerticalTop,
   MdAreaChart,
+  MdArrowOutward,
   MdAutoAwesome,
+  MdBook,
   MdCalendarToday,
   MdCommit,
   MdDataArray,
@@ -398,7 +399,7 @@ export const Icon: IconType = {
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
   Access: wrapIcon(MdShield, "access"),
   JSON: wrapIcon(MdDataObject, "json"),
-  Guide: wrapIcon(FaBookOpen, "guide"),
+  Guide: wrapIcon(MdBook, "guide"),
   Focus: wrapIcon(MdFilterCenterFocus, "focus"),
   OpenInNewWindow: wrapIcon(MdOutlineOpenInNew, "open-in-new-window"),
   MoveToMainWindow: wrapIcon(MdOutlineWebAsset, "move-to-main-window"),
@@ -414,6 +415,7 @@ export const Icon: IconType = {
   Value: wrapIcon(GoNumber, "value"),
   Calendar: wrapIcon(MdCalendarToday, "calendar"),
   Release: wrapIcon(MdNewReleases, "release"),
+  OpenExternal: wrapIcon(MdArrowOutward, "open-external"),
 };
 
 export interface IconType {
@@ -567,4 +569,5 @@ export interface IconType {
   Value: IconFC;
   Calendar: IconFC;
   Release: IconFC;
+  OpenExternal: IconFC;
 }
