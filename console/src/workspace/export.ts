@@ -22,6 +22,8 @@ import { select, selectActiveKey } from "@/workspace/selectors";
 
 const removeDirectory = (name: string): string => name.split(sep()).join("_");
 
+const LAYOUT_FILE_NAME = "LAYOUT.json";
+
 export const useExport = (): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
@@ -36,7 +38,7 @@ export const useExport = (): ((key: string) => Promise<void>) => {
         // active workspace is the current workspace
         const file = Layout.selectSliceState(storeState);
         toExport = convertLayout(file);
-        name = select(storeState, key)?.name ?? "Workspace";
+        name = select(storeState, key)?.name ?? "workspace";
       } else {
         const existingWorkspace = select(storeState, key);
         if (existingWorkspace != null) {
@@ -57,10 +59,10 @@ export const useExport = (): ((key: string) => Promise<void>) => {
         recursive: true,
       });
       if (parentDir == null) return;
-      const directory = await join(parentDir, name);
+      const directory = await join(parentDir, removeDirectory(name));
       await mkdir(directory, { recursive: true });
       await writeTextFile(
-        await join(directory, `${removeDirectory(name)}.json`),
+        await join(directory, LAYOUT_FILE_NAME),
         JSON.stringify(toExport),
       );
       const fileInfos: Export.FileExtractorReturn[] = [];
@@ -68,20 +70,14 @@ export const useExport = (): ((key: string) => Promise<void>) => {
         Object.values(toExport.layouts).map(async ({ type, key }) => {
           const extractor = EXTRACTORS[type];
           if (extractor == null) return;
-          fileInfos.push(await extractor(key, { store, client }));
+          const fileData = (await extractor(key, { store, client })).data;
+          const fileName = `${key}.json`;
+          fileInfos.push({ data: fileData, name: fileName });
         }),
       );
-      const names = new Set<string>();
-      for (const fileInfo of fileInfos) {
-        // make sure we don't overwrite files with the same name, so unique files for
-        // each layout will exist. Also remove directory separators from the name.
-        fileInfo.name = removeDirectory(fileInfo.name);
-        while (names.has(fileInfo.name)) fileInfo.name += "_";
-        names.add(fileInfo.name);
-      }
       await Promise.all(
         fileInfos.map(async ({ data, name }) => {
-          await writeTextFile(await join(directory, `${name}.json`), data);
+          await writeTextFile(await join(directory, name), data);
         }),
       );
     } catch (e) {

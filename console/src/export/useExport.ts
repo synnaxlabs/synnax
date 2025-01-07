@@ -17,7 +17,10 @@ import { type RootState } from "@/store";
 
 const FILTERS: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const useExport = (extract: FileExtractor): ((key: string) => Promise<void>) => {
+export const useExport = (
+  extract: FileExtractor,
+  type = "visualization",
+): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
   const store = useStore<RootState>();
   const addStatus = Status.useAggregator();
@@ -37,7 +40,7 @@ export const useExport = (extract: FileExtractor): ((key: string) => Promise<voi
       if (!(e instanceof Error)) throw e;
       addStatus({
         variant: "error",
-        message: `Failed to export ${name ?? "layout"}`,
+        message: `Failed to export ${name ?? type}`,
         description: e.message,
       });
     }
