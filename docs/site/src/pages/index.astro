@@ -159,7 +159,7 @@ import { Align, Text } from "@synnaxlabs/pluto";
             }
 
             position: relative;
-            height: 425px;
+            height: 400px;
             aspect-ratio: 1;
             border-radius: var(--root-border-radius);
             border: var(--pluto-border-l4);
@@ -231,6 +231,12 @@ import { Align, Text } from "@synnaxlabs/pluto";
         }
 
         @media (max-width: 1100px) {
+            .hero {
+                gap: 4rem !important;
+            }
+        }
+
+        @media (max-width: 950px) {
             .hero-parent {
                 padding-bottom: 10rem;
                 padding-top: 10rem;
@@ -252,6 +258,12 @@ import { Align, Text } from "@synnaxlabs/pluto";
                         display: none;
                     }
                 }
+            }
+        }
+
+        @media (max-width: 600px) and (hover: none) {
+            .hero-parent {
+                padding-top: 3rem;
             }
         }
     </style>
