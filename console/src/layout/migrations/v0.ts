@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
-import { theming } from "@synnaxlabs/pluto/ether";
-import { location } from "@synnaxlabs/x";
+import { Color, Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
+import { location, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -183,10 +182,23 @@ export const MAIN_LAYOUT: State = {
   window: { navTop: false },
 };
 
+const removeColorClass = (obj: UnknownRecord) => {
+  for (const k in Object.keys(obj)) {
+    if (typeof obj[k] === "object" && obj[k] !== null) {
+      const f = obj[k];
+      removeColorClass(f as UnknownRecord);
+      return;
+    }
+    if (obj[k] instanceof Color.Color) obj[k] = obj[k].hex;
+  }
+};
+
+const themeZ = Theming.themeZ.transform((theme) => removeColorClass(theme));
+
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),
   activeTheme: z.string(),
-  themes: z.record(z.string(), theming.specZ),
+  themes: z.record(z.string(), themeZ),
   layouts: z.record(z.string(), stateZ),
   hauling: Haul.draggingStateZ,
   mosaics: z.record(z.string(), mosaicStateZ),

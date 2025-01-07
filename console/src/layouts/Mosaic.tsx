@@ -28,6 +28,7 @@ import {
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
+import { readTextFile } from "@tauri-apps/plugin-fs";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 import { ZodError } from "zod";
@@ -54,6 +55,7 @@ import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
+import { ingest } from "@/workspace/services/import";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
@@ -230,42 +232,56 @@ export const Mosaic = memo((): ReactElement => {
   );
 
   const handleFileDrop = useCallback(
-    (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
-      void (async () => {
-        const files = Array.from(event.dataTransfer.files);
-        for (const file of files) {
-          const name = file.name;
-          try {
-            if (file.type !== "application/json")
-              throw Error(`${name} is not a JSON file`);
-            const buffer = await file.arrayBuffer();
-            const data = new TextDecoder().decode(buffer);
-            for (const ingest of Object.values(INGESTORS))
-              try {
-                const placerArg = ingest({
-                  data,
-                  name,
-                  store,
-                  key: undefined,
-                  layout: { tab: { mosaicKey: nodeKey, location: loc } },
-                });
-                place(placerArg);
-                return;
-              } catch (e) {
-                if (e instanceof ZodError) continue;
-                else throw e;
-              }
-            throw Error(`Failed to parse ${name}`);
-          } catch (e) {
-            if (e instanceof Error)
-              addStatus({
-                variant: "error",
-                message: `Failed to read ${name}`,
-                description: e.message,
-              });
+    async (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
+      const items = Array.from(event.dataTransfer.items);
+      console.log(event);
+      console.log(event.dataTransfer.files.item);
+      console.log(event.dataTransfer.getData);
+      for (const item of items)
+        try {
+          const entry = item.webkitGetAsEntry();
+          console.log(entry);
+          if (entry == null) throw new Error("path is null");
+          if (entry.isDirectory) {
+            await ingest(entry.fullPath, {
+              addStatus,
+              client,
+              placeLayout: place,
+              store,
+            });
+            continue;
           }
+          if (!entry.fullPath.endsWith(".json"))
+            throw new Error(`${entry.fullPath} is not a JSON file`);
+          const data = await readTextFile(entry.fullPath);
+          let hasBeenIngested = false;
+          const name = entry.name.slice(0, -5);
+          for (const ingest of Object.values(INGESTORS))
+            try {
+              const placerArg = ingest({
+                data,
+                name,
+                store,
+                key: undefined,
+                layout: { tab: { mosaicKey: nodeKey, location: loc } },
+              });
+              place(placerArg);
+              hasBeenIngested = true;
+              break;
+            } catch (e) {
+              if (e instanceof ZodError) continue;
+              else throw e;
+            }
+          if (!hasBeenIngested)
+            throw new Error(`${entry.fullPath} is not a valid layout file`);
+        } catch (e) {
+          if (e instanceof Error)
+            addStatus({
+              variant: "error",
+              message: `Failed to read ${item.webkitGetAsEntry()?.name ?? "file"}`,
+              description: e.message,
+            });
         }
-      })();
     },
     [dispatch],
   );
