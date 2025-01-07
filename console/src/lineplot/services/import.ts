@@ -9,10 +9,10 @@
 
 import { Import } from "@/import";
 import { create } from "@/lineplot/LinePlot";
-import { anyStateZ, migrateState } from "@/lineplot/slice";
+import { anyStateZ } from "@/lineplot/slice";
 
 export const ingest: Import.Ingestor = ({ data, name, key, layout }) => {
-  const state = migrateState(anyStateZ.parse(JSON.parse(data)));
+  const state = anyStateZ.parse(JSON.parse(data));
   // create with an undefined key so we do not have to worry about existing line plots
   return create({ ...state, name, key, ...layout });
 };

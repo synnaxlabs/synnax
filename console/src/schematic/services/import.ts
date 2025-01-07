@@ -10,10 +10,10 @@
 import { Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/schematic/Schematic";
 import { selectHasPermission } from "@/schematic/selectors";
-import { anyStateZ, migrateState } from "@/schematic/slice";
+import { anyStateZ } from "@/schematic/slice";
 
 export const ingest: Import.Ingestor = ({ data, name, store, key, layout }) => {
-  const state = migrateState(anyStateZ.parse(JSON.parse(data)));
+  const state = anyStateZ.parse(JSON.parse(data));
   const canCreate = selectHasPermission(store.getState());
   if (!canCreate)
     throw new Error(

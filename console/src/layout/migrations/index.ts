@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate, zodutil } from "@synnaxlabs/x";
+import { migrate } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import * as v0 from "@/layout/migrations/v0";
 import * as v1 from "@/layout/migrations/v1";
@@ -45,10 +46,12 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   def: ZERO_SLICE_STATE,
 });
 
-export const parser = zodutil.transformer<AnySliceState, SliceState>(migrateSlice, [
-  v4.sliceStateZ,
-  v3.sliceStateZ,
-  v2.sliceStateZ,
-  v1.sliceStateZ,
-  v0.sliceStateZ,
-]);
+export const anySliceStateZ = z
+  .union([
+    v4.sliceStateZ,
+    v3.sliceStateZ,
+    v2.sliceStateZ,
+    v1.sliceStateZ,
+    v0.sliceStateZ,
+  ])
+  .transform((state) => migrateSlice(state));

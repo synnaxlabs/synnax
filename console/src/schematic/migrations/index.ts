@@ -56,4 +56,6 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   def: ZERO_SLICE_STATE,
 });
 
-export const anyStateZ = z.union([v3.stateZ, v2.stateZ, v1.stateZ, v0.stateZ]);
+export const anyStateZ = z
+  .union([v3.stateZ, v2.stateZ, v1.stateZ, v0.stateZ])
+  .transform((state) => migrateState(state));
