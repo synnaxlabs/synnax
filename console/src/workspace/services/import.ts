@@ -26,40 +26,32 @@ interface IngestContext {
   store: Store;
 }
 
+interface FileInfo {
+  name: string;
+  data: string;
+}
+
 export const ingest = async (
-  path: string,
-  { addStatus, client, placeLayout, store }: IngestContext,
+  name: string,
+  files: FileInfo[],
+  { placeLayout, client, store }: IngestContext,
 ) => {
-  try {
-    const files = await readDir(path);
-    const layoutInfo = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
-    const layoutInfoPath = await join(path, Workspace.LAYOUT_FILE_NAME);
-    if (layoutInfo == null) throw new Error(`${layoutInfoPath} does not exist`);
-    const layoutData = await readTextFile(layoutInfoPath);
-    const layout = Layout.anySliceStateZ.parse(JSON.parse(layoutData));
-    await Promise.allSettled(
-      Object.entries(layout.layouts).map(async ([key, layout]) => {
-        const ingest = INGESTORS[layout.type];
-        if (ingest == null) return;
-        const data = await readTextFile(await join(path, `${key}.json`));
-        placeLayout(ingest({ data, name: layout.name, store, key, layout }));
-      }),
-    );
-    const wsKey = uuid();
-    const wsName = path.split(sep()).at(-1);
-    if (wsName == null) throw new Error("Workspace name not found");
-    const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
-    store.dispatch(Workspace.add(ws));
-    store.dispatch(Layout.setWorkspace({ slice: layout, keepNav: false }));
-    await client?.workspaces.create(ws);
-  } catch (e) {
-    if (!(e instanceof Error)) throw e;
-    addStatus({
-      message: "Failed to import workspace",
-      description: e.message,
-      variant: "error",
-    });
-  }
+  const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
+  if (layoutData == null) throw new Error("Layout data not found");
+  const layout = Layout.anySliceStateZ.parse(JSON.parse(layoutData.data));
+  Object.entries(layout.layouts).forEach(([key, layout]) => {
+    const ingest = INGESTORS[layout.type];
+    if (ingest == null) return;
+    const data = files.find((file) => file.name === `${key}.json`)?.data;
+    if (data == null) throw new Error(`Data for ${key} not found`);
+    placeLayout(ingest({ data, name: layout.name, store, key, layout }));
+  });
+  const wsKey = uuid();
+  const wsName = name;
+  const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
+  store.dispatch(Workspace.add(ws));
+  store.dispatch(Layout.setWorkspace({ slice: layout, keepNav: false }));
+  await client?.workspaces.create(ws);
 };
 
 export const import_ = async ({
@@ -74,5 +66,23 @@ export const import_ = async ({
     directory: true,
   });
   if (path == null) return;
-  await ingest(path, { addStatus, client, placeLayout, store });
+  try {
+    const name = path.split(sep()).at(-1);
+    if (name == null) throw new Error("Cannot read workspace");
+    const files = await readDir(path);
+    const fileData = await Promise.all(
+      files.map(async (file) => ({
+        name: file.name,
+        data: await readTextFile(await join(path, file.name)),
+      })),
+    );
+    await ingest(name, fileData, { addStatus, client, placeLayout, store });
+  } catch (e) {
+    if (!(e instanceof Error)) throw e;
+    addStatus({
+      message: "Failed to import workspace",
+      description: e.message,
+      variant: "error",
+    });
+  }
 };

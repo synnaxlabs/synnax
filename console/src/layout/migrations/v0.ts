@@ -9,7 +9,7 @@
 
 import { Drift } from "@synnaxlabs/drift";
 import { Color, Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
-import { location, type UnknownRecord } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -133,6 +133,29 @@ export interface State<A = unknown> {
   excludeFromWorkspace?: boolean;
 }
 
+type ReplaceColorWithHex<T> = T extends Color.Color
+  ? string
+  : T extends (infer U)[]
+    ? ReplaceColorWithHex<U>[]
+    : T extends object
+      ? { [K in keyof T]: ReplaceColorWithHex<T[K]> }
+      : T;
+
+// Utility function to transform colors to hex
+const transformColorsToHex = <T>(obj: T): ReplaceColorWithHex<T> => {
+  if (obj instanceof Color.Color) return obj.hex as ReplaceColorWithHex<T>;
+  if (typeof obj === "object" && obj !== null) {
+    const newObj: any = Array.isArray(obj) ? [] : {};
+    for (const key in obj)
+      if (obj.hasOwnProperty(key)) newObj[key] = transformColorsToHex(obj[key]);
+
+    return newObj as ReplaceColorWithHex<T>;
+  }
+  return obj as ReplaceColorWithHex<T>;
+};
+
+const themeZ = Theming.themeZ.transform(transformColorsToHex);
+
 const mosaicStateZ = z.object({
   activeTab: z.string().nullable(),
   root: Mosaic.nodeZ,
@@ -182,19 +205,6 @@ export const MAIN_LAYOUT: State = {
   window: { navTop: false },
 };
 
-const removeColorClass = (obj: UnknownRecord) => {
-  for (const k in Object.keys(obj)) {
-    if (typeof obj[k] === "object" && obj[k] !== null) {
-      const f = obj[k];
-      removeColorClass(f as UnknownRecord);
-      return;
-    }
-    if (obj[k] instanceof Color.Color) obj[k] = obj[k].hex;
-  }
-};
-
-const themeZ = Theming.themeZ.transform((theme) => removeColorClass(theme));
-
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),
   activeTheme: z.string(),
@@ -208,7 +218,7 @@ export const sliceStateZ = z.object({
 
 export type SliceState = z.infer<typeof sliceStateZ>;
 
-export const ZERO_SLICE_STATE: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   version: VERSION,
   activeTheme: Theming.SYNNAX_DARK.key,
   themes: {
@@ -228,4 +238,4 @@ export const ZERO_SLICE_STATE: SliceState = {
       },
     },
   },
-};
+});

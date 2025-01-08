@@ -28,7 +28,6 @@ import {
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
-import { readTextFile } from "@tauri-apps/plugin-fs";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 import { ZodError } from "zod";
@@ -230,50 +229,56 @@ export const Mosaic = memo((): ReactElement => {
     100,
     [dispatch, windowKey],
   );
-
   const handleFileDrop = useCallback(
     async (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
       const items = Array.from(event.dataTransfer.items);
-      console.log(event);
-      console.log(event.dataTransfer.files.item);
-      console.log(event.dataTransfer.getData);
       for (const item of items)
         try {
-          const entry = item.webkitGetAsEntry();
-          console.log(entry);
+          const entry = await handleDataTransferItem(item);
           if (entry == null) throw new Error("path is null");
-          if (entry.isDirectory) {
-            await ingest(entry.fullPath, {
-              addStatus,
-              client,
-              placeLayout: place,
-              store,
-            });
+          if (entry instanceof File) {
+            const name = entry.name;
+            if (entry.type !== "application/json") throw new Error("not a JSON file");
+            const buffer = await entry.arrayBuffer();
+            const fileData = new TextDecoder().decode(buffer);
+            let hasBeenIngested = false;
+            for (const ingest of Object.values(INGESTORS))
+              try {
+                const placerArg = ingest({
+                  data: fileData,
+                  name,
+                  store,
+                  key: undefined,
+                  layout: { tab: { mosaicKey: nodeKey, location: loc } },
+                });
+                place(placerArg);
+                hasBeenIngested = true;
+                break;
+              } catch (e) {
+                if (e instanceof ZodError) continue;
+                else throw e;
+              }
+            if (!hasBeenIngested)
+              throw new Error(`${entry.name} is not a valid layout file`);
             continue;
           }
-          if (!entry.fullPath.endsWith(".json"))
-            throw new Error(`${entry.fullPath} is not a JSON file`);
-          const data = await readTextFile(entry.fullPath);
-          let hasBeenIngested = false;
-          const name = entry.name.slice(0, -5);
-          for (const ingest of Object.values(INGESTORS))
-            try {
-              const placerArg = ingest({
-                data,
-                name,
-                store,
-                key: undefined,
-                layout: { tab: { mosaicKey: nodeKey, location: loc } },
-              });
-              place(placerArg);
-              hasBeenIngested = true;
-              break;
-            } catch (e) {
-              if (e instanceof ZodError) continue;
-              else throw e;
-            }
-          if (!hasBeenIngested)
-            throw new Error(`${entry.fullPath} is not a valid layout file`);
+
+          const parsedFiles = await Promise.all(
+            entry.files.map(async (f) => {
+              const buffer = await f.arrayBuffer();
+              const fileData = new TextDecoder().decode(buffer);
+              return {
+                name: f.name,
+                data: fileData,
+              };
+            }),
+          );
+          await ingest(entry.name, parsedFiles, {
+            addStatus,
+            client,
+            placeLayout: place,
+            store,
+          });
         } catch (e) {
           if (e instanceof Error)
             addStatus({
@@ -428,3 +433,60 @@ export const MosaicWindow = memo(
   },
 );
 MosaicWindow.displayName = "MosaicWindow";
+
+type DirectoryContent = {
+  name: string;
+  files: File[];
+};
+
+export const handleDataTransferItem = async (
+  item: DataTransferItem,
+): Promise<File | DirectoryContent | null> =>
+  new Promise((resolve, reject) => {
+    if (item.kind !== "file") {
+      resolve(null);
+      return;
+    }
+    const entry = item.webkitGetAsEntry();
+    if (entry == null) {
+      resolve(null);
+      return;
+    }
+    if (entry.isFile) {
+      const file = item.getAsFile();
+      if (file != null) resolve(file);
+      else resolve(null);
+      return;
+    }
+    if (entry.isDirectory) {
+      const directoryReader = (entry as FileSystemDirectoryEntry).createReader();
+      const files: File[] = [];
+      const readEntries = () => {
+        directoryReader.readEntries(
+          (entries) => {
+            if (entries.length === 0)
+              resolve({ name: entry.name, files }); // Resolve once all files are collected.
+            else {
+              const entryPromises = entries.map(
+                (entry) =>
+                  new Promise<File | void>((res) => {
+                    if (entry.isFile)
+                      (entry as FileSystemFileEntry).file(
+                        (file) => res(file),
+                        () => res(),
+                      );
+                    else res(); // Skip subdirectories.
+                  }),
+              );
+              Promise.all(entryPromises).then((resolvedFiles) => {
+                files.push(...(resolvedFiles.filter((f) => f) as File[]));
+                readEntries(); // Continue reading remaining entries.
+              });
+            }
+          },
+          (error) => reject(error),
+        );
+      };
+      readEntries();
+    } else resolve(null); // Not a file or directory.
+  });
