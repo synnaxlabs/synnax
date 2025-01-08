@@ -14,11 +14,12 @@ import {
   type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
+import { Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/migrations";
+import { type RootState } from "@/store";
 
 export type State<A = unknown> = latest.State<A>;
 export type SliceState = latest.SliceState;
@@ -48,7 +49,7 @@ export interface StoreState {
 
 export const PERSIST_EXCLUDE = ["hauling", "alreadyCheckedGetStarted", "themes"].map(
   (key) => `${SLICE_NAME}.${key}`,
-) as Array<deep.Key<StoreState>>;
+) as Array<deep.Key<RootState>>;
 
 /** Signature for the placeLayout action. */
 export type PlacePayload = State;
@@ -460,7 +461,7 @@ export const { actions, reducer } = createSlice({
       mosaic.focused = key;
     },
     setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
-      state.colorContext = payload.state;
+      state.colorContext = Color.transformColorsToHex(payload.state);
     },
   },
 });

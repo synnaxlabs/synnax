@@ -14,6 +14,7 @@ import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/migrations";
+import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
@@ -42,7 +43,7 @@ export const purgeState = (state: State): State => {
   return state;
 };
 
-export const purgeSliceState = (state: StoreState): StoreState => {
+export const purgeSliceState = (state: RootState): RootState => {
   Object.values(state[SLICE_NAME].schematics).forEach(purgeState);
   return state;
 };

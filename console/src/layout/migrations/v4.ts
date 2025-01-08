@@ -16,31 +16,10 @@ import * as v3 from "@/layout/migrations/v3";
 
 const VERSION = "4.0.0";
 
-type ReplaceColorWithHex<T> = T extends Color.Color
-  ? string
-  : T extends (infer U)[]
-    ? ReplaceColorWithHex<U>[]
-    : T extends object
-      ? { [K in keyof T]: ReplaceColorWithHex<T[K]> }
-      : T;
-
-// Utility function to transform colors to hex
-const transformColorsToHex = <T>(obj: T): ReplaceColorWithHex<T> => {
-  if (obj instanceof Color.Color) return obj.hex as ReplaceColorWithHex<T>;
-  if (typeof obj === "object" && obj !== null) {
-    const newObj: any = Array.isArray(obj) ? [] : {};
-    for (const key in obj)
-      if (obj.hasOwnProperty(key)) newObj[key] = transformColorsToHex(obj[key]);
-
-    return newObj as ReplaceColorWithHex<T>;
-  }
-  return obj as ReplaceColorWithHex<T>;
-};
-
 export const sliceStateZ = v3.sliceStateZ
   .omit({ version: true })
   .extend({ version: z.literal(VERSION), colorContext: Color.contextStateZ })
-  .transform(transformColorsToHex);
+  .transform(Color.transformColorsToHex);
 
 export type SliceState = z.infer<typeof sliceStateZ>;
 
@@ -56,6 +35,6 @@ export const sliceMigration: migrate.Migration<v3.SliceState, SliceState> =
     migrate: (s) => ({
       ...s,
       version: VERSION,
-      colorContext: transformColorsToHex(Color.ZERO_CONTEXT_STATE),
+      colorContext: Color.transformColorsToHex(Color.ZERO_CONTEXT_STATE),
     }),
   });

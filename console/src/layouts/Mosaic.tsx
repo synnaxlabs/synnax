@@ -264,13 +264,10 @@ export const Mosaic = memo((): ReactElement => {
           }
 
           const parsedFiles = await Promise.all(
-            entry.files.map(async (f) => {
-              const buffer = await f.arrayBuffer();
-              const fileData = new TextDecoder().decode(buffer);
-              return {
-                name: f.name,
-                data: fileData,
-              };
+            entry.files.map(async (file) => {
+              const buffer = await file.arrayBuffer();
+              const data = new TextDecoder().decode(buffer);
+              return { name: file.name, data };
             }),
           );
           await ingest(entry.name, parsedFiles, {
@@ -283,7 +280,7 @@ export const Mosaic = memo((): ReactElement => {
           if (e instanceof Error)
             addStatus({
               variant: "error",
-              message: `Failed to read ${item.webkitGetAsEntry()?.name ?? "file"}`,
+              message: `Failed to read ${item.getAsFile()?.name ?? "file"}`,
               description: e.message,
             });
         }
@@ -439,54 +436,43 @@ type DirectoryContent = {
   files: File[];
 };
 
-export const handleDataTransferItem = async (
+const handleDataTransferItem = async (
   item: DataTransferItem,
-): Promise<File | DirectoryContent | null> =>
-  new Promise((resolve, reject) => {
-    if (item.kind !== "file") {
-      resolve(null);
-      return;
+): Promise<File | DirectoryContent | null> => {
+  if (item.kind !== "file") return null;
+
+  const entry = item.webkitGetAsEntry();
+  if (!entry) return null;
+
+  if (entry.isFile) return item.getAsFile();
+  if (!entry.isDirectory) return null;
+
+  const directoryReader = (entry as FileSystemDirectoryEntry).createReader();
+  const files: File[] = [];
+
+  const processEntries = async (entries: FileSystemEntry[]): Promise<void> => {
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (entry.isFile) {
+          const file = await new Promise<File | null>((resolve) => {
+            (entry as FileSystemFileEntry).file(resolve, () => resolve(null));
+          });
+          if (file) files.push(file);
+        }
+      }),
+    );
+  };
+
+  const readAllEntries = async (): Promise<void> => {
+    while (true) {
+      const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+        directoryReader.readEntries(resolve, reject);
+      });
+      if (entries.length === 0) break;
+      await processEntries(entries);
     }
-    const entry = item.webkitGetAsEntry();
-    if (entry == null) {
-      resolve(null);
-      return;
-    }
-    if (entry.isFile) {
-      const file = item.getAsFile();
-      if (file != null) resolve(file);
-      else resolve(null);
-      return;
-    }
-    if (entry.isDirectory) {
-      const directoryReader = (entry as FileSystemDirectoryEntry).createReader();
-      const files: File[] = [];
-      const readEntries = () => {
-        directoryReader.readEntries(
-          (entries) => {
-            if (entries.length === 0)
-              resolve({ name: entry.name, files }); // Resolve once all files are collected.
-            else {
-              const entryPromises = entries.map(
-                (entry) =>
-                  new Promise<File | void>((res) => {
-                    if (entry.isFile)
-                      (entry as FileSystemFileEntry).file(
-                        (file) => res(file),
-                        () => res(),
-                      );
-                    else res(); // Skip subdirectories.
-                  }),
-              );
-              Promise.all(entryPromises).then((resolvedFiles) => {
-                files.push(...(resolvedFiles.filter((f) => f) as File[]));
-                readEntries(); // Continue reading remaining entries.
-              });
-            }
-          },
-          (error) => reject(error),
-        );
-      };
-      readEntries();
-    } else resolve(null); // Not a file or directory.
-  });
+  };
+
+  await readAllEntries();
+  return { name: entry.name, files };
+};
