@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lib } from "@synnaxlabs/vite-plugin";
-import { defineConfig } from "vite";
+import { type PageNavNode } from "@/components/PageNav/PageNav";
 
-export default defineConfig({
-  plugins: [lib({ name: "integration" })],
-  build: { outDir: "dist", sourcemap: true },
-});
+export const comparisonNav: PageNavNode = {
+  key: "comparison",
+  name: "Comparisons",
+  children: [
+    {
+      name: "Database Performance",
+      href: "/guides/comparison/performance/one-billion-rows",
+      key: "/guides/comparison/performance/one-billion-rows",
+    },
+  ],
+};

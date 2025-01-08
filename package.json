@@ -2,17 +2,18 @@
   "version": "0.38.0",
   "private": true,
   "scripts": {
-    "build": "npx turbo build --cache-dir=.turbo-cache",
-    "build:alamos": "npx turbo build --filter @synnaxlabs/alamos --cache-dir=.turbo-cache",
-    "build:client": "npx turbo build --filter @synnaxlabs/client --cache-dir=.turbo-cache",
-    "build:console": "npx turbo build --filter @synnaxlabs/console --cache-dir=.turbo-cache",
-    "build:docs": "npx turbo build --filter @synnaxlabs/docs --cache-dir=.turbo-cache",
-    "build:drift": "npx turbo build --filter @synnaxlabs/drift --cache-dir=.turbo-cache",
-    "build:freighter": "npx turbo build --filter @synnaxlabs/freighter --cache-dir=.turbo-cache",
-    "build:media": "npx turbo build --filter @synnaxlabs/media --cache-dir=.turbo-cache",
-    "build:pluto": "npx turbo build --filter @synnaxlabs/pluto --cache-dir=.turbo-cache",
-    "build:vite-plugin": "npx turbo build --filter @synnaxlabs/vite-plugin --cache-dir=.turbo-cache",
-    "build:x": "npx turbo build --filter @synnaxlabs/x --cache-dir=.turbo-cache",
+    "build": "npx turbo build",
+    "build:alamos": "npx turbo build --filter @synnaxlabs/alamos",
+    "build:client": "npx turbo build --filter @synnaxlabs/client",
+    "build:console": "npx turbo build --filter @synnaxlabs/console",
+    "build:console-vite": "npx turbo build-vite --filter @synnaxlabs/console",
+    "build:docs": "npx turbo build --filter @synnaxlabs/docs",
+    "build:drift": "npx turbo build --filter @synnaxlabs/drift",
+    "build:freighter": "npx turbo build --filter @synnaxlabs/freighter",
+    "build:media": "npx turbo build --filter @synnaxlabs/media",
+    "build:pluto": "npx turbo build --filter @synnaxlabs/pluto",
+    "build:vite-plugin": "npx turbo build --filter @synnaxlabs/vite-plugin",
+    "build:x": "npx turbo build --filter @synnaxlabs/x",
     "watch": "npx turbo watch --parallel",
     "watch:alamos": "npx turbo watch --filter @synnaxlabs/alamos",
     "watch:client": "npx turbo watch --filter @synnaxlabs/client",
@@ -54,15 +55,12 @@
     "fix:media": "npx turbo fix --filter @synnaxlabs/media",
     "fix:pluto": "npx turbo fix --filter @synnaxlabs/pluto",
     "fix:x": "npx turbo fix --filter @synnaxlabs/x",
-    "genApi": "npx turbo genApi",
-    "genApi:client": "npx turbo genApi --filter @synnaxlabs/client",
-    "checkApi": "npx turbo checkApi",
-    "checkApi:client": "npx turbo checkApi --filter @synnaxlabs/client",
     "devtools": "npx turbo devtools --filter @synnaxlabs/console"
   },
   "devDependencies": {
     "prettier": "^3.4.2",
-    "turbo": "^2.3.3"
+    "turbo": "^2.3.3",
+    "vitest": "^2.1.8"
   },
   "engines": {
     "node": ">=18"
