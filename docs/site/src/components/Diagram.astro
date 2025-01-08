@@ -18,7 +18,7 @@ const { preview, variant, ...props } = Astro.props;
         margin: 5rem 0;
         width: 100%;
         border-radius: 1.5rem;
-        border: 1px solid var(--pluto-gray-l4);
+        border: var(--pluto-border-l4);
         box-shadow: var(--pluto-shadow-menu);
         background-image: radial-gradient(
             var(--pluto-dark-gray-l5) 0.5px,
@@ -29,7 +29,6 @@ const { preview, variant, ...props } = Astro.props;
         padding: 5rem;
 
         @media (prefers-color-scheme: dark) {
-            border: 1px solid var(--pluto-dark-gray-l2);
             box-shadow: none;
             background-image: radial-gradient(
                 var(--pluto-gray-l4-70) 0.5px,
