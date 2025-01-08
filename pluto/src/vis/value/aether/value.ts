@@ -67,7 +67,9 @@ export class Value
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
     i.stopListening?.();
-    i.stopListening = this.internal.telem.onChange(() => this.requestRender());
+    i.stopListening = this.internal.telem.onChange(() => {
+      this.requestRender();
+    });
     i.backgroundTelem = await telem.useSource(
       this.ctx,
       this.state.backgroundTelem,
@@ -122,6 +124,7 @@ export class Value
     if (box.areaIsZero(b)) return;
     const { location } = this.state;
     const upper2d = renderCtx.lower2d.applyScale(viewportScale);
+    console.log("rendering");
     let value = await telem.value();
     const fontString = theming.fontString(this.internal.theme, {
       level: this.state.level,

@@ -24,7 +24,8 @@ interface ValueTelemFormT {
 
 export const VALUE_CONNECTIONS: telem.Connection[] = [
   { from: "valueStream", to: "rollingAverage" },
-  { from: "rollingAverage", to: "stringifier" },
+  { from: "rollingAverage", to: "stopwatch" },
+  { from: "stopwatch", to: "stringifier" },
 ];
 
 interface TelemFormProps {
@@ -53,6 +54,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
           precision: stringifier.precision ?? 2,
           notation: stringifier.notation,
         }),
+        stopwatch: telem.stopwatch({}),
         rollingAverage: telem.rollingAverage({
           windowSize: rollingAverage.windowSize ?? 1,
         }),

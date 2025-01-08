@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, scale } from "@synnaxlabs/x";
+import { bounds, Rate, scale, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { color } from "@/color/core";
@@ -49,6 +49,8 @@ export class TransformerFactory implements Factory {
         return new ColorGradient(spec.props);
       case ScaleNumber.TYPE:
         return new ScaleNumber(spec.props);
+      case Stopwatch.TYPE:
+        return new Stopwatch(spec.props);
     }
     return null;
   }
@@ -278,6 +280,54 @@ export const scaleNumber = (
 ): NumberSourceSpec => ({
   props,
   type: ScaleNumber.TYPE,
+  variant: "source",
+  valueType: "number",
+});
+
+export const stopwatchProps = z.object({
+  countdown: z.boolean().optional().default(false),
+  start: TimeSpan.z.optional().default(0),
+});
+
+const STOPWATCH_INTERNAL = Rate.hz(1).period.milliseconds;
+
+export class Stopwatch extends UnarySourceTransformer<
+  number,
+  number,
+  typeof stopwatchProps
+> {
+  static readonly TYPE = "stopwatch";
+  static readonly propsZ = stopwatchProps;
+  schema = Stopwatch.propsZ;
+
+  private start = TimeStamp.now();
+  private currValue: number | null = null;
+  private currInterval: ReturnType<typeof setInterval> | null = null;
+
+  protected transform(): number {
+    return TimeStamp.since(this.start).seconds;
+  }
+
+  async value(): Promise<number> {
+    await this.source.value();
+    return this.transform();
+  }
+
+  protected shouldNotify(value: number): boolean {
+    if (this.currValue === value) return false;
+    this.currValue = value;
+    this.start = TimeStamp.now();
+    if (this.currInterval != null) clearInterval(this.currInterval);
+    this.currInterval = setInterval(() => {
+      this.notify();
+    }, STOPWATCH_INTERNAL);
+    return false;
+  }
+}
+
+export const stopwatch = (props: z.input<typeof stopwatchProps>): NumberSourceSpec => ({
+  props,
+  type: Stopwatch.TYPE,
   variant: "source",
   valueType: "number",
 });

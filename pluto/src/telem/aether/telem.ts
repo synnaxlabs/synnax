@@ -170,7 +170,7 @@ export class UnarySourceTransformer<I, O, P extends z.ZodTypeAny>
 {
   sources: Record<string, Source<I>> = {};
 
-  private get source(): Source<I> {
+  get source(): Source<I> {
     const [source] = Object.values(this.sources);
     if (source == null)
       throw new ValidationError(
@@ -184,11 +184,12 @@ export class UnarySourceTransformer<I, O, P extends z.ZodTypeAny>
   }
 
   onChange(handler: () => void): Destructor {
+    super.onChange(handler);
     return this.source.onChange(() => {
       this.source
         .value()
         .then((value) => {
-          if (this.shouldNotify(value)) handler();
+          if (this.shouldNotify(value)) this.notify();
         })
         .catch(console.error);
     });
