@@ -130,12 +130,14 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
     let url = "synnax://cluster/";
     const key = clusterKey ?? activeClusterKey;
     const linkMessage = name == null ? "" : `to ${name}`;
-    if (key == null)
-      return addStatus({
+    if (key == null) {
+      addStatus({
         variant: "error",
         message: `Failed to copy link ${linkMessage} to clipboard`,
         description: "No active cluster found",
       });
+      return;
+    }
     url += key;
     if (ontologyID != undefined) url += `/${ontologyID.type}/${ontologyID.key}`;
     navigator.clipboard.writeText(url).then(

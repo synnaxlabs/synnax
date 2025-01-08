@@ -253,12 +253,7 @@ const Wrapped = ({
       createTask({ key: task?.key, name, type: READ_TYPE, config });
       setDesiredState("paused");
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: "Failed to configure task",
-        description: e.message,
-      }),
+    onError: (e) => Status.handleException(e, `Failed to configure task`, addStatus),
   });
 
   const start = useMutation({

@@ -32,11 +32,7 @@ export const useRangeSnapshot = () => {
         "schematic",
       )} to ${rng?.name ?? "active range"}`,
     onError: (err, context) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to snapshot ${context}}`,
-        description: err.message,
-      }),
+      Status.handleException(err, `Failed to snapshot ${context}`, addStatus),
     onSuccess: (_, __, context) =>
       addStatus({
         variant: "success",

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/pluto";
 
 import { retrieveAndPlaceLayout } from "@/hardware/task/ontology";
 import { type Link } from "@/link";
@@ -23,12 +24,7 @@ export const linkHandler: Link.Handler = async ({
   try {
     await retrieveAndPlaceLayout(client, resourceKey, placer);
   } catch (e) {
-    if (!(e instanceof Error)) throw e;
-    addStatus({
-      variant: "error",
-      description: "Could not load task from URL",
-      message: e.message,
-    });
+    Status.handleException(e, "Failed to open task from URL", addStatus);
   }
   return true;
 };

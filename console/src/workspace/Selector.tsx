@@ -39,28 +39,26 @@ export const Selector = (): ReactElement => {
   const active = useSelectActive();
   const dProps = Dropdown.use();
   const handleChange = useCallback(
-    (v: string | null) => {
+    async (v: string | null) => {
       dProps.close();
       if (v === null) {
         dispatch(setActive(null));
         dispatch(Layout.clearWorkspace());
         return;
       }
-      void (async () => {
-        if (v == null) {
-          dispatch(setActive(null));
-          return;
-        }
-        if (client == null) return;
-        const ws = await client.workspaces.retrieve(v);
-        dispatch(add({ workspaces: [ws] }));
-        dispatch(
-          Layout.setWorkspace({
-            slice: ws.layout as unknown as Layout.SliceState,
-            keepNav: false,
-          }),
-        );
-      })();
+      if (v == null) {
+        dispatch(setActive(null));
+        return;
+      }
+      if (client == null) return;
+      const ws = await client.workspaces.retrieve(v);
+      dispatch(add({ workspaces: [ws] }));
+      dispatch(
+        Layout.setWorkspace({
+          slice: ws.layout as unknown as Layout.SliceState,
+          keepNav: false,
+        }),
+      );
     },
     [active, client, dispatch, dProps.close],
   );

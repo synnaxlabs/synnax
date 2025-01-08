@@ -45,11 +45,7 @@ export const useSyncComponent = <P extends unknown>(
         const data = Layout.select(store.getState(), layoutKey);
         if (data != null) message = `Failed to save ${data.name}`;
       }
-      addStatus({
-        variant: "error",
-        message,
-        description: e.message,
-      });
+      Status.handleException(e, message, addStatus);
     },
   });
   const ws = useSelectActiveKey();

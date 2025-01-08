@@ -207,12 +207,7 @@ const Wrapped = ({
       });
       setDesiredState("paused");
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: "Failed to configure task",
-        description: e.message,
-      }),
+    onError: (e) => Status.handleException(e, `Failed to configure task`, addStatus),
   });
 
   const start = useMutation({

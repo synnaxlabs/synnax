@@ -20,16 +20,15 @@ export const useDevice = <P extends UnknownRecord>(
   const [device, setDevice] = useState<device.Device<P> | undefined>(undefined);
   const handleException = useCallback(
     (e: unknown) => {
-      if (!(e instanceof Error)) throw e;
       if (NotFoundError.matches(e)) {
         if (device != null) setDevice(undefined);
         return;
       }
-      addStatus({
-        variant: "error",
-        message: `Failed to retrieve ${device?.name ?? "device"}.`,
-        description: e.message,
-      });
+      Status.handleException(
+        e,
+        `Failed to retrieve ${device?.name ?? "device"}.`,
+        addStatus,
+      );
     },
     [addStatus, device?.name, setDevice],
   );

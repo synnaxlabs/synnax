@@ -129,12 +129,7 @@ export const useExport = (name: string = "schematic"): ((key: string) => void) =
         new TextEncoder().encode(JSON.stringify(schematicData)),
       );
     },
-    onError: (err) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to export ${name}`,
-        description: err.message,
-      }),
+    onError: (e) => Status.handleException(e, `Failed to export ${name}`, addStatus),
   }).mutate;
 };
 
@@ -214,11 +209,6 @@ export const useImport = (workspaceKey?: string): (() => void) => {
         client,
         dispatch,
       }),
-    onError: (err) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to import schematic`,
-        description: err.message,
-      }),
+    onError: (e) => Status.handleException(e, "Failed to import schematic", addStatus),
   }).mutate;
 };

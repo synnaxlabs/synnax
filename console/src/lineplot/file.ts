@@ -120,11 +120,7 @@ export const useExport = (name: string = "line plot"): ((key: string) => void) =
       await writeFile(savePath, new TextEncoder().encode(JSON.stringify(linePlotData)));
     },
     onError: (err) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to export ${name}`,
-        description: err.message,
-      }),
+      Status.handleException(err, `Failed to export ${name}`, addStatus),
   }).mutate;
 };
 
@@ -207,10 +203,6 @@ export const useImport = (workspaceKey?: string): (() => void) => {
       });
     },
     onError: (err) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to import line plot`,
-        description: err.message,
-      }),
+      Status.handleException(err, "Failed to import line plot", addStatus),
   }).mutate;
 };

@@ -20,12 +20,8 @@ export const useCopyToClipboard = (): ((text: string, name: string) => void) => 
           message: `Copied ${name} to clipboard.`,
         });
       })
-      .catch((e) => {
-        addStatus({
-          variant: "error",
-          message: `Failed to copy ${name} to clipboard.`,
-          description: e.message,
-        });
-      });
+      .catch((e) =>
+        Status.handleException(e, `Failed to copy ${name} to clipboard`, addStatus),
+      );
   };
 };

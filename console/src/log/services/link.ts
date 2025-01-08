@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Status } from "@synnaxlabs/pluto";
+
 import { type Link } from "@/link";
 import { create } from "@/log/Log";
 import { type State } from "@/log/slice";
@@ -28,10 +30,7 @@ export const linkHandler: Link.Handler = async ({
     });
     placer(layoutCreator);
   } catch (e) {
-    addStatus({
-      variant: "error",
-      message: (e as Error).message,
-    });
+    Status.handleException(e, "Failed to open log from URL", addStatus);
   }
   return true;
 };

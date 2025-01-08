@@ -252,43 +252,41 @@ export const Tree = (): ReactElement => {
   }, [client]);
 
   const handleExpand = useCallback(
-    ({ action, clicked }: Core.HandleExpandProps): void => {
+    async ({ action, clicked }: Core.HandleExpandProps): Promise<void> => {
       if (action !== "expand") return;
-      void (async () => {
-        if (client == null) return;
-        const id = new ontology.ID(clicked);
-        try {
-          setLoading(clicked);
-          const resources = await client.ontology.retrieveChildren(id, {
-            includeSchema: false,
-          });
-          const converted = toTreeNodes(services, resources);
-          const nextTree = Core.updateNodeChildren({
-            tree: nodesRef.current,
-            parent: clicked,
-            updater: (nodes) => {
-              const res = converted.map((node) => {
-                const existing = nodes.find(({ key }) => key === node.key);
-                return { ...existing, ...node };
-              });
-              const nodesBeingRenamed = nodes.filter(
-                ({ key, name }) =>
-                  !converted.find(({ key: k }) => k === key) && name.length === 0,
-              );
-              return [...res, ...nodesBeingRenamed];
-            },
-          });
-          const keys = resources.map(({ id }) => id.toString());
-          resourcesRef.current = [
-            // Dedupe any resources that already exist.
-            ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
-            ...resources,
-          ];
-          setNodes([...nextTree]);
-        } finally {
-          setLoading(false);
-        }
-      })();
+      if (client == null) return;
+      const id = new ontology.ID(clicked);
+      try {
+        setLoading(clicked);
+        const resources = await client.ontology.retrieveChildren(id, {
+          includeSchema: false,
+        });
+        const converted = toTreeNodes(services, resources);
+        const nextTree = Core.updateNodeChildren({
+          tree: nodesRef.current,
+          parent: clicked,
+          updater: (nodes) => {
+            const res = converted.map((node) => {
+              const existing = nodes.find(({ key }) => key === node.key);
+              return { ...existing, ...node };
+            });
+            const nodesBeingRenamed = nodes.filter(
+              ({ key, name }) =>
+                !converted.find(({ key: k }) => k === key) && name.length === 0,
+            );
+            return [...res, ...nodesBeingRenamed];
+          },
+        });
+        const keys = resources.map(({ id }) => id.toString());
+        resourcesRef.current = [
+          // Dedupe any resources that already exist.
+          ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
+          ...resources,
+        ];
+        setNodes([...nextTree]);
+      } finally {
+        setLoading(false);
+      }
     },
     [client, services],
   );
@@ -326,11 +324,7 @@ export const Tree = (): ReactElement => {
     },
     onError: (error, _, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      addStatus({
-        variant: "error",
-        message: `Failed to move resources`,
-        description: error.message,
-      });
+      Status.handleException(error, "Failed to move resources", addStatus);
     },
   });
 
@@ -420,7 +414,6 @@ export const Tree = (): ReactElement => {
     ),
     onError: (error, { key, name }, ctx) => {
       if (ctx == null) return;
-      const { message } = error;
       const { prevName } = ctx;
       const rProps = getRenameProps(key, name);
       const svc = services[rProps.id.type];
@@ -431,11 +424,11 @@ export const Tree = (): ReactElement => {
           updater: (node) => ({ ...node, name: prevName }),
         }),
       ]);
-      addStatus({
-        variant: "error",
-        message: `Failed to rename ${prevName} to ${name}`,
-        description: message,
-      });
+      Status.handleException(
+        error,
+        `Failed to rename ${prevName} to ${name}`,
+        addStatus,
+      );
       svc.onRename?.rollback?.(rProps, prevName);
     },
   });

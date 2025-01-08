@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon } from "@synnaxlabs/pluto";
+import { Icon as PIcon, Status } from "@synnaxlabs/pluto";
 
 import { createAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { createDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
@@ -59,29 +59,22 @@ export const toggleNIScanner: Command = {
       <Icon.Logo.NI />
     </PIcon.Create>
   ),
-  onSelect: ({ client, addStatus }) => {
+  onSelect: async ({ client, addStatus }) => {
     if (client == null) return;
-    void (async () => {
-      try {
-        const tsk =
-          await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
-        const enabled = tsk.config.enabled ?? true;
-        client.hardware.tasks.create<ScanConfig>({
-          ...tsk.payload,
-          config: { enabled: !enabled },
-        });
-        addStatus({
-          variant: "success",
-          message: `NI device scanning ${!enabled ? "enabled" : "disabled"}`,
-        });
-      } catch (e) {
-        addStatus({
-          variant: "error",
-          message: "Failed to toggle NI scan task",
-          description: (e as Error).message,
-        });
-      }
-    })();
+    try {
+      const tsk = await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
+      const enabled = tsk.config.enabled ?? true;
+      client.hardware.tasks.create<ScanConfig>({
+        ...tsk.payload,
+        config: { enabled: !enabled },
+      });
+      addStatus({
+        variant: "success",
+        message: `NI device scanning ${!enabled ? "enabled" : "disabled"}`,
+      });
+    } catch (e) {
+      Status.handleException(e, "Failed to toggle NI scan task", addStatus);
+    }
   },
 };
 

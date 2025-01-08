@@ -9,7 +9,7 @@
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Status, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -47,11 +47,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete schematic",
-        description: err.message,
-      });
+      Status.handleException(err, "Failed to delete schematic", addStatus);
     },
   }).mutate;
 };
@@ -89,11 +85,7 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       Tree.startRenaming(otg[0].id.toString());
     },
     onError: (err, { addStatus }) => {
-      addStatus({
-        variant: "error",
-        message: "Failed to copy schematic",
-        description: err.message,
-      });
+      Status.handleException(err, "Failed to copy schematic", addStatus);
     },
   }).mutate;
 
@@ -189,7 +181,7 @@ const handleSelect: Ontology.HandleSelect = async ({
   placeLayout,
 }) => await loadSchematic(client, selection[0].id, placeLayout);
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
+const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
   client,
   id,
   location,
@@ -197,26 +189,20 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   addStatus,
   placeLayout,
 }) => {
-  void (async () => {
-    try {
-      const schematic = await client.workspaces.schematic.retrieve(id.key);
-      placeLayout(
-        Schematic.create({
-          name: schematic.name,
-          ...(schematic.data as unknown as Schematic.State),
-          key: id.key,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        }),
-      );
-    } catch (err) {
-      addStatus({
-        variant: "error",
-        message: "Failed to load schematic",
-        description: (err as Error).message,
-      });
-    }
-  })();
+  try {
+    const schematic = await client.workspaces.schematic.retrieve(id.key);
+    placeLayout(
+      Schematic.create({
+        name: schematic.name,
+        ...(schematic.data as unknown as Schematic.State),
+        key: id.key,
+        location: "mosaic",
+        tab: { mosaicKey: nodeKey, location },
+      }),
+    );
+  } catch (e) {
+    Status.handleException(e, "Failed to load schematic", addStatus);
+  }
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

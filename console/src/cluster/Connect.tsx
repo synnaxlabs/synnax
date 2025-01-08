@@ -78,30 +78,26 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
     values: { ...ZERO_VALUES },
   });
 
-  const handleSubmit = (): void => {
-    void (async () => {
-      if (!methods.validate()) return;
-      const data = methods.value();
-      setConnState(null);
-      setLoading("submit");
-      const state = await testConnection(data);
-      setLoading(null);
-      if (state.status !== "connected") return setConnState(state);
-      dispatch(set({ ...data, key: state.clusterKey }));
-      dispatch(setActive(state.clusterKey));
-      onClose();
-    })();
+  const handleSubmit = async (): Promise<void> => {
+    if (!methods.validate()) return;
+    const data = methods.value();
+    setConnState(null);
+    setLoading("submit");
+    const state = await testConnection(data);
+    setLoading(null);
+    if (state.status !== "connected") return setConnState(state);
+    dispatch(set({ ...data, key: state.clusterKey }));
+    dispatch(setActive(state.clusterKey));
+    onClose();
   };
 
-  const handleTestConnection = (): void => {
-    void (async (): Promise<void> => {
-      if (!methods.validate()) return;
-      setConnState(null);
-      setLoading("test");
-      const state = await testConnection(methods.value());
-      setConnState(state);
-      setLoading(null);
-    })();
+  const handleTestConnection = async (): Promise<void> => {
+    if (!methods.validate()) return;
+    setConnState(null);
+    setLoading("test");
+    const state = await testConnection(methods.value());
+    setConnState(state);
+    setLoading(null);
   };
 
   return (

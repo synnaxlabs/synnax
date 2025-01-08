@@ -55,11 +55,7 @@ export const useSyncLayout = async (): Promise<void> => {
         store.dispatch(setActive(null));
         return;
       }
-      addStatus({
-        variant: "error",
-        message: "Failed to save workspace",
-        description: e.message,
-      });
+      Status.handleException(e, "Failed to save workspace", addStatus);
     },
   });
 

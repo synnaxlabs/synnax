@@ -10,7 +10,15 @@
 import { type Store } from "@reduxjs/toolkit";
 import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
+import {
+  type Haul,
+  List,
+  Menu as PMenu,
+  Ranger,
+  Status,
+  Text,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -79,11 +87,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       store.dispatch(setActive(res.id.key));
     },
     onError: (e, { addStatus }) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to activate range`,
-        description: e.message,
-      }),
+      Status.handleException(e, "Failed to activate range", addStatus),
   }).mutate;
 
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
@@ -104,11 +108,11 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (e, { addStatus, selection: { resources } }) => {
       const rangeNames = resources.map((r) => r.name);
-      addStatus({
-        variant: "error",
-        message: `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
-        description: e.message,
-      });
+      Status.handleException(
+        e,
+        `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
+        addStatus,
+      );
     },
   }).mutate;
 
@@ -130,11 +134,11 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (e, { addStatus, selection: { resources } }) => {
       const names = resources.map((r) => r.name);
-      addStatus({
-        variant: "error",
-        message: `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
-        description: e.message,
-      });
+      Status.handleException(
+        e,
+        `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
+        addStatus,
+      );
     },
   }).mutate;
 
@@ -197,11 +201,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       }
       let message = "Failed to delete ranges";
       if (resources.length === 1) message = `Failed to delete ${resources[0].name}`;
-      addStatus({
-        variant: "error",
-        message,
-        description: e.message,
-      });
+      Status.handleException(e, message, addStatus);
     },
   }).mutate;
 };

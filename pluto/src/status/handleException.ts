@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/status/aether/types";
-export * from "@/status/Aggregator";
-export * from "@/status/Circle";
-export * from "@/status/handleException";
-export * from "@/status/Notification";
-export * from "@/status/Text";
+import { type AddStatusFn } from "./Aggregator";
+
+export const handleException = (
+  exception: unknown,
+  message: string,
+  addStatus: AddStatusFn,
+): void => {
+  if (!(exception instanceof Error)) throw exception;
+  addStatus({ variant: "error", message, description: exception.message });
+};

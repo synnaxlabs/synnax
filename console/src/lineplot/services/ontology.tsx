@@ -9,7 +9,7 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Status, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -47,11 +47,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete line plot",
-        description: err.message,
-      });
+      Status.handleException(err, "Failed to delete line plot", addStatus);
     },
   }).mutate;
 };
@@ -122,34 +118,28 @@ const handleSelect: Ontology.HandleSelect = async ({
   );
 };
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
+const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
   client,
   id,
   location,
   nodeKey,
   placeLayout,
   addStatus,
-}): void => {
-  void (async () => {
-    try {
-      const linePlot = await client.workspaces.linePlot.retrieve(id.key);
-      placeLayout(
-        create({
-          ...(linePlot.data as unknown as State),
-          key: linePlot.key,
-          name: linePlot.name,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        }),
-      );
-    } catch (err) {
-      addStatus({
-        variant: "error",
-        message: "Failed to load line plot",
-        description: (err as Error).message,
-      });
-    }
-  })();
+}): Promise<void> => {
+  try {
+    const linePlot = await client.workspaces.linePlot.retrieve(id.key);
+    placeLayout(
+      create({
+        ...(linePlot.data as unknown as State),
+        key: linePlot.key,
+        name: linePlot.name,
+        location: "mosaic",
+        tab: { mosaicKey: nodeKey, location },
+      }),
+    );
+  } catch (e) {
+    Status.handleException(e, "Failed to load line plot", addStatus);
+  }
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

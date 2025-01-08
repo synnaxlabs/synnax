@@ -127,7 +127,8 @@ const Wrapped = ({
   const addStatus = Status.useAggregator();
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
-    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    onError: (e) =>
+      Status.handleException(e, "Failed to configure LabJack Read task", addStatus),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
@@ -204,7 +205,7 @@ const Wrapped = ({
   });
   const handleTare = useMutation({
     mutationKey: [client?.key],
-    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    onError: (e) => Status.handleException(e, "Failed to tare channels", addStatus),
     mutationFn: async (keys: number[]) => {
       if (client == null) return;
       await task?.executeCommand("tare", { keys });

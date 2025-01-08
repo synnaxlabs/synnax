@@ -139,7 +139,7 @@ const CreateLayoutForm = ({
       );
       onClose();
     },
-    onError: (e) => addStatus({ message: e.message, variant: "error" }),
+    onError: (e) => Status.handleException(e, "Failed to create range", addStatus),
   });
 
   // Makes sure the user doesn't have the option to select the range itself as a parent

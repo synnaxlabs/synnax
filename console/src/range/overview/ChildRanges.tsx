@@ -75,11 +75,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
       tracker.onChange((ranges) => setChildRanges(ranges));
       return async () => await tracker.close();
     } catch (e) {
-      addStatus({
-        variant: "error",
-        message: `Failed to retrieve child ranges`,
-        description: (e as Error).message,
-      });
+      Status.handleException(e, `Failed to retrieve child ranges`, addStatus);
       return undefined;
     }
   }, [rangeKey, client?.key]);

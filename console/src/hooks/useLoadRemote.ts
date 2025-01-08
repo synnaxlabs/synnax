@@ -41,12 +41,7 @@ export const useLoadRemote = <V extends migrate.Migratable>({
       if (client == null) return;
       return fetcher(client, layoutKey);
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to load ${name}`,
-        description: e.message,
-      }),
+    onError: (e) => Status.handleException(e, `Failed to load ${name}`, addStatus),
   });
   const versionPresent = version != null;
   const notOutdated = versionPresent && !migrate.semVerOlder(version, targetVersion);

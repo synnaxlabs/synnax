@@ -153,12 +153,7 @@ const useAddToActivePlot = (): ((key: string) => void) => {
         }),
       );
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to add range to plot`,
-        description: e.message,
-      }),
+    onError: (e) => Status.handleException(e, "Failed to add range to plot", addStatus),
   }).mutate;
 };
 
@@ -173,12 +168,7 @@ const useViewDetails = (): ((key: string) => void) => {
       const rng = await fetchIfNotInState(store, client, key);
       placer({ ...overviewLayout, name: rng.name, key: rng.key });
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to view details`,
-        description: e.message,
-      }),
+    onError: (e) => Status.handleException(e, "Failed to view details", addStatus),
   }).mutate;
 };
 
@@ -199,11 +189,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
       );
     },
     onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to add range to plot`,
-        description: e.message,
-      }),
+      Status.handleException(e, "Failed to add range to new plot", addStatus),
   }).mutate;
 };
 
@@ -272,11 +258,7 @@ const List = (): ReactElement => {
     mutationFn: async (key: string) => await client?.ranges.delete(key),
     onError: (e, _, range) => {
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete range",
-        description: e.message,
-      });
+      Status.handleException(e, "Failed to delete range", addStatus);
       dispatch(add({ ranges: [range as Range] }));
     },
   });
@@ -293,12 +275,7 @@ const List = (): ReactElement => {
       if (range == null || range.variant === "dynamic") return;
       await client?.ranges.create({ ...range });
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: "Failed to save range",
-        description: e.message,
-      }),
+    onError: (e) => Status.handleException(e, "Failed to save range", addStatus),
   });
 
   const handleLink = Link.useCopyToClipboard();
@@ -420,14 +397,12 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
-  const onRename = (name: string): void => {
+  const onRename = async (name: string): Promise<void> => {
     if (name.length === 0) return;
     dispatch(rename({ key: entry.key, name }));
     dispatch(Layout.rename({ key: entry.key, name }));
     if (!entry.persisted) return;
-    void (async () => {
-      await client?.ranges.rename(entry.key, name);
-    })();
+    await client?.ranges.rename(entry.key, name);
   };
   return (
     <Core.ItemFrame

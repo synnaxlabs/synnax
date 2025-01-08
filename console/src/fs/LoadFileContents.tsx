@@ -32,12 +32,10 @@ export const InputFilePath = ({
   ...props
 }: InputFilePathProps): ReactElement => {
   const path = value;
-  const handleClick = () => {
-    void (async () => {
-      const path = await open({ directory: false, filters });
-      if (path == null) return;
-      onChange(path);
-    })();
+  const handleClick = async () => {
+    const path = await open({ directory: false, filters });
+    if (path == null) return;
+    onChange(path);
   };
   return (
     <Align.Pack className={CSS.B("input-file-path")} borderShade={4} {...props}>
@@ -88,13 +86,11 @@ export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
     if (initialPath == null || initialPath === path) return;
     handleChange(initialPath);
   }, [initialPath]);
-  const handleChange = (path: string) => {
-    void (async () => {
-      const contents = await readFile(path);
-      if (contents == null) return;
-      onChange(decoder.decode<P>(contents, schema), path);
-      setPath(path);
-    })();
+  const handleChange = async (path: string) => {
+    const contents = await readFile(path);
+    if (contents == null) return;
+    onChange(decoder.decode<P>(contents, schema), path);
+    setPath(path);
   };
   return <InputFilePath value={path} onChange={handleChange} {...props} />;
 };

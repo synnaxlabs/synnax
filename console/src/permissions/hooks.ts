@@ -31,13 +31,12 @@ export const useFetchPermissions = async (): Promise<void> => {
       );
       dispatch(set({ policies }));
     } catch (e) {
-      if (!(e instanceof Error)) throw e;
       if (Unreachable.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: `Failed to fetch permissions for ${username}`,
-        description: e.message,
-      });
+      Status.handleException(
+        e,
+        `Failed to fetch permissions for ${username}`,
+        addStatus,
+      );
     }
   }, [client]);
 };

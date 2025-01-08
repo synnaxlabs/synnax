@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Status, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
@@ -57,12 +57,7 @@ const handleConfigure = ({
     const key = resource.id.key;
     placeLayout(baseLayout(key, {}));
   } catch (e) {
-    if (!(e instanceof Error)) throw e;
-    addStatus({
-      variant: "error",
-      message: `Failed to configure ${resource.name}`,
-      description: e.message,
-    });
+    Status.handleException(e, `Failed to configure ${resource.name}`, addStatus);
   }
 };
 
@@ -85,11 +80,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
       if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
-      addStatus({
-        variant: "error",
-        message: `Failed to delete devices`,
-        description: e.message,
-      });
+      Status.handleException(e, `Failed to delete devices`, addStatus);
     },
   }).mutate;
 };

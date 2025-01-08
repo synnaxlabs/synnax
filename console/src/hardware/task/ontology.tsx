@@ -9,7 +9,7 @@
 
 import { ontology, type Synnax, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Status, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -83,7 +83,7 @@ export const retrieveAndPlaceLayout = async (
   placeLayout(layout);
 };
 
-const handleSelect: Ontology.HandleSelect = ({
+const handleSelect: Ontology.HandleSelect = async ({
   selection,
   placeLayout,
   client,
@@ -92,18 +92,11 @@ const handleSelect: Ontology.HandleSelect = ({
   if (selection.length === 0) return;
   const key = selection[0].id.key;
   const name = selection[0].name;
-  void (async () => {
-    try {
-      await retrieveAndPlaceLayout(client, key, placeLayout);
-    } catch (e) {
-      if (!(e instanceof Error)) throw e;
-      addStatus({
-        variant: "error",
-        message: `Could not open ${name}`,
-        description: e.message,
-      });
-    }
-  })();
+  try {
+    await retrieveAndPlaceLayout(client, key, placeLayout);
+  } catch (e) {
+    Status.handleException(e, `Could not open ${name}`, addStatus);
+  }
 };
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -134,11 +127,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       if (resources.length === 1)
         message = `Failed to delete task ${resources[0].name}`;
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message,
-        description: e.message,
-      });
+      Status.handleException(e, message, addStatus);
     },
   }).mutate;
 };
@@ -161,13 +150,8 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         ...otgIDs,
       );
     },
-    onError: (e: Error, { addStatus }) => {
-      addStatus({
-        variant: "error",
-        message: "Failed to create snapshot",
-        description: e.message,
-      });
-    },
+    onError: (e: Error, { addStatus }) =>
+      Status.handleException(e, "Failed to create snapshot", addStatus),
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {

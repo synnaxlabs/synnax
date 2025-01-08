@@ -9,7 +9,7 @@
 
 import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Status, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
@@ -45,11 +45,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete users.",
-        description: e.message,
-      });
+      Status.handleException(e, "Failed to delete users", addStatus);
     },
   }).mutate;
 };

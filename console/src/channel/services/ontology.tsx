@@ -14,6 +14,7 @@ import {
   type Haul,
   Menu as PMenu,
   type Schematic as PSchematic,
+  Status,
   telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
@@ -136,11 +137,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       let message = "Failed to delete channels";
       if (resources.length === 1)
         message = `Failed to delete channel ${resources[0].name}`;
-      addStatus({
-        variant: "error",
-        message,
-        description: e.message,
-      });
+      Status.handleException(e, message, addStatus);
     },
   }).mutate;
 };
@@ -163,11 +160,7 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      addStatus({
-        variant: "error",
-        message: `Failed to set alias for ${first.name}`,
-        description: e.message,
-      });
+      Status.handleException(e, `Failed to set alias for ${first.name}`, addStatus);
     },
   }).mutate;
 
@@ -186,11 +179,7 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      addStatus({
-        variant: "error",
-        message: `Failed to rename ${first.name}`,
-        description: e.message,
-      });
+      Status.handleException(e, `Failed to rename ${first.name}`, addStatus);
     },
   }).mutate;
 
@@ -210,11 +199,7 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      addStatus({
-        variant: "error",
-        message: `Failed to remove alias on ${first.name}`,
-        description: e.message,
-      });
+      Status.handleException(e, `Failed to remove alias on ${first.name}`, addStatus);
     },
   }).mutate;
 

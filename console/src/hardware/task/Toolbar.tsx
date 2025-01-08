@@ -108,11 +108,11 @@ const Content = (): ReactElement => {
           return [...prev];
         });
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: `Failed to rename ${oldName ?? "task"} to ${name}`,
-        description: e.message,
-      });
+      Status.handleException(
+        e,
+        `Failed to rename ${oldName ?? "task"} to ${name}`,
+        addStatus,
+      );
     },
   }).mutate;
   const [desiredStates, setDesiredStates] = useState<
@@ -229,11 +229,7 @@ const Content = (): ReactElement => {
     },
     onError: (e) => {
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete tasks",
-        description: e.message,
-      });
+      Status.handleException(e, "Failed to delete tasks", addStatus);
     },
   });
   return (

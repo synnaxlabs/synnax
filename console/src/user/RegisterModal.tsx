@@ -76,12 +76,9 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
       await client.user.create({ ...values });
       onClose();
     },
-    onError: (e) =>
-      addStatus({
-        message: "Failed to register user",
-        description: e.message,
-        variant: "error",
-      }),
+    onError: (e) => {
+      Status.handleException(e, "Failed to register user", addStatus);
+    },
   });
 
   return (

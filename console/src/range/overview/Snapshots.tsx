@@ -33,24 +33,23 @@ interface SnapshotService {
 const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   schematic: {
     icon: <Icon.Schematic />,
-    onClick: (client, res, placer) => {
-      void (async () => {
-        const s = await client.workspaces.schematic.retrieve(res.id.key);
-        placer(
-          create({
-            ...(s.data as unknown as SchematicState),
-            key: s.key,
-            name: s.name,
-            snapshot: s.snapshot,
-          }),
-        );
-      })();
+    onClick: async (client, res, placer) => {
+      const s = await client.workspaces.schematic.retrieve(res.id.key);
+      placer(
+        create({
+          ...(s.data as unknown as SchematicState),
+          key: s.key,
+          name: s.name,
+          snapshot: s.snapshot,
+        }),
+      );
     },
   },
   task: {
     icon: <Icon.Task />,
-    onClick: (client, res, placer) =>
-      void Task.retrieveAndPlaceLayout(client, res.id.key, placer),
+    onClick: async (client, res, placer) => {
+      await Task.retrieveAndPlaceLayout(client, res.id.key, placer);
+    },
   },
 };
 

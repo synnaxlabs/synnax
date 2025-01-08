@@ -9,7 +9,7 @@
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Status, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -46,11 +46,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete log",
-        description: err.message,
-      });
+      Status.handleException(err, "Failed to delete log", addStatus);
     },
   }).mutate;
 };
@@ -111,7 +107,7 @@ const handleSelect: Ontology.HandleSelect = async ({
   placeLayout,
 }) => await loadLog(client, selection[0].id, placeLayout);
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
+const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
   client,
   id,
   location,
@@ -119,26 +115,20 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   placeLayout,
   addStatus,
 }) => {
-  void (async () => {
-    try {
-      const log = await client.workspaces.log.retrieve(id.key);
-      placeLayout(
-        Log.create({
-          name: log.name,
-          ...(log.data as unknown as Log.State),
-          key: id.key,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        }),
-      );
-    } catch (err) {
-      addStatus({
-        variant: "error",
-        message: "Failed to load log",
-        description: (err as Error).message,
-      });
-    }
-  })();
+  try {
+    const log = await client.workspaces.log.retrieve(id.key);
+    placeLayout(
+      Log.create({
+        name: log.name,
+        ...(log.data as unknown as Log.State),
+        key: id.key,
+        location: "mosaic",
+        tab: { mosaicKey: nodeKey, location },
+      }),
+    );
+  } catch (e) {
+    Status.handleException(e, "Failed to load log", addStatus);
+  }
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

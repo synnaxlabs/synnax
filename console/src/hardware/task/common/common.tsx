@@ -476,11 +476,7 @@ export const ParentRangeButton = ({
       });
       return async () => await tracker.close();
     } catch (e) {
-      addStatus({
-        variant: "error",
-        message: `Failed to retrieve child ranges`,
-        description: (e as Error).message,
-      });
+      Status.handleException(e, "Failed to retrieve child ranges", addStatus);
       return undefined;
     }
   }, [taskKey, client?.key]);

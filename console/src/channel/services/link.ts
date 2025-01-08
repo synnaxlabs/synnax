@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/pluto";
 
 import { LinePlot } from "@/lineplot";
 import { type Link } from "@/link";
@@ -32,12 +33,7 @@ export const linkHandler: Link.Handler = async ({
       }),
     );
   } catch (e) {
-    if (!(e instanceof Error)) throw e;
-    addStatus({
-      variant: "error",
-      description: "Failed to open channel from URL",
-      message: e.message,
-    });
+    Status.handleException(e, "Failed to open channel from link", addStatus);
   }
   return true;
 };

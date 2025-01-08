@@ -65,19 +65,13 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
     values: initialValues,
     ...props,
     sync: false,
-    onChange: (props) => {
+    onChange: async (props) => {
       if (client == null) return;
-      void (async () => {
-        try {
-          await applyChanges?.({ ...props, client });
-        } catch (error) {
-          addStatus({
-            variant: "error",
-            message: `Failed to save ${name}`,
-            description: (error as Error).message,
-          });
-        }
-      })();
+      try {
+        await applyChanges?.({ ...props, client });
+      } catch (e) {
+        Status.handleException(e, `Failed to save ${name}`, addStatus);
+      }
     },
   });
   useAsyncEffect(async () => {
@@ -85,12 +79,8 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
     try {
       const values = await queryFn({ client });
       methods.set("", values);
-    } catch (error) {
-      addStatus({
-        variant: "error",
-        message: `Failed to retrieve ${name}`,
-        description: (error as Error).message,
-      });
+    } catch (e) {
+      Status.handleException(e, `Failed to retrieve ${name}`, addStatus);
     }
   }, [memoKey, client?.key]);
   const onOpenObs = useCallback(async () => {

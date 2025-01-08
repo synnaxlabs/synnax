@@ -661,7 +661,7 @@ export const use = <Z extends z.ZodTypeAny>({
     [processValidationResult],
   );
 
-  const set: SetFunc = useCallback((path, value, opts = {}): void => {
+  const set: SetFunc = useCallback(async (path, value, opts = {}): Promise<void> => {
     const prev = deep.get(ref.current.state, path, { optional: true });
     const { validateChildren = true } = opts;
     const { state, touched } = ref.current;
@@ -669,15 +669,13 @@ export const use = <Z extends z.ZodTypeAny>({
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
     updateFieldValues(path);
-    void (async () => {
-      let valid: boolean;
-      try {
-        valid = validate(path, validateChildren);
-      } catch {
-        valid = await validateAsync(path, validateChildren);
-      }
-      onChangeRef.current?.({ values: ref.current.state, path, prev, valid });
-    })();
+    let valid: boolean;
+    try {
+      valid = validate(path, validateChildren);
+    } catch {
+      valid = await validateAsync(path, validateChildren);
+    }
+    onChangeRef.current?.({ values: ref.current.state, path, prev, valid });
   }, []);
 
   const has = useCallback(

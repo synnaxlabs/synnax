@@ -9,7 +9,7 @@
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Status, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -43,14 +43,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.table.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
+    onError: (e, { state: { setNodes }, addStatus }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(err)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete table",
-        description: err.message,
-      });
+      if (errors.CANCELED.matches(e)) return;
+      Status.handleException(e, "Failed to delete table", addStatus);
     },
   }).mutate;
 };
@@ -115,7 +111,7 @@ const handleSelect: Ontology.HandleSelect = async ({
   placeLayout,
 }) => await loadTable(client, selection[0].id, placeLayout);
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
+const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
   client,
   id,
   location,
@@ -123,26 +119,20 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   placeLayout,
   addStatus,
 }) => {
-  void (async () => {
-    try {
-      const table = await client.workspaces.table.retrieve(id.key);
-      placeLayout(
-        Table.create({
-          name: table.name,
-          ...(table.data as unknown as Table.State),
-          key: id.key,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        }),
-      );
-    } catch (err) {
-      addStatus({
-        variant: "error",
-        message: "Failed to load table",
-        description: (err as Error).message,
-      });
-    }
-  })();
+  try {
+    const table = await client.workspaces.table.retrieve(id.key);
+    placeLayout(
+      Table.create({
+        name: table.name,
+        ...(table.data as unknown as Table.State),
+        key: id.key,
+        location: "mosaic",
+        tab: { mosaicKey: nodeKey, location },
+      }),
+    );
+  } catch (e) {
+    Status.handleException(e, "Failed to load table", addStatus);
+  }
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
