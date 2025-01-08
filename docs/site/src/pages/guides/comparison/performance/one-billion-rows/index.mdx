@@ -10,7 +10,7 @@ import Table from "@/components/Table.astro";
 import Diagram from "@/components/Diagram.astro";
 import { Image } from "@/components/Media";
 import { Tabs } from "@/components/Tabs";
-import { StepText } from "@/components/StepText";
+import StepText from "@/components/StepText.astro";
 import Details from "@/components/details/Details.astro";
 import Summary from "@/components/details/Summary.astro";
 import { Icon } from "@synnaxlabs/media";
@@ -97,7 +97,7 @@ and then dive into the results.
 
 ## Database Overviews
 
-TimeScale, Influx, and Synnax are all designed to store and query time-series data, but
+Timescale, Influx, and Synnax are all designed to store and query time-series data, but
 the authors had different workloads and feature priorities in mind when building them.
 
 ### Synnax
@@ -147,7 +147,7 @@ data model where each row in a table represents a single event or measurement.
 Because it extends Postgres, Timescale integrates well with existing SQL applications
 and makes it easy to link metadata with real-time telemetry. The Postgres database
 engine is one of the most widely used in the world, and is known for its reliability
-a variety of workloads.
+across a variety of workloads.
 
 The relational data model is not without its challenges. Timescale requires the user to
 understand the scheme of their data before ingestion, and modifying it can be challenging.
@@ -164,7 +164,7 @@ struggles when ingesting and querying data at very high rates.
 ### Influx
 
 [InfluxDB](https://www.influxdata.com) is a NoSQL time-series database also built for
-general purpose time-series workloads. It's primary focus is on ease of use, allowing
+general purpose time-series workloads. Its primary focus is on ease of use, allowing
 users to quickly ingest and query data without needing to define a schema upfront. It
 also integrates well with popular analytics tools, such as [Grafana](https://grafana.com/).
 
@@ -179,10 +179,9 @@ such as user analytics.
 
 ## Test Summary
 
-We'll be comparing the performance of Synnax, Timescale, and Influx across four separate
-tests. The first three tests focus on ingestion performance, while the fourth test focuses
-on read performance. We'll be running the tests on a single machine with the following
-specifications:
+We'll be comparing the performance of Synnax, Timescale, and Influx across three separate
+tests that focus on ingestion performance. We'll be running the tests on a single
+machine with the following specifications:
 
 <Table>
   <tr>
@@ -346,7 +345,7 @@ We'll also measure the average memory and CPU usage of each database during the 
 
 <Details>
   {/* prettier-ignore */}
-  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Throughput in Samples/s</Text.WithIcon></Summary>
+  <Text.WithIcon slot="summary" level="small" size="medium" weight={500}><Icon.Table slot="startIcon" /> Tabulated Data - Throughput in Samples/s  </Text.WithIcon>
   <Table>
     <tbody>
       <tr>
@@ -429,7 +428,9 @@ of the other two databases.
   <figcaption>Memory Comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes. </figcaption>
 </figure>
 <Details>
-<Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory usage in GB</Text.WithIcon></Summary>
+<div slot="summary">
+<Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory usage in GB</Text.WithIcon>
+</div>
 <Table>
   <tbody>
     <tr>
@@ -533,7 +534,8 @@ of the other two databases.
 </figure>
 
 <Details>
-  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - CPU Usage</Text.WithIcon></Summary>
+  {/* prettier-ignore */}
+  <Text.WithIcon slot="summary" level="small" size="medium" weight={500}>  <Icon.Table slot="startIcon" />    Tabulated Data - CPU Usage  </Text.WithIcon>
   <Table>
     <tbody>
       <tr>
@@ -737,8 +739,9 @@ channels we insert data for.
 </figure>
 
 <Details>
-  {/* prettier-ignore */}
-  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Throughput in Samples/s</Text.WithIcon></Summary>
+  <div slot="summary">
+    <Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Throughput in Samples/s</Text.WithIcon>
+  </div>
 <Table>
   <tbody>
     <tr>
@@ -850,8 +853,9 @@ Influx remain relatively stable.
 </figure>
 
 <Details>
-  {/* prettier-ignore */}
-  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory Usage in GB</Text.WithIcon></Summary>
+  <div slot="summary">
+    <Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - Memory Usage in GB</Text.WithIcon>
+  </div>
 <Table>
   <tbody>
     <tr>
@@ -961,7 +965,7 @@ Influx remain relatively stable.
 
 <Details>
   {/* prettier-ignore */}
-  <Summary><Text.WithIcon level="small" size="medium" weight={500}><Icon.Table slot="startIcon" />Tabulated Data - CPU Usage</Text.WithIcon></Summary>
+  <Text.WithIcon slot="summary" level="small" size="medium" weight={500}>    <Icon.Table slot="startIcon" />    Tabulated Data - CPU Usage  </Text.WithIcon>
   <Table>
     <tbody>
       <tr>
@@ -1031,7 +1035,7 @@ Influx remain relatively stable.
 <Divider.Divider direction="x" />
 
 {/* prettier-ignore */}
-<StepText level="h2" name="Test" step={3}>  One Billion Row Ingestion</StepText>
+## <StepText level="h2" name="Test" step={3}>  One Billion Row Ingestion</StepText>
 
 Inspired by the [1 billion row challenge](https://1brc.dev/), we'll be inserting 1 billion
 rows of data into each database to see how they handle the load.
@@ -1044,13 +1048,129 @@ data.
     client:only="react"
     id="guides/comparison/performance/one-billion-row-ingestion"
     themed={false}
-    style={{ padding: "5rem" }}
+    style={{ padding: "5rem", background: "var(--pluto-dark-gray-l0)" }}
   />
   {/* prettier-ignore */}
   <figcaption>Synnax Ingests 1 Billion Rows in 44 seconds, 12x faster than Timescale and 17x faster than Influx.</figcaption>
 </figure>
 
+<Divider.Divider direction="x" />
+
 ## Synnax Architecture
 
-Why is Synnax so much faster than Timescale and Influx for ingesting large volumes of
-data? The anw
+> What about Synnax's architecture leads it to these performance characteristics? And why
+> did our team focus on high throughput, small cardinality ingestion?
+
+Thoroughly answering these questions requires a collection of articles and supporting
+information on database architecture, disk I/O, and the sensor data use case. We'll
+summarize two of the most important points here. If you're interested in the details,
+take a look at our [technical RFCs](https://github.com/synnaxlabs/synnax/tree/main/docs/tech/rfc).
+
+### <StepText level="h3" name="Reason" step={1}>Individual Files for Each Channel</StepText>
+
+Synnax is much closer to an object storage system than a traditional database. Storage
+engines like Timescale (Postgres) rely on a strategy calling _paging_ to organize writes
+on disk.
+
+#### Background - Paging, OLTP, and Concurrency Control
+
+Data inside these databases is stored chunks called _pages_ that are between 4kb and
+16kb in size. These pages contain a certain number of rows. When accepting writes,
+the database engine will fill up a page in-memory, and then flush that
+page to disk in a single I/O operation once the page has reached capacity.
+
+Pages are very efficient for databases serving OLTP workloads that have a high degree
+of random inserts and/or updates. For high speed ingestion of ordered data (such as
+time-series values), pages struggle for a few reasons:
+
+1. **Complex concurrency control** -> When there is high read/write contention over a
+   particular page, the database engine must implement complex concurrency control
+   mechanisms to ensure data stays consistent.
+2. **Copy operations** -> Pages are maintained as in-memory structures, which means that
+   incoming writes must be copied from the application to the page. Data within pages
+   is frequently moved to maintain order within the page. This results in a large
+   number of copy operations.
+3. **WAL Files** -> Modern OLTP databases are ACID compliant. The most common way to
+   ensure ACID compliance is to use a write-ahead log (WAL). The WAL is a log of all
+   the changes to the database. This means that I/O operations are repeated for each
+   write.
+
+#### Individual Files for Each Channel - A Seemingly Terrible Idea
+
+Synnax does not use traditional paging strategies. Instead, Synnax maintains an
+individual file for each channel in the database. At first glance, this seems like
+a terrible idea: For 10,000 channels, we'll need to maintain at least 10,000 files on
+disk. When writing to 10,000 channels concurrently, we'll need to perform a
+random I/O operation for each one. This is disastrous for performance, especially when
+using an HDD.
+
+For the sake of argument, let's assume that disk I/O is not an important factor to
+consider (ridiculous, but bear with us). In this case, maintaining 10,000 individual
+files has a number of benefits:
+
+1. **Simple concurrency control** -> There is zero contention for writes to different
+   channels. This means fewer locks, context switching, copy operations, and other
+   overhead associated with ordering data. What about contention for writes to the same
+   channel? For sensors, this is almost always a non-issue. Unlike application metrics,
+   sensor data almost always arrives from a _single_ source, which means that there is
+   limited contention for writes to the same channel.
+
+2. **No WAL Files** -> The file for each channel is already append-only, so there is no
+   need for a WAL file.
+
+3. **Extremely fast reads** -> The most common accessed pattern for a sensor-focused
+   time-series database is to read a large number of values from a small number of
+   channels. Synnax only needs a single, sequential I/O operation to read a continuous
+   time range of data for a channel. Since writes are almost always append-only, the
+   vast majority of reads do _not_ need to contend with a write operation.
+
+#### Why it's not such a bad idea
+
+When I/O is not a bottleneck, the benefits of individual files are very clear. In our
+implementation process, we researched the design of modern object storage systems. S3
+is a black box, so instead we read the source code of
+[MinIO](https://github.com/minio/minio).
+
+As it turns out, MinIO keeps every object in a single file despite the obvious
+consequences. Why?
+
+1. **Linux file systems scale surprisingly well** -> File systems such as `EXT4`, `XFS`,
+   and `BTRFS` maintain surprisingly fast lookup times for a large number of files.
+   MinIO runs nodes with millions of files on a single machine.
+2. **Random I/O is not that bad on SSDs** -> As it turns out, the consequences of
+   large numbers of random I/O operations are not as bad as one might think. SSDs are
+   quite good at random access when occupancy is very high. While a series of
+   sequential, random writes is much slower than a single, sequential write, the
+   throughput differences drop dramatically with an increase in the number of parallel,
+   random write operations.
+
+### <StepText level="h3" name="Reason" step={2}>Zero Copy Hot Path</StepText>
+
+The write performance of a database is fundamentally limited by the speed of the drive
+it is connected to (technically this is not true, but it's a fair approximation given
+the speed of modern hardware and memory).
+
+This means that the fastest possible write-optimized database is a simple log that asks
+the question: _How fast can we slam bytes to disk?_ Modern database engines are very far
+from being simple log files, and for good reason. Benefits like ACID compliance, faster
+random reads, and other features far outweigh the costs of extra overhead.
+
+Synnax serves a more simple read and write pattern than an OLTP database like
+PostgreSQL. As a result, we made optimizations that bring our storage engine
+closer to the speed of a simple log file.
+
+Most notably, the vast majority of writes in Synnax require zero in-memory copy
+operations from the time they are received over the network until they are written
+to disk. This simpler pattern sacrifices complex queries and transaction patterns
+like serializable snapshot isolation, although we've found those unnecessary for
+the sensor data use case.
+
+## Conclusion
+
+Timescale, Influx, and Synnax all have their strengths and weaknesses. Timescale and
+Influx are great for general purpose workloads, and support a larger number of query
+patterns.
+
+Synnax, on the other hand, is built for fast reads and writes of time-series sensor
+data. If this is the use case you're interested in, we'd love to hear from you. [Contact
+us](https://www.synnaxlabs.com/contact) to learn more.

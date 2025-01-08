@@ -1,6 +1,6 @@
 import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto";
-import { type FC } from "react";
+import { type FC, isValidElement } from "react";
 
 import pre from "@/components/code/Code.astro";
 import Details from "@/components/details/Details.astro";
@@ -28,7 +28,7 @@ export const textFactory = ({
       )}
     </Text.Text>
   );
-  Component.displayName = `Text${level.toUpperCase()}`;
+  Component.displayName = `Text.${level}`;
   return Component;
 };
 
