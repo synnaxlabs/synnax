@@ -41,13 +41,13 @@ import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator
 import {
   type Write,
   WRITE_TYPE,
-  type WriteChan,
+  type WriteChannel,
+  type WriteConfig,
+  writeConfigZ,
   type WritePayload,
   type WriteStateDetails,
-  type WriteTaskConfig,
-  writeTaskConfigZ,
   type WriteType,
-  ZERO_WRITE_CHAN,
+  ZERO_WRITE_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
 import {
@@ -83,7 +83,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   }),
 };
 
-const formSchema = z.object({ name: z.string().min(1), config: writeTaskConfigZ });
+const formSchema = z.object({ name: z.string().min(1), config: writeConfigZ });
 
 const Wrapped = ({
   task,
@@ -102,17 +102,14 @@ const Wrapped = ({
   const initialState =
     isRunning === true ? "running" : isRunning === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-  const createTask = useCreate<WriteTaskConfig, WriteStateDetails, WriteType>(
-    layoutKey,
-  );
+  const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
   const addStatus = Status.useAggregator();
   const configure = useMutation({
-    mutationKey: [client?.key, "configure", addStatus],
-    onError: (e) =>
+    onError: ({ message }) =>
       addStatus({
         variant: "error",
-        message: "Failed to configure write task",
-        description: e.message,
+        message: "Failed to configure LabJack write task",
+        description: message,
       }),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
@@ -140,8 +137,8 @@ const Wrapped = ({
         dev.properties.DO.channels = {};
         dev.properties.AO.channels = {};
       }
-      const commandChannelsToCreate: WriteChan[] = [];
-      const stateChannelsToCreate: WriteChan[] = [];
+      const commandChannelsToCreate: WriteChannel[] = [];
+      const stateChannelsToCreate: WriteChannel[] = [];
       for (const channel of config.channels) {
         const key = channel.port;
         const existingPair = dev.properties[channel.type].channels[key];
@@ -336,16 +333,16 @@ interface ChannelListProps {
 
 const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
   const [selected, setSelected] = useState<string[]>([]);
-  const { value, push, remove } = Form.useFieldArray<WriteChan>({
+  const { value, push, remove } = Form.useFieldArray<WriteChannel>({
     path,
     updateOnChildren: true,
   });
   const handleAdd = useCallback(() => {
     const existingCommandStatePair =
-      device.properties[ZERO_WRITE_CHAN.type].channels[ZERO_WRITE_CHAN.port] ??
+      device.properties[ZERO_WRITE_CHANNEL.type].channels[ZERO_WRITE_CHANNEL.port] ??
       ZERO_COMMAND_STATE_PAIR;
     push({
-      ...deep.copy(ZERO_WRITE_CHAN),
+      ...deep.copy(ZERO_WRITE_CHANNEL),
       key: id.id(),
       cmdKey: existingCommandStatePair.command,
       stateKey: existingCommandStatePair.state,
@@ -369,19 +366,19 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
           )}
           {...menuProps}
         >
-          <List.List<string, WriteChan>
+          <List.List<string, WriteChannel>
             data={value}
             emptyContent={
               <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
             }
           >
-            <List.Selector<string, WriteChan>
+            <List.Selector<string, WriteChannel>
               value={selected}
               allowMultiple
               replaceOnSingle
               onChange={setSelected}
             >
-              <List.Core<string, WriteChan>
+              <List.Core<string, WriteChannel>
                 grow
                 style={{ height: "calc(100% - 6rem)" }}
               >
@@ -404,7 +401,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
   );
 };
 
-interface ChannelListItemProps extends List.ItemProps<string, WriteChan> {
+interface ChannelListItemProps extends List.ItemProps<string, WriteChannel> {
   path: string;
   snapshot?: boolean;
   device: ConfiguredDevice;
@@ -440,7 +437,7 @@ const ChannelListItem = ({
           empty
           onChange={(value, { path, get, set }) => {
             const channelPath = path.slice(0, path.lastIndexOf("."));
-            const previousChannel = get<WriteChan>(channelPath).value;
+            const previousChannel = get<WriteChannel>(channelPath).value;
             if (previousChannel.port === value) return;
             const existingCommandStatePair =
               device.properties[previousChannel.type].channels[value] ??
@@ -469,7 +466,7 @@ const ChannelListItem = ({
                   hideIfNull
                   onChange={(value, { path, get, set }) => {
                     const channelPath = path.slice(0, path.lastIndexOf("."));
-                    const previousChannel = get<WriteChan>(channelPath).value;
+                    const previousChannel = get<WriteChannel>(channelPath).value;
                     if (previousChannel.type === value) return;
                     const port = DEVICES[device.model].ports[value][0].key;
                     const existingCommandStatePair =
