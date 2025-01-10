@@ -7,6 +7,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -78,7 +79,7 @@ func (i *Iterator) Close() error {
 		return err
 	}
 	_, err := i.stream.Receive()
-	return err
+	return errors.Skip(err, freighter.EOF)
 }
 
 func (i *Iterator) exec(ctx context.Context, req IteratorRequest) (bool, error) {

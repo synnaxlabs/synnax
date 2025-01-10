@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/client"
+	"github.com/synnaxlabs/client/internal/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -11,17 +12,10 @@ import (
 	"github.com/synnaxlabs/client/channel"
 )
 
-var connParams = synnax.Config{
-	Host:     "localhost",
-	Port:     "9090",
-	Username: "synnax",
-	Password: "seldon",
-}
-
 var _ = Describe("Channel", Ordered, func() {
 	var client *synnax.Synnax
 	BeforeAll(func() {
-		client = synnax.Open(ctx, connParams)
+		client = MustSucceed(synnax.Open(testutil.Config))
 	})
 	Describe("create", func() {
 		It("Should correctly create a channel", func() {

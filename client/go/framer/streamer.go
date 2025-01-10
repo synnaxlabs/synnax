@@ -16,9 +16,7 @@ type (
 	StreamerConfig   = api.FrameStreamerConfig
 )
 
-type Streamer struct {
-	stream StreamerStream
-}
+type Streamer struct{ stream StreamerStream }
 
 func openStreamer(ctx context.Context, client StreamerClient, cfg StreamerConfig) (*Streamer, error) {
 	s, err := client.Stream(ctx, "")
@@ -28,12 +26,13 @@ func openStreamer(ctx context.Context, client StreamerClient, cfg StreamerConfig
 	if err := s.Send(cfg); err != nil {
 		return nil, err
 	}
-	return &Streamer{stream: s}, nil
+	_, err = s.Receive()
+	return &Streamer{stream: s}, err
 }
 
-func (s *Streamer) Read() core.Frame {
-	res, _ := s.stream.Receive()
-	return res.Frame
+func (s *Streamer) Read() (core.Frame, error) {
+	res, err := s.stream.Receive()
+	return res.Frame, err
 }
 
 func (s *Streamer) Close() error {
