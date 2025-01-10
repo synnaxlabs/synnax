@@ -145,4 +145,56 @@ var _ = Describe("Calculated", func() {
 		}
 		Consistently(sOutlet.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
 	})
+
+	It("Return a warning for dividing by zero", func() {
+		c := MustSucceed(calculated.Open(calculated.Config{
+			Instrumentation: Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
+			Computron:       sharedComputer, // Use shared interpreter
+			Framer:          dist.Framer,
+			Channel:         dist.Channel,
+		}))
+
+		baseCH := channel.Channel{
+			Name:     "base",
+			DataType: telem.Int64T,
+			Virtual:  true,
+		}
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+		calculatedCH := channel.Channel{
+			Name:        "calculated",
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: core.Free,
+			Requires:    []channel.Key{baseCH.Key()},
+			Expression:  "result = base / 0",
+		}
+		logrus.Info(calculatedCH, baseCH)
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
+		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		sCtx, cancel := signal.WithCancel(ctx)
+		defer cancel()
+		w := MustSucceed(dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+			Start: telem.Now(),
+			Keys:  []channel.Key{baseCH.Key()},
+		}))
+		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
+		w.Flow(sCtx)
+		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Keys: []channel.Key{calculatedCH.Key()},
+		}))
+		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		streamer.Flow(sCtx)
+		time.Sleep(100 * time.Millisecond)
+		wInlet.Inlet() <- framer.WriterRequest{
+			Command: writer.Data,
+			Frame: framer.Frame{
+				Keys:   channel.Keys{baseCH.Key()},
+				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
+			},
+		}
+		var res framer.StreamerResponse
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
+		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
+	})
+
 })
