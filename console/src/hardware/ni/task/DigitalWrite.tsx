@@ -9,17 +9,18 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Channel, Form, Header, List, Menu, Status, Synnax } from "@synnaxlabs/pluto";
+import { Channel, Form, List, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
-import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { type Properties } from "@/hardware/ni/device/types";
+import { useDevice } from "@/hardware/device/useDevice";
+import { type Device, type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
@@ -50,7 +51,9 @@ import {
   checkDesiredStateMatch,
   useDesiredState,
 } from "@/hardware/task/common/useDesiredState";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
+
+import { createConfigureLayout } from "../device/Configure";
 
 export const createDigitalWriteLayout = createLayoutCreator<DigitalWritePayload>(
   DIGITAL_WRITE_TYPE,
@@ -67,55 +70,46 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   }),
 };
 
+const formSchema = z.object({ name: z.string().min(1), config: digitalWriteConfigZ });
+
+const generateKey: (chan: DOChan) => string = (chan) => `${chan.port}l${chan.line}`;
+
 const Wrapped = ({
   task,
   initialValues,
   layoutKey,
 }: WrappedTaskLayoutProps<DigitalWrite, DigitalWritePayload>): ReactElement => {
   const client = Synnax.use();
-  const methods = Form.use({
-    values: initialValues,
-    schema: z.object({
-      name: z.string(),
-      config: digitalWriteConfigZ,
-    }),
-  });
-
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
-
+  const methods = Form.use({ values: initialValues, schema: formSchema });
   const taskState = useObserveState<DigitalWriteDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
     task?.state,
   );
-  const running = taskState?.details?.running;
+  const isRunning = taskState?.details?.running;
   const initialState =
-    running === true ? "running" : running === false ? "paused" : undefined;
+    isRunning === true ? "running" : isRunning === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-
   const createTask = useCreate<
     DigitalWriteConfig,
     DigitalWriteDetails,
     DigitalWriteType
   >(layoutKey);
-
   const addStatus = Status.useAggregator();
-
-  const configure = useMutation<void, Error, void>({
-    mutationKey: [client?.key, "configure"],
-    onError: ({ message }) =>
+  const configureMutation = useMutation<void, Error, void>({
+    onError: ({ message }) => {
+      const name = methods.get<string>("name").value ?? "NI digital write task";
       addStatus({
         variant: "error",
-        message,
-      }),
+        message: `Failed to configure ${name}`,
+        description: message,
+      });
+    },
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
-
       const dev = await client.hardware.devices.retrieve<Properties>(config.device);
-
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(
         dev.properties.digitalOutput.stateIndex,
@@ -127,7 +121,6 @@ const Wrapped = ({
           if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
           else throw e;
         }
-
       if (shouldCreateStateIndex) {
         modified = true;
         const stateIndex = await client.channels.create({
@@ -138,31 +131,30 @@ const Wrapped = ({
         dev.properties.digitalOutput.stateIndex = stateIndex.key;
         dev.properties.digitalOutput.channels = {};
       }
-
       const commandsToCreate: DOChan[] = [];
       const statesToCreate: DOChan[] = [];
       for (const channel of config.channels) {
-        const key = `${channel.port}l${channel.line}`;
+        const key = generateKey(channel);
         const exPair = dev.properties.digitalOutput.channels[key];
         if (exPair == null) {
           commandsToCreate.push(channel);
           statesToCreate.push(channel);
         } else {
+          const { state, command } = exPair;
           try {
-            await client.channels.retrieve([exPair.state]);
+            await client.channels.retrieve(state);
           } catch (e) {
             if (NotFoundError.matches(e)) statesToCreate.push(channel);
             else throw e;
           }
           try {
-            await client.channels.retrieve([exPair.command]);
+            await client.channels.retrieve(command);
           } catch (e) {
             if (NotFoundError.matches(e)) commandsToCreate.push(channel);
             else throw e;
           }
         }
       }
-
       if (statesToCreate.length > 0) {
         modified = true;
         const states = await client.channels.create(
@@ -173,14 +165,14 @@ const Wrapped = ({
           })),
         );
         states.forEach((s, i) => {
-          const key = `${statesToCreate[i].port}l${statesToCreate[i].line}`;
+          const key = generateKey(statesToCreate[i]);
           if (!(key in dev.properties.digitalOutput.channels))
             dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
           else dev.properties.digitalOutput.channels[key].state = s.key;
         });
       }
-
       if (commandsToCreate.length > 0) {
+        modified = true;
         const commandIndexes = await client.channels.create(
           commandsToCreate.map((c) => ({
             name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd_time`,
@@ -202,71 +194,64 @@ const Wrapped = ({
           else dev.properties.digitalOutput.channels[key].command = s.key;
         });
       }
-
-      if (modified)
-        await client.hardware.devices.create({
-          ...dev,
-          properties: dev.properties,
-        });
-
+      if (modified) await client.hardware.devices.create(dev);
       config.channels = config.channels.map((c) => {
-        const key = `${c.port}l${c.line}`;
+        const key = generateKey(c);
         const pair = dev.properties.digitalOutput.channels[key];
-        return {
-          ...c,
-          cmdChannel: pair.command,
-          stateChannel: pair.state,
-        };
+        return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
       });
       methods.set("config.channels", config.channels);
-
-      await createTask({
-        key: task?.key,
-        name,
-        type: DIGITAL_WRITE_TYPE,
-        config,
-      });
+      await createTask({ key: task?.key, name, type: DIGITAL_WRITE_TYPE, config });
       setDesiredState("paused");
     },
   });
-
-  const start = useMutation({
-    mutationKey: [client?.key, "start"],
+  const toggleMutation = useMutation({
+    onError: ({ message }) => {
+      const action =
+        isRunning === true ? "stop" : isRunning === false ? "start" : "toggle";
+      const name = methods.get<string>("name").value ?? "NI digital write task";
+      addStatus({
+        variant: "error",
+        message: `Failed to ${action} ${name}`,
+        description: message,
+      });
+    },
     mutationFn: async () => {
-      if (client == null) return;
-      const isRunning = running === true;
+      if (client == null) throw new Error("Not connected to Synnax cluster");
+      if (task == null) throw new Error("Task is not defined");
+      if (isRunning == null) throw new Error("Task state is not defined");
       setDesiredState(isRunning ? "paused" : "running");
       await task?.executeCommand(isRunning ? "stop" : "start");
     },
   });
-
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
-      <Align.Space grow>
+      <Align.Space>
         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
-          <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
-              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-            </Form.Field>
-            <CopyButtons
-              importClass="DigitalWriteTask"
-              taskKey={task?.key}
-              getName={() => methods.get<string>("name").value}
-              getConfig={() => methods.get<DigitalWriteConfig>("config").value}
-            />
-          </Align.Space>
-          <ParentRangeButton taskKey={task?.key} />
-          <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <SelectDevice />
-            <Align.Space direction="x">
-              <Form.Field<number>
-                label="State Update Rate"
-                path="config.stateRate"
-                grow
-              >
-                {(p) => <Input.Numeric {...p} />}
+          <Align.Space direction="y" empty>
+            <Align.Space direction="x" justify="spaceBetween">
+              <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
+                {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </Form.Field>
-              <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
+              <CopyButtons
+                importClass="DigitalWriteTask"
+                taskKey={task?.key}
+                getName={() => methods.get<string>("name").value}
+                getConfig={() => methods.get<DigitalWriteConfig>("config").value}
+              />
+            </Align.Space>
+            <ParentRangeButton taskKey={task?.key} />
+            <Align.Space direction="x" className={CSS.B("task-properties")}>
+              <SelectDevice />
+              <Align.Space direction="x">
+                <Form.NumericField
+                  label="State Update Rate"
+                  path="config.stateRate"
+                  inputProps={{ endContent: "Hz" }}
+                  grow
+                />
+                <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
+              </Align.Space>
             </Align.Space>
           </Align.Space>
           <Align.Space
@@ -277,232 +262,203 @@ const Wrapped = ({
             grow
             empty
           >
-            <ChannelList
-              path="config.channels"
-              selected={selectedChannels}
-              snapshot={task?.snapshot}
-              onSelect={useCallback(
-                (v, i) => {
-                  setSelectedChannels(v);
-                  setSelectedChannelIndex(i);
-                },
-                [setSelectedChannels, setSelectedChannelIndex],
-              )}
-            />
-            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h4">
-                <Header.Title weight={500}>Details</Header.Title>
-              </Header.Header>
-              <Align.Space className={CSS.B("details")}>
-                {selectedChannelIndex != null && (
-                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
-                )}
-              </Align.Space>
-            </Align.Space>
+            <MainContent snapshot={task?.snapshot} />
           </Align.Space>
         </Form.Form>
         <Controls
           layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={
-            start.isPending ||
-            (!checkDesiredStateMatch(desiredState, running) &&
+            toggleMutation.isPending ||
+            (!checkDesiredStateMatch(desiredState, isRunning) &&
               taskState?.variant === "success")
           }
           snapshot={task?.snapshot}
-          configuring={configure.isPending}
-          onStartStop={start.mutate}
-          onConfigure={configure.mutate}
+          configuring={configureMutation.isPending}
+          onStartStop={toggleMutation.mutate}
+          onConfigure={configureMutation.mutate}
         />
       </Align.Space>
     </Align.Space>
   );
 };
 
-interface ChannelFormProps {
-  selectedChannelIndex: number;
+interface MainContentProps {
+  snapshot?: boolean;
 }
 
-const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  if (selectedChannelIndex == -1) return <></>;
-  const prefix = `config.channels.${selectedChannelIndex}`;
-  return (
-    <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
-      <Form.NumericField path={`${prefix}.port`} label="Port" grow />
-      <Form.NumericField path={`${prefix}.line`} label="Line" grow />
-    </Align.Space>
-  );
+const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
+  const formCtx = Form.useContext();
+  const device = useDevice(formCtx) as Device | undefined;
+  const place = Layout.usePlacer();
+  console.log(device);
+  if (device == null)
+    return (
+      <Align.Space grow empty align="center" justify="center">
+        <Text.Text level="p">No device selected</Text.Text>
+      </Align.Space>
+    );
+  const handleConfigure = () => place(createConfigureLayout(device.key, {}));
+  if (!device.configured)
+    return (
+      <Align.Space grow align="center" justify="center" direction="y">
+        <Text.Text level="p">{`${device.name} is not configured.`}</Text.Text>
+        {snapshot !== true && (
+          <Text.Link level="p" onClick={handleConfigure}>
+            {`Configure ${device.name}.`}
+          </Text.Link>
+        )}
+      </Align.Space>
+    );
+  return <ChannelList path="config.channels" snapshot={snapshot} device={device} />;
 };
 
 interface ChannelListProps {
   path: string;
-  onSelect: (keys: string[], index: number) => void;
-  selected: string[];
   snapshot?: boolean;
+  device: Device;
 }
 
-const ChannelList = ({
-  path,
-  snapshot,
-  selected,
-  onSelect,
-}: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<DOChan>({ path });
-  const handleAdd = (): void => {
+const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
+  const [selected, setSelected] = useState<string[]>([]);
+  const { value, push, remove } = Form.useFieldArray<DOChan>({
+    path,
+    updateOnChildren: true,
+  });
+  const handleAdd = useCallback((): void => {
     const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
-    push({
-      ...deep.copy(ZERO_DO_CHAN),
-      port: 0,
-      line: availableLine,
+    const zeroDigitalWriteChannel = {
+      ...ZERO_DO_CHAN,
       key: id.id(),
+      line: availableLine,
+      port: 0,
+    };
+    const existingCommandStatePair =
+      device.properties.digitalOutput.channels[generateKey(zeroDigitalWriteChannel)];
+    push({
+      ...zeroDigitalWriteChannel,
+      stateChannel: existingCommandStatePair?.state ?? 0,
+      cmdChannel: existingCommandStatePair?.command ?? 0,
     });
-  };
+  }, [value, device, push]);
   const menuProps = Menu.useContextMenu();
   return (
-    <Align.Space className={CSS.B("channels")} grow empty>
+    <Align.Space grow empty direction="y">
       <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
-      <Menu.ContextMenu
-        menu={({ keys }): ReactElement => (
-          <ChannelListContextMenu
-            path={path}
-            keys={keys}
-            value={value}
-            remove={remove}
-            onSelect={onSelect}
-            snapshot={snapshot}
-            onDuplicate={(indices): void => {
-              push(
-                indices.map((i) => ({
-                  ...deep.copy(value[i]),
-                  stateChannel: 0,
-                  cmdChannel: 0,
-                  key: id.id(),
-                })),
-              );
-            }}
-          />
-        )}
-        {...menuProps}
-      >
-        <List.List<string, DOChan>
-          data={value}
-          emptyContent={
-            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
-          }
+      <Align.Space grow empty style={{ height: "100%" }}>
+        <Menu.ContextMenu
+          menu={({ keys }): ReactElement => (
+            <ChannelListContextMenu
+              path={path}
+              keys={keys}
+              value={value}
+              remove={remove}
+              onSelect={(keys) => setSelected(keys)}
+              snapshot={snapshot}
+            />
+          )}
+          {...menuProps}
         >
-          <List.Selector<string, DOChan>
-            value={selected}
-            allowNone={false}
-            allowMultiple
-            onChange={(keys, { clickedIndex }) =>
-              clickedIndex != null && onSelect(keys, clickedIndex)
+          <List.List<string, DOChan>
+            data={value}
+            emptyContent={
+              <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
             }
-            replaceOnSingle
           >
-            <List.Core<string, DOChan> grow>
-              {({ key, ...props }) => (
-                <ChannelListItem key={key} {...props} path={path} snapshot={snapshot} />
-              )}
-            </List.Core>
-          </List.Selector>
-        </List.List>
-      </Menu.ContextMenu>
+            <List.Selector<string, DOChan>
+              value={selected}
+              allowMultiple
+              onChange={setSelected}
+              replaceOnSingle
+            >
+              <List.Core<string, DOChan> grow style={{ height: "calc(100% - 6rem)" }}>
+                {({ key, entry, ...props }) => (
+                  <ChannelListItem
+                    key={key}
+                    {...props}
+                    entry={{ ...entry }}
+                    path={`${path}.${props.index}`}
+                    snapshot={snapshot}
+                    device={device}
+                  />
+                )}
+              </List.Core>
+            </List.Selector>
+          </List.List>
+        </Menu.ContextMenu>
+      </Align.Space>
     </Align.Space>
   );
 };
 
-const ChannelListItem = ({
-  path,
-  snapshot = false,
-  ...props
-}: List.ItemProps<string, DOChan> & {
+interface ChannelListItemProps extends List.ItemProps<string, DOChan> {
   path: string;
   snapshot?: boolean;
-}): ReactElement => {
-  const { entry } = props;
-  const hasLine = "line" in entry;
+  device: Device;
+}
+
+const NO_COMMAND_CHANNEL_NAME = "No Command Channel";
+const NO_STATE_CHANNEL_NAME = "No State Channel";
+
+const ChannelListItem = ({
+  path,
+  entry,
+  snapshot = false,
+  device,
+  ...props
+}: ChannelListItemProps): ReactElement => {
   const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<DOChan>({
-    path: `${path}.${props.index}`,
-    optional: true,
-  });
-  const cmdChannelName = Channel.useName(entry?.cmdChannel ?? 0, "No Command Channel");
+  const cmdChannelName = Channel.useName(
+    entry?.cmdChannel ?? 0,
+    NO_COMMAND_CHANNEL_NAME,
+  );
   const stateChannelName = Channel.useName(
     entry?.stateChannel ?? 0,
-    "No State Channel",
+    NO_STATE_CHANNEL_NAME,
   );
-
-  const cmdChannelValid =
-    Form.useField<number>({
-      path: `${path}.${props.index}.cmdChannel`,
-      optional: true,
-    })?.status?.variant === "success";
-
-  const stateChannelValid =
-    Form.useField<number>({
-      path: `${path}.${props.index}.stateChannel`,
-      optional: true,
-    })?.status?.variant === "success";
-
-  const portValid =
-    Form.useField<number>({
-      path: `${path}.${props.index}.port`,
-      optional: true,
-    })?.status?.variant === "success";
-  if (childValues == null) return <></>;
 
   return (
     <List.ItemFrame
       {...props}
-      entry={childValues}
+      entry={entry}
+      style={{ width: "100%" }}
       justify="spaceBetween"
       align="center"
+      direction="x"
     >
-      <Align.Space direction="x" size="small">
+      <Align.Space direction="x" align="center" empty style={{ maxWidth: "50rem" }}>
+        <Form.NumericField path={`${path}.port`} label="Port" hideIfNull empty />
+        <Form.NumericField path={`${path}.line`} label="Line" hideIfNull empty />
+      </Align.Space>
+      <Align.Space direction="x" align="center" justify="spaceEvenly">
         <Text.Text
           level="p"
-          weight={500}
-          shade={6}
-          style={{ width: "4rem" }}
-          color={portValid ? undefined : "var(--pluto-error-z)"}
+          shade={9}
+          color={
+            cmdChannelName === NO_COMMAND_CHANNEL_NAME
+              ? "var(--pluto-warning-m1)"
+              : undefined
+          }
         >
-          {childValues.port}
-          {hasLine && `/${entry.line}`}
+          {cmdChannelName}
         </Text.Text>
-        <Align.Space direction="y">
-          <Text.Text
-            level="p"
-            weight={500}
-            shade={9}
-            color={(() => {
-              if (cmdChannelName === "No Synnax Channel")
-                return "var(--pluto-warning-z)";
-              if (cmdChannelValid) return undefined;
-              return "var(--pluto-error-z)";
-            })()}
-          >
-            {cmdChannelName}
-          </Text.Text>
-          <Text.Text
-            level="small"
-            weight={500}
-            shade={6}
-            color={(() => {
-              if (stateChannelName === "No Synnax Channel")
-                return "var(--pluto-warning-z)";
-              if (stateChannelValid) return undefined;
-              return "var(--pluto-error-z)";
-            })()}
-          >
-            {stateChannelName}
-          </Text.Text>
-        </Align.Space>
+        <Text.Text
+          level="p"
+          shade={9}
+          color={
+            stateChannelName === NO_STATE_CHANNEL_NAME
+              ? "var(--pluto-warning-m1)"
+              : undefined
+          }
+        >
+          {stateChannelName}
+        </Text.Text>
+        <EnableDisableButton
+          value={entry.enabled}
+          onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+          snapshot={snapshot}
+        />
       </Align.Space>
-      <EnableDisableButton
-        value={childValues.enabled}
-        onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
-        snapshot={snapshot}
-      />
     </List.ItemFrame>
   );
 };

@@ -310,7 +310,7 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
   if (device == null)
     return (
       <Align.Space grow empty align="center" justify="center">
-        <Text.Text level="p">{`No device selected`}</Text.Text>
+        <Text.Text level="p">No device selected</Text.Text>
       </Align.Space>
     );
   const handleConfigure = () => place(createConfigureLayout(device.key, {}));

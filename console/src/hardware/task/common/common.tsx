@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { ontology, type task, UnexpectedError } from "@synnaxlabs/client";
+import { type ontology, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -466,7 +466,7 @@ export const ParentRangeButton = ({
       const parent = await tsk.snapshottedTo();
       if (parent != null) setParent(parent);
       const tracker = await client.ontology.openDependentTracker({
-        target: new ontology.ID({ key: taskKey, type: "task" }),
+        target: task.ontologyID(taskKey),
         dependents: parent == null ? [] : [parent],
         relationshipDirection: "to",
       });

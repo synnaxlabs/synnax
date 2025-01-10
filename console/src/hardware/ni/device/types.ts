@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type device } from "@synnaxlabs/client";
 
 export type PropertiesDigest = { key: string; enriched: boolean };
 
@@ -49,3 +49,5 @@ export const ZERO_PROPERTIES: Properties = {
   digitalInput: { portCount: 0, lineCounts: [], index: 0, channels: {} },
   digitalOutput: { portCount: 0, lineCounts: [], stateIndex: 0, channels: {} },
 };
+
+export interface Device extends device.Device<Properties> {}
