@@ -2,6 +2,7 @@ package calculated
 
 import (
 	"context"
+	"fmt"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/computron"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"io"
+	"strings"
 	"sync"
 )
 
@@ -125,6 +127,14 @@ func (s *Service) Close() error {
 
 const defaultPipelineBufferSize = 50
 
+func generateChannelsAssignments(requires []channel.Channel) string {
+	var assignments []string
+	for _, ch := range requires {
+		assignments = append(assignments, fmt.Sprintf("channels['%s'] = locals()['%s']", ch.Name, ch.Name))
+	}
+	return strings.Join(assignments, "\n")
+}
+
 // Request starts calculating values for the channel identified by key and returns a closer
 // that must be called when the calculation is no longer needed. If the same channel is
 // requested multiple times, the calculations are shared between requests.
@@ -164,7 +174,14 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 	p := plumber.New()
 	plumber.SetSegment(p, "streamer", streamer_)
 	plumber.SetSegment(p, "writer", writer_)
-	calculation, err := s.cfg.Computron.NewCalculation(ch.Expression)
+	safeExpr := fmt.Sprintf(`channels = {}
+%s
+%s`,
+		generateChannelsAssignments(requires),
+		ch.Expression,
+	)
+
+	calculation, err := s.cfg.Computron.NewCalculation(safeExpr)
 	if err != nil {
 		return nil, err
 	}
@@ -217,14 +234,16 @@ type streamCalculator struct {
 func (s *streamCalculator) transform(_ context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
 	frame, warning, err := s.internal.calculate(i.Frame)
 
-	if err != nil && !errors.Is(err, s.lastErr) {
-		s.cfg.L.Error("Python calculation error",
-			zap.Error(err),
-			zap.String("channel_name", s.internal.ch.Name),
-			zap.String("expression", s.internal.ch.Expression))
-		s.lastErr = err
-	}
 	if err != nil {
+		// Log the error if it's different from the last one we saw
+		if !errors.Is(err, s.lastErr) {
+			s.cfg.L.Error("Python calculation error",
+				zap.Error(err),
+				zap.String("channel_name", s.internal.ch.Name),
+				zap.String("expression", s.internal.ch.Expression))
+			s.lastErr = err
+		}
+		// Return empty request but don't propagate error to allow pipeline to continue
 		return framer.WriterRequest{}, false, nil
 	}
 
