@@ -1,26 +1,30 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { TableCells, Theming } from "@synnaxlabs/pluto";
 import { id, type UnknownRecord, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-const cellLayout = z.object({
-  key: z.string(),
-});
+const VERSION = "0.0.0";
+
+const cellLayout = z.object({ key: z.string() });
 
 export const BASE_COL_SIZE = 6 * 12;
 export const BASE_ROW_SIZE = 6 * 6;
 
 export type CellLayout = z.infer<typeof cellLayout>;
 
-const rowLayout = z.object({
-  size: z.number(),
-  cells: z.array(cellLayout),
-});
+const rowLayout = z.object({ size: z.number(), cells: z.array(cellLayout) });
 
 export type RowLayout = z.infer<typeof rowLayout>;
 
-const colLayout = z.object({
-  size: z.number(),
-});
+const colLayout = z.object({ size: z.number() });
 
 const cellState = z.object({
   key: z.string(),
@@ -50,13 +54,10 @@ export const ZERO_CELL_STATE: CellState = {
 
 export const stateZ = z.object({
   key: z.string(),
-  version: z.literal("0.0.0"),
+  version: z.literal(VERSION),
   lastSelected: z.string().nullable(),
   editable: z.boolean(),
-  layout: z.object({
-    rows: z.array(rowLayout),
-    columns: colLayout.array(),
-  }),
+  layout: z.object({ rows: z.array(rowLayout), columns: colLayout.array() }),
   cells: z.record(z.string(), cellState),
   remoteCreated: z.boolean(),
 });
@@ -70,7 +71,7 @@ const cellFourKey = id.id();
 
 export const ZERO_STATE: State = {
   key: "",
-  version: "0.0.0",
+  version: VERSION,
   lastSelected: null,
   editable: true,
   remoteCreated: false,
@@ -90,7 +91,7 @@ export const ZERO_STATE: State = {
 };
 
 export const sliceStateZ = z.object({
-  version: z.literal("0.0.0"),
+  version: z.literal(VERSION),
   tables: z.record(z.string(), stateZ),
   copyBuffer: z.object({
     epicenter: z.string(),
@@ -102,11 +103,7 @@ export const sliceStateZ = z.object({
 export type SliceState = z.infer<typeof sliceStateZ>;
 
 export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.0",
+  version: VERSION,
   tables: {},
-  copyBuffer: {
-    epicenter: "",
-    cells: {},
-    positions: {},
-  },
+  copyBuffer: { epicenter: "", cells: {}, positions: {} },
 };
