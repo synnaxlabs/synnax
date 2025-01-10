@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"go/types"
 
 	"github.com/synnaxlabs/alamos"
@@ -86,6 +87,8 @@ func (s *FrameService) FrameDelete(
 	})
 }
 
+const FrameIteratorAutoSpan = ts.AutoSpan
+
 type (
 	FrameIteratorRequest  = framer.IteratorRequest
 	FrameIteratorResponse = framer.IteratorResponse
@@ -148,6 +151,7 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 }
 
 type (
+	FrameStreamerConfig   = framer.StreamerConfig
 	FrameStreamerRequest  = framer.StreamerRequest
 	FrameStreamerResponse = framer.StreamerResponse
 	StreamerStream        = freighter.ServerStream[FrameStreamerRequest, FrameStreamerResponse]

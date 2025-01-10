@@ -596,6 +596,7 @@ func configureClientGRPC(
 	insecure bool,
 ) *fgrpc.Pool {
 	return fgrpc.NewPool(
+		"",
 		grpc.WithTransportCredentials(getClientGRPCTransportCredentials(sec, insecure)),
 	)
 }

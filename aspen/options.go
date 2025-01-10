@@ -195,7 +195,7 @@ func defaultOptions() *options {
 		kv:      kv.DefaultConfig,
 	}
 	o.transport.Transport = grpct.New(
-		fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials())),
 	)
 	return o
 }

@@ -27,6 +27,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type ChannelKey = channel.Key
+
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {

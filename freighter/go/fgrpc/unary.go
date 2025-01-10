@@ -18,6 +18,7 @@ import (
 	roacherrors "github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
+	"path"
 )
 
 var (
@@ -32,6 +33,7 @@ var (
 //  2. That RPC method must be named Exec for UnaryClient to properly implement the
 //     interface.
 type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
+	TargetPrefix address.Address
 	// RequestTranslator translates the given go request into a GRPC payload.
 	// See Translator for more information.
 	RequestTranslator Translator[RQ, RQT]
@@ -85,10 +87,11 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 	target address.Address,
 	req RQ,
 ) (res RS, err error) {
+	target = address.Address(path.Join(u.TargetPrefix.String(), target.String()))
 	_, err = u.MiddlewareCollector.Exec(
 		freighter.Context{
 			Context:  ctx,
-			Target:   address.Newf("%s.%s", target, u.ServiceDesc.ServiceName),
+			Target:   address.Newf("%s.%s", u.TargetPrefix+target, u.ServiceDesc.ServiceName),
 			Role:     freighter.Client,
 			Protocol: Reporter.Protocol,
 			Params:   make(freighter.Params),

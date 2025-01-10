@@ -11,6 +11,8 @@ package grpc
 
 import (
 	"context"
+	"github.com/synnaxlabs/freighter"
+	"google.golang.org/grpc"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/fgrpc"
@@ -22,7 +24,13 @@ import (
 )
 
 type (
-	authServer = fgrpc.UnaryServer[
+	authLoginServer = fgrpc.UnaryServer[
+		api.AuthLoginRequest,
+		*gapi.LoginRequest,
+		api.AuthLoginResponse,
+		*gapi.LoginResponse,
+	]
+	authLoginClient = fgrpc.UnaryClient[
 		api.AuthLoginRequest,
 		*gapi.LoginRequest,
 		api.AuthLoginResponse,
@@ -83,11 +91,23 @@ func (l loginResponseTranslator) Backward(
 }
 
 func newAuth(a *api.Transport) fgrpc.BindableTransport {
-	s := &authServer{
+	s := &authLoginServer{
 		RequestTranslator:  loginRequestTranslator{},
 		ResponseTranslator: loginResponseTranslator{},
 		ServiceDesc:        &gapi.AuthLoginService_ServiceDesc,
 	}
 	a.AuthLogin = s
 	return s
+}
+
+func NewAuthLoginClient(pool *fgrpc.Pool) freighter.UnaryClient[api.AuthLoginRequest, api.AuthLoginResponse] {
+	return &authLoginClient{
+		Pool:               pool,
+		RequestTranslator:  loginRequestTranslator{},
+		ResponseTranslator: loginResponseTranslator{},
+		ServiceDesc:        &gapi.AuthLoginService_ServiceDesc,
+		Exec: func(ctx context.Context, connInterface grpc.ClientConnInterface, request *gapi.LoginRequest) (*gapi.LoginResponse, error) {
+			return gapi.NewAuthLoginServiceClient(connInterface).Exec(ctx, request)
+		},
+	}
 }

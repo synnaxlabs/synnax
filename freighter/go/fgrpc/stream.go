@@ -106,6 +106,7 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 			Params:   make(freighter.Params),
 		},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
+			ctx = attachContext(ctx)
 			conn, err := s.Pool.Acquire(target)
 			if err != nil {
 				return oCtx, err

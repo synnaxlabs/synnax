@@ -9,4 +9,5 @@ use (
 	./integration
 	./synnax
 	./x/go
+	client/go
 )
