@@ -265,7 +265,8 @@ const Editor = (props: Code.EditorProps): ReactElement => {
     const checkHyphens = async () => {
       const hasHyphen = await hasHyphenatedName();
       if (hasHyphen) {
-        setHyphenWarning('Note: Channels with hyphens must be referenced using channels["channel-name"] syntax');
+        setHyphenWarning('Note: Channels with hyphens must be accessed using' +
+            ' channels["channel-name"]');
       } else {
         setHyphenWarning(null);
       }
