@@ -49,10 +49,11 @@ var _ = Describe("Calculated", func() {
 
 	It("Output a basic calculation", func() {
 		c := MustSucceed(calculated.Open(calculated.Config{
-			Instrumentation: Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
-			Computron:       sharedComputer, // Use shared interpreter
-			Framer:          dist.Framer,
-			Channel:         dist.Channel,
+			Instrumentation:   Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
+			Computron:         sharedComputer, // Use shared interpreter
+			Framer:            dist.Framer,
+			Channel:           dist.Channel,
+			ChannelObservable: dist.Channel.NewObservable(),
 		}))
 
 		baseCH := channel.Channel{
@@ -100,10 +101,11 @@ var _ = Describe("Calculated", func() {
 
 	It("Handle undefined symbols", func() {
 		c := MustSucceed(calculated.Open(calculated.Config{
-			Instrumentation: Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
-			Computron:       sharedComputer, // Use shared interpreter
-			Framer:          dist.Framer,
-			Channel:         dist.Channel,
+			Instrumentation:   Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
+			Computron:         sharedComputer, // Use shared interpreter
+			Framer:            dist.Framer,
+			Channel:           dist.Channel,
+			ChannelObservable: dist.Channel.NewObservable(),
 		}))
 		baseCH := channel.Channel{
 			Name:     "base",
@@ -148,10 +150,11 @@ var _ = Describe("Calculated", func() {
 
 	It("Return a warning for dividing by zero", func() {
 		c := MustSucceed(calculated.Open(calculated.Config{
-			Instrumentation: Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
-			Computron:       sharedComputer, // Use shared interpreter
-			Framer:          dist.Framer,
-			Channel:         dist.Channel,
+			Instrumentation:   Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
+			Computron:         sharedComputer, // Use shared interpreter
+			Framer:            dist.Framer,
+			Channel:           dist.Channel,
+			ChannelObservable: dist.Channel.NewObservable(),
 		}))
 
 		baseCH := channel.Channel{
@@ -196,5 +199,4 @@ var _ = Describe("Calculated", func() {
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
 	})
-
 })

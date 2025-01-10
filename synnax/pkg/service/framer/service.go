@@ -162,10 +162,11 @@ func OpenService(cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	calc, err := calculated.Open(calculated.Config{
-		Instrumentation: cfg.Instrumentation.Child("calculated"),
-		Computron:       computer,
-		Channel:         cfg.Channel,
-		Framer:          cfg.Framer,
+		Instrumentation:   cfg.Instrumentation.Child("calculated"),
+		Computron:         computer,
+		Channel:           cfg.Channel,
+		Framer:            cfg.Framer,
+		ChannelObservable: cfg.Channel.NewObservable(),
 	})
 	s.Calculated = calc
 	return s, err
