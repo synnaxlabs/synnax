@@ -27,13 +27,13 @@ import {
   type DigitalWrite,
   type DigitalWriteConfig,
   digitalWriteConfigZ,
+  type DigitalWriteDetails,
   type DigitalWritePayload,
-  type DigitalWriteStateDetails,
   type DigitalWriteType,
   type DOChan,
   ZERO_DIGITAL_WRITE_PAYLOAD,
   ZERO_DO_CHAN,
-} from "@/hardware/ni/task/migrations";
+} from "@/hardware/ni/task/types";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
@@ -84,7 +84,7 @@ const Wrapped = ({
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const taskState = useObserveState<DigitalWriteStateDetails>(
+  const taskState = useObserveState<DigitalWriteDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -97,7 +97,7 @@ const Wrapped = ({
 
   const createTask = useCreate<
     DigitalWriteConfig,
-    DigitalWriteStateDetails,
+    DigitalWriteDetails,
     DigitalWriteType
   >(layoutKey);
 

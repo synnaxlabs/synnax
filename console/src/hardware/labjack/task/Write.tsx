@@ -227,18 +227,21 @@ const Wrapped = ({
       setDesiredState("paused");
     },
   });
-  const start = useMutation({
-    mutationKey: [client?.key, isRunning, task?.key],
-    onError: (e) =>
+  const toggleMutation = useMutation({
+    onError: (e) => {
+      const action =
+        isRunning === true ? "stop" : isRunning === false ? "start" : "toggle";
+      const name = methods.get<string>("name").value ?? "write task";
       addStatus({
         variant: "error",
-        message: `Failed to ${isRunning ? "stop" : "start"} write task`,
+        message: `Failed to ${action} ${name}`,
         description: e.message,
-      }),
+      });
+    },
     mutationFn: async () => {
-      if (client == null) throw new Error("No client");
-      if (task == null) throw new Error("No task state");
-      if (isRunning == null) throw new Error("No running state");
+      if (client == null) throw new Error("Not connected to Synnax cluster");
+      if (task == null) throw new Error("Task is not defined");
+      if (isRunning == null) throw new Error("Task state is not defined");
       setDesiredState(isRunning ? "paused" : "running");
       await task.executeCommand(isRunning ? "stop" : "start");
     },
@@ -283,13 +286,13 @@ const Wrapped = ({
           layoutKey={layoutKey}
           snapshot={task?.snapshot}
           startingOrStopping={
-            start.isPending ||
+            toggleMutation.isPending ||
             (!checkDesiredStateMatch(desiredState, isRunning) &&
               taskState?.variant === "success")
           }
           configuring={configure.isPending}
           onConfigure={configure.mutate}
-          onStartStop={start.mutate}
+          onStartStop={toggleMutation.mutate}
         />
       </Align.Space>
     </Align.Space>

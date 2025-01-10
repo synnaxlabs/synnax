@@ -40,18 +40,16 @@ export const TC_CHANNEL_TYPE = "TC";
 type TCChannelType = typeof TC_CHANNEL_TYPE;
 
 const AO_CHANNEL_TYPE = "AO";
-const aoChannelTypeZ = z.literal(AO_CHANNEL_TYPE);
-type AOChannelType = z.infer<typeof aoChannelTypeZ>;
+type AOChannelType = typeof AO_CHANNEL_TYPE;
 
 export const AI_CHANNEL_TYPE = "AI";
 type AIChannelType = typeof AI_CHANNEL_TYPE;
 
 const DO_CHANNEL_TYPE = "DO";
-const doChannelTypeZ = z.literal(DO_CHANNEL_TYPE);
-type DOChannelType = z.infer<typeof doChannelTypeZ>;
+type DOChannelType = typeof DO_CHANNEL_TYPE;
 
 export type InputChannelType = DIChannelType | AIChannelType | TCChannelType;
-export const outputChannelTypeZ = z.union([aoChannelTypeZ, doChannelTypeZ]);
+export const outputChannelTypeZ = z.enum([AO_CHANNEL_TYPE, DO_CHANNEL_TYPE]);
 export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
 export type ChannelType = InputChannelType | OutputChannelType;
 
