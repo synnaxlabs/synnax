@@ -8,13 +8,16 @@ prevURL: "/reference/device-drivers/ni/analog-read-task"
 next: "Digital Read Task"
 nextURL: "/reference/device-drivers/ni/digital-read-task"
 ---
+
 import { Divider, Note } from "@synnaxlabs/pluto";
-import { StepText } from "@/components/StepText";
+import StepText from "@/components/StepText.astro";
 import { Video, Image } from "@/components/Media";
 import { Icon } from "@synnaxlabs/media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
-The Digital Write Task is used for sending commands to the digital outputs of your NI 
-cards. In this guide, we'll walk you through the steps to create a Digital Write Task in 
+The Digital Write Task is used for sending commands to the digital outputs of your NI
+cards. In this guide, we'll walk you through the steps to create a Digital Write Task in
 Synnax.
 
 <Divider.Divider direction="x" />
@@ -34,8 +37,8 @@ can be used for both control and data acquisition purposes. In the context of th
 Driver, a digital write task defines a background process that writes to the digital
 outputs of your device based on values written to Synnax [command channels](#how-commands-work-in-synnax).
 
-A digital write task can be started, stopped, and re-configured at any time. We 
-permanently store the configuration of the task in Synnax, so it's easy to set up 
+A digital write task can be started, stopped, and re-configured at any time. We
+permanently store the configuration of the task in Synnax, so it's easy to set up
 multiple tasks for different purposes.
 
 <Divider.Divider direction="x" />
@@ -43,18 +46,19 @@ multiple tasks for different purposes.
 ## How Commands Work in Synnax
 
 Commands in Synnax require two types of channels: a command channel and state channel.
-Command channels signal a task to set the value of a digital output. To set a digital 
-output to high, you would write a `1` to the command channel. To set it to low, you 
+Command channels signal a task to set the value of a digital output. To set a digital
+output to high, you would write a `1` to the command channel. To set it to low, you
 would write a `0`.
 
-A command channel for a digital output might be `my_temp_card_do_0_1_cmd`, where 
-`my_temp_card` is the device identifier, `do_0_1` is the port and line of the digital 
+A command channel for a digital output might be `my_temp_card_do_0_1_cmd`, where
+`my_temp_card` is the device identifier, `do_0_1` is the port and line of the digital
 output, and `_cmd` indicates that it's a command channel.
 
 <Note.Note variant="info">
-Command channels also have an associated index channel that stores the timestamps at
-which commands were sent. This channel is suffixed with `_cmd_time`. For the command
-channel `my_temp_card_do_0_1_cmd`, the index channel would be `my_temp_card_do_0_1_cmd_time`.
+  Command channels also have an associated index channel that stores the timestamps at
+  which commands were sent. This channel is suffixed with `_cmd_time`. For the command
+  channel `my_temp_card_do_0_1_cmd`, the index channel would be
+  `my_temp_card_do_0_1_cmd_time`.
 </Note.Note>
 
 State channels represent the current state of the digital output. When you send a command,
@@ -64,14 +68,14 @@ the state channel.
 State channels are typically suffixed with `_state`. A state channel maintains the same
 format as its corresponding command channel, but suffixed with `_state` instead of `_cmd`.
 
-As an example, to configure a valve in the [console schematic](/reference/console/schematics) 
+As an example, to configure a valve in the [console schematic](/reference/console/schematics)
 to write to a digital output, you would set the `command` field to the command channel
 of the digital output and the `state` field to the state channel of the digital output.
-Clicking the valve would send a command to the digital output, and the valve would turn 
+Clicking the valve would send a command to the digital output, and the valve would turn
 solid or transparent based on the state channel.
 
 Using two channels provides a guarantee that a particular command was acknowledged by
-a running task. 
+a running task.
 
 <Divider.Divider direction="x" />
 
@@ -79,30 +83,39 @@ a running task.
 
 ### From the Resources Toolbar
 
-To create a digital write task from the resources toolbar, open the Synnax Console and 
-click on the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device 
+To create a digital write task from the resources toolbar, open the Synnax Console and
+click on the resources (<Icon.Resources />) toolbar in the left sidebar. Find the device
 you'd like to create the task for, right-click on it, and select "Create Digital write Task".
 
-<Video client:only="react" id="device-drivers/ni/digital-write-task/device-create-digital-write-task" />
+<Video
+  client:only="react"
+  id="device-drivers/ni/digital-write-task/device-create-digital-write-task"
+/>
 
 ### From the Command Palette
 
-To create a digital write task from the command palette, open the Synnax Console and 
-click on the Quick Search & Command Palette at the top. You can also open this palette with 
+To create a digital write task from the command palette, open the Synnax Console and
+click on the Quick Search & Command Palette at the top. You can also open this palette with
 `Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
 
 In command moe (enabled when the first character in the input is ">"), type
 "NI". You'll see an option called "Create a New Digital write Task". Select this
 option to open the read task configuration dialog.
 
-<Video client:only="react" id="device-drivers/ni/digital-write-task/palette-create-digital-write-task" />
+<Video
+  client:only="react"
+  id="device-drivers/ni/digital-write-task/palette-create-digital-write-task"
+/>
 
 ### From The Layout Selector
 
-To create a digital write task from the layout selector, click on the "+" button in the 
+To create a digital write task from the layout selector, click on the "+" button in the
 top right corner and select "NI Digital write Task".
 
-<Video client:only="react" id="device-drivers/ni/digital-write-task/layout-create-digital-write-task" />
+<Video
+  client:only="react"
+  id="device-drivers/ni/digital-write-task/layout-create-digital-write-task"
+/>
 
 <Divider.Divider direction="x" />
 
@@ -113,7 +126,10 @@ top right corner and select "NI Digital write Task".
 The first step is to select the NI device you'd like to write to the outputs of. Use
 the dropdown menu in the top left corner to do so.
 
-<Video client:only="react" id="device-drivers/ni/digital-write-task/digital-write-task-select-device" />
+<Video
+  client:only="react"
+  id="device-drivers/ni/digital-write-task/digital-write-task-select-device"
+/>
 
 ### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
@@ -124,19 +140,22 @@ You'll need to select both a digital output port and line to write to. You'll al
 to select the command channel the task will listen to, and the state channel that will
 be updated when the command is processed.
 
-<Video client:only="react" id="device-drivers/ni/digital-write-task/digital-write-task-add-channel" />
+<Video
+  client:only="react"
+  id="device-drivers/ni/digital-write-task/digital-write-task-add-channel"
+/>
 
 ### <StepText level="h3" step={3}>Configure the State Update Rate</StepText>
 
 The state update rate determines how often the state channels in the task are updated.
-Set the rate higher in scenarios that require quick response times. 
+Set the rate higher in scenarios that require quick response times.
 
-<div style={{ display: "flex", justifyContent: "center"}}>
-<Image 
-    client:only="react" 
-    id="device-drivers/ni/digital-write-task/digital-write-task-state-rate" 
+<div style={{ display: "flex", justifyContent: "center" }}>
+  <Image
+    client:only="react"
+    id="device-drivers/ni/digital-write-task/digital-write-task-state-rate"
     style={{ width: "50%", minWidth: 200 }}
-/>
+  />
 </div>
 
 <Divider.Divider direction="x" />
@@ -147,10 +166,13 @@ Once you've added all of the channels you need and have configured sampling rate
 the "Configure" button. If there are no errors, Synnax will acknowledge the configured
 task and enable the Play (<Icon.Play />) button in the dialog. Click this button to start the task.
 
-<Video client:only="react" id="device-drivers/ni/digital-write-task/digital-write-task-start" />
+<Video
+  client:only="react"
+  id="device-drivers/ni/digital-write-task/digital-write-task-start"
+/>
 
 <Note.Note variant="info">
-Starting and stopping a task does not re-apply the task configuration. If you've made 
-changes to the configuration, you'll need to re-configure the task by hitting the "
-Configure" button.
+  Starting and stopping a task does not re-apply the task configuration. If you've made
+  changes to the configuration, you'll need to re-configure the task by hitting the "
+  Configure" button.
 </Note.Note>

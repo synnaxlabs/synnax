@@ -35,7 +35,6 @@ import {
   FaAlignRight,
   FaApple,
   FaBezierCurve,
-  FaBookOpen,
   FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
@@ -64,13 +63,16 @@ import {
   MdAlignVerticalCenter,
   MdAlignVerticalTop,
   MdAreaChart,
+  MdArrowOutward,
   MdAutoAwesome,
+  MdBook,
   MdCalendarToday,
   MdCommit,
   MdDataArray,
   MdDataObject,
   MdEdit,
   MdEditOff,
+  MdFeedback,
   MdFiberManualRecord,
   MdFileUpload,
   MdFilterCenterFocus,
@@ -91,6 +93,7 @@ import {
   MdKeyboardTab,
   MdLabel,
   MdLink,
+  MdNewReleases,
   MdOutlineAccessTimeFilled,
   MdOutlineDeviceHub,
   MdOutlineMotionPhotosOff,
@@ -238,10 +241,12 @@ const wrapIcon = (
   name: string,
   { className }: WrapIconOpts = {},
 ): IconFC => {
+  const ariaLabel = `synnax-icon-${name}`;
   const O: IconFC = (props) => (
     <Icon
       {...props}
-      className={clsx(props.className, `synnax-icon-${name}`, className, "synnax-icon")}
+      className={clsx(props.className, ariaLabel, className, "synnax-icon")}
+      aria-label={props["aria-label"] ?? ariaLabel}
     />
   );
   O.displayName = Icon.displayName || Icon.name;
@@ -395,7 +400,7 @@ export const Icon: IconType = {
   LinkExternal: wrapIcon(BiLinkExternal, "link-external"),
   Access: wrapIcon(MdShield, "access"),
   JSON: wrapIcon(MdDataObject, "json"),
-  Guide: wrapIcon(FaBookOpen, "guide"),
+  Guide: wrapIcon(MdBook, "guide"),
   Focus: wrapIcon(MdFilterCenterFocus, "focus"),
   OpenInNewWindow: wrapIcon(MdOutlineOpenInNew, "open-in-new-window"),
   MoveToMainWindow: wrapIcon(MdOutlineWebAsset, "move-to-main-window"),
@@ -410,6 +415,9 @@ export const Icon: IconType = {
   Text: wrapIcon(MdTextFields, "text"),
   Value: wrapIcon(GoNumber, "value"),
   Calendar: wrapIcon(MdCalendarToday, "calendar"),
+  Release: wrapIcon(MdNewReleases, "release"),
+  OpenExternal: wrapIcon(MdArrowOutward, "open-external"),
+  Feedback: wrapIcon(MdFeedback, "feedback"),
 };
 
 export interface IconType {
@@ -562,4 +570,7 @@ export interface IconType {
   Text: IconFC;
   Value: IconFC;
   Calendar: IconFC;
+  Release: IconFC;
+  OpenExternal: IconFC;
+  Feedback: IconFC;
 }

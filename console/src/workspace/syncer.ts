@@ -35,8 +35,13 @@ export const useSyncLayout = async (): Promise<void> => {
         if (key == null || client == null) return;
         const layoutSlice = Layout.selectSliceState(s);
         if (deep.equal(prevSync.current, layoutSlice)) return;
+        const toSave = deep.copy(layoutSlice);
+        Object.entries(toSave.layouts).forEach(([key, layout]) => {
+          if (layout.excludeFromWorkspace == true || layout.location === "modal")
+            delete toSave.layouts[key];
+        });
         prevSync.current = layoutSlice;
-        await client.workspaces.setLayout(key, layoutSlice as unknown as UnknownRecord);
+        await client.workspaces.setLayout(key, toSave as unknown as UnknownRecord);
       },
       250,
       [client],

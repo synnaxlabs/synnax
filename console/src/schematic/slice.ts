@@ -401,23 +401,20 @@ export const { actions, reducer } = createSlice({
     fixThemeContrast: (state, { payload }: PayloadAction<FixThemeContrastPayload>) => {
       const { theme } = payload;
       const bgColor = new Color.Color(theme.colors.gray.l0);
+      const shouldChange = (crude: Color.Crude): boolean => {
+        const c = new Color.Color(crude);
+        return c.grayness > 0.85 && c.contrast(bgColor) < 1.3;
+      };
       Object.values(state.schematics).forEach((schematic) => {
         const { nodes, edges, props } = schematic;
         nodes.forEach((node) => {
           const nodeProps = props[node.key];
-          if ("color" in nodeProps) {
-            const c = new Color.Color(nodeProps.color as string);
-            // check the contrast of the color
-            if (c.contrast(bgColor) < 1.1)
-              // if the contrast is too low, change the color to the contrast color
+          if ("color" in nodeProps)
+            if (shouldChange(nodeProps.color as string))
               nodeProps.color = theme.colors.gray.l9;
-          }
         });
         edges.forEach((edge) => {
-          if (
-            edge.color != null &&
-            new Color.Color(edge.color as string).contrast(bgColor) < 1.1
-          )
+          if (edge.color != null && shouldChange(edge.color as string))
             edge.color = theme.colors.gray.l9;
           else edge.color ??= theme.colors.gray.l9;
         });

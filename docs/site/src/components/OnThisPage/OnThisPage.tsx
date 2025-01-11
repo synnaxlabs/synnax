@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/media";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
@@ -14,6 +15,7 @@ import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
+import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
 import { OSSelectButton } from "@/components/platform/PlatformTabs";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
@@ -28,7 +30,7 @@ export const OnThisPage = ({
   const [currentID, setCurrentID] = useState("");
 
   useEffect(() => {
-    const i = setInterval(() => {
+    const purge = () => {
       const titles = document.querySelectorAll("article :is(h1, h2, h3)");
       const headerLinks = document.querySelectorAll(
         ".on-this-page .header-link",
@@ -41,27 +43,11 @@ export const OnThisPage = ({
           link.style.display = "none";
         else link.style.display = "block";
       });
-    }, 200);
+    };
+    purge();
+    const i = setInterval(purge, 200);
     return () => clearInterval(i);
   }, []);
-
-  // useEffect(() => {
-  //   const getItemOffsets = (): void => {
-  //     const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-  //     const headerLinks = document.querySelectorAll(".on-this-page .header-link");
-
-  //     itemOffsets.current = Array.from(titles).map((title) => ({
-  //       id: title.id,
-  //       topOffset: title.getBoundingClientRect().top + window.scrollY,
-  //     }));
-  //   };
-
-  //   getItemOffsets();
-  //   window.addEventListener("resize", getItemOffsets);
-  //   return () => {
-  //     window.removeEventListener("resize", getItemOffsets);
-  //   };
-  // }, []);
 
   useEffect(() => {
     if (toc.current == null) return;
@@ -99,12 +85,9 @@ export const OnThisPage = ({
   if (headings.length === 0) return <></>;
 
   return (
-    <Align.Space el="nav" className="on-this-page" size={2}>
-      <Header.Header id={ON_THIS_PAGE_ID} className="heading" level="h4">
-        <Header.Title>On this page</Header.Title>
-      </Header.Header>
+    <>
       <OSSelectButton />
-      <div ref={toc}>
+      <div ref={toc} style={{ flexGrow: 1 }}>
         <Menu.Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth > 1 && depth <= 3)
@@ -127,6 +110,6 @@ export const OnThisPage = ({
             ))}
         </Menu.Menu>
       </div>
-    </Align.Space>
+    </>
   );
 };

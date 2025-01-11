@@ -27,20 +27,27 @@ const DATA: ListEntry[] = TelemDataType.ALL.filter(
   name: ALLCAPS.has(d) ? d.toString().toUpperCase() : caseconv.capitalize(d.toString()),
 }));
 
+const FIXED_DENSITY_DATA = DATA.filter((d) => !new TelemDataType(d.key).isVariable);
+
 const COLUMNS: Array<List.ColumnSpec<string, ListEntry>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
+  { key: "name", name: "Name" },
 ];
 
 export interface DataTypeProps
-  extends Omit<DropdownButtonProps<string, ListEntry>, "data" | "columns"> {}
+  extends Omit<
+    DropdownButtonProps<string, ListEntry>,
+    "data" | "columns" | "entryRenderKey"
+  > {
+  hideVariableDensity?: boolean;
+}
 
-export const DataType = (props: DataTypeProps): ReactElement => (
+export const DataType = ({
+  hideVariableDensity = false,
+  ...props
+}: DataTypeProps): ReactElement => (
   <DropdownButton<string, ListEntry>
     {...props}
-    data={DATA}
+    data={hideVariableDensity ? FIXED_DENSITY_DATA : DATA}
     columns={COLUMNS}
     entryRenderKey="name"
   />

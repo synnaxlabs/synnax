@@ -4,7 +4,7 @@ import "@synnaxlabs/pluto/dist/pluto.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@fontsource/geist-mono";
 import PostHog from "@/components/PostHog.astro";
-import { ViewTransitions } from "astro:transitions";
+import { ClientRouter } from "astro:transitions";
 import { SEO } from "astro-seo";
 import Footer from "@/components/Footer.astro";
 const {
@@ -35,17 +35,18 @@ const {
                 ],
             }}
         />
-        <ViewTransitions />
+        <ClientRouter />
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     </head>
-    <Header url={url} />
-    <main>
-        <section>
-            <slot />
-        </section>
-    </main>
-    <Footer />
-
-    <script>
+    <body>
+        <Header url={url} transition:persist />
+        <main>
+            <section>
+                <slot />
+            </section>
+        </main>
+        <Footer />
+    </body><script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
         import { getVersion } from "@/util/fetchVersion";
@@ -58,13 +59,31 @@ const {
                 });
             });
         };
+
+        const bindClickHandlersToHeadingAnchors = () => {
+            const anchors = document.querySelectorAll(".heading-anchor");
+            anchors.forEach((anchor) => {
+                if (anchor.previousElementSibling?.classList.contains("no-link")) {
+                    anchor.style.display = "none";
+                }
+                anchor.addEventListener("click", () => {
+                    const url = window.location.href;
+                    const newUrl = url.split("#")[0];
+                    const hash = anchor.getAttribute("href");
+                    navigator.clipboard.writeText(newUrl + hash);
+                });
+            });
+        };
+
         updateVersion();
         addCodeButtonListeners();
         startUpdatingIframeHref();
+        bindClickHandlersToHeadingAnchors();
         document.addEventListener("astro:after-swap", () => {
             updateVersion();
             addCodeButtonListeners();
             startUpdatingIframeHref();
+            bindClickHandlersToHeadingAnchors();
         });
     </script>
 
@@ -74,7 +93,8 @@ const {
             --nav-height: 5rem;
             --max-width: 1400px;
             --astro-code-color-text: var(--pluto-text-color);
-            --astro-code-color-background: var(--pluto-gray-l1);
+            --astro-code-background: var(--pluto-gray-l1);
+            --astro-code-foreground: var(--pluto-text-color);
             --astro-code-token-comment: var(--pluto-gray-l5);
             --astro-code-token-string-expression: var(--pluto-secondary-m1);
             --astro-code-token-function: #556bf8;
@@ -104,7 +124,7 @@ const {
             --pluto-h5-text-transform: none;
             --pluto-p-size: 2.666rem;
             --pluto-p-weight: 350;
-            --pluto-p-line-height: 4.666rem;
+            --pluto-p-line-height: 175%;
             --pluto-small-size: 2.333rem;
             --pluto-small-weight: 350;
             --pluto-small-line-height: 150%;
@@ -985,6 +1005,36 @@ const {
                 --pluto-text-on-primary: #fcfcfc;
                 --pluto-border-color: #ededed;
             }
+
+            @media (max-width: 800px) {
+                --pluto-h1-size: 5rem;
+                --pluto-h2-size: 4rem;
+                --pluto-h3-size: 3.25rem;
+                --pluto-h4-size: 2.75rem;
+                --pluto-h5-size: 2.5rem;
+                --pluto-p-size: 2.3333rem;
+                --pluto-p-weight: 375;
+
+                section {
+                    padding: 0 1rem !important;
+                }
+
+                article {
+                    ul {
+                        padding-left: 2rem;
+                    }
+                }
+
+                .pluto-tabs-selector__btn--uneditable {
+                    padding: 0 1rem;
+                }
+            }
+
+            @media (max-width: 600px) {
+                .pluto-tabs-selector__tabs {
+                    justify-content: center !important;
+                }
+            }
         }
 
         * {
@@ -995,6 +1045,10 @@ const {
         body {
             height: fit-content !important;
             margin: 0;
+        }
+
+        .pluto-pack {
+            --pluto-pack-br: 1rem !important;
         }
 
         main {
@@ -1141,16 +1195,35 @@ const {
 
         article {
             h1,
+            h2,
             h3,
             h4,
             h5,
             h6,
-            p,
             table {
+                margin-top: 5rem;
+                margin-bottom: 2rem;
+                &.pluto-text {
+                    margin-bottom: 2rem;
+                    margin-top: 5rem;
+                }
+            }
+
+            .pluto-btn .pluto-text {
+                margin: 0 !important;
+            }
+
+            p {
+                margin: 3rem 0;
+                color: var(--pluto-gray-l9-90);
+            }
+
+            :is(h1, h3).pluto-text {
                 margin: 3rem 0;
             }
 
             video,
+            iframe,
             img {
                 margin: 5rem 0;
             }
@@ -1159,9 +1232,146 @@ const {
                 padding-left: 5rem;
             }
 
-            h2 {
-                margin: 4rem 0;
+            .yt-video {
+                width: 100%;
+                aspect-ratio: 3456 / 2240;
+                border-radius: 1rem;
+                border: var(--pluto-border-l4);
             }
+
+            :is(h1, h2, h3).pluto-text {
+                & a {
+                    color: var(--pluto-gray-l7);
+                    opacity: 0;
+                    margin-left: 2rem;
+                    position: relative;
+                    transition: all 0.2s;
+                    & svg {
+                        position: absolute;
+                        top: 50%;
+                        transform: translateY(-50%);
+                    }
+                }
+                &:hover {
+                    & a {
+                        opacity: 1;
+                        &:hover {
+                            color: var(--pluto-gray-l9);
+                        }
+                    }
+                }
+            }
+        }
+
+        .page-nav {
+            width: 235px;
+            overflow: hidden;
+            height: 100%;
+
+            .pluto-tabs-selector {
+                position: sticky;
+                top: 0;
+                background: var(--pluto-gray-l0);
+                margin-bottom: 3rem;
+                & * {
+                    font-size: var(--pluto-small-size) !important;
+                    font-weight: 400 !important;
+                }
+                & .pluto-tabs-selector__btn {
+                    flex-grow: 1;
+                }
+            }
+        }
+
+        .pluto-tree {
+            max-height: calc(100vh - 25rem) !important;
+            overflow-y: auto !important;
+            .pluto-text {
+                color: var(--pluto-gray-l7);
+                font-size: var(--pluto-small-size);
+                line-height: var(--pluto-small-line-height);
+                font-weight: 400 !important;
+            }
+
+            & > *:last-child {
+                margin-bottom: 10rem;
+            }
+
+            overflow-x: hidden;
+
+            .pluto-btn {
+                padding-top: 1rem;
+                padding-bottom: 1rem;
+                border-radius: 0 !important;
+                height: auto;
+                background: none !important;
+                width: unset !important;
+
+                &:not(.pluto--has-children) {
+                    padding-left: 4.25rem !important;
+                }
+
+                &:hover:not(.pluto--selected) {
+                    &:not(.pluto--has-children) {
+                        box-shadow: inset 2px 0 0 0 var(--pluto-text-color) !important;
+                    }
+
+                    & .pluto-text {
+                        color: var(--pluto-text-color);
+                        font-weight: 500 !important;
+                    }
+
+                    & path:is(:not([fill="none"]), [stroke="#000"]) {
+                        fill: var(--pluto-text-color) !important;
+                    }
+                }
+
+                &.pluto--selected .pluto-text {
+                    color: var(--pluto-text-color);
+                    font-weight: 500 !important;
+                }
+
+                &:not(.pluto--has-children):not(.pluto--selected) {
+                    box-shadow: inset 1px 0 0 0 var(--pluto-gray-l2);
+                }
+            }
+
+            .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+                fill: var(--pluto-gray-l5) !important;
+            }
+        }
+        @media (max-width: 800px) {
+            .page-nav {
+                display: none;
+            }
+        }
+
+        .page-nav-mobile-content {
+            & div:first-child {
+                display: none;
+            }
+            padding-top: 2rem;
+            width: calc(100vw - 5rem);
+            height: 70vh !important;
+            overflow: hidden !important;
+            border-radius: 1rem !important;
+        }
+
+        .pluto-dropdown__bg {
+            backdrop-filter: blur(0.5rem);
+            -webkit-backdrop-filter: blur(0.5rem);
+        }
+        @media (max-width: 600px) and (hover: none) {
+            .pluto-dropdown__dialog {
+                top: 5rem !important;
+                transform: none !important;
+            }
+        }
+
+        blockquote {
+            border-left: 2px solid var(--pluto-primary-z-30);
+            padding-left: 2rem;
+            margin-left: 3rem;
         }
     </style>
 </html>

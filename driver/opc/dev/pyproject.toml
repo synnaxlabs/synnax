@@ -5,10 +5,11 @@ description = ""
 authors = ["Emiliano Bonilla <56323762+emilbon99@users.noreply.github.com>"]
 readme = "README.md"
 package-mode = false
+
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 asyncua = "^1.1.0"
-synnax = "^0.14.45"
+synnax = "^0.37.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"

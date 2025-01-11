@@ -91,6 +91,8 @@ func (s *Service) Close() error {
 	return nil
 }
 
+func (s *Service) RootGroup() group.Group { return s.group }
+
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:    gorp.OverrideTx(s.DB, tx),

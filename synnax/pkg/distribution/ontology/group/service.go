@@ -57,7 +57,9 @@ func OpenService(configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{Config: cfg}, nil
+	s := &Service{Config: cfg}
+	cfg.Ontology.RegisterService(s)
+	return s, nil
 }
 
 func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (g Group, err error) {

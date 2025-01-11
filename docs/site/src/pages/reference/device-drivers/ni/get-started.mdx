@@ -8,10 +8,12 @@ nextURL: "/reference/device-drivers/ni/configure-device"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
-The [National Instruments (NI)](https://www.ni.com/en-us.html) device driver allows 
-Synnax to directly connect to your NI hardware, including CompactDAQ, CompactRIO, and 
-PXI systems. This page will walk you through some of the important pre-requisites 
+The [National Instruments (NI)](https://www.ni.com/en-us.html) device driver allows
+Synnax to directly connect to your NI hardware, including CompactDAQ, CompactRIO, and
+PXI systems. This page will walk you through some of the important pre-requisites
 necessary to get started with the NI driver.
 
 <Divider.Divider direction="x" />
@@ -26,25 +28,26 @@ Aside from very old DAQ modules, Synnax is generally compatible with every NI de
 
 ## Installation
 
-The NI Driver comes pre-installed with every Synnax Deployment. 
+The NI Driver comes pre-installed with every Synnax Deployment.
 
 ### Installing DAQmx and System Configuration Libraries
 
 National Instruments' DAQmx and System Configuration drivers must be installed for Synnax to communicate with your
-hardware. Instructions for installing DAQmx can be found on the 
+hardware. Instructions for installing DAQmx can be found on the
 [National Instruments website.](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html#532710)
 Instructions for installing System Configuration can be found on the [following page.](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html)
+
 <Note.Note variant="warning">
-If you have a Synnax cluster already running before installing DAQmx, you'll need to 
-restart the cluster for Synnax to recognize the DAQmx installation.
+  If you have a Synnax cluster already running before installing DAQmx, you'll need to
+  restart the cluster for Synnax to recognize the DAQmx installation.
 </Note.Note>
 
 <Divider.Divider direction="x" />
 
 ## OS Compatibility
 
-The NI driver is only compatible when running the Synnax Database on a Windows machine. 
-The driver will not be able to find your devices when running on Linux, macOS, or 
+The NI driver is only compatible when running the Synnax Database on a Windows machine.
+The driver will not be able to find your devices when running on Linux, macOS, or
 within a Docker container (even if that container is running on Windows).
 
 <Divider.Divider direction="x" />
@@ -52,5 +55,5 @@ within a Docker container (even if that container is running on Windows).
 ## Next Steps
 
 Now that you've installed DAQmx on your host machine, you're ready to start integrating
-your devices. Check out the [Configure a Device](/reference/device-drivers/ni/configure-device) 
+your devices. Check out the [Configure a Device](/reference/device-drivers/ni/configure-device)
 page to learn how to do so.

@@ -19,6 +19,7 @@ import {
   Synnax,
 } from "@synnaxlabs/pluto";
 import { binary, deep, type KeyedNamed } from "@synnaxlabs/x";
+import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, type ReactElement, useRef } from "react";
 import { z } from "zod";
 
@@ -355,6 +356,8 @@ export const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>(
   },
 });
 
+const FILTERS: DialogFilter[] = [{ name: "CSV", extensions: ["csv"] }];
+
 export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   linear: ({ prefix }) => (
     <>
@@ -461,6 +464,7 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
           <FS.InputFileContents<typeof tableSchema>
             initialPath={path}
             onChange={handleFileContentsChange}
+            filters={FILTERS}
             decoder={binary.CSV_CODEC}
           />
         </Input.Item>

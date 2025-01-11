@@ -12,6 +12,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Line plots are the main visualization tool in the Synnax Console. Line plots can be used
 to plot real-time data or historical data. They can plot one or several channels along
@@ -63,8 +65,10 @@ visualization toolbar.
       <td>
         <b>Ranges</b>
       </td>
-      <td>The time ranges to plot. If you select multiple ranges, the x-axis will scale
-          to accommodate both. Rolling time ranges allow you to stream live data.</td>
+      <td>
+        The time ranges to plot. If you select multiple ranges, the x-axis will scale to
+        accommodate both. Rolling time ranges allow you to stream live data.
+      </td>
     </tr>
     <tr>
       <td>
@@ -91,8 +95,10 @@ visualization toolbar.
       <td>
         <b>Label</b>
       </td>
-      <td>The text that appears in the legend for the channel. Changing the label does
-          not change the channel name.</td>
+      <td>
+        The text that appears in the legend for the channel. Changing the label does not
+        change the channel name.
+      </td>
     </tr>
     <tr>
       <td>
@@ -104,8 +110,10 @@ visualization toolbar.
       <td>
         <b>Downsampling</b>
       </td>
-      <td>Reduces the number of data points plotted for each channel. If downsampling is
-          5, every 5th data point is plotted.</td>
+      <td>
+        Reduces the number of data points plotted for each channel. If downsampling is
+        5, every 5th data point is plotted.
+      </td>
     </tr>
     <tr>
       <td>
@@ -209,6 +217,7 @@ In the bottom-left corner of the screen, there are options for navigating the li
 ### Zoom
 
 Zoom on the line plot by clicking the zoom <Icon.Zoom /> button in the or by pressing
+
 <Icon.Keyboard.Alt /> (Windows) / <Icon.Keyboard.Option /> (MacOS) and left click. This
 will adjust the axes of the line plot to the area of the box.
 
@@ -217,6 +226,7 @@ will adjust the axes of the line plot to the area of the box.
 ### Pan
 
 Pan the line plot by clicking the pan <Icon.Pan /> button or by pressing
+
 <Icon.Keyboard.Shift /> and left click.
 
 <Video client:only="react" id="console/line-plots/pan" />
@@ -224,6 +234,7 @@ Pan the line plot by clicking the pan <Icon.Pan /> button or by pressing
 ### Select
 
 Select data by clicking the selection <Icon.Selection /> button or by pressing
+
 <Icon.Keyboard.Alt /> (Windows) / <Icon.Keyboard.Option /> (MacOS) and left click. This
 box allows you to select data by dragging on the line plot. After selecting data you can
 right click and copy the time range to be used in Python, TypeScript, or ISO formats.
@@ -234,6 +245,7 @@ You can also create a range from this selection, or download the data as a CSV.
 ### Reset Zoom
 
 Reset the zoom by clicking the expand <Icon.Expand /> button or by pressing
+
 <Icon.Keyboard.Control /> (Windows) / <Icon.Keyboard.Command /> (MacOS) and left click.
 
 ### Show Tooltip on Hover

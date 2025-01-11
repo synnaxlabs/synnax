@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { PayloadAction, UnknownAction } from "@reduxjs/toolkit";
+import { type PayloadAction, type UnknownAction } from "@reduxjs/toolkit";
 import { Drift, selectWindowKey } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -234,7 +234,7 @@ export const useTriggers = () => {
   const remove = useRemover();
   const openInNewWindow = useOpenInNewWindow();
   Triggers.use({
-    triggers: [["Control", "F"]],
+    triggers: [["Control", "L"]],
     loose: true,
     callback: ({ stage }) => {
       if (stage !== "start") return;
@@ -270,7 +270,7 @@ export const useTriggers = () => {
     },
   });
   Triggers.use({
-    triggers: [["Control", "R"]],
+    triggers: [["Control", "E"]],
     loose: true,
     callback: ({ stage }) => {
       if (stage !== "start") return;

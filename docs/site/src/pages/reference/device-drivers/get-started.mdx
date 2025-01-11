@@ -6,7 +6,10 @@ description: "Browse available device drivers to connect your hardware."
 next: "OPC UA"
 nextURL: "/reference/device-drivers/opc-ua/connect-server"
 ---
-import { Divider } from "@synnaxlabs/pluto"
+
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Synnax offers several device drivers to help you connect your data acquisition and
 control hardware out of the box.
@@ -24,4 +27,4 @@ control hardware out of the box.
 ## Building a Custom Driver
 
 If you don't see a driver for your hardware, you can build your own using the
-[Python client](/reference/python-client/building-a-custom-driver). 
+[Python client](/reference/python-client/building-a-custom-driver).

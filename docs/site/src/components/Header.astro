@@ -3,6 +3,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Icon, Logo } from "@synnaxlabs/media";
 import Search from "@/components/search/Search.astro";
 import { Button, Text } from "@synnaxlabs/pluto";
+import { PageNavMobile } from "@/components/PageNav/PageNav";
 const url = Astro.url.pathname;
 ---
 
@@ -17,34 +18,51 @@ const url = Astro.url.pathname;
             <a href="https://synnaxlabs.com">
                 <Logo variant="title" />
             </a>
-            <Search />
-            <Button.Link
-                className="version-button"
-                variant="text"
-                href="https://github.com/synnaxlabs/synnax"
-                iconSpacing="small"
-            >
-                <Icon.Logo.Github slot="endIcon" />
-                <p class="version" transition:persist></p>
-            </Button.Link>
+            <Align.Space direction="x" align="center" justify="center">
+                <Align.Space direction="x" size="small">
+                    <Search />
+                    <PageNavMobile
+                        client:only="react"
+                        currentPage={Astro.url.pathname}
+                    />
+                </Align.Space>
+                <Button.Link
+                    className="version-button"
+                    variant="text"
+                    href="https://github.com/synnaxlabs/synnax"
+                    iconSpacing="small"
+                >
+                    <Icon.Logo.Github slot="endIcon" />
+                    <p class="version" transition:persist></p>
+                </Button.Link>
+            </Align.Space>
         </Align.Space>
     </Align.Space>
     <Align.Space className="bottom" justify="center" align="center">
         <Align.Space direction="x" className="header-content" size={5} justify="start">
             <Text.Link
-                href="/reference/"
-                className={url.includes("reference") ? "active" : ""}
-                level="h5">Reference</Text.Link
+                href="/"
+                className={url === "/" ? "active" : ""}
+                level="h5"
+                noWrap>Docs Home</Text.Link
             >
             <Text.Link
                 href="/guides/"
                 className={url.includes("guides") ? "active" : ""}
-                level="h5">Guides</Text.Link
+                level="h5"
+                noWrap>Guides</Text.Link
+            >
+            <Text.Link
+                href="/reference/"
+                className={url.includes("reference") ? "active" : ""}
+                level="h5"
+                noWrap>Reference</Text.Link
             >
             <Text.Link
                 href="/releases/"
                 className={url.includes("releases") ? "active" : ""}
-                level="h5">Release Notes</Text.Link
+                level="h5"
+                noWrap>Releases</Text.Link
             >
         </Align.Space>
     </Align.Space>
@@ -52,12 +70,12 @@ const url = Astro.url.pathname;
 
 <style is:global>
     .main-header {
+        z-index: 4;
         position: sticky;
         top: 0;
-        background: var(--pluto-gray-l0-70);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        z-index: 100;
+        background: var(--pluto-gray-l0-85);
+        backdrop-filter: blur(3rem);
+        -webkit-backdrop-filter: blur(3rem);
 
         .top {
             height: 9rem;
@@ -75,30 +93,8 @@ const url = Astro.url.pathname;
                 }
             }
 
-            & .synnax-logo--icon {
-                display: none;
-            }
-
             & .synnax-logo--title {
                 height: 5rem;
-            }
-
-            @media (max-width: 1100px) {
-                & .synnax-logo--title {
-                    margin-top: 1rem;
-                    height: 6rem;
-                    & text {
-                        display: none;
-                    }
-                }
-            }
-        }
-
-        @media (max-width: 1100px) {
-            .bottom {
-                .header-content {
-                    justify-content: center !important;
-                }
             }
         }
 
@@ -147,6 +143,39 @@ const url = Astro.url.pathname;
             width: 100%;
             max-width: var(--max-width);
             padding: 0 7rem;
+        }
+
+        .page-nav-mobile {
+            display: none;
+        }
+    }
+
+    @media (max-width: 800px) {
+        .main-header {
+            .bottom .header-content {
+                justify-content: center !important;
+            }
+            .top .header-content {
+                padding: 0 3rem;
+            }
+            .version-button {
+                display: none;
+            }
+            .page-nav-mobile {
+                display: flex;
+            }
+        }
+    }
+
+    @media (max-width: 800px) and (hover: none) {
+        .main-header {
+            z-index: 100;
+            flex-direction: column-reverse !important;
+            position: fixed;
+            bottom: 0px;
+            top: unset;
+            width: 100%;
+            border-top: var(--pluto-border-l4);
         }
     }
 </style>

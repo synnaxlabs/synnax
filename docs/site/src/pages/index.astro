@@ -1,0 +1,272 @@
+---
+import Root from "@/layouts/Root.astro";
+import OneBillionRowsTile from "@/pages/guides/comparison/performance/one-billion-rows/OneBillionRowsTile.astro";
+import ReleaseTile from "@/components/releases/ReleaseTile.astro";
+import Tile from "@/pages/guides/Tile.astro";
+import { Icon, Logo } from "@synnaxlabs/media";
+import { Align, Text } from "@synnaxlabs/pluto";
+---
+
+<Root frontmatter={{ title: "Docs Home" }}>
+    <Align.Space className="hero-parent" direction="y" align="center">
+        <Align.Space className="hero" direction="x" size={10}>
+            <Align.Space direction="y" grow size={6}>
+                <Align.Space direction="y" align="start" size="large">
+                    <Text.Text level="h1" className="title">Synnax Docs</Text.Text>
+                    <Text.Text
+                        level="h4"
+                        shade={7}
+                        style={{ maxWidth: "500px" }}
+                        weight={350}
+                    >
+                        Guides and references to instrument and operate hardware with
+                        Synnax.
+                    </Text.Text>
+                </Align.Space>
+                <Align.Space direction="y" size={4} grow>
+                    <Align.Space
+                        className="chip guide"
+                        el="a"
+                        href="/guides/"
+                        direction="y"
+                        grow
+                        bordered
+                        rounded
+                        align="start"
+                        justify="center"
+                    >
+                        <Align.Space size="small">
+                            <Text.WithIcon level="h4" size="medium" shade={9}>
+                                <Icon.Guide slot="startIcon" />
+                                Guides</Text.WithIcon
+                            >
+                            <Text.Text level="small" shade={7} weight={400}>
+                                Thorough walkthroughs to teach every aspect of the
+                                Synnax platform.
+                            </Text.Text>
+                            <Icon.OpenExternal />
+                        </Align.Space>
+                    </Align.Space>
+                    <Align.Space
+                        grow
+                        el="a"
+                        href="/reference/"
+                        bordered
+                        rounded
+                        align="start"
+                        justify="center"
+                        className="chip reference"
+                    >
+                        <Align.Space size="small">
+                            <Text.WithIcon level="h4" shade={9} size="medium">
+                                <Icon.Reference slot="startIcon" />
+                                Reference</Text.WithIcon
+                            >
+                            <Text.Text level="small" shade={7} weight={400}>
+                                In-depth documentation on Synnax concepts and
+                                components.
+                            </Text.Text>
+                            <Icon.OpenExternal />
+                        </Align.Space>
+                    </Align.Space>
+                </Align.Space>
+            </Align.Space>
+            <Align.Space direction="y" grow size={10}>
+                <Align.Space>
+                    <Align.Space
+                        direction="y"
+                        className="get"
+                        el="a"
+                        href="/guides/get-started/installation"
+                        align="center"
+                        justify="center"
+                        bordered
+                    >
+                        <Logo variant="icon" color="white" />
+                        <Text.Text level="h3" shade={10}>Get Started</Text.Text>
+                        <Text.Text level="h5" shade={7}>
+                            Start acquiring data in minutes
+                        </Text.Text>
+                        <Icon.OpenExternal />
+                    </Align.Space>
+                </Align.Space>
+            </Align.Space>
+        </Align.Space>
+    </Align.Space>
+
+    <style is:global>
+        section {
+            --root-box-shadow: var(--pluto-shadow-menu);
+            --root-border-radius: 1rem;
+            border-left: var(--pluto-border);
+            border-right: var(--pluto-border);
+        }
+        .title {
+            font-size: 9rem !important;
+        }
+
+        @property --p {
+            syntax: "<percentage>";
+            initial-value: 0%;
+            inherits: false;
+        }
+
+        @keyframes ripple {
+            0% {
+                --p: 0%;
+            }
+            70% {
+                --p: 0%;
+            }
+            100% {
+                --p: 100%;
+            }
+        }
+
+        .title::after {
+            content: "";
+            display: block;
+            width: 50%;
+            margin-top: 1rem;
+            height: 3px;
+            background: var(--pluto-primary-z);
+        }
+
+        .hero-parent {
+            padding-top: 16rem;
+            height: 100vh;
+            width: 100%;
+            & h1 {
+                margin: 0 !important;
+            }
+        }
+
+        .guides {
+            margin: 0 auto;
+            max-width: 1100px;
+        }
+
+        .get {
+            text-decoration: none !important;
+
+            & .synnax-logo {
+                position: absolute;
+                top: 3rem;
+                left: 3rem;
+                height: 24px;
+                fill: var(--pluto-gray-l10);
+            }
+
+            position: relative;
+            height: 400px;
+            aspect-ratio: 1;
+            border-radius: var(--root-border-radius);
+            border: var(--pluto-border-l4);
+            box-shadow: var(--root-box-shadow);
+            cursor: pointer;
+            transition: all 0.3s;
+
+            --first: var(--pluto-gray-l1);
+            --second: var(--pluto-primary-z-15);
+            animation: ripple 4s infinite;
+            animation-timing-function: steps(60, end);
+            background: none;
+            background-image: repeating-radial-gradient(
+                    circle at -2rem -2rem,
+                    transparent 0,
+                    var(--first) 1.5rem
+                ),
+                repeating-linear-gradient(transparent, var(--second)),
+                radial-gradient(
+                    circle at 5rem 5rem,
+                    transparent 0,
+                    transparent calc(var(--p) - 6%),
+                    var(--pluto-gray-l3-30) calc(var(--p) - 3%),
+                    transparent calc(var(--p) - 6%),
+                    transparent calc(var(--p) - 3%),
+                    var(--pluto-gray-l3-50) var(--p),
+                    transparent calc(var(--p))
+                );
+
+            &:hover {
+                border-color: var(--pluto-gray-l5);
+            }
+
+            & h3 {
+                margin: 0 !important;
+            }
+        }
+
+        .synnax-icon-open-external {
+            position: absolute;
+            height: 3.5rem;
+            width: 3.5rem;
+            color: var(--pluto-gray-l7);
+            top: 1.5rem;
+            right: 1.5rem;
+        }
+
+        .chip {
+            position: relative;
+            text-decoration: none !important;
+            border-radius: var(--root-border-radius);
+            background-color: var(--pluto-gray-l1);
+            flex-basis: 50%;
+            transition: all 0.2s;
+            cursor: pointer;
+            border-color: var(--pluto-gray-l4);
+            box-shadow: var(--root-box-shadow);
+            padding: 2.5rem 4rem;
+
+            &.guide {
+                background-size: cover;
+                background-position: center center;
+                background-repeat: repeat;
+            }
+            &:hover {
+                background-color: var(--pluto-gray-l2);
+                border-color: var(--pluto-gray-l5);
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .hero {
+                gap: 4rem !important;
+            }
+        }
+
+        @media (max-width: 950px) {
+            .hero-parent {
+                padding-bottom: 10rem;
+                padding-top: 10rem;
+                height: 100vh;
+                .hero {
+                    flex-direction: column !important;
+                    padding: 0 3rem;
+                    gap: 4rem !important;
+                }
+
+                .get {
+                    height: min-content;
+                    gap: 1rem !important;
+                    aspect-ratio: unset;
+                    align-items: start !important;
+                    padding: 4rem;
+
+                    .synnax-logo {
+                        display: none;
+                    }
+                }
+            }
+            section {
+                border: none;
+            }
+        }
+
+        @media (max-width: 600px) and (hover: none) {
+            .hero-parent {
+                padding-top: 3rem;
+            }
+        }
+    </style>
+</Root>

@@ -7,15 +7,16 @@ prevURL: "/reference/control/get-started"
 next: "Examples"
 nextURL: "/reference/control/examples"
 ---
+
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image } from "@/components/Media";
 import Table from "@/components/Table.astro";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 The Synnax [Python Client's](/reference/python-client/get-started) `control` module makes
 it easy to write automated sequences to control your hardware. The Synnax team focuses
-on making this module as simple as possible - this page will guide you through the 
+on making this module as simple as possible - this page will guide you through the
 process of writing your first control sequence.
 
 <Divider.Divider direction="x" />
@@ -26,7 +27,6 @@ Before you can start writing control sequences, you'll need to have:
 
 - A Synnax [cluster](/reference/cluster/quick-start) running
 - The Synnax [Python Client](/reference/python-client/get-started) installed
-
 
 <Divider.Divider direction="x" />
 
@@ -39,7 +39,7 @@ the Synnax client. This is best done using a context manager, as shown below:
 ```python
 import synnax as sy
 
-# Open the client 
+# Open the client
 client = sy.Synnax()
 
 # Open the controller
@@ -54,31 +54,38 @@ with client.control.acquire(
 The `acquire` method takes a few arguments:
 
 <Table>
-    <thead>
-        <tr>
-            <th>Argument</th>
-            <th>Description</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>`read`</td>
-            <td>A list of channels that your control sequence will need to read from. Any
-            channels not present in this list will not be available to your control sequence.</td>
-        </tr>
-        <tr>
-            <td>`write`</td>
-            <td>A list of channels that your sequence needs control over. Any channels not
-            in this list cannot be commanded</td>
-        </tr>
-        <tr>
-            <td>`write_authorities`</td>
-            <td>An optional authority or list of authorities for the channels you're writing to. 
-            These are numbers between 0 and 255 that define the precedence of your sequence over
-            other sequences that may be running. If you don't provide this argument, the default
-            authority takes absolute control (255). More on authorities later.</td>
-        </tr>
-    </tbody>
+  <thead>
+    <tr>
+      <th>Argument</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`read`</td>
+      <td>
+        A list of channels that your control sequence will need to read from. Any
+        channels not present in this list will not be available to your control
+        sequence.
+      </td>
+    </tr>
+    <tr>
+      <td>`write`</td>
+      <td>
+        A list of channels that your sequence needs control over. Any channels not in
+        this list cannot be commanded
+      </td>
+    </tr>
+    <tr>
+      <td>`write_authorities`</td>
+      <td>
+        An optional authority or list of authorities for the channels you're writing to.
+        These are numbers between 0 and 255 that define the precedence of your sequence
+        over other sequences that may be running. If you don't provide this argument,
+        the default authority takes absolute control (255). More on authorities later.
+      </td>
+    </tr>
+  </tbody>
 </Table>
 
 <Divider.Divider direction="x" />
@@ -128,7 +135,7 @@ controller.set({
 
 The `wait_until` method allows you to wait for a condition to be met before continuing.
 This method accepts a function that takes in the current sensor values and returns
-a boolean. 
+a boolean.
 
 ### Lambda Expressions
 
@@ -146,7 +153,7 @@ temperature_above_25 = lambda sensor_values: sensor_values["pressure_1"] > 25
 ```
 
 In future examples, we'll use `sv` as a shorthand for `sensor_values` to keep the code
-concise. Here's how you can use a similar `lambda` expression with the `wait_until` 
+concise. Here's how you can use a similar `lambda` expression with the `wait_until`
 method:
 
 ```python
@@ -197,7 +204,7 @@ with client.control.acquire(
 ```
 
 In many ways, you can think of the `wait_while` method as the opposite of the `wait_until`
-method. 
+method.
 
 <Divider.Divider direction="x" />
 
@@ -219,10 +226,10 @@ with client.control.acquire(
 ```
 
 <Note.Note variant="warning">
-The `duration` argument should be treated as a minimum duration, as the block is not 
-guaranteed to sleep for exactly the provided duration. The actual duration may be longer
-due to the operating system's scheduler. This block will _not_ sleep for less than the
-provided duration unless the condition is no longer true.
+  The `duration` argument should be treated as a minimum duration, as the block is not
+  guaranteed to sleep for exactly the provided duration. The actual duration may be
+  longer due to the operating system's scheduler. This block will _not_ sleep for less
+  than the provided duration unless the condition is no longer true.
 </Note.Note>
 
 ### Remains True for a Certain Percentage of Samples
@@ -242,8 +249,8 @@ with client.control.acquire(
     # Assert that the pressure sensor value remains above 25 for 10 seconds
     # for at least 90% of the samples
     controller.remains_true_for(
-        lambda sv: sv["pressure_1"] > 25, 
-        duration=10, 
+        lambda sv: sv["pressure_1"] > 25,
+        duration=10,
         percentage=0.9
     )
 ```
