@@ -101,7 +101,6 @@ export class StreamChannelValue
   }
 
   private async updateStreamHandler(): Promise<void> {
-    console.log("Updating stream handler");
     await this.removeStreamHandler?.();
     const handler: client.StreamHandler = (data) => {
       const res = data[this.channelKey];

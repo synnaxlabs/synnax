@@ -74,7 +74,6 @@ const NavTopPalette = (): ReactElement => (
   />
 );
 
-
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
  * presentational.

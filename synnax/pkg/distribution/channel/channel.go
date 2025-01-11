@@ -202,7 +202,7 @@ type Channel struct {
 	Internal bool `json:"internal" msgpack:"internal"`
 	// Requires is only used for calculated channels, and specifies the channels that
 	// are required for the calculation.
-	Requires []Key `json:"requires" msgpack:"requires"`
+	Requires Keys `json:"requires" msgpack:"requires"`
 	// Expression is only used for calculated channels, and specifies the python expression
 	// to evaluate the calculated value.
 	Expression string `json:"expression" msgpack:"expression"`

@@ -48,9 +48,7 @@ export class CompoundTelemFactory {
 export const factory = (client?: client.Client): CompoundTelemFactory => {
   const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
   const f = new CompoundTelemFactory(base);
-  if (client != null) 
-    f.add(new RemoteFactory(client));
-  
+  if (client != null) f.add(new RemoteFactory(client));
 
   f.add(new PipelineFactory(f));
   return f;
