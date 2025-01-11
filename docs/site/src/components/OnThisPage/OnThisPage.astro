@@ -1,16 +1,25 @@
 ---
+import Feedback from "@/components/feedback/Feedback.astro";
 import { OnThisPage as OTP } from "@/components/OnThisPage/OnThisPage";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Header, Text } from "@synnaxlabs/pluto";
+import { Align, Divider, Header, Text } from "@synnaxlabs/pluto";
 const props = Astro.props;
 ---
 
-<Align.Space el="nav" className="on-this-page" size={2}>
-    <Text.WithIcon level="h5">
-        <Icon.Log slot="startIcon" style={{ transform: "scale(0.8)" }} />
-        On this page
-    </Text.WithIcon>
-    <OTP client:only="react" headings={props.headings} url={props.url} />
+<Align.Space el="nav" className="on-this-page" size={4}>
+    <Align.Space direction="y" size={2}>
+        <Text.WithIcon level="h5">
+            <Icon.Log slot="startIcon" style={{ transform: "scale(0.8)" }} />
+            On this page
+        </Text.WithIcon>
+        <OTP client:only="react" headings={props.headings} url={props.url} />
+    </Align.Space>
+    <Align.Space direction="y" size={2}>
+        <Divider.Divider direction="x" />
+        <Align.Space direction="x" justify="end">
+            <Feedback />
+        </Align.Space>
+    </Align.Space>
 </Align.Space>
 
 <style is:global>
