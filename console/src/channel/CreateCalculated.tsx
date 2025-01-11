@@ -22,6 +22,7 @@ import {
   Triggers,
   useSyncedRef,
   Status,
+  Tag,
 } from "@synnaxlabs/pluto";
 import { unique, deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -148,7 +149,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
 
       const isValid = await methods.validate();
       if (!isValid) {
-        throw new Error("Validation failed: " + JSON.stringify(methods.errors));
+        throw new Error("Validation failed: " + JSON.stringify(methods.value().name));
       }
 
       const d = methods.value();
@@ -232,6 +233,9 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               </Text.Text>
             </Align.Space>
           )}
+          <Tag.Tag variant="filled" color="var(--pluto-warning-m1)">
+            Beta Feature
+          </Tag.Tag>
           <Button.Button
             disabled={isPending}
             loading={isPending}
@@ -246,7 +250,6 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   );
 };
 
-
 const Editor = (props: Code.EditorProps): ReactElement => {
   const client = Synnax.use();
   const requires = Form.useField<channel.Key[]>({ path: "requires" });
@@ -256,17 +259,19 @@ const Editor = (props: Code.EditorProps): ReactElement => {
   const hasHyphenatedName = async () => {
     if (!client || !requires.value?.length) return false;
     const channels = await Promise.all(
-        requires.value.map(key => client.channels.retrieve(key))
+      requires.value.map((key) => client.channels.retrieve(key)),
     );
-    return channels.some(ch => ch.name.includes('-'));
+    return channels.some((ch) => ch.name.includes("-"));
   };
 
   useEffect(() => {
     const checkHyphens = async () => {
       const hasHyphen = await hasHyphenatedName();
       if (hasHyphen) {
-        setHyphenWarning('Note: Channels with hyphens must be accessed using' +
-            ' channels["channel-name"]');
+        setHyphenWarning(
+          "Note: Channels with hyphens must be accessed using" +
+            ' channels["channel-name"]',
+        );
       } else {
         setHyphenWarning(null);
       }
@@ -290,15 +295,15 @@ const Editor = (props: Code.EditorProps): ReactElement => {
         }
 
         const channels = await Promise.all(
-            channelNames.map((name) =>
-                client.channels
-                    .search(name, { internal: false })
-                    .then((results) => results.find((ch) => ch.name === name)),
-            ),
+          channelNames.map((name) =>
+            client.channels
+              .search(name, { internal: false })
+              .then((results) => results.find((ch) => ch.name === name)),
+          ),
         );
         const channelKeys = channels
-            .filter((ch): ch is NonNullable<typeof ch> => ch != null)
-            .map((ch) => ch.key);
+          .filter((ch): ch is NonNullable<typeof ch> => ch != null)
+          .map((ch) => ch.key);
         if (channelKeys.length > 0) {
           requires.onChange(unique([...valueRef.current, ...channelKeys]));
         }
@@ -313,60 +318,58 @@ const Editor = (props: Code.EditorProps): ReactElement => {
   useEffect(() => {
     const disposables: monaco.IDisposable[] = [];
     disposables.push(
-        monaco.editor.registerCommand("onSuggestionAccepted", (_, channelKey) =>
-            requires.onChange(unique([...valueRef.current, channelKey])),
-        ),
+      monaco.editor.registerCommand("onSuggestionAccepted", (_, channelKey) =>
+        requires.onChange(unique([...valueRef.current, channelKey])),
+      ),
     );
 
     disposables.push(
-        monaco.languages.registerCompletionItemProvider("python", {
-          triggerCharacters: ["."],
-          provideCompletionItems: async (
-              model: monaco.editor.ITextModel,
-              position: monaco.Position,
-          ): Promise<monaco.languages.CompletionList> => {
-            if (client == null) return { suggestions: [] };
-            const word = model.getWordUntilPosition(position);
-            const range: monaco.IRange = {
-              startLineNumber: position.lineNumber,
-              endLineNumber: position.lineNumber,
-              startColumn: word.startColumn,
-              endColumn: word.endColumn,
-            };
-            const channels = await client?.channels.search(word.word, {
-              internal: false,
-            });
-            return {
-              suggestions: channels.map((channel) => ({
-                label: channel.name,
-                kind: monaco.languages.CompletionItemKind.Variable,
-                insertText: channel.name.includes('-')
-                    ? `channels["${channel.name}"]`
-                    : channel.name,
-                range,
-                command: {
-                  id: "onSuggestionAccepted",
-                  title: "Suggestion Accepted",
-                  arguments: [channel.key],
-                },
-              })),
-            };
-          },
-        }),
+      monaco.languages.registerCompletionItemProvider("python", {
+        triggerCharacters: ["."],
+        provideCompletionItems: async (
+          model: monaco.editor.ITextModel,
+          position: monaco.Position,
+        ): Promise<monaco.languages.CompletionList> => {
+          if (client == null) return { suggestions: [] };
+          const word = model.getWordUntilPosition(position);
+          const range: monaco.IRange = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+          const channels = await client?.channels.search(word.word, {
+            internal: false,
+          });
+          return {
+            suggestions: channels.map((channel) => ({
+              label: channel.name,
+              kind: monaco.languages.CompletionItemKind.Variable,
+              insertText: channel.name.includes("-")
+                ? `channels["${channel.name}"]`
+                : channel.name,
+              range,
+              command: {
+                id: "onSuggestionAccepted",
+                title: "Suggestion Accepted",
+                arguments: [channel.key],
+              },
+            })),
+          };
+        },
+      }),
     );
     return () => disposables.forEach((d) => d.dispose());
   }, []);
 
   return (
-      <>
-        <Code.Editor {...props} />
-        {hyphenWarning && (
-            <Text.Text level="small" shade={7}>
-              {hyphenWarning}
-            </Text.Text>
-        )}
-      </>
+    <>
+      <Code.Editor {...props} />
+      {hyphenWarning && (
+        <Text.Text level="small" shade={7}>
+          {hyphenWarning}
+        </Text.Text>
+      )}
+    </>
   );
 };
-
-
