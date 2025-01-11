@@ -115,6 +115,17 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev
 
+     -  name: Setup Visual Studio Build Tools
+        if: matrix.os == 'windows-latest'
+        uses: microsoft/setup-msbuild@v1.3
+        with:
+          msbuild-architecture: x64
+
+      - name: Install Visual Studio Components
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+
       - name: Build Python On Windows
         if: matrix.os == 'windows-latest'
         shell: pwsh
