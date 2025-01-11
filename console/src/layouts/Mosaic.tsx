@@ -41,7 +41,7 @@ import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
 import { useMoveIntoMainWindow } from "@/layout/Menu";
-import { useSelectActiveMosaicTabKey, useSelectMosaic } from "@/layout/selectors";
+import { useSelectActiveMosaicTabKey } from "@/layout/selectors";
 import {
   moveMosaicTab,
   remove,
@@ -144,9 +144,20 @@ const ModalContent = ({ node, tabKey }: ContentCProps) => {
 
 const contextMenu = componentRenderProp(ContextMenu);
 
+interface MosaicProps {
+  windowKey: string;
+  mosaic: Core.Node;
+}
+
+export const Mosaic: Layout.Renderer = memo((): ReactElement | null => {
+  const [windowKey, mosaic] = Layout.useSelectMosaic();
+  if (windowKey == null || mosaic == null) return null;
+  return <Internal windowKey={windowKey} mosaic={mosaic} />;
+});
+Mosaic.displayName = "Mosaic";
+
 /** LayoutMosaic renders the central layout mosaic of the application. */
-export const Mosaic = memo((): ReactElement => {
-  const [windowKey, mosaic] = useSelectMosaic();
+const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = useStore();
   const activeTab = useSelectActiveMosaicTabKey();
   const client = Synnax.use();
@@ -156,6 +167,7 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
+      if (windowKey == null) return;
       dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
     [dispatch, windowKey],
@@ -326,8 +338,7 @@ export const Mosaic = memo((): ReactElement => {
       </Core.Mosaic>
     </>
   );
-});
-Mosaic.displayName = "Mosaic";
+};
 
 export const NavTop = (): ReactElement | null => {
   const os = OS.use();
@@ -391,9 +402,10 @@ export const NavTop = (): ReactElement | null => {
 };
 
 export const MosaicWindow = memo(
-  ({ layoutKey }: Layout.RendererProps): ReactElement => {
+  ({ layoutKey }: Layout.RendererProps): ReactElement | null => {
     const { menuItems, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
     const dispatch = useDispatch();
+    const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
       dispatch(
         setNavDrawer({
@@ -404,10 +416,11 @@ export const MosaicWindow = memo(
         }),
       );
     }, [layoutKey]);
+    if (windowKey == null || mosaic == null) return null;
     return (
       <>
         <NavTop />
-        <Mosaic />
+        <Internal windowKey={windowKey} mosaic={mosaic} />
         <NavDrawer location="bottom" />
         <Nav.Bar
           className="console-main-nav"
