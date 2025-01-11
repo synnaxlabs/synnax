@@ -86,7 +86,7 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
-import { useSyncComponent as coreUseSyncComponent } from "@/workspace/useSyncComponent";
+import { Workspace } from "@/workspace";
 
 interface SyncPayload {
   key?: string;
@@ -99,7 +99,7 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 );
 
 const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
-  coreUseSyncComponent<SyncPayload>(
+  Workspace.useSyncComponent<SyncPayload>(
     "Line Plot",
     layoutKey,
     async (ws, store, client) => {

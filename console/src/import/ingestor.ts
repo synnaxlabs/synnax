@@ -8,13 +8,32 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
+import { type Synnax } from "@synnaxlabs/client";
 
 import { type Layout } from "@/layout";
 
-export type Ingestor = (args: {
-  data: string;
-  name: string;
-  store: Store;
-  key?: string;
+interface FileIngestorContext {
   layout?: Partial<Layout.State>;
-}) => Layout.PlacerArgs;
+  placeLayout: Layout.Placer;
+  store: Store;
+}
+
+export interface FileIngestor {
+  (data: string, ctx: FileIngestorContext): void;
+}
+
+interface FileInfo {
+  name: string;
+  data: string;
+}
+
+interface DirectoryIngestorContext {
+  client: Synnax | null;
+  ingestors: Record<string, FileIngestor>;
+  placeLayout: Layout.Placer;
+  store: Store;
+}
+
+export interface DirectoryIngestor {
+  (name: string, file: FileInfo[], ctx: DirectoryIngestorContext): Promise<void>;
+}

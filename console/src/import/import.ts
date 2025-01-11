@@ -15,22 +15,22 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
-import { type Ingestor } from "@/import/ingestor";
+import { type FileIngestor } from "@/import/ingestor";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 interface ImportArgs {
-  store: Store;
+  addStatus: Status.AddStatusFn;
   client: Synnax | null;
   placeLayout: Layout.Placer;
-  addStatus: Status.AddStatusFn;
+  store: Store;
   workspaceKey?: string;
 }
 
 type Importer = (args: ImportArgs) => Promise<void>;
 
-type ImporterCreator = (ingest: Ingestor, type?: string) => Importer;
+type ImporterCreator = (ingest: FileIngestor, type?: string) => Importer;
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 
@@ -66,8 +66,7 @@ export const createImporter: ImporterCreator =
           const data = await readTextFile(path);
           const name = path.split(sep()).pop();
           if (name == null) throw new Error(`Cannot read file located at ${path}`);
-          const layout = ingest({ data, name, store });
-          placeLayout(layout);
+          ingest(data, { layout: { name }, placeLayout, store });
         } catch (e) {
           if (!(e instanceof Error)) throw e;
           addStatus({

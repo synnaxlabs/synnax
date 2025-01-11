@@ -19,7 +19,7 @@ import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
-import { useSyncComponent as coreUseSyncComponent } from "@/workspace/useSyncComponent";
+import { Workspace } from "@/workspace";
 
 export type LayoutType = "log";
 export const LAYOUT_TYPE = "log";
@@ -31,19 +31,23 @@ interface SyncPayload {
 export const useSyncComponent = (
   layoutKey: string,
 ): Dispatch<PayloadAction<SyncPayload>> =>
-  coreUseSyncComponent<SyncPayload>("Log", layoutKey, async (ws, store, client) => {
-    const storeState = store.getState();
-    const data = select(storeState, layoutKey);
-    if (data == null) return;
-    const layout = Layout.selectRequired(storeState, layoutKey);
-    const setData = { ...data, key: undefined };
-    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-    await client.workspaces.log.create(ws, {
-      key: layoutKey,
-      name: layout.name,
-      data: setData,
-    });
-  });
+  Workspace.useSyncComponent<SyncPayload>(
+    "Log",
+    layoutKey,
+    async (ws, store, client) => {
+      const storeState = store.getState();
+      const data = select(storeState, layoutKey);
+      if (data == null) return;
+      const layout = Layout.selectRequired(storeState, layoutKey);
+      const setData = { ...data, key: undefined };
+      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
+      await client.workspaces.log.create(ws, {
+        key: layoutKey,
+        name: layout.name,
+        data: setData,
+      });
+    },
+  );
 
 const DEFAULT_RETENTION = TimeSpan.days(1);
 const PRELOAD = TimeSpan.seconds(30);

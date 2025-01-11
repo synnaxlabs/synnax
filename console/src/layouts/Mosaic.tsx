@@ -30,31 +30,19 @@ import {
 import { type location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
-import { ZodError } from "zod";
 
 import { Controls } from "@/components";
 import { Menu } from "@/components/menu";
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
+import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
-import { Content } from "@/layout/Content";
-import { usePlacer } from "@/layout/hooks";
-import { useMoveIntoMainWindow } from "@/layout/Menu";
-import { useSelectActiveMosaicTabKey, useSelectMosaic } from "@/layout/selectors";
-import {
-  moveMosaicTab,
-  remove,
-  rename,
-  resizeMosaicTab,
-  selectMosaicTab,
-  setNavDrawer,
-} from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
-import { ingest } from "@/workspace/services/import";
+import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
@@ -143,17 +131,17 @@ const contextMenu = componentRenderProp(ContextMenu);
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const Mosaic = memo((): ReactElement => {
-  const [windowKey, mosaic] = useSelectMosaic();
+  const [windowKey, mosaic] = Layout.useSelectMosaic();
   const store = useStore();
-  const activeTab = useSelectActiveMosaicTabKey();
+  const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
-  const place = usePlacer();
+  const place = Layout.usePlacer();
   const dispatch = useDispatch();
   const addStatus = Status.useAggregator();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
-      dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
+      dispatch(Layout.moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
     [dispatch, windowKey],
   );
@@ -203,28 +191,28 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleClose = useCallback(
     (tabKey: string): void => {
-      dispatch(remove({ keys: [tabKey] }));
+      dispatch(Layout.remove({ keys: [tabKey] }));
     },
     [dispatch],
   );
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
-      dispatch(selectMosaicTab({ tabKey }));
+      dispatch(Layout.selectMosaicTab({ tabKey }));
     },
     [dispatch],
   );
 
   const handleRename = useCallback(
     (tabKey: string, name: string): void => {
-      dispatch(rename({ key: tabKey, name }));
+      dispatch(Layout.rename({ key: tabKey, name }));
     },
     [dispatch],
   );
 
   const handleResize = useDebouncedCallback(
     (key, size) => {
-      dispatch(resizeMosaicTab({ key, size, windowKey }));
+      dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
     100,
     [dispatch, windowKey],
@@ -232,60 +220,29 @@ export const Mosaic = memo((): ReactElement => {
   const handleFileDrop = useCallback(
     async (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
       const items = Array.from(event.dataTransfer.items);
-      for (const item of items)
-        try {
-          const entry = await handleDataTransferItem(item);
-          if (entry == null) throw new Error("path is null");
-          if (entry instanceof File) {
-            const name = entry.name;
-            if (entry.type !== "application/json") throw new Error("not a JSON file");
-            const buffer = await entry.arrayBuffer();
-            const fileData = new TextDecoder().decode(buffer);
-            let hasBeenIngested = false;
-            for (const ingest of Object.values(INGESTORS))
-              try {
-                const placerArg = ingest({
-                  data: fileData,
-                  name,
-                  store,
-                  key: undefined,
-                  layout: { tab: { mosaicKey: nodeKey, location: loc } },
-                });
-                place(placerArg);
-                hasBeenIngested = true;
-                break;
-              } catch (e) {
-                if (e instanceof ZodError) continue;
-                else throw e;
-              }
-            if (!hasBeenIngested)
-              throw new Error(`${entry.name} is not a valid layout file`);
-            continue;
-          }
-
-          const parsedFiles = await Promise.all(
-            entry.files.map(async (file) => {
-              const buffer = await file.arrayBuffer();
-              const data = new TextDecoder().decode(buffer);
-              return { name: file.name, data };
-            }),
-          );
-          await ingest(entry.name, parsedFiles, {
-            addStatus,
-            client,
-            placeLayout: place,
-            store,
-          });
-        } catch (e) {
-          if (e instanceof Error)
+      await Promise.all(
+        items.map(async (item) => {
+          try {
+            await Import.importDataTransferItem(item, {
+              client,
+              fileIngestors: INGESTORS,
+              ingestDirectory: WorkspaceServices.ingest,
+              layout: { tab: { mosaicKey: nodeKey, location: loc } },
+              placeLayout: place,
+              store,
+            });
+          } catch (e) {
+            if (!(e instanceof Error)) throw e;
             addStatus({
               variant: "error",
               message: `Failed to read ${item.getAsFile()?.name ?? "file"}`,
               description: e.message,
             });
-        }
+          }
+        }),
+      );
     },
-    [dispatch],
+    [client, place, store],
   );
 
   // Creates a wrapper around the general purpose layout content to create a set of
@@ -297,7 +254,7 @@ export const Mosaic = memo((): ReactElement => {
     root: mosaic,
     onSelect: handleSelect,
     children: ({ tabKey, visible }) => (
-      <Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
+      <Layout.Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
     ),
   });
 
@@ -340,7 +297,7 @@ export const NavTop = (): ReactElement | null => {
   const active = Layout.useSelectActiveMosaicLayout();
   const ws = Workspace.useSelectActive();
   const store = useStore<RootState>();
-  const moveToMain = useMoveIntoMainWindow();
+  const moveToMain = Layout.useMoveIntoMainWindow();
   const collapseButton = (
     <Button.Icon
       onClick={() => {
@@ -402,7 +359,7 @@ export const MosaicWindow = memo(
     const dispatch = useDispatch();
     useLayoutEffect(() => {
       dispatch(
-        setNavDrawer({
+        Layout.setNavDrawer({
           windowKey: layoutKey,
           location: "bottom",
           menuItems: ["visualization"],
@@ -430,49 +387,3 @@ export const MosaicWindow = memo(
   },
 );
 MosaicWindow.displayName = "MosaicWindow";
-
-type DirectoryContent = {
-  name: string;
-  files: File[];
-};
-
-const handleDataTransferItem = async (
-  item: DataTransferItem,
-): Promise<File | DirectoryContent | null> => {
-  if (item.kind !== "file") return null;
-
-  const entry = item.webkitGetAsEntry();
-  if (!entry) return null;
-
-  if (entry.isFile) return item.getAsFile();
-  if (!entry.isDirectory) return null;
-
-  const directoryReader = (entry as FileSystemDirectoryEntry).createReader();
-  const files: File[] = [];
-
-  const processEntries = async (entries: FileSystemEntry[]): Promise<void> => {
-    await Promise.all(
-      entries.map(async (entry) => {
-        if (entry.isFile) {
-          const file = await new Promise<File | null>((resolve) => {
-            (entry as FileSystemFileEntry).file(resolve, () => resolve(null));
-          });
-          if (file) files.push(file);
-        }
-      }),
-    );
-  };
-
-  const readAllEntries = async (): Promise<void> => {
-    while (true) {
-      const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
-        directoryReader.readEntries(resolve, reject);
-      });
-      if (entries.length === 0) break;
-      await processEntries(entries);
-    }
-  };
-
-  await readAllEntries();
-  return { name: entry.name, files };
-};

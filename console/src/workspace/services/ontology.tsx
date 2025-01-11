@@ -22,6 +22,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Menu } from "@/components/menu";
 import { Export } from "@/export";
+import { EXTRACTORS } from "@/extractors";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -278,7 +279,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createSchematic = useCreateSchematic();
   const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
   const handleLink = Link.useCopyToClipboard();
-  const handleExport = useExport();
+  const handleExport = useExport(EXTRACTORS);
   const handleSelect = {
     delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),

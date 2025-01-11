@@ -59,7 +59,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/table/slice";
-import { useSyncComponent as coreUseSyncComponent } from "@/workspace/useSyncComponent";
+import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "table";
 export type LayoutType = typeof LAYOUT_TYPE;
@@ -90,19 +90,23 @@ interface SyncPayload {
 export const useSyncComponent = (
   layoutKey: string,
 ): Dispatch<PayloadAction<SyncPayload>> =>
-  coreUseSyncComponent<SyncPayload>("Table", layoutKey, async (ws, store, client) => {
-    const storeState = store.getState();
-    const data = select(storeState, layoutKey);
-    if (data == null) return;
-    const layout = Layout.selectRequired(storeState, layoutKey);
-    const setData = { ...data, key: undefined };
-    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-    await client.workspaces.table.create(ws, {
-      key: layoutKey,
-      name: layout.name,
-      data: setData,
-    });
-  });
+  Workspace.useSyncComponent<SyncPayload>(
+    "Table",
+    layoutKey,
+    async (ws, store, client) => {
+      const storeState = store.getState();
+      const data = select(storeState, layoutKey);
+      if (data == null) return;
+      const layout = Layout.selectRequired(storeState, layoutKey);
+      const setData = { ...data, key: undefined };
+      if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
+      await client.workspaces.table.create(ws, {
+        key: layoutKey,
+        name: layout.name,
+        data: setData,
+      });
+    },
+  );
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { name } = Layout.useSelectRequired(layoutKey);

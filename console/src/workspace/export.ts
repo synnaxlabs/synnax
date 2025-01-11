@@ -15,7 +15,6 @@ import { useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
 import { type Export } from "@/export";
-import { EXTRACTORS } from "@/extractors";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { convertLayout } from "@/workspace/convertLayout";
@@ -25,7 +24,9 @@ const removeDirectory = (name: string): string => name.split(sep()).join("_");
 
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
 
-export const useExport = (): ((key: string) => Promise<void>) => {
+export const useExport = (
+  extractors: Record<string, Export.Extractor>,
+): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
   const store = useStore<RootState>();
@@ -77,7 +78,7 @@ export const useExport = (): ((key: string) => Promise<void>) => {
       const fileInfos: Export.ExtractorReturn[] = [];
       await Promise.all(
         Object.values(toExport.layouts).map(async ({ type, key }) => {
-          const extractor = EXTRACTORS[type];
+          const extractor = extractors[type];
           if (extractor == null) return;
           const fileData = (await extractor(key, { store, client })).data;
           const fileName = `${key}.json`;

@@ -17,7 +17,7 @@ import { SchematicServices } from "@/schematic/services";
 import { Table } from "@/table";
 import { TableServices } from "@/table/services";
 
-export const INGESTORS: Record<string, Import.Ingestor> = {
+export const INGESTORS: Record<string, Import.FileIngestor> = {
   [LinePlot.LAYOUT_TYPE]: LinePlotServices.ingest,
   [Log.LAYOUT_TYPE]: LogServices.ingest,
   [Schematic.LAYOUT_TYPE]: SchematicServices.ingest,
