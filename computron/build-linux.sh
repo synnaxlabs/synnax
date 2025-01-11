@@ -26,7 +26,8 @@ cd Python-${PYTHON_VERSION}
     --disable-shared \
     --enable-optimizations \
     --with-ensurepip=no \
-    LDFLAGS="-Wl,-rpath,${PYTHON_INSTALL_DIR}/lib"
+    CFLAGS="-I${PYTHON_INSTALL_DIR}/include" \
+    LDFLAGS="-Wl,-rpath,${PYTHON_INSTALL_DIR}/lib -L${PYTHON_INSTALL_DIR}/lib -lm"
 
 # Build Python using all available cores
 make -j$(nproc)
