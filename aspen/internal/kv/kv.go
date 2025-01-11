@@ -46,7 +46,7 @@ func (d *DB) Set(
 	maybeLease ...interface{},
 ) (err error) {
 	b := d.OpenTx()
-	defer func() { err = errors.CombineErrors(err, b.Close()) }()
+	defer func() { err = errors.Combine(err, b.Close()) }()
 	if err = b.Set(ctx, key, value, maybeLease...); err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (d *DB) Delete(
 	maybeLease ...interface{},
 ) (err error) {
 	b := d.OpenTx()
-	defer func() { err = errors.CombineErrors(err, b.Close()) }()
+	defer func() { err = errors.Combine(err, b.Close()) }()
 	if err = b.Delete(ctx, key, maybeLease...); err != nil {
 		return err
 	}

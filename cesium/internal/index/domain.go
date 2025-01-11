@@ -41,7 +41,7 @@ func (i *Domain) Distance(
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
 	iter := i.DB.OpenIterator(domain.IteratorConfig{Bounds: tr})
-	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
+	defer func() { err = errors.Combine(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) {
 		// If the domain with the given time range doesn't exist in the database, then
@@ -75,7 +75,7 @@ func (i *Domain) Distance(
 	if err != nil {
 		return
 	}
-	defer func() { err = errors.CombineErrors(err, r.Close()) }()
+	defer func() { err = errors.Combine(err, r.Close()) }()
 
 	startApprox, err = i.search(tr.Start, r)
 	if err != nil {
@@ -164,7 +164,7 @@ func (i *Domain) Stamp(
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
 	iter := i.DB.OpenIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
-	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
+	defer func() { err = errors.Combine(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) {
 		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp start timestamp %s", ref)
@@ -188,7 +188,7 @@ func (i *Domain) Stamp(
 	if err != nil {
 		return
 	}
-	defer func() { err = errors.CombineErrors(err, r.Close()) }()
+	defer func() { err = errors.Combine(err, r.Close()) }()
 
 	startApprox, err := i.search(ref, r)
 	if err != nil {

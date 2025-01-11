@@ -87,7 +87,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 	for {
 		select {
 		case <-ctx.Done():
-			return Response{}, errors.CombineErrors(ctx.Err(), err)
+			return Response{}, errors.Combine(ctx.Err(), err)
 		case dur := <-t.C:
 			addr, _ := addresses.Next(ctx)
 			cfg.L.Info("pledging to peer", zap.Stringer("address", addr))
@@ -110,7 +110,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 				return res, arbitrate(cfg)
 			}
 			if ctx.Err() != nil {
-				return res, errors.CombineErrors(ctx.Err(), err)
+				return res, errors.Combine(ctx.Err(), err)
 			}
 			cfg.L.Warn("failed to pledge, retrying",
 				zap.Duration("nextRetry", dur),
@@ -164,7 +164,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	var propC int
 	for propC = 0; propC < r.MaxProposals; propC++ {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			err = errors.CombineErrors(err, ctxErr)
+			err = errors.Combine(err, ctxErr)
 			break
 		}
 

@@ -52,7 +52,7 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 	if err != nil {
 		return
 	}
-	defer func() { err = errors.CombineErrors(err, metaF.Close()) }()
+	defer func() { err = errors.Combine(err, metaF.Close()) }()
 
 	err = codec.DecodeStream(nil, metaF, &ch)
 	if err != nil {

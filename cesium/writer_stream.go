@@ -111,7 +111,7 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 		for {
 			select {
 			case <-ctx.Done():
-				return errors.CombineErrors(w.close(context.TODO()), ctx.Err())
+				return errors.Combine(w.close(context.TODO()), ctx.Err())
 			case req, ok := <-w.In.Outlet():
 				if !ok {
 					return w.close(ctx)
@@ -297,7 +297,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 			return err
 		}
 	}
-	return errors.CombineErrors(w.err, c.Error())
+	return errors.Combine(w.err, c.Error())
 }
 
 type unaryWriterState struct {

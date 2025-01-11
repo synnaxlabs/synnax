@@ -19,7 +19,7 @@ func WriteTemp(dir string, prefix string, data []byte) (string, error) {
 	if err != nil {
 		return cfgFile.Name(), err
 	}
-	defer func() { err = errors.CombineErrors(err, cfgFile.Close()) }()
+	defer func() { err = errors.Combine(err, cfgFile.Close()) }()
 	_, err = cfgFile.Write(data)
 	return cfgFile.Name(), err
 }

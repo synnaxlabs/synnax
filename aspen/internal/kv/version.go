@@ -87,7 +87,7 @@ func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error
 		return dig, err
 	}
 	err = codec.Decode(ctx, b, &dig)
-	err = errors.CombineErrors(err, closer.Close())
+	err = errors.Combine(err, closer.Close())
 	return dig, err
 }
 

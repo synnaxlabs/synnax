@@ -208,13 +208,13 @@ func Open(cfg Config) (s *Storage, err error) {
 
 	// Open the key-value storage engine.
 	if s.KV, err = openKV(cfg, baseVFS); err != nil {
-		return s, errors.CombineErrors(err, s.lock.Close())
+		return s, errors.Combine(err, s.lock.Close())
 	}
 
 	// Open the time-series engine.
 	if s.TS, err = openTS(cfg, baseXFS); err != nil {
-		err = errors.CombineErrors(err, s.KV.Close())
-		return s, errors.CombineErrors(err, s.lock.Close())
+		err = errors.Combine(err, s.KV.Close())
+		return s, errors.Combine(err, s.lock.Close())
 	}
 
 	return s, nil

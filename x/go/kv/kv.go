@@ -115,7 +115,7 @@ type Observable = observe.Observable[TxReader]
 func WithTx(ctx context.Context, db DB, f func(tx Tx) error) (err error) {
 	txn := db.OpenTx()
 	defer func() {
-		err = errors.CombineErrors(err, txn.Close())
+		err = errors.Combine(err, txn.Close())
 	}()
 	if err = f(txn); err == nil {
 		err = txn.Commit(ctx)

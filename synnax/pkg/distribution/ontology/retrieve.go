@@ -161,7 +161,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		atLast := len(r.query.Clauses) == i+1
 		resources, err := r.retrieveEntities(ctx, clause, tx)
 		if cErr != nil || err != nil || len(resources) == 0 || atLast {
-			return errors.CombineErrors(cErr, err)
+			return errors.Combine(cErr, err)
 		}
 		if nextIDs, err = r.traverse(
 			ctx,

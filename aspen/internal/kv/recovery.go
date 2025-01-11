@@ -59,7 +59,7 @@ func (r *recoveryServer) recoverPeer(
 		return err
 	}
 	defer func() {
-		err = errors.CombineErrors(err, iter.Close())
+		err = errors.Combine(err, iter.Close())
 	}()
 	var dig Digest
 	for iter.First(); iter.Valid(); iter.Next() {
@@ -122,7 +122,7 @@ func loadHighWater(ctx context.Context, cfg Config) (highWater version.Counter, 
 		return
 	}
 	defer func() {
-		err = errors.CombineErrors(err, iter.Close())
+		err = errors.Combine(err, iter.Close())
 	}()
 
 	var dig Digest

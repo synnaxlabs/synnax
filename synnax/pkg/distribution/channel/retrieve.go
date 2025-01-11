@@ -144,7 +144,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
 	channels, vErr := r.validateRetrievedChannels(ctx, entries)
 	gorp.SetEntries[Key, Channel](r.gorp.Params, &channels)
-	return errors.CombineErrors(err, vErr)
+	return errors.Combine(err, vErr)
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction

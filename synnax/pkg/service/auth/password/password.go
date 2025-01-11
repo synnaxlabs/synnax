@@ -31,7 +31,7 @@ func (r Raw) Hash() (h Hashed, err error) {
 			return h, nil
 		}
 	}
-	return h, errors.CombineErrors(InvalidHash, err)
+	return h, errors.Combine(InvalidHash, err)
 }
 
 // Hashed represents an encrypted hash of a password. It is safe to store the hash on disk.
@@ -46,5 +46,5 @@ func (h Hashed) Validate(r Raw) (err error) {
 			return nil
 		}
 	}
-	return errors.CombineErrors(Invalid, err)
+	return errors.Combine(Invalid, err)
 }

@@ -223,7 +223,7 @@ type txCoordinator struct {
 func (bc *txCoordinator) done(err error) {
 	if err != nil {
 		bc.mu.Lock()
-		bc.mu.err = errors.CombineErrors(bc.mu.err, err)
+		bc.mu.err = errors.Combine(bc.mu.err, err)
 		bc.mu.Unlock()
 	}
 	bc.wg.Done()

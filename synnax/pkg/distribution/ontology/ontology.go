@@ -247,7 +247,7 @@ func (o *Ontology) RegisterService(s Service) {
 			}
 			return nil
 		})
-		return errors.CombineErrors(err, n.Close())
+		return errors.Combine(err, n.Close())
 	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
 
 	o.disconnectObservers = append(o.disconnectObservers, d1, d2)

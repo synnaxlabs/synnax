@@ -231,7 +231,7 @@ func (c *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) (err 
 		return err
 	}
 	defer func() {
-		err = errors.CombineErrors(err, f.Close())
+		err = errors.Combine(err, f.Close())
 	}()
 	err = fn(f)
 	return

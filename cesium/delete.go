@@ -101,7 +101,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		for _, name := range directoriesToRemove {
 			c.Exec(func() error { return db.fs.Remove(name) })
 		}
-		err = errors.CombineErrors(err, c.Error())
+		err = errors.Combine(err, c.Error())
 	}()
 
 	// Do a pass first to remove all non-index channels

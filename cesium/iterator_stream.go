@@ -132,7 +132,7 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 		for {
 			select {
 			case <-ctx.Done():
-				return errors.CombineErrors(s.close(), ctx.Err())
+				return errors.Combine(s.close(), ctx.Err())
 			case req, ok := <-s.In.Outlet():
 				if !ok {
 					return s.close()
