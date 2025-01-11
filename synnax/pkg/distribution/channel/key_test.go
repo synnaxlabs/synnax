@@ -32,7 +32,7 @@ var _ = Describe("Task Tests", func() {
 				k := channel.NewKey(core.NodeKey(1), 2)
 				Expect(k.LocalKey()).To(Equal(channel.LocalKey(2)))
 			})
-			It("Should correctly createHandler the maximum value of a 12 bit node key and 20 bit cesium key", func() {
+			It("Should correctly handle the maximum value of a 12 bit node key and 20 bit cesium key", func() {
 				k := channel.NewKey(core.NodeKey(mathutil.MaxUint12), channel.LocalKey(mathutil.MaxUint20))
 				Expect(k.Leaseholder()).To(Equal(core.NodeKey(mathutil.MaxUint12)))
 				Expect(k.LocalKey()).To(Equal(channel.LocalKey(mathutil.MaxUint20)))

@@ -9,5 +9,5 @@ use (
 	./integration
 	./synnax
 	./x/go
-	client/go
+	./client/go
 )
