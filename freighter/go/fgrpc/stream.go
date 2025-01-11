@@ -58,7 +58,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 ) error {
 	attachedInitialMetaData := false
 	oCtx, err := s.MiddlewareCollector.Exec(
-		parseContext(ctx, s.ServiceDesc.ServiceName, freighter.Server, freighter.Stream),
+		parseServerContext(ctx, s.ServiceDesc.ServiceName, freighter.Stream),
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			attachedInitialMetaData = true
 			if err := stream.SendHeader(metadata.Pairs()); err != nil {
@@ -113,12 +113,14 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 			}
 			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
 			stream = s.adaptStream(grpcClient)
-			return parseContext(
-				ctx,
-				s.ServiceDesc.ServiceName,
-				freighter.Client,
-				freighter.Stream,
-			), err
+			return freighter.Context{
+				Context:  ctx.Context,
+				Role:     ctx.Role,
+				Protocol: ctx.Protocol,
+				Target:   target,
+				Params:   make(freighter.Params),
+				Variant:  ctx.Variant,
+			}, err
 		}),
 	)
 	return stream, err
