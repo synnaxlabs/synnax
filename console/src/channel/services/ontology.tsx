@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, isCalculated } from "@synnaxlabs/client";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { isCalculated, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Channel,

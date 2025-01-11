@@ -1,13 +1,13 @@
 import "@/code/Editor.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Input, Theming } from "@synnaxlabs/pluto";
+import { Align, type Input, Theming } from "@synnaxlabs/pluto";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export const EDITOR_LAYOUT_TYPE = "code_editor";
 

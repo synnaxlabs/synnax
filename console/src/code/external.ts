@@ -1,5 +1,5 @@
-import { EditorLayout, EDITOR_LAYOUT_TYPE } from "@/code/Editor";
-import { Layout } from "@/layout";
+import { EDITOR_LAYOUT_TYPE,EditorLayout } from "@/code/Editor";
+import { type Layout } from "@/layout";
 
 export * from "@/code/Editor";
 

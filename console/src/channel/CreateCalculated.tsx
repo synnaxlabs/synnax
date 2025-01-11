@@ -17,16 +17,16 @@ import {
   Input,
   Nav,
   Select,
+  Status,
   Synnax,
+  Tag,
   Text,
+  Tooltip,
   Triggers,
   useSyncedRef,
-  Status,
-  Tag,
-  Tooltip,
 } from "@synnaxlabs/pluto";
-import { unique, deep } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { deep, unique } from "@synnaxlabs/x";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import * as monaco from "monaco-editor";
 import { type ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
@@ -35,7 +35,6 @@ import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import type { RendererProps } from "@/layout/slice";
-import { useQuery } from "@tanstack/react-query";
 
 export interface CalculatedChannelArgs {
   channelKey?: number;
@@ -149,9 +148,8 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
       if (client == null) throw new Error("Client not available");
 
       const isValid = await methods.validate();
-      if (!isValid) {
-        throw new Error("Validation failed: " + JSON.stringify(methods.value().name));
-      }
+      if (!isValid)
+        throw new Error(`Validation failed: ${JSON.stringify(methods.value().name)}`);
 
       const d = methods.value();
       await client.channels.create(d);
@@ -273,14 +271,12 @@ const Editor = (props: Code.EditorProps): ReactElement => {
   useEffect(() => {
     const checkHyphens = async () => {
       const hasHyphen = await hasHyphenatedName();
-      if (hasHyphen) {
+      if (hasHyphen)
         setHyphenWarning(
           "Note: Channels with hyphens must be accessed using" +
             ' channels["channel-name"]',
         );
-      } else {
-        setHyphenWarning(null);
-      }
+      else setHyphenWarning(null);
     };
     checkHyphens();
   }, [requires.value]);
@@ -296,9 +292,8 @@ const Editor = (props: Code.EditorProps): ReactElement => {
         let match;
 
         // Extract all matches
-        while ((match = channelRegex.exec(props.value)) !== null) {
+        while ((match = channelRegex.exec(props.value)) !== null)
           channelNames.push(match[2]); // match[2] contains the channel name without quotes
-        }
 
         const channels = await Promise.all(
           channelNames.map((name) =>
@@ -310,9 +305,8 @@ const Editor = (props: Code.EditorProps): ReactElement => {
         const channelKeys = channels
           .filter((ch): ch is NonNullable<typeof ch> => ch != null)
           .map((ch) => ch.key);
-        if (channelKeys.length > 0) {
+        if (channelKeys.length > 0)
           requires.onChange(unique([...valueRef.current, ...channelKeys]));
-        }
       } catch (error) {
         console.error("Error initializing required channels:", error);
       }
