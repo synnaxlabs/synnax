@@ -29,13 +29,18 @@ export const selectWindow = (
   return win ?? driftState.windows[driftState.label];
 };
 
-export const selectWindowKey = (state: StoreState, label?: string): string | null => {
+interface SelectWindowKey {
+  (state: StoreState, label?: string): string;
+  (state: StoreState, label: string): string | null;
+}
+
+export const selectWindowKey = ((state: StoreState, label?: string): string | null => {
   const driftState = selectSliceState(state);
   if (label == null) return driftState.labelKeys[driftState.label];
   const key = driftState.labelKeys[label];
   if (key == null && label == MAIN_WINDOW) return MAIN_WINDOW;
   return key;
-};
+}) as SelectWindowKey;
 
 export const selectWindowAttribute = <K extends keyof WindowState>(
   state: StoreState,

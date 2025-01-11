@@ -38,13 +38,18 @@ export const useSelectWindow = (key?: string): WindowState | null =>
 export const useSelectWindows = (): WindowState[] =>
   useSelector(useCallback(memoize(selectWindows), []));
 
-export const useSelectWindowKey = (label?: string): string | null =>
+interface UseSelectWindowKey {
+  (label?: string): string;
+  (label: string): string | null;
+}
+
+export const useSelectWindowKey = ((label?: string): string | null =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => selectWindowKey(state, label)),
       [label],
     ),
-  );
+  )) as UseSelectWindowKey;
 
 export const useSelectWindowAttribute = <K extends keyof WindowState>(
   keyOrLabel: string,
