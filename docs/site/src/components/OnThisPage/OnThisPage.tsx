@@ -87,7 +87,7 @@ export const OnThisPage = ({
   return (
     <>
       <OSSelectButton />
-      <div ref={toc}>
+      <div ref={toc} style={{ flexGrow: 1 }}>
         <Menu.Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth > 1 && depth <= 3)
