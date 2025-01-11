@@ -103,7 +103,7 @@ const ZERO_FORM_VALUES: FormValues = {
   virtual: true, // Set to true by default
   rate: Rate.hz(0),
   internal: false,
-  expression: "np.array([])",
+  expression: "result = np.array([])",
   requires: [],
 };
 
@@ -235,7 +235,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
           <Tooltip.Dialog>
             {[
               "This feature is still in development and may have limited functionality",
-              <Tag.Tag variant="filled" color="var(--pluto-warning-m1)">
+              <Tag.Tag key="beta-tag" variant="filled" color="var(--pluto-warning-m1)">
                 Beta Feature
               </Tag.Tag>,
             ]}
