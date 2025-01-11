@@ -204,9 +204,9 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal("SG0001"))
 		})
-		It("Should not allow updating a non-virtual channel",
-			func() { // TODO: this test fails not related to the changes made to
-				// update virtual channels
+		It("Should assign a new key when attempting to update a non-virtual channel",
+			func() {
+				// Create initial non-virtual channel
 				nonVirtualCh := channel.Channel{
 					Rate:        5 * telem.Hz,
 					Name:        "NonVirtual",
@@ -215,15 +215,20 @@ var _ = Describe("Create", Ordered, func() {
 					Virtual:     false,
 				}
 				Expect(services[1].Create(ctx, &nonVirtualCh)).To(Succeed())
+				originalKey := nonVirtualCh.Key()
 
 				nonVirtualCh.Name = "UpdatedName"
-				err := services[1].Create(ctx, &nonVirtualCh)
+				Expect(services[1].Create(ctx, &nonVirtualCh)).To(Succeed())
+
+				Expect(nonVirtualCh.Key()).ToNot(Equal(originalKey))
 
 				var resChannels []channel.Channel
-				err = services[1].NewRetrieve().WhereKeys(nonVirtualCh.Key()).Entries(&resChannels).Exec(ctx, nil)
+				err := services[1].NewRetrieve().WhereKeys(originalKey, nonVirtualCh.Key()).Entries(&resChannels).Exec(ctx, nil)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(resChannels).To(HaveLen(1))
+				Expect(resChannels).To(HaveLen(2))
+
 				Expect(resChannels[0].Name).To(Equal("NonVirtual"))
+				Expect(resChannels[1].Name).To(Equal("UpdatedName"))
 			})
 	})
 })
