@@ -1,10 +1,10 @@
 package computron
 
 /*
-#cgo  CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
-
-#cgo  linux LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
-#cgo  darwin LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
+#cgo CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
+#cgo darwin CFLAGS: -mmacosx-version-min=14.0
+#cgo linux LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
+#cgo darwin LDFLAGS: -mmacosx-version-min=14.0 -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
 #cgo windows LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython311
 
 #define PY_SSIZE_T_CLEAN
