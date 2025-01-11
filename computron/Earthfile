@@ -1,16 +1,23 @@
 # computron/Earthfile
 VERSION 0.7
 
-# Base image with Go and Python
 FROM golang:1.23
 
 deps:
-    # Install Python build dependencies
+    # Install Python build dependencies including SSL
     RUN apt-get update && apt-get install -y \
         python3 \
         python3-pip \
         python3-dev \
-        build-essential
+        build-essential \
+        libssl-dev \
+        zlib1g-dev \
+        libncurses5-dev \
+        libgdbm-dev \
+        libnss3-dev \
+        libreadline-dev \
+        libffi-dev \
+        libsqlite3-dev
 
 build:
     FROM +deps
