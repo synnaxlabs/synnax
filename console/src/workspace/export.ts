@@ -75,7 +75,7 @@ export const useExport = (
         await join(directory, LAYOUT_FILE_NAME),
         JSON.stringify(toExport),
       );
-      const fileInfos: Export.ExtractorReturn[] = [];
+      const fileInfos: Export.FileInfo[] = [];
       await Promise.all(
         Object.values(toExport.layouts).map(async ({ type, key }) => {
           const extractor = extractors[type];

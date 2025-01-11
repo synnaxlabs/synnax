@@ -11,16 +11,19 @@ import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 
 export interface ExtractorContext {
-  store: Store;
   client: Synnax | null;
+  store: Store;
 }
 
-export interface ExtractorReturn {
+export interface FileInfo {
   data: string;
   name: string;
 }
 
-export type Extractor = (
-  key: string,
-  context: ExtractorContext,
-) => Promise<ExtractorReturn>;
+// Extractor is a function that extracts a visualization or other object with the given
+// key into the info for a file. The extractor interface should be defined for each
+// service that needs to export data. The file info can then be stored in a file system
+// and imported again using the importer interface.
+export interface Extractor {
+  (key: string, ctx: ExtractorContext): Promise<FileInfo>;
+}

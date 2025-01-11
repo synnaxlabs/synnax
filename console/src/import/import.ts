@@ -28,9 +28,13 @@ interface ImportArgs {
   workspaceKey?: string;
 }
 
-type Importer = (args: ImportArgs) => Promise<void>;
+interface Importer {
+  (args: ImportArgs): Promise<void>;
+}
 
-type ImporterCreator = (ingest: FileIngestor, type?: string) => Importer;
+interface ImporterCreator {
+  (ingest: FileIngestor, type?: string): Importer;
+}
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 

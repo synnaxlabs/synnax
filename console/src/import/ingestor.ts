@@ -10,6 +10,7 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 
+import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 
 interface FileIngestorContext {
@@ -22,11 +23,6 @@ export interface FileIngestor {
   (data: string, ctx: FileIngestorContext): void;
 }
 
-interface FileInfo {
-  name: string;
-  data: string;
-}
-
 interface DirectoryIngestorContext {
   client: Synnax | null;
   ingestors: Record<string, FileIngestor>;
@@ -35,5 +31,5 @@ interface DirectoryIngestorContext {
 }
 
 export interface DirectoryIngestor {
-  (name: string, file: FileInfo[], ctx: DirectoryIngestorContext): Promise<void>;
+  (name: string, file: Export.FileInfo[], ctx: DirectoryIngestorContext): Promise<void>;
 }
