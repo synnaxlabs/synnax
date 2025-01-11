@@ -9,23 +9,13 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Breadcrumb,
-  Button,
-  Status,
-  Synnax,
-  Tabs,
-  Text,
-} from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+import { Align, Breadcrumb, Button, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { Range } from "@/range";
 import { useExport } from "@/schematic/file";
 import {
   useSelectControlStatus,
@@ -38,7 +28,6 @@ import {
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
-import { useRangeSnapshot } from "@/schematic/useRangeSnapshot";
 
 const TABS = [
   { tabKey: "symbols", name: "Symbols" },
@@ -100,24 +89,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [layoutKey, state?.editable],
   );
-  const client = Synnax.use();
-  const queryResult = useQuery({
-    queryKey: [layoutKey, client?.key],
-    queryFn: async () => await client?.workspaces.schematic.retrieve(layoutKey),
-  });
-  const existsOnServer = queryResult.isSuccess && queryResult.data?.key === layoutKey;
-
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
     },
     [dispatch],
   );
-  const snapshot = useRangeSnapshot();
-  const handleRangeSnapshot = useCallback(() => {
-    snapshot({ key: layoutKey, name });
-  }, [snapshot, name, layoutKey]);
-
   const canEdit = useSelectHasPermission();
   const breadCrumbSegments: Breadcrumb.Segments = [
     {
@@ -135,14 +112,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       shade: 7,
       level: "p",
     });
-
-  const activeRange = Range.useSelect();
-  const hasActiveRange = activeRange != null;
-  const activeRangeIsPersisted = activeRange?.persisted ?? false;
-  const canSnapshot = existsOnServer && hasActiveRange && activeRangeIsPersisted;
-
   if (state == null) return null;
-
   return (
     <Tabs.Provider
       value={{
@@ -157,27 +127,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         </Align.Space>
         <Align.Space direction="x" align="center" empty>
-          <Align.Space direction="x" empty style={{ height: "100%", width: 93 }}>
-            <Button.Icon
-              sharp
-              disabled={!canSnapshot}
-              tooltip={
-                canSnapshot
-                  ? `Snapshot to ${activeRange.name}`
-                  : !hasActiveRange
-                    ? "No active range"
-                    : !activeRangeIsPersisted
-                      ? `${activeRange.name} is not persisted`
-                      : !existsOnServer
-                        ? `${name} does not exist on ${client?.props.name ?? "server"}`
-                        : `Cannot snapshot ${name}`
-              }
-              onClick={handleRangeSnapshot}
-              size="medium"
-              style={{ height: "100%" }}
-            >
-              <Icon.Range />
-            </Button.Icon>
+          <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
             <Button.Icon
               tooltip={"Export"}
               sharp

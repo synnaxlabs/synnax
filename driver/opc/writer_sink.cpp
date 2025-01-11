@@ -53,41 +53,41 @@ opc::WriterSink::WriterSink(
     this->keep_alive_thread = std::thread(&opc::WriterSink::maintain_connection, this);
 };
 
-void opc::WriterSink::set_variant(
+inline void opc::WriterSink::set_variant(
     UA_Variant *val, const synnax::Frame &frame,
     const uint32_t &series_index,
     const synnax::DataType &type) {
     UA_StatusCode status = UA_STATUSCODE_GOOD;
     if (type == synnax::FLOAT64) {
         double data = frame.series->at(series_index).values<double>()[0];
-        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_DOUBLE]);
+        status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_DOUBLE]);
     } else if (type == synnax::FLOAT32) {
         float data = frame.series->at(series_index).values<float>()[0];
-        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_FLOAT]);
+        status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_FLOAT]);
     } else if (type == synnax::INT32) {
         int32_t data = frame.series->at(series_index).values<int32_t>()[0];
-        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_INT32]);
+        status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_INT32]);
     } else if (type == synnax::INT16) {
         int16_t data = frame.series->at(series_index).values<int16_t>()[0];
-        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_INT16]);
+        status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_INT16]);
     } else if (type == synnax::INT8) {
         int8_t data = frame.series->at(series_index).values<int8_t>()[0];
-        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_SBYTE]);
+        status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_SBYTE]);
     } else if (type == synnax::UINT64) {
         uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
-        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_UINT64]);
+        status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT64]);
     } else if (type == synnax::UINT32) {
         uint32_t data = frame.series->at(series_index).values<uint32_t>()[0];
-        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_UINT32]);
+        status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT32]);
     } else if (type == synnax::SY_UINT16) {
         uint16_t data = frame.series->at(series_index).values<uint16_t>()[0];
-        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_UINT16]);
+        status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_UINT16]);
     } else if (type == synnax::SY_UINT8) {
         uint8_t data = frame.series->at(series_index).values<uint8_t>()[0];
         status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_BYTE]);
     } else if (type == synnax::TIMESTAMP) {
         uint64_t data = frame.series->at(series_index).values<uint64_t>()[0];
-        UA_Variant_setScalar(val, &data, &UA_TYPES[UA_TYPES_DATETIME]);
+        status = UA_Variant_setScalarCopy(val, &data, &UA_TYPES[UA_TYPES_DATETIME]);
     }
     if (status != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "[opc.sink] Failed to set variant";

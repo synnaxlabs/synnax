@@ -1,47 +1,40 @@
-name: TypeScript Deploy
+name: Deploy - TypeScript
+
 on:
   push:
-     branches:
-       - main
+    branches:
+      - main
+  workflow_dispatch:
+
 jobs:
   publish:
+    name: Publish
     runs-on: ubuntu-latest
     env:
       SYNNAX_TS_ENV: prod
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
 
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: "pnpm"
+          node-version-file: package.json
+          cache: pnpm
 
       - name: Install Dependencies
-        run: |
-          pnpm install --frozen-lockfile
+        run: pnpm install
 
-      - name: Configure NPM
+      - name: Configure npm
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Build
-        run: |
-          pnpm build:pluto
+        run: pnpm build:console-vite
 
       - name: Publish
         run: |
           pnpm publish -r --access public
-
-
-
-
-
-
-

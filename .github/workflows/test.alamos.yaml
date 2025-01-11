@@ -1,0 +1,160 @@
+name: Test - Alamos
+
+on:
+  push:
+    branches:
+      - main
+      - rc
+  pull_request:
+    branches:
+      - main
+      - rc
+  workflow_dispatch:
+
+jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      py: ${{ steps.filter.outputs.py }}
+      ts: ${{ steps.filter.outputs.ts }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            shared: &shared
+              - .github/workflows/test.alamos.yaml
+            go:
+              - *shared
+              - alamos/go/**
+              - x/go/**
+            py:
+              - *shared
+              - alamos/py/**
+            ts:
+              - *shared
+              - alamos/ts/**
+              - configs/eslint/**
+              - configs/ts/**
+              - configs/vite/**
+              - x/ts/**
+
+  go:
+    name: Go (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Format
+        if: matrix.format
+        run: scripts/gofmt-check.sh alamos/go
+
+      - name: Test
+        run: go test -v -shuffle=on ./...
+        working-directory: alamos/go
+
+  py:
+    name: Python (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.py == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: alamos/py/pyproject.toml
+          cache: poetry
+
+      - name: Install Dependencies
+        run: poetry install
+        working-directory: alamos/py
+
+      - name: Format
+        if: matrix.format
+        run: poetry run black --check --diff --color .
+        working-directory: alamos/py
+
+      - name: Test
+        run: poetry run pytest
+        working-directory: alamos/py
+
+  ts:
+    name: TypeScript (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Lint
+        if: matrix.lint
+        run: pnpm lint:alamos
+
+      - name: Build
+        run: pnpm build:alamos
+
+      - name: Test
+        run: pnpm test:alamos

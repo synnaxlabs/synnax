@@ -67,7 +67,7 @@ type Service struct {
 	shutdown io.Closer
 }
 
-func OpenService(toOpen string, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,6 @@ func OpenService(toOpen string, cfgs ...Config) (*Service, error) {
 	service := &Service{Config: cfg}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(service.Ins))
 	service.shutdown = signal.NewShutdown(sCtx, cancel)
-	var ctx context.Context
 	if toOpen == "" {
 		_, err := service.retrieve(ctx)
 		if err != nil {

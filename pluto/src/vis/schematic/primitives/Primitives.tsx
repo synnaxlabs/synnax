@@ -2794,8 +2794,8 @@ export const CrossJunction = ({
 }: CrossJunctionProps): ReactElement => (
   <Div className={CSS(CSS.B("t-junction"), className)} {...props}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={5} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={95} top={50} id="2" />
+      <Handle location="left" orientation={orientation} left={5} top={49} id="1" />
+      <Handle location="right" orientation={orientation} left={95} top={49} id="2" />
       <Handle location="bottom" orientation={orientation} left={50} top={95} id="3" />
       <Handle location="top" orientation={orientation} left={50} top={5} id="4" />
     </HandleBoundary>
