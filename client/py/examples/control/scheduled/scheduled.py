@@ -3,11 +3,7 @@ from synnax.control import ScheduledCommand, Controller
 
 
 client = sy.Synnax(
-    host="localhost",
-    port=9093,
-    username="synnax",
-    password="seldon",
-    secure=False
+    host="localhost", port=9093, username="synnax", password="seldon", secure=False
 )
 
 OX_PRE_VLV_CMD = "ox_pre_vlv_cmd"
@@ -20,21 +16,23 @@ client.channels.create(
     name=AUTO_LOGS,
     virtual=True,
     data_type=sy.DataType.STRING,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 client.channels.create(
     name=START_SCHEDULED_CMD,
     data_type=sy.DataType.UINT8,
     virtual=True,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
+
 
 def log(aut: Controller, msg: str):
     aut.set(
         AUTO_LOGS,
         f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}",
     )
+
 
 with client.control.acquire(
     name="Scheduled Sequence",
@@ -72,5 +70,3 @@ with client.control.acquire(
     )
     c.wait_until(lambda s: s[OX_MPV_STATE] == 1)
     log(c, "Sequence completed")
-
-

@@ -145,12 +145,10 @@ class Controller:
         return self._receiver_opt
 
     @overload
-    def set(self, ch: ChannelKey | ChannelName, value: SampleValue):
-        ...
+    def set(self, ch: ChannelKey | ChannelName, value: SampleValue): ...
 
     @overload
-    def set(self, ch: dict[ChannelKey | ChannelName, SampleValue]):
-        ...
+    def set(self, ch: dict[ChannelKey | ChannelName, SampleValue]): ...
 
     def set(
         self,
@@ -193,23 +191,20 @@ class Controller:
     def set_authority(
         self,
         value: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName, CrudeAuthority],
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         ch: ChannelKey | ChannelName,
         value: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def set_authority(
         self,
@@ -396,14 +391,12 @@ class Controller:
             self.set(key, value)
 
     @overload
-    def get(self, ch: ChannelKey | ChannelName) -> int | float | None:
-        ...
+    def get(self, ch: ChannelKey | ChannelName) -> int | float | None: ...
 
     @overload
     def get(
         self, ch: ChannelKey | ChannelName, default: int | float
-    ) -> int | float:
-        ...
+    ) -> int | float: ...
 
     def get(
         self, ch: ChannelKey | ChannelName, default: int | float = None
@@ -430,6 +423,7 @@ class Controller:
             for cmd in commands:
                 self.sleep(cmd.delay, precise=True)
                 self.set(cmd.channel, cmd.value)
+
         return start, True
 
     def __getitem__(self, item):
@@ -527,6 +521,7 @@ class ScheduledCommand:
     """A command that can be scheduled to run at a specific time in the future. This
     command can be sent to the controller to be executed at a later time.
     """
+
     channel: ChannelKey | ChannelName
     value: SampleValue
     delay: TimeSpan

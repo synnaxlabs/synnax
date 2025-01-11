@@ -57,5 +57,3 @@ class Client:
             retriever=self.retriever,
             write_authorities=write_authorities,
         )
-
-
