@@ -23,6 +23,7 @@ import {
   useSyncedRef,
   Status,
   Tag,
+  Tooltip,
 } from "@synnaxlabs/pluto";
 import { unique, deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -233,9 +234,14 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               </Text.Text>
             </Align.Space>
           )}
-          <Tag.Tag variant="filled" color="var(--pluto-warning-m1)">
-            Beta Feature
-          </Tag.Tag>
+          <Tooltip.Dialog>
+            {[
+              "This feature is still in development and may have limited functionality",
+              <Tag.Tag variant="filled" color="var(--pluto-warning-m1)">
+                Beta Feature
+              </Tag.Tag>,
+            ]}
+          </Tooltip.Dialog>
           <Button.Button
             disabled={isPending}
             loading={isPending}
