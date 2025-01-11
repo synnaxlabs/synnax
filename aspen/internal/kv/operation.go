@@ -56,10 +56,10 @@ func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
 }
 
 type Digest struct {
-	Key         []byte          `json:"key" msgpack:"key"`
-	Variant     change.Variant  `json:"variant" msgpack:"variant"`
-	Version     version.Counter `json:"version" msgpack:"version"`
-	Leaseholder node.Key        `json:"leaseholder" msgpack:"leaseholder"`
+	Key         []byte
+	Variant     change.Variant
+	Version     version.Counter
+	Leaseholder node.Key
 }
 
 func (d Digest) apply(ctx context.Context, w kvx.Writer) error {

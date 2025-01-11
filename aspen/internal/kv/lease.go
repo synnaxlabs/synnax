@@ -35,8 +35,8 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 	if err == nil {
 		if op.Leaseholder == DefaultLeaseholder {
 			op.Leaseholder = lh
-			if op.Leaseholder == DefaultLeaseholder {
-				op.Leaseholder = la.Cluster.HostKey()
+			if lh == DefaultLeaseholder {
+				la.L.DPanic("Lease allocator returned unexpected node key 0 for leaseholder")
 			}
 		} else if lh != op.Leaseholder {
 			// If the Leaseholder doesn't match the previous Leaseholder,
