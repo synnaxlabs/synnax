@@ -174,6 +174,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		tx); err != nil {
 		return err
 	}
+	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
 func (lp *leaseProxy) retrieveExistingAndAssignKeys(
