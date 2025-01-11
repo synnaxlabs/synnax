@@ -6,7 +6,6 @@ import (
 	"github.com/synnaxlabs/client"
 	"github.com/synnaxlabs/client/internal/testutil"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/client/channel"
@@ -21,10 +20,10 @@ var _ = Describe("Channel", Ordered, func() {
 		It("Should correctly create a channel", func() {
 			ch := channel.Channel{
 				Name:     "test",
-				DataType: telem.TimeStampT,
+				DataType: synnax.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(client.Channels.CreateOne(ctx, &ch)).To(Succeed())
+			Expect(client.Channels.Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key).ToNot(Equal(0))
 		})
 	})
@@ -32,14 +31,12 @@ var _ = Describe("Channel", Ordered, func() {
 		It("Should correctly retrieve a channel", func() {
 			ch := channel.Channel{
 				Name:     "test",
-				DataType: telem.TimeStampT,
+				DataType: synnax.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(client.Channels.CreateOne(ctx, &ch)).To(Succeed())
+			Expect(client.Channels.Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key).ToNot(Equal(0))
-			resCh, err := client.Channels.RetrieveOne(ctx, channel.RetrieveRequest{
-				Keys: []channel.Key{ch.Key},
-			})
+			resCh, err := client.Channels.Retrieve(ctx, channel.WhereKey(ch.Key))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resCh.Key).To(Equal(ch.Key))
 		})
@@ -48,17 +45,13 @@ var _ = Describe("Channel", Ordered, func() {
 		It("Should correctly delete a channel", func() {
 			ch := channel.Channel{
 				Name:     "test",
-				DataType: telem.TimeStampT,
+				DataType: synnax.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(client.Channels.CreateOne(ctx, &ch)).To(Succeed())
+			Expect(client.Channels.Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key).ToNot(Equal(0))
-			Expect(client.Channels.Delete(ctx, channel.DeleteRequest{
-				Keys: []channel.Key{ch.Key},
-			})).To(Succeed())
-			_, err := client.Channels.RetrieveOne(ctx, channel.RetrieveRequest{
-				Keys: []channel.Key{ch.Key},
-			})
+			Expect(client.Channels.Delete(ctx, channel.WhereKey(ch.Key)))
+			_, err := client.Channels.Retrieve(ctx, channel.WhereKey(ch.Key))
 			Expect(err).To(HaveOccurredAs(query.Error))
 		})
 	})

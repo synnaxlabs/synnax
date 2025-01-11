@@ -37,8 +37,19 @@ func NewClient(
 	}
 }
 
-func (c *Client) CreateOne(ctx context.Context, ch *Channel) error {
+type CreateOption func(*api.ChannelCreateRequest)
+
+func RetrieveIfNameExists() CreateOption {
+	return func(req *api.ChannelCreateRequest) {
+		req.RetrieveIfNameExists = true
+	}
+}
+
+func (c *Client) Create(ctx context.Context, ch *Channel, opts ...CreateOption) error {
 	req := api.ChannelCreateRequest{Channels: []Channel{*ch}}
+	for _, opt := range opts {
+		opt(&req)
+	}
 	res, err := c.createTransport.Send(ctx, "", req)
 	if err != nil {
 		return err
@@ -47,8 +58,11 @@ func (c *Client) CreateOne(ctx context.Context, ch *Channel) error {
 	return nil
 }
 
-func (c *Client) CreateMany(ctx context.Context, chs *[]Channel) error {
+func (c *Client) CreateMany(ctx context.Context, chs *[]Channel, opts ...CreateOption) error {
 	req := api.ChannelCreateRequest{Channels: *chs}
+	for _, opt := range opts {
+		opt(&req)
+	}
 	res, err := c.createTransport.Send(ctx, "", req)
 	if err != nil {
 		return err
@@ -57,13 +71,51 @@ func (c *Client) CreateMany(ctx context.Context, chs *[]Channel) error {
 	return nil
 }
 
-func (c *Client) RetrieveOne(ctx context.Context, req RetrieveRequest) (ch Channel, err error) {
+type RetrieveDeleteOption func(*api.ChannelRetrieveRequest)
+
+func WhereName(name ...string) RetrieveDeleteOption {
+	return func(req *api.ChannelRetrieveRequest) {
+		req.Names = append(req.Names, name...)
+	}
+}
+
+func WhereKey(key Key) RetrieveDeleteOption {
+	return func(req *api.ChannelRetrieveRequest) {
+		req.Keys = append(req.Keys, key)
+	}
+}
+
+func WhereKeys(keys []Key) RetrieveDeleteOption {
+	return func(req *api.ChannelRetrieveRequest) {
+		req.Keys = append(req.Keys, keys...)
+	}
+}
+
+func WhereNames(names []string) RetrieveDeleteOption {
+	return func(req *api.ChannelRetrieveRequest) {
+		req.Names = append(req.Names, names...)
+	}
+}
+
+var (
+	NotFoundError      = errors.Wrapf(query.NotFound, "channel not found")
+	MultipleFoundError = errors.Wrapf(query.UniqueViolation, "multiple channels found")
+)
+
+func (c *Client) Retrieve(ctx context.Context, opts ...RetrieveDeleteOption) (ch Channel, err error) {
+	req := api.ChannelRetrieveRequest{}
+	for _, opt := range opts {
+		opt(&req)
+	}
 	res, err := c.retrieveTransport.Send(ctx, "", req)
 	if err != nil {
 		return ch, err
 	}
 	if len(res.Channels) == 0 {
-		return ch, errors.Wrapf(query.NotFound, "channel not found")
+		return ch, NotFoundError
+	}
+	if len(res.Channels) > 1 {
+		return ch, MultipleFoundError
 	}
 	return res.Channels[0], nil
 }
@@ -76,7 +128,12 @@ func (c *Client) RetrieveMany(ctx context.Context, req RetrieveRequest) (chs []C
 	return res.Channels, nil
 }
 
-func (c *Client) Delete(ctx context.Context, req api.ChannelDeleteRequest) error {
-	_, err := c.deleteTransport.Send(ctx, "", req)
+func (c *Client) Delete(ctx context.Context, opts ...RetrieveDeleteOption) error {
+	rReq := api.ChannelRetrieveRequest{}
+	for _, opt := range opts {
+		opt(&rReq)
+	}
+	dReq := api.ChannelDeleteRequest{Keys: rReq.Keys, Names: rReq.Names}
+	_, err := c.deleteTransport.Send(ctx, "", dReq)
 	return err
 }

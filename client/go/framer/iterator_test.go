@@ -8,7 +8,6 @@ import (
 	"github.com/synnaxlabs/client/framer"
 	"github.com/synnaxlabs/client/internal/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -18,27 +17,27 @@ var _ = Describe("Iterator", Ordered, func() {
 		client = MustSucceed(synnax.Open(testutil.Config))
 	})
 	It("Should correctly iterate through data", func() {
-		indexCh := channel.Channel{Name: "index", DataType: telem.TimeStampT, IsIndex: true}
-		dataCh := channel.Channel{Name: "data", DataType: telem.Float64T}
-		Expect(client.Channels.CreateOne(ctx, &indexCh)).To(Succeed())
+		indexCh := channel.Channel{Name: "index", DataType: synnax.TimeStampT, IsIndex: true}
+		dataCh := channel.Channel{Name: "data", DataType: synnax.Float64T}
+		Expect(client.Channels.Create(ctx, &indexCh)).To(Succeed())
 		dataCh.Index = indexCh.Key
-		Expect(client.Channels.CreateOne(ctx, &dataCh)).To(Succeed())
+		Expect(client.Channels.Create(ctx, &dataCh)).To(Succeed())
 		w := MustSucceed(client.OpenWriter(ctx, framer.WriterConfig{
 			Keys:  []channel.Key{indexCh.Key, dataCh.Key},
-			Start: 1 * telem.SecondTS,
+			Start: 1 * synnax.SecondTS,
 		}))
-		s1 := telem.NewSecondsTSV(1, 2, 3)
-		s2 := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
+		s1 := synnax.NewSecondsTSV(1, 2, 3)
+		s2 := synnax.NewSeriesV[float64](1.0, 2.0, 3.0)
 		Expect(w.Write(ctx, core.Frame{
 			Keys:   []channel.Key{indexCh.Key, dataCh.Key},
-			Series: []telem.Series{s1, s2},
+			Series: []synnax.Series{s1, s2},
 		}))
 		Expect(w.Commit(ctx)).To(BeTrue())
 		Expect(w.Close(ctx)).To(Succeed())
 
 		i := MustSucceed(client.OpenIterator(ctx, framer.IteratorConfig{
 			Keys:   []channel.Key{indexCh.Key, dataCh.Key},
-			Bounds: telem.TimeRangeMax,
+			Bounds: synnax.TimeRangeMax,
 		}))
 		Expect(i.SeekFirst(ctx)).To(BeTrue())
 		Expect(i.Next(ctx, framer.AutoSpan)).To(BeTrue())

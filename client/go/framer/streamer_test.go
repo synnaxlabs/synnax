@@ -30,9 +30,9 @@ var _ = Describe("Streamer", Ordered, func() {
 			DataType: telem.Float64T,
 			IsIndex:  false,
 		}
-		Expect(client.Channels.CreateOne(ctx, &indexCh)).To(Succeed())
+		Expect(client.Channels.Create(ctx, &indexCh)).To(Succeed())
 		dataCh.Index = indexCh.Key
-		Expect(client.Channels.CreateOne(ctx, &dataCh)).To(Succeed())
+		Expect(client.Channels.Create(ctx, &dataCh)).To(Succeed())
 		s := MustSucceed(client.OpenStreamer(ctx, framer.StreamerConfig{
 			Keys: []channel.Key{indexCh.Key, dataCh.Key},
 		}))

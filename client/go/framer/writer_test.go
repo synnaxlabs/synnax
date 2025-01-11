@@ -18,19 +18,11 @@ var _ = Describe("Writer", Ordered, func() {
 		client = MustSucceed(synnax.Open(testutil.Config))
 	})
 	It("Should correctly write a single frame", func() {
-		indexCh := channel.Channel{
-			Name:     "index",
-			DataType: telem.TimeStampT,
-			IsIndex:  true,
-		}
-		dataCh := channel.Channel{
-			Name:     "data",
-			DataType: telem.Float64T,
-			IsIndex:  false,
-		}
-		Expect(client.Channels.CreateOne(ctx, &indexCh)).To(Succeed())
+		indexCh := channel.Channel{Name: "index", DataType: telem.TimeStampT, IsIndex: true}
+		dataCh := channel.Channel{Name: "data", DataType: telem.Float64T, IsIndex: false}
+		Expect(client.Channels.Create(ctx, &indexCh)).To(Succeed())
 		dataCh.Index = indexCh.Key
-		Expect(client.Channels.CreateOne(ctx, &dataCh)).To(Succeed())
+		Expect(client.Channels.Create(ctx, &dataCh)).To(Succeed())
 		w := MustSucceed(client.OpenWriter(ctx, framer.WriterConfig{
 			Keys:  []channel.Key{indexCh.Key, dataCh.Key},
 			Start: telem.Now(),
@@ -42,7 +34,7 @@ var _ = Describe("Writer", Ordered, func() {
 			Series: []telem.Series{s1, s2},
 		})).To(BeTrue())
 		Expect(w.Commit(ctx)).To(BeTrue())
-		//Expect(w.Close(ctx)).To(Succeed())
+		Expect(w.Close(ctx)).To(Succeed())
 	})
 
 })

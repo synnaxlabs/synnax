@@ -1,3 +1,4 @@
+//go:generate go run ./cmd/gen/main.go ../../x/go/telem telem.go
 package synnax
 
 import (
