@@ -444,8 +444,8 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		if fr.Series[i].Len() != lengthOfFrame {
 			return errors.Wrapf(
 				validate.Error,
-				`frame must have the same length for all series, expected %d, got %d. \n 
-				See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1 
+				`frame must have the same length for all series, expected %d, got %d. \n
+				See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
 				`,
 				lengthOfFrame,
 				fr.Series[i].Len(),

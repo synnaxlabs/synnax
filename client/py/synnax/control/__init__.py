@@ -8,4 +8,4 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.control.client import Client
-from synnax.control.controller import Controller
+from synnax.control.controller import Controller, ScheduledCommand
