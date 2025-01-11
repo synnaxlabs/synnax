@@ -133,7 +133,10 @@ export interface State<A = unknown> {
   excludeFromWorkspace?: boolean;
 }
 
-const themeZ = Theming.themeZ.transform(Color.transformColorsToHex);
+const themeZ = Theming.themeZ.transform(
+  // Need to remove the Color classes from the theme so that we can store it in Redux properly
+  Color.transformColorsToHex,
+);
 
 const mosaicStateZ = z.object({
   activeTab: z.string().nullable(),
