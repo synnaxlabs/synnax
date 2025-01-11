@@ -2,9 +2,10 @@ package framer
 
 import (
 	"context"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/client/channel"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/x/errors"
@@ -19,7 +20,7 @@ type (
 	IteratorStream   = freighter.ClientStream[IteratorRequest, IteratorResponse]
 	IteratorClient   = freighter.StreamClient[IteratorRequest, IteratorResponse]
 	IteratorConfig   struct {
-		Keys      channel.Keys
+		Channels  channel.RetrieveDeleteOption
 		Bounds    telem.TimeRange
 		ChunkSize int64
 	}
@@ -30,13 +31,27 @@ type Iterator struct {
 	value  api.Frame
 }
 
-func openIterator(ctx context.Context, client IteratorClient, cfg IteratorConfig) (*Iterator, error) {
+func openIterator(
+	ctx context.Context,
+	channelClient *channel.Client,
+	client IteratorClient,
+	cfg IteratorConfig,
+) (*Iterator, error) {
 	s, err := client.Stream(ctx, "")
 	if err != nil {
 		return nil, err
 	}
+	channels, err := channelClient.RetrieveMany(ctx, cfg.Channels)
+	if err != nil {
+		return nil, err
+	}
 	i := &Iterator{stream: s}
-	_, err = i.exec(ctx, IteratorRequest{Bounds: cfg.Bounds, ChunkSize: cfg.ChunkSize, Keys: cfg.Keys})
+	_, err = i.exec(ctx, IteratorRequest{
+		Bounds:    cfg.Bounds,
+		ChunkSize: cfg.ChunkSize,
+		Keys: lo.Map[channel.Channel, channel.Key](
+			channels, func(c channel.Channel, _ int) channel.Key { return c.Key }),
+	})
 	return i, err
 }
 

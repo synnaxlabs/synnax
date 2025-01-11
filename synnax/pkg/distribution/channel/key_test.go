@@ -81,7 +81,7 @@ var _ = Describe("Task Tests", func() {
 			})
 		})
 	})
-	Describe("Keys", func() {
+	Describe("Channels", func() {
 		Describe("KeysFromChannels", func() {
 			It("Should return a list of keys from a list of channels", func() {
 				channels := []channel.Channel{

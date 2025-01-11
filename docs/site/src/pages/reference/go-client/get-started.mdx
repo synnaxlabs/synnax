@@ -1,0 +1,58 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Go Client"
+heading: "The Synnax Go Client"
+description: "Use the Synnax Go client to interact with a Synnax cluster."
+next: "Channels"
+nextURL: "/reference/go-client/channels"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax provides a Go client that allows you to interact with a Synnax cluster. On this
+page, we'll cover how to install the client and connect to a cluster.
+
+<Divider.Divider direction="x" />
+
+## Installation
+
+The `synnax` package is available on the go package registry, and can be installed using
+the following command:
+
+```bash
+go get github.com/synnaxlabs/client
+```
+
+Installing `github.com/synnaxlabs/client` will also install the
+`github.com/synnaxlabs/x/telem` package which includes useful primitives for working
+with telemetry data.
+
+<Divider.Divider direction="x" />
+
+## Connecting to a Cluster
+
+To connect a cluster, use the `synnax.New` function along with the connection parameters
+to your cluster.
+
+```go
+import (
+    "log"
+    "github.com/synnaxlabs/client"
+)
+
+client, err := synnax.New(synnax.Config{
+    Host: "localhost",
+    Port: 9090,
+    Username: "synnax",
+    Password: "password",
+    Secure: false,
+})
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+This will return an instance of the `Synnax` client, which you can use to interact with
+the cluster.

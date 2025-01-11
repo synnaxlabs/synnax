@@ -77,13 +77,15 @@ func Open(cfgs ...Config) (*Synnax, error) {
 		Password: password.Raw(cfg.Password),
 	})
 	transport.Use(a.Middleware())
+	channelClient := channel.NewClient(
+		transport.ChannelCreate,
+		transport.ChannelRetrieve,
+		transport.ChannelDelete,
+	)
 	return &Synnax{
-		Channels: channel.NewClient(
-			transport.ChannelCreate,
-			transport.ChannelRetrieve,
-			transport.ChannelDelete,
-		),
+		Channels: channelClient,
 		Client: framer.NewClient(
+			channelClient,
 			transport.FrameIterator,
 			transport.FrameWriter,
 			transport.FrameStreamer,

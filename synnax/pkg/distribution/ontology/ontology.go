@@ -142,14 +142,14 @@ type Writer interface {
 	// DeleteManyResources does nothing.
 	DeleteManyResources(ctx context.Context, ids []ID) error
 	// DefineRelationship defines a directional relationship of type t between the
-	// resources with the given Keys. If the relationship already exists, DefineRelationship
+	// resources with the given Channels. If the relationship already exists, DefineRelationship
 	// does nothing.
 	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// DefineFromOneToManyRelationships defines a directional relationship of type t from
 	// the resource with the given ID to multiple resources. If any of the relationships
 	// already exist, DefineFromOneToManyRelationships does nothing.
 	DefineFromOneToManyRelationships(ctx context.Context, from ID, t RelationshipType, to []ID) error
-	// DeleteRelationship deletes the relationship with the given Keys and type. If the
+	// DeleteRelationship deletes the relationship with the given Channels and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
 	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given

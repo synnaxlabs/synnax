@@ -1,0 +1,237 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Channels"
+description: "Create, retrieve, and delete channels using the Synnax Python client."
+next: "Ranges"
+nextURL: "/reference/python-client/ranges"
+prev: "Get Started"
+prevURL: "/reference/python-client/get-started"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The go Client provides interfaces for creating, retrieving, and deleting channels. We'll
+cover the details of each of these operations in this guide.
+
+If you're unfamiliar with what channels are and how they work, check out the [channel
+concepts guide](/reference/concepts/channels).
+
+<Divider.Divider direction="x" />
+
+## Creating Channels
+
+To create channels, we can use the `client.Channels.Create` and
+`client.Channels.CreateMany` methods.
+
+### Creating a Data Channel and its Index
+
+Creating a data channel first requires us to create an index channel to store its
+timestamps:
+
+```go
+import (
+    "log"
+    "github.com/synnaxlabs/client"
+    "github.com/synnaxlabs/x/telem"
+)
+
+timeIndexChannel, err := client.Channels.Create(synnax.Channel{
+    Name: "time",
+    DataType: telem.TimeStampT,
+    IsIndex: true,
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+sensorChannel, err := client.Channels.Create(synnax.Channel{
+    Name: "sensor",
+    DataType: telem.Float32T,
+    Index: timeIndexChannel.Key,
+})
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+### Creating Multiple Channels
+
+We can create multiple channels using the `client.Channels.CreateMany` method along with
+a slice of channels. This is more efficient than creating many channels individually,
+and provides the atomic guarantee that either all or no channels will be created.
+
+Keep in mind that we need to create index channels before we can create the data
+channels that use them.
+
+```go
+timeIndex, err := client.Channels.Create(synnax.Channel{
+    Name: "time",
+    DataType: telem.TimeStampT,
+    IsIndex: true,
+})
+
+sensorOne := synnax.Channel{
+    Name: "sensor_one",
+    DataType: telem.Float32T,
+    Index: timeIndex.Key,
+}
+
+sensorTwo := synnax.Channel{
+    Name: "sensor_two",
+    DataType: telem.Float32T,
+    Index: timeIndex.Key,
+}
+
+channels, err := client.Channels.CreateMany([]synnax.Channel{sensorOne, sensorTwo})
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+### Only Create a Channel if it Doesn't Exist
+
+There are situations where we want to ensure that a channel with a particular name
+exists, but don't want it duplicated if it has already been created. To accomplish this,
+we can use the `channel.RetrieveIfNameExists` option.
+
+```go
+virtualCh, err := client.Channels.Create(synnax.Channel{
+    Name: "virtual",
+    DataType: telem.Float32T,
+    Virtual: true,
+}, channel.RetrieveIfNameExists())
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+This also works when creating multiple channels:
+
+```go
+channels, err := client.Channels.CreateMany([]synnax.Channel{
+    {Name: "virtual_one", DataType: telem.Float32T, Virtual: true},
+    {Name: "virtual_two", DataType: telem.Float32T, Virtual: true},
+}, channel.RetrieveIfNameExists())
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+<Divider.Divider direction="x" />
+
+## Retrieving Channels
+
+We can retrieve channels using the `client.Channels.Retrieve` and
+`client.Channels.RetrieveMany` methods.
+
+### Retrieving a Single Channel
+
+To retrieve a single channel, we can use the `client.Channels.Retrieve` method.
+
+```go
+// By name
+sensor, err := client.Channels.Retrieve(channel.WhereName("sensor"))
+if err != nil {
+    log.Fatal(err)
+}
+
+// If you know the key, you can also retrieve by key
+sensor, err = client.Channels.Retrieve(channel.WhereKey(sensor.Key))
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+This method will return a `channel.NotFoundError` if no channels match the query, and a
+`channel.MultipleFoundError` if more than one channel matches the query. If you'd like to
+accept no or multiple results, use the `client.Channels.RetrieveMany` method instead.
+
+### Retrieving Multiple Channels
+
+To retrieve multiple channels, we can use the `client.Channels.RetrieveMany` method.
+
+```go
+// By variadic names
+channels, err := client.Channels.RetrieveMany(
+    channel.WhereName("sensor_one", "sensor_two"),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// By list of names
+channels, err = client.Channels.RetrieveMany(
+    channel.WhereNames([]string{"sensor_one", "sensor_two"}),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// By variadic keys
+channels, err = client.Channels.RetrieveMany(
+    channel.WhereKey(sensorOne.Key, sensorTwo.Key),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// By list of keys
+channels, err = client.Channels.RetrieveMany(
+    channel.WhereKeys([]string{sensorOne.Key, sensorTwo.Key}),
+)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+Note that this method will not return a `channel.NotFoundError` if a channel is not
+found. Instead, the missing channel will simply be omitted from the list of results.
+
+<Divider.Divider direction="x" />
+
+## Deleting Channels
+
+<Note.Note variant="warning">
+  Deleting a channel will also delete all of the data stored in that channel. This is a
+  permanent operation that cannot be undone. Be careful!
+</Note.Note>
+
+To delete a channel, we can use the `client.Channels.Delete` method.
+
+```go
+// Delete channels matching a name
+err := client.Channels.Delete(channel.WhereName("sensor"))
+if err != nil {
+    log.Fatal(err)
+}
+
+// Delete channels matching a list of names
+err = client.Channels.Delete(
+    channel.WhereNames([]string{"sensor_one", "sensor_two"}),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Delete by key
+err = client.Channels.Delete(channel.WhereKey(sensor.Key))
+if err != nil {
+    log.Fatal(err)
+}
+
+// Delete many by key
+err = client.Channels.Delete(
+    channel.WhereKeys([]string{sensorOne.Key, sensorTwo.Key}),
+)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+Unlike with retrieving channels, Synnax will not raise an error if it cannot find a
+channel matching the key or name. This means that `Delete` is an idempotent operation,
+and is safe to call even if the channel has already been deleted.
+
+Deleting a channel by name will delete **all** channels with that name.

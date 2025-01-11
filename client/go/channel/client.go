@@ -79,9 +79,9 @@ func WhereName(name ...string) RetrieveDeleteOption {
 	}
 }
 
-func WhereKey(key Key) RetrieveDeleteOption {
+func WhereKey(key ...Key) RetrieveDeleteOption {
 	return func(req *api.ChannelRetrieveRequest) {
-		req.Keys = append(req.Keys, key)
+		req.Keys = append(req.Keys, key...)
 	}
 }
 
@@ -120,7 +120,11 @@ func (c *Client) Retrieve(ctx context.Context, opts ...RetrieveDeleteOption) (ch
 	return res.Channels[0], nil
 }
 
-func (c *Client) RetrieveMany(ctx context.Context, req RetrieveRequest) (chs []Channel, err error) {
+func (c *Client) RetrieveMany(ctx context.Context, opts ...RetrieveDeleteOption) (chs []Channel, err error) {
+	req := api.ChannelRetrieveRequest{}
+	for _, opt := range opts {
+		opt(&req)
+	}
 	res, err := c.retrieveTransport.Send(ctx, "", req)
 	if err != nil {
 		return chs, err

@@ -65,7 +65,8 @@ func NewChannelService(p Provider) *ChannelService {
 // ChannelCreateRequest is a request to create a Channel in the cluster.
 type ChannelCreateRequest struct {
 	// Channel is a template for the Channel to create.
-	Channels []Channel `json:"channels" msgpack:"channels"`
+	Channels             []Channel `json:"channels" msgpack:"channels"`
+	RetrieveIfNameExists bool      `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have
@@ -93,8 +94,13 @@ func (s *ChannelService) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
+	return res, s.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		w := s.internal.NewWriter(tx)
+		if req.RetrieveIfNameExists {
+			err = w.CreateManyIfNamesDontExist(ctx, &translated)
+		} else {
+			err = w.CreateMany(ctx, &translated)
+		}
 		res.Channels = translateChannelsForward(translated)
 		return err
 	})

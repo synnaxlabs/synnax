@@ -89,21 +89,29 @@ func (t channelCreateRequestTranslator) Forward(
 	_ context.Context,
 	msg api.ChannelCreateRequest,
 ) (*gapi.ChannelCreateRequest, error) {
-	return &gapi.ChannelCreateRequest{Channels: lo.Map(msg.Channels, translateChannelForward)}, nil
+	return &gapi.ChannelCreateRequest{
+		Channels:             lo.Map(msg.Channels, translateChannelForward),
+		RetrieveIfNameExists: msg.RetrieveIfNameExists,
+	}, nil
 }
 
 func (t channelCreateRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelCreateRequest,
 ) (api.ChannelCreateRequest, error) {
-	return api.ChannelCreateRequest{Channels: lo.Map(msg.Channels, translateChannelBackward)}, nil
+	return api.ChannelCreateRequest{
+		Channels:             lo.Map(msg.Channels, translateChannelBackward),
+		RetrieveIfNameExists: msg.RetrieveIfNameExists,
+	}, nil
 }
 
 func (t channelCreateResponseTranslator) Forward(
 	_ context.Context,
 	msg api.ChannelCreateResponse,
 ) (*gapi.ChannelCreateResponse, error) {
-	return &gapi.ChannelCreateResponse{Channels: lo.Map(msg.Channels, translateChannelForward)}, nil
+	return &gapi.ChannelCreateResponse{
+		Channels: lo.Map(msg.Channels, translateChannelForward),
+	}, nil
 }
 
 func (t channelCreateResponseTranslator) Backward(

@@ -7,7 +7,6 @@ import (
 	synnax "github.com/synnaxlabs/client"
 	"github.com/synnaxlabs/client/channel"
 	"github.com/synnaxlabs/client/internal/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 
@@ -43,7 +42,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		}))
 		s1 := telem.NewSeriesV[int64](int64(telem.Now()))
 		s2 := telem.NewSeriesV[float64](1.0)
-		Expect(w.Write(ctx, core.Frame{
+		Expect(w.Write(ctx, synnax.Frame{
 			Keys:   []channel.Key{indexCh.Key, dataCh.Key},
 			Series: []telem.Series{s1, s2},
 		})).To(BeTrue())
