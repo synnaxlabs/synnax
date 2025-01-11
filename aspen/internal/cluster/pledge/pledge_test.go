@@ -238,7 +238,7 @@ var _ = Describe("PledgeServer", func() {
 		})
 
 		Context("Concurrent Pledges", func() {
-			It("Should assign unique Channels to all pledges", func() {
+			It("Should assign unique keys to all pledges", func() {
 				var (
 					mu         sync.Mutex
 					nodes      = make(node.Group)

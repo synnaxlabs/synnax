@@ -79,7 +79,7 @@ func (c Key) Lease() core.NodeKey { return c.Leaseholder() }
 // String implements fmt.Stringer.
 func (c Key) String() string { return strconv.Itoa(int(c)) }
 
-// Keys extends []Channels with a few convenience methods.
+// Keys extends []Key with a few convenience methods.
 type Keys []Key
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).

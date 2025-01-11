@@ -34,7 +34,7 @@ type MemFS struct {
 	root *memNode
 
 	// lockFiles holds a map of open file locks. Presence in this map indicates
-	// a file lock is currently held. Channels are strings holding the path of the
+	// a file lock is currently held. Keys are strings holding the path of the
 	// locked file. The stored value is untyped and  unused; only presence of
 	// the key within the map is significant.
 	lockedFiles sync.Map

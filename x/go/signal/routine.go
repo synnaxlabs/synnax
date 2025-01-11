@@ -38,7 +38,7 @@ type RoutineInfo struct {
 func (r RoutineInfo) PrettyString() string {
 	return fmt.Sprintf(
 		`
-Channels: %s
+Keys: %s
 ContextKey: %s
 State: %s
 FailureReason: %s,

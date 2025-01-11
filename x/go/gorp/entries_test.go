@@ -96,7 +96,7 @@ var _ = Describe("Entries", func() {
 		})
 	})
 
-	Describe("Channels", func() {
+	Describe("Keys", func() {
 		It("Should return the keys of the entries", func() {
 			q := gorp.NewRetrieve[int, entry]()
 			gorp.SetEntry[int, entry](q.Params, &entry{ID: 1})

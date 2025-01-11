@@ -56,7 +56,7 @@ var (
 // Pledge pledges a new node to the cluster. This node, called the Pledge,
 // submits a request for id assignment to a peer in peers. If the cluster approves
 // the request, the node will be assigned an Name and registered to arbitrate in
-// future pledge (see the Arbitrate function for more on how this works). Channels
+// future pledge (see the Arbitrate function for more on how this works). keys
 // of nodes in the cluster are guaranteed to be unique, but are not guaranteed
 // to be sequential. Pledge will continue to contact peers at a scaling interval
 // (defined in cfg.RetryScale and cfg.RetryInterval) until the cluster approves
@@ -122,8 +122,8 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 
 // Arbitrate registers a node to arbitrate future pledges. When processing a pledge
 // request, the node will act as responsible for the pledge and submit proposed
-// Channels to a jury of candidate nodes. The responsible node will continue to propose
-// Channels until cfg.MaxProposals is reached. When processing a responisble's proposal,
+// keys to a jury of candidate nodes. The responsible node will continue to propose
+// keys until cfg.MaxProposals is reached. When processing a responisble's proposal,
 // the node will act a juror, and decide if it approves of the proposed Name
 // or not. To see the required configuration parameters, see the Config struct.
 func Arbitrate(cfgs ...Config) error {
@@ -177,7 +177,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// Candidates may have already approved the request. This means that
 		// if we retry the request without incrementing the proposed Name, we'll
 		// get a rejection from the candidate that approved the request last time.
-		// This will result in marginally higher Channels being assigned, but it's
+		// This will result in marginally higher keys being assigned, but it's
 		// better than adding a lot of extra logic to the proposal process.
 		res.Key = r.idToPropose()
 
@@ -278,8 +278,8 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	j.L.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	for _, apschematic := range j.approvals {
-		if apschematic == req.Key {
+	for _, approval := range j.approvals {
+		if approval == req.Key {
 			j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
 			err = proposalRejected
 			return

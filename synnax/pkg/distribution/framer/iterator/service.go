@@ -185,7 +185,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) error {
 	v := validate.New("distribution.framer.Iterator")
-	if validate.NotEmptySlice(v, "Channels", keys) {
+	if validate.NotEmptySlice(v, "Keys", keys) {
 		return v.Error()
 	}
 	for _, k := range keys {
