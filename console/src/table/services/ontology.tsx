@@ -14,6 +14,7 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
+import { Export } from "@/export";
 import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
@@ -43,14 +44,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.table.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
+    onError: (e, { state: { setNodes }, handleException }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(err)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete table",
-        description: err.message,
-      });
+      if (errors.CANCELED.matches(e)) return;
+      handleException(e, "Failed to delete table");
     },
   }).mutate;
 };
@@ -62,11 +59,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
-  const onSelect = useAsyncActionMenu("table.menu", {
+  const handleExport = Table.useExport();
+  const onSelect = useAsyncActionMenu({
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+    export: () => handleExport(resources[0].id.key),
   });
   const isSingle = resources.length === 1;
   return (
@@ -77,6 +76,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
+          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
@@ -121,7 +121,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  addStatus,
+  handleException,
 }) => {
   void (async () => {
     try {
@@ -135,12 +135,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (err) {
-      addStatus({
-        variant: "error",
-        message: "Failed to load table",
-        description: (err as Error).message,
-      });
+    } catch (e) {
+      handleException(e, "Failed to load table");
     }
   })();
 };

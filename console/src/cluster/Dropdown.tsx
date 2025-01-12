@@ -224,11 +224,11 @@ export const NoneConnectedBoundary = ({
 };
 
 export const NoneConnected = (): ReactElement => {
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
 
   const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
     e.stopPropagation();
-    placer(connectWindowLayout);
+    place(connectWindowLayout);
   };
 
   return (

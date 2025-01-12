@@ -16,22 +16,17 @@ export const useDevice = <P extends UnknownRecord>(
   ctx: Form.ContextValue<any>,
 ): device.Device<P> | undefined => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const [device, setDevice] = useState<device.Device<P> | undefined>(undefined);
-  const handleException = useCallback(
+  const handleExc = useCallback(
     (e: unknown) => {
-      if (!(e instanceof Error)) throw e;
       if (NotFoundError.matches(e)) {
         if (device != null) setDevice(undefined);
         return;
       }
-      addStatus({
-        variant: "error",
-        message: `Failed to retrieve ${device?.name ?? "device"}.`,
-        description: e.message,
-      });
+      handleException(e, `Failed to retrieve ${device?.name ?? "device"}.`);
     },
-    [addStatus, device?.name, setDevice],
+    [handleException, device?.name, setDevice],
   );
   useAsyncEffect(async () => {
     if (client == null) return;
@@ -42,7 +37,7 @@ export const useDevice = <P extends UnknownRecord>(
       const d = await client.hardware.devices.retrieve<P>(deviceKey);
       setDevice(d);
     } catch (e) {
-      handleException(e);
+      handleExc(e);
     }
   }, [ctx, client]);
   Form.useFieldListener<string>({
@@ -54,9 +49,9 @@ export const useDevice = <P extends UnknownRecord>(
         client.hardware.devices
           .retrieve<P>(fs.value)
           .then((d) => setDevice(d))
-          .catch(handleException);
+          .catch(handleExc);
       },
-      [client, setDevice, handleException],
+      [client, setDevice, handleExc],
     ),
   });
   Observe.useListener({

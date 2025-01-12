@@ -94,7 +94,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   };
 
   const handleTestConnection = (): void => {
-    void (async (): Promise<void> => {
+    void (async () => {
       if (!methods.validate()) return;
       setConnState(null);
       setLoading("test");

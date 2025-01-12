@@ -10,3 +10,4 @@
 export * from "@/color/core/color";
 export * from "@/color/core/gradient";
 export * from "@/color/core/palette";
+export * from "@/color/core/transformColorsToHex";

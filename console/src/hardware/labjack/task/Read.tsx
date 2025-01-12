@@ -124,10 +124,10 @@ const Wrapped = ({
     running === true ? "running" : running === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<ReadTaskConfig, ReadStateDetails, ReadType>(layoutKey);
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
-    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    onError: (e) => handleException(e, "Failed to configure LabJack Read task"),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
@@ -204,7 +204,7 @@ const Wrapped = ({
   });
   const handleTare = useMutation({
     mutationKey: [client?.key],
-    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    onError: (e) => handleException(e, "Failed to tare channels"),
     mutationFn: async (keys: number[]) => {
       if (client == null) return;
       await task?.executeCommand("tare", { keys });

@@ -24,7 +24,7 @@ interface InitialArgs {
 export const ContextMenuItems = ({
   selection: { resources },
 }: Ontology.TreeContextMenuProps) => {
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   const first = resources[0];
   const isSingle = resources.length === 1;
   const args: InitialArgs = {
@@ -33,15 +33,15 @@ export const ContextMenuItems = ({
   };
   const maybeConfigure = () => {
     if (first.data?.configured === false)
-      placer(createConfigureLayout(first.id.key, {}));
+      place(createConfigureLayout(first.id.key, {}));
   };
   const handleCreateReadTask = () => {
     maybeConfigure();
-    placer(createReadLayout(args));
+    place(createReadLayout(args));
   };
   const handleCreateWriteTask = () => {
     maybeConfigure();
-    placer(createWriteLayout(args));
+    place(createWriteLayout(args));
   };
   if (!isSingle) return null;
   return (

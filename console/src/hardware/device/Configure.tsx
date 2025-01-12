@@ -66,15 +66,10 @@ export const Configure = <P extends UnknownRecord = UnknownRecord>({
   const [step, setStep] = useState<"name" | "identifier">("name");
   const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const identifierRef = useRef<HTMLInputElement>(null);
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const { isPending, mutate } = useMutation<void, Error, void>({
     mutationKey: [client?.key],
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to configure ${device.name}`,
-        description: e.message,
-      }),
+    onError: (e) => handleException(e, `Failed to configure ${device.name}`),
     mutationFn: async () => {
       if (client == null) throw new Error("Cannot reach cluster");
       if (step === "name") {
