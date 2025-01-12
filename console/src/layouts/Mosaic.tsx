@@ -149,7 +149,7 @@ interface MosaicProps {
   mosaic: Core.Node;
 }
 
-export const Mosaic: Layout.Renderer = memo((): ReactElement | null => {
+export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
   if (windowKey == null || mosaic == null) return null;
   return <Internal windowKey={windowKey} mosaic={mosaic} />;
