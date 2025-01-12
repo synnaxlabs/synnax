@@ -3,9 +3,10 @@ import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 
-const { tabindex, variant, ...props } = Astro.props;
+const { tabindex, variant, wrap = false, ...props } = Astro.props;
 let className = "astro-code-wrapper";
 if (variant != null) className += ` ${variant}`;
+if (wrap) className += " wrap";
 ---
 
 <div class={className} tabindex={tabindex}>
@@ -36,8 +37,25 @@ if (variant != null) className += ` ${variant}`;
             display: none;
         }
     }
+
+    .pluto-pack .astro-code-wrapper {
+        margin: 0;
+        .astro-code {
+            border: none;
+        }
+    }
+
     .astro-code-wrapper {
         position: relative;
+
+        &.wrap {
+            /* make sure the code block doesn't overflow the container */
+            overflow-x: hidden;
+        }
+
+        pre {
+            margin: 0;
+        }
 
         margin: 5rem 1.5rem;
         button {
@@ -83,6 +101,12 @@ if (variant != null) className += ` ${variant}`;
         }
         button {
             display: none;
+        }
+    }
+
+    @media (max-width: 800px) {
+        .astro-code-wrapper {
+            margin: 5rem 0;
         }
     }
 </style>

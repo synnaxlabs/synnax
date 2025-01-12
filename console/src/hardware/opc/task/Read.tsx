@@ -88,7 +88,7 @@ const Wrapped = ({
   task,
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const methods = Form.use({ schema, values: initialValues });
   const dev = useDevice<Device.Properties>(methods);
   const taskState = useObserveState<ReadStateDetails>(
@@ -103,9 +103,9 @@ const Wrapped = ({
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
   const configure = useMutation<void>({
-    mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) throw new Error("Client not available");
+      if (!methods.validate()) return;
       const { config, name } = methods.value();
 
       // Retrieving the device and updating its properties if needed
@@ -252,12 +252,7 @@ const Wrapped = ({
       createTask({ key: task?.key, name, type: READ_TYPE, config });
       setDesiredState("paused");
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: "Failed to configure task",
-        description: e.message,
-      }),
+    onError: (e) => handleException(e, `Failed to configure task`),
   });
 
   const start = useMutation({
@@ -272,7 +267,7 @@ const Wrapped = ({
 
   const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
 
   const name = task?.name;
   const key = task?.key;
@@ -322,7 +317,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => placer(createConfigureLayout())}
+                        onClick={() => place(createConfigureLayout())}
                       >
                         Connect a new server.
                       </Text.Link>
@@ -388,7 +383,7 @@ interface ChannelListProps {
   snapshot?: boolean;
 }
 
-const ChannelList = ({ path, device, snapshot }: ChannelListProps): ReactElement => {
+const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
   const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 

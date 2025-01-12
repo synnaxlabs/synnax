@@ -74,6 +74,7 @@ type ChannelCreateResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
+// Create creates a Channel based on the parameters given in the request.
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
@@ -81,6 +82,9 @@ func (s *ChannelService) Create(
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
 		return res, err
+	}
+	for i := range translated {
+		translated[i].Internal = false
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),

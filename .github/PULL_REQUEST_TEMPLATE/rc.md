@@ -95,10 +95,6 @@ I can successfully:
     - [ ] Delete a channel.
     - [ ] Delete multiple channels.
     - [ ] Group channels.
-    - [ ] Add a channel to an active plot.
-    - [ ] Add multiple channels to an active plot.
-    - [ ] Add a channel to a new plot.
-    - [ ] Add multiple channels to a new plot.
     - [ ] Set an alias for a channel under a range.
     - [ ] Clear an alias for a channel under a range.
     - [ ] Copy a link to a channel.
@@ -400,6 +396,7 @@ I can successfully:
 - **Search and Command Palette**
   - [ ] Open an existing schematic.
   - [ ] Open the "Create Schematic" dialog.
+  - [ ] Import a schematic from a file.
 - [ ] Rename a schematic and ensure synchronization across:
   - Mosaic Tab
   - Resources Toolbar
@@ -465,6 +462,7 @@ I can successfully:
 I can successfully:
 
 - [ ] Create a new workspace.
+- [ ] Import a workspace by drag and dropping from a directory.
 - **Workspace Selector**
   - [ ] Create a new workspace.
   - [ ] Switch workspaces in the selector.
@@ -474,14 +472,19 @@ I can successfully:
   - **Context Menu**
     - [ ] Rename a workspace.
     - [ ] Delete a workspace.
+    - [ ] Export a workspace.
     - [ ] Create a new line plot in a workspace.
     - [ ] Create a new log in a workspace.
     - [ ] Create a new schematic in a workspace.
     - [ ] Import a line plot.
     - [ ] Import a schematic.
+    - [ ] Import a log.
+    - [ ] Import a table.
+    - [ ] Create a new table in a workspace.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
   - [ ] Open the "Create Workspace" dialog.
+  - [ ] Import a workspace.
   - [ ] Open an existing workspace.
 - [ ] Rename a workspace and ensure synchronization across:
   - Resources Toolbar

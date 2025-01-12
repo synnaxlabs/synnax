@@ -26,9 +26,8 @@ import { Table } from "@/table";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
-const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
+const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
-  Cluster.PERSIST_EXCLUDE,
   ...Schematic.PERSIST_EXCLUDE,
 ];
 

@@ -105,15 +105,9 @@ const Wrapped = ({
   const createTask = useCreate<WriteTaskConfig, WriteStateDetails, WriteType>(
     layoutKey,
   );
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const configure = useMutation({
-    mutationKey: [client?.key, "configure", addStatus],
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: "Failed to configure write task",
-        description: e.message,
-      }),
+    onError: (e) => handleException(e, "Failed to configure write task"),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
@@ -233,11 +227,7 @@ const Wrapped = ({
   const start = useMutation({
     mutationKey: [client?.key, isRunning, task?.key],
     onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to ${isRunning ? "stop" : "start"} write task`,
-        description: e.message,
-      }),
+      handleException(e, `Failed to ${isRunning ? "stop" : "start"} write task`),
     mutationFn: async () => {
       if (client == null) throw new Error("No client");
       if (task == null) throw new Error("No task state");

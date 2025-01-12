@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Haul,
   Menu,
@@ -183,6 +183,14 @@ const handleRelationshipsChange = async (
     setNodes([...nextTree]);
   });
 
+const sortFunc = (a: Core.Node, b: Core.Node) => {
+  const aIsGroup = a.key.startsWith(group.ONTOLOGY_TYPE);
+  const bIsGroup = b.key.startsWith(group.ONTOLOGY_TYPE);
+  if (aIsGroup && !bIsGroup) return -1;
+  if (!aIsGroup && bIsGroup) return 1;
+  return Core.defaultSort(a, b);
+};
+
 export const Tree = (): ReactElement => {
   const client = Synnax.use();
   const services = useServices();
@@ -194,6 +202,7 @@ export const Tree = (): ReactElement => {
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const menuProps = Menu.useContextMenu();
 
   const baseProps: BaseProps = useMemo<BaseProps>(
@@ -204,8 +213,9 @@ export const Tree = (): ReactElement => {
       removeLayout,
       services,
       addStatus,
+      handleException,
     }),
-    [client, store, placeLayout, removeLayout, services, addStatus],
+    [client, store, placeLayout, removeLayout, services, addStatus, handleException],
   );
 
   // Processes incoming changes to the ontology from the cluster.
@@ -290,6 +300,7 @@ export const Tree = (): ReactElement => {
     nodes,
     selected,
     onSelectedChange: setSelected,
+    sort: sortFunc,
   });
 
   const dropMutation = useMutation<
@@ -317,11 +328,7 @@ export const Tree = (): ReactElement => {
     },
     onError: (error, _, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      addStatus({
-        variant: "error",
-        message: `Failed to move resources`,
-        description: error.message,
-      });
+      handleException(error, "Failed to move resources");
     },
   });
 
@@ -411,7 +418,6 @@ export const Tree = (): ReactElement => {
     ),
     onError: (error, { key, name }, ctx) => {
       if (ctx == null) return;
-      const { message } = error;
       const { prevName } = ctx;
       const rProps = getRenameProps(key, name);
       const svc = services[rProps.id.type];
@@ -422,11 +428,7 @@ export const Tree = (): ReactElement => {
           updater: (node) => ({ ...node, name: prevName }),
         }),
       ]);
-      addStatus({
-        variant: "error",
-        message: `Failed to rename ${prevName} to ${name}`,
-        description: message,
-      });
+      handleException(error, `Failed to rename ${prevName} to ${name}`);
       svc.onRename?.rollback?.(rProps, prevName);
     },
   });
@@ -445,6 +447,7 @@ export const Tree = (): ReactElement => {
         store,
         services,
         placeLayout,
+        handleException,
         removeLayout,
         addStatus,
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
@@ -490,6 +493,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        handleException,
         addStatus,
         selection: {
           parent,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, Rate } from "@synnaxlabs/client";
+import { type channel, DataType } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
   Align,
@@ -17,55 +17,48 @@ import {
   Input,
   Nav,
   Select,
+  Status,
   Synnax,
   Text,
   Triggers,
   useSyncedRef,
-  Status,
 } from "@synnaxlabs/pluto";
-import { unique, deep } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { deep, unique } from "@synnaxlabs/x";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import * as monaco from "monaco-editor";
 import { type ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 
+import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import type { RendererProps } from "@/layout/slice";
-import { useQuery } from "@tanstack/react-query";
+import { Version } from "@/version";
 
 export interface CalculatedChannelArgs {
   channelKey?: number;
 }
 
-const defaultArgs: CalculatedChannelArgs = {
-  channelKey: undefined,
-};
+const DEFAULT_ARGS: CalculatedChannelArgs = { channelKey: undefined };
 
-const schema = channel.newPayload
-  .extend({
-    name: z.string().min(1, "Name must not be empty"),
-    dataType: DataType.z.transform((v) => v.toString()),
-    expression: z
-      .string()
-      .refine((v) => v.includes("result =") || v.includes("result="), {
-        message:
-          'Expression must assign calculation to result (i.e. must include a "result =" expression)',
-      }),
-  })
-  .refine((v) => !v.isIndex || new DataType(v.dataType).equals(DataType.TIMESTAMP), {
-    message: "Index channel must have data type TIMESTAMP",
-    path: ["dataType"],
-  })
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
-    message: "Data channel must have an index",
-    path: ["index"],
-  })
-  .refine((v) => v.requires?.length > 0, {
-    message: "Expression must use at least one synnax channel",
-    path: ["requires"],
-  });
+const schema = createFormValidator(
+  baseFormSchema
+    .extend({
+      name: z.string().min(1, "Name must not be empty"),
+      dataType: DataType.z.transform((v) => v.toString()),
+      expression: z
+        .string()
+        .refine((v) => v.includes("result =") || v.includes("result="), {
+          message:
+            'Expression must assign calculation to result (i.e. must include a "result =" expression)',
+        }),
+    })
+    .refine((v) => v.requires?.length > 0, {
+      message: "Expression must use at least one synnax channel",
+      path: ["requires"],
+    }),
+);
 
 type FormValues = z.infer<typeof schema>;
 
@@ -73,10 +66,7 @@ export const CREATE_CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const createCalculatedLayout: Layout.State = {
-  key: CREATE_CALCULATED_LAYOUT_TYPE,
-  type: CREATE_CALCULATED_LAYOUT_TYPE,
-  windowKey: MAIN_WINDOW,
+export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.State => ({
   name: "Channel.Create.Calculated",
   icon: "Channel",
   location: "modal",
@@ -90,27 +80,24 @@ export const createCalculatedLayout: Layout.State = {
     navTop: true,
     showTitle: true,
   },
-};
+  ...base,
+  key: CREATE_CALCULATED_LAYOUT_TYPE,
+  type: CREATE_CALCULATED_LAYOUT_TYPE,
+  windowKey: MAIN_WINDOW,
+});
 
 const ZERO_FORM_VALUES: FormValues = {
-  key: 0,
-  name: "",
-  index: 0,
-  dataType: "float32",
-  isIndex: false,
-  leaseholder: 0,
+  ...ZERO_CHANNEL,
   virtual: true, // Set to true by default
-  rate: Rate.hz(0),
-  internal: false,
-  expression: "np.array([])",
-  requires: [],
+  expression: "result = np.array([])",
 };
 
 export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) => {
   const client = Synnax.use();
-  const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? defaultArgs;
+  const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? DEFAULT_ARGS;
   const res = useQuery<FormValues>({
     queryKey: [args.channelKey, client?.key],
+    staleTime: 0,
     queryFn: async () => {
       if (args.channelKey == null) return deep.copy(ZERO_FORM_VALUES);
       if (client == null) throw new Error("Client not available");
@@ -126,8 +113,7 @@ export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) =
         <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
       </Align.Space>
     );
-  if (res.isSuccess) return <Internal onClose={onClose} initialValues={res.data} />;
-  return null;
+  return <Internal onClose={onClose} initialValues={res.data} />;
 };
 
 interface InternalProps extends Pick<RendererProps, "onClose"> {
@@ -147,9 +133,8 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
       if (client == null) throw new Error("Client not available");
 
       const isValid = await methods.validate();
-      if (!isValid) {
-        throw new Error("Validation failed: " + JSON.stringify(methods.errors));
-      }
+      if (!isValid)
+        throw new Error(`Validation failed: ${JSON.stringify(methods.value().name)}`);
 
       const d = methods.value();
       await client.channels.create(d);
@@ -232,14 +217,17 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               </Text.Text>
             </Align.Space>
           )}
-          <Button.Button
-            disabled={isPending}
-            loading={isPending}
-            onClick={() => mutate(createMore)}
-            triggers={[SAVE_TRIGGER]}
-          >
-            {initialValues.key !== 0 ? "Update Channel" : "Create Channel"}
-          </Button.Button>
+          <Align.Space direction="x" align="center">
+            <Version.BetaTag feature="Calculated channels" plural />
+            <Button.Button
+              disabled={isPending}
+              loading={isPending}
+              onClick={() => mutate(createMore)}
+              triggers={[SAVE_TRIGGER]}
+            >
+              {initialValues.key !== 0 ? "Save" : "Create"}
+            </Button.Button>
+          </Align.Space>
         </Nav.Bar.End>
       </Layout.BottomNavBar>
     </Align.Space>
@@ -250,13 +238,43 @@ const Editor = (props: Code.EditorProps): ReactElement => {
   const client = Synnax.use();
   const requires = Form.useField<channel.Key[]>({ path: "requires" });
   const valueRef = useSyncedRef(requires.value);
+  const [hyphenWarning, setHyphenWarning] = useState<string | null>(null);
+
+  const hasHyphenatedName = async () => {
+    if (!client || !requires.value?.length) return false;
+    const channels = await Promise.all(
+      requires.value.map((key) => client.channels.retrieve(key)),
+    );
+    return channels.some((ch) => ch.name.includes("-"));
+  };
+
+  useEffect(() => {
+    const checkHyphens = async () => {
+      const hasHyphen = await hasHyphenatedName();
+      if (hasHyphen)
+        setHyphenWarning(
+          "Note: Channels with hyphens must be accessed using" +
+            ' channels["channel-name"]',
+        );
+      else setHyphenWarning(null);
+    };
+    checkHyphens();
+  }, [requires.value]);
 
   // Specifically to handle generating requires list when reopening existing calc channel
   useEffect(() => {
     if (!client || !props.value) return;
     const initializeRequiredChannels = async () => {
       try {
-        const channelNames = props.value.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g) || [];
+        // Find all channel dictionary accesses with either single or double quotes
+        const channelRegex = /channels\[(['"])(.*?)\1\]/g;
+        const channelNames: string[] = [];
+        let match;
+
+        // Extract all matches
+        while ((match = channelRegex.exec(props.value)) !== null)
+          channelNames.push(match[2]); // match[2] contains the channel name without quotes
+
         const channels = await Promise.all(
           channelNames.map((name) =>
             client.channels
@@ -267,9 +285,8 @@ const Editor = (props: Code.EditorProps): ReactElement => {
         const channelKeys = channels
           .filter((ch): ch is NonNullable<typeof ch> => ch != null)
           .map((ch) => ch.key);
-        if (channelKeys.length > 0) {
+        if (channelKeys.length > 0)
           requires.onChange(unique([...valueRef.current, ...channelKeys]));
-        }
       } catch (error) {
         console.error("Error initializing required channels:", error);
       }
@@ -308,7 +325,9 @@ const Editor = (props: Code.EditorProps): ReactElement => {
             suggestions: channels.map((channel) => ({
               label: channel.name,
               kind: monaco.languages.CompletionItemKind.Variable,
-              insertText: channel.name,
+              insertText: channel.name.includes("-")
+                ? `channels["${channel.name}"]`
+                : channel.name,
               range,
               command: {
                 id: "onSuggestionAccepted",
@@ -322,5 +341,15 @@ const Editor = (props: Code.EditorProps): ReactElement => {
     );
     return () => disposables.forEach((d) => d.dispose());
   }, []);
-  return <Code.Editor {...props} />;
+
+  return (
+    <>
+      <Code.Editor {...props} />
+      {hyphenWarning && (
+        <Text.Text level="small" shade={7}>
+          {hyphenWarning}
+        </Text.Text>
+      )}
+    </>
+  );
 };

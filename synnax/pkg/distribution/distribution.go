@@ -87,8 +87,6 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		return d, err
 	}
 
-	d.Ontology.RegisterService(d.Group)
-
 	nodeOntologySvc := &cluster.NodeOntologyService{
 		Ontology: d.Ontology,
 		Cluster:  d.Cluster,
@@ -103,10 +101,13 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	frameTransport := frametransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, channelTransport, frameTransport)
 
-	ver, err := verification.OpenService(cfg.Verifier, verification.Config{
-		DB:  d.Storage.KV,
-		Ins: cfg.Instrumentation,
-	})
+	ver, err := verification.OpenService(
+		ctx,
+		cfg.Verifier,
+		verification.Config{
+			DB:  d.Storage.KV,
+			Ins: cfg.Instrumentation,
+		})
 	if err != nil {
 		return d, err
 	}

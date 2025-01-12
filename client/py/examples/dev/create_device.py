@@ -35,5 +35,14 @@ client.hardware.devices.create(
             location="dev2",
             identifier="dev2",
         ),
+        sy.Device(
+            key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
+            rack=rack.key,
+            name="USB-6000",
+            make="NI",
+            model="USB-6000",
+            location="dev3",
+            identifier="dev3",
+        ),
     ]
 )

@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import "@/table/Table.css";
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
@@ -17,12 +26,13 @@ import {
   clamp,
   dimensions,
   type location,
+  primitiveIsZero,
   type UnknownRecord,
   xy,
 } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 
 import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
@@ -97,11 +107,7 @@ export const useSyncComponent = (
       const data = select(storeState, layoutKey);
       if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
-      const setData = {
-        ...data,
-        key: undefined,
-        snapshot: undefined,
-      } as unknown as UnknownRecord;
+      const setData = { ...data, key: undefined };
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
       await client.workspaces.table.create(ws, {
         key: layoutKey,
@@ -361,8 +367,8 @@ interface CellContainerProps {
 export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   ({ dispatch }) => {
-    const key = initial.key ?? uuidv4();
     const { name = "Table", location = "mosaic", window, tab, ...rest } = initial;
+    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...ZERO_STATE, ...rest, key }));
     return {
       key,

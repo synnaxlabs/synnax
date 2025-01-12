@@ -83,18 +83,16 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       // This just means we never actually modified the input
       if (isValueValidRef.current) return;
       setIsValueValid(true);
-      let ok: boolean;
-      let v = 0;
+      let v = null;
       try {
         const ev = evaluate(internalValueRef.current);
         // Sometimes mathjs returns a Unit object, so we need to convert it to a number.
         if (ev instanceof Unit) v = ev.toNumber();
-        else v = ev;
-        ok = v != null;
+        else if (typeof ev === "number" && !isNaN(ev)) v = ev;
       } catch {
-        ok = false;
+        v = null;
       }
-      if (ok) onChange?.(bounds.clamp(propsBounds, v));
+      if (v != null) onChange?.(bounds.clamp(propsBounds, v));
       else setInternalValue(valueRef.current.toString());
     }, [onChange, setInternalValue]);
 

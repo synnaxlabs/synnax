@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
@@ -29,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 )
 
 type Frame = framer.Frame
@@ -159,7 +160,6 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 	if err != nil {
 		return err
 	}
-
 	var (
 		receiver = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
 		sender   = &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{

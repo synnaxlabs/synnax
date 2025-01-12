@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
@@ -37,7 +38,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 
 import { Menu } from "@/components/menu";
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -97,16 +98,8 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   </PMenu.Menu>
 );
 
-const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
-  const windowKey = useSelectWindowKey() as string;
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const placer = Layout.usePlacer();
-  const vis = useSelect(layoutKey);
-  const prevVis = usePrevious(vis);
-  const ranges = useSelectRanges(layoutKey);
-  const client = Synnax.use();
-  const dispatch = useDispatch();
-  const syncDispatch = Workspace.useSyncComponent<SyncPayload>(
+const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
+  Workspace.useSyncComponent<SyncPayload>(
     "Line Plot",
     layoutKey,
     async (ws, store, client) => {
@@ -122,6 +115,17 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
       });
     },
   );
+
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
+  const windowKey = useSelectWindowKey() as string;
+  const { name } = Layout.useSelectRequired(layoutKey);
+  const place = Layout.usePlacer();
+  const vis = useSelect(layoutKey);
+  const prevVis = usePrevious(vis);
+  const ranges = useSelectRanges(layoutKey);
+  const client = Synnax.use();
+  const dispatch = useDispatch();
+  const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
 
@@ -309,7 +313,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
     const s = scale.Scale.scale<number>(1).scale(bounds);
-    const placer = Layout.usePlacer();
+    const place = Layout.usePlacer();
 
     const timeRange = new TimeRange(
       s.pos(box.left(selection)),
@@ -334,7 +338,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           );
           break;
         case "range":
-          placer(
+          place(
             Range.createLayout({
               initial: {
                 timeRange: {
@@ -422,7 +426,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                     download({ client, lines, timeRange, name });
                     break;
                   case "meta-data":
-                    placer({ ...Range.overviewLayout, name, key });
+                    place({ ...Range.overviewLayout, name, key });
                     break;
                   case "line-plot":
                     addRangeToNewPlot(key);
@@ -512,7 +516,7 @@ export const create =
   (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
-    const key = initial.key ?? uuidv4();
+    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
   };

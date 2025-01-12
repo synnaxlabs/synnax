@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { user } from "@synnaxlabs/client";
+import { Unreachable } from "@synnaxlabs/freighter";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { giveAll, set } from "@/permissions/slice";
-import { Unreachable } from "@synnaxlabs/freighter";
 
 export const useFetchPermissions = async (): Promise<void> => {
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   useAsyncEffect(async () => {
     if (client == null) {
       dispatch(giveAll());
@@ -31,13 +31,8 @@ export const useFetchPermissions = async (): Promise<void> => {
       );
       dispatch(set({ policies }));
     } catch (e) {
-      if (!(e instanceof Error)) throw e;
       if (Unreachable.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: `Failed to fetch permissions for ${username}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to fetch permissions for ${username}`);
     }
   }, [client]);
 };

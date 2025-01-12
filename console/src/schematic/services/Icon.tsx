@@ -11,14 +11,14 @@ import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export const ImportIcon = (): ReactElement => (
-  <PIcon.Import>
-    <Icon.Schematic />
-  </PIcon.Import>
-);
-
 export const CreateIcon = (): ReactElement => (
   <PIcon.Create>
     <Icon.Schematic />
   </PIcon.Create>
+);
+
+export const ImportIcon = (): ReactElement => (
+  <PIcon.Import>
+    <Icon.Schematic />
+  </PIcon.Import>
 );

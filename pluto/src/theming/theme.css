@@ -26,12 +26,16 @@ button:is(:focus, :focus-within, :active, :hover) {
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
+}
+
+.pluto-theme-synnax-light {
     --pluto-shadow-menu: 0px 1px 1px rgba(0, 0, 0, 0.02),
         0px 4px 8px -4px rgba(0, 0, 0, 0.04), 0px 16px 24px -8px rgba(0, 0, 0, 0.06);
-    @media (prefers-color-scheme: dark) {
-        --pluto-shadow-menu: lch(0 0 0 / 0.188) 0px 3px 8px,
-            lch(0 0 0 / 0.188) 0px 2px 5px, lch(0 0 0 / 0.188) 0px 1px 1px;
-    }
+}
+
+.pluto-theme-synnax-dark {
+    --pluto-shadow-menu: lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
+        lch(0 0 0 / 0.188) 0px 1px 1px;
 }
 
 html {

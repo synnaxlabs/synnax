@@ -27,6 +27,7 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   type FC,
+  isValidElement,
   type ReactElement,
   useCallback,
   useLayoutEffect,
@@ -38,6 +39,8 @@ import { useStore } from "react-redux";
 import { Confirm } from "@/confirm";
 import { type CreateConfirmModal } from "@/confirm/Confirm";
 import { CSS } from "@/css";
+import { type FileIngestor } from "@/import/ingestor";
+import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 import { type Service } from "@/ontology/service";
@@ -176,6 +179,7 @@ const PaletteDialogContent = ({
 }: PaletteDialogProps): ReactElement => {
   const { setSourceData } = List.useDataUtilContext<Key, Entry>();
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const client = PSynnax.use();
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();
@@ -188,7 +192,15 @@ const PaletteDialogContent = ({
   const confirm = Confirm.useModal();
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
-    () => ({ store, placeLayout, confirm, client, addStatus }),
+    () => ({
+      store,
+      placeLayout,
+      confirm,
+      client,
+      addStatus,
+      handleException,
+      ingestors: INGESTORS,
+    }),
     [store, placeLayout, client?.key, addStatus],
   );
 
@@ -208,6 +220,7 @@ const PaletteDialogContent = ({
           addStatus,
           placeLayout,
           removeLayout,
+          handleException,
           client,
           selection: entries as ontology.Resource[],
         });
@@ -316,7 +329,13 @@ const createCommandListItem = (
         </Text.WithIcon>
         <Align.Space direction="x" className={CSS.BE("palette", "actions")}>
           {actions != null &&
-            actions.map((action, i) => <CommandAction key={i} {...action} ctx={ctx} />)}
+            actions.map((action, i) =>
+              isValidElement(action) ? (
+                action
+              ) : (
+                <CommandAction key={i} {...action} ctx={ctx} />
+              ),
+            )}
         </Align.Space>
       </List.ItemFrame>
     );
@@ -366,6 +385,8 @@ export interface CommandSelectionContext {
   placeLayout: Layout.Placer;
   confirm: CreateConfirmModal;
   addStatus: Status.AddStatusFn;
+  handleException: Status.HandleExcFn;
+  ingestors: Record<string, FileIngestor>;
 }
 
 interface CommandActionProps {
@@ -380,5 +401,5 @@ export interface Command {
   icon?: ReactElement<PIcon.BaseProps>;
   visible?: (state: Permissions.StoreState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
-  actions?: CommandActionProps[];
+  actions?: (CommandActionProps | ReactElement)[];
 }

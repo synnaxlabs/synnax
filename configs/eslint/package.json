@@ -11,14 +11,15 @@
   "publishConfig": {
     "access": "public"
   },
-  "devDependencies": {
-    "@eslint/compat": "^1.2.0",
-    "@eslint/js": "^9.12.0",
-    "eslint": "^9.16.0",
-    "eslint-plugin-react": "^7.37.1",
+  "dependencies": {
+    "@eslint/compat": "^1.2.4",
+    "@eslint/js": "^9.17.0",
+    "eslint-plugin-react": "^7.37.3",
     "eslint-plugin-simple-import-sort": "^12.1.1",
-    "globals": "^15.11.0",
-    "typescript": "^5.6.3",
-    "typescript-eslint": "^8.13.0"
+    "globals": "^15.14.0",
+    "typescript-eslint": "^8.19.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.17.0"
   }
 }

@@ -29,7 +29,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, xy } from "@synnaxlabs/x";
+import { box, deep, id, primitiveIsZero, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -90,13 +90,16 @@ const useSyncComponent = (
     layoutKey,
     async (ws, store, client) => {
       const storeState = store.getState();
+      if (!selectHasPermission(storeState)) return;
       const data = select(storeState, layoutKey);
-      if (data == null || data.snapshot) return;
+      if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
-      const setData = { ...data, key: undefined, snapshot: undefined };
+      if (data.snapshot) {
+        await client.workspaces.schematic.rename(layoutKey, layout.name);
+        return;
+      }
+      const setData = { ...data, key: undefined };
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      const canSave = selectHasPermission(storeState);
-      if (!canSave) return;
       await client.workspaces.schematic.create(ws, {
         key: layoutKey,
         name: layout.name,
@@ -439,13 +442,17 @@ export const SELECTABLE: Layout.Selectable = {
   create: (layoutKey: string) => create({ key: layoutKey }),
 };
 
+export interface CreateArg
+  extends Partial<State>,
+    Omit<Partial<Layout.State>, "type"> {}
+
 export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  (initial: CreateArg): Layout.Creator =>
   ({ dispatch, store }) => {
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
-    const newTab = canEditSchematic ? tab : { ...tab, editable: false };
-    const key = initial.key ?? uuid();
+    if (!canEditSchematic && tab?.editable) tab.editable = false;
+    const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,
@@ -454,6 +461,6 @@ export const create =
       icon: "Schematic",
       type: LAYOUT_TYPE,
       window: { navTop: true, showTitle: true },
-      tab: newTab,
+      tab,
     };
   };

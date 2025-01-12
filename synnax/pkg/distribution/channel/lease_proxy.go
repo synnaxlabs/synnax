@@ -11,9 +11,6 @@ package channel
 
 import (
 	"context"
-
-	"github.com/synnaxlabs/x/query"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -143,7 +141,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
 
-	// If existing channels are passed in, update as necessary (for calc channels).
+	// If existing channels are passed in, update the name, required channels and calc expression
 	keys := KeysFromChannels(*channels)
 	if err := gorp.NewUpdate[Key, Channel]().
 		WhereKeys(keys...).

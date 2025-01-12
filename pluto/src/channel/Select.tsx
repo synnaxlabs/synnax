@@ -85,9 +85,7 @@ const useColumns = (
 
 const renderTag = (
   p: Select.MultipleTagProps<channel.Key, channel.Payload>,
-): ReactElement => {
-  return <Select.MultipleTag icon={<Icon.Channel />} {...p} />;
-};
+): ReactElement => <Select.MultipleTag icon={<Icon.Channel />} {...p} />;
 
 export const SelectMultiple = ({
   columns: filter = DEFAULT_FILTER,

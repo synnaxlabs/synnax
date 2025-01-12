@@ -8,9 +8,10 @@ nextURL: "/reference/python-client/delete-data"
 prev: "Write Data"
 prevURL: "/reference/python-client/write-data"
 ---
-import { Divider, Note } from "@synnaxlabs/pluto"
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Streaming data is useful for real-time processing, visualization, and
 monitoring. This page guides you through using the Python client to stream data
@@ -38,11 +39,11 @@ To read the next incoming frame, call the `read` method on the streamer:
 frame = streamer.read()
 ```
 
-This call will block until a new frame is available. 
+This call will block until a new frame is available.
 
 ### Specifying a Timeout
 
-It's also possible to add a `timeout` parameter to the `read` method. If the timeout is 
+It's also possible to add a `timeout` parameter to the `read` method. If the timeout is
 reached before a new frame is available, the method will return `None` instead of a frame:
 
 ```python
@@ -61,23 +62,30 @@ if frame is None:
     print("Timed out waiting for a frame")
 ```
 
-### Downsampling Frames
+### Downsampling
 
-If you are interested in streaming data at a lower rate than what is being written to the server, you can use the optional `downsample` parameter to specify the number of frames to skip before returning the next frame:
+If you are interested in streaming data at a lower rate, you can use the optional
+`downsample_factor` parameter. This parameter will cause the streamer to skip the
+specified number of samples in each series before returning the next frame. Note that
+this parameter does not average values, and will skip samples instead.
+
+For example, if you set the downsample factor to 2, every 2nd sample will be retained.
 
 ```python
-# setting the downsample factor to n means every nth sample will be retained
-# e.g. for a downsample of 2, if [0.13, 0.12, 0.14, 0.13] is written,
+stream = client.open_streamer(
 # a streamer.read() will return [0.13, 0.14]
-stream = client.open_streamer(["temperature", "pressure"], 2)
+stream = client.open_streamer(
+    channels=["temperature", "pressure"],
+    downsample_factor=2
+)
 ```
 
 ### Handling Partial Frames
 
 When reading frames from a streamer, it's important to note that a frame may not
-contain data for every channel specified when opening the streamer. For example, if 
-we're reading from two sensors, `temperature` and `pressure`, that are being sampled by 
-different devices at different rates, we may receive a frame containing data only for 
+contain data for every channel specified when opening the streamer. For example, if
+we're reading from two sensors, `temperature` and `pressure`, that are being sampled by
+different devices at different rates, we may receive a frame containing data only for
 the first channel, followed by a frame containing only data for the second channel.
 
 ```python
@@ -115,9 +123,9 @@ streamer.update_channels(["channel3", "channel4"])
 ```
 
 <Note.Note variant="info">
-This method will *replace* the current list of channels with the new list, not add to it.
+  This method will *replace* the current list of channels with the new list, not add to
+  it.
 </Note.Note>
-
 
 <Divider.Divider direction="x" />
 

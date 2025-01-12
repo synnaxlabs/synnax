@@ -11,7 +11,7 @@ import { memo, type ReactElement } from "react";
 
 import { useOptionalRenderer } from "@/layout/context";
 import { useRemover } from "@/layout/hooks";
-import { useSelect, useSelectFocused, useSelectType } from "@/layout/selectors";
+import { useSelectFocused, useSelectType } from "@/layout/selectors";
 
 /** LayoutContentProps are the props for the LayoutContent component. */
 export interface ContentProps {

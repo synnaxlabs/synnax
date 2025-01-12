@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Breadcrumb } from "@synnaxlabs/pluto";
+import { Breadcrumb, componentRenderProp } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
@@ -55,13 +55,13 @@ export const Search = (): ReactElement => {
   }, []);
   return (
     <Triggers.Provider>
-      <Dropdown.Dialog variant="modal" zIndex={1000} {...d} className="search-box">
+      <Dropdown.Dialog variant="modal" {...d} className="search-box">
         <Button.Button
           startIcon={<Icon.Search />}
-          onClick={d.open}
+          onClick={d.toggle}
           variant="outlined"
           justify="center"
-          size="small"
+          size="large"
           endContent={<Triggers.Text level="small" trigger={["Control", "K"]} />}
         >
           Search
@@ -87,6 +87,7 @@ const ICONS: Record<string, ReactElement> = {
   ni: <Icon.Logo.NI />,
   "device-drivers": <Icon.Device />,
   pluto: <Icon.Table />,
+  releases: <Icon.Release />,
 };
 
 export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
@@ -131,9 +132,7 @@ export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
   );
 };
 
-const searchListItem = (props: List.ItemProps<string, SearchResult>) => (
-  <SearchListItem {...props} />
-);
+const searchListItem = componentRenderProp(SearchListItem);
 
 const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -161,6 +160,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
   }, []);
 
   useEffect(() => {
+    handleSearch("");
     inputRef.current?.focus();
   }, [d.visible]);
 
@@ -176,7 +176,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
       }
     >
       <List.Selector<string, SearchResult>
-        value={[]}
+        value={""}
         allowMultiple={false}
         onChange={(k: string) => {
           document.getElementById(k)?.click();
@@ -186,9 +186,10 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
         <List.Hover>
           <Align.Pack className="search-results__content" direction="y" borderShade={4}>
             <Input.Text
+              className="search-results__input"
               ref={inputRef}
               placeholder={
-                <Text.WithIcon level="small" startIcon={<Icon.Search />}>
+                <Text.WithIcon level="h2" startIcon={<Icon.Search />}>
                   Search
                 </Text.WithIcon>
               }
@@ -197,7 +198,7 @@ const SearchDialogContent = ({ d }: SearchDialogContentProps) => {
               onChange={(v: string) => {
                 void handleSearch(v);
               }}
-              size="large"
+              size="huge"
             />
             <List.Core<string, SearchResult> className="styled-scrollbar">
               {searchListItem}

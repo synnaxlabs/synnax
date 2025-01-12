@@ -20,12 +20,14 @@ import {
   control as xControl,
   type CrudeSeries,
   type Destructor,
+  TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
+import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -91,13 +93,9 @@ export class Controller
     this.internal.addStatus = status.useAggregate(this.ctx);
 
     // Acquire or release control if necessary.
-    if (this.state.acquireTrigger > this.internal.prevTrigger) {
-      void this.acquire();
-      this.internal.prevTrigger = this.state.acquireTrigger;
-    } else if (this.state.acquireTrigger < this.internal.prevTrigger) {
-      void this.release();
-      this.internal.prevTrigger = this.state.acquireTrigger;
-    }
+    if (this.state.acquireTrigger > this.internal.prevTrigger) await this.acquire();
+    else if (this.state.acquireTrigger < this.internal.prevTrigger)
+      await this.release();
   }
 
   async afterDelete(): Promise<void> {
@@ -124,6 +122,7 @@ export class Controller
   }
 
   private async acquire(): Promise<void> {
+    this.internal.prevTrigger = this.state.acquireTrigger;
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
@@ -140,8 +139,13 @@ export class Controller
           variant: "warning",
         });
 
+      // Subtracting 1 millisecond makes sure that we avoid accidentally
+      // setting the start timestamp over the writer earlier than the first
+      // sample we write, preventing a validation error when releasing control. We
+      // choose 1 ms because it is the resolution of a JS timestamp.
+      const start = TimeStamp.now().sub(TimeSpan.milliseconds(1));
       this.writer = await client.openWriter({
-        start: TimeStamp.now(),
+        start,
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
@@ -150,16 +154,17 @@ export class Controller
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (e) {
       this.setState((p) => ({ ...p, status: "failed" }));
+      if (!(e instanceof Error)) throw e;
       addStatus({
-        message: `${this.state.name} failed to acquire control: ${
-          (e as Error).message
-        }`,
         variant: "error",
+        message: `${this.state.name} failed to acquire control`,
+        description: e.message,
       });
     }
   }
 
   private async release(): Promise<void> {
+    this.internal.prevTrigger = this.state.acquireTrigger;
     try {
       await this.writer?.close();
       this.setState((p) => ({ ...p, status: "released" }));

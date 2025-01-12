@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { PayloadAction, UnknownAction } from "@reduxjs/toolkit";
+import { type PayloadAction, type UnknownAction } from "@reduxjs/toolkit";
 import { Drift, selectWindowKey } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -52,10 +52,12 @@ export interface CreatorProps {
   store: RootStore;
 }
 
-/** A function that creates a layout given a set of utilities. */
-export type Creator = (props: CreatorProps) => Omit<State, "windowKey">;
+type StateWithoutWindowKey = Omit<State, "windowKey">;
 
-export type PlacerArgs = Omit<State, "windowKey"> | Creator;
+/** A function that creates a layout given a set of utilities. */
+export type Creator = (props: CreatorProps) => StateWithoutWindowKey;
+
+export type PlacerArgs = StateWithoutWindowKey | Creator;
 
 /** A function that places a layout using the given properties or creation func. */
 export type Placer = (layout: PlacerArgs) => {
@@ -234,7 +236,7 @@ export const useTriggers = () => {
   const remove = useRemover();
   const openInNewWindow = useOpenInNewWindow();
   Triggers.use({
-    triggers: [["Control", "F"]],
+    triggers: [["Control", "L"]],
     loose: true,
     callback: ({ stage }) => {
       if (stage !== "start") return;
@@ -270,7 +272,7 @@ export const useTriggers = () => {
     },
   });
   Triggers.use({
-    triggers: [["Control", "R"]],
+    triggers: [["Control", "E"]],
     loose: true,
     callback: ({ stage }) => {
       if (stage !== "start") return;

@@ -8,16 +8,16 @@ nextURL: "/reference/python-client/channels"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Synnax provides first-class support for Python. Our client delivers many capabilities,
 including
 
--   Direct integration with [pandas](https://pandas.pydata.org/) and
-    [numpy](https://numpy.org/doc/stable/index.html).
--   Tooling to implement automated control of your hardware.
--   Change data capture (CDC) infrastructure to build automated analysis pipelines.
+- Direct integration with [pandas](https://pandas.pydata.org/) and
+  [numpy](https://numpy.org/doc/stable/index.html).
+- Tooling to implement automated control of your hardware.
+- Change data capture (CDC) infrastructure to build automated analysis pipelines.
 
 In this section, we'll cover how to install the client and authenticate with a cluster.
 
@@ -34,9 +34,9 @@ pip install synnax
 ```
 
 <Note.Note variant="info">
-    Python can be difficult to get installed and running correctly, so we've put
-    together a [troubleshooting guide](/reference/python-client/troubleshooting) that
-    you can reference.
+  Python can be difficult to get installed and running correctly, so we've put together
+  a [troubleshooting guide](/reference/python-client/troubleshooting) that you can
+  reference.
 </Note.Note>
 
 <Divider.Divider direction="x" />
@@ -59,13 +59,13 @@ your credentials.
 To authenticate, run the following command:
 
 ```bash
-synnax login
+sy login
 ```
 
 <Note.Note variant="info">
-    If you get the error `command not found`, you might not have Python scripts in your
-    `PATH` variable. See our [troubleshooting
-    guide](/reference/python-client/troubleshooting) for more information.
+  If you get the error `command not found`, you might not have Python scripts in your
+  `PATH` variable. See our [troubleshooting
+  guide](/reference/python-client/troubleshooting) for more information.
 </Note.Note>
 
 This command will prompt us for the following information:

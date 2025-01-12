@@ -10,13 +10,14 @@
 import { type Layout } from "@/layout";
 import { ContextMenu, LAYOUT_TYPE, Schematic } from "@/schematic/Schematic";
 
-export * from "@/schematic/file";
+export * from "@/schematic/export";
 export * from "@/schematic/middleware";
 export * from "@/schematic/NavControls";
 export * from "@/schematic/Schematic";
 export * from "@/schematic/selectors";
 export * from "@/schematic/slice";
 export * from "@/schematic/toolbar";
+export * from "@/schematic/useRangeSnapshot";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Schematic,

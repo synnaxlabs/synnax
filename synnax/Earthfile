@@ -1,5 +1,5 @@
 VERSION 0.7
-FROM golang:1.22
+FROM golang:1.23
 WORKDIR /synnax
 
 deps:
@@ -8,6 +8,7 @@ deps:
     COPY ../x/go+source/* /x/go
     COPY ../cesium+source/* /cesium
     COPY ../aspen+source/* /aspen
+    COPY ../computron+source/* /computron  # This references the built computron
     COPY go.mod go.sum ./
     RUN go mod download
 

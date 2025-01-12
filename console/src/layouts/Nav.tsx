@@ -39,6 +39,7 @@ import { UserServices } from "@/user/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
+import { WorkspaceServices } from "@/workspace/services";
 
 const DEFAULT_TRIGGER: Palette.TriggerConfig = {
   defaultMode: "command",
@@ -51,7 +52,7 @@ const COMMANDS = [
   ...Layout.COMMANDS,
   ...SchematicServices.COMMANDS,
   ...Docs.COMMANDS,
-  ...Workspace.COMMANDS,
+  ...WorkspaceServices.COMMANDS,
   ...ClusterServices.COMMANDS,
   ...RangeServices.COMMANDS,
   ...LabJack.COMMANDS,
@@ -74,17 +75,16 @@ const NavTopPalette = (): ReactElement => (
   />
 );
 
-
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
 export const NavTop = (): ReactElement => {
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
 
   const os = OS.use();
   const handleDocs = (): void => {
-    placer(Docs.createLayout());
+    place(Docs.createLayout());
   };
 
   return (

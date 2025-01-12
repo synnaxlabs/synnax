@@ -9,8 +9,8 @@ prevURL: "/reference/python-client/ranges"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 The Python client supports several different ways of reading data from a cluster. We can
 read directly from a channel, fetch a range and access its data, or leverage server side

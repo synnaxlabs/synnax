@@ -8,9 +8,8 @@ prevURL: "/reference/concepts/writes"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import Table from "@/components/Table.astro";
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 This page walks you through the high level concepts for streaming real-time data from a
 Synnax cluster. If you'd like a practical guide on reading data using a client library,
@@ -43,7 +42,7 @@ starting the stream.
 
 There are also a few optional arguments we can provide when opening a streamer:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Argument</th>
@@ -57,7 +56,7 @@ There are also a few optional arguments we can provide when opening a streamer:
       <td>A positive integer that determines the reduction in the stream's original data rate. A value of n means only every nth sample is retained. Defaults to 1, meaning no downsampling.</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 ### Reading Data
 

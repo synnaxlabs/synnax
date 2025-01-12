@@ -16,13 +16,13 @@ export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
-  placer,
-  addStatus,
+  place,
+  handleException,
 }): Promise<boolean> => {
   if (resource !== channel.ONTOLOGY_TYPE) return false;
   try {
     const channel = await client.channels.retrieve(resourceKey);
-    placer(
+    place(
       LinePlot.create({
         channels: {
           ...LinePlot.ZERO_CHANNELS_STATE,
@@ -32,12 +32,7 @@ export const linkHandler: Link.Handler = async ({
       }),
     );
   } catch (e) {
-    if (!(e instanceof Error)) throw e;
-    addStatus({
-      variant: "error",
-      description: "Failed to open channel from URL",
-      message: e.message,
-    });
+    handleException(e, "Failed to open channel from link");
   }
   return true;
 };

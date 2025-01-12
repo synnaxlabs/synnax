@@ -19,17 +19,16 @@
   "dependencies": {
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "tsx": "^4.19.1"
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^22.7.5",
-    "@vitest/coverage-v8": "^2.1.8",
-    "eslint": "^9.16.0",
+    "@types/node": "^22.10.3",
+    "eslint": "^9.17.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.6.3",
-    "vite": "^6.0.3",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.6",
     "vitest": "^2.1.8"
   },
   "main": "dist/client.cjs",

@@ -11,7 +11,7 @@ import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { NotFoundError, QueryError, ValidationError } from "@/errors";
+import { NotFoundError, QueryError  } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -355,7 +355,7 @@ describe("Channel", () => {
         dataType: DataType.FLOAT32
       });
 
-      const updated = await client.channels.create({
+      const _updated = await client.channels.create({
         key: channel.key,
         name: "new-name",
         leaseholder: channel.leaseholder,
@@ -363,7 +363,6 @@ describe("Channel", () => {
         dataType: channel.dataType
       });
 
-      // expect(updated.name).toEqual("regular-channel"); FIXME: this check fails
 
       const retrieved = await client.channels.retrieve(channel.key);
       expect(retrieved.name).toEqual("regular-channel");

@@ -28,7 +28,7 @@ func Exec1[T any](c *Catcher, ca func() (T, error)) (res T) {
 	return
 }
 
-// Exec runs a CatchAction and catches any errors that it may return.
+// Exec runs a CatchAction and catches any error that it may return.
 func (c *Catcher) Exec(ca func() error) {
 	if !c.opts.aggregate && len(c.errors) > 0 {
 		return

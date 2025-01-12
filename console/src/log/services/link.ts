@@ -15,8 +15,8 @@ export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
-  placer,
-  addStatus,
+  place,
+  handleException,
 }): Promise<boolean> => {
   if (resource !== "log") return false;
   try {
@@ -26,12 +26,9 @@ export const linkHandler: Link.Handler = async ({
       key: log.key,
       name: log.name,
     });
-    placer(layoutCreator);
+    place(layoutCreator);
   } catch (e) {
-    addStatus({
-      variant: "error",
-      message: (e as Error).message,
-    });
+    handleException(e, "Failed to open log from URL");
   }
   return true;
 };

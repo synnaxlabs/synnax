@@ -29,6 +29,7 @@ export const infoLayout: Layout.State = {
     navTop: true,
     size: { width: 500, height: 325 },
   },
+  excludeFromWorkspace: true,
 };
 
 export const Info: Layout.Renderer = () => {

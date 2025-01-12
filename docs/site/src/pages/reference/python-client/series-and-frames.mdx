@@ -7,9 +7,10 @@ nextURL: "/reference/python-client/examples"
 prev: "Delete Data"
 prevURL: "/reference/python-client/delete-data"
 ---
-import { Divider } from "@synnaxlabs/pluto"
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
 
 Series and frames are the two fundamental structures used for working with channel data
 in Synnax. This guide will walk you through how to use the `Series` and `Frame` classes
@@ -20,7 +21,7 @@ exposed by the Python client.
 ## Series
 
 A series is a strongly typed array of data samples. It can contain any data you
-want it to, but in the context of Synnax it almost always represents a set of 
+want it to, but in the context of Synnax it almost always represents a set of
 contiguous samples from a single channel.
 
 ### Constructing a Series
@@ -31,29 +32,29 @@ There are many ways to construct a series:
 import synnax as sy
 import numpy as np
 
-# Construct a series from a list of samples. In this case, the series 
+# Construct a series from a list of samples. In this case, the series
 # will automatically be assumed to be of type int64.
 series = sy.Series([1, 2, 3, 4, 5])
 
 # We can also manually specify the type of the series
 series = sy.Series([1, 2, 3, 4, 5], data_type=sy.DataType.INT32)
 
-# Construct a series from a numpy array. The type of the series 
+# Construct a series from a numpy array. The type of the series
 # will be inferred from the numpy array.
 series = sy.Series(np.array([1, 2, 3, 4, 5], dtype=np.int64))
 
-# Construct a series from a list of strings. In this case, 
+# Construct a series from a list of strings. In this case,
 # the series will automatically be assumed to be of type string.
 series = sy.Series(["apple", "banana", "cherry"])
 
-# Construct a series from dictionaries. In this case, the series 
+# Construct a series from dictionaries. In this case, the series
 # will automatically be assumed to be of type json.
 series = sy.Series([{"a": 1}, {"b": 2}, {"c": 3}])
 ```
 
 ### Interop with Numpy
 
-The `Series` class is designed to be directly compatible with numpy, and supports all 
+The `Series` class is designed to be directly compatible with numpy, and supports all
 of the operations possible on a numpy array without needing to convert back and forth.
 Here's a simple example:
 
@@ -67,7 +68,7 @@ series = sy.Series([1, 2, 3, 4, 5])
 print(np.mean(series))
 ```
 
-This means that it's also possible to pass a series directly into libraries like 
+This means that it's also possible to pass a series directly into libraries like
 `matplotlib`:
 
 ```python
@@ -115,7 +116,7 @@ import synnax as sy
 start = sy.TimeStamp.now()
 
 series = sy.Series(
-    [1, 2, 3, 4, 5], 
+    [1, 2, 3, 4, 5],
     time_range=sy.TimeRange(
         start=start,
         end=start + sy.TimeSpan.SECOND * 6,

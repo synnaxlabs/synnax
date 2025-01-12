@@ -4,6 +4,7 @@ set -e
 
 PYTHON_VERSION="3.11.7"
 NUMPY_VERSION="1.24.3"
+MACOSX_MIN_VERSION="14.0"  # Add minimum macOS version
 PYTHON_VERSION_MAJOR_MINOR=$(echo $PYTHON_VERSION | cut -d. -f1-2)
 PYTHON_A_FILE="libpython${PYTHON_VERSION_MAJOR_MINOR}.a"
 COMBINED_PYTHON_A_FILE="libpython${PYTHON_VERSION_MAJOR_MINOR}-combined.a"
@@ -12,6 +13,7 @@ PYTHON_INSTALL_DIR="$(pwd)/python_install"
 echo "Python Installation Starting"
 echo "Python Version: ${PYTHON_VERSION}"
 echo "NumPy Version: ${NUMPY_VERSION}"
+echo "macOS Minimum Version: ${MACOSX_MIN_VERSION}"
 echo "Python Install Directory: ${PYTHON_INSTALL_DIR}"
 sleep 1
 
@@ -20,11 +22,13 @@ curl -O https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERS
 tar xzf Python-${PYTHON_VERSION}.tgz
 cd Python-${PYTHON_VERSION}
 
-# Configure Python for static build
+# Configure Python for static build with macOS minimum version
+export MACOSX_DEPLOYMENT_TARGET=${MACOSX_MIN_VERSION}
 ./configure --prefix=${PYTHON_INSTALL_DIR} \
     --disable-shared \
     --with-ensurepip=no \
-    LDFLAGS="-Wl,-rpath,${PYTHON_INSTALL_DIR}/lib"
+    CFLAGS="-mmacosx-version-min=${MACOSX_MIN_VERSION}" \
+    LDFLAGS="-mmacosx-version-min=${MACOSX_MIN_VERSION} -Wl,-rpath,${PYTHON_INSTALL_DIR}/lib"
 
 # Build Python
 make -j$(sysctl -n hw.ncpu)
@@ -36,10 +40,10 @@ cd ..
 
 # Install pip (required for numpy installation)
 curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-${PYTHON_INSTALL_DIR}/bin/python3 get-pip.py
+MACOSX_DEPLOYMENT_TARGET=${MACOSX_MIN_VERSION} ${PYTHON_INSTALL_DIR}/bin/python3 get-pip.py
 
 # Install numpy
-${PYTHON_INSTALL_DIR}/bin/pip3 install numpy==${NUMPY_VERSION}
+MACOSX_DEPLOYMENT_TARGET=${MACOSX_MIN_VERSION} ${PYTHON_INSTALL_DIR}/bin/pip3 install numpy==${NUMPY_VERSION}
 
 # Combine static libraries
 mkdir -p ${PYTHON_INSTALL_DIR}/lib/combined

@@ -7,48 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Color, Theming } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v0 from "@/layout/migrations/v0";
+import * as v1 from "@/layout/migrations/v1";
+import * as v3 from "@/layout/migrations/v3";
 
-export const sliceStateZ = v0.sliceStateZ
-  .omit({
-    version: true,
-  })
-  .extend({
-    version: z.literal("4.0.0"),
-    altKeyToKey: z.record(z.string(), z.string()),
-    keyToAltKey: z.record(z.string(), z.string()),
-    colorContext: Color.contextStateZ,
-  });
+const VERSION = "4.0.0";
 
-export type SliceState = Omit<z.infer<typeof sliceStateZ>, "layouts"> & {
-  version: "4.0.0";
-  layouts: Record<string, v0.State>;
-};
+export const sliceStateZ = v3.sliceStateZ
+  .omit({ version: true })
+  .extend({ version: z.literal(VERSION), colorContext: Color.contextStateZ })
+  .transform(Color.transformColorsToHex);
 
-export const ZERO_SLICE_STATE: SliceState = {
-  ...v0.ZERO_SLICE_STATE,
-  version: "4.0.0",
-  altKeyToKey: {},
-  keyToAltKey: {},
+export type SliceState = z.infer<typeof sliceStateZ>;
+
+export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
+  ...v3.ZERO_SLICE_STATE,
+  version: VERSION,
   colorContext: Color.ZERO_CONTEXT_STATE,
-};
+});
 
-export const sliceMigration: migrate.Migration<v0.SliceState, SliceState> =
+export const sliceMigration: migrate.Migration<v3.SliceState, SliceState> =
   migrate.createMigration({
-    name: "layout.slice",
+    name: v1.SLICE_MIGRATION_NAME,
     migrate: (s) => ({
       ...s,
-      version: "4.0.0",
-      themes: {
-        synnaxDark: Theming.SYNNAX_THEMES.synnaxDark,
-        synnaxLight: Theming.SYNNAX_THEMES.synnaxLight,
-      },
-      altKeyToKey: {},
-      keyToAltKey: {},
-      colorContext: Color.ZERO_CONTEXT_STATE,
+      version: VERSION,
+      colorContext: Color.transformColorsToHex(Color.ZERO_CONTEXT_STATE),
     }),
   });

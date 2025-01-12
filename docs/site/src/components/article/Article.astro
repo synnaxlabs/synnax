@@ -1,12 +1,16 @@
 ---
 import Breadcrumb from "@/components/article/Breadcrumb.astro";
 import NextPrev from "@/components/NextPrev.astro";
-const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
+import { Text } from "@synnaxlabs/pluto";
+const { title, description, url, next, prev, nextURL, prevURL, showBreadcrumb } =
+    Astro.props;
 ---
 
 <article transition:animate="none">
-    <Breadcrumb url={url} />
-    <h1 class="article-title">{title}</h1>
+    {showBreadcrumb && <Breadcrumb url={url} />}
+    <Text.Text className="article-title" level={title.length > 50 ? "h2" : "h1"}
+        >{title}</Text.Text
+    >
     <h4 class="article-description">{description}</h4>
     <slot />
     <NextPrev prev={prev} next={next} prevURL={prevURL} nextURL={nextURL} />
@@ -15,7 +19,6 @@ const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
 <style is:global>
     article {
         position: relative;
-        padding: 5rem 8rem;
         flex-basis: 840px;
         flex-shrink: 1;
         flex-grow: 1;
@@ -27,17 +30,14 @@ const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
 
         & .pluto-breadcrumb {
             & .pluto-text-link {
+                color: var(--pluto-gray-l6) !important;
+                font-weight: 375 !important;
                 &:last-child {
-                    & .pluto-text {
-                        color: var(--pluto-gray-l9);
-                    }
+                    color: var(--pluto-gray-l9) !important;
+                    font-weight: 450 !important;
                 }
-                & .pluto-text {
-                    font-weight: 375;
-                    color: var(--pluto-gray-l6);
-                    &:hover {
-                        color: var(--pluto-gray-l9) !important;
-                    }
+                &:hover {
+                    color: var(--pluto-gray-l9) !important;
                 }
                 &:hover {
                     text-decoration: none !important;
@@ -55,8 +55,14 @@ const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
             }
         }
 
-        @media (max-width: 700px) {
-            padding: 2rem;
+        padding: 5rem 8rem;
+        @media (max-width: 1100px) {
+            padding-right: 2rem;
+        }
+
+        @media (max-width: 800px) {
+            padding: 5rem 2rem;
+            margin-bottom: 0;
         }
 
         .article-title::after {
@@ -114,6 +120,26 @@ const { title, description, url, next, prev, nextURL, prevURL } = Astro.props;
                 font-family: var(--pluto-font-family);
                 font-weight: 450 !important;
                 line-height: calc(var(--pluto-small-line-height) * 1.2);
+            }
+        }
+
+        figure {
+            margin: 5rem 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            figcaption {
+                font-family: var(--pluto-font-family);
+                font-size: var(--pluto-small-size);
+                line-height: var(--pluto-small-line-height);
+                color: var(--pluto-gray-l8);
+                font-style: italic;
+                text-align: center;
+                text-wrap: balance;
+            }
+            img {
+                margin-bottom: 2rem;
+                margin-top: -2rem;
             }
         }
     }

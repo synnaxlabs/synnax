@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/observe"
 
@@ -102,7 +103,11 @@ func (s *service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) 
 			Translate: translateChange,
 		})
 	}
-	return gorp.Observe[Key, Channel](s.DB).OnChange(handleChange)
+	return s.NewObservable().OnChange(handleChange)
+}
+
+func (s *service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return gorp.Observe[Key, Channel](s.DB)
 }
 
 // OpenNexter implements ontology.Service.
