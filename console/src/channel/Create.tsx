@@ -76,6 +76,8 @@ const ZERO_CHANNEL: z.infer<Schema> = {
   leaseholder: 0,
   rate: Rate.hz(0),
   virtual: false,
+  expression: "",
+  requires: [],
 };
 
 export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
