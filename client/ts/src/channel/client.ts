@@ -146,7 +146,7 @@ export class Channel {
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
-    this.requires = [];
+    this.requires = requires ?? [];
     this._frameClient = frameClient ?? null;
   }
 
