@@ -9,16 +9,16 @@
 
 from click import Context, echo, style
 
-correct_name = "sy"
-styled_error = style("DEPRECATION WARNING:", fg="red")
-styled_correct_name = style(correct_name, fg="cyan")
+CORRECT_NAME = "sy"
+STYLED_ERROR = style("DEPRECATION WARNING:", fg="red")
+STYLED_CORRECT_NAME = style(CORRECT_NAME, fg="cyan")
 
 
 def warning(ctx: Context) -> None:
     """Warns the user if a deprecated command is used."""
     name = ctx.find_root().info_name
-    if name != correct_name:
+    if name != CORRECT_NAME:
         styled_name = style(name, fg="cyan")
         echo(
-            f"{styled_error} The {styled_name} command has been deprecated and will be removed in a future release. Please use {styled_correct_name} instead."
+            f"{STYLED_ERROR} The {styled_name} command has been deprecated and will be removed in a future release. Please use {STYLED_CORRECT_NAME} instead."
         )
