@@ -111,7 +111,7 @@ const handleSelect: Ontology.HandleSelect = async ({
   placeLayout,
 }) => await loadTable(client, selection[0].id, placeLayout);
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
+const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
   id,
   location,

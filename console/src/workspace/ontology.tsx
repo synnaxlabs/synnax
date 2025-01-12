@@ -341,7 +341,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   );
 };
 
-const handleSelect: Ontology.HandleSelect = async ({ selection, client, store }) => {
+const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
   void (async () => {
     const workspace = await client.workspaces.retrieve(selection[0].id.key);
     store.dispatch(add({ workspaces: [workspace] }));
