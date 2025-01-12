@@ -17,7 +17,7 @@ import { type RootState } from "@/store";
 
 const FILTERS: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
-export const useExport = (
+export const use = (
   extract: Extractor,
   type = "visualization",
 ): ((key: string) => Promise<void>) => {

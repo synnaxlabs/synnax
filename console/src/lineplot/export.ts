@@ -25,4 +25,4 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   return { data: JSON.stringify(state), name };
 };
 
-export const useExport = () => Export.useExport(extract, "lineplot");
+export const useExport = () => Export.use(extract, "lineplot");

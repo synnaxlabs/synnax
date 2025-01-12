@@ -223,7 +223,7 @@ export const Mosaic = memo((): ReactElement => {
       await Promise.all(
         items.map(async (item) => {
           try {
-            await Import.importDataTransferItem(item, {
+            await Import.dataTransferItem(item, {
               client,
               fileIngestors: INGESTORS,
               ingestDirectory: WorkspaceServices.ingest,

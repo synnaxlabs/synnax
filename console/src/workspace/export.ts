@@ -17,7 +17,7 @@ import { Confirm } from "@/confirm";
 import { type Export } from "@/export";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
-import { convertLayout } from "@/workspace/convertLayout";
+import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { select, selectActiveKey } from "@/workspace/selectors";
 
 const removeDirectory = (name: string): string => name.split(sep()).join("_");
@@ -39,7 +39,7 @@ export const useExport = (
       let toExport: Layout.SliceState;
       if (activeKey === key) {
         const file = Layout.selectSliceState(storeState);
-        toExport = convertLayout(file);
+        toExport = purgeExcludedLayouts(file);
         name = select(storeState, key)?.name ?? "workspace";
       } else {
         const existingWorkspace = select(storeState, key);

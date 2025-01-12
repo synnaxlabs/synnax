@@ -19,7 +19,7 @@ interface DirectoryContent {
   files: File[];
 }
 
-const handleDataTransferItem = async (
+const parseDataTransferItem = async (
   item: DataTransferItem,
 ): Promise<File | DirectoryContent | null> => {
   if (item.kind !== "file") return null;
@@ -60,7 +60,7 @@ const handleDataTransferItem = async (
   return { name: entry.name, files };
 };
 
-interface fromFileDropCtx {
+interface DataTransferItemContext {
   client: Synnax | null;
   fileIngestors: Record<string, FileIngestor>;
   ingestDirectory: DirectoryIngestor;
@@ -69,7 +69,7 @@ interface fromFileDropCtx {
   store: Store;
 }
 
-export const importDataTransferItem = async (
+export const dataTransferItem = async (
   item: DataTransferItem,
   {
     client,
@@ -78,9 +78,9 @@ export const importDataTransferItem = async (
     layout,
     placeLayout,
     store,
-  }: fromFileDropCtx,
+  }: DataTransferItemContext,
 ) => {
-  const entry = await handleDataTransferItem(item);
+  const entry = await parseDataTransferItem(item);
   if (entry == null) throw new Error("path is null");
 
   // Handling a file transfer, importing a single JSON file

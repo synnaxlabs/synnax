@@ -20,5 +20,4 @@ export const ingest: Import.FileIngestor = (data, { layout, placeLayout }) => {
 
 export const import_ = Import.createImporter(ingest, "log");
 
-export const useImport = (workspaceKey?: string) =>
-  Import.useImport(import_, workspaceKey);
+export const useImport = (workspaceKey?: string) => Import.use(import_, workspaceKey);

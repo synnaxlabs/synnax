@@ -20,7 +20,7 @@ import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-interface ImportArgs {
+export interface ImportArgs {
   addStatus: Status.AddStatusFn;
   client: Synnax | null;
   placeLayout: Layout.Placer;
@@ -28,11 +28,11 @@ interface ImportArgs {
   workspaceKey?: string;
 }
 
-interface Importer {
+export interface Importer {
   (args: ImportArgs): Promise<void>;
 }
 
-interface ImporterCreator {
+export interface ImporterCreator {
   (ingest: FileIngestor, type?: string): Importer;
 }
 
@@ -83,7 +83,7 @@ export const createImporter: ImporterCreator =
     );
   };
 
-export const useImport = (
+export const use = (
   import_: Importer,
   workspaceKey?: string,
 ): (() => Promise<void>) => {

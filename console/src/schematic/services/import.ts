@@ -26,5 +26,4 @@ export const ingest: Import.FileIngestor = (data, { layout, placeLayout, store }
 
 export const import_ = Import.createImporter(ingest, "schematic");
 
-export const useImport = (workspaceKey?: string) =>
-  Import.useImport(import_, workspaceKey);
+export const useImport = (workspaceKey?: string) => Import.use(import_, workspaceKey);

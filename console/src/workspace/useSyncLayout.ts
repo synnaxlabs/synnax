@@ -16,7 +16,7 @@ import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
-import { convertLayout } from "@/workspace/convertLayout";
+import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { selectActiveKey } from "@/workspace/selectors";
 import { setActive } from "@/workspace/slice";
 
@@ -37,7 +37,7 @@ export const useSyncLayout = async (): Promise<void> => {
         const layoutSlice = Layout.selectSliceState(s);
         if (deep.equal(prevSync.current, layoutSlice)) return;
         prevSync.current = layoutSlice;
-        const toSave = convertLayout(layoutSlice);
+        const toSave = purgeExcludedLayouts(layoutSlice);
         await client.workspaces.setLayout(key, toSave);
       },
       250,

@@ -11,7 +11,9 @@ import { deep } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
 
-export const convertLayout = (sliceState: Layout.SliceState): Layout.SliceState => {
+export const purgeExcludedLayouts = (
+  sliceState: Layout.SliceState,
+): Layout.SliceState => {
   const copy = deep.copy(sliceState);
   Object.entries(copy.layouts).forEach(([key, layout]) => {
     if (layout.excludeFromWorkspace == true || layout.location === "modal")
