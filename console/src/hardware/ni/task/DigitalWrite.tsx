@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/ni/task/DigitalWrite.css";
+
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Channel, Form, List, Menu, Status, Synnax } from "@synnaxlabs/pluto";
@@ -20,6 +22,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useDevice } from "@/hardware/device/useDevice";
+import { createConfigureLayout } from "@/hardware/ni/device/Configure";
 import { type Device, type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
@@ -52,8 +55,6 @@ import {
   useDesiredState,
 } from "@/hardware/task/common/useDesiredState";
 import { Layout } from "@/layout";
-
-import { createConfigureLayout } from "../device/Configure";
 
 export const createDigitalWriteLayout = createLayoutCreator<DigitalWritePayload>(
   DIGITAL_WRITE_TYPE,
@@ -333,6 +334,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
       line: availableLine,
       port: 0,
     };
+    setSelected([zeroDigitalWriteChannel.key]);
     const existingCommandStatePair =
       device.properties.digitalOutput.channels[generateKey(zeroDigitalWriteChannel)];
     push({
@@ -426,9 +428,37 @@ const ChannelListItem = ({
       align="center"
       direction="x"
     >
-      <Align.Space direction="x" align="center" empty style={{ maxWidth: "50rem" }}>
-        <Form.NumericField path={`${path}.port`} label="Port" hideIfNull empty />
-        <Form.NumericField path={`${path}.line`} label="Line" hideIfNull empty />
+      <Align.Space direction="x" align="center" justify="spaceEvenly">
+        <Align.Pack
+          className="port-line-input"
+          direction="x"
+          align="center"
+          style={{ maxWidth: "50rem" }}
+        >
+          <Form.NumericField
+            path={`${path}.port`}
+            showLabel={false}
+            showHelpText={false}
+            inputProps={{ showDragHandle: false }}
+            hideIfNull
+          />
+          <Text.Text level="p">/</Text.Text>
+          <Form.NumericField
+            path={`${path}.line`}
+            showHelpText={false}
+            showLabel={false}
+            inputProps={{ showDragHandle: false }}
+            hideIfNull
+          />
+        </Align.Pack>
+        <Text.Text
+          level="small"
+          className={CSS.BE("port-line-input", "label")}
+          shade={7}
+          weight={450}
+        >
+          Port/Line
+        </Text.Text>
       </Align.Space>
       <Align.Space direction="x" align="center" justify="spaceEvenly">
         <Text.Text
