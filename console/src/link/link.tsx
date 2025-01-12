@@ -12,13 +12,7 @@ import { type ontology, Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Menu,
-  Status,
-  Synnax as PSynnax,
-  useAsyncEffect,
-  useSyncedRef,
-} from "@synnaxlabs/pluto";
+import { Menu, Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -48,8 +42,6 @@ const openUrlErrorMessage =
 const scheme = "synnax://";
 
 export const useDeep = ({ handlers }: UseDeepProps): void => {
-  const client = PSynnax.use();
-  const clientRef = useSyncedRef(client);
   const addStatus = Status.useAggregator();
   const handleException = Status.useExceptionHandler();
   const dispatch = useDispatch();
@@ -80,8 +72,6 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
         });
       if (connParams == null) return addClusterErrorStatus();
       dispatch(Cluster.setActive(clusterKey));
-      clientRef.current = new Synnax(connParams);
-      if (clientRef.current == null) return addClusterErrorStatus();
       if (urlParts.length === 2) return;
 
       // Processing the resource part of URL
@@ -92,7 +82,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
           await h({
             resource,
             resourceKey,
-            client: clientRef.current,
+            client: new Synnax(connParams),
             dispatch,
             place,
             handleException,
