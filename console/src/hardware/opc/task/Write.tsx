@@ -94,7 +94,7 @@ const Wrapped = ({
   task,
 }: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
     undefined,
   );
@@ -137,7 +137,6 @@ const Wrapped = ({
   const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
 
   const configure = useMutation<void>({
-    mutationKey: [client?.key],
     mutationFn: async () => {
       if (!methods.validate() || client == null) return;
       const { config, name } = methods.value();
@@ -207,7 +206,7 @@ const Wrapped = ({
       });
       setDesiredState("paused");
     },
-    onError: (e) => Status.handleException(e, `Failed to configure task`, addStatus),
+    onError: (e) => handleException(e, `Failed to configure task`),
   });
 
   const start = useMutation({

@@ -17,7 +17,7 @@ import { giveAll, set } from "@/permissions/slice";
 export const useFetchPermissions = async (): Promise<void> => {
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   useAsyncEffect(async () => {
     if (client == null) {
       dispatch(giveAll());
@@ -32,11 +32,7 @@ export const useFetchPermissions = async (): Promise<void> => {
       dispatch(set({ policies }));
     } catch (e) {
       if (Unreachable.matches(e)) return;
-      Status.handleException(
-        e,
-        `Failed to fetch permissions for ${username}`,
-        addStatus,
-      );
+      handleException(e, `Failed to fetch permissions for ${username}`);
     }
   }, [client]);
 };

@@ -10,15 +10,7 @@
 import { type Store } from "@reduxjs/toolkit";
 import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  type Haul,
-  List,
-  Menu as PMenu,
-  Ranger,
-  Status,
-  Text,
-  Tree,
-} from "@synnaxlabs/pluto";
+import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -86,8 +78,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       await fetchIfNotInState(store, client, res.id.key);
       store.dispatch(setActive(res.id.key));
     },
-    onError: (e, { addStatus }) =>
-      Status.handleException(e, "Failed to activate range", addStatus),
+    onError: (e, { handleException }) => handleException(e, "Failed to activate range"),
   }).mutate;
 
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
@@ -106,12 +97,11 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
         }),
       );
     },
-    onError: (e, { addStatus, selection: { resources } }) => {
+    onError: (e, { handleException, selection: { resources } }) => {
       const rangeNames = resources.map((r) => r.name);
-      Status.handleException(
+      handleException(
         e,
         `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
-        addStatus,
       );
     },
   }).mutate;
@@ -132,12 +122,11 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         }),
       );
     },
-    onError: (e, { addStatus, selection: { resources } }) => {
+    onError: (e, { handleException, selection: { resources } }) => {
       const names = resources.map((r) => r.name);
-      Status.handleException(
+      handleException(
         e,
         `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
-        addStatus,
       );
     },
   }).mutate;
@@ -188,7 +177,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await client.ranges.delete(selection.resources.map((r) => r.id.key)),
     onError: (
       e,
-      { addStatus, selection: { resources }, state: { setNodes }, store },
+      { handleException, selection: { resources }, state: { setNodes }, store },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
@@ -201,7 +190,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       }
       let message = "Failed to delete ranges";
       if (resources.length === 1) message = `Failed to delete ${resources[0].name}`;
-      Status.handleException(e, message, addStatus);
+      handleException(e, message);
     },
   }).mutate;
 };

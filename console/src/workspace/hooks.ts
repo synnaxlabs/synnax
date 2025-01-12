@@ -28,7 +28,7 @@ export const useSyncComponent = <P extends unknown>(
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
   const client = PSynnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const store = useStore<RootState>();
   const syncLayout = useMutation<void, Error>({
     retry: 3,
@@ -45,7 +45,7 @@ export const useSyncComponent = <P extends unknown>(
         const data = Layout.select(store.getState(), layoutKey);
         if (data != null) message = `Failed to save ${data.name}`;
       }
-      Status.handleException(e, message, addStatus);
+      handleException(e, message);
     },
   });
   const ws = useSelectActiveKey();

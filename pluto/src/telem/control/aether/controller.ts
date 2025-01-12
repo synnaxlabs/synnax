@@ -154,11 +154,12 @@ export class Controller
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (e) {
       this.setState((p) => ({ ...p, status: "failed" }));
-      Status.handleException(
-        e,
-        `${this.state.name} failed to acquire control`,
-        addStatus,
-      );
+      if (!(e instanceof Error)) throw e;
+      addStatus({
+        variant: "error",
+        message: `${this.state.name} failed to acquire control`,
+        description: e.message,
+      });
     }
   }
 

@@ -66,7 +66,7 @@ export const registerLayout = ({
 export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({ values: deep.copy(initialValues), schema: formSchema });
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
@@ -77,7 +77,7 @@ export const RegisterModal = ({ onClose }: Layout.RendererProps): ReactElement =
       onClose();
     },
     onError: (e) => {
-      Status.handleException(e, "Failed to register user", addStatus);
+      handleException(e, "Failed to register user");
     },
   });
 

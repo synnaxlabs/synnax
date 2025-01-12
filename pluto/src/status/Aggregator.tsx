@@ -25,6 +25,10 @@ import { status } from "@/status/aether";
 
 export type AddStatusFn = (status: status.CrudeSpec) => void;
 
+export interface HandleExcFn {
+  (exc: unknown, message?: string): void;
+}
+
 interface ContextValue extends z.infer<typeof status.aggregatorStateZ> {
   add: AddStatusFn;
 }
@@ -79,6 +83,18 @@ export const Aggregator = Aether.wrap<AggregatorProps>(
 );
 
 export const useAggregator = (): AddStatusFn => useContext(Context).add;
+
+export const useHandleException = (): HandleExcFn => {
+  const addStatus = useAggregator();
+  return (exc: unknown, message?: string): void => {
+    if (!(exc instanceof Error)) throw exc;
+    addStatus({
+      variant: "error",
+      message: message ?? exc.message,
+      description: message != null ? exc.message : undefined,
+    });
+  };
+};
 
 export interface UseNotificationsProps {
   expiration?: TimeSpan;

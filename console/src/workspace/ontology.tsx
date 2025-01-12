@@ -14,7 +14,7 @@ import {
   table as clientTable,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Status, Synnax, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
@@ -62,10 +62,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
         store.dispatch(Layout.clearWorkspace());
       }
     },
-    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      Status.handleException(e, "Failed to delete workspace", addStatus);
+      handleException(e, "Failed to delete workspace");
     },
   }).mutate;
 };
@@ -128,9 +128,9 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      Status.handleException(e, "Failed to create schematic", addStatus);
+      handleException(e, "Failed to create schematic");
     },
   }).mutate;
 };
@@ -169,9 +169,9 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      Status.handleException(e, "Failed to create line plot", addStatus);
+      handleException(e, "Failed to create line plot");
     },
   }).mutate;
 };
@@ -210,9 +210,9 @@ const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      Status.handleException(e, "Failed to create log", addStatus);
+      handleException(e, "Failed to create log");
     },
   }).mutate;
 };
@@ -251,9 +251,9 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       });
       setNodes([...nextNodes]);
     },
-    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      Status.handleException(e, "Failed to create table", addStatus);
+      handleException(e, "Failed to create table");
     },
   }).mutate;
 };

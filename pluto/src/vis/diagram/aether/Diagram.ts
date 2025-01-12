@@ -11,7 +11,6 @@ import { box, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { render } from "@/vis/render";
 
@@ -75,7 +74,12 @@ export class Diagram extends aether.Composite<
         this.children.map(async (child) => await child.render({ viewportScale })),
       );
     } catch (e) {
-      Status.handleException(e, "Failed to render diagram", addStatus);
+      if (!(e instanceof Error)) throw e;
+      addStatus({
+        variant: "error",
+        message: "Failed to render diagram",
+        description: e.message,
+      });
     } finally {
       clearScissor();
     }

@@ -202,6 +202,7 @@ export const Tree = (): ReactElement => {
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const menuProps = Menu.useContextMenu();
 
   const baseProps: BaseProps = useMemo<BaseProps>(
@@ -212,8 +213,9 @@ export const Tree = (): ReactElement => {
       removeLayout,
       services,
       addStatus,
+      handleException,
     }),
-    [client, store, placeLayout, removeLayout, services, addStatus],
+    [client, store, placeLayout, removeLayout, services, addStatus, handleException],
   );
 
   // Processes incoming changes to the ontology from the cluster.
@@ -324,7 +326,7 @@ export const Tree = (): ReactElement => {
     },
     onError: (error, _, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      Status.handleException(error, "Failed to move resources", addStatus);
+      handleException(error, "Failed to move resources");
     },
   });
 
@@ -424,11 +426,7 @@ export const Tree = (): ReactElement => {
           updater: (node) => ({ ...node, name: prevName }),
         }),
       ]);
-      Status.handleException(
-        error,
-        `Failed to rename ${prevName} to ${name}`,
-        addStatus,
-      );
+      handleException(error, `Failed to rename ${prevName} to ${name}`);
       svc.onRename?.rollback?.(rProps, prevName);
     },
   });
@@ -447,6 +445,7 @@ export const Tree = (): ReactElement => {
         store,
         services,
         placeLayout,
+        handleException,
         removeLayout,
         addStatus,
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
@@ -492,6 +491,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        handleException,
         addStatus,
         selection: {
           parent,

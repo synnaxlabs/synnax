@@ -161,11 +161,13 @@ export const AliasInput = ({
   else if (alias === value) icon = <Icon.Check />;
   const canSetAlias =
     setAlias != null && !loading && alias !== value && channelKey !== 0;
-  const handleSetAlias = async (): Promise<void> => {
-    if (!canSetAlias) return;
-    setLoading(true);
-    await setAlias(channelKey, value);
-    setLoading(false);
+  const handleSetAlias = (): void => {
+    void (async () => {
+      if (!canSetAlias) return;
+      setLoading(true);
+      await setAlias(channelKey, value);
+      setLoading(false);
+    })();
   };
 
   const handleSetValueToAlias = (): void => {

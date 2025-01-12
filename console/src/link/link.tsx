@@ -28,7 +28,7 @@ import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 
 export interface HandlerProps {
-  addStatus: (status: Status.CrudeSpec) => void;
+  handleException: Status.HandleExcFn;
   client: Synnax;
   dispatch: Dispatch<UnknownAction>;
   placer: Layout.Placer;
@@ -51,6 +51,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
   const client = PSynnax.use();
   const clientRef = useSyncedRef(client);
   const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const dispatch = useDispatch();
   const placer = Layout.usePlacer();
   const store = useStore<RootState>();
@@ -97,7 +98,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
             client: clientRef.current,
             dispatch,
             placer,
-            addStatus,
+            handleException,
             windowKey,
           })
         )

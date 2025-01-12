@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
-
 import { Layout } from "@/layout";
 import { type Link } from "@/link";
 import { setActive } from "@/workspace/slice";
@@ -18,7 +16,7 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   dispatch,
-  addStatus,
+  handleException,
 }): Promise<boolean> => {
   if (resource !== "workspace") return false;
   try {
@@ -30,7 +28,7 @@ export const linkHandler: Link.Handler = async ({
     );
     dispatch(setActive(workspace.key));
   } catch (e) {
-    Status.handleException(e, "Failed to open workspace from URL", addStatus);
+    handleException(e, "Failed to open workspace from URL");
   }
   return true;
 };

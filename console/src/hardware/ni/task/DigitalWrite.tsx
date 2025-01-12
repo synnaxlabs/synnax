@@ -101,12 +101,11 @@ const Wrapped = ({
     DigitalWriteType
   >(layoutKey);
 
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
 
   const configure = useMutation<void, Error, void>({
     mutationKey: [client?.key, "configure"],
-    onError: (e) =>
-      Status.handleException(e, "Failed to configure NI Digital Write Task", addStatus),
+    onError: (e) => handleException(e, "Failed to configure NI Digital Write Task"),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();

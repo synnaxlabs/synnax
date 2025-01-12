@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
-
 import { type Link } from "@/link";
 import { create } from "@/schematic/Schematic";
 import { type State } from "@/schematic/slice";
@@ -18,7 +16,7 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   placer,
-  addStatus,
+  handleException,
 }): Promise<boolean> => {
   if (resource !== "schematic") return false;
   try {
@@ -31,7 +29,7 @@ export const linkHandler: Link.Handler = async ({
     });
     placer(layoutCreator);
   } catch (e) {
-    Status.handleException(e, "Failed to open schematic from URL", addStatus);
+    handleException(e, "Failed to open schematic from URL");
   }
   return true;
 };

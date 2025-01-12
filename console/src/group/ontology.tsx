@@ -9,7 +9,7 @@
 
 import { group, NotFoundError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Status } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -101,11 +101,11 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
     },
     onError: async (
       e,
-      { selection, addStatus, state: { setNodes, nodes: prevNodes } },
+      { selection, handleException, state: { setNodes, nodes: prevNodes } },
     ) => {
       if (selection.parent == null || prevNodes == null) return;
       setNodes(prevNodes);
-      Status.handleException(e, "Failed to ungroup resources", addStatus);
+      handleException(e, "Failed to ungroup resources");
     },
   });
   return (props: Ontology.TreeContextMenuProps) => {
@@ -194,10 +194,12 @@ export const useCreateEmpty = (): ((
       if (!renamed) throw errors.CANCELED;
       await client.ontology.groups.create(resource.id, name, newID.key);
     },
-    onError: async (e, { state: { nodes, setNodes }, addStatus, selection, newID }) => {
+    onError: async (
+      e,
+      { state: { nodes, setNodes }, handleException, selection, newID },
+    ) => {
       if (selection.resources.length === 0) return;
-      if (!errors.CANCELED.matches(e))
-        Status.handleException(e, "Failed to create group", addStatus);
+      if (!errors.CANCELED.matches(e)) handleException(e, "Failed to create group");
       setNodes([...Tree.removeNode({ tree: nodes, keys: newID.toString() })]);
     },
   });
@@ -261,10 +263,10 @@ export const useCreateFromSelection = (): ((
       await client.ontology.groups.create(parentID, groupName, newID.key);
       await client.ontology.moveChildren(parentID, newID, ...resourcesToGroup);
     },
-    onError: async (e, { state: { setNodes }, addStatus }, prevNodes) => {
+    onError: async (e, { state: { setNodes }, handleException }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e.message)) return;
-      Status.handleException(e, "Failed to group resources", addStatus);
+      handleException(e, "Failed to group resources");
     },
   });
   return (props: Ontology.TreeContextMenuProps) =>

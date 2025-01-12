@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/pluto";
 
 import { LinePlot } from "@/lineplot";
 import { type Link } from "@/link";
@@ -18,7 +17,7 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   placer,
-  addStatus,
+  handleException,
 }): Promise<boolean> => {
   if (resource !== channel.ONTOLOGY_TYPE) return false;
   try {
@@ -33,7 +32,7 @@ export const linkHandler: Link.Handler = async ({
       }),
     );
   } catch (e) {
-    Status.handleException(e, "Failed to open channel from link", addStatus);
+    handleException(e, "Failed to open channel from link");
   }
   return true;
 };

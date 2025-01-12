@@ -9,7 +9,7 @@
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Status, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -44,10 +44,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.schematic.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
+    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      Status.handleException(err, "Failed to delete schematic", addStatus);
+      handleException(err, "Failed to delete schematic");
     },
   }).mutate;
 };
@@ -84,8 +84,8 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state.setNodes([...nextTree]);
       Tree.startRenaming(otg[0].id.toString());
     },
-    onError: (err, { addStatus }) => {
-      Status.handleException(err, "Failed to copy schematic", addStatus);
+    onError: (err, { handleException }) => {
+      handleException(err, "Failed to copy schematic");
     },
   }).mutate;
 
@@ -186,8 +186,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
   id,
   location,
   nodeKey,
-  addStatus,
   placeLayout,
+  handleException,
 }) => {
   try {
     const schematic = await client.workspaces.schematic.retrieve(id.key);
@@ -201,7 +201,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
       }),
     );
   } catch (e) {
-    Status.handleException(e, "Failed to load schematic", addStatus);
+    handleException(e, "Failed to load schematic");
   }
 };
 

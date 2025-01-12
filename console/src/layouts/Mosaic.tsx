@@ -153,6 +153,7 @@ export const Mosaic = memo((): ReactElement => {
   const placer = usePlacer();
   const dispatch = useDispatch();
   const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
@@ -185,6 +186,7 @@ export const Mosaic = memo((): ReactElement => {
             location,
             placeLayout: placer,
             addStatus,
+            handleException,
           });
         } else
           placer(
@@ -268,7 +270,7 @@ export const Mosaic = memo((): ReactElement => {
           if (!handlerFound)
             throw Error(`${name} is not recognized as a Synnax object`);
         } catch (e) {
-          Status.handleException(e, `Failed to read ${name}`, addStatus);
+          handleException(e, `Failed to read ${name}`);
         }
       }
     },

@@ -27,7 +27,8 @@ export interface BaseProps {
   placeLayout: Layout.Placer;
   removeLayout: Layout.Remover;
   services: Services;
-  addStatus: (status: Status.CrudeSpec) => void;
+  addStatus: Status.AddStatusFn;
+  handleException: Status.HandleExcFn;
 }
 
 export interface HandleSelectProps extends BaseProps {
@@ -43,6 +44,7 @@ export interface HandleMosaicDropProps {
   nodeKey: number;
   location: location.Location;
   addStatus: Status.AddStatusFn;
+  handleException: Status.HandleExcFn;
   id: ontology.ID;
 }
 

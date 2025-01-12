@@ -111,12 +111,10 @@ const Wrapped = ({
     DigitalReadType
   >(layoutKey);
 
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
 
   const configure = useMutation({
-    mutationKey: [client?.key, "configure"],
-    onError: (e) =>
-      Status.handleException(e, "Failed to configure NI Digital Read Task", addStatus),
+    onError: (e) => handleException(e, "Failed to configure NI Digital Read Task"),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();

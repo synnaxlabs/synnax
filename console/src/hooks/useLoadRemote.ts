@@ -33,7 +33,7 @@ export const useLoadRemote = <V extends migrate.Migratable>({
 }: UseLoadRemoteProps<V>): boolean | null => {
   const dispatch = useDispatch();
   const version = useSelectVersion(layoutKey);
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const client = PSynnax.use();
   const get = useMutation({
     mutationKey: [layoutKey, client?.key],
@@ -41,7 +41,7 @@ export const useLoadRemote = <V extends migrate.Migratable>({
       if (client == null) return;
       return fetcher(client, layoutKey);
     },
-    onError: (e) => Status.handleException(e, `Failed to load ${name}`, addStatus),
+    onError: (e) => handleException(e, `Failed to load ${name}`),
   });
   const versionPresent = version != null;
   const notOutdated = versionPresent && !migrate.semVerOlder(version, targetVersion);

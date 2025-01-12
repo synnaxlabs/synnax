@@ -9,7 +9,7 @@
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Status, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -43,10 +43,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.table.delete(ids.map((id) => id.key));
     },
-    onError: (e, { state: { setNodes }, addStatus }, prevNodes) => {
+    onError: (e, { state: { setNodes }, handleException }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      Status.handleException(e, "Failed to delete table", addStatus);
+      handleException(e, "Failed to delete table");
     },
   }).mutate;
 };
@@ -117,7 +117,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
   location,
   nodeKey,
   placeLayout,
-  addStatus,
+  handleException,
 }) => {
   try {
     const table = await client.workspaces.table.retrieve(id.key);
@@ -131,7 +131,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
       }),
     );
   } catch (e) {
-    Status.handleException(e, "Failed to load table", addStatus);
+    handleException(e, "Failed to load table");
   }
 };
 

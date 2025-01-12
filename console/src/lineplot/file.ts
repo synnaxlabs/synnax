@@ -91,7 +91,7 @@ const filters: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
 export const useExport = (name: string = "line plot"): ((key: string) => void) => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const store = useStore<RootState>();
 
   return useMutation<void, Error, string>({
@@ -119,8 +119,7 @@ export const useExport = (name: string = "line plot"): ((key: string) => void) =
       const linePlotData: StateWithName = { ...state, name };
       await writeFile(savePath, new TextEncoder().encode(JSON.stringify(linePlotData)));
     },
-    onError: (err) =>
-      Status.handleException(err, `Failed to export ${name}`, addStatus),
+    onError: (err) => handleException(err, `Failed to export ${name}`),
   }).mutate;
 };
 
@@ -183,7 +182,7 @@ export const importPlot = async ({
 
 export const useImport = (workspaceKey?: string): (() => void) => {
   const placeLayout = Layout.usePlacer();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const store = useStore<RootState>();
   const confirm = Confirm.useModal();
   const client = Synnax.use();
@@ -202,7 +201,6 @@ export const useImport = (workspaceKey?: string): (() => void) => {
         placer: placeLayout,
       });
     },
-    onError: (err) =>
-      Status.handleException(err, "Failed to import line plot", addStatus),
+    onError: (err) => handleException(err, "Failed to import line plot"),
   }).mutate;
 };

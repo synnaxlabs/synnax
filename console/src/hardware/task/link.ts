@@ -18,13 +18,13 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   placer,
   client,
-  addStatus,
+  handleException,
 }): Promise<boolean> => {
   if (resource !== task.ONTOLOGY_TYPE) return false;
   try {
     await retrieveAndPlaceLayout(client, resourceKey, placer);
   } catch (e) {
-    Status.handleException(e, "Failed to open task from URL", addStatus);
+    handleException(e, "Failed to open task from URL");
   }
   return true;
 };

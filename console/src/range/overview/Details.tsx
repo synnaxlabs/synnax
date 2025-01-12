@@ -42,7 +42,7 @@ const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const [parent, setParent] = useState<ranger.Range | null>();
   const placer = Layout.usePlacer();
 
@@ -57,7 +57,7 @@ const ParentRangeButton = ({
       tracker.onChange((ranges) => setParent(ranges));
       return async () => await tracker.close();
     } catch (e) {
-      Status.handleException(e, "Failed to retrieve child ranges", addStatus);
+      handleException(e, "Failed to retrieve child ranges");
       return undefined;
     }
   }, [rangeKey, client?.key]);

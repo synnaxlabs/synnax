@@ -137,7 +137,7 @@ const fetchIfNotInState = async (
 const useAddToActivePlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   return useMutation<void, Error, string>({
     mutationKey: ["add-to-active-plot", client?.key],
     mutationFn: async (key: string) => {
@@ -153,14 +153,14 @@ const useAddToActivePlot = (): ((key: string) => void) => {
         }),
       );
     },
-    onError: (e) => Status.handleException(e, "Failed to add range to plot", addStatus),
+    onError: (e) => handleException(e, "Failed to add range to plot"),
   }).mutate;
 };
 
 const useViewDetails = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const placer = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
@@ -168,7 +168,7 @@ const useViewDetails = (): ((key: string) => void) => {
       const rng = await fetchIfNotInState(store, client, key);
       placer({ ...overviewLayout, name: rng.name, key: rng.key });
     },
-    onError: (e) => Status.handleException(e, "Failed to view details", addStatus),
+    onError: (e) => handleException(e, "Failed to view details"),
   }).mutate;
 };
 
@@ -176,7 +176,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const placer = Layout.usePlacer();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) return;
@@ -188,8 +188,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
         }),
       );
     },
-    onError: (e) =>
-      Status.handleException(e, "Failed to add range to new plot", addStatus),
+    onError: (e) => handleException(e, "Failed to add range to new plot"),
   }).mutate;
 };
 
@@ -236,7 +235,7 @@ const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
 
   const confirm = Confirm.useModal();
   const del = useMutation<void, Error, string, Range | undefined>({
@@ -258,7 +257,7 @@ const List = (): ReactElement => {
     mutationFn: async (key: string) => await client?.ranges.delete(key),
     onError: (e, _, range) => {
       if (errors.CANCELED.matches(e)) return;
-      Status.handleException(e, "Failed to delete range", addStatus);
+      handleException(e, "Failed to delete range");
       dispatch(add({ ranges: [range as Range] }));
     },
   });
@@ -275,7 +274,7 @@ const List = (): ReactElement => {
       if (range == null || range.variant === "dynamic") return;
       await client?.ranges.create({ ...range });
     },
-    onError: (e) => Status.handleException(e, "Failed to save range", addStatus),
+    onError: (e) => handleException(e, "Failed to save range"),
   });
 
   const handleLink = Link.useCopyToClipboard();

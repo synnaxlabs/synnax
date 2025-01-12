@@ -124,11 +124,10 @@ const ConfigureInternal = ({
 }: ConfigureInternalProps): ReactElement => {
   const client = Synnax.use();
   const [connState, setConnState] = useState<TestConnCommandState | null>(null);
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useHandleException();
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const testConnection = useMutation<void, Error, void>({
-    mutationKey: [client?.key],
-    onError: (e) => Status.handleException(e, "Failed to test connection", addStatus),
+    onError: (e) => handleException(e, "Failed to test connection"),
     mutationFn: async () => {
       if (client == null) throw new Error("Client is not available");
       if (!methods.validate("connection")) throw new Error("Invalid configuration");
@@ -143,9 +142,7 @@ const ConfigureInternal = ({
     },
   });
   const confirm = useMutation<void, Error, void>({
-    mutationKey: [client?.key],
-    onError: (e) =>
-      Status.handleException(e, "Failed to connect to OPC UA Server", addStatus),
+    onError: (e) => handleException(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
       if (client == null) throw new Error("Client is not available");
       if (!methods.validate()) throw new Error("Invalid configuration");

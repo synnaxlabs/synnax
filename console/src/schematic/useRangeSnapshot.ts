@@ -17,6 +17,7 @@ import { Range } from "@/range";
 interface SchematicNameAndKey extends Pick<schematic.Schematic, "key" | "name"> {}
 
 export const useRangeSnapshot = () => {
+  const handleException = Status.useHandleException();
   const addStatus = Status.useAggregator();
   const rng = Range.useSelect();
   const client = Synnax.use();
@@ -31,8 +32,7 @@ export const useRangeSnapshot = () => {
         toArray(schematics).map((s) => s.name),
         "schematic",
       )} to ${rng?.name ?? "active range"}`,
-    onError: (err, context) =>
-      Status.handleException(err, `Failed to snapshot ${context}`, addStatus),
+    onError: (err, context) => handleException(err, `Failed to snapshot ${context}`),
     onSuccess: (_, __, context) =>
       addStatus({
         variant: "success",

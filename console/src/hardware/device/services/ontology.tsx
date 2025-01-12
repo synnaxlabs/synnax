@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Status, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
@@ -48,7 +48,7 @@ const handleSelect: Ontology.HandleSelect = () => {};
 const handleConfigure = ({
   selection: { resources },
   placeLayout,
-  addStatus,
+  handleException,
 }: Ontology.TreeContextMenuProps): void => {
   const resource = resources[0];
   try {
@@ -57,7 +57,7 @@ const handleConfigure = ({
     const key = resource.id.key;
     placeLayout(baseLayout(key, {}));
   } catch (e) {
-    Status.handleException(e, `Failed to configure ${resource.name}`, addStatus);
+    handleException(e, `Failed to configure ${resource.name}`);
   }
 };
 
@@ -77,10 +77,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     mutationFn: async ({ selection, client }) =>
       await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
-    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
       if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
-      Status.handleException(e, `Failed to delete devices`, addStatus);
+      handleException(e, `Failed to delete devices`);
     },
   }).mutate;
 };
