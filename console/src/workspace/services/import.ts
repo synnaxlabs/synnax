@@ -43,7 +43,7 @@ export const ingest: Import.DirectoryIngestor = async (
 };
 
 interface IngestContext {
-  addStatus: Status.AddStatusFn;
+  handleException: Status.HandleExcFn;
   client: Synnax | null;
   ingestors: Record<string, Import.FileIngestor>;
   placeLayout: Layout.Placer;
@@ -51,7 +51,7 @@ interface IngestContext {
 }
 
 export const import_ = async ({
-  addStatus,
+  handleException,
   client,
   ingestors,
   placeLayout,
@@ -75,11 +75,6 @@ export const import_ = async ({
     );
     await ingest(name, fileData, { client, ingestors, placeLayout, store });
   } catch (e) {
-    if (!(e instanceof Error)) throw e;
-    addStatus({
-      message: "Failed to import workspace",
-      description: e.message,
-      variant: "error",
-    });
+    handleException(e, "Failed to import workspace");
   }
 };

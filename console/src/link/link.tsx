@@ -57,10 +57,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
   const store = useStore<RootState>();
   const windowKey = useSelectWindowKey() as string;
   const addOpenUrlErrorStatus = () =>
-    addStatus({
-      variant: "error",
-      message: openUrlErrorMessage,
-    });
+    addStatus({ variant: "error", message: openUrlErrorMessage });
 
   useAsyncEffect(async () => {
     const unlisten = await onOpenUrl(async (urls) => {

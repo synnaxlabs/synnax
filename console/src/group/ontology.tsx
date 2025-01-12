@@ -28,7 +28,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
   const handleLink = Link.useCopyToClipboard();
-  const onSelect = useAsyncActionMenu("group.menu", {
+  const onSelect = useAsyncActionMenu({
     ungroup: () => ungroup(props),
     rename: () => Tree.startRenaming(nodes[0].key),
     group: () => createEmptyGroup(props),

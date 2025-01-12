@@ -60,7 +60,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
   const handleExport = Table.useExport();
-  const onSelect = useAsyncActionMenu("table.menu", {
+  const onSelect = useAsyncActionMenu({
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>

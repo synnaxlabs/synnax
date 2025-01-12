@@ -109,7 +109,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const snapshot = useSnapshot();
   const handleExport = Schematic.useExport();
   const handleLink = Link.useCopyToClipboard();
-  const onSelect = useAsyncActionMenu("schematic.menu", {
+  const onSelect = useAsyncActionMenu({
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
