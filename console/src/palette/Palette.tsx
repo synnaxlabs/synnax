@@ -178,6 +178,7 @@ const PaletteDialogContent = ({
 }: PaletteDialogProps): ReactElement => {
   const { setSourceData } = List.useDataUtilContext<Key, Entry>();
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const client = PSynnax.use();
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();
@@ -190,7 +191,15 @@ const PaletteDialogContent = ({
   const confirm = Confirm.useModal();
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
-    () => ({ store, placeLayout, confirm, client, addStatus, ingestors: INGESTORS }),
+    () => ({
+      store,
+      placeLayout,
+      confirm,
+      client,
+      addStatus,
+      handleException,
+      ingestors: INGESTORS,
+    }),
     [store, placeLayout, client?.key, addStatus],
   );
 
@@ -210,6 +219,7 @@ const PaletteDialogContent = ({
           addStatus,
           placeLayout,
           removeLayout,
+          handleException,
           client,
           selection: entries as ontology.Resource[],
         });
@@ -368,6 +378,7 @@ export interface CommandSelectionContext {
   placeLayout: Layout.Placer;
   confirm: CreateConfirmModal;
   addStatus: Status.AddStatusFn;
+  handleException: Status.HandleExcFn;
   ingestors: Record<string, FileIngestor>;
 }
 

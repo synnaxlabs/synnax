@@ -42,14 +42,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     mutationFn: async ({ selection: { resources }, client }) =>
       await client.user.delete(resources.map(({ id }) => id.key)),
-    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete users.",
-        description: e.message,
-      });
+      handleException(e, "Failed to delete users");
     },
   }).mutate;
 };

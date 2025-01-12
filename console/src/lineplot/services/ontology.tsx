@@ -43,14 +43,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.linePlot.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
+    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete line plot",
-        description: err.message,
-      });
+      handleException(err, "Failed to delete line plot");
     },
   }).mutate;
 };
@@ -125,7 +121,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  addStatus,
+  handleException,
 }): void => {
   void (async () => {
     try {
@@ -139,12 +135,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (err) {
-      addStatus({
-        variant: "error",
-        message: "Failed to load line plot",
-        description: (err as Error).message,
-      });
+    } catch (e) {
+      handleException(e, "Failed to load line plot");
     }
   })();
 };

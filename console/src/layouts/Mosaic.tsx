@@ -138,6 +138,7 @@ export const Mosaic = memo((): ReactElement => {
   const place = Layout.usePlacer();
   const dispatch = useDispatch();
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
@@ -170,6 +171,7 @@ export const Mosaic = memo((): ReactElement => {
             location,
             placeLayout: place,
             addStatus,
+            handleException,
           });
         } else
           place(
@@ -232,12 +234,7 @@ export const Mosaic = memo((): ReactElement => {
               store,
             });
           } catch (e) {
-            if (!(e instanceof Error)) throw e;
-            addStatus({
-              variant: "error",
-              message: `Failed to read ${item.getAsFile()?.name ?? "file"}`,
-              description: e.message,
-            });
+            handleException(e, `Failed to read ${item.getAsFile()?.name ?? "file"}`);
           }
         }),
       );

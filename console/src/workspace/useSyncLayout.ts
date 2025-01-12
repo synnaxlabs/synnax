@@ -26,6 +26,7 @@ export const useSyncLayout = async (): Promise<void> => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const prevSync = useRef<unknown>(null);
   const sync = useMutation({
     mutationKey: ["workspace.save"],
@@ -52,11 +53,7 @@ export const useSyncLayout = async (): Promise<void> => {
         store.dispatch(setActive(null));
         return;
       }
-      addStatus({
-        variant: "error",
-        message: "Failed to save workspace",
-        description: e.message,
-      });
+      handleException(e, "Failed to save workspace");
     },
   });
 

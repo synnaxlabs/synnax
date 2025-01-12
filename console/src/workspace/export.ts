@@ -28,7 +28,7 @@ export const useExport = (
   extractors: Record<string, Export.Extractor>,
 ): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const store = useStore<RootState>();
   const confirm = Confirm.useModal();
   return async (key: string) => {
@@ -91,12 +91,7 @@ export const useExport = (
         }),
       );
     } catch (e) {
-      if (!(e instanceof Error)) throw e;
-      addStatus({
-        variant: "error",
-        message: `Failed to export ${name}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to export ${name}`);
     }
   };
 };

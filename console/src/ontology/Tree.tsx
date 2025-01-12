@@ -202,6 +202,7 @@ export const Tree = (): ReactElement => {
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const menuProps = Menu.useContextMenu();
 
   const baseProps: BaseProps = useMemo<BaseProps>(
@@ -212,8 +213,9 @@ export const Tree = (): ReactElement => {
       removeLayout,
       services,
       addStatus,
+      handleException,
     }),
-    [client, store, placeLayout, removeLayout, services, addStatus],
+    [client, store, placeLayout, removeLayout, services, addStatus, handleException],
   );
 
   // Processes incoming changes to the ontology from the cluster.
@@ -326,11 +328,7 @@ export const Tree = (): ReactElement => {
     },
     onError: (error, _, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      addStatus({
-        variant: "error",
-        message: `Failed to move resources`,
-        description: error.message,
-      });
+      handleException(error, "Failed to move resources");
     },
   });
 
@@ -420,7 +418,6 @@ export const Tree = (): ReactElement => {
     ),
     onError: (error, { key, name }, ctx) => {
       if (ctx == null) return;
-      const { message } = error;
       const { prevName } = ctx;
       const rProps = getRenameProps(key, name);
       const svc = services[rProps.id.type];
@@ -431,11 +428,7 @@ export const Tree = (): ReactElement => {
           updater: (node) => ({ ...node, name: prevName }),
         }),
       ]);
-      addStatus({
-        variant: "error",
-        message: `Failed to rename ${prevName} to ${name}`,
-        description: message,
-      });
+      handleException(error, `Failed to rename ${prevName} to ${name}`);
       svc.onRename?.rollback?.(rProps, prevName);
     },
   });
@@ -454,6 +447,7 @@ export const Tree = (): ReactElement => {
         store,
         services,
         placeLayout,
+        handleException,
         removeLayout,
         addStatus,
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
@@ -499,6 +493,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        handleException,
         addStatus,
         selection: {
           parent,

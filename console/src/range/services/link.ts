@@ -19,7 +19,7 @@ export const linkHandler: Link.Handler = async ({
   client,
   dispatch,
   place,
-  addStatus,
+  handleException,
   windowKey,
 }): Promise<boolean> => {
   if (resource != "range") return false;
@@ -30,10 +30,7 @@ export const linkHandler: Link.Handler = async ({
     place({ ...overviewLayout, key: resourceKey });
     dispatch(Layout.setNavDrawerVisible({ windowKey, key: "range" }));
   } catch (e) {
-    addStatus({
-      variant: "error",
-      message: (e as Error).message,
-    });
+    handleException(e, "Failed to open range from URL");
   }
   return true;
 };

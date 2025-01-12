@@ -62,7 +62,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const client = Synnax.use();
   const place = Layout.usePlacer();
   const [childRanges, setChildRanges] = useState<ranger.Range[]>([]);
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
 
   useAsyncEffect(async () => {
     try {
@@ -75,11 +75,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
       tracker.onChange((ranges) => setChildRanges(ranges));
       return async () => await tracker.close();
     } catch (e) {
-      addStatus({
-        variant: "error",
-        message: `Failed to retrieve child ranges`,
-        description: (e as Error).message,
-      });
+      handleException(e, `Failed to retrieve child ranges`);
       return undefined;
     }
   }, [rangeKey, client?.key]);

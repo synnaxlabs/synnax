@@ -23,7 +23,7 @@ export const use = (
 ): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
   const store = useStore<RootState>();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   return async (key: string) => {
     let name;
     try {
@@ -37,12 +37,7 @@ export const use = (
       if (savePath == null) return;
       await writeTextFile(savePath, extractorReturn.data);
     } catch (e) {
-      if (!(e instanceof Error)) throw e;
-      addStatus({
-        variant: "error",
-        message: `Failed to export ${name ?? type}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to export ${name ?? type}`);
     }
   };
 };

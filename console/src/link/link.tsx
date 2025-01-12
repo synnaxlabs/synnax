@@ -28,7 +28,7 @@ import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 
 export interface HandlerProps {
-  addStatus: (status: Status.CrudeSpec) => void;
+  handleException: Status.HandleExcFn;
   client: Synnax;
   dispatch: Dispatch<UnknownAction>;
   place: Layout.Placer;
@@ -51,15 +51,13 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
   const client = PSynnax.use();
   const clientRef = useSyncedRef(client);
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const dispatch = useDispatch();
   const place = Layout.usePlacer();
   const store = useStore<RootState>();
   const windowKey = useSelectWindowKey() as string;
   const addOpenUrlErrorStatus = () =>
-    addStatus({
-      variant: "error",
-      message: openUrlErrorMessage,
-    });
+    addStatus({ variant: "error", message: openUrlErrorMessage });
 
   useAsyncEffect(async () => {
     const unlisten = await onOpenUrl(async (urls) => {
@@ -97,7 +95,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
             client: clientRef.current,
             dispatch,
             place,
-            addStatus,
+            handleException,
             windowKey,
           })
         )
@@ -130,12 +128,14 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
     let url = "synnax://cluster/";
     const key = clusterKey ?? activeClusterKey;
     const linkMessage = name == null ? "" : `to ${name}`;
-    if (key == null)
-      return addStatus({
+    if (key == null) {
+      addStatus({
         variant: "error",
         message: `Failed to copy link ${linkMessage} to clipboard`,
         description: "No active cluster found",
       });
+      return;
+    }
     url += key;
     if (ontologyID != undefined) url += `/${ontologyID.type}/${ontologyID.key}`;
     navigator.clipboard.writeText(url).then(

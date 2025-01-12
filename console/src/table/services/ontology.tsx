@@ -44,14 +44,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.table.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
+    onError: (e, { state: { setNodes }, handleException }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(err)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete table",
-        description: err.message,
-      });
+      if (errors.CANCELED.matches(e)) return;
+      handleException(e, "Failed to delete table");
     },
   }).mutate;
 };
@@ -64,7 +60,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
   const handleExport = Table.useExport();
-  const onSelect = useAsyncActionMenu("table.menu", {
+  const onSelect = useAsyncActionMenu({
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>
@@ -125,7 +121,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  addStatus,
+  handleException,
 }) => {
   void (async () => {
     try {
@@ -139,12 +135,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (err) {
-      addStatus({
-        variant: "error",
-        message: "Failed to load table",
-        description: (err as Error).message,
-      });
+    } catch (e) {
+      handleException(e, "Failed to load table");
     }
   })();
 };

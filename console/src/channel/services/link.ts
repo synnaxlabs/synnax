@@ -17,7 +17,7 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   place,
-  addStatus,
+  handleException,
 }): Promise<boolean> => {
   if (resource !== channel.ONTOLOGY_TYPE) return false;
   try {
@@ -32,12 +32,7 @@ export const linkHandler: Link.Handler = async ({
       }),
     );
   } catch (e) {
-    if (!(e instanceof Error)) throw e;
-    addStatus({
-      variant: "error",
-      description: "Failed to open channel from URL",
-      message: e.message,
-    });
+    handleException(e, "Failed to open channel from link");
   }
   return true;
 };

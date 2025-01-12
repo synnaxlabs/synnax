@@ -16,7 +16,7 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   place,
-  addStatus,
+  handleException,
 }): Promise<boolean> => {
   if (resource !== "schematic") return false;
   try {
@@ -29,10 +29,7 @@ export const linkHandler: Link.Handler = async ({
     });
     place(layoutCreator);
   } catch (e) {
-    addStatus({
-      variant: "error",
-      message: (e as Error).message,
-    });
+    handleException(e, "Failed to open schematic from URL");
   }
   return true;
 };

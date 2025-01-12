@@ -16,7 +16,7 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   dispatch,
-  addStatus,
+  handleException,
 }): Promise<boolean> => {
   if (resource !== "workspace") return false;
   try {
@@ -28,10 +28,7 @@ export const linkHandler: Link.Handler = async ({
     );
     dispatch(setActive(workspace.key));
   } catch (e) {
-    addStatus({
-      variant: "error",
-      message: (e as Error).message,
-    });
+    handleException(e, "Failed to open workspace from URL");
   }
   return true;
 };
