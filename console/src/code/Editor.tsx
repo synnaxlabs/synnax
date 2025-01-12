@@ -1,36 +1,20 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import "@/code/Editor.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { Align, type Input, Theming } from "@synnaxlabs/pluto";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
-
-export const EDITOR_LAYOUT_TYPE = "code_editor";
-
-export const createEditorLayout = ({
-  name,
-  window,
-  ...rest
-}: Partial<Layout.State>): Layout.State => ({
-  ...rest,
-  key: EDITOR_LAYOUT_TYPE,
-  type: EDITOR_LAYOUT_TYPE,
-  windowKey: EDITOR_LAYOUT_TYPE,
-  icon: "Range",
-  location: "mosaic",
-  name: name ?? "Range.Create",
-});
-
-export const EDITOR_SELECTABLE: Layout.Selectable = {
-  key: EDITOR_LAYOUT_TYPE,
-  title: "Code Editor",
-  icon: <Icon.Add />,
-  create: (layoutKey) => createEditorLayout({ key: layoutKey }),
-};
 
 export interface EditorProps
   extends Input.Control<string>,

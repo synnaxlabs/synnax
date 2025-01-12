@@ -40,7 +40,8 @@ type Config struct {
 	// Channel is used to retrieve information about the channels being calculated.
 	// [REQUIRED]
 	Channel channel.Readable
-
+	// ChannelObservable is used to listen to real-time changes in calculated channels
+	// so the calculation routines can be updated accordingly.
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 }
 
