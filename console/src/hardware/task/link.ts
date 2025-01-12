@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/pluto";
 
 import { retrieveAndPlaceLayout } from "@/hardware/task/ontology";
 import { type Link } from "@/link";
