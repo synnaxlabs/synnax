@@ -196,7 +196,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
             onClick={() => mutate(createMore)}
             triggers={[SAVE_TRIGGER]}
           >
-            Create Channel
+            Create
           </Button.Button>
         </Nav.Bar.End>
       </Layout.BottomNavBar>

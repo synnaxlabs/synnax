@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { isCalculated, ontology } from "@synnaxlabs/client";
+import { type channel, isCalculated, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
@@ -267,12 +267,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   const singleResource = resources.length === 1;
 
-  const isCalc =
-    singleResource &&
-    isCalculated({
-      virtual: resources[0].data?.virtual ?? false,
-      expression: resources[0].data?.expression ?? "",
-    });
+  const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
 
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>

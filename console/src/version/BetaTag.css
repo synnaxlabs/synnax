@@ -1,0 +1,7 @@
+.console-beta-tag {
+    .pluto-text {
+        color: var(--pluto-primary-z) !important;
+    }
+    background-color: var(--pluto-primary-z-20);
+    border-color: var(--pluto-primary-z);
+}

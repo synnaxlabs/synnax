@@ -19,9 +19,7 @@ import {
   Select,
   Status,
   Synnax,
-  Tag,
   Text,
-  Tooltip,
   Triggers,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
@@ -35,6 +33,7 @@ import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import type { RendererProps } from "@/layout/slice";
+import { Version } from "@/version";
 
 export interface CalculatedChannelArgs {
   channelKey?: number;
@@ -112,6 +111,7 @@ export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) =
   const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? defaultArgs;
   const res = useQuery<FormValues>({
     queryKey: [args.channelKey, client?.key],
+    staleTime: 0,
     queryFn: async () => {
       if (args.channelKey == null) return deep.copy(ZERO_FORM_VALUES);
       if (client == null) throw new Error("Client not available");
@@ -232,22 +232,17 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               </Text.Text>
             </Align.Space>
           )}
-          <Tooltip.Dialog>
-            {[
-              "This feature is still in development and may have limited functionality",
-              <Tag.Tag key="beta-tag" variant="filled" color="var(--pluto-warning-m1)">
-                Beta Feature
-              </Tag.Tag>,
-            ]}
-          </Tooltip.Dialog>
-          <Button.Button
-            disabled={isPending}
-            loading={isPending}
-            onClick={() => mutate(createMore)}
-            triggers={[SAVE_TRIGGER]}
-          >
-            {initialValues.key !== 0 ? "Update Channel" : "Create Channel"}
-          </Button.Button>
+          <Align.Space direction="x" align="center">
+            <Version.BetaTag feature="Calculated channels" plural />
+            <Button.Button
+              disabled={isPending}
+              loading={isPending}
+              onClick={() => mutate(createMore)}
+              triggers={[SAVE_TRIGGER]}
+            >
+              {initialValues.key !== 0 ? "Save" : "Create"}
+            </Button.Button>
+          </Align.Space>
         </Nav.Bar.End>
       </Layout.BottomNavBar>
     </Align.Space>
