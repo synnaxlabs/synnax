@@ -306,9 +306,9 @@ func (s *Interpreter) initPython() error {
 	if strings.Contains(v, targetPythonVersion) {
 		// Check if the version is the same as the embedded Python version. If so,
 		// everything is already set up and we can return early.
-		s.cfg.L.Debug("Python already installed. skipping installation")
+		s.cfg.L.Info("Python already installed. skipping installation")
 	} else {
-		s.cfg.L.Debug("extracting embedded Python installation. this may take a few seconds")
+		s.cfg.L.Info("extracting embedded Python installation. this may take a few seconds")
 		if err = xembed.Extract(
 			embeddedPython,
 			s.cfg.PythonInstallDir,
@@ -317,13 +317,16 @@ func (s *Interpreter) initPython() error {
 		); err != nil {
 			return errors.Newf("failed to extract embedded Python files: %v", err)
 		}
-		s.cfg.L.Debug("embedded Python installation extracted")
+		s.cfg.L.Info("embedded Python installation extracted")
 	}
 
-	os.Setenv("PYTHONPATH", getPythonPath(installDir))
+	if err := os.Setenv("PYTHONPATH", getPythonPath(installDir)); err != nil {
+		return errors.Wrapf(err, "failed to set PYTHONPATH")
+	}
 
-	pythonHome := installDir
-	os.Setenv("PYTHONHOME", pythonHome)
+	if err := os.Setenv("PYTHONHOME", installDir); err != nil {
+		return errors.Wrapf(err, "failed to set PYTHONHOME")
+	}
 
 	// Lock the OS thread before initializing Python
 	runtime.LockOSThread()
