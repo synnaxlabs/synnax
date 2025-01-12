@@ -49,9 +49,8 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   },
   task: {
     icon: <Icon.Task />,
-    onClick: (client, res, placer) => {
-      void Task.retrieveAndPlaceLayout(client, res.id.key, placer);
-    },
+    onClick: (client, res, placer) =>
+      void Task.retrieveAndPlaceLayout(client, res.id.key, placer),
   },
 };
 
