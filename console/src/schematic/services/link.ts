@@ -15,7 +15,7 @@ export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
-  placer,
+  place,
   handleException,
 }): Promise<boolean> => {
   if (resource !== "schematic") return false;
@@ -27,7 +27,7 @@ export const linkHandler: Link.Handler = async ({
       name: schematic.name,
       editable: false,
     });
-    placer(layoutCreator);
+    place(layoutCreator);
   } catch (e) {
     handleException(e, "Failed to open schematic from URL");
   }

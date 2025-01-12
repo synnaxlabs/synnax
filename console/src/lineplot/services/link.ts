@@ -15,7 +15,7 @@ export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
-  placer,
+  place,
   handleException,
 }): Promise<boolean> => {
   if (resource !== "lineplot") return false;
@@ -26,7 +26,7 @@ export const linkHandler: Link.Handler = async ({
       key: linePlot.key,
       name: linePlot.name,
     });
-    placer(layoutCreator);
+    place(layoutCreator);
   } catch (e) {
     handleException(e, "Failed to open line plot from URL");
   }

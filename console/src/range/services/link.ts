@@ -18,7 +18,7 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   dispatch,
-  placer,
+  place,
   handleException,
   windowKey,
 }): Promise<boolean> => {
@@ -27,7 +27,7 @@ export const linkHandler: Link.Handler = async ({
     const range = await client.ranges.retrieve(resourceKey);
     dispatch(setActive(range.key));
     dispatch(add({ ranges: fromClientRange(range) }));
-    placer({ ...overviewLayout, key: resourceKey });
+    place({ ...overviewLayout, key: resourceKey });
     dispatch(Layout.setNavDrawerVisible({ windowKey, key: "range" }));
   } catch (e) {
     handleException(e, "Failed to open range from URL");

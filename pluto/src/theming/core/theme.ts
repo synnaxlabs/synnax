@@ -71,9 +71,7 @@ export const themeZ = z
       warning: scaleZ,
       palettes: z.record(color.paletteZ),
       visualization: z
-        .object({
-          palettes: z.record(z.array(color.Color.z)),
-        })
+        .object({ palettes: z.record(z.array(color.Color.z)) })
         .optional()
         .default({ palettes: {} }),
       white: color.Color.z,
@@ -85,13 +83,8 @@ export const themeZ = z
     }),
     sizes: z.object({
       base: z.number(),
-      border: z.object({
-        radius: z.number(),
-        width: z.number(),
-      }),
-      schematic: z.object({
-        elementStrokeWidth: z.number(),
-      }),
+      border: z.object({ radius: z.number(), width: z.number() }),
+      schematic: z.object({ elementStrokeWidth: z.number() }),
     }),
     typography: z.object({
       family: z.string(),
@@ -183,13 +176,7 @@ const SYNNAX_BASE: ThemeSpec = {
       p1: color.fromHSLA(setLightness(WARNING_HSLA, 65)),
       p2: color.fromHSLA(setLightness(WARNING_HSLA, 75)),
     },
-    palettes: {
-      recent: {
-        key: "recent",
-        name: "Recent",
-        swatches: [],
-      },
-    },
+    palettes: { recent: { key: "recent", name: "Recent", swatches: [] } },
     visualization: {
       palettes: {
         default: [
@@ -219,52 +206,19 @@ const SYNNAX_BASE: ThemeSpec = {
   },
   sizes: {
     base: baseSize,
-    border: {
-      radius: 3,
-      width: 1,
-    },
-    schematic: {
-      elementStrokeWidth: 2,
-    },
+    border: { radius: 3, width: 1 },
+    schematic: { elementStrokeWidth: 2 },
   },
   typography: {
     family: fontFamily,
     codeFamily: codeFontFamily,
-    h1: {
-      size: 7,
-      weight: "500",
-      lineHeight: 7 * 1.5,
-    },
-    h2: {
-      size: 4.5,
-      weight: "medium",
-      lineHeight: 4.5 * 1.5,
-    },
-    h3: {
-      size: 3.5,
-      weight: "medium",
-      lineHeight: 3.5 * 1.5,
-    },
-    h4: {
-      size: 2.6666,
-      weight: "medium",
-      lineHeight: 2.6666 * 1.5,
-    },
-    h5: {
-      size: 2.333333,
-      weight: 450,
-      lineHeight: 2.333333 * 1.5,
-    },
-    p: {
-      size: 2.1666666666,
-      weight: "regular",
-      lineHeight: 2 * 1.5,
-    },
-    small: {
-      size: 1.916666,
-      weight: "regular",
-      lineHeight: 1.9166666 * 1.5,
-    },
+    h1: { size: 7, weight: "500", lineHeight: 7 * 1.5 },
+    h2: { size: 4.5, weight: "medium", lineHeight: 4.5 * 1.5 },
+    h3: { size: 3.5, weight: "medium", lineHeight: 3.5 * 1.5 },
+    h4: { size: 2.6666, weight: "medium", lineHeight: 2.6666 * 1.5 },
+    h5: { size: 2.333333, weight: 450, lineHeight: 2.333333 * 1.5 },
+    p: { size: 2.1666666666, weight: "regular", lineHeight: 2 * 1.5 },
+    small: { size: 1.916666, weight: "regular", lineHeight: 1.9166666 * 1.5 },
   },
 };
 

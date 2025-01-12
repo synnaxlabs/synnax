@@ -114,9 +114,9 @@ export const createWindowsOnSetWorkspaceEffect: MiddlewareEffect<
   const { layouts } = selectSliceState(state);
   Object.values(layouts)
     .filter(({ location: l }) => l === "window")
-    .forEach(({ key, name, window }) => {
+    .forEach(({ key, name, windowProps }) => {
       if (key === Drift.MAIN_WINDOW) return;
-      dispatch(createWindowAction(key, name, window));
+      dispatch(createWindowAction(key, name, windowProps));
     });
 };
 

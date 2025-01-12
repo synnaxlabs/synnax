@@ -27,16 +27,16 @@ import { type State as SchematicState } from "@/schematic/slice";
 
 interface SnapshotService {
   icon: ReactElement<PIcon.BaseProps>;
-  onClick: (client: Client, res: ontology.Resource, placer: Layout.Placer) => void;
+  onClick: (client: Client, res: ontology.Resource, place: Layout.Placer) => void;
 }
 
 const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   schematic: {
     icon: <Icon.Schematic />,
-    onClick: (client, res, placer) => {
+    onClick: (client, res, place) => {
       void (async () => {
         const s = await client.workspaces.schematic.retrieve(res.id.key);
-        placer(
+        place(
           create({
             ...(s.data as unknown as SchematicState),
             key: s.key,
@@ -49,8 +49,8 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   },
   task: {
     icon: <Icon.Task />,
-    onClick: (client, res, placer) =>
-      void Task.retrieveAndPlaceLayout(client, res.id.key, placer),
+    onClick: (client, res, place) =>
+      void Task.retrieveAndPlaceLayout(client, res.id.key, place),
   },
 };
 

@@ -31,7 +31,7 @@ export interface HandlerProps {
   handleException: Status.HandleExcFn;
   client: Synnax;
   dispatch: Dispatch<UnknownAction>;
-  placer: Layout.Placer;
+  place: Layout.Placer;
   resource: string;
   resourceKey: string;
   windowKey: string;
@@ -53,7 +53,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
   const addStatus = Status.useAggregator();
   const handleException = Status.useHandleException();
   const dispatch = useDispatch();
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   const store = useStore<RootState>();
   const windowKey = useSelectWindowKey() as string;
   const addOpenUrlErrorStatus = () =>
@@ -97,7 +97,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
             resourceKey,
             client: clientRef.current,
             dispatch,
-            placer,
+            place,
             handleException,
             windowKey,
           })

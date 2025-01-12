@@ -27,10 +27,10 @@ import { createLayout, overviewLayout } from "@/range/external";
 
 export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
   const { entry } = props;
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   return (
     <List.ItemFrame
-      onClick={() => placer({ ...overviewLayout, name: entry.name, key: entry.key })}
+      onClick={() => place({ ...overviewLayout, name: entry.name, key: entry.key })}
       direction="x"
       size={0.5}
       justify="spaceBetween"
@@ -60,7 +60,7 @@ export interface ChildRangesProps {
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const client = Synnax.use();
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   const [childRanges, setChildRanges] = useState<ranger.Range[]>([]);
   const handleException = Status.useHandleException();
 
@@ -96,7 +96,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         style={{ width: "fit-content" }}
         iconSpacing="small"
         variant="text"
-        onClick={() => placer(createLayout({ initial: { parent: rangeKey } }))}
+        onClick={() => place(createLayout({ initial: { parent: rangeKey } }))}
       >
         Add Child Range
       </Button.Button>

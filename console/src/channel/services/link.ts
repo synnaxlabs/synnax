@@ -16,13 +16,13 @@ export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
-  placer,
+  place,
   handleException,
 }): Promise<boolean> => {
   if (resource !== channel.ONTOLOGY_TYPE) return false;
   try {
     const channel = await client.channels.retrieve(resourceKey);
-    placer(
+    place(
       LinePlot.create({
         channels: {
           ...LinePlot.ZERO_CHANNELS_STATE,

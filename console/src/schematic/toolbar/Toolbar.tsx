@@ -9,14 +9,15 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Button, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Align, Breadcrumb, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader } from "@/components";
+import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { useExport } from "@/schematic/file";
+import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
   useSelectHasPermission,
@@ -75,7 +76,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const state = useSelectOptional(layoutKey);
-  const handleExport = useExport(name);
+  const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
@@ -128,18 +129,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         </Align.Space>
         <Align.Space direction="x" align="center" empty>
           <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
-            <Button.Icon
-              tooltip={"Export"}
-              sharp
-              size="medium"
-              style={{ height: "100%" }}
-              onClick={() => handleExport(state.key)}
-            >
-              <Icon.Export />
-            </Button.Icon>
+            <Export.ToolbarButton onExport={() => handleExport(state.key)} />
             <Link.ToolbarCopyButton
               name={name}
-              ontologyID={{ key: state.key, type: schematic.ONTOLOGY_TYPE }}
+              ontologyID={schematic.ontologyID(state.key)}
             />
           </Align.Space>
           {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 195 }} />}

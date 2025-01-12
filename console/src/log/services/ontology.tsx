@@ -14,6 +14,7 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
+import { Export } from "@/export";
 import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
@@ -58,11 +59,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
+  const handleExport = Log.useExport();
   const onSelect = useAsyncActionMenu("log.menu", {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+    export: () => handleExport(resources[0].id.key),
   });
   const isSingle = resources.length === 1;
   return (
@@ -73,6 +76,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
+          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>

@@ -14,11 +14,10 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
+import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
-import { useExport } from "@/lineplot/file";
-import { create } from "@/lineplot/LinePlot";
-import { type State } from "@/lineplot/slice";
+import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
@@ -59,7 +58,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
-  const handleExport = useExport(resources[0].name);
+  const handleExport = LinePlot.useExport();
   const onSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
@@ -83,9 +82,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
-          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
-            Export
-          </PMenu.Item>
+          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
@@ -110,8 +107,8 @@ const handleSelect: Ontology.HandleSelect = async ({
 }): Promise<void> => {
   const linePlot = await client.workspaces.linePlot.retrieve(selection[0].id.key);
   placeLayout(
-    create({
-      ...(linePlot.data as unknown as State),
+    LinePlot.create({
+      ...(linePlot.data as unknown as LinePlot.State),
       key: linePlot.key,
       name: linePlot.name,
     }),
@@ -130,8 +127,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     try {
       const linePlot = await client.workspaces.linePlot.retrieve(id.key);
       placeLayout(
-        create({
-          ...(linePlot.data as unknown as State),
+        LinePlot.create({
+          ...(linePlot.data as unknown as LinePlot.State),
           key: linePlot.key,
           name: linePlot.name,
           location: "mosaic",

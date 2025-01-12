@@ -132,9 +132,9 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   }).mutate;
 
 const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   return ({ selection: { resources } }) =>
-    placer({
+    place({
       ...overviewLayout,
       name: resources[0].name,
       key: resources[0].id.key,

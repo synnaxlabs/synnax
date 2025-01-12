@@ -9,13 +9,14 @@
 
 import { QueryError } from "@synnaxlabs/client";
 import { Status, Synnax, useDebouncedCallback } from "@synnaxlabs/pluto";
-import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
+import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { selectActiveKey } from "@/workspace/selectors";
 import { setActive } from "@/workspace/slice";
 
@@ -36,13 +37,9 @@ export const useSyncLayout = async (): Promise<void> => {
         if (key == null || client == null) return;
         const layoutSlice = Layout.selectSliceState(s);
         if (deep.equal(prevSync.current, layoutSlice)) return;
-        const toSave = deep.copy(layoutSlice);
-        Object.entries(toSave.layouts).forEach(([key, layout]) => {
-          if (layout.excludeFromWorkspace == true || layout.location === "modal")
-            delete toSave.layouts[key];
-        });
         prevSync.current = layoutSlice;
-        await client.workspaces.setLayout(key, toSave as unknown as UnknownRecord);
+        const toSave = purgeExcludedLayouts(layoutSlice);
+        await client.workspaces.setLayout(key, toSave);
       },
       250,
       [client],

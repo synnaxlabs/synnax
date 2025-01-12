@@ -63,11 +63,13 @@ const {
         const bindClickHandlersToHeadingAnchors = () => {
             const anchors = document.querySelectorAll(".heading-anchor");
             anchors.forEach((anchor) => {
+                if (anchor.previousElementSibling?.classList.contains("no-link")) {
+                    anchor.style.display = "none";
+                }
                 anchor.addEventListener("click", () => {
                     const url = window.location.href;
                     const newUrl = url.split("#")[0];
                     const hash = anchor.getAttribute("href");
-                    console.log(newUrl + hash);
                     navigator.clipboard.writeText(newUrl + hash);
                 });
             });
@@ -1193,13 +1195,27 @@ const {
 
         article {
             h1,
+            h2,
             h3,
             h4,
             h5,
             h6,
-            p,
             table {
+                margin-top: 5rem;
+                margin-bottom: 2rem;
+                &.pluto-text {
+                    margin-bottom: 2rem;
+                    margin-top: 5rem;
+                }
+            }
+
+            .pluto-btn .pluto-text {
+                margin: 0 !important;
+            }
+
+            p {
                 margin: 3rem 0;
+                color: var(--pluto-gray-l9-90);
             }
 
             :is(h1, h3).pluto-text {
@@ -1214,10 +1230,6 @@ const {
 
             ul {
                 padding-left: 5rem;
-            }
-
-            h2.pluto-text {
-                margin: 4rem 0;
             }
 
             .yt-video {
@@ -1354,6 +1366,12 @@ const {
                 top: 5rem !important;
                 transform: none !important;
             }
+        }
+
+        blockquote {
+            border-left: 2px solid var(--pluto-primary-z-30);
+            padding-left: 2rem;
+            margin-left: 3rem;
         }
     </style>
 </html>
