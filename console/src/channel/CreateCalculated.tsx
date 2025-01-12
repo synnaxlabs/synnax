@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, Rate } from "@synnaxlabs/client";
+import { type channel, DataType } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
   Align,
@@ -29,6 +29,7 @@ import * as monaco from "monaco-editor";
 import { type ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 
+import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -39,33 +40,25 @@ export interface CalculatedChannelArgs {
   channelKey?: number;
 }
 
-const defaultArgs: CalculatedChannelArgs = {
-  channelKey: undefined,
-};
+const DEFAULT_ARGS: CalculatedChannelArgs = { channelKey: undefined };
 
-const schema = channel.newPayload
-  .extend({
-    name: z.string().min(1, "Name must not be empty"),
-    dataType: DataType.z.transform((v) => v.toString()),
-    expression: z
-      .string()
-      .refine((v) => v.includes("result =") || v.includes("result="), {
-        message:
-          'Expression must assign calculation to result (i.e. must include a "result =" expression)',
-      }),
-  })
-  .refine((v) => !v.isIndex || new DataType(v.dataType).equals(DataType.TIMESTAMP), {
-    message: "Index channel must have data type TIMESTAMP",
-    path: ["dataType"],
-  })
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
-    message: "Data channel must have an index",
-    path: ["index"],
-  })
-  .refine((v) => v.requires?.length > 0, {
-    message: "Expression must use at least one synnax channel",
-    path: ["requires"],
-  });
+const schema = createFormValidator(
+  baseFormSchema
+    .extend({
+      name: z.string().min(1, "Name must not be empty"),
+      dataType: DataType.z.transform((v) => v.toString()),
+      expression: z
+        .string()
+        .refine((v) => v.includes("result =") || v.includes("result="), {
+          message:
+            'Expression must assign calculation to result (i.e. must include a "result =" expression)',
+        }),
+    })
+    .refine((v) => v.requires?.length > 0, {
+      message: "Expression must use at least one synnax channel",
+      path: ["requires"],
+    }),
+);
 
 type FormValues = z.infer<typeof schema>;
 
@@ -73,10 +66,7 @@ export const CREATE_CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const createCalculatedLayout: Layout.State = {
-  key: CREATE_CALCULATED_LAYOUT_TYPE,
-  type: CREATE_CALCULATED_LAYOUT_TYPE,
-  windowKey: MAIN_WINDOW,
+export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.State => ({
   name: "Channel.Create.Calculated",
   icon: "Channel",
   location: "modal",
@@ -90,25 +80,21 @@ export const createCalculatedLayout: Layout.State = {
     navTop: true,
     showTitle: true,
   },
-};
+  ...base,
+  key: CREATE_CALCULATED_LAYOUT_TYPE,
+  type: CREATE_CALCULATED_LAYOUT_TYPE,
+  windowKey: MAIN_WINDOW,
+});
 
 const ZERO_FORM_VALUES: FormValues = {
-  key: 0,
-  name: "",
-  index: 0,
-  dataType: "float32",
-  isIndex: false,
-  leaseholder: 0,
+  ...ZERO_CHANNEL,
   virtual: true, // Set to true by default
-  rate: Rate.hz(0),
-  internal: false,
   expression: "result = np.array([])",
-  requires: [],
 };
 
 export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) => {
   const client = Synnax.use();
-  const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? defaultArgs;
+  const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? DEFAULT_ARGS;
   const res = useQuery<FormValues>({
     queryKey: [args.channelKey, client?.key],
     staleTime: 0,
@@ -127,8 +113,7 @@ export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) =
         <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
       </Align.Space>
     );
-  if (res.isSuccess) return <Internal onClose={onClose} initialValues={res.data} />;
-  return null;
+  return <Internal onClose={onClose} initialValues={res.data} />;
 };
 
 interface InternalProps extends Pick<RendererProps, "onClose"> {

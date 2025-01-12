@@ -218,27 +218,21 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
   }).mutate;
 
-export const useOpenCalculated =
+const useOpenCalculated =
   () =>
-  ({ selection: { resources }, store }: Ontology.TreeContextMenuProps) => {
+  ({ selection: { resources }, placeLayout }: Ontology.TreeContextMenuProps) => {
     if (resources.length !== 1) return;
     const resource = resources[0];
     const tabKey = `editCalculated-${resource.id.key}`;
-    const layout: Layout.PlacePayload = {
-      ...createCalculatedLayout,
-      key: tabKey,
-      name: `Edit ${resource.name}`,
-      location: "modal" as const,
-      tab: {
-        closable: true,
-        editable: false,
-      },
-      args: {
-        channelKey: Number(resource.id.key),
-      },
-    };
-    return store.dispatch(Layout.place(layout));
+    return placeLayout(
+      createCalculatedLayout({
+        key: tabKey,
+        name: `Edit ${resource.name}`,
+        args: { channelKey: Number(resource.id.key) },
+      }),
+    );
   };
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
