@@ -1231,7 +1231,8 @@ export class DataType extends String implements Stringer {
   }
 
   get isInteger(): boolean {
-    return this.toString().startsWith("int");
+    const str = this.toString();
+    return str.startsWith("int") || str.startsWith("uint");
   }
 
   get isFloat(): boolean {

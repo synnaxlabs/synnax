@@ -356,10 +356,11 @@ export const createResourceListItem = (
     const resourceType = resourceTypes[id.type];
     const PI = resourceType?.PaletteListItem;
     if (PI != null) return <PI {...props} />;
+    const { icon } = resourceType;
     return (
       <List.ItemFrame style={{ padding: "1.5rem" }} highlightHovered {...props}>
         <Text.WithIcon
-          startIcon={resourceType?.icon}
+          startIcon={isValidElement(icon) ? icon : icon(props.entry)}
           level="p"
           weight={450}
           shade={9}

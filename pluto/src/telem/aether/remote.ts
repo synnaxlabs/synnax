@@ -129,12 +129,15 @@ const fetchChannelProperties = async (
   let c = await client.retrieveChannel(ch);
   if (!fetchIndex || c.isIndex)
     return { key: c.key, dataType: c.dataType, virtual: c.virtual };
-  if (channel.isCalculated(c)) 
-    for (const required of c.requires) {
-      const requiredCh = await client.retrieveChannel(required);
-      if (!requiredCh.virtual) c = requiredCh;
-    }
-  
+  if (channel.isCalculated(c)) {
+    const indexKey = await channel.resolveCalculatedIndex(
+      client.retrieveChannel.bind(client),
+      c,
+    );
+    if (indexKey == null) throw new ValidationError("Cannot resolve calculated index");
+    c = await client.retrieveChannel(indexKey);
+    return { key: c.key, dataType: DataType.TIMESTAMP, virtual: false };
+  }
   if (c.virtual) throw new ValidationError("Cannot plot data from virtual channels");
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false };
 };

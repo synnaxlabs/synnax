@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   type Haul,
+  Icon as PIcon,
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,
@@ -300,7 +301,11 @@ export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "channel",
-  icon: <Icon.Channel />,
+  icon: (p) => (
+    <PIcon.Icon topRight={Channel.resolveIcon(p.data as channel.Payload)}>
+      <Icon.Channel />
+    </PIcon.Icon>
+  ),
   hasChildren: false,
   allowRename,
   onRename: undefined,

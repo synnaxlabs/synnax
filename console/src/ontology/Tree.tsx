@@ -22,7 +22,14 @@ import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
-import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
+import {
+  isValidElement,
+  memo,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -50,7 +57,7 @@ export const toTreeNode = (
   return {
     key: id.toString(),
     name,
-    icon,
+    icon: isValidElement(icon) ? icon : icon(resource),
     hasChildren,
     haulItems: haulItems(resource),
     allowRename: services[id.type].allowRename(resource),
