@@ -128,7 +128,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       await client.channels.delete(resources.map(({ id }) => Number(id.key))),
     onError: (
       e,
-      { selection: { resources }, addStatus, state: { setNodes } },
+      { selection: { resources }, handleException, state: { setNodes } },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
@@ -136,11 +136,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       let message = "Failed to delete channels";
       if (resources.length === 1)
         message = `Failed to delete channel ${resources[0].name}`;
-      addStatus({
-        variant: "error",
-        message,
-        description: e.message,
-      });
+      handleException(e, message);
     },
   }).mutate;
 };
@@ -158,16 +154,12 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (
       e: Error,
-      { selection: { resources }, addStatus, state: { setNodes } },
+      { selection: { resources }, handleException, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      addStatus({
-        variant: "error",
-        message: `Failed to set alias for ${first.name}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to set alias for ${first.name}`);
     },
   }).mutate;
 
@@ -181,16 +173,12 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (
       e: Error,
-      { selection: { resources }, addStatus, state: { setNodes } },
+      { selection: { resources }, handleException, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      addStatus({
-        variant: "error",
-        message: `Failed to rename ${first.name}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to rename ${first.name}`);
     },
   }).mutate;
 
@@ -205,16 +193,12 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
     onError: (
       e: Error,
-      { selection: { resources }, addStatus, state: { setNodes } },
+      { selection: { resources }, handleException, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      addStatus({
-        variant: "error",
-        message: `Failed to remove alias on ${first.name}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to remove alias on ${first.name}`);
     },
   }).mutate;
 

@@ -98,7 +98,6 @@ export const open = async <S extends RequiredState>({
       // @ts-expect-error - we know this is a key
       else deepCopy = deep.deleteD(deepCopy, key);
     });
-
     void (async () => {
       await db.set(persistedStateKey(version), deepCopy).catch(console.error);
       await db.set(DB_VERSION_KEY, { version }).catch(console.error);

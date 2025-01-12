@@ -14,6 +14,7 @@ import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/migrations";
+import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
@@ -26,7 +27,7 @@ export const ZERO_STATE = latest.ZERO_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
-export const parser = latest.parser;
+export const anyStateZ = latest.anyStateZ;
 
 export const SLICE_NAME = "schematic";
 
@@ -42,7 +43,7 @@ export const purgeState = (state: State): State => {
   return state;
 };
 
-export const purgeSliceState = (state: StoreState): StoreState => {
+export const purgeSliceState = (state: RootState): RootState => {
   Object.values(state[SLICE_NAME].schematics).forEach(purgeState);
   return state;
 };
@@ -237,7 +238,7 @@ export const { actions, reducer } = createSlice({
         ...ZERO_STATE,
         ...latest.migrateState(payload),
         key: layoutKey,
-      }) as State;
+      });
       if (schematic.snapshot) {
         schematic.editable = false;
         clearSelections(schematic);

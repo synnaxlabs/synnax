@@ -58,7 +58,7 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
   ...props
 }: UseSyncedProps<Z, O>): UseReturn<Z> => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const memoKey = useMemoPrimitiveArray(key);
 
   const methods = use({
@@ -70,12 +70,8 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
       void (async () => {
         try {
           await applyChanges?.({ ...props, client });
-        } catch (error) {
-          addStatus({
-            variant: "error",
-            message: `Failed to save ${name}`,
-            description: (error as Error).message,
-          });
+        } catch (e) {
+          handleException(e, `Failed to save ${name}`);
         }
       })();
     },
@@ -85,12 +81,8 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
     try {
       const values = await queryFn({ client });
       methods.set("", values);
-    } catch (error) {
-      addStatus({
-        variant: "error",
-        message: `Failed to retrieve ${name}`,
-        description: (error as Error).message,
-      });
+    } catch (e) {
+      handleException(e, `Failed to retrieve ${name}`);
     }
   }, [memoKey, client?.key]);
   const onOpenObs = useCallback(async () => {

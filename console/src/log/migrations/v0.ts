@@ -10,30 +10,29 @@
 import { channel } from "@synnaxlabs/client";
 import { z } from "zod";
 
+const VERSION = "0.0.0";
+
 export const stateZ = z.object({
   key: z.string(),
-  version: z.literal("0.0.0"),
+  version: z.literal(VERSION),
   channels: channel.keyZ.array(),
   remoteCreated: z.boolean(),
 });
 
-export type State = z.input<typeof stateZ>;
+export type State = z.infer<typeof stateZ>;
 
 export const ZERO_STATE: State = {
   key: "",
-  version: "0.0.0",
+  version: VERSION,
   channels: [],
   remoteCreated: false,
 };
 
 export const sliceStateZ = z.object({
-  version: z.literal("0.0.0"),
+  version: z.literal(VERSION),
   logs: z.record(stateZ),
 });
 
-export type SliceState = z.input<typeof sliceStateZ>;
+export type SliceState = z.infer<typeof sliceStateZ>;
 
-export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.0",
-  logs: {},
-};
+export const ZERO_SLICE_STATE: SliceState = { version: VERSION, logs: {} };
