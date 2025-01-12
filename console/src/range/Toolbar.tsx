@@ -137,7 +137,7 @@ const fetchIfNotInState = async (
 const useAddToActivePlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   return useMutation<void, Error, string>({
     mutationKey: ["add-to-active-plot", client?.key],
     mutationFn: async (key: string) => {
@@ -160,7 +160,7 @@ const useAddToActivePlot = (): ((key: string) => void) => {
 const useViewDetails = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const place = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
@@ -176,7 +176,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const place = Layout.usePlacer();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) return;
@@ -235,7 +235,7 @@ const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
 
   const confirm = Confirm.useModal();
   const del = useMutation<void, Error, string, Range | undefined>({

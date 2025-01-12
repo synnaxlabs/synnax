@@ -202,7 +202,7 @@ export const Tree = (): ReactElement => {
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const addStatus = Status.useAggregator();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const menuProps = Menu.useContextMenu();
 
   const baseProps: BaseProps = useMemo<BaseProps>(

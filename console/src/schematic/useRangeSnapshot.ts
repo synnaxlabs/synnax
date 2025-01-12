@@ -17,7 +17,7 @@ import { Range } from "@/range";
 interface SchematicNameAndKey extends Pick<schematic.Schematic, "key" | "name"> {}
 
 export const useRangeSnapshot = () => {
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const addStatus = Status.useAggregator();
   const rng = Range.useSelect();
   const client = Synnax.use();

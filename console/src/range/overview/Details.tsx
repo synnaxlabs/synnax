@@ -42,7 +42,7 @@ const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const [parent, setParent] = useState<ranger.Range | null>();
   const place = Layout.usePlacer();
 

@@ -124,7 +124,7 @@ const Wrapped = ({
     running === true ? "running" : running === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<ReadTaskConfig, ReadStateDetails, ReadType>(layoutKey);
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
     onError: (e) => handleException(e, "Failed to configure LabJack Read task"),

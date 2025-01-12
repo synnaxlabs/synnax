@@ -84,7 +84,7 @@ export const Aggregator = Aether.wrap<AggregatorProps>(
 
 export const useAggregator = (): AddStatusFn => useContext(Context).add;
 
-export const useHandleException = (): HandleExcFn => {
+export const useExceptionHandler = (): HandleExcFn => {
   const addStatus = useAggregator();
   return (exc: unknown, message?: string): void => {
     if (!(exc instanceof Error)) throw exc;

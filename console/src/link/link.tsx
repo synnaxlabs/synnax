@@ -51,7 +51,7 @@ export const useDeep = ({ handlers }: UseDeepProps): void => {
   const client = PSynnax.use();
   const clientRef = useSyncedRef(client);
   const addStatus = Status.useAggregator();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const dispatch = useDispatch();
   const place = Layout.usePlacer();
   const store = useStore<RootState>();

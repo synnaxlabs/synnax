@@ -62,7 +62,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const client = Synnax.use();
   const place = Layout.usePlacer();
   const [childRanges, setChildRanges] = useState<ranger.Range[]>([]);
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
 
   useAsyncEffect(async () => {
     try {

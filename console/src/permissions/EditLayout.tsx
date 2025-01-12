@@ -63,7 +63,7 @@ const formSchema = permissionsZ.extend({
 export const EditModal = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey, onClose } = props;
   const user_ = Layout.useSelectArgs<user.User>(layoutKey);
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const addStatus = Status.useAggregator();
   const [isPending, setIsPending] = useState(false);
 

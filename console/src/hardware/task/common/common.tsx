@@ -455,7 +455,7 @@ export const ParentRangeButton = ({
   taskKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const [parent, setParent] = useState<ontology.Resource | null>();
   const place = Layout.usePlacer();
 

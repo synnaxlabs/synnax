@@ -23,7 +23,7 @@ export const use = (
 ): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
   const store = useStore<RootState>();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   return async (key: string) => {
     let name;
     try {

@@ -26,7 +26,7 @@ export const useSyncComponent = <P>(
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
   const client = PSynnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const store = useStore<RootState>();
   const syncLayout = useMutation<void, Error>({
     retry: 3,

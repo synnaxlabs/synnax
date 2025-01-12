@@ -112,7 +112,7 @@ const CreateLayoutForm = ({
   const dispatch = useDispatch();
   const client = Synnax.use();
   const clientExists = client != null;
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (persisted: boolean) => {

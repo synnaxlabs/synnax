@@ -94,7 +94,7 @@ const Wrapped = ({
   task,
 }: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
     undefined,
   );

@@ -69,7 +69,7 @@ const Content = (): ReactElement => {
   const client = Synnax.use();
   const [tasks, setTasks] = useState<task.Task[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const handleRename = useMutation<void, Error, MutationVars, string>({
     onMutate: ({ name, key }) => {
       const oldTask = tasks.find((t) => t.key === key);

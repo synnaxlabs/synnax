@@ -111,7 +111,7 @@ const Wrapped = ({
     DigitalReadType
   >(layoutKey);
 
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
 
   const configure = useMutation({
     onError: (e) => handleException(e, "Failed to configure NI Digital Read Task"),

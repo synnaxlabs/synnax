@@ -58,7 +58,7 @@ export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
   ...props
 }: UseSyncedProps<Z, O>): UseReturn<Z> => {
   const client = Synnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const memoKey = useMemoPrimitiveArray(key);
 
   const methods = use({

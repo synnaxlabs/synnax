@@ -33,7 +33,7 @@ export const useLoadRemote = <V extends migrate.Migratable>({
 }: UseLoadRemoteProps<V>): boolean | null => {
   const dispatch = useDispatch();
   const version = useSelectVersion(layoutKey);
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const client = PSynnax.use();
   const get = useMutation({
     mutationKey: [layoutKey, client?.key],

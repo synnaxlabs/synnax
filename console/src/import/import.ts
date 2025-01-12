@@ -85,6 +85,6 @@ export const use = (
   const placeLayout = Layout.usePlacer();
   const store = useStore<RootState>();
   const client = PSynnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   return () => import_({ store, placeLayout, client, handleException, workspaceKey });
 };

@@ -28,7 +28,7 @@ export const useExport = (
   extractors: Record<string, Export.Extractor>,
 ): ((key: string) => Promise<void>) => {
   const client = Synnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const store = useStore<RootState>();
   const confirm = Confirm.useModal();
   return async (key: string) => {

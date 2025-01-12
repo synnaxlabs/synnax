@@ -16,7 +16,7 @@ export const useDevice = <P extends UnknownRecord>(
   ctx: Form.ContextValue<any>,
 ): device.Device<P> | undefined => {
   const client = Synnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const [device, setDevice] = useState<device.Device<P> | undefined>(undefined);
   const handleExc = useCallback(
     (e: unknown) => {

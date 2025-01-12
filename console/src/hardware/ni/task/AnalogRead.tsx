@@ -113,7 +113,7 @@ const Wrapped = ({
     AnalogReadType
   >(layoutKey);
 
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
 
   const configure = useMutation<void, Error, void, unknown>({
     onError: (e) => handleException(e, "Failed to configure NI Analog Read Task}"),

@@ -66,7 +66,7 @@ export const Configure = <P extends UnknownRecord = UnknownRecord>({
   const [step, setStep] = useState<"name" | "identifier">("name");
   const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
   const identifierRef = useRef<HTMLInputElement>(null);
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const { isPending, mutate } = useMutation<void, Error, void>({
     mutationKey: [client?.key],
     onError: (e) => handleException(e, `Failed to configure ${device.name}`),

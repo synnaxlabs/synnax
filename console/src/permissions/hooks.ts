@@ -17,7 +17,7 @@ import { giveAll, set } from "@/permissions/slice";
 export const useFetchPermissions = async (): Promise<void> => {
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   useAsyncEffect(async () => {
     if (client == null) {
       dispatch(giveAll());

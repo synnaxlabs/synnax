@@ -138,7 +138,7 @@ export const Mosaic = memo((): ReactElement => {
   const place = Layout.usePlacer();
   const dispatch = useDispatch();
   const addStatus = Status.useAggregator();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {

@@ -11,7 +11,7 @@ import { Status } from "@synnaxlabs/pluto";
 
 export const useCopyToClipboard = (): ((text: string, name: string) => void) => {
   const addStatus = Status.useAggregator();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   return (text: string, name: string) => {
     navigator.clipboard
       .writeText(text)

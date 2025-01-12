@@ -101,7 +101,7 @@ const Wrapped = ({
     DigitalWriteType
   >(layoutKey);
 
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
 
   const configure = useMutation<void, Error, void>({
     mutationKey: [client?.key, "configure"],

@@ -105,7 +105,7 @@ const Wrapped = ({
   const createTask = useCreate<WriteTaskConfig, WriteStateDetails, WriteType>(
     layoutKey,
   );
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const configure = useMutation({
     onError: (e) => handleException(e, "Failed to configure write task"),
     mutationFn: async () => {

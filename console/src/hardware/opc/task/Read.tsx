@@ -88,7 +88,7 @@ const Wrapped = ({
   task,
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const methods = Form.use({ schema, values: initialValues });
   const dev = useDevice<Device.Properties>(methods);
   const taskState = useObserveState<ReadStateDetails>(

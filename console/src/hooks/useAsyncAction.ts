@@ -16,7 +16,7 @@ export interface UseAsyncActionProps {
 }
 
 export const useAsyncAction = ({ action }: UseAsyncActionProps) => {
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   return useMutation({
     mutationFn: action,
     onError: handleException,
@@ -26,7 +26,7 @@ export const useAsyncAction = ({ action }: UseAsyncActionProps) => {
 export const useAsyncActionMenu = (
   actions: Record<string, () => Promise<void> | void>,
 ): ((key: string) => void) => {
-  const handleException = Status.useHandleException();
+  const handleException = Status.useExceptionHandler();
   const res = useMutation({
     mutationFn: async (key: string) => await actions[key](),
     onError: handleException,
