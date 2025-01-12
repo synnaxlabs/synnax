@@ -57,6 +57,7 @@ fn set_transparent_titlebar(_: &Window, _: bool) {}
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init())
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
             return;
@@ -92,9 +93,9 @@ fn main() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
-            #[cfg(target_os = "macos")] 
+            #[cfg(target_os = "macos")]
             let app_handle = app.handle().clone();
-            #[cfg(target_os = "macos")] 
+            #[cfg(target_os = "macos")]
             thread::spawn(move || {
                 let app_handle = app_handle.clone();
                 let device_state = DeviceState::new();
