@@ -1,12 +1,13 @@
 // Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in
-// the file licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business
-// Source License, use of this software will be governed by the Apache License,
-// Version 2.0, included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
+import { table } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -25,9 +26,12 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { ToolbarHeader } from "@/components";
+import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { selectTheme } from "@/layout/selectors";
+import { Link } from "@/link";
 import { type RootState } from "@/store";
+import { useExport } from "@/table/export";
 import {
   selectCell,
   useSelectCellType,
@@ -73,6 +77,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
     );
     dispatch(setCellType({ key: layoutKey, cellKey, variant, nextProps }));
   };
+  const handleExport = useExport();
   return (
     <Align.Space empty style={{ width: "100%", height: "100%" }}>
       <ToolbarHeader>
@@ -85,6 +90,13 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
               onChange={(variant) => handleVariantChange(variant, firstCell.key)}
             />
           )}
+        </Align.Space>
+        <Align.Space direction="x" style={{ width: 66 }} empty>
+          <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+          <Link.ToolbarCopyButton
+            name={name}
+            ontologyID={table.ontologyID(layoutKey)}
+          />
         </Align.Space>
       </ToolbarHeader>
       <Align.Space style={{ width: "100%", height: "100%" }}>

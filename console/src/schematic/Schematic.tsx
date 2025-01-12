@@ -442,12 +442,16 @@ export const SELECTABLE: Layout.Selectable = {
   create: (layoutKey: string) => create({ key: layoutKey }),
 };
 
+export interface CreateArg
+  extends Partial<State>,
+    Omit<Partial<Layout.State>, "type"> {}
+
 export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  (initial: CreateArg): Layout.Creator =>
   ({ dispatch, store }) => {
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
-    const newTab = canEditSchematic ? tab : { ...tab, editable: false };
+    if (!canEditSchematic && tab?.editable) tab.editable = false;
     const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
@@ -457,6 +461,6 @@ export const create =
       icon: "Schematic",
       type: LAYOUT_TYPE,
       window: { navTop: true, showTitle: true },
-      tab: newTab,
+      tab,
     };
   };

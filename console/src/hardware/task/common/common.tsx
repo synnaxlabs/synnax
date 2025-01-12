@@ -457,7 +457,7 @@ export const ParentRangeButton = ({
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
   const [parent, setParent] = useState<ontology.Resource | null>();
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
 
   useAsyncEffect(async () => {
     try {
@@ -496,7 +496,7 @@ export const ParentRangeButton = ({
         iconSpacing="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          placer({ ...overviewLayout, key: parent.id.key, name: parent.name })
+          place({ ...overviewLayout, key: parent.id.key, name: parent.name })
         }
       >
         {parent.name}

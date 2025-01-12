@@ -107,11 +107,7 @@ export const useSyncComponent = (
       const data = select(storeState, layoutKey);
       if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
-      const setData = {
-        ...data,
-        key: undefined,
-        snapshot: undefined,
-      } as unknown as UnknownRecord;
+      const setData = { ...data, key: undefined };
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
       await client.workspaces.table.create(ws, {
         key: layoutKey,

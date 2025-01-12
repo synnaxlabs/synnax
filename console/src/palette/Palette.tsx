@@ -38,6 +38,8 @@ import { useStore } from "react-redux";
 import { Confirm } from "@/confirm";
 import { type CreateConfirmModal } from "@/confirm/Confirm";
 import { CSS } from "@/css";
+import { type FileIngestor } from "@/import/ingestor";
+import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 import { type Service } from "@/ontology/service";
@@ -188,7 +190,7 @@ const PaletteDialogContent = ({
   const confirm = Confirm.useModal();
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
-    () => ({ store, placeLayout, confirm, client, addStatus }),
+    () => ({ store, placeLayout, confirm, client, addStatus, ingestors: INGESTORS }),
     [store, placeLayout, client?.key, addStatus],
   );
 
@@ -366,6 +368,7 @@ export interface CommandSelectionContext {
   placeLayout: Layout.Placer;
   confirm: CreateConfirmModal;
   addStatus: Status.AddStatusFn;
+  ingestors: Record<string, FileIngestor>;
 }
 
 interface CommandActionProps {

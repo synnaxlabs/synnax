@@ -33,6 +33,7 @@ import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
+import { WorkspaceServices } from "@/workspace/services";
 
 const NOTIFICATION_ADAPTERS = [
   ...DeviceServices.NOTIFICATION_ADAPTERS,
@@ -46,7 +47,7 @@ const LINK_HANDLERS: Link.Handler[] = [
   RangeServices.linkHandler,
   SchematicServices.linkHandler,
   Task.linkHandler,
-  Workspace.linkHandler,
+  WorkspaceServices.linkHandler,
   LogServices.linkHandler,
   TableServices.linkHandler,
 ];

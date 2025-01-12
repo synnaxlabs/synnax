@@ -65,7 +65,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         name,
         layout: Layout.ZERO_SLICE_STATE as unknown as UnknownRecord,
       });
-      dispatch(add({ workspaces: [ws] }));
+      dispatch(add(ws));
       if (active != null)
         dispatch(Layout.setWorkspace({ slice: ws.layout as unknown as SliceState }));
       onClose();

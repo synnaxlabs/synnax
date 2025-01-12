@@ -273,7 +273,7 @@ const Wrapped = ({
 
   const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
 
   const name = task?.name;
   const key = task?.key;
@@ -323,7 +323,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => placer(createConfigureLayout())}
+                        onClick={() => place(createConfigureLayout())}
                       >
                         Connect a new server.
                       </Text.Link>

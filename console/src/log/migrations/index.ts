@@ -9,6 +9,7 @@
 
 import * as v0 from "@/log/migrations/v0";
 
+export const stateZ = v0.stateZ;
 export type State = v0.State;
 export type SliceState = v0.SliceState;
 export const ZERO_SLICE_STATE = v0.ZERO_SLICE_STATE;

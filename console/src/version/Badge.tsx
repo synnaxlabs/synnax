@@ -19,11 +19,11 @@ import { useCheckForUpdates } from "@/version/Updater";
 
 export const Badge = (): ReactElement => {
   const version = useSelectVersion();
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   const updateAvailable = useCheckForUpdates();
   return (
     <Button.Button
-      onClick={() => placer(infoLayout)}
+      onClick={() => place(infoLayout)}
       variant="text"
       size="medium"
       color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-text-color)"}

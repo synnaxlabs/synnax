@@ -13,20 +13,20 @@ import { z } from "zod";
 
 const VERSION = "0.0.0";
 
-const cellLayout = z.object({ key: z.string() });
+const cellLayoutZ = z.object({ key: z.string() });
 
 export const BASE_COL_SIZE = 6 * 12;
 export const BASE_ROW_SIZE = 6 * 6;
 
-export type CellLayout = z.infer<typeof cellLayout>;
+export type CellLayout = z.infer<typeof cellLayoutZ>;
 
-const rowLayout = z.object({ size: z.number(), cells: z.array(cellLayout) });
+const rowLayoutZ = z.object({ size: z.number(), cells: z.array(cellLayoutZ) });
 
-export type RowLayout = z.infer<typeof rowLayout>;
+export type RowLayout = z.infer<typeof rowLayoutZ>;
 
-const colLayout = z.object({ size: z.number() });
+const colLayoutZ = z.object({ size: z.number() });
 
-const cellState = z.object({
+const cellStateZ = z.object({
   key: z.string(),
   variant: z.string(),
   selected: z.boolean(),
@@ -36,7 +36,7 @@ const cellState = z.object({
 export interface CellState<
   V extends TableCells.Variant = TableCells.Variant,
   P extends object = UnknownRecord,
-> extends z.infer<typeof cellState> {
+> extends z.infer<typeof cellStateZ> {
   variant: V;
   props: P;
 }
@@ -57,8 +57,8 @@ export const stateZ = z.object({
   version: z.literal(VERSION),
   lastSelected: z.string().nullable(),
   editable: z.boolean(),
-  layout: z.object({ rows: z.array(rowLayout), columns: colLayout.array() }),
-  cells: z.record(z.string(), cellState),
+  layout: z.object({ rows: z.array(rowLayoutZ), columns: colLayoutZ.array() }),
+  cells: z.record(z.string(), cellStateZ),
   remoteCreated: z.boolean(),
 });
 
@@ -95,7 +95,7 @@ export const sliceStateZ = z.object({
   tables: z.record(z.string(), stateZ),
   copyBuffer: z.object({
     epicenter: z.string(),
-    cells: z.record(z.string(), cellState),
+    cells: z.record(z.string(), cellStateZ),
     positions: z.record(z.string(), xy.xy),
   }),
 });
