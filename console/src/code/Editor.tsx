@@ -27,10 +27,12 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
 
   useEffect(() => {
     if (editorRef.current === null) return;
-    (self as any).MonacoEnvironment = { getWorker: () => new EditorWorker() };
+    self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
+
+    const isDark = theme.key === "synnaxDark";
 
     monaco.editor.defineTheme("vs-dark-custom", {
-      base: "vs-dark",
+      base: isDark ? "vs-dark" : "vs",
       inherit: true,
       rules: [
         {

@@ -56,7 +56,7 @@ const scrollToRelevantChild = (
 const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   itemHeight,
   children,
-  overscan = 5,
+  overscan = 0,
   className,
   ...props
 }: VirtualCoreProps<K, E>): ReactElement => {
