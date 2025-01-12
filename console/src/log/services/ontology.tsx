@@ -115,20 +115,22 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
   placeLayout,
   handleException,
 }) => {
-  try {
-    const log = await client.workspaces.log.retrieve(id.key);
-    placeLayout(
-      Log.create({
-        name: log.name,
-        ...(log.data as unknown as Log.State),
-        key: id.key,
-        location: "mosaic",
-        tab: { mosaicKey: nodeKey, location },
-      }),
-    );
-  } catch (e) {
-    handleException(e, "Failed to load log");
-  }
+  void (async () => {
+    try {
+      const log = await client.workspaces.log.retrieve(id.key);
+      placeLayout(
+        Log.create({
+          name: log.name,
+          ...(log.data as unknown as Log.State),
+          key: id.key,
+          location: "mosaic",
+          tab: { mosaicKey: nodeKey, location },
+        }),
+      );
+    } catch (e) {
+      handleException(e, "Failed to load log");
+    }
+  })();
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

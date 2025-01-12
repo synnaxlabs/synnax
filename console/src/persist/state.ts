@@ -87,7 +87,7 @@ export const open = async <S extends RequiredState>({
     window.location.reload();
   };
 
-  const persist = debounce(async (store: MiddlewareAPI<Dispatch<UnknownAction>, S>) => {
+  const persist = debounce((store: MiddlewareAPI<Dispatch<UnknownAction>, S>) => {
     if (appWindow.label !== MAIN_WINDOW) return;
     version++;
     // We need to make a deep copy here to make immer happy
@@ -98,10 +98,11 @@ export const open = async <S extends RequiredState>({
       // @ts-expect-error - we know this is a key
       else deepCopy = deep.deleteD(deepCopy, key);
     });
-
-    await db.set(persistedStateKey(version), deepCopy).catch(console.error);
-    await db.set(DB_VERSION_KEY, { version }).catch(console.error);
-    await db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
+    void (async () => {
+      await db.set(persistedStateKey(version), deepCopy).catch(console.error);
+      await db.set(DB_VERSION_KEY, { version }).catch(console.error);
+      await db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
+    })();
   }, PERSIST_DEBOUNCE);
 
   let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;

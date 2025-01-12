@@ -396,12 +396,14 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
-  const onRename = async (name: string): Promise<void> => {
+  const onRename = (name: string): void => {
     if (name.length === 0) return;
     dispatch(rename({ key: entry.key, name }));
     dispatch(Layout.rename({ key: entry.key, name }));
     if (!entry.persisted) return;
-    await client?.ranges.rename(entry.key, name);
+    void (async () => {
+      await client?.ranges.rename(entry.key, name);
+    })();
   };
   return (
     <Core.ItemFrame

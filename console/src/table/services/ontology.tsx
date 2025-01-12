@@ -119,20 +119,22 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
   placeLayout,
   handleException,
 }) => {
-  try {
-    const table = await client.workspaces.table.retrieve(id.key);
-    placeLayout(
-      Table.create({
-        name: table.name,
-        ...(table.data as unknown as Table.State),
-        key: id.key,
-        location: "mosaic",
-        tab: { mosaicKey: nodeKey, location },
-      }),
-    );
-  } catch (e) {
-    handleException(e, "Failed to load table");
-  }
+  void (async () => {
+    try {
+      const table = await client.workspaces.table.retrieve(id.key);
+      placeLayout(
+        Table.create({
+          name: table.name,
+          ...(table.data as unknown as Table.State),
+          key: id.key,
+          location: "mosaic",
+          tab: { mosaicKey: nodeKey, location },
+        }),
+      );
+    } catch (e) {
+      handleException(e, "Failed to load table");
+    }
+  })();
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

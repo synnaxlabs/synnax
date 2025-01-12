@@ -162,8 +162,8 @@ export const AliasInput = ({
   const canSetAlias =
     setAlias != null && !loading && alias !== value && channelKey !== 0;
   const handleSetAlias = (): void => {
+    if (!canSetAlias) return;
     void (async () => {
-      if (!canSetAlias) return;
       setLoading(true);
       await setAlias(channelKey, value);
       setLoading(false);

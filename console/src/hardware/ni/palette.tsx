@@ -59,22 +59,25 @@ export const toggleNIScanner: Command = {
       <Icon.Logo.NI />
     </PIcon.Create>
   ),
-  onSelect: async ({ client, addStatus, handleException }) => {
+  onSelect: ({ client, addStatus, handleException }) => {
     if (client == null) return;
-    try {
-      const tsk = await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
-      const enabled = tsk.config.enabled ?? true;
-      client.hardware.tasks.create<ScanConfig>({
-        ...tsk.payload,
-        config: { enabled: !enabled },
-      });
-      addStatus({
-        variant: "success",
-        message: `NI device scanning ${!enabled ? "enabled" : "disabled"}`,
-      });
-    } catch (e) {
-      handleException(e, "Failed to toggle NI scan task");
-    }
+    void (async () => {
+      try {
+        const tsk =
+          await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
+        const enabled = tsk.config.enabled ?? true;
+        client.hardware.tasks.create<ScanConfig>({
+          ...tsk.payload,
+          config: { enabled: !enabled },
+        });
+        addStatus({
+          variant: "success",
+          message: `NI device scanning ${!enabled ? "enabled" : "disabled"}`,
+        });
+      } catch (e) {
+        handleException(e, "Failed to toggle NI scan task");
+      }
+    })();
   },
 };
 

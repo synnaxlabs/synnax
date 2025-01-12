@@ -342,14 +342,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
 };
 
 const handleSelect: Ontology.HandleSelect = async ({ selection, client, store }) => {
-  const workspace = await client.workspaces.retrieve(selection[0].id.key);
-  store.dispatch(add({ workspaces: [workspace] }));
-  store.dispatch(
-    Layout.setWorkspace({
-      slice: workspace.layout as unknown as Layout.SliceState,
-      keepNav: false,
-    }),
-  );
+  void (async () => {
+    const workspace = await client.workspaces.retrieve(selection[0].id.key);
+    store.dispatch(add({ workspaces: [workspace] }));
+    store.dispatch(
+      Layout.setWorkspace({
+        slice: workspace.layout as unknown as Layout.SliceState,
+        keepNav: false,
+      }),
+    );
+  })();
 };
 
 const handleRename: Ontology.HandleTreeRename = {

@@ -254,41 +254,43 @@ export const Tree = (): ReactElement => {
   }, [client]);
 
   const handleExpand = useCallback(
-    async ({ action, clicked }: Core.HandleExpandProps): Promise<void> => {
+    ({ action, clicked }: Core.HandleExpandProps): void => {
       if (action !== "expand") return;
-      if (client == null) return;
-      const id = new ontology.ID(clicked);
-      try {
-        setLoading(clicked);
-        const resources = await client.ontology.retrieveChildren(id, {
-          includeSchema: false,
-        });
-        const converted = toTreeNodes(services, resources);
-        const nextTree = Core.updateNodeChildren({
-          tree: nodesRef.current,
-          parent: clicked,
-          updater: (nodes) => {
-            const res = converted.map((node) => {
-              const existing = nodes.find(({ key }) => key === node.key);
-              return { ...existing, ...node };
-            });
-            const nodesBeingRenamed = nodes.filter(
-              ({ key, name }) =>
-                !converted.find(({ key: k }) => k === key) && name.length === 0,
-            );
-            return [...res, ...nodesBeingRenamed];
-          },
-        });
-        const keys = resources.map(({ id }) => id.toString());
-        resourcesRef.current = [
-          // Dedupe any resources that already exist.
-          ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
-          ...resources,
-        ];
-        setNodes([...nextTree]);
-      } finally {
-        setLoading(false);
-      }
+      void (async () => {
+        if (client == null) return;
+        const id = new ontology.ID(clicked);
+        try {
+          setLoading(clicked);
+          const resources = await client.ontology.retrieveChildren(id, {
+            includeSchema: false,
+          });
+          const converted = toTreeNodes(services, resources);
+          const nextTree = Core.updateNodeChildren({
+            tree: nodesRef.current,
+            parent: clicked,
+            updater: (nodes) => {
+              const res = converted.map((node) => {
+                const existing = nodes.find(({ key }) => key === node.key);
+                return { ...existing, ...node };
+              });
+              const nodesBeingRenamed = nodes.filter(
+                ({ key, name }) =>
+                  !converted.find(({ key: k }) => k === key) && name.length === 0,
+              );
+              return [...res, ...nodesBeingRenamed];
+            },
+          });
+          const keys = resources.map(({ id }) => id.toString());
+          resourcesRef.current = [
+            // Dedupe any resources that already exist.
+            ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
+            ...resources,
+          ];
+          setNodes([...nextTree]);
+        } finally {
+          setLoading(false);
+        }
+      })();
     },
     [client, services],
   );

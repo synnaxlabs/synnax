@@ -239,40 +239,42 @@ export const Mosaic = memo((): ReactElement => {
   const confirm = Confirm.useModal();
 
   const handleFileDrop = useCallback(
-    async (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
-      const files = Array.from(event.dataTransfer.files);
-      for (const file of files) {
-        const name = file.name;
-        try {
-          if (file.type !== "application/json")
-            throw Error(`${name} is not a JSON file`);
-          const buffer = await file.arrayBuffer();
-          const fileAsJSON = JSON.parse(new TextDecoder().decode(buffer));
+    (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
+      void (async () => {
+        const files = Array.from(event.dataTransfer.files);
+        for (const file of files) {
+          const name = file.name;
+          try {
+            if (file.type !== "application/json")
+              throw Error(`${name} is not a JSON file`);
+            const buffer = await file.arrayBuffer();
+            const fileAsJSON = JSON.parse(new TextDecoder().decode(buffer));
 
-          let handlerFound = false;
-          for (const fileHandler of FILE_HANDLERS)
-            if (
-              await fileHandler({
-                file: fileAsJSON,
-                placer,
-                name,
-                store,
-                confirm,
-                client,
-                workspaceKey: workspaceKey ?? undefined,
-                dispatch,
-                tab: { mosaicKey: nodeKey, location: loc },
-              })
-            ) {
-              handlerFound = true;
-              break;
-            }
-          if (!handlerFound)
-            throw Error(`${name} is not recognized as a Synnax object`);
-        } catch (e) {
-          handleException(e, `Failed to read ${name}`);
+            let handlerFound = false;
+            for (const fileHandler of FILE_HANDLERS)
+              if (
+                await fileHandler({
+                  file: fileAsJSON,
+                  placer,
+                  name,
+                  store,
+                  confirm,
+                  client,
+                  workspaceKey: workspaceKey ?? undefined,
+                  dispatch,
+                  tab: { mosaicKey: nodeKey, location: loc },
+                })
+              ) {
+                handlerFound = true;
+                break;
+              }
+            if (!handlerFound)
+              throw Error(`${name} is not recognized as a Synnax object`);
+          } catch (e) {
+            handleException(e, `Failed to read ${name}`);
+          }
         }
-      }
+      })();
     },
     [dispatch],
   );

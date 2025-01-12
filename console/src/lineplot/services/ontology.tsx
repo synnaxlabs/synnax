@@ -118,28 +118,30 @@ const handleSelect: Ontology.HandleSelect = async ({
   );
 };
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
+const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
   id,
   location,
   nodeKey,
   placeLayout,
   handleException,
-}): Promise<void> => {
-  try {
-    const linePlot = await client.workspaces.linePlot.retrieve(id.key);
-    placeLayout(
-      create({
-        ...(linePlot.data as unknown as State),
-        key: linePlot.key,
-        name: linePlot.name,
-        location: "mosaic",
-        tab: { mosaicKey: nodeKey, location },
-      }),
-    );
-  } catch (e) {
-    handleException(e, "Failed to load line plot");
-  }
+}): void => {
+  void (async () => {
+    try {
+      const linePlot = await client.workspaces.linePlot.retrieve(id.key);
+      placeLayout(
+        create({
+          ...(linePlot.data as unknown as State),
+          key: linePlot.key,
+          name: linePlot.name,
+          location: "mosaic",
+          tab: { mosaicKey: nodeKey, location },
+        }),
+      );
+    } catch (e) {
+      handleException(e, "Failed to load line plot");
+    }
+  })();
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

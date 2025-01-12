@@ -83,7 +83,7 @@ export const retrieveAndPlaceLayout = async (
   placeLayout(layout);
 };
 
-const handleSelect: Ontology.HandleSelect = async ({
+const handleSelect: Ontology.HandleSelect = ({
   selection,
   placeLayout,
   client,
@@ -92,11 +92,13 @@ const handleSelect: Ontology.HandleSelect = async ({
   if (selection.length === 0) return;
   const key = selection[0].id.key;
   const name = selection[0].name;
-  try {
-    await retrieveAndPlaceLayout(client, key, placeLayout);
-  } catch (e) {
-    handleException(e, `Could not open ${name}`);
-  }
+  void (async () => {
+    try {
+      await retrieveAndPlaceLayout(client, key, placeLayout);
+    } catch (e) {
+      handleException(e, `Could not open ${name}`);
+    }
+  })();
 };
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {

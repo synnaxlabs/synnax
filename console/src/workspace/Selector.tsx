@@ -39,7 +39,7 @@ export const Selector = (): ReactElement => {
   const active = useSelectActive();
   const dProps = Dropdown.use();
   const handleChange = useCallback(
-    async (v: string | null) => {
+    (v: string | null) => {
       dProps.close();
       if (v === null) {
         dispatch(setActive(null));
@@ -51,14 +51,16 @@ export const Selector = (): ReactElement => {
         return;
       }
       if (client == null) return;
-      const ws = await client.workspaces.retrieve(v);
-      dispatch(add({ workspaces: [ws] }));
-      dispatch(
-        Layout.setWorkspace({
-          slice: ws.layout as unknown as Layout.SliceState,
-          keepNav: false,
-        }),
-      );
+      void (async () => {
+        const ws = await client.workspaces.retrieve(v);
+        dispatch(add({ workspaces: [ws] }));
+        dispatch(
+          Layout.setWorkspace({
+            slice: ws.layout as unknown as Layout.SliceState,
+            keepNav: false,
+          }),
+        );
+      })();
     },
     [active, client, dispatch, dProps.close],
   );

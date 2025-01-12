@@ -30,10 +30,14 @@ export const Recent = (): ReactElement | null => {
 
   if (client == null || key == null) return null;
 
-  const handleClick = async (key: string): Promise<void> => {
-    const ws = await client.workspaces.retrieve(key);
-    dispatch(add({ workspaces: [ws] }));
-    dispatch(Layout.setWorkspace({ slice: ws.layout as unknown as Layout.SliceState }));
+  const handleClick = (key: string): void => {
+    void (async () => {
+      const ws = await client.workspaces.retrieve(key);
+      dispatch(add({ workspaces: [ws] }));
+      dispatch(
+        Layout.setWorkspace({ slice: ws.layout as unknown as Layout.SliceState }),
+      );
+    })();
   };
 
   return (
