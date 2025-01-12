@@ -224,11 +224,11 @@ export const useOpenCalculated =
     if (resources.length !== 1) return;
     const resource = resources[0];
     const tabKey = `editCalculated-${resource.id.key}`;
-    const layout = {
+    const layout: Layout.PlacePayload = {
       ...createCalculatedLayout,
       key: tabKey,
       name: `Edit ${resource.name}`,
-      location: "modal",
+      location: "modal" as const,
       tab: {
         closable: true,
         editable: false,
