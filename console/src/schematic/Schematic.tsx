@@ -59,6 +59,7 @@ import {
   copySelection,
   internalCreate,
   pasteSelection,
+  selectAll,
   setControlStatus,
   setEdges,
   setEditable,
@@ -292,6 +293,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       ["Escape"],
       ["Control", "Z"],
       ["Control", "Shift", "Z"],
+      ["Control", "A"],
     ],
     loose: true,
     region: ref,
@@ -301,6 +303,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
         const isClear = triggers.some((t) => t.includes("Escape"));
+        const isAll = triggers.some((t) => t.includes("A"));
         const isUndo =
           triggers.some((t) => t.includes("Z")) &&
           triggers.some((t) => t.includes("Control")) &&
@@ -314,6 +317,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         else if (isClear) dispatch(clearSelection({ key: layoutKey }));
         else if (isUndo) undo();
         else if (isRedo) redo();
+        else if (isAll) dispatch(selectAll({ key: layoutKey }));
         else undoableDispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [layoutKey, undoableDispatch, undo, redo, dispatch],

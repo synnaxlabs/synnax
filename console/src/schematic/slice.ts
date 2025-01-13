@@ -144,6 +144,10 @@ export interface SetLegendPayload {
   legend: Partial<LegendState>;
 }
 
+export interface SelectAllPayload {
+  key: string;
+}
+
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -426,6 +430,12 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       schematic.legend = { ...schematic.legend, ...legend };
     },
+    selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
+      const { key: layoutKey } = payload;
+      const schematic = state.schematics[layoutKey];
+      schematic.nodes.forEach((node) => (node.selected = true));
+      schematic.edges.forEach((edge) => (edge.selected = true));
+    },
   },
 });
 
@@ -452,6 +462,7 @@ export const {
   toggleControl,
   setControlStatus,
   addElement,
+  selectAll,
   setEdges,
   setNodes,
   remove,
