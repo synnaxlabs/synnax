@@ -11,6 +11,8 @@ package grpc
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

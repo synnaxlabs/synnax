@@ -11,6 +11,8 @@ package kvmock
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/kv"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/freighter/fmock"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"go/types"
 )
 
 type Builder struct {

@@ -11,6 +11,8 @@ package aspen
 
 import (
 	"context"
+	"io"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/node"
@@ -21,7 +23,6 @@ import (
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	storex "github.com/synnaxlabs/x/store"
-	"io"
 )
 
 // Cluster represents a group of nodes that can exchange their state with each other.

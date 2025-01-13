@@ -10,11 +10,12 @@
 package testutil
 
 import (
+	"io"
+	"os"
+
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
-	"io"
-	"os"
 )
 
 type FSFactory func() (xfs.FS, func() error)

@@ -31,6 +31,10 @@ package pledge
 
 import (
 	"context"
+	"math/rand"
+	"sync"
+	"time"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/config"
@@ -40,9 +44,6 @@ import (
 	xtime "github.com/synnaxlabs/x/time"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"math/rand"
-	"sync"
-	"time"
 )
 
 var (

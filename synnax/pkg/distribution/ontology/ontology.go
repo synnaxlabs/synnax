@@ -26,6 +26,8 @@ package ontology
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -39,7 +41,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
 )
 
 type (

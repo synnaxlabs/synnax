@@ -11,6 +11,8 @@ package aspen
 
 import (
 	"context"
+	"io"
+
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/signal"
-	"io"
 )
 
 func Open(

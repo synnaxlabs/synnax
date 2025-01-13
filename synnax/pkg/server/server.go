@@ -12,6 +12,8 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"net"
+
 	"github.com/cockroachdb/cmux"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -22,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"net"
 )
 
 // Config is the configuration for a Server.

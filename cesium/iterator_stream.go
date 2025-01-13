@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"

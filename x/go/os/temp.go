@@ -10,8 +10,9 @@
 package os
 
 import (
-	"github.com/synnaxlabs/x/errors"
 	"os"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 func WriteTemp(dir string, prefix string, data []byte) (string, error) {

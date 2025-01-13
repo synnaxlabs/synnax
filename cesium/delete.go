@@ -11,15 +11,16 @@ package cesium
 
 import (
 	"context"
+	"io/fs"
+	"math/rand"
+	"strconv"
+	"time"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
-	"io/fs"
-	"math/rand"
-	"strconv"
-	"time"
 )
 
 type GCConfig struct {

@@ -11,10 +11,10 @@ package gorp
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errors"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 )
 

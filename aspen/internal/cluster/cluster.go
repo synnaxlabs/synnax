@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"

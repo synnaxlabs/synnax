@@ -11,7 +11,6 @@ package fgrpc
 
 import (
 	"context"
-	"google.golang.org/grpc/metadata"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type StreamClient[RQ, RQT, RS, RST freighter.Payload] struct {

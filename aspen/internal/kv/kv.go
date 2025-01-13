@@ -13,16 +13,15 @@ import (
 	"context"
 	"io"
 
-	errors2 "github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
+	errors2 "github.com/synnaxlabs/x/errors"
 	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 )
 

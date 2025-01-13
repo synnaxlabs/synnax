@@ -11,6 +11,7 @@ package fgrpc
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"go.uber.org/zap"

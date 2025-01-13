@@ -11,6 +11,8 @@ package kv_test
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -22,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	kvx "github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
 var _ = Describe("txn", func() {

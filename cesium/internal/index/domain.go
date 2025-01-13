@@ -12,12 +12,13 @@ package index
 import (
 	"context"
 	"fmt"
+	"io"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"io"
 )
 
 type Domain struct {

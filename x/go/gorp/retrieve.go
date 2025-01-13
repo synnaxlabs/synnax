@@ -13,6 +13,7 @@ package gorp
 import (
 	"context"
 	"fmt"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"

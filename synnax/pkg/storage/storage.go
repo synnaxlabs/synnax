@@ -20,9 +20,6 @@
 package storage
 
 import (
-	"github.com/synnaxlabs/cesium"
-	errors2 "github.com/synnaxlabs/x/errors"
-	"go.uber.org/zap"
 	"io"
 	"io/fs"
 	"os"
@@ -32,16 +29,19 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	errors2 "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 type (

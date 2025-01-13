@@ -10,6 +10,8 @@
 package mock
 
 import (
+	"go/types"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
-	"go/types"
 )
 
 type Network struct {

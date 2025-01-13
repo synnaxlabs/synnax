@@ -10,12 +10,13 @@
 package kv
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 // Config is the configuration for the aspen DB service. For default values, see DefaultConfig().
