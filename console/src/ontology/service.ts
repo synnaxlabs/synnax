@@ -97,7 +97,9 @@ export type PaletteListItem = FC<List.ItemProps<string, ontology.Resource>>;
 
 export interface Service {
   type: ontology.ResourceType;
-  icon: ReactElement<Icon.BaseProps>;
+  icon:
+    | ReactElement<Icon.BaseProps>
+    | ((resource: ontology.Resource) => ReactElement<Icon.BaseProps>);
   hasChildren: boolean;
   onSelect: HandleSelect;
   canDrop: Haul.CanDrop;

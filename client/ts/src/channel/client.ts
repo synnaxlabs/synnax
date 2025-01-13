@@ -444,3 +444,22 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
 
 export const isCalculated = ({ virtual, expression }: Payload): boolean =>
   virtual && expression !== "";
+
+export const resolveCalculatedIndex = async (
+  retrieve: (key: Key) => Promise<Payload>,
+  channel: Payload,
+): Promise<Key | null> => {
+  if (!isCalculated(channel)) return channel.index;
+  for (const required of channel.requires) {
+    const requiredChannel = await retrieve(required);
+    if (!requiredChannel.virtual) return requiredChannel.index;
+  }
+  for (const required of channel.requires) {
+    const requiredChannel = await retrieve(required);
+    if (isCalculated(requiredChannel)) {
+      const index = await resolveCalculatedIndex(retrieve, requiredChannel);
+      if (index != null) return index;
+    }
+  }
+  return null;
+};

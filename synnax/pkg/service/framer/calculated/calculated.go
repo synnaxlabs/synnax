@@ -81,9 +81,11 @@ type entry struct {
 
 // Service manages collections of go-routines used to perform calculations on channels.
 type Service struct {
-	cfg     Config
-	mu      sync.Mutex
-	entries map[channel.Key]*entry
+	cfg Config
+	mu  struct {
+		sync.Mutex
+		entries map[channel.Key]*entry
+	}
 }
 
 // Open opens a new calculated channel service using the provided configuration. See
@@ -96,7 +98,7 @@ func Open(cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{cfg: cfg}
 	cfg.ChannelObservable.OnChange(s.handleChange)
-	s.entries = make(map[channel.Key]*entry)
+	s.mu.entries = make(map[channel.Key]*entry)
 	return s, nil
 }
 
@@ -115,7 +117,7 @@ func (s *Service) handleChange(ctx context.Context, reader gorp.TxReader[channel
 func (s *Service) Update(ctx context.Context, ch channel.Key) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	e, found := s.entries[ch]
+	e, found := s.mu.entries[ch]
 	if !found {
 		return
 	}
@@ -123,7 +125,7 @@ func (s *Service) Update(ctx context.Context, ch channel.Key) {
 	if err := e.shutdown.Close(); err != nil {
 		s.cfg.L.Error("failed to close calculated channel", zap.Error(err), zap.Stringer("key", ch))
 	}
-	delete(s.entries, ch)
+	delete(s.mu.entries, ch)
 	if _, err := s.startCalculation(ctx, ch, e.count); err != nil {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
 	}
@@ -133,7 +135,7 @@ func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
 	return xio.CloserFunc(func() (err error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		e, found := s.entries[key]
+		e, found := s.mu.entries[key]
 		if !found {
 			return
 		}
@@ -143,7 +145,7 @@ func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
 		}
 		s.cfg.L.Debug("closing calculated channel", zap.Stringer("key", key))
 		e.inlet.Close()
-		delete(s.entries, key)
+		delete(s.mu.entries, key)
 		return
 	})
 }
@@ -153,11 +155,11 @@ func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
 func (s *Service) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, e := range s.entries {
+	for _, e := range s.mu.entries {
 		e.inlet.Close()
 	}
 	c := errors.NewCatcher(errors.WithAggregation())
-	for _, e := range s.entries {
+	for _, e := range s.mu.entries {
 		c.Exec(e.shutdown.Close)
 	}
 	return c.Error()
@@ -195,8 +197,8 @@ func (s *Service) startCalculation(
 		return nil, errors.Newf("channel %v is not calculated", ch)
 	}
 	// Check if the channel is already being calculated.
-	if _, exists := s.entries[key]; exists {
-		s.entries[key].count++
+	if _, exists := s.mu.entries[key]; exists {
+		s.mu.entries[key].count++
 		return s.releaseEntryCloser(key), nil
 	}
 	var requires []channel.Channel
@@ -265,7 +267,7 @@ func (s *Service) startCalculation(
 	streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
 	streamer_.InFrom(streamerRequests)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
-	s.entries[ch.Key()] = &entry{
+	s.mu.entries[ch.Key()] = &entry{
 		count:    initialCount,
 		inlet:    streamerRequests,
 		shutdown: signal.NewShutdown(sCtx, cancel),

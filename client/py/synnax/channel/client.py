@@ -235,7 +235,7 @@ class ChannelClient:
         index: ChannelKey = 0,
         leaseholder: int = 0,
         virtual: bool = False,
-        expression:str = "",
+        expression: str = "",
         requires: ChannelKeys = [],
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
@@ -284,7 +284,7 @@ class ChannelClient:
                     is_index=is_index,
                     virtual=virtual,
                     expression=expression,
-                    requires=requires,  
+                    requires=requires,
                 )
             ]
         elif isinstance(channels, Channel):

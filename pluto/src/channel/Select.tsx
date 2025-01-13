@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { nullToArr, toArray, unique } from "@synnaxlabs/x";
+import { DataType, nullToArr, toArray, unique } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { useActiveRange, useAliases } from "@/channel/AliasProvider";
@@ -17,6 +17,7 @@ import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
+import { type Icon as PIcon } from "@/icon";
 import { type List } from "@/list";
 import { useMemoDeepEqualProps } from "@/memo";
 import { Select } from "@/select";
@@ -83,9 +84,21 @@ const useColumns = (
   }, [filter, aliases]);
 };
 
+export const resolveIcon = (ch?: channel.Payload): ReactElement<PIcon.BaseProps> => {
+  if (ch == null) return <Icon.Channel />;
+  if (channel.isCalculated(ch)) return <Icon.Calculation />;
+  if (ch.isIndex) return <Icon.Index />;
+  const dt = new DataType(ch.dataType);
+  if (dt.isInteger) return <Icon.Binary />;
+  if (dt.isFloat) return <Icon.Decimal />;
+  if (dt.equals(DataType.STRING)) return <Icon.String />;
+  if (dt.equals(DataType.JSON)) return <Icon.JSON />;
+  return <Icon.Channel />;
+};
+
 const renderTag = (
   p: Select.MultipleTagProps<channel.Key, channel.Payload>,
-): ReactElement => <Select.MultipleTag icon={<Icon.Channel />} {...p} />;
+): ReactElement => <Select.MultipleTag icon={resolveIcon(p.entry)} {...p} />;
 
 export const SelectMultiple = ({
   columns: filter = DEFAULT_FILTER,

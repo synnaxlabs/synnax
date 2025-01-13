@@ -27,22 +27,39 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
 
   useEffect(() => {
     if (editorRef.current === null) return;
-    (self as any).MonacoEnvironment = { getWorker: () => new EditorWorker() };
+    self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
+
+    const isDark = theme.key === "synnaxDark";
 
     monaco.editor.defineTheme("vs-dark-custom", {
-      base: "vs-dark",
+      base: isDark ? "vs-dark" : "vs",
       inherit: true,
       rules: [
         {
           foreground: "#cc255f",
           token: "keyword",
         },
+        {
+          token: "delimiter.bracket",
+          foreground: theme.colors.gray.l9.hex,
+          background: theme.colors.gray.l9.hex,
+        },
+        {
+          token: "delimiter.parenthesis",
+          foreground: "#cc255f",
+          background: "#cc255f",
+        },
+        {
+          token: "number",
+          foreground: theme.colors.secondary.m1.hex,
+          background: theme.colors.secondary.m1.hex,
+        },
       ],
       colors: {
         "editor.background": theme.colors.gray.l2.hex,
         "editor.foreground": theme.colors.gray.l9.hex,
-        "editor.selectionBackground": theme.colors.gray.l3.hex,
-        "editor.lineHighlightBackground": theme.colors.gray.l2.hex,
+        "editor.selectionBackground": theme.colors.gray.l4.hex,
+        "editor.lineHighlightBackground": theme.colors.gray.l4.hex,
         "editorCursor.foreground": theme.colors.primary.z.hex,
         "editorWhitespace.foreground": theme.colors.gray.l2.hex,
         "editorSuggestWidget.background": theme.colors.gray.l2.hex,
@@ -59,6 +76,8 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
       theme: "vs-dark-custom",
       automaticLayout: true,
       minimap: { enabled: false },
+      bracketPairColorization: { enabled: false },
+      lineNumbersMinChars: 3, // Add this line to control minimum width
     });
     const dispose = monacoRef.current.onDidChangeModelContent(() => {
       if (monacoRef.current === null) return;
@@ -82,5 +101,3 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
     </Align.Space>
   );
 };
-
-export const EditorLayout = () => {};

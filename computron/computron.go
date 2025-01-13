@@ -4,7 +4,7 @@ package computron
 #cgo CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
 #cgo darwin CFLAGS: -mmacosx-version-min=14.0
 
-#cgo linux LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
+#cgo linux LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl -lm -Wl,--export-dynamic
 #cgo darwin LDFLAGS: -mmacosx-version-min=14.0 -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
 #cgo windows LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython311
 
@@ -190,6 +190,12 @@ static const char* get_current_warning(void) {
 import "C"
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"unsafe"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	xembed "github.com/synnaxlabs/x/embed"
@@ -199,11 +205,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
-	"unsafe"
 )
 
 const (
@@ -306,9 +307,9 @@ func (s *Interpreter) initPython() error {
 	if strings.Contains(v, targetPythonVersion) {
 		// Check if the version is the same as the embedded Python version. If so,
 		// everything is already set up and we can return early.
-		s.cfg.L.Debug("Python already installed. skipping installation")
+		s.cfg.L.Info("Python already installed. skipping installation")
 	} else {
-		s.cfg.L.Debug("extracting embedded Python installation. this may take a few seconds")
+		s.cfg.L.Info("extracting embedded Python installation. this may take a few seconds")
 		if err = xembed.Extract(
 			embeddedPython,
 			s.cfg.PythonInstallDir,
@@ -317,13 +318,16 @@ func (s *Interpreter) initPython() error {
 		); err != nil {
 			return errors.Newf("failed to extract embedded Python files: %v", err)
 		}
-		s.cfg.L.Debug("embedded Python installation extracted")
+		s.cfg.L.Info("embedded Python installation extracted")
 	}
 
-	os.Setenv("PYTHONPATH", getPythonPath(installDir))
+	if err := os.Setenv("PYTHONPATH", getPythonPath(installDir)); err != nil {
+		return errors.Wrapf(err, "failed to set PYTHONPATH")
+	}
 
-	pythonHome := installDir
-	os.Setenv("PYTHONHOME", pythonHome)
+	if err := os.Setenv("PYTHONHOME", installDir); err != nil {
+		return errors.Wrapf(err, "failed to set PYTHONHOME")
+	}
 
 	// Lock the OS thread before initializing Python
 	runtime.LockOSThread()
@@ -588,7 +592,10 @@ func ToSeries(pyArray *C.PyObject) (telem.Series, error) {
 	return s, nil
 }
 
+// FIXME: add syncrhonization mechanism to global current_warning variable
 func getCurrentWarning() string {
+	unlock := lockThreadAndGIL()
+	defer unlock()
 	warning := C.get_current_warning()
 	if warning != nil {
 		return C.GoString(warning)

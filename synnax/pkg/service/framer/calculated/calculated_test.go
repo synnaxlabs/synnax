@@ -3,7 +3,6 @@ package calculated_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/computron"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -70,7 +69,6 @@ var _ = Describe("Calculated", func() {
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "result = base * 2",
 		}
-		logrus.Info(calculatedCH, baseCH)
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		sCtx, cancel := signal.WithCancel(ctx)
@@ -121,7 +119,6 @@ var _ = Describe("Calculated", func() {
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "result = base * fake",
 		}
-		logrus.Info(calculatedCH, baseCH)
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		sCtx, cancel := signal.WithCancel(ctx)
@@ -171,7 +168,6 @@ var _ = Describe("Calculated", func() {
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "result = base / 0",
 		}
-		logrus.Info(calculatedCH, baseCH)
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		sCtx, cancel := signal.WithCancel(ctx)
