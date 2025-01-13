@@ -23,10 +23,13 @@ make -j$(nproc)
 make install
 cd ..
 
-# Install pip and numpy
-curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-${PYTHON_INSTALL_DIR}/bin/python3 get-pip.py
-${PYTHON_INSTALL_DIR}/bin/pip3 install numpy==${NUMPY_VERSION}
+# Install pip and numpy with our specific Python
+LD_LIBRARY_PATH=${PYTHON_INSTALL_DIR}/lib ${PYTHON_INSTALL_DIR}/bin/python3 -m ensurepip
+LD_LIBRARY_PATH=${PYTHON_INSTALL_DIR}/lib ${PYTHON_INSTALL_DIR}/bin/python3 -m pip install --upgrade pip
+PYTHONPATH=${PYTHON_INSTALL_DIR}/lib/python${PYTHON_VERSION_MAJOR_MINOR}/site-packages \
+    LD_LIBRARY_PATH=${PYTHON_INSTALL_DIR}/lib \
+    PYTHONHOME=${PYTHON_INSTALL_DIR} \
+    ${PYTHON_INSTALL_DIR}/bin/python3 -m pip install numpy==${NUMPY_VERSION}
 
 # Combine libraries
 mkdir -p ${PYTHON_INSTALL_DIR}/lib/combined
