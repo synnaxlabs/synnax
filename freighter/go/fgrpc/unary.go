@@ -92,7 +92,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 	_, err = u.MiddlewareCollector.Exec(
 		freighter.Context{
 			Context:  ctx,
-			Target:   address.Newf("%s.%s", u.TargetPrefix+target, u.ServiceDesc.ServiceName),
+			Target:   address.Newf("%s.%s", target, u.ServiceDesc.ServiceName),
 			Role:     freighter.Client,
 			Protocol: Reporter.Protocol,
 			Params:   make(freighter.Params),

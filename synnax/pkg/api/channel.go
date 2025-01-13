@@ -96,11 +96,7 @@ func (s *ChannelService) Create(
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) (err error) {
 		w := s.internal.NewWriter(tx)
-		if req.RetrieveIfNameExists {
-			err = w.CreateManyIfNamesDontExist(ctx, &translated)
-		} else {
-			err = w.CreateMany(ctx, &translated)
-		}
+		err = w.CreateMany(ctx, &translated, channel.RetrieveIfNameExists(req.RetrieveIfNameExists))
 		res.Channels = translateChannelsForward(translated)
 		return err
 	})

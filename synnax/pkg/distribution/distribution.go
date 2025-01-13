@@ -162,7 +162,7 @@ func (d Distribution) configureControlUpdates(ctx context.Context) error {
 		DataType:    telem.StringT,
 		Internal:    true,
 	}}
-	if err := d.Channel.CreateManyIfNamesDontExist(ctx, &controlCh); err != nil {
+	if err := d.Channel.CreateMany(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
 		return err
 	}
 	return d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key())
