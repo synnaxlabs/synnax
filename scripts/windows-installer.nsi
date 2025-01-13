@@ -10,8 +10,8 @@
 # Then language
 !insertmacro MUI_LANGUAGE "English"
 
-Name "Synnax Server"
-OutFile "synnax-server-v${VERSION}-windows.exe"
+Name "Synnax"
+OutFile "synnax-v${VERSION}-windows.exe"
 RequestExecutionLevel user
 
 # Set installation directory explicitly
@@ -22,18 +22,18 @@ Section "MainSection" SEC01
     CreateDirectory "$INSTDIR"
     DetailPrint "Installing to: $INSTDIR"
 
-    Delete "$INSTDIR\synnax-server.exe"
+    Delete "$INSTDIR\synnax.exe"
     Delete "$INSTDIR\python311.dll"
 
     # Install files
     SetOutPath "$INSTDIR"
-    File /oname=synnax-server.exe "synnax.exe"
+    File /oname=synnax.exe "synnax.exe"
     File "python311.dll"
 
     # Create shortcuts
-    CreateDirectory "$SMPROGRAMS\Synnax Server"
-    CreateShortcut "$SMPROGRAMS\Synnax Server\Synnax Server.lnk" "$INSTDIR\synnax-server.exe"
-    CreateShortcut "$DESKTOP\Synnax Server.lnk" "$INSTDIR\synnax-server.exe"
+    CreateDirectory "$SMPROGRAMS\Synnax"
+    CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax.exe"
+    CreateShortcut "$DESKTOP\Synnax.lnk" "$INSTDIR\synnax.exe"
 
     # Add to PATH using EnVar plugin
     EnVar::SetHKCU
@@ -50,11 +50,11 @@ Section "Uninstall"
     EnVar::DeleteValue "Path" "$INSTDIR"
 
     # Remove files and directories
-    Delete "$INSTDIR\synnax-server.exe"
+    Delete "$INSTDIR\synnax.exe"
     Delete "$INSTDIR\python311.dll"
     Delete "$INSTDIR\uninstall.exe"
-    Delete "$DESKTOP\Synnax Server.lnk"
-    Delete "$SMPROGRAMS\Synnax Server\Synnax Server.lnk"
-    RMDir "$SMPROGRAMS\Synnax Server"
+    Delete "$DESKTOP\Synnax.lnk"
+    Delete "$SMPROGRAMS\Synnax\Synnax.lnk"
+    RMDir "$SMPROGRAMS\Synnax"
     RMDir "$INSTDIR"
 SectionEnd

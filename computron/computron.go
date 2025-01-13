@@ -592,7 +592,10 @@ func ToSeries(pyArray *C.PyObject) (telem.Series, error) {
 	return s, nil
 }
 
+// FIXME: add syncrhonization mechanism to global current_warning variable
 func getCurrentWarning() string {
+	unlock := lockThreadAndGIL()
+	defer unlock()
 	warning := C.get_current_warning()
 	if warning != nil {
 		return C.GoString(warning)
