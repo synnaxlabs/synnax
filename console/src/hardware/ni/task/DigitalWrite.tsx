@@ -482,7 +482,7 @@ const ChannelListItem = ({
         </Text.Text>
         <EnableDisableButton
           value={entry.enabled}
-          onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+          onChange={(v) => ctx.set(`${path}.enabled`, v)}
           snapshot={snapshot}
         />
       </Align.Space>
