@@ -9,7 +9,7 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
-import { type Color, type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
+import { Color, type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import {
@@ -235,8 +235,10 @@ export const selectHauling = (state: StoreState): Haul.DraggingState =>
 export const useSelectHauling = (): Haul.DraggingState =>
   useMemoSelect(selectHauling, []);
 
-export const selectColorContext = (state: StoreState): Color.ContextState =>
-  selectSliceState(state).colorContext;
+export const selectColorContext = (state: StoreState): Color.ContextState => {
+  const rawContext = selectSliceState(state).colorContext;
+  return Color.contextStateZ.parse(rawContext);
+};
 
 export const useSelectColorContext = (): Color.ContextState =>
   useMemoSelect(selectColorContext, []);

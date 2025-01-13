@@ -45,9 +45,9 @@ export const FocusMenuItem = ({ layoutKey }: FocusMenuItemProps): ReactElement =
 
 export const useOpenInNewWindow = () => {
   const dispatch = useDispatch();
-  const placer = usePlacer();
+  const place = usePlacer();
   return (layoutKey: string) => {
-    const { key } = placer(createMosaicWindow({}));
+    const { key } = place(createMosaicWindow({}));
     dispatch(
       moveMosaicTab({ windowKey: key, key: 1, tabKey: layoutKey, loc: "center" }),
     );

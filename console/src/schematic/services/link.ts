@@ -7,31 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
 import { type Link } from "@/link";
-import { setActive } from "@/workspace/slice";
+import { create } from "@/schematic/Schematic";
+import { type State } from "@/schematic/slice";
 
 export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
-  dispatch,
-  addStatus,
+  place,
+  handleException,
 }): Promise<boolean> => {
-  if (resource !== "workspace") return false;
+  if (resource !== "schematic") return false;
   try {
-    const workspace = await client.workspaces.retrieve(resourceKey);
-    dispatch(
-      Layout.setWorkspace({
-        slice: workspace.layout as unknown as Layout.SliceState,
-      }),
-    );
-    dispatch(setActive(workspace.key));
-  } catch (e) {
-    addStatus({
-      variant: "error",
-      message: (e as Error).message,
+    const schematic = await client.workspaces.schematic.retrieve(resourceKey);
+    const layoutCreator = create({
+      ...(schematic.data as unknown as State),
+      key: schematic.key,
+      name: schematic.name,
+      editable: false,
     });
+    place(layoutCreator);
+  } catch (e) {
+    handleException(e, "Failed to open schematic from URL");
   }
   return true;
 };

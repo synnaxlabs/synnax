@@ -94,13 +94,13 @@ interface SelectMultipleInputItemProps
 }
 
 const SelectEmptyContent = (): ReactElement => {
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   return (
     <Align.Center style={{ height: 150 }} direction="x">
       <Status.Text variant="disabled" hideIcon>
         No Ranges:
       </Status.Text>
-      <Button.Button variant="outlined" onClick={() => placer(createLayout({}))}>
+      <Button.Button variant="outlined" onClick={() => place(createLayout({}))}>
         Define a Range
       </Button.Button>
     </Align.Center>

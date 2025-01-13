@@ -11,14 +11,15 @@ import "@/lineplot/toolbar/Toolbar.css";
 
 import { linePlot } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Tabs } from "@synnaxlabs/pluto";
+import { Align, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
+import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { useExport } from "@/lineplot/file";
+import { useExport } from "@/lineplot/export";
 import { useSelect, useSelectToolbar } from "@/lineplot/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
@@ -50,7 +51,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const state = useSelect(layoutKey);
-  const handleExport = useExport(name);
+  const handleExport = useExport();
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       switch (tabKey) {
@@ -89,18 +90,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
           <Align.Space direction="x" align="center" empty>
             <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
-              <Button.Icon
-                tooltip={`Export ${name}`}
-                sharp
-                size="medium"
-                style={{ height: "100%" }}
-                onClick={() => handleExport(state.key)}
-              >
-                <Icon.Export />
-              </Button.Icon>
+              <Export.ToolbarButton onExport={() => handleExport(state.key)} />
               <Link.ToolbarCopyButton
                 name={name}
-                ontologyID={{ key: state.key, type: linePlot.ONTOLOGY_TYPE }}
+                ontologyID={linePlot.ontologyID(state.key)}
               />
             </Align.Space>
             <Tabs.Selector style={{ borderBottom: "none" }} />
