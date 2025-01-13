@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculated"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/downsampler"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -87,7 +88,15 @@ func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (f
 		return nil, err
 	}
 	p := plumber.New()
-	streamer, err := s.Framer.NewStreamer(ctx, cfg)
+
+	var streamer framer.Streamer
+	var err error
+	if cfg.DownsampleFactor > 1 {
+		streamer, err = downsampler.NewStreamer(ctx, cfg, s.Framer)
+	} else {
+		streamer, err = s.Framer.NewStreamer(ctx, cfg)
+	}
+
 	if err != nil {
 		return nil, err
 	}
