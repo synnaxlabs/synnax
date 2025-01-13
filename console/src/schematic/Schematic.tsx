@@ -59,6 +59,7 @@ import {
   copySelection,
   internalCreate,
   pasteSelection,
+  selectAll,
   setControlStatus,
   setEdges,
   setEditable,
@@ -292,6 +293,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       ["Escape"],
       ["Control", "Z"],
       ["Control", "Shift", "Z"],
+      ["Control", "A"],
     ],
     loose: true,
     region: ref,
@@ -301,6 +303,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
         const isClear = triggers.some((t) => t.includes("Escape"));
+        const isAll = triggers.some((t) => t.includes("A"));
         const isUndo =
           triggers.some((t) => t.includes("Z")) &&
           triggers.some((t) => t.includes("Control")) &&
@@ -314,6 +317,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         else if (isClear) dispatch(clearSelection({ key: layoutKey }));
         else if (isUndo) undo();
         else if (isRedo) redo();
+        else if (isAll) dispatch(selectAll({ key: layoutKey }));
         else undoableDispatch(pasteSelection({ pos, key: layoutKey }));
       },
       [layoutKey, undoableDispatch, undo, redo, dispatch],
@@ -442,12 +446,16 @@ export const SELECTABLE: Layout.Selectable = {
   create: (layoutKey: string) => create({ key: layoutKey }),
 };
 
+export interface CreateArg
+  extends Partial<State>,
+    Omit<Partial<Layout.State>, "type"> {}
+
 export const create =
-  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
+  (initial: CreateArg): Layout.Creator =>
   ({ dispatch, store }) => {
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
-    const newTab = canEditSchematic ? tab : { ...tab, editable: false };
+    if (!canEditSchematic && tab?.editable) tab.editable = false;
     const key: string = primitiveIsZero(initial.key) ? uuid() : (initial.key as string);
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
@@ -457,6 +465,6 @@ export const create =
       icon: "Schematic",
       type: LAYOUT_TYPE,
       window: { navTop: true, showTitle: true },
-      tab: newTab,
+      tab,
     };
   };

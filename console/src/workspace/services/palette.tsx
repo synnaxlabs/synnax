@@ -10,14 +10,23 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
+import { Workspace } from "@/workspace";
+import { ImportIcon } from "@/workspace/services/Icon";
+import { import_ } from "@/workspace/services/import";
 
-import { createWindowLayout } from "./Create";
-
-export const createCommand: Command = {
+const CREATE_COMMAND: Command = {
   key: "workspace-create",
-  name: "Create a Workspace",
+  name: "Create Workspace",
   icon: <Icon.Workspace />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createWindowLayout()),
+  onSelect: ({ placeLayout: layoutPlacer }) =>
+    layoutPlacer(Workspace.createWindowLayout()),
 };
 
-export const COMMANDS = [createCommand];
+const IMPORT_COMMAND: Command = {
+  key: "workspace-import",
+  name: "Import Workspace",
+  icon: <ImportIcon />,
+  onSelect: import_,
+};
+
+export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

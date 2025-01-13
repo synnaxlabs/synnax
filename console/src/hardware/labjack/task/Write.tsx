@@ -103,14 +103,9 @@ const Wrapped = ({
     isRunning === true ? "running" : isRunning === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const configure = useMutation({
-    onError: ({ message }) =>
-      addStatus({
-        variant: "error",
-        message: "Failed to configure LabJack write task",
-        description: message,
-      }),
+    onError: (e) => handleException(e, "Failed to configure write task"),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
@@ -232,11 +227,7 @@ const Wrapped = ({
       const action =
         isRunning === true ? "stop" : isRunning === false ? "start" : "toggle";
       const name = methods.get<string>("name").value ?? "write task";
-      addStatus({
-        variant: "error",
-        message: `Failed to ${action} ${name}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to ${action} ${name}`);
     },
     mutationFn: async () => {
       if (client == null) throw new Error("Not connected to Synnax cluster");

@@ -27,6 +27,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
+import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -153,11 +154,11 @@ export class Controller
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (e) {
       this.setState((p) => ({ ...p, status: "failed" }));
+      if (!(e instanceof Error)) throw e;
       addStatus({
-        message: `${this.state.name} failed to acquire control: ${
-          (e as Error).message
-        }`,
         variant: "error",
+        message: `${this.state.name} failed to acquire control`,
+        description: e.message,
       });
     }
   }

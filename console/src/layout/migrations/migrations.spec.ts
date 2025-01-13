@@ -15,16 +15,21 @@ import {
   ZERO_SLICE_STATE,
 } from "@/layout/migrations";
 import * as v0 from "@/layout/migrations/v0";
+import * as v1 from "@/layout/migrations/v1";
+import * as v2 from "@/layout/migrations/v2";
 import * as v3 from "@/layout/migrations/v3";
+import * as v4 from "@/layout/migrations/v4";
+
+const STATES: AnySliceState[] = [
+  v0.ZERO_SLICE_STATE,
+  v1.ZERO_SLICE_STATE,
+  v2.ZERO_SLICE_STATE,
+  v3.ZERO_SLICE_STATE,
+  v4.ZERO_SLICE_STATE,
+];
 
 describe("migrations", () => {
   describe("slice", () => {
-    const STATES: AnySliceState[] = [
-      v0.ZERO_SLICE_STATE,
-      { ...v0.ZERO_SLICE_STATE, version: "0.1.0" },
-      { ...v0.ZERO_SLICE_STATE, version: "0.2.0" },
-      v3.ZERO_SLICE_STATE,
-    ];
     STATES.forEach((state) => {
       it(`should migrate slice from ${state.version} to latest`, () => {
         const migrated = migrateSlice(state);

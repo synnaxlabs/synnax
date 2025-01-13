@@ -72,6 +72,7 @@ import {
   MdDataObject,
   MdEdit,
   MdEditOff,
+  MdFeedback,
   MdFiberManualRecord,
   MdFileUpload,
   MdFilterCenterFocus,
@@ -416,6 +417,7 @@ export const Icon: IconType = {
   Calendar: wrapIcon(MdCalendarToday, "calendar"),
   Release: wrapIcon(MdNewReleases, "release"),
   OpenExternal: wrapIcon(MdArrowOutward, "open-external"),
+  Feedback: wrapIcon(MdFeedback, "feedback"),
 };
 
 export interface IconType {
@@ -570,4 +572,5 @@ export interface IconType {
   Calendar: IconFC;
   Release: IconFC;
   OpenExternal: IconFC;
+  Feedback: IconFC;
 }

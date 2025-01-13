@@ -10,13 +10,22 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
+import { ImportIcon } from "@/table/services/Icon";
+import { import_ } from "@/table/services/import";
 import { create } from "@/table/Table";
 
-const createCommand: Command = {
+const CREATE_COMMAND: Command = {
   key: "create-table",
-  name: "Create a Table",
+  name: "Create Table",
   icon: <Icon.Table />,
   onSelect: ({ placeLayout }) => placeLayout(create({})),
 };
 
-export const COMMANDS = [createCommand];
+const IMPORT_COMMAND: Command = {
+  key: "import-table",
+  name: "Import Table(s)",
+  icon: <ImportIcon />,
+  onSelect: import_,
+};
+
+export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

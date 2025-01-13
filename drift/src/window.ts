@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type dimensions, type xy } from "@synnaxlabs/x";
+import { dimensions, xy } from "@synnaxlabs/x";
+import { z } from "zod";
 
 /** Represents the state of a window in it's lifecycle  */
 export type WindowStage = "creating" | "created" | "closing" | "closed" | "reloading";
@@ -96,3 +97,25 @@ export interface WindowProps {
   /* Whether the window is always on top. Runtime specific. */
   alwaysOnTop?: boolean;
 }
+
+export const windowPropsZ = z.object({
+  key: z.string(),
+  url: z.string().optional(),
+  title: z.string().optional(),
+  center: z.boolean().optional(),
+  position: xy.xy.optional(),
+  size: dimensions.dimensions.optional(),
+  minSize: dimensions.dimensions.optional(),
+  maxSize: dimensions.dimensions.optional(),
+  resizable: z.boolean().optional(),
+  fullscreen: z.boolean().optional(),
+  focus: z.boolean().optional(),
+  maximized: z.boolean().optional(),
+  visible: z.boolean().optional(),
+  minimized: z.boolean().optional(),
+  decorations: z.boolean().optional(),
+  skipTaskbar: z.boolean().optional(),
+  fileDropEnabled: z.boolean().optional(),
+  transparent: z.boolean().optional(),
+  alwaysOnTop: z.boolean().optional(),
+});

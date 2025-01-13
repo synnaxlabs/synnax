@@ -9,7 +9,7 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
-import { type Color, type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
+import { Color, type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import {
@@ -86,8 +86,9 @@ export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
 export const selectMosaic = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
-): [string, Mosaic.Node] => {
-  const winKey = selectWindowKey(state, windowKey) as string;
+): [string, Mosaic.Node] | [null, null] => {
+  const winKey = selectWindowKey(state, windowKey);
+  if (winKey == null) return [null, null];
   return [winKey, selectSliceState(state).mosaics[winKey].root];
 };
 
@@ -116,7 +117,7 @@ export const useSelectFocused = (): UseSelectFocusedReturn =>
  *
  * @returns The central layout mosaic.
  */
-export const useSelectMosaic = (): [string, Mosaic.Node] =>
+export const useSelectMosaic = (): [string, Mosaic.Node] | [null, null] =>
   useMemoSelect(selectMosaic, []);
 
 /**
@@ -234,8 +235,10 @@ export const selectHauling = (state: StoreState): Haul.DraggingState =>
 export const useSelectHauling = (): Haul.DraggingState =>
   useMemoSelect(selectHauling, []);
 
-export const selectColorContext = (state: StoreState): Color.ContextState =>
-  selectSliceState(state).colorContext;
+export const selectColorContext = (state: StoreState): Color.ContextState => {
+  const rawContext = selectSliceState(state).colorContext;
+  return Color.contextStateZ.parse(rawContext);
+};
 
 export const useSelectColorContext = (): Color.ContextState =>
   useMemoSelect(selectColorContext, []);

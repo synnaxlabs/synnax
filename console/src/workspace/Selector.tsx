@@ -46,14 +46,14 @@ export const Selector = (): ReactElement => {
         dispatch(Layout.clearWorkspace());
         return;
       }
+      if (v == null) {
+        dispatch(setActive(null));
+        return;
+      }
+      if (client == null) return;
       void (async () => {
-        if (v == null) {
-          dispatch(setActive(null));
-          return;
-        }
-        if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
-        dispatch(add({ workspaces: [ws] }));
+        dispatch(add(ws));
         dispatch(
           Layout.setWorkspace({
             slice: ws.layout as unknown as Layout.SliceState,

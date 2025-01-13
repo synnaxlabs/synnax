@@ -8,88 +8,86 @@ import { Align, Text } from "@synnaxlabs/pluto";
 ---
 
 <Root frontmatter={{ title: "Docs Home" }}>
-    <Align.Space direction="y" el="article" grow size={10}>
-        <Align.Space className="hero-parent" direction="y" align="center">
-            <Align.Space className="hero" direction="x" size={10}>
-                <Align.Space direction="y" grow size={6}>
-                    <Align.Space direction="y" align="start" size="large">
-                        <Text.Text level="h1" className="title">Synnax Docs</Text.Text>
-                        <Text.Text
-                            level="h4"
-                            shade={7}
-                            style={{ maxWidth: "500px" }}
-                            weight={350}
-                        >
-                            Guides and references to instrument and operate hardware
-                            with Synnax.
-                        </Text.Text>
-                    </Align.Space>
-                    <Align.Space direction="y" size={4} grow>
-                        <Align.Space
-                            className="chip guide"
-                            el="a"
-                            href="/guides/"
-                            direction="y"
-                            grow
-                            bordered
-                            rounded
-                            align="start"
-                            justify="center"
-                        >
-                            <Align.Space size="small">
-                                <Text.WithIcon level="h4" size="medium" shade={9}>
-                                    <Icon.Guide slot="startIcon" />
-                                    Guides</Text.WithIcon
-                                >
-                                <Text.Text level="small" shade={7} weight={400}>
-                                    Thorough walkthroughs to teach every aspect of the
-                                    Synnax platform.
-                                </Text.Text>
-                                <Icon.OpenExternal />
-                            </Align.Space>
-                        </Align.Space>
-                        <Align.Space
-                            grow
-                            el="a"
-                            href="/reference/"
-                            bordered
-                            rounded
-                            align="start"
-                            justify="center"
-                            className="chip reference"
-                        >
-                            <Align.Space size="small">
-                                <Text.WithIcon level="h4" shade={9} size="medium">
-                                    <Icon.Reference slot="startIcon" />
-                                    Reference</Text.WithIcon
-                                >
-                                <Text.Text level="small" shade={7} weight={400}>
-                                    In-depth documentation on Synnax concepts and
-                                    components.
-                                </Text.Text>
-                                <Icon.OpenExternal />
-                            </Align.Space>
-                        </Align.Space>
-                    </Align.Space>
+    <Align.Space className="hero-parent" direction="y" align="center">
+        <Align.Space className="hero" direction="x" size={10}>
+            <Align.Space direction="y" grow size={6}>
+                <Align.Space direction="y" align="start" size="large">
+                    <Text.Text level="h1" className="title">Synnax Docs</Text.Text>
+                    <Text.Text
+                        level="h4"
+                        shade={7}
+                        style={{ maxWidth: "500px" }}
+                        weight={350}
+                    >
+                        Guides and references to instrument and operate hardware with
+                        Synnax.
+                    </Text.Text>
                 </Align.Space>
-                <Align.Space direction="y" grow size={10}>
-                    <Align.Space>
-                        <Align.Space
-                            direction="y"
-                            className="get"
-                            el="a"
-                            href="/guides/get-started/installation"
-                            align="center"
-                            justify="center"
-                            bordered
-                        >
-                            <Logo variant="icon" color="white" />
-                            <Text.Text level="h3" shade={10}>Get Started</Text.Text>
-                            <Text.Text level="h5" shade={7}>
-                                Start acquiring data in minutes
+                <Align.Space direction="y" size={4} grow>
+                    <Align.Space
+                        className="chip guide"
+                        el="a"
+                        href="/guides/"
+                        direction="y"
+                        grow
+                        bordered
+                        rounded
+                        align="start"
+                        justify="center"
+                    >
+                        <Align.Space size="small">
+                            <Text.WithIcon level="h4" size="medium" shade={9}>
+                                <Icon.Guide slot="startIcon" />
+                                Guides</Text.WithIcon
+                            >
+                            <Text.Text level="small" shade={7} weight={400}>
+                                Thorough walkthroughs to teach every aspect of the
+                                Synnax platform.
                             </Text.Text>
                             <Icon.OpenExternal />
                         </Align.Space>
+                    </Align.Space>
+                    <Align.Space
+                        grow
+                        el="a"
+                        href="/reference/"
+                        bordered
+                        rounded
+                        align="start"
+                        justify="center"
+                        className="chip reference"
+                    >
+                        <Align.Space size="small">
+                            <Text.WithIcon level="h4" shade={9} size="medium">
+                                <Icon.Reference slot="startIcon" />
+                                Reference</Text.WithIcon
+                            >
+                            <Text.Text level="small" shade={7} weight={400}>
+                                In-depth documentation on Synnax concepts and
+                                components.
+                            </Text.Text>
+                            <Icon.OpenExternal />
+                        </Align.Space>
+                    </Align.Space>
+                </Align.Space>
+            </Align.Space>
+            <Align.Space direction="y" grow size={10}>
+                <Align.Space>
+                    <Align.Space
+                        direction="y"
+                        className="get"
+                        el="a"
+                        href="/guides/get-started/installation"
+                        align="center"
+                        justify="center"
+                        bordered
+                    >
+                        <Logo variant="icon" color="white" />
+                        <Text.Text level="h3" shade={10}>Get Started</Text.Text>
+                        <Text.Text level="h5" shade={7}>
+                            Start acquiring data in minutes
+                        </Text.Text>
+                        <Icon.OpenExternal />
                     </Align.Space>
                 </Align.Space>
             </Align.Space>
@@ -136,7 +134,8 @@ import { Align, Text } from "@synnaxlabs/pluto";
 
         .hero-parent {
             padding-top: 16rem;
-            min-height: 700px;
+            height: 100vh;
+            width: 100%;
             & h1 {
                 margin: 0 !important;
             }

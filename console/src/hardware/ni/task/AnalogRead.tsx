@@ -111,15 +111,10 @@ const Wrapped = ({
     layoutKey,
   );
 
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
 
   const configure = useMutation<void, Error, void, unknown>({
-    mutationKey: [client?.key, "configure"],
-    onError: ({ message }) =>
-      addStatus({
-        variant: "error",
-        message,
-      }),
+    onError: (e) => handleException(e, "Failed to configure NI Analog Read Task}"),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
@@ -214,7 +209,7 @@ const Wrapped = ({
 
   const handleTare = useMutation({
     mutationKey: [client?.key],
-    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    onError: (e) => handleException(e, "Failed to tare channels"),
     mutationFn: async (keys: number[]) => {
       if (client == null) return;
       await task?.executeCommand("tare", { keys });

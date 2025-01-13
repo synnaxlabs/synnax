@@ -19,16 +19,14 @@ import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 
-// this fixes conflicts between JSX and TS
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
-export const useSyncComponent = <P extends unknown>(
+export const useSyncComponent = <P>(
   name: string,
   layoutKey: string,
   save: (workspace: string, store: Store<RootState>, client: Synnax) => Promise<void>,
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
   const client = PSynnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const store = useStore<RootState>();
   const syncLayout = useMutation<void, Error>({
     retry: 3,
@@ -45,11 +43,7 @@ export const useSyncComponent = <P extends unknown>(
         const data = Layout.select(store.getState(), layoutKey);
         if (data != null) message = `Failed to save ${data.name}`;
       }
-      addStatus({
-        variant: "error",
-        message,
-        description: e.message,
-      });
+      handleException(e, message);
     },
   });
   const ws = useSelectActiveKey();

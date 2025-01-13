@@ -548,12 +548,12 @@ export interface DeviceFieldProps {
 
 export const DeviceField = ({ path }: DeviceFieldProps) => {
   const client = Synnax.use();
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   const handleDeviceChange = async (v: string) => {
     if (client == null) return;
     const { configured } = await client.hardware.devices.retrieve<Properties>(v);
     if (configured) return;
-    placer(NIDevice.createConfigureLayout(v, {}));
+    place(NIDevice.createConfigureLayout(v, {}));
   };
   return (
     <Form.Field<string>
