@@ -1245,18 +1245,41 @@ export class DataType extends String implements Stringer {
     return v;
   }
 
+  get isUnsigned(): boolean {
+    return (
+      this.equals(DataType.UINT8) ||
+      this.equals(DataType.UINT16) ||
+      this.equals(DataType.UINT32) ||
+      this.equals(DataType.UINT64)
+    );
+  }
+
+  get isSigned(): boolean {
+    return (
+      this.equals(DataType.INT8) ||
+      this.equals(DataType.INT16) ||
+      this.equals(DataType.INT32) ||
+      this.equals(DataType.INT64)
+    );
+  }
+
   /** @returns true if the data type can be cast to the other data type without loss of precision. */
   canSafelyCastTo(other: DataType): boolean {
     if (this.equals(other)) return true;
-    if (
-      (this.isVariable && !other.isVariable) ||
-      (!this.isVariable && other.isVariable)
-    )
-      return false;
-    if ((this.isFloat && other.isInteger) || (this.isInteger && other.isFloat))
-      return this.density.valueOf() < other.density.valueOf();
-    if ((this.isFloat && other.isFloat) || (this.isInteger && other.isInteger))
-      return this.density.valueOf() <= other.density.valueOf();
+    if (!this.isNumeric || !other.isNumeric) return false;
+    if (this.isVariable || other.isVariable) return false;
+    if (this.isUnsigned && other.isSigned) return false;
+
+    if (this.isFloat)
+      return other.isFloat && this.density.valueOf() <= other.density.valueOf();
+    if (this.equals(DataType.INT32) && other.equals(DataType.FLOAT64)) return true;
+    if (this.equals(DataType.INT8) && other.equals(DataType.FLOAT32)) return true;
+    if (this.isInteger && other.isInteger)
+      return (
+        this.density.valueOf() <= other.density.valueOf() &&
+        this.isUnsigned === other.isUnsigned
+      );
+
     return false;
   }
 
