@@ -82,7 +82,7 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 				It("Should not be able to retrieve the channel after deletion", func() {
 					Expect(services[1].Delete(ctx, ch.Key(), true)).To(Succeed())
-					exists, err := services[1].NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
+					exists, err := services[2].NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(exists).To(BeFalse())
 					Eventually(func(g Gomega) {

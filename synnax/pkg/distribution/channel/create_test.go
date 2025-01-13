@@ -47,7 +47,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 			})
 			It("Should not create the channel if it already exists by name", func() {
-				Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+				Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 				Expect(ch.LocalKey).To(Equal(channel.LocalKey(2)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
@@ -135,16 +135,16 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Leaseholder = 1
 		})
 		It("Should create the channel without error", func() {
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 			Expect(ch.Key().LocalKey()).To(Not(Equal(uint16(0))))
 		})
 		It("Should not create the channel if it already exists by name", func() {
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			k := ch.Key()
 			ch.Leaseholder = 0
 			ch.LocalKey = 0
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 		})
@@ -152,12 +152,12 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Name = "SG0002"
 			ch.Virtual = true
 			ch.Leaseholder = core.Free
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 			k := ch.Key()
 			ch.LocalKey = 0
 			ch.Leaseholder = 0
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 		})
