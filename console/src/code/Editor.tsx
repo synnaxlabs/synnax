@@ -101,5 +101,3 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
     </Align.Space>
   );
 };
-
-export const EditorLayout = () => {};
