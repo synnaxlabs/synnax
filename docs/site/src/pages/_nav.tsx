@@ -17,22 +17,16 @@ import { conceptsNav } from "@/pages/reference/concepts/_nav";
 import { consoleNav } from "@/pages/reference/console/_nav";
 import { controlNav } from "@/pages/reference/control/_nav";
 import { deviceDriversNav } from "@/pages/reference/device-drivers/_nav";
-import { goClientNav } from "@/pages/reference/go-client/_nav";
 import { plutoNav } from "@/pages/reference/pluto/_nav";
 import { pythonClientNav } from "@/pages/reference/python-client/_nav";
 import { typescriptClientNav } from "@/pages/reference/typescript-client/_nav";
 
 export const componentsPages = [
-  {
-    name: "Get Started",
-    key: "/reference/",
-    href: "/reference/",
-  },
+  { name: "Get Started", key: "/reference/", href: "/reference/" },
   conceptsNav,
   clusterNav,
   typescriptClientNav,
   pythonClientNav,
-  goClientNav,
   controlNav,
   consoleNav,
   deviceDriversNav,
@@ -40,11 +34,7 @@ export const componentsPages = [
 ];
 
 export const guidesPages = [
-  {
-    name: "Why Synnax?",
-    key: "/guides/",
-    href: "/guides/",
-  },
+  { name: "Why Synnax?", key: "/guides/", href: "/guides/" },
   getStartedNav,
   analystNav,
   sysAdminNav,
