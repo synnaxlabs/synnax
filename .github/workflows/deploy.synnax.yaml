@@ -120,11 +120,7 @@ jobs:
         run: |
           choco install visualstudio2022community -y
           choco install visualstudio2022-workload-vctools -y
-          choco install visualstudio2022-workload-nativedesktop -y
-
-      - name: Build Python for Computron
-        working-directory: computron
-        run: go generate
+          choco install visualstudio2022-workload-nativedesktop -y 
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -191,6 +187,10 @@ jobs:
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
+
+      - name: Build Python for Computron
+        working-directory: computron
+        run: go generate
 
       - name: Download Dependencies
         working-directory: synnax
