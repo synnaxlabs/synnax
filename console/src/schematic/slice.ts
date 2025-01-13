@@ -13,7 +13,7 @@ import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
-import * as latest from "@/schematic/migrations";
+import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;

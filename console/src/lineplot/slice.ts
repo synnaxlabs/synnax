@@ -19,7 +19,7 @@ import {
   type XAxisKey,
   type YAxisKey,
 } from "@/lineplot/axis";
-import * as latest from "@/lineplot/migrations";
+import * as latest from "@/lineplot/types";
 
 export const shouldDisplayAxis = (key: AxisKey, state: State): boolean => {
   if (["x1", "y1"].includes(key)) return true;
