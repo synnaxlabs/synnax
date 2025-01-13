@@ -11,6 +11,8 @@ package fgrpc
 
 import (
 	"context"
+	"path"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -18,7 +20,6 @@ import (
 	roacherrors "github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
-	"path"
 )
 
 var (

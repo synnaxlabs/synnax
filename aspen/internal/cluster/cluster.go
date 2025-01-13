@@ -16,11 +16,11 @@ package cluster
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/query"
 	"io"
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )

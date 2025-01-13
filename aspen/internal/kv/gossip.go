@@ -11,15 +11,15 @@ package kv
 
 import (
 	"context"
-	"github.com/samber/lo"
-	kvx "github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/signal"
 	"go/types"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/confluence"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
 

@@ -10,11 +10,12 @@
 package fgrpc
 
 import (
+	"path"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/pool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
-	"path"
 )
 
 // ClientConn is a wrapper around grpc.ClientConn that implements the

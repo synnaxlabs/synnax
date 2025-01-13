@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	xtypes "github.com/synnaxlabs/x/types"
 	"go/types"
 
 	"github.com/samber/lo"
@@ -22,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/set"
+	xtypes "github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 

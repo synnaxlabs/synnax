@@ -11,7 +11,6 @@ package api
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"go/types"
 
 	"github.com/synnaxlabs/alamos"
@@ -24,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	framesvc "github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"

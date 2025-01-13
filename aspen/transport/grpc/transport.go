@@ -11,7 +11,6 @@ package grpc
 
 import (
 	"context"
-	"github.com/synnaxlabs/aspen/transport"
 	"go/types"
 	"net"
 	"time"
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
+	"github.com/synnaxlabs/aspen/transport"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/v1"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"

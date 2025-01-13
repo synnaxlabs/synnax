@@ -109,7 +109,7 @@ const (
 	operationReceiverAddr = "opReceiver"
 	feedbackSenderAddr    = "feedbackSender"
 	feedbackReceiverAddr  = "feedbackReceiver"
-	recoveryTransformAddr = "gossipRecoveryTransform"
+	recoveryTransformAddr = "recoveryTransform"
 	leaseSenderAddr       = "leaseSender"
 	leaseReceiverAddr     = "leaseReceiver"
 	leaseProxyAddr        = "leaseProxy"
