@@ -16,7 +16,8 @@ cd Python-${PYTHON_VERSION}
 ./configure --prefix=${PYTHON_INSTALL_DIR} \
     --disable-shared \
     --enable-optimizations \
-    --with-ensurepip=no
+    --with-ensurepip=no \
+    LDFLAGS="-lm"
 
 make -j$(nproc)
 make install
