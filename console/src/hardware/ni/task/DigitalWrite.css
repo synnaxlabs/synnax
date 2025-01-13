@@ -11,7 +11,7 @@
 
 .port-line-input {
     & *:first-child {
-        width: 100px;
+        width: 40px;
         .pluto-input__internal {
             border-top-right-radius: 0;
             border-bottom-right-radius: 0;
@@ -24,7 +24,7 @@
         border-color: var(--pluto-gray-l4) !important;
     }
     & *:last-child {
-        width: 100px;
+        width: 40px;
         .pluto-input__internal {
             border-top-left-radius: 0 !important;
             border-bottom-left-radius: 0 !important;
