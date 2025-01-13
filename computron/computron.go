@@ -4,7 +4,7 @@ package computron
 #cgo CFLAGS: -I${SRCDIR}/python_install/include/python3.11 -I${SRCDIR}/python_install/lib/python3.11/site-packages/numpy/core/include
 #cgo darwin CFLAGS: -mmacosx-version-min=14.0
 
-#cgo linux LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl -lm
+#cgo linux LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl -lm -Wl,--export-dynamic
 #cgo darwin LDFLAGS: -mmacosx-version-min=14.0 -L${SRCDIR}/python_install/lib/combined -lpython3.11-combined -ldl
 #cgo windows LDFLAGS: -L${SRCDIR}/python_install/lib/combined -lpython311
 
