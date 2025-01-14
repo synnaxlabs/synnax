@@ -9,26 +9,14 @@
 
 import { Layout } from "@/layout";
 import { type Link } from "@/link";
-import { setActive } from "@/workspace/slice";
+import { Workspace } from "@/workspace";
 
 export const linkHandler: Link.Handler = async ({
-  resource,
-  resourceKey,
   client,
   dispatch,
-  handleException,
-}): Promise<boolean> => {
-  if (resource !== "workspace") return false;
-  try {
-    const workspace = await client.workspaces.retrieve(resourceKey);
-    dispatch(
-      Layout.setWorkspace({
-        slice: workspace.layout as unknown as Layout.SliceState,
-      }),
-    );
-    dispatch(setActive(workspace.key));
-  } catch (e) {
-    handleException(e, "Failed to open workspace from URL");
-  }
-  return true;
+  key,
+}): Promise<void> => {
+  const workspace = await client.workspaces.retrieve(key);
+  dispatch(Layout.setWorkspace({ slice: workspace.layout as Layout.SliceState }));
+  dispatch(Workspace.setActive(workspace.key));
 };

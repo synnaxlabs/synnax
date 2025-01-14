@@ -7,14 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LinePlot } from "@/lineplot";
-import { type Link } from "@/link";
-
-export const linkHandler: Link.Handler = async ({
-  client,
-  key,
-  placeLayout,
-}): Promise<void> => {
-  const linePlot = await client.workspaces.linePlot.retrieve(key);
-  placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
-};
+export * as link from "@/link/link";

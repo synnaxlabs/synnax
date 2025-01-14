@@ -59,7 +59,6 @@ fn main() {
     tauri::Builder::default()
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
-            return;
         })
         .on_window_event(move |win, event| match event {
             tauri::WindowEvent::Focused { .. } => {
