@@ -154,9 +154,16 @@ export const setNode = ({ tree, destination, additions }: SetNodeProps): Node[] 
   const node = findNode({ tree, key: destination });
   if (node == null) throw new Error(`Could not find node with key ${destination}`);
   node.children ??= [];
-  const addedKeys = additions.map((node) => node.key);
+
+  // If additions have the same key, remove duplicates
+  const uniqueAdditions = Array.from(
+    additions
+      .reduce((map, node) => map.set(node.key, node), new Map<string, Node>())
+      .values(),
+  );
+  const addedKeys = uniqueAdditions.map((node) => node.key);
   node.children = [
-    ...additions,
+    ...uniqueAdditions,
     ...node.children.filter((child) => !addedKeys.includes(child.key)),
   ];
   return tree;

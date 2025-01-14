@@ -62,14 +62,23 @@ const updateResources = (
   additions: ontology.Resource[] = [],
   removals: ontology.ID[] = [],
 ): ontology.Resource[] => {
-  const newIds = additions.map(({ id }) => id.toString());
-  const removalIds = removals.map((id) => id.toString());
+  // If multiple additions have the same key, remove duplicates
+  const uniqueAdditions = Array.from(
+    additions
+      .reduce(
+        (map, resource) => map.set(resource.id.toString(), resource),
+        new Map<string, ontology.Resource>(),
+      )
+      .values(),
+  );
+  const addedIds = uniqueAdditions.map(({ id }) => id.toString());
+  const removedIds = removals.map((id) => id.toString());
   return [
     ...p.filter(({ id }) => {
       const str = id.toString();
-      return !removalIds.includes(str) && !newIds.includes(str);
+      return !removedIds.includes(str) && !addedIds.includes(str);
     }),
-    ...additions,
+    ...uniqueAdditions,
   ];
 };
 
@@ -495,11 +504,7 @@ export const Tree = (): ReactElement => {
         removeLayout,
         handleException,
         addStatus,
-        selection: {
-          parent,
-          nodes: selectedNodes,
-          resources: selectedResources,
-        },
+        selection: { parent, nodes: selectedNodes, resources: selectedResources },
         state: {
           nodes: nodeSnapshot,
           resources,
