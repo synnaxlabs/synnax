@@ -118,7 +118,7 @@ const Wrapped = ({
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
-      const devices = unique(config.channels.map((c) => c.device));
+      const devices = unique.unique(config.channels.map((c) => c.device));
 
       for (const devKey of devices) {
         const dev = await client.hardware.devices.retrieve<Properties>(devKey);

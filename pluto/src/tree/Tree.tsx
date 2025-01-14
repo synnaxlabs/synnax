@@ -117,7 +117,7 @@ export const use = (props: UseProps): UseReturn => {
 
   const handleExpand = useCallback(
     (key: string): void => {
-      setExpanded((expanded) => unique([...expanded, key]));
+      setExpanded((expanded) => unique.unique([...expanded, key]));
       onExpand?.({ current: expanded, action: "expand", clicked: key });
     },
     [setExpanded],

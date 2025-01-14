@@ -138,7 +138,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     const toFetch = lines.filter((line) => line.label == null);
     if (toFetch.length === 0) return;
     const fetched = await client.channels.retrieve(
-      unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
+      unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
     );
     const update = toFetch.map((l) => ({
       key: l.key,

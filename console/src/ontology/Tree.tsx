@@ -19,7 +19,7 @@ import {
   useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
-import { deep } from "@synnaxlabs/x";
+import { deep, unique } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
 import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
@@ -63,13 +63,10 @@ const updateResources = (
   removals: ontology.ID[] = [],
 ): ontology.Resource[] => {
   // If multiple additions have the same key, remove duplicates
-  const uniqueAdditions = Array.from(
-    additions
-      .reduce(
-        (map, resource) => map.set(resource.id.toString(), resource),
-        new Map<string, ontology.Resource>(),
-      )
-      .values(),
+  const uniqueAdditions = unique.by(
+    additions,
+    (resource) => resource.id.toString(),
+    false,
   );
   const addedIds = uniqueAdditions.map(({ id }) => id.toString());
   const removedIds = removals.map((id) => id.toString());

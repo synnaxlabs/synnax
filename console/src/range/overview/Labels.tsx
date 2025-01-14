@@ -37,12 +37,12 @@ export const Labels = ({ rangeKey }: LabelsProps) => {
     openObservable: async (client) => await client.labels.trackLabelsOf(otgID),
     applyObservable: async ({ changes, ctx }) => {
       const existing = ctx.get<string[]>("labels").value;
-      const next = unique(changes.map((c) => c.key));
+      const next = unique.unique(changes.map((c) => c.key));
       if (compare.unorderedPrimitiveArrays(existing, next) === compare.EQUAL) return;
       ctx.set("labels", next);
     },
     applyChanges: async ({ client, values, prev }) => {
-      const next = unique(values.labels);
+      const next = unique.unique(values.labels);
       if (
         client == null ||
         compare.unorderedPrimitiveArrays(prev as string[], next) === compare.EQUAL
