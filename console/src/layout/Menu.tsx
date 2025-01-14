@@ -132,6 +132,7 @@ const splitMenuItemFactory = (
   }: FocusMenuItemProps & { children?: ReactElement }) => {
     const dispatch = useDispatch();
     const [windowKey, mosaic] = useSelectMosaic();
+    if (windowKey == null || mosaic == null) return null;
     const canSplit = Mosaic.canSplit(mosaic, layoutKey);
     if (!canSplit) return null;
     return (

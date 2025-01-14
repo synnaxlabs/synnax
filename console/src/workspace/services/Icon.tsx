@@ -13,6 +13,6 @@ import { type ReactElement } from "react";
 
 export const ImportIcon = (): ReactElement => (
   <PIcon.Import>
-    <Icon.Schematic />
+    <Icon.Workspace />
   </PIcon.Import>
 );
