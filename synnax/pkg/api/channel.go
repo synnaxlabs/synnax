@@ -11,21 +11,23 @@ package api
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"go/types"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
+
+type ChannelKey = channel.Key
 
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
@@ -63,7 +65,8 @@ func NewChannelService(p Provider) *ChannelService {
 // ChannelCreateRequest is a request to create a Channel in the cluster.
 type ChannelCreateRequest struct {
 	// Channel is a template for the Channel to create.
-	Channels []Channel `json:"channels" msgpack:"channels"`
+	Channels             []Channel `json:"channels" msgpack:"channels"`
+	RetrieveIfNameExists bool      `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have
@@ -91,8 +94,9 @@ func (s *ChannelService) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
+	return res, s.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		w := s.internal.NewWriter(tx)
+		err = w.CreateMany(ctx, &translated, channel.RetrieveIfNameExists(req.RetrieveIfNameExists))
 		res.Channels = translateChannelsForward(translated)
 		return err
 	})

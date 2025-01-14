@@ -25,10 +25,12 @@ type Transport interface {
 	PledgeClient() pledge.TransportClient
 	GossipServer() gossip.TransportServer
 	GossipClient() gossip.TransportClient
-	BatchServer() kv.BatchTransportServer
-	BatchClient() kv.BatchTransportClient
+	TxServer() kv.TxTransportServer
+	TxClient() kv.TxTransportClient
 	LeaseServer() kv.LeaseTransportServer
 	LeaseClient() kv.LeaseTransportClient
 	FeedbackServer() kv.FeedbackTransportServer
 	FeedbackClient() kv.FeedbackTransportClient
+	RecoveryServer() kv.RecoveryTransportServer
+	RecoveryClient() kv.RecoveryTransportClient
 }

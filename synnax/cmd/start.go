@@ -156,7 +156,7 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 		defer func() {
-			err = errors.CombineErrors(err, dist.Close())
+			err = errors.Combine(err, dist.Close())
 		}()
 
 		// set up our high level services.
@@ -226,7 +226,7 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 		defer func() {
-			err = errors.CombineErrors(err, hardwareSvc.Close())
+			err = errors.Combine(err, hardwareSvc.Close())
 		}()
 
 		// Provision the root user.
@@ -310,7 +310,7 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 		defer func() {
-			err = errors.CombineErrors(err, d.Stop())
+			err = errors.Combine(err, d.Stop())
 		}()
 
 		prettyLogger.Info("\033[32mSynnax is running and available at " + viper.GetString(listenFlag) + "\033[0m")
@@ -596,6 +596,7 @@ func configureClientGRPC(
 	insecure bool,
 ) *fgrpc.Pool {
 	return fgrpc.NewPool(
+		"",
 		grpc.WithTransportCredentials(getClientGRPCTransportCredentials(sec, insecure)),
 	)
 }

@@ -22,11 +22,7 @@ import { pythonClientNav } from "@/pages/reference/python-client/_nav";
 import { typescriptClientNav } from "@/pages/reference/typescript-client/_nav";
 
 export const componentsPages = [
-  {
-    name: "Get Started",
-    key: "/reference/",
-    href: "/reference/",
-  },
+  { name: "Get Started", key: "/reference/", href: "/reference/" },
   conceptsNav,
   clusterNav,
   typescriptClientNav,
@@ -38,11 +34,7 @@ export const componentsPages = [
 ];
 
 export const guidesPages = [
-  {
-    name: "Why Synnax?",
-    key: "/guides/",
-    href: "/guides/",
-  },
+  { name: "Why Synnax?", key: "/guides/", href: "/guides/" },
   getStartedNav,
   analystNav,
   sysAdminNav,

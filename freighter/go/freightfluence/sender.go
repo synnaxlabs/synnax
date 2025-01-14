@@ -11,6 +11,7 @@ package freightfluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/confluence"
@@ -34,7 +35,7 @@ func (s *Sender[M]) Flow(ctx signal.Context, opts ...Option) {
 func (s *Sender[M]) send(ctx context.Context) error {
 	var err error
 	defer func() {
-		err = errors.CombineErrors(s.Sender.CloseSend(), err)
+		err = errors.Combine(s.Sender.CloseSend(), err)
 	}()
 	for {
 		select {
@@ -71,7 +72,7 @@ func (s *TransformSender[I, M]) Flow(ctx signal.Context, opts ...Option) {
 func (s *TransformSender[I, M]) send(ctx context.Context) error {
 	var err error
 	defer func() {
-		err = errors.CombineErrors(s.Sender.CloseSend(), err)
+		err = errors.Combine(s.Sender.CloseSend(), err)
 	}()
 o:
 	for {
@@ -113,7 +114,7 @@ func (m *MultiSender[M]) Flow(ctx signal.Context, opts ...Option) {
 func (m *MultiSender[M]) send(ctx context.Context) error {
 	var err error
 	defer func() {
-		err = errors.CombineErrors(m.closeSenders(), err)
+		err = errors.Combine(m.closeSenders(), err)
 	}()
 o:
 	for {
@@ -208,7 +209,7 @@ func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...Option) {
 func (sw *SwitchSender[M]) send(ctx context.Context) error {
 	var err error
 	defer func() {
-		err = errors.CombineErrors(sw.Sender.Close(), err)
+		err = errors.Combine(sw.Sender.Close(), err)
 	}()
 o:
 	for {
@@ -259,7 +260,7 @@ func (bsw *BatchSwitchSender[I, O]) send(ctx context.Context) error {
 		addrMap = make(map[address.Address]O)
 	)
 	defer func() {
-		err = errors.CombineErrors(bsw.Senders.Close(), err)
+		err = errors.Combine(bsw.Senders.Close(), err)
 	}()
 o:
 	for {

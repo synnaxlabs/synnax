@@ -15,6 +15,9 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net"
+	"os"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -22,8 +25,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	xpem "github.com/synnaxlabs/x/pem"
 	"github.com/synnaxlabs/x/validate"
-	"net"
-	"os"
 )
 
 // FactoryConfig is the configuration for creating a new Factory.
@@ -231,7 +232,7 @@ func (c *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) (err 
 		return err
 	}
 	defer func() {
-		err = errors.CombineErrors(err, f.Close())
+		err = errors.Combine(err, f.Close())
 	}()
 	err = fn(f)
 	return
