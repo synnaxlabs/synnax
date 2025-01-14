@@ -32,10 +32,7 @@ export const useConfirmDelete = ({
         confirm: { variant: "error", label: "Delete" },
         cancel: { label: "Cancel" },
       },
-      {
-        name: `${type}.Delete`,
-        icon: type,
-      },
+      { name: `${type}.Delete`, icon: type },
     );
   };
 };

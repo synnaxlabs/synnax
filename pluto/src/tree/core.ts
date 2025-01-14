@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, toArray } from "@synnaxlabs/x";
+import { compare, toArray, unique } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Haul } from "@/haul";
@@ -154,9 +154,11 @@ export const setNode = ({ tree, destination, additions }: SetNodeProps): Node[] 
   const node = findNode({ tree, key: destination });
   if (node == null) throw new Error(`Could not find node with key ${destination}`);
   node.children ??= [];
-  const addedKeys = additions.map((node) => node.key);
+
+  const uniqueAdditions = unique.by(additions, (node) => node.key, false);
+  const addedKeys = uniqueAdditions.map((node) => node.key);
   node.children = [
-    ...additions,
+    ...uniqueAdditions,
     ...node.children.filter((child) => !addedKeys.includes(child.key)),
   ];
   return tree;

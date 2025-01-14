@@ -19,7 +19,7 @@ const CREATE_COMMAND: Command = {
   name: "Create Workspace",
   icon: <Icon.Workspace />,
   onSelect: ({ placeLayout: layoutPlacer }) =>
-    layoutPlacer(Workspace.createWindowLayout()),
+    layoutPlacer(Workspace.CREATE_WINDOW_LAYOUT),
 };
 
 const IMPORT_COMMAND: Command = {

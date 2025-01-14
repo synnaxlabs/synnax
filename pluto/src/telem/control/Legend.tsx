@@ -37,7 +37,7 @@ export const Legend = Aether.wrap<LegendProps>(
     }, [needsControlOf]);
 
     // Filter out the unique subjects
-    const subjects = unique(states.map((s) => s.subject.key));
+    const subjects = unique.unique(states.map((s) => s.subject.key));
     const data = subjects.map((s) => {
       const d = states.find((s2) => s2.subject.key === s);
       if (d == null) throw new UnexpectedError("Legend subject not found");
