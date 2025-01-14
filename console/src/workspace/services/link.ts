@@ -11,11 +11,7 @@ import { Layout } from "@/layout";
 import { type Link } from "@/link";
 import { Workspace } from "@/workspace";
 
-export const linkHandler: Link.Handler = async ({
-  client,
-  dispatch,
-  key,
-}): Promise<void> => {
+export const linkHandler: Link.Handler = async ({ client, dispatch, key }) => {
   const workspace = await client.workspaces.retrieve(key);
   dispatch(Layout.setWorkspace({ slice: workspace.layout as Layout.SliceState }));
   dispatch(Workspace.setActive(workspace.key));

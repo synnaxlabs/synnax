@@ -10,11 +10,7 @@
 import { type Link } from "@/link";
 import { Schematic } from "@/schematic";
 
-export const linkHandler: Link.Handler = async ({
-  client,
-  key,
-  placeLayout,
-}): Promise<void> => {
+export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
   const schematic = await client.workspaces.schematic.retrieve(key);
   placeLayout(Schematic.create({ ...schematic.data, ...schematic, editable: false }));
 };

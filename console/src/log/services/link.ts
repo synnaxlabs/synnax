@@ -10,11 +10,7 @@
 import { type Link } from "@/link";
 import { Log } from "@/log";
 
-export const linkHandler: Link.Handler = async ({
-  client,
-  key,
-  placeLayout,
-}): Promise<void> => {
+export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
   const log = await client.workspaces.log.retrieve(key);
   placeLayout(Log.create({ ...log.data, ...log }));
 };

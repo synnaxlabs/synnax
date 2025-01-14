@@ -15,7 +15,7 @@ export const linkHandler: Link.Handler = async ({
   dispatch,
   key,
   placeLayout,
-}): Promise<void> => {
+}) => {
   const range = await client.ranges.retrieve(key);
   dispatch(Range.add({ ranges: Range.fromClientRange(range) }));
   dispatch(Range.setActive(range.key));

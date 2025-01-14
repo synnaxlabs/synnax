@@ -10,8 +10,5 @@
 import { retrieveAndPlaceLayout } from "@/hardware/task/ontology";
 import { type Link } from "@/link";
 
-export const linkHandler: Link.Handler = async ({
-  client,
-  key,
-  placeLayout,
-}): Promise<void> => await retrieveAndPlaceLayout(client, key, placeLayout);
+export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) =>
+  await retrieveAndPlaceLayout(client, key, placeLayout);

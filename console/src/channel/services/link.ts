@@ -10,11 +10,7 @@
 import { LinePlot } from "@/lineplot";
 import { type Link } from "@/link";
 
-export const linkHandler: Link.Handler = async ({
-  client,
-  key,
-  placeLayout,
-}): Promise<void> => {
+export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
   const channel = await client.channels.retrieve(key);
   placeLayout(
     LinePlot.create({
