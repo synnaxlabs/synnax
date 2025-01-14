@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, Synnax } from "@synnaxlabs/client";
+import { Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
@@ -15,10 +15,10 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
-import { type Handler, SCHEME } from "@/link/types";
+import { type Handler, PREFIX } from "@/link/types";
 import { type RootState } from "@/store";
 
-const BASE_LINK = `${SCHEME}${ontology.CLUSTER_TYPE}/<cluster-key>`;
+const BASE_LINK = `${PREFIX}<cluster-key>`;
 
 const BASE_STATUS: Status.CrudeSpec = {
   variant: "error",
@@ -36,21 +36,18 @@ export const useDeep = (handlers: Record<string, Handler>): void => {
     dispatch(Drift.focusWindow({}));
 
     // Processing URL, making sure is has valid form
-    if (urls.length === 0 || !urls[0].startsWith(SCHEME)) {
+    if (urls.length === 0 || !urls[0].startsWith(PREFIX)) {
       addStatus(BASE_STATUS);
       return;
     }
-    const urlParts = urls[0].slice(SCHEME.length).split("/");
-    if (
-      (urlParts.length !== 2 && urlParts.length !== 4) ||
-      urlParts[0] !== ontology.CLUSTER_TYPE
-    ) {
+    const urlParts = urls[0].slice(PREFIX.length).split("/");
+    if (urlParts.length !== 1 && urlParts.length !== 3) {
       addStatus(BASE_STATUS);
       return;
     }
 
     // Connecting to the cluster
-    const clusterKey = urlParts[1];
+    const clusterKey = urlParts[0];
     const cluster = Cluster.select(store.getState(), clusterKey);
 
     if (cluster == null) {
@@ -61,11 +58,11 @@ export const useDeep = (handlers: Record<string, Handler>): void => {
       return;
     }
     dispatch(Cluster.setActive(clusterKey));
-    if (urlParts.length === 2) return;
+    if (urlParts.length === 1) return;
 
     // Processing the resource part of URL
-    const resource = urlParts[2];
-    const resourceKey = urlParts[3];
+    const resource = urlParts[1];
+    const resourceKey = urlParts[2];
     const client = new Synnax(cluster);
     const handle = handlers[resource];
     if (handle == null) {
@@ -90,7 +87,7 @@ export const useDeep = (handlers: Record<string, Handler>): void => {
     await urlHandler(urls);
   }, []);
 
-  // Handles the case where the app is open and a link gets called from outside the app
+  // Handles the case where the app is open and a link gets called
   useAsyncEffect(async () => {
     const unlisten = await onOpenUrl(async (urls) => {
       await urlHandler(urls);

@@ -8,9 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { type Synnax } from "@synnaxlabs/client";
+import { ontology, type Synnax } from "@synnaxlabs/client";
 
 import { type Layout } from "@/layout";
+
+// Links have the form synnax://cluster/<cluster-key> for a cluster or
+// synnax://cluster/<cluster-key>/<resource-type>/<resource-key> for another resource
+
+export const PREFIX = `synnax://${ontology.CLUSTER_TYPE}/`;
 
 export interface HandlerProps {
   client: Synnax;
@@ -19,6 +24,6 @@ export interface HandlerProps {
   placeLayout: Layout.Placer;
 }
 
-export type Handler = (props: HandlerProps) => Promise<void>;
-
-export const SCHEME = "synnax://";
+export interface Handler {
+  (props: HandlerProps): Promise<void>;
+}

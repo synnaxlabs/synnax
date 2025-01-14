@@ -11,7 +11,7 @@ import { type ontology } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";
-import { SCHEME } from "@/link/types";
+import { PREFIX } from "@/link/types";
 
 export interface CopyToClipboardProps {
   clusterKey?: string;
@@ -23,7 +23,7 @@ export const useCopyToClipboard = (): ((props: CopyToClipboardProps) => void) =>
   const activeClusterKey = Cluster.useSelectActiveKey();
   const addStatus = Status.useAggregator();
   return ({ ontologyID, name, clusterKey }) => {
-    let url = `${SCHEME}cluster/`;
+    let url = PREFIX;
     const key = clusterKey ?? activeClusterKey;
     const linkMessage = name == null ? "" : `to ${name}`;
     if (key == null) {
