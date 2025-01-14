@@ -19,8 +19,8 @@ cocoa = "0.26.0"
 objc = "0.2.7"
 rand = "0.8.5"
 
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-single-instance = "2"
+[target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
+tauri-plugin-single-instance = { version = "2.0.0", features = ["deep-link"] }
 
 [dependencies]
 tauri = { version = "2.1.1", features = ["devtools"] }

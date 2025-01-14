@@ -13,7 +13,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Menu, Status, useAsyncEffect } from "@synnaxlabs/pluto";
-import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { onOpenUrl, getCurrent } from "@tauri-apps/plugin-deep-link";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -41,59 +41,83 @@ const openUrlErrorMessage =
   "Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>";
 const scheme = "synnax://";
 
-export const useDeep = ({ handlers }: UseDeepProps): void => {
+const useUrlHandler = ({
+  handlers,
+}: UseDeepProps): ((urls: string[]) => Promise<void>) => {
   const addStatus = Status.useAggregator();
   const handleException = Status.useExceptionHandler();
   const dispatch = useDispatch();
   const place = Layout.usePlacer();
   const store = useStore<RootState>();
-  const windowKey = useSelectWindowKey() as string;
+  const windowKey = useSelectWindowKey();
   const addOpenUrlErrorStatus = () =>
     addStatus({ variant: "error", message: openUrlErrorMessage });
+  return async (urls) => {
+    dispatch(Drift.focusWindow({}));
 
-  useAsyncEffect(async () => {
-    const unlisten = await onOpenUrl(async (urls) => {
-      dispatch(Drift.focusWindow({}));
-
-      // Processing URL, making sure is has valid form
-      if (urls.length === 0 || !urls[0].startsWith(scheme))
-        return addOpenUrlErrorStatus();
-      const urlParts = urls[0].slice(scheme.length).split("/");
-      if ((urlParts.length !== 2 && urlParts.length !== 4) || urlParts[0] !== "cluster")
-        return addOpenUrlErrorStatus();
-
-      // Connecting to the cluster
-      const clusterKey = urlParts[1];
-      const connParams = Cluster.select(store.getState(), clusterKey);
-      const addClusterErrorStatus = () =>
-        addStatus({
-          variant: "error",
-          message: `Cannot open URL, Cluster with key ${clusterKey} not found`,
-        });
-      if (connParams == null) return addClusterErrorStatus();
-      dispatch(Cluster.setActive(clusterKey));
-      if (urlParts.length === 2) return;
-
-      // Processing the resource part of URL
-      const resource = urlParts[2];
-      const resourceKey = urlParts[3];
-      for (const h of handlers)
-        if (
-          await h({
-            resource,
-            resourceKey,
-            client: new Synnax(connParams),
-            dispatch,
-            place,
-            handleException,
-            windowKey,
-          })
-        )
-          return;
+    // checking if we have a window key
+    if (windowKey == null) {
       addStatus({
         variant: "error",
-        message: `Cannot open link, ${resource} is unknown`,
+        message: "Cannot open URL",
+        description: "Window key is null",
       });
+      return;
+    }
+
+    // Processing URL, making sure is has valid form
+    if (urls.length === 0 || !urls[0].startsWith(scheme))
+      return addOpenUrlErrorStatus();
+    const urlParts = urls[0].slice(scheme.length).split("/");
+    if ((urlParts.length !== 2 && urlParts.length !== 4) || urlParts[0] !== "cluster")
+      return addOpenUrlErrorStatus();
+
+    // Connecting to the cluster
+    const clusterKey = urlParts[1];
+    const connParams = Cluster.select(store.getState(), clusterKey);
+    const addClusterErrorStatus = () =>
+      addStatus({
+        variant: "error",
+        message: `Cannot open URL, Cluster with key ${clusterKey} not found`,
+      });
+    if (connParams == null) return addClusterErrorStatus();
+    dispatch(Cluster.setActive(clusterKey));
+    if (urlParts.length === 2) return;
+
+    // Processing the resource part of URL
+    const resource = urlParts[2];
+    const resourceKey = urlParts[3];
+   const client = new Synnax(connParams);
+    for (const h of handlers)
+      if (
+        await h({
+          resource,
+          resourceKey,
+          client,
+          dispatch,
+          place,
+          handleException,
+          windowKey,
+        })
+      )
+        return;
+    addStatus({
+      variant: "error",
+      message: `Cannot open link, ${resource} is unknown`,
+    });
+  };
+};
+
+export const useDeep = ({ handlers }: UseDeepProps): void => {
+  const urlHandler = useUrlHandler({ handlers });
+  useAsyncEffect(async () => {
+    const urls = await getCurrent();
+    if (urls == null) return;
+    await urlHandler(urls);
+  }, []);
+  useAsyncEffect(async () => {
+    const unlisten = await onOpenUrl(async (urls) => {
+      await urlHandler(urls);
     });
     return unlisten;
   }, []);

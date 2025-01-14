@@ -57,7 +57,6 @@ fn set_transparent_titlebar(_: &Window, _: bool) {}
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init())
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
             return;
@@ -83,6 +82,7 @@ fn main() {
             }
             _ => (),
         })
+        .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
