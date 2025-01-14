@@ -214,7 +214,7 @@ var _ = Describe("Create", Ordered, func() {
 		})
 		It("Should not update the channel if it already exists by name", func() {
 			ch.Name = "SG0003"
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Name).To(Equal("SG0001"))
 
 			var resChannels []channel.Channel

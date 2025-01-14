@@ -1,9 +1,10 @@
 package calculated_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/computron"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -11,55 +12,37 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculated"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
-var (
-	sharedComputer *computron.Interpreter
-)
+var sleepInterval = 25 * time.Millisecond
 
-var _ = BeforeSuite(func() {
-	var err error
-	sharedComputer, err = computron.New()
-	Expect(err).ToNot(HaveOccurred())
-})
-
-var _ = Describe("Calculated", func() {
+var _ = Describe("Calculated", Ordered, func() {
 	var (
 		c    *calculated.Service
 		dist distribution.Distribution
 	)
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		distB := mock.NewBuilder()
 		dist = distB.New(ctx)
-	})
-
-	AfterEach(func() {
-		if c != nil {
-			Expect(c.Close()).To(Succeed())
-		}
-	})
-
-	It("Output a basic calculation", func() {
-		c := MustSucceed(calculated.Open(calculated.Config{
-			Instrumentation:   Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
+		c = MustSucceed(calculated.Open(calculated.Config{
 			Computron:         sharedComputer, // Use shared interpreter
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 		}))
+	})
 
-		baseCH := channel.Channel{
-			Name:     "base",
-			DataType: telem.Int64T,
-			Virtual:  true,
-		}
+	AfterAll(func() {
+		Expect(c.Close()).To(Succeed())
+	})
+
+	It("Output a basic calculation", func() {
+		baseCH := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
 		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
 		calculatedCH := channel.Channel{
 			Name:        "calculated",
@@ -84,7 +67,7 @@ var _ = Describe("Calculated", func() {
 		}))
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(sleepInterval)
 		wInlet.Inlet() <- framer.WriterRequest{
 			Command: writer.Data,
 			Frame: framer.Frame{
@@ -98,18 +81,7 @@ var _ = Describe("Calculated", func() {
 	})
 
 	It("Handle undefined symbols", func() {
-		c := MustSucceed(calculated.Open(calculated.Config{
-			Instrumentation:   Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
-			Computron:         sharedComputer, // Use shared interpreter
-			Framer:            dist.Framer,
-			Channel:           dist.Channel,
-			ChannelObservable: dist.Channel.NewObservable(),
-		}))
-		baseCH := channel.Channel{
-			Name:     "base",
-			DataType: telem.Int64T,
-			Virtual:  true,
-		}
+		baseCH := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
 		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
 		calculatedCH := channel.Channel{
 			Name:        "calculated",
@@ -134,7 +106,7 @@ var _ = Describe("Calculated", func() {
 		}))
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(sleepInterval)
 		wInlet.Inlet() <- framer.WriterRequest{
 			Command: writer.Data,
 			Frame: framer.Frame{
@@ -146,14 +118,6 @@ var _ = Describe("Calculated", func() {
 	})
 
 	It("Return a warning for dividing by zero", func() {
-		c := MustSucceed(calculated.Open(calculated.Config{
-			Instrumentation:   Instrumentation("calculated", InstrumentationConfig{Log: config.True()}),
-			Computron:         sharedComputer, // Use shared interpreter
-			Framer:            dist.Framer,
-			Channel:           dist.Channel,
-			ChannelObservable: dist.Channel.NewObservable(),
-		}))
-
 		baseCH := channel.Channel{
 			Name:     "base",
 			DataType: telem.Int64T,
@@ -183,7 +147,7 @@ var _ = Describe("Calculated", func() {
 		}))
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(sleepInterval)
 		wInlet.Inlet() <- framer.WriterRequest{
 			Command: writer.Data,
 			Frame: framer.Frame{
@@ -194,5 +158,74 @@ var _ = Describe("Calculated", func() {
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
+	})
+
+	It("Should handle nested calculations", func() {
+		baseCH := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+
+		// First calculated channel that doubles the base value
+		calc1CH := channel.Channel{
+			Name:        "calc1",
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: core.Free,
+			Requires:    []channel.Key{baseCH.Key()},
+			Expression:  "result = base * 2",
+		}
+		Expect(dist.Channel.Create(ctx, &calc1CH)).To(Succeed())
+
+		// Second calculated channel that adds 1 to the first calculated channel
+		calc2CH := channel.Channel{
+			Name:        "calc2",
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: core.Free,
+			Requires:    []channel.Key{calc1CH.Key()},
+			Expression:  "result = calc1 + 1",
+		}
+		Expect(dist.Channel.Create(ctx, &calc2CH)).To(Succeed())
+
+		MustSucceed(c.Request(ctx, calc1CH.Key()))
+		MustSucceed(c.Request(ctx, calc2CH.Key()))
+
+		sCtx, cancel := signal.WithCancel(ctx)
+		defer cancel()
+
+		w := MustSucceed(dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+			Start: telem.Now(),
+			Keys:  []channel.Key{baseCH.Key()},
+		}))
+		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
+		w.Flow(sCtx)
+
+		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Keys: []channel.Key{calc2CH.Key()},
+		}))
+		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		streamer.Flow(sCtx)
+
+		time.Sleep(sleepInterval)
+
+		// Write base values [1, 2]
+		wInlet.Inlet() <- framer.WriterRequest{
+			Command: writer.Data,
+			Frame: framer.Frame{
+				Keys:   channel.Keys{baseCH.Key()},
+				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
+			},
+		}
+
+		var res framer.StreamerResponse
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
+		Expect(res.Frame.Keys).To(Equal(channel.Keys{calc2CH.Key()}))
+
+		// For base values [1, 2]:
+		// calc1 should be [2, 4] (base * 2)
+		// calc2 should be [3, 5] (calc1 + 1)
+		series := res.Frame.Series[0]
+		Expect(series.Len()).To(Equal(int64(2)))
+		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(3)))
+		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(5)))
 	})
 })
