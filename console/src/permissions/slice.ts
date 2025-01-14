@@ -10,7 +10,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type policy } from "@synnaxlabs/client";
 
-import * as latest from "@/permissions/migrations";
+import * as latest from "@/permissions/types";
 
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;

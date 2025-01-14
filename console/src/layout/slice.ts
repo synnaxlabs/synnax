@@ -18,7 +18,7 @@ import { Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
-import * as latest from "@/layout/migrations";
+import * as latest from "@/layout/types";
 import { type RootState } from "@/store";
 
 export type State<A = unknown> = latest.State<A>;

@@ -11,8 +11,8 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type TableCells } from "@synnaxlabs/pluto";
 import { id, type location, mapValues, type UnknownRecord, xy } from "@synnaxlabs/x";
 
-import * as latest from "@/table/migrations";
-import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/migrations/v0";
+import * as latest from "@/table/types";
+import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/types";
 
 export type State = latest.State;
 export const stateZ = latest.stateZ;

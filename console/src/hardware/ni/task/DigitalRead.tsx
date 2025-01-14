@@ -38,12 +38,12 @@ import {
   type DigitalRead,
   type DigitalReadConfig,
   digitalReadConfigZ,
+  type DigitalReadDetails,
   type DigitalReadPayload,
-  type DigitalReadStateDetails,
   type DigitalReadType,
   ZERO_DI_CHAN,
   ZERO_DIGITAL_READ_PAYLOAD,
-} from "@/hardware/ni/task/migrations";
+} from "@/hardware/ni/task/types";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
@@ -94,7 +94,7 @@ const Wrapped = ({
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const taskState = useObserveState<DigitalReadStateDetails>(
+  const taskState = useObserveState<DigitalReadDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -105,11 +105,9 @@ const Wrapped = ({
     running === true ? "running" : running === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
 
-  const createTask = useCreate<
-    DigitalReadConfig,
-    DigitalReadStateDetails,
-    DigitalReadType
-  >(layoutKey);
+  const createTask = useCreate<DigitalReadConfig, DigitalReadDetails, DigitalReadType>(
+    layoutKey,
+  );
 
   const handleException = Status.useExceptionHandler();
 

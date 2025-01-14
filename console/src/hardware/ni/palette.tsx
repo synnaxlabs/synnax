@@ -13,7 +13,7 @@ import { Icon as PIcon } from "@synnaxlabs/pluto";
 import { createAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { createDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
 import { createDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
-import { type ScanConfig } from "@/hardware/ni/task/migrations";
+import { type ScanConfig } from "@/hardware/ni/task/types";
 import { type Command } from "@/palette/Palette";
 
 export const createAnalogReadTaskCommand: Command = {
