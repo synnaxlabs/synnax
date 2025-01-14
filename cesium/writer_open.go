@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -185,11 +186,11 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 		for _, idx := range domainWriters {
 			_, err_ := idx.Close()
-			err = errors.CombineErrors(err_, err)
+			err = errors.Combine(err_, err)
 		}
 		for _, idx := range rateWriters {
 			_, err_ := idx.Close()
-			err = errors.CombineErrors(err_, err)
+			err = errors.Combine(err_, err)
 		}
 	}()
 

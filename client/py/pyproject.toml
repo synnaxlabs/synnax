@@ -73,5 +73,6 @@ markers = [
     "ontology: mark test as an ontology test",
     "timing: mark test as a timing test",
     "opcua: mark test as an opcua test",
+    "multi_node: mark test as a multi_node test",
     "cli",
 ]

@@ -92,8 +92,9 @@ export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
 export const selectMosaic = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
-): [string, Mosaic.Node] => {
-  const winKey = selectWindowKey(state, windowKey) as string;
+): [string, Mosaic.Node] | [null, null] => {
+  const winKey = selectWindowKey(state, windowKey);
+  if (winKey == null) return [null, null];
   return [winKey, selectSliceState(state).mosaics[winKey].root];
 };
 
@@ -122,7 +123,7 @@ export const useSelectFocused = (): UseSelectFocusedReturn =>
  *
  * @returns The central layout mosaic.
  */
-export const useSelectMosaic = (): [string, Mosaic.Node] =>
+export const useSelectMosaic = (): [string, Mosaic.Node] | [null, null] =>
   useMemoSelect(selectMosaic, []);
 
 /**

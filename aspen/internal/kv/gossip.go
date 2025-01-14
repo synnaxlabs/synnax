@@ -11,33 +11,35 @@ package kv
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/signal"
 	"go/types"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/confluence"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
 
 type (
-	BatchTransportClient = freighter.UnaryClient[TxRequest, TxRequest]
-	BatchTransportServer = freighter.UnaryServer[TxRequest, TxRequest]
+	TxTransportClient = freighter.UnaryClient[TxRequest, TxRequest]
+	TxTransportServer = freighter.UnaryServer[TxRequest, TxRequest]
 )
 
-type operationSender struct {
+type operationClient struct {
 	Config
 	confluence.LinearTransform[TxRequest, TxRequest]
 }
 
-func newOperationSender(cfg Config) segment {
-	os := &operationSender{Config: cfg}
+func newOperationClient(cfg Config) segment {
+	os := &operationClient{Config: cfg}
 	os.Transform = os.send
 	return os
 }
 
-func (g *operationSender) send(_ context.Context, sync TxRequest) (TxRequest, bool, error) {
+func (g *operationClient) send(_ context.Context, sync TxRequest) (TxRequest, bool, error) {
 	// If we have no NewStreamer to propagate, it's best to avoid the network chatter.
 	if sync.empty() {
 		return sync, false, nil
@@ -57,20 +59,20 @@ func (g *operationSender) send(_ context.Context, sync TxRequest) (TxRequest, bo
 	return ack, !ack.empty(), nil
 }
 
-type operationReceiver struct {
+type operationServer struct {
 	Config
 	store store
 	confluence.AbstractUnarySource[TxRequest]
 	confluence.NopFlow
 }
 
-func newOperationReceiver(cfg Config, s store) source {
-	or := &operationReceiver{Config: cfg, store: s}
+func newOperationServer(cfg Config, s store) source {
+	or := &operationServer{Config: cfg, store: s}
 	or.BatchTransportServer.BindHandler(or.handle)
 	return or
 }
 
-func (g *operationReceiver) handle(ctx context.Context, req TxRequest) (TxRequest, error) {
+func (g *operationServer) handle(ctx context.Context, req TxRequest) (TxRequest, error) {
 	// The handler context is cancelled after it returns, so we need to use a separate
 	// context for executing the tx.
 	req.Context = context.TODO()
@@ -132,4 +134,33 @@ func (f *feedbackReceiver) handle(ctx context.Context, msg FeedbackMessage) (typ
 	// The handler context is cancelled after it returns, so we need to use a separate
 	// context for passing the feedback to the pipeline.
 	return types.Nil{}, signal.SendUnderContext(ctx, f.Out.Inlet(), msg.Digests.toRequest(context.TODO()))
+}
+
+type gossipRecoveryTransform struct {
+	Config
+	confluence.LinearTransform[TxRequest, TxRequest]
+	repetitions map[string]int
+}
+
+func newGossipRecoveryTransform(cfg Config) segment {
+	r := &gossipRecoveryTransform{Config: cfg, repetitions: make(map[string]int)}
+	r.Transform = r.transform
+	return r
+}
+
+func (r *gossipRecoveryTransform) transform(
+	_ context.Context,
+	in TxRequest,
+) (out TxRequest, ok bool, err error) {
+	out.Context = in.Context
+	for _, op := range in.Operations {
+		key := string(lo.Must(kvx.CompositeKey(op.Key, op.Version)))
+		if r.repetitions[key] > r.RecoveryThreshold {
+			op.state = recovered
+			out.Operations = append(out.Operations, op)
+			delete(r.repetitions, key)
+		}
+		r.repetitions[key]++
+	}
+	return out, true, nil
 }

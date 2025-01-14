@@ -53,6 +53,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Start Main Server
+        id: start_main
         run: docker run -d --name synnax-main -p 9090:9090 -v data:/usr/local/synnax/data -e SYNNAX_DATA=/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:latest
 
       - name: Checkout Main Branch
@@ -78,7 +79,11 @@ jobs:
         working-directory: client/py
 
       - name: Stop Main Server
-        run: docker stop synnax-main && docker rm synnax-main
+        if: always() && steps.start_main.outcome == 'success'
+        run: |
+          docker logs synnax-main
+          docker stop synnax-main
+          docker rm synnax-main
 
       # Build and Test with Current Server
       - name: Checkout Current Branch
@@ -102,6 +107,7 @@ jobs:
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
       - name: Start Current Server
+        id: start_current
         run: docker run -d --name synnax-current -p 9090:9090 -v data:/usr/local/synnax/data -e SYNNAX_DATA=/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
       - name: Install Poetry
@@ -122,4 +128,8 @@ jobs:
         working-directory: client/py
 
       - name: Stop Current Server
-        run: docker stop synnax-current && docker rm synnax-current
+        if: always() && steps.start_current.outcome == 'success'
+        run: |
+          docker logs synnax-current
+          docker stop synnax-current
+          docker rm synnax-current

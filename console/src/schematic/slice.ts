@@ -13,7 +13,7 @@ import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
-import * as latest from "@/schematic/migrations";
+import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
@@ -142,6 +142,10 @@ export interface SetRemoteCreatedPayload {
 export interface SetLegendPayload {
   key: string;
   legend: Partial<LegendState>;
+}
+
+export interface SelectAllPayload {
+  key: string;
 }
 
 export const calculatePos = (
@@ -426,6 +430,12 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       schematic.legend = { ...schematic.legend, ...legend };
     },
+    selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
+      const { key: layoutKey } = payload;
+      const schematic = state.schematics[layoutKey];
+      schematic.nodes.forEach((node) => (node.selected = true));
+      schematic.edges.forEach((edge) => (edge.selected = true));
+    },
   },
 });
 
@@ -452,6 +462,7 @@ export const {
   toggleControl,
   setControlStatus,
   addElement,
+  selectAll,
   setEdges,
   setNodes,
   remove,

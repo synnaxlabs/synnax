@@ -10,6 +10,8 @@
 package fgrpc
 
 import (
+	"path"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/pool"
 	"google.golang.org/grpc"
@@ -47,17 +49,18 @@ type Pool struct {
 	pool.Pool[address.Address, *ClientConn]
 }
 
-func NewPool(dialOpts ...grpc.DialOption) *Pool {
-	return &Pool{Pool: pool.New[address.Address, *ClientConn](&factory{dialOpts: dialOpts})}
+func NewPool(targetPrefix address.Address, dialOpts ...grpc.DialOption) *Pool {
+	return &Pool{Pool: pool.New[address.Address, *ClientConn](&factory{dialOpts: dialOpts, targetPrefix: targetPrefix})}
 }
 
 // factory implements the pool.Factory interface.
 type factory struct {
-	dialOpts []grpc.DialOption
+	targetPrefix address.Address
+	dialOpts     []grpc.DialOption
 }
 
 func (f *factory) New(addr address.Address) (*ClientConn, error) {
-	c, err := grpc.Dial(string(addr), f.dialOpts...)
+	c, err := grpc.NewClient(path.Join(f.targetPrefix.String(), addr.String()), f.dialOpts...)
 	d := pool.Demand(1)
 	return &ClientConn{ClientConn: c, demand: &d}, err
 }

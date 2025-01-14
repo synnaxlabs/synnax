@@ -27,11 +27,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
+  const createFromSelection = useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const onSelect = useAsyncActionMenu({
     ungroup: () => ungroup(props),
     rename: () => Tree.startRenaming(nodes[0].key),
-    group: () => createEmptyGroup(props),
+    newGroup: () => createEmptyGroup(props),
+    group: () => createFromSelection(props),
     link: () =>
       handleLink({
         name: resources[0].name,
@@ -47,11 +49,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <Menu.RenameItem />
           <PMenu.Divider />
+          <PMenu.Item itemKey="newGroup" startIcon={<Icon.Group />}>
+            New Group
+          </PMenu.Item>
         </>
       )}
-      <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
-        New Group
-      </PMenu.Item>
+      <GroupMenuItem selection={props.selection} />
       {parent != null && (
         <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
           {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}

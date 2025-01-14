@@ -11,6 +11,9 @@ package grpc
 
 import (
 	"context"
+	"go/types"
+
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
@@ -20,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -33,19 +35,37 @@ type (
 	frameStreamerRequestTranslator  struct{}
 	frameStreamerResponseTranslator struct{}
 	FrameDeleteRequestTranslator    struct{}
-	writerServerCore                = fgrpc.StreamServerCore[
+	framerWriterServerCore          = fgrpc.StreamServerCore[
 		api.FrameWriterRequest,
 		*gapi.FrameWriterRequest,
 		api.FrameWriterResponse,
 		*gapi.FrameWriterResponse,
 	]
-	iteratorServerCore = fgrpc.StreamServerCore[
+	framerWriterClient = fgrpc.StreamClient[
+		api.FrameWriterRequest,
+		*gapi.FrameWriterRequest,
+		api.FrameWriterResponse,
+		*gapi.FrameWriterResponse,
+	]
+	frameIteratorServerCore = fgrpc.StreamServerCore[
 		api.FrameIteratorRequest,
 		*gapi.FrameIteratorRequest,
 		api.FrameIteratorResponse,
 		*gapi.FrameIteratorResponse,
 	]
-	streamServerCore = fgrpc.StreamServerCore[
+	frameIteratorClient = fgrpc.StreamClient[
+		api.FrameIteratorRequest,
+		*gapi.FrameIteratorRequest,
+		api.FrameIteratorResponse,
+		*gapi.FrameIteratorResponse,
+	]
+	frameStreamerServerCore = fgrpc.StreamServerCore[
+		api.FrameStreamerRequest,
+		*gapi.FrameStreamerRequest,
+		api.FrameStreamerResponse,
+		*gapi.FrameStreamerResponse,
+	]
+	framerStreamerClient = fgrpc.StreamClient[
 		api.FrameStreamerRequest,
 		*gapi.FrameStreamerRequest,
 		api.FrameStreamerResponse,
@@ -293,7 +313,7 @@ func (t FrameDeleteRequestTranslator) Backward(
 	}, nil
 }
 
-type writerServer struct{ *writerServerCore }
+type writerServer struct{ *framerWriterServerCore }
 
 func (f *writerServer) Exec(
 	server gapi.FrameWriterService_ExecServer,
@@ -305,7 +325,7 @@ func (f *writerServer) BindTo(reg grpc.ServiceRegistrar) {
 	gapi.RegisterFrameWriterServiceServer(reg, f)
 }
 
-type iteratorServer struct{ *iteratorServerCore }
+type iteratorServer struct{ *frameIteratorServerCore }
 
 func (f *iteratorServer) Exec(
 	server gapi.FrameIteratorService_ExecServer,
@@ -317,7 +337,7 @@ func (f *iteratorServer) BindTo(reg grpc.ServiceRegistrar) {
 	gapi.RegisterFrameIteratorServiceServer(reg, f)
 }
 
-type streamerServer struct{ *streamServerCore }
+type streamerServer struct{ *frameStreamerServerCore }
 
 func (f *streamerServer) Exec(
 	stream gapi.FrameStreamerService_ExecServer,
@@ -332,21 +352,21 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 func newFramer(a *api.Transport) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
-			writerServerCore: &writerServerCore{
+			framerWriterServerCore: &framerWriterServerCore{
 				RequestTranslator:  frameWriterRequestTranslator{},
 				ResponseTranslator: frameWriterResponseTranslator{},
 				ServiceDesc:        &gapi.FrameWriterService_ServiceDesc,
 			},
 		}
 		is = &iteratorServer{
-			iteratorServerCore: &iteratorServerCore{
+			frameIteratorServerCore: &frameIteratorServerCore{
 				RequestTranslator:  frameIteratorRequestTranslator{},
 				ResponseTranslator: frameIteratorResponseTranslator{},
 				ServiceDesc:        &gapi.FrameIteratorService_ServiceDesc,
 			},
 		}
 		ss = &streamerServer{
-			streamServerCore: &streamServerCore{
+			frameStreamerServerCore: &frameStreamerServerCore{
 				RequestTranslator:  frameStreamerRequestTranslator{},
 				ResponseTranslator: frameStreamerResponseTranslator{},
 				ServiceDesc:        &gapi.FrameStreamerService_ServiceDesc,
@@ -362,4 +382,40 @@ func newFramer(a *api.Transport) fgrpc.BindableTransport {
 	a.FrameIterator = is
 	a.FrameDelete = ds
 	return fgrpc.CompoundBindableTransport{ws, is, ss}
+}
+
+func NewFrameIteratorClient(pool *fgrpc.Pool) freighter.StreamClient[api.FrameIteratorRequest, api.FrameIteratorResponse] {
+	return &frameIteratorClient{
+		RequestTranslator:  frameIteratorRequestTranslator{},
+		ResponseTranslator: frameIteratorResponseTranslator{},
+		Pool:               pool,
+		ServiceDesc:        &gapi.FrameIteratorService_ServiceDesc,
+		ClientFunc: func(ctx context.Context, connInterface grpc.ClientConnInterface) (fgrpc.GRPCClientStream[*gapi.FrameIteratorRequest, *gapi.FrameIteratorResponse], error) {
+			return gapi.NewFrameIteratorServiceClient(connInterface).Exec(ctx)
+		},
+	}
+}
+
+func NewFrameWriterClient(pool *fgrpc.Pool) freighter.StreamClient[api.FrameWriterRequest, api.FrameWriterResponse] {
+	return &framerWriterClient{
+		RequestTranslator:  frameWriterRequestTranslator{},
+		ResponseTranslator: frameWriterResponseTranslator{},
+		Pool:               pool,
+		ServiceDesc:        &gapi.FrameWriterService_ServiceDesc,
+		ClientFunc: func(ctx context.Context, connInterface grpc.ClientConnInterface) (fgrpc.GRPCClientStream[*gapi.FrameWriterRequest, *gapi.FrameWriterResponse], error) {
+			return gapi.NewFrameWriterServiceClient(connInterface).Exec(ctx)
+		},
+	}
+}
+
+func NewFrameStreamerClient(pool *fgrpc.Pool) freighter.StreamClient[api.FrameStreamerRequest, api.FrameStreamerResponse] {
+	return &framerStreamerClient{
+		RequestTranslator:  frameStreamerRequestTranslator{},
+		ResponseTranslator: frameStreamerResponseTranslator{},
+		Pool:               pool,
+		ServiceDesc:        &gapi.FrameStreamerService_ServiceDesc,
+		ClientFunc: func(ctx context.Context, connInterface grpc.ClientConnInterface) (fgrpc.GRPCClientStream[*gapi.FrameStreamerRequest, *gapi.FrameStreamerResponse], error) {
+			return gapi.NewFrameStreamerServiceClient(connInterface).Exec(ctx)
+		},
+	}
 }

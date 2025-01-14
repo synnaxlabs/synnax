@@ -11,8 +11,9 @@ package aspen
 
 import (
 	"context"
+	"io"
+
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/aspen/transport"
@@ -22,7 +23,6 @@ import (
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	storex "github.com/synnaxlabs/x/store"
-	"io"
 )
 
 // Cluster represents a group of nodes that can exchange their state with each other.
@@ -97,5 +97,5 @@ func (db *DB) Close() error {
 	c.Exec(db.transportCloser.Close)
 	c.Exec(db.Cluster.Close)
 	c.Exec(db.DB.Close)
-	return lo.Ternary(errors.Is(c.Error(), context.Canceled), nil, c.Error())
+	return errors.Skip(c.Error(), context.Canceled)
 }

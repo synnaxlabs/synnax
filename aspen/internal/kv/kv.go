@@ -13,16 +13,15 @@ import (
 	"context"
 	"io"
 
-	errors2 "github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/observe"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
+	errors2 "github.com/synnaxlabs/x/errors"
 	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -46,7 +45,7 @@ func (d *DB) Set(
 	maybeLease ...interface{},
 ) (err error) {
 	b := d.OpenTx()
-	defer func() { err = errors.CombineErrors(err, b.Close()) }()
+	defer func() { err = errors.Combine(err, b.Close()) }()
 	if err = b.Set(ctx, key, value, maybeLease...); err != nil {
 		return err
 	}
@@ -60,7 +59,7 @@ func (d *DB) Delete(
 	maybeLease ...interface{},
 ) (err error) {
 	b := d.OpenTx()
-	defer func() { err = errors.CombineErrors(err, b.Close()) }()
+	defer func() { err = errors.Combine(err, b.Close()) }()
 	if err = b.Delete(ctx, key, maybeLease...); err != nil {
 		return err
 	}
@@ -147,7 +146,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		leaseProxyAddr,
 		newLeaseProxy(cfg, versionAssignerAddr, leaseSenderAddr),
 	)
-	plumber.SetSource[TxRequest](pipe, operationReceiverAddr, newOperationReceiver(cfg, st))
+	plumber.SetSource[TxRequest](pipe, operationReceiverAddr, newOperationServer(cfg, st))
 	plumber.SetSegment[TxRequest](
 		pipe,
 		versionFilterAddr,
@@ -161,14 +160,14 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		operationSenderAddr,
-		newOperationSender(cfg),
+		newOperationClient(cfg),
 	)
 	plumber.SetSink[TxRequest](pipe, feedbackSenderAddr, newFeedbackSender(cfg))
 	plumber.SetSource[TxRequest](pipe, feedbackReceiverAddr, newFeedbackReceiver(cfg))
 	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		recoveryTransformAddr,
-		newRecoveryTransform(cfg),
+		newGossipRecoveryTransform(cfg),
 	)
 
 	plumber.SetSegment[TxRequest, TxRequest](
@@ -253,10 +252,9 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		SinkTarget:   operationSenderAddr,
 		Capacity:     1,
 	}.MustRoute(pipe)
-
+	newRecoveryServer(cfg)
 	pipe.Flow(sCtx)
-
-	return db_, nil
+	return db_, runRecovery(ctx, cfg)
 }
 
 func (d *DB) Close() error {

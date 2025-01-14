@@ -43,24 +43,24 @@ import {
 import { SelectDevice } from "@/hardware/labjack/task/common";
 import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
 import {
-  inputChan,
+  inputChannelZ,
   type Read,
   READ_TYPE,
-  type ReadChan,
+  type ReadChannel,
+  type ReadConfig,
+  readConfigZ,
   type ReadPayload,
   type ReadStateDetails,
-  type ReadTaskConfig,
-  readTaskConfigZ,
   type ReadType,
   type Scale,
   SCALE_SCHEMAS,
   type ScaleType,
   type TemperatureUnits,
-  thermocoupleChanZ,
-  ZERO_READ_CHAN,
+  thermocoupleChannelZ,
+  ZERO_READ_CHANNEL,
   ZERO_READ_PAYLOAD,
   ZERO_SCALES,
-  ZERO_THERMOCOUPLE_CHAN,
+  ZERO_THERMOCOUPLE_CHANNEL,
 } from "@/hardware/labjack/task/types";
 import {
   ChannelListContextMenu,
@@ -105,7 +105,7 @@ const Wrapped = ({
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
-    schema: z.object({ name: z.string(), config: readTaskConfigZ }),
+    schema: z.object({ name: z.string(), config: readConfigZ }),
   });
   const [selectedChannels, setSelectedChannels] = useState<string[]>(
     initialValues.config.channels.length ? [initialValues.config.channels[0].key] : [],
@@ -123,7 +123,7 @@ const Wrapped = ({
   const initialState =
     running === true ? "running" : running === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-  const createTask = useCreate<ReadTaskConfig, ReadStateDetails, ReadType>(layoutKey);
+  const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
   const handleException = Status.useExceptionHandler();
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
@@ -151,7 +151,7 @@ const Wrapped = ({
         });
         dev.properties.readIndex = index.key;
       }
-      const toCreate: ReadChan[] = [];
+      const toCreate: ReadChannel[] = [];
       for (const c of config.channels) {
         const type = c.type === "TC" ? "AI" : c.type;
         const existing = dev.properties[type].channels[c.port];
@@ -315,11 +315,11 @@ const ChannelForm = ({
             const prevType = get<InputChannelType>(path).value;
             if (prevType === value) return;
             const next = deep.copy(
-              value === "TC" ? ZERO_THERMOCOUPLE_CHAN : ZERO_READ_CHAN,
+              value === "TC" ? ZERO_THERMOCOUPLE_CHANNEL : ZERO_READ_CHANNEL,
             );
             const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<ReadChan>(parentPath).value;
-            const schema = value === "TC" ? thermocoupleChanZ : inputChan;
+            const prevParent = get<ReadChannel>(parentPath).value;
+            const schema = value === "TC" ? thermocoupleChannelZ : inputChannelZ;
             const port = DEVICES[model].ports[value === "TC" ? "AI" : value][0].key;
             set(parentPath, {
               ...deep.overrideValidItems(next, prevParent, schema),
@@ -365,8 +365,8 @@ const ChannelList = ({
   state,
   onTare,
 }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<ReadChan>({ path });
-  const handleAdd = (): void => push({ ...deep.copy(ZERO_READ_CHAN), key: id.id() });
+  const { value, push, remove } = Form.useFieldArray<ReadChannel>({ path });
+  const handleAdd = (): void => push({ ...deep.copy(ZERO_READ_CHANNEL), key: id.id() });
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
@@ -392,13 +392,13 @@ const ChannelList = ({
         )}
         {...menuProps}
       >
-        <List.List<string, ReadChan>
+        <List.List<string, ReadChannel>
           data={value}
           emptyContent={
             <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
           }
         >
-          <List.Selector<string, ReadChan>
+          <List.Selector<string, ReadChannel>
             value={selected}
             allowNone={false}
             allowMultiple
@@ -407,7 +407,7 @@ const ChannelList = ({
             }
             replaceOnSingle
           >
-            <List.Core<string, ReadChan> grow>
+            <List.Core<string, ReadChannel> grow>
               {({ key, ...props }) => (
                 <ChannelListItem
                   key={key}
@@ -432,7 +432,7 @@ const ChannelListItem = ({
   onTare,
   state,
   ...props
-}: List.ItemProps<string, ReadChan> & {
+}: List.ItemProps<string, ReadChannel> & {
   path: string;
   snapshot?: boolean;
   onTare?: (channelKey: number) => void;
@@ -441,7 +441,7 @@ const ChannelListItem = ({
   const { entry } = props;
   const ctx = Form.useContext();
   // TODO: Fix bug in useChildFieldValues
-  const channels = Form.useChildFieldValues<ReadChan[]>({ path });
+  const channels = Form.useChildFieldValues<ReadChannel[]>({ path });
   const childValues = channels?.[props.index];
   // const childValues = Form.useChildFieldValues<ReadChan>({
   //   path: `${path}.${props.index}`,

@@ -47,7 +47,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 			})
 			It("Should not create the channel if it already exists by name", func() {
-				Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+				Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 				Expect(ch.LocalKey).To(Equal(channel.LocalKey(2)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
@@ -66,7 +66,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 			})
-			It("Should create the channel in the cesium gorpDB", func() {
+			It("Should create the channel in cesium", func() {
 				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
@@ -74,7 +74,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(cesiumCH.DataType).To(Equal(telem.Float64T))
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
-			It("Should not create the channel on another nodes cesium", func() {
+			It("Should not create the channel on another nodes cesium DB", func() {
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(MatchError(query.NotFound))
 				Expect(channels).To(HaveLen(0))
@@ -92,6 +92,25 @@ var _ = Describe("Create", Ordered, func() {
 					Expect(ch2.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 					Expect(ch2.Key().LocalKey()).To(Equal(channel.LocalKey(4)))
 				})
+			It("Should correctly create a virtual channel", func() {
+				ch3 := &channel.Channel{
+					Name:        "SG01",
+					DataType:    telem.JSONT,
+					Leaseholder: 2,
+					Virtual:     true,
+				}
+				err := services[1].Create(ctx, ch3)
+				Expect(err).To(BeNil())
+				Expect(ch3.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
+				Eventually(func(g Gomega) {
+					channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch3.Key().StorageKey())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(channels).To(HaveLen(1))
+					g.Expect(channels[0].DataType).To(Equal(telem.JSONT))
+					g.Expect(channels[0].Virtual).To(BeTrue())
+				})
+
+			})
 		})
 		Context("Free", func() {
 			BeforeEach(func() {
@@ -116,16 +135,16 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Leaseholder = 1
 		})
 		It("Should create the channel without error", func() {
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 			Expect(ch.Key().LocalKey()).To(Not(Equal(uint16(0))))
 		})
 		It("Should not create the channel if it already exists by name", func() {
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			k := ch.Key()
 			ch.Leaseholder = 0
 			ch.LocalKey = 0
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 		})
@@ -133,12 +152,12 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Name = "SG0002"
 			ch.Virtual = true
 			ch.Leaseholder = core.Free
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 			k := ch.Key()
 			ch.LocalKey = 0
 			ch.Leaseholder = 0
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 		})

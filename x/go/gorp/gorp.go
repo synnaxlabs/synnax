@@ -11,10 +11,10 @@ package gorp
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errors"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 )
 
@@ -44,7 +44,7 @@ func (db *DB) OpenTx() Tx { return tx{Tx: db.DB.OpenTx(), options: db.options} }
 func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	txn := db.OpenTx()
 	defer func() {
-		err = errors.CombineErrors(err, txn.Close())
+		err = errors.Combine(err, txn.Close())
 	}()
 	if err = f(txn); err == nil {
 		err = txn.Commit(ctx)

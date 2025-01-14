@@ -11,9 +11,11 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -131,7 +133,7 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 		for {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return errors.Combine(s.close(), ctx.Err())
 			case req, ok := <-s.In.Outlet():
 				if !ok {
 					return s.close()

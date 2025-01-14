@@ -46,7 +46,7 @@ import {
   type VelocityUnits,
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
-} from "@/hardware/ni/task/migrations";
+} from "@/hardware/ni/task/types";
 import { ThermocoupleTypeField } from "@/hardware/task/common/thermocouple";
 import { Layout } from "@/layout";
 

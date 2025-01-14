@@ -11,7 +11,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type workspace } from "@synnaxlabs/client";
 import { toArray } from "@synnaxlabs/x";
 
-import * as latest from "@/workspace/migrations";
+import * as latest from "@/workspace/types";
 
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;

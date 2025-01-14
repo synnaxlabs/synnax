@@ -10,7 +10,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { toArray } from "@synnaxlabs/x";
 
-import * as latest from "@/cluster/migrations";
+import * as latest from "@/cluster/types";
 
 export const clusterZ = latest.clusterZ;
 export type Cluster = latest.Cluster;

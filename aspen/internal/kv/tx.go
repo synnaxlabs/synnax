@@ -68,6 +68,9 @@ func (b *tx) Close() error {
 
 // Commit implements kv.Tx.
 func (b *tx) Commit(ctx context.Context, _ ...interface{}) error {
+	if ctx == nil {
+		b.L.DPanic("aspen encountered a nil context when committing transaction")
+	}
 	ctx, span := b.T.Prod(ctx, "tx-commit")
 	data, err := b.toRequests(ctx)
 	if err != nil {
@@ -220,7 +223,7 @@ type txCoordinator struct {
 func (bc *txCoordinator) done(err error) {
 	if err != nil {
 		bc.mu.Lock()
-		bc.mu.err = errors.CombineErrors(bc.mu.err, err)
+		bc.mu.err = errors.Combine(bc.mu.err, err)
 		bc.mu.Unlock()
 	}
 	bc.wg.Done()
