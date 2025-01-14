@@ -54,12 +54,12 @@ const NOTIFICATION_ADAPTERS = [
 const LINK_HANDLERS: Record<string, Link.Handler> = {
   [channel.ONTOLOGY_TYPE]: ChannelServices.linkHandler,
   [linePlot.ONTOLOGY_TYPE]: LinePlotServices.linkHandler,
+  [log.ONTOLOGY_TYPE]: LogServices.linkHandler,
   [ranger.ONTOLOGY_TYPE]: RangeServices.linkHandler,
   [schematic.ONTOLOGY_TYPE]: SchematicServices.linkHandler,
+  [table.ONTOLOGY_TYPE]: TableServices.linkHandler,
   [task.ONTOLOGY_TYPE]: Task.linkHandler,
   [workspace.ONTOLOGY_TYPE]: WorkspaceServices.linkHandler,
-  [log.ONTOLOGY_TYPE]: LogServices.linkHandler,
-  [table.ONTOLOGY_TYPE]: TableServices.linkHandler,
 };
 
 const SideEffect = (): null => {
