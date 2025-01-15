@@ -286,7 +286,7 @@ const Editor = (props: Code.EditorProps): ReactElement => {
           .filter((ch): ch is NonNullable<typeof ch> => ch != null)
           .map((ch) => ch.key);
         if (channelKeys.length > 0)
-          requires.onChange(unique([...valueRef.current, ...channelKeys]));
+          requires.onChange(unique.unique([...valueRef.current, ...channelKeys]));
       } catch (error) {
         console.error("Error initializing required channels:", error);
       }
@@ -299,7 +299,7 @@ const Editor = (props: Code.EditorProps): ReactElement => {
     const disposables: monaco.IDisposable[] = [];
     disposables.push(
       monaco.editor.registerCommand("onSuggestionAccepted", (_, channelKey) =>
-        requires.onChange(unique([...valueRef.current, channelKey])),
+        requires.onChange(unique.unique([...valueRef.current, channelKey])),
       ),
     );
 
