@@ -26,7 +26,8 @@ build:
     SAVE ARTIFACT /computron/python_install /python_install
 
 source:
-    FROM +build
-    WORKDIR /output
-    COPY +build/python_install/ .
-    SAVE ARTIFACT /output AS LOCAL .
+    FROM +deps
+    WORKDIR /computron
+    COPY . .
+    COPY +build/python_install ./python_install
+    SAVE ARTIFACT . /computron
