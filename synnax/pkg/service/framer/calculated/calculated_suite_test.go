@@ -10,13 +10,13 @@ import (
 )
 
 var (
-	sharedComputer *computron.Interpreter
-	ctx            = context.Background()
+	interpreter *computron.Interpreter
+	ctx         = context.Background()
 )
 
 var _ = BeforeSuite(func() {
 	var err error
-	sharedComputer, err = computron.New()
+	interpreter, err = computron.New()
 	Expect(err).ToNot(HaveOccurred())
 })
 

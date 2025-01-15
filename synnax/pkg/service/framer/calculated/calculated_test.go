@@ -30,7 +30,7 @@ var _ = Describe("Calculated", Ordered, func() {
 		distB := mock.NewBuilder()
 		dist = distB.New(ctx)
 		c = MustSucceed(calculated.Open(calculated.Config{
-			Computron:         sharedComputer, // Use shared interpreter
+			Computron:         interpreter,
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
