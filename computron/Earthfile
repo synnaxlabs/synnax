@@ -1,7 +1,5 @@
-# computron/Earthfile
 VERSION 0.7
-
-FROM golang:1.23
+FROM golang:1.23-bullseye
 
 deps:
     # Install Python build dependencies including SSL
@@ -25,8 +23,8 @@ build:
     COPY . .
     RUN chmod +x build-linux.sh
     RUN ./build-linux.sh
-    SAVE ARTIFACT /computron/* AS LOCAL .
+    SAVE ARTIFACT /computron/python_install /python_install
 
 source:
     FROM +build
-    SAVE ARTIFACT /computron /computron
+    SAVE ARTIFACT /computron/python_install /computron
