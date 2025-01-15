@@ -219,12 +219,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
-      - name: Install NSIS
-        if: matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
-        run: |
-          choco install nsis -y
-          choco install nsis-contrib-envvar -y
-
       - name: Build Windows Installer
         if: matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
         shell: powershell
