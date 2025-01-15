@@ -1,5 +1,5 @@
 VERSION 0.7
-FROM golang:1.23-bullseye
+FROM golang:1.23
 
 deps:
     # Install Python build dependencies including SSL
@@ -27,4 +27,4 @@ build:
 
 source:
     FROM +build
-    SAVE ARTIFACT /computron/python_install /computron
+    SAVE ARTIFACT /computron/* AS LOCAL .
