@@ -60,6 +60,7 @@ work
 
 __pycache__
 *_cache/
+python_install
 
 # |||| LANDING SITE ||||
 
@@ -110,3 +111,4 @@ driver/vendor/mbedtls/mbedtls
 
 # |||| ESLINT ||||
 .eslintcache
+

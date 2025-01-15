@@ -162,4 +162,92 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 		})
 	})
+	Context("Updating a channel", func() {
+		var ch channel.Channel
+		var ch2 channel.Channel
+		BeforeEach(func() {
+			ch.Name = "SG0001"
+			ch.DataType = telem.Float64T
+			ch.Virtual = true
+			ch.Internal = false
+			ch.Leaseholder = core.Free
+
+			ch2.Rate = 5 * telem.Hz
+			ch2.Name = "SG0003"
+			ch2.DataType = telem.Float64T
+			ch2.Leaseholder = 1
+
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+		})
+		It("Should update the channel name without error", func() {
+			ch.Name = "SG0002"
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Name).To(Equal("SG0002"))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Name).To(Equal("SG0002"))
+		})
+		It("Should update the channel expression without error", func() {
+			ch.Expression = "sin(x)"
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Expression).To(Equal("sin(x)"))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Expression).To(Equal("sin(x)"))
+		})
+		It("Should update the requires without error", func() {
+			ch.Requires = []channel.Key{ch2.Key()}
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Requires).To(ContainElement(ch2.Key()))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Requires).To(ContainElement(ch2.Key()))
+		})
+		It("Should not update the channel if it already exists by name", func() {
+			ch.Name = "SG0003"
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
+			Expect(ch.Name).To(Equal("SG0001"))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Name).To(Equal("SG0001"))
+		})
+		It("Should assign a new key when attempting to update a non-virtual channel",
+			func() {
+				// Create initial non-virtual channel
+				nonVirtualCh := channel.Channel{
+					Rate:        5 * telem.Hz,
+					Name:        "NonVirtual",
+					DataType:    telem.Float64T,
+					Leaseholder: 1,
+					Virtual:     false,
+				}
+				Expect(services[1].Create(ctx, &nonVirtualCh)).To(Succeed())
+				originalKey := nonVirtualCh.Key()
+
+				nonVirtualCh.Name = "UpdatedName"
+				Expect(services[1].Create(ctx, &nonVirtualCh)).To(Succeed())
+
+				Expect(nonVirtualCh.Key()).ToNot(Equal(originalKey))
+
+				var resChannels []channel.Channel
+				err := services[1].NewRetrieve().WhereKeys(originalKey, nonVirtualCh.Key()).Entries(&resChannels).Exec(ctx, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resChannels).To(HaveLen(2))
+
+				Expect(resChannels[0].Name).To(Equal("NonVirtual"))
+				Expect(resChannels[1].Name).To(Equal("UpdatedName"))
+			})
+	})
 })

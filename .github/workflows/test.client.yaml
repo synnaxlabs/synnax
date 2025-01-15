@@ -41,6 +41,7 @@ jobs:
               - alamos/go/**
               - aspen/**
               - cesium/**
+              - computron/**  
               - freighter/go/**
               - synnax/**
               - x/go/**

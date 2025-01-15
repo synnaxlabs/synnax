@@ -1,0 +1,58 @@
+name: Test - Computron
+
+on:
+  push:
+    branches: [ main, rc ]
+    paths:
+      - 'computron/**'
+      - '.github/workflows/test.computron.yaml'
+  pull_request:
+    branches: [ main, rc ]
+    paths:
+      - 'computron/**'
+      - '.github/workflows/test.computron.yaml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Install Visual Studio Build Tools
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install visualstudio2022community -y
+          choco install visualstudio2022-workload-vctools -y
+          choco install visualstudio2022-workload-nativedesktop -y
+
+      - name: Build Python for Computron
+        working-directory: computron
+        run: go generate
+
+      - name: Download Dependencies
+        working-directory: computron
+        run: go mod download
+
+      - name: Move Python DLL (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: computron
+        run: |
+          Copy-Item python_install\bin\python311.dll .\ -Force
+
+      - name: Run Tests
+        working-directory: computron
+        run: go test -v ./...

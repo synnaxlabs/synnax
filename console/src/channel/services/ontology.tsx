@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { type channel, isCalculated, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   type Haul,
+  Icon as PIcon,
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,
@@ -21,6 +22,7 @@ import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
+import { createCalculatedLayout } from "@/channel/CreateCalculated";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -30,7 +32,6 @@ import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-
 const canDrop = (): boolean => false;
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -202,6 +203,21 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
   }).mutate;
 
+const useOpenCalculated =
+  () =>
+  ({ selection: { resources }, placeLayout }: Ontology.TreeContextMenuProps) => {
+    if (resources.length !== 1) return;
+    const resource = resources[0];
+    const tabKey = `editCalculated-${resource.id.key}`;
+    return placeLayout(
+      createCalculatedLayout({
+        key: tabKey,
+        name: `Edit ${resource.name}`,
+        args: { channelKey: Number(resource.id.key) },
+      }),
+    );
+  };
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
@@ -214,6 +230,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const handleRename = useRename();
   const handleLink = Link.useCopyToClipboard();
+  const openCalculated = useOpenCalculated();
   const handleSelect = {
     group: () => groupFromSelection(props),
     delete: () => del(props),
@@ -225,12 +242,24 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
+    openCalculated: () => openCalculated(props),
   };
   const singleResource = resources.length === 1;
+
+  const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
+
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
       <Group.GroupMenuItem selection={selection} />
+      {isCalc && (
+        <>
+          <PMenu.Divider />
+          <PMenu.Item itemKey="openCalculated" startIcon={<Icon.Edit />}>
+            Edit Calcuation
+          </PMenu.Item>
+        </>
+      )}
       {activeRange != null && activeRange.persisted && (
         <>
           <PMenu.Divider />
@@ -272,7 +301,11 @@ export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "channel",
-  icon: <Icon.Channel />,
+  icon: (p) => (
+    <PIcon.Icon topRight={Channel.resolveIcon(p.data as channel.Payload)}>
+      <Icon.Channel />
+    </PIcon.Icon>
+  ),
   hasChildren: false,
   allowRename,
   onRename: undefined,

@@ -27,6 +27,7 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   type FC,
+  isValidElement,
   type ReactElement,
   useCallback,
   useLayoutEffect,
@@ -328,7 +329,13 @@ const createCommandListItem = (
         </Text.WithIcon>
         <Align.Space direction="x" className={CSS.BE("palette", "actions")}>
           {actions != null &&
-            actions.map((action, i) => <CommandAction key={i} {...action} ctx={ctx} />)}
+            actions.map((action, i) =>
+              isValidElement(action) ? (
+                action
+              ) : (
+                <CommandAction key={i} {...action} ctx={ctx} />
+              ),
+            )}
         </Align.Space>
       </List.ItemFrame>
     );
@@ -349,10 +356,11 @@ export const createResourceListItem = (
     const resourceType = resourceTypes[id.type];
     const PI = resourceType?.PaletteListItem;
     if (PI != null) return <PI {...props} />;
+    const { icon } = resourceType;
     return (
       <List.ItemFrame style={{ padding: "1.5rem" }} highlightHovered {...props}>
         <Text.WithIcon
-          startIcon={resourceType?.icon}
+          startIcon={isValidElement(icon) ? icon : icon(props.entry)}
           level="p"
           weight={450}
           shade={9}
@@ -394,5 +402,5 @@ export interface Command {
   icon?: ReactElement<PIcon.BaseProps>;
   visible?: (state: Permissions.StoreState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
-  actions?: CommandActionProps[];
+  actions?: (CommandActionProps | ReactElement)[];
 }

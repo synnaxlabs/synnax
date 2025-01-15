@@ -150,6 +150,7 @@
       "lineplot",
       "Migratable",
       "msgpackr",
+      "mult",
       "NavDrawer",
       "nsis",
       "OPCUA",

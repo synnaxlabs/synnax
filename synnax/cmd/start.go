@@ -221,12 +221,19 @@ func start(cmd *cobra.Command) {
 			Signals:      dist.Signals,
 			Channel:      dist.Channel,
 		})
-		frameSvc, err := framer.NewService(dist.Framer)
+		defer func() {
+			err = errors.Combine(err, hardwareSvc.Close())
+		}()
+		frameSvc, err := framer.OpenService(framer.Config{
+			Instrumentation: ins.Child("framer"),
+			Framer:          dist.Framer,
+			Channel:         dist.Channel,
+		})
 		if err != nil {
 			return err
 		}
 		defer func() {
-			err = errors.Combine(err, hardwareSvc.Close())
+			err = errors.Combine(err, frameSvc.Close())
 		}()
 
 		// Provision the root user.

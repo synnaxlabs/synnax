@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	xtypes "github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -111,11 +112,14 @@ func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (typ
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, retrieveIfNameExists bool) error {
 	channels := *_channels
 	for i, ch := range channels {
-		if ch.LocalKey != 0 {
-			channels[i].LocalKey = 0
-		}
 		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
+		}
+		if ch.Expression != "" {
+			channels[i].Leaseholder = core.Free
+			channels[i].Virtual = true
+		} else if ch.LocalKey != 0 {
+			channels[i].LocalKey = 0
 		}
 	}
 	batch := lp.createRouter.Batch(channels)
@@ -135,7 +139,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			}
 			oChannels = append(oChannels, remoteChannels...)
 		} else {
-			err := lp.createFreeVirtual(ctx, tx, &batch.Free, retrieveIfNameExists)
+			err := lp.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, retrieveIfNameExists)
 			if err != nil {
 				return err
 			}
@@ -151,7 +155,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	return lp.maybeSetResources(ctx, tx, oChannels)
 }
 
-func (lp *leaseProxy) createFreeVirtual(
+func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
@@ -160,17 +164,44 @@ func (lp *leaseProxy) createFreeVirtual(
 	if lp.freeCounter == nil {
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
-	toCreate, err := lp.maybeRetrieveExisting(ctx, tx, channels, lp.freeCounter, retrieveIfNameExists)
+
+	// If existing channels are passed in, update the name, required channels and calc expression
+	keys := KeysFromChannels(*channels)
+	if err := gorp.NewUpdate[Key, Channel]().
+		WhereKeys(keys...).
+		ChangeErr(
+			func(c Channel) (Channel, error) {
+				idx := lo.IndexOf(keys, c.Key())
+				ic := (*channels)[idx]
+				// If retrieveIfNameExists is true and user has provided channels to update, we need
+				// to reset those channels to the actual values to ensure the user does not mistakenly
+				// think the update was successful.
+				if retrieveIfNameExists {
+					(*channels)[idx] = c
+					return c, nil
+				}
+				c.Name = ic.Name
+				c.Requires = ic.Requires
+				c.Expression = ic.Expression
+				return c, nil
+			}).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
+		return err
+	}
+
+	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.freeCounter, retrieveIfNameExists)
 	if err != nil {
 		return err
 	}
-	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
+
+	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
+		tx); err != nil {
 		return err
 	}
 	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
-func (lp *leaseProxy) maybeRetrieveExisting(
+func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
@@ -203,17 +234,17 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 		return
 	}
 
+	originalCounterValue := nextCounterValue - incCounterBy
 	toCreate = make([]Channel, 0, incCounterBy)
 	for i, ch := range *channels {
 		if ch.LocalKey == 0 {
-			ch.LocalKey = nextCounterValue - incCounterBy + LocalKey(len(toCreate)) + 1
+			ch.LocalKey = originalCounterValue + LocalKey(len(toCreate)) + 1
 			toCreate = append(toCreate, ch)
 		} else if ch.IsIndex {
-			ch.LocalIndex = ch.LocalKey
+			ch.LocalIndex = ch.LocalKey // remove and run tests
 		}
 		(*channels)[i] = ch
 	}
-
 	return toCreate, nil
 }
 
@@ -223,7 +254,7 @@ func (lp *leaseProxy) createGateway(
 	channels *[]Channel,
 	retrieveIfNameExists bool,
 ) error {
-	toCreate, err := lp.maybeRetrieveExisting(ctx, tx, channels, lp.leasedCounter, retrieveIfNameExists)
+	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.leasedCounter, retrieveIfNameExists)
 	if err != nil {
 		return err
 	}

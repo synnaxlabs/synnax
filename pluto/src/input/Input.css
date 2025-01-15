@@ -176,7 +176,7 @@
     font-size: inherit;
     line-height: inherit;
     white-space: nowrap;
-    background-color: var(--pluto-gray-l2);
+    background-color: var(--pluto-bg);
     * {
         color: var(--pluto-gray-l6);
     }
@@ -238,6 +238,11 @@
         transition:
             background 0.15s ease-in-out,
             border-color 0.15s ease-in-out;
+        .pluto-input__end-content {
+            transition:
+                background 0.15s ease-in-out,
+                border-color 0.15s ease-in-out;
+        }
         &:hover:not(:focus-within) {
             --pluto-bg: var(--pluto-gray-l3);
             background: var(--pluto-bg) !important;
@@ -250,6 +255,11 @@
             transition:
                 background 0s ease-in-out,
                 border-color 0s ease-in-out;
+            .pluto-input__end-content {
+                transition:
+                    background 0s ease-in-out,
+                    border-color 0s ease-in-out;
+            }
         }
     }
 }
