@@ -115,6 +115,13 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev
 
+      - name: Install Visual Studio Community On Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install visualstudio2022community -y
+          choco install visualstudio2022-workload-vctools -y
+          choco install visualstudio2022-workload-nativedesktop -y 
+
       - name: Update Submodules
         run: git submodule update --init --recursive
 
@@ -147,7 +154,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define use_ni=true
 
-      - name: Build Driver on Mac and Ubuntu
+      - name: Build Driver on on Mac and Ubuntu
         if: matrix.os != 'windows-latest'
         run: bazel build --enable_platform_specific_config //driver:driver_main --define use_ni=false
 
@@ -212,10 +219,11 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
-      # Only install the EnvVar plugin as NSIS is pre-installed
-      - name: Install NSIS EnvVar Plugin
+      - name: Install NSIS
         if: matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
-        run: choco install nsis-contrib-envvar -y
+        run: |
+          choco install nsis -y
+          choco install nsis-contrib-envvar -y
 
       - name: Build Windows Installer
         if: matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
