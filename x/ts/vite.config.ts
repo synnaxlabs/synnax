@@ -31,6 +31,7 @@ export default defineConfig({
         dimensions: path.resolve(".", "src/spatial/dimensions/index.ts"),
         direction: path.resolve(".", "src/spatial/direction/index.ts"),
         location: path.resolve(".", "src/spatial/location/index.ts"),
+        link: path.resolve(".", "src/link/index.ts"),
         position: path.resolve(".", "src/spatial/position/index.ts"),
         scale: path.resolve(".", "src/spatial/scale/index.ts"),
         xy: path.resolve(".", "src/spatial/xy/index.ts"),

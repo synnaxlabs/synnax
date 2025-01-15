@@ -8,27 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Link } from "@/link";
-import { type State } from "@/table/slice";
-import { create } from "@/table/Table";
+import { Table } from "@/table";
 
-export const linkHandler: Link.Handler = async ({
-  resource,
-  resourceKey,
-  client,
-  place,
-  handleException,
-}): Promise<boolean> => {
-  if (resource !== "table") return false;
-  try {
-    const table = await client.workspaces.table.retrieve(resourceKey);
-    const layoutCreator = create({
-      ...(table.data as unknown as State),
-      key: table.key,
-      name: table.name,
-    });
-    place(layoutCreator);
-  } catch (e) {
-    handleException(e, "Failed to open table from URL");
-  }
-  return true;
+export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
+  const table = await client.workspaces.table.retrieve(key);
+  placeLayout(Table.create({ ...table.data, ...table }));
 };

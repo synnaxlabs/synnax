@@ -8,28 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Link } from "@/link";
-import { create } from "@/schematic/Schematic";
-import { type State } from "@/schematic/slice";
+import { Schematic } from "@/schematic";
 
-export const linkHandler: Link.Handler = async ({
-  resource,
-  resourceKey,
-  client,
-  place,
-  handleException,
-}): Promise<boolean> => {
-  if (resource !== "schematic") return false;
-  try {
-    const schematic = await client.workspaces.schematic.retrieve(resourceKey);
-    const layoutCreator = create({
-      ...(schematic.data as unknown as State),
-      key: schematic.key,
-      name: schematic.name,
-      editable: false,
-    });
-    place(layoutCreator);
-  } catch (e) {
-    handleException(e, "Failed to open schematic from URL");
-  }
-  return true;
+export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
+  const schematic = await client.workspaces.schematic.retrieve(key);
+  placeLayout(Schematic.create({ ...schematic.data, ...schematic, editable: false }));
 };

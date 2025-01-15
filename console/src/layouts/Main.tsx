@@ -9,6 +9,16 @@
 
 import "@/layouts/Main.css";
 
+import {
+  channel,
+  linePlot,
+  log,
+  ranger,
+  schematic,
+  table,
+  task,
+  workspace,
+} from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Align } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
@@ -41,16 +51,16 @@ const NOTIFICATION_ADAPTERS = [
   ...Cluster.NOTIFICATION_ADAPTERS,
 ];
 
-const LINK_HANDLERS: Link.Handler[] = [
-  ChannelServices.linkHandler,
-  LinePlotServices.linkHandler,
-  RangeServices.linkHandler,
-  SchematicServices.linkHandler,
-  Task.linkHandler,
-  WorkspaceServices.linkHandler,
-  LogServices.linkHandler,
-  TableServices.linkHandler,
-];
+const LINK_HANDLERS: Record<string, Link.Handler> = {
+  [channel.ONTOLOGY_TYPE]: ChannelServices.linkHandler,
+  [linePlot.ONTOLOGY_TYPE]: LinePlotServices.linkHandler,
+  [log.ONTOLOGY_TYPE]: LogServices.linkHandler,
+  [ranger.ONTOLOGY_TYPE]: RangeServices.linkHandler,
+  [schematic.ONTOLOGY_TYPE]: SchematicServices.linkHandler,
+  [table.ONTOLOGY_TYPE]: TableServices.linkHandler,
+  [task.ONTOLOGY_TYPE]: Task.linkHandler,
+  [workspace.ONTOLOGY_TYPE]: WorkspaceServices.linkHandler,
+};
 
 const SideEffect = (): null => {
   const dispatch = useDispatch();
@@ -61,7 +71,7 @@ const SideEffect = (): null => {
   Cluster.useSyncClusterKey();
   Device.useListenForChanges();
   Workspace.useSyncLayout();
-  Link.useDeep({ handlers: LINK_HANDLERS });
+  Link.useDeep(LINK_HANDLERS);
   Layout.useTriggers();
   Permissions.useFetchPermissions();
   Layout.useDropOutside();

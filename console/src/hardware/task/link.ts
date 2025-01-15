@@ -7,23 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
-
 import { retrieveAndPlaceLayout } from "@/hardware/task/ontology";
 import { type Link } from "@/link";
 
-export const linkHandler: Link.Handler = async ({
-  resource,
-  resourceKey,
-  place,
-  client,
-  handleException,
-}): Promise<boolean> => {
-  if (resource !== task.ONTOLOGY_TYPE) return false;
-  try {
-    await retrieveAndPlaceLayout(client, resourceKey, place);
-  } catch (e) {
-    handleException(e, "Failed to open task from URL");
-  }
-  return true;
-};
+export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) =>
+  await retrieveAndPlaceLayout(client, key, placeLayout);

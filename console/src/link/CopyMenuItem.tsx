@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Link } from "@/link";
-import { Log } from "@/log";
+import { Icon } from "@synnaxlabs/media";
+import { Menu } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
-  const log = await client.workspaces.log.retrieve(key);
-  placeLayout(Log.create({ ...log.data, ...log }));
-};
+export const CopyMenuItem = (): ReactElement => (
+  <Menu.Item itemKey="link" size="small" startIcon={<Icon.Link />}>
+    Copy link
+  </Menu.Item>
+);

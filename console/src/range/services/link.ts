@@ -7,30 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
 import { type Link } from "@/link";
-import { overviewLayout } from "@/range/external";
-import { add, setActive } from "@/range/slice";
-import { fromClientRange } from "@/range/Toolbar";
+import { Range } from "@/range";
 
 export const linkHandler: Link.Handler = async ({
-  resource,
-  resourceKey,
   client,
   dispatch,
-  place,
-  handleException,
-  windowKey,
-}): Promise<boolean> => {
-  if (resource != "range") return false;
-  try {
-    const range = await client.ranges.retrieve(resourceKey);
-    dispatch(setActive(range.key));
-    dispatch(add({ ranges: fromClientRange(range) }));
-    place({ ...overviewLayout, key: resourceKey });
-    dispatch(Layout.setNavDrawerVisible({ windowKey, key: "range" }));
-  } catch (e) {
-    handleException(e, "Failed to open range from URL");
-  }
-  return true;
+  key,
+  placeLayout,
+}) => {
+  const range = await client.ranges.retrieve(key);
+  dispatch(Range.add({ ranges: Range.fromClientRange(range) }));
+  dispatch(Range.setActive(range.key));
+  placeLayout({ ...Range.overviewLayout, key });
 };

@@ -7,28 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { create } from "@/lineplot/LinePlot";
-import { type State } from "@/lineplot/slice";
+import { LinePlot } from "@/lineplot";
 import { type Link } from "@/link";
 
-export const linkHandler: Link.Handler = async ({
-  resource,
-  resourceKey,
-  client,
-  place,
-  handleException,
-}): Promise<boolean> => {
-  if (resource !== "lineplot") return false;
-  try {
-    const linePlot = await client.workspaces.linePlot.retrieve(resourceKey);
-    const layoutCreator = create({
-      ...(linePlot.data as unknown as State),
-      key: linePlot.key,
-      name: linePlot.name,
-    });
-    place(layoutCreator);
-  } catch (e) {
-    handleException(e, "Failed to open line plot from URL");
-  }
-  return true;
+export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
+  const linePlot = await client.workspaces.linePlot.retrieve(key);
+  placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
 };

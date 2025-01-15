@@ -40,7 +40,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <ToolbarTitle icon={<Icon.Log />}>{name}</ToolbarTitle>
         <Align.Space direction="x" style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => handleExport(state.key)} />
-          <Link.ToolbarCopyButton name={name} ontologyID={log.ontologyID(state.key)} />
+          <Link.CopyToolbarButton name={name} ontologyID={log.ontologyID(state.key)} />
         </Align.Space>
       </ToolbarHeader>
       <Align.Space style={{ padding: "2rem", width: "100%" }} direction="x">
