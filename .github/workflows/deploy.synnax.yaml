@@ -226,7 +226,7 @@ jobs:
           # Navigate to the synnax binary directory
           Push-Location .\synnax
           # Read version from VERSION file
-          $version = Get-Content .\pkg\version\VERSION -Raw
+          $version = "${{ needs.setup.outputs.VERSION }}"
           if (-not $version) {
               Write-Error "Failed to read version file"
               exit 1
