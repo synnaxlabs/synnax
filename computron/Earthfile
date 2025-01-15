@@ -28,5 +28,5 @@ build:
 source:
     FROM +build
     WORKDIR /output
-    COPY /computron/* .
+    COPY +build/python_install/ .
     SAVE ARTIFACT /output AS LOCAL .
