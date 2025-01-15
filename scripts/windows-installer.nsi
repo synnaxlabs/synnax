@@ -8,7 +8,7 @@
 !insertmacro MUI_LANGUAGE "English"
 
 Name "Synnax"
-OutFile "synnax-v${VERSION}-windows.exe"
+OutFile "synnax-setup-v${VERSION}.exe"
 RequestExecutionLevel user
 InstallDir "$APPDATA\synnax"
 
