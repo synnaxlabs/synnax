@@ -115,6 +115,13 @@ jobs:
         run: |
           sudo apt-get install -y libmbedtls-dev
 
+      - name: Install Visual Studio Community On Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install visualstudio2022community -y
+          choco install visualstudio2022-workload-vctools -y
+          choco install visualstudio2022-workload-nativedesktop -y 
+
       - name: Update Submodules
         run: git submodule update --init --recursive
 
@@ -211,6 +218,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+
+      - name: Install NSIS
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        run: |
+          choco install nsis -y
+          choco install nsis-contrib-envvar -y
 
       - name: Build Windows Installer
         if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
