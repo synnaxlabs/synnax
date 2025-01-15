@@ -19,7 +19,7 @@ import {
   useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
-import { deep } from "@synnaxlabs/x";
+import { deep, unique } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
 import {
@@ -69,14 +69,20 @@ const updateResources = (
   additions: ontology.Resource[] = [],
   removals: ontology.ID[] = [],
 ): ontology.Resource[] => {
-  const newIds = additions.map(({ id }) => id.toString());
-  const removalIds = removals.map((id) => id.toString());
+  // If multiple additions have the same key, remove duplicates
+  const uniqueAdditions = unique.by(
+    additions,
+    (resource) => resource.id.toString(),
+    false,
+  );
+  const addedIds = uniqueAdditions.map(({ id }) => id.toString());
+  const removedIds = removals.map((id) => id.toString());
   return [
     ...p.filter(({ id }) => {
       const str = id.toString();
-      return !removalIds.includes(str) && !newIds.includes(str);
+      return !removedIds.includes(str) && !addedIds.includes(str);
     }),
-    ...additions,
+    ...uniqueAdditions,
   ];
 };
 
@@ -502,11 +508,7 @@ export const Tree = (): ReactElement => {
         removeLayout,
         handleException,
         addStatus,
-        selection: {
-          parent,
-          nodes: selectedNodes,
-          resources: selectedResources,
-        },
+        selection: { parent, nodes: selectedNodes, resources: selectedResources },
         state: {
           nodes: nodeSnapshot,
           resources,

@@ -9,7 +9,6 @@
 
 import { Align, Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
-import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
@@ -22,21 +21,15 @@ import { add } from "@/workspace/slice";
 
 export const CREATE_LAYOUT_TYPE = "createWorkspace";
 
-export const createWindowLayout = (
-  name: string = "Workspace.Create",
-): Layout.State => ({
+export const CREATE_WINDOW_LAYOUT: Layout.State = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
   windowKey: CREATE_LAYOUT_TYPE,
-  name,
+  name: "Workspace.Create",
   icon: "Workspace",
   location: "modal",
-  window: {
-    resizable: false,
-    size: { height: 225, width: 625 },
-    navTop: true,
-  },
-});
+  window: { resizable: false, size: { height: 225, width: 625 }, navTop: true },
+};
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Workspace must have a name" }),
@@ -45,29 +38,23 @@ const formSchema = z.object({
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
-  const methods = Form.use({
-    values: {
-      name: "",
-    },
-    schema: formSchema,
-  });
+  const methods = Form.use({ values: { name: "" }, schema: formSchema });
 
   const client = Synnax.use();
   const dispatch = useDispatch();
   const active = useSelectActiveKey();
 
   const { mutate, isPending } = useMutation({
-    mutationKey: [],
     mutationFn: async () => {
       if (!methods.validate() || client == null) return;
       const { name } = methods.value();
       const ws = await client.workspaces.create({
         name,
-        layout: Layout.ZERO_SLICE_STATE as unknown as UnknownRecord,
+        layout: Layout.ZERO_SLICE_STATE,
       });
       dispatch(add(ws));
       if (active != null)
-        dispatch(Layout.setWorkspace({ slice: ws.layout as unknown as SliceState }));
+        dispatch(Layout.setWorkspace({ slice: ws.layout as SliceState }));
       onClose();
     },
   });

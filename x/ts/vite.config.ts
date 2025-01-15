@@ -42,7 +42,7 @@ export default defineConfig({
         destructor: path.resolve(".", "src/destructor.ts"),
         toArray: path.resolve(".", "src/toArray.ts"),
         search: path.resolve(".", "src/search.ts"),
-        unique: path.resolve(".", "src/unique.ts"),
+        unique: path.resolve(".", "src/unique/index.ts"),
         record: path.resolve(".", "src/record.ts"),
         change: path.resolve(".", "src/change/index.ts"),
         identity: path.resolve(".", "src/identity.ts"),

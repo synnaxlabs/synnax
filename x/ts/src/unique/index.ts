@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export function unique<V>(values: V[] | readonly V[]): V[] {
-  return [...new Set(values)];
-}
+export * as unique from "@/unique/unique";
