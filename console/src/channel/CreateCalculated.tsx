@@ -89,7 +89,7 @@ export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.Stat
 const ZERO_FORM_VALUES: FormValues = {
   ...ZERO_CHANNEL,
   virtual: true, // Set to true by default
-  expression: "result = np.array([])",
+  expression: "result =",
 };
 
 export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) => {
