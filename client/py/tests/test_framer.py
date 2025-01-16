@@ -706,3 +706,51 @@ class TestDeleter:
                     TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))
                 ),
             )
+
+
+@pytest.mark.framer
+class TestCalculatedChannels:
+    def test_basic_calc_channel(self, client: sy.Synnax):
+        """Should correctly create and read from a basic calculated channel using streaming"""
+        # Create channels
+        timestamp_channel = client.channels.create(
+            name="test_timestamp",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP
+        )
+
+        # Create source channels first
+        src_channels = client.channels.create([
+            sy.Channel(name="test_a", index=timestamp_channel.key,
+                       data_type=sy.DataType.FLOAT32),
+            sy.Channel(name="test_b", index=timestamp_channel.key,
+                       data_type=sy.DataType.FLOAT32)
+        ])
+
+        # Then create calc channel using the source channel keys
+        calc_channel = client.channels.create(
+            name="test_calc",
+            data_type=sy.DataType.FLOAT32,
+            expression="result=test_a + test_b",
+            requires=[src_channels[0].key, src_channels[1].key]
+        )
+
+        # Set up test data
+        start = sy.TimeStamp.now()
+        timestamps = [start]
+        value = np.array([2.0],
+                         dtype=np.float32)  # Just use a single value for simplicity
+
+        # Stream and write
+        with client.open_streamer(calc_channel.key) as streamer:
+            with client.open_writer(start, [timestamp_channel.key, src_channels[0].key,
+                                            src_channels[1].key]) as writer:
+                writer.write({
+                    timestamp_channel.key: timestamps,
+                    src_channels[0].key: value / 2,
+                    src_channels[1].key: value / 2
+                })
+
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert np.array_equal(frame[calc_channel.key], value)
