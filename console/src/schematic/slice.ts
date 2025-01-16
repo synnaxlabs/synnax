@@ -13,7 +13,8 @@ import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
-import * as latest from "@/schematic/migrations";
+import * as latest from "@/schematic/types";
+import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
@@ -26,7 +27,7 @@ export const ZERO_STATE = latest.ZERO_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
-export const parser = latest.parser;
+export const anyStateZ = latest.anyStateZ;
 
 export const SLICE_NAME = "schematic";
 
@@ -42,7 +43,7 @@ export const purgeState = (state: State): State => {
   return state;
 };
 
-export const purgeSliceState = (state: StoreState): StoreState => {
+export const purgeSliceState = (state: RootState): RootState => {
   Object.values(state[SLICE_NAME].schematics).forEach(purgeState);
   return state;
 };
@@ -143,6 +144,10 @@ export interface SetLegendPayload {
   legend: Partial<LegendState>;
 }
 
+export interface SelectAllPayload {
+  key: string;
+}
+
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -237,7 +242,7 @@ export const { actions, reducer } = createSlice({
         ...ZERO_STATE,
         ...latest.migrateState(payload),
         key: layoutKey,
-      }) as State;
+      });
       if (schematic.snapshot) {
         schematic.editable = false;
         clearSelections(schematic);
@@ -425,6 +430,12 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       schematic.legend = { ...schematic.legend, ...legend };
     },
+    selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
+      const { key: layoutKey } = payload;
+      const schematic = state.schematics[layoutKey];
+      schematic.nodes.forEach((node) => (node.selected = true));
+      schematic.edges.forEach((edge) => (edge.selected = true));
+    },
   },
 });
 
@@ -451,6 +462,7 @@ export const {
   toggleControl,
   setControlStatus,
   addElement,
+  selectAll,
   setEdges,
   setNodes,
   remove,

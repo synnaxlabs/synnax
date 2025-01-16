@@ -13,9 +13,11 @@ import { Align, Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Export } from "@/export";
 import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
+import { useExport } from "@/log/export";
 import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
 import { setChannels } from "@/log/slice";
@@ -30,16 +32,15 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const state = useSelectOptional(layoutKey);
   const handleChannelChange = (v: channel.Key) =>
     d(setChannels({ key: layoutKey, channels: [v ?? 0] }));
+  const handleExport = useExport();
   if (state == null) return null;
   return (
     <>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Log />}>{name}</ToolbarTitle>
-        <Align.Space direction="x">
-          <Link.ToolbarCopyButton
-            name={name}
-            ontologyID={{ key: state.key, type: log.ONTOLOGY_TYPE }}
-          />
+        <Align.Space direction="x" style={{ width: 66 }} empty>
+          <Export.ToolbarButton onExport={() => handleExport(state.key)} />
+          <Link.CopyToolbarButton name={name} ontologyID={log.ontologyID(state.key)} />
         </Align.Space>
       </ToolbarHeader>
       <Align.Space style={{ padding: "2rem", width: "100%" }} direction="x">

@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { OS, Select, Text } from "@synnaxlabs/pluto";
+import { Select, Text } from "@synnaxlabs/pluto";
+import { runtime } from "@synnaxlabs/x";
 import { useEffect, useLayoutEffect, useState } from "react";
 
 import { Tabs as Core } from "@/components/Tabs";
-import { runtime } from "@synnaxlabs/x";
 
 const TABS = [
   { key: "docker", name: "Docker", tabKey: "docker", icon: <Icon.OS.Docker /> },
   { key: "linux", name: "Linux", tabKey: "linux", icon: <Icon.OS.Linux /> },
-  { key: "macos", name: "MacOS", tabKey: "macos", icon: <Icon.OS.MacOS /> },
+  { key: "macos", name: "macOS", tabKey: "macos", icon: <Icon.OS.MacOS /> },
   { key: "windows", name: "Windows", tabKey: "windows", icon: <Icon.OS.Windows /> },
 ];
 
@@ -44,7 +44,7 @@ export const PlatformTabs = ({ exclude = [], priority = [], ...props }) => {
   let tabs = [
     { name: "Docker", tabKey: "docker", icon: <Icon.OS.Docker /> },
     { name: "Linux", tabKey: "linux", icon: <Icon.OS.Linux /> },
-    { name: "MacOS", tabKey: "macos", icon: <Icon.OS.MacOS /> },
+    { name: "macOS", tabKey: "macos", icon: <Icon.OS.MacOS /> },
     { name: "Windows", tabKey: "windows", icon: <Icon.OS.Windows /> },
   ].filter((tab) => !exclude.includes(tab.tabKey));
 

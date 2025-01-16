@@ -1,208 +1,83 @@
-name: "Test - Freighter"
+name: Test - Freighter
+
 on:
-  pull_request:
-    branches:
-      - rc
-      - main
   push:
     branches:
-      - rc
       - main
+      - rc
+  pull_request:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
+
 permissions:
   contents: write
   packages: write
+
 jobs:
-  test-go:
+  changes:
+    name: Changes
     runs-on: ubuntu-latest
+    outputs:
+      cpp: ${{ steps.filter.outputs.cpp }}
+      go: ${{ steps.filter.outputs.go }}
+      integration: ${{ steps.filter.outputs.integration }}
+      py: ${{ steps.filter.outputs.py }}
+      ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref }}
           filters: |
-            changed:
-              - "freighter/go/**"
-              - "freighter/integration/**"
-              - ".github/workflows/test.freighter.yaml"
+            shared: &shared
+              - .github/workflows/test.freighter.yaml
+            cpp:
+              - *shared
+              - freighter/cpp/**
+            go: &go
+              - *shared
+              - alamos/go/**
+              - freighter/go/**
+              - x/go/**
+            integration: &integration
+              - *go
+              - freighter/integration/**
+              - x/go/**
+            py:
+              - *shared
+              - *integration
+              - alamos/py/**
+              - freighter/py/**
+            ts:
+              - *shared
+              - *integration
+              - alamos/ts/**
+              - configs/eslint/**
+              - configs/ts/**
+              - configs/vite/**
+              - freighter/ts/**
+              - x/ts/**
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        if: steps.filter.outputs.changed == 'true'
-        with:
-          go-version-file: "go.work"
-          cache-dependency-path: |
-            "alamos/go/go.sum"
-            "aspen/go.sum"
-            "cesium/go.sum"
-            "freighter/go/go.sum"
-            "synnax/go.sum"
-            "x/go/go.sum"
-
-      - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: go test -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
-        working-directory: ./freighter/go
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./freighter/go
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freightergo
-
-  build-integration-image:
-    runs-on: ubuntu-latest
+  cpp:
+    name: C++ (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - "freighter/go/**"
-              - "freighter/integration/**"
-              - ".github/workflows/test.freighter.yaml"
-
-      - name: Login to Github Container Registry
-        if: steps.filter.outputs.changed == 'true'
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download latest earthly
-        if: steps.filter.outputs.changed == 'true'
-        uses: earthly/actions-setup@v1
-
-      - name: Build Image
-        if: steps.filter.outputs.changed == 'true'
-        run: earthly --push +docker
-        working-directory: ./freighter/integration
-
-  test-python:
-    needs: [build-integration-image]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - "freighter/py/**"
-              - "freighter/integration/**"
-              - ".github/workflows/test.freighter.yaml"
-
-      - name: Set up Python
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-
-      - name: Install Poetry
-        if: steps.filter.outputs.changed == 'true'
-        run: |
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install
-        working-directory: ./freighter/py
-
-      - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: pytest --cov=freighter --cov-report xml:coverage.xml
-        working-directory: ./freighter/py
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./freighter/py
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freighterpy
-
-    services:
-      integration:
-        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 8080:8080
-
-  test-typescript:
-    needs: [build-integration-image]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - "freighter/ts/**"
-              - "freighter/integration/**"
-              - ".github/workflows/test.freighter.yaml"
-
-      - name: Setup pnpm
-        if: steps.filter.outputs.changed == 'true'
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Setup Node
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Dependencies
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm install --frozen-lockfile
-
-      - name: Test
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm cov:freighter
-
-      - name: Upload Coverage
-        if: steps.filter.outputs.changed == 'true'
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./freighter/ts
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freighterts
-
-    services:
-      integration:
-        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 8080:8080
-
-  test-cpp:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
@@ -211,6 +86,143 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
-      - name: Run Tests
-        run: bazel test //freighter/cpp:freighter_test
-        shell: bash
+      - name: Test
+        run: bazel test --test_output=all //freighter/cpp:freighter_test --nocache_test_results
+  go:
+    name: Go (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Check Formatting
+        if: matrix.format
+        run: scripts/gofmt-check.sh freighter/go
+
+      - name: Test
+        run: go test -v -shuffle=on ./...
+        working-directory: freighter/go
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Earthly
+        uses: earthly/actions-setup@v1
+
+      - name: Build Image
+        run: earthly --push +docker
+        working-directory: freighter/integration
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
+
+      - name: Check Formatting
+        run: scripts/gofmt-check.sh freighter/integration
+
+  py:
+    name: Python
+    needs: [changes, integration]
+    if: needs.changes.outputs.py == 'true'
+    runs-on: ubuntu-latest
+    services:
+      integration:
+        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 8080:8080
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: freighter/py/pyproject.toml
+          cache: poetry
+
+      - name: Install Dependencies
+        run: poetry install
+        working-directory: freighter/py
+
+      - name: Format
+        run: poetry run black --check --diff --color .
+        working-directory: freighter/py
+
+      - name: Test
+        run: poetry run pytest
+        working-directory: freighter/py
+
+  ts:
+    name: TypeScript
+    needs: [changes, integration]
+    if: needs.changes.outputs.ts == 'true'
+    runs-on: ubuntu-latest
+    services:
+      integration:
+        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 8080:8080
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Lint
+        run: pnpm lint:freighter
+
+      - name: Build
+        run: pnpm build:freighter
+
+      - name: Test
+        run: pnpm test:freighter

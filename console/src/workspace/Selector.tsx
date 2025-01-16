@@ -28,7 +28,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { createWindowLayout } from "@/workspace/Create";
+import { CREATE_WINDOW_LAYOUT } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
 
@@ -46,14 +46,14 @@ export const Selector = (): ReactElement => {
         dispatch(Layout.clearWorkspace());
         return;
       }
+      if (v == null) {
+        dispatch(setActive(null));
+        return;
+      }
+      if (client == null) return;
       void (async () => {
-        if (v == null) {
-          dispatch(setActive(null));
-          return;
-        }
-        if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
-        dispatch(add({ workspaces: [ws] }));
+        dispatch(add(ws));
         dispatch(
           Layout.setWorkspace({
             slice: ws.layout as unknown as Layout.SliceState,
@@ -124,7 +124,7 @@ export const Selector = (): ReactElement => {
                       variant="outlined"
                       onClick={() => {
                         dProps.close();
-                        place(createWindowLayout());
+                        place(CREATE_WINDOW_LAYOUT);
                       }}
                       iconSpacing="small"
                       tooltip="Create a new workspace"

@@ -27,7 +27,8 @@ export interface BaseProps {
   placeLayout: Layout.Placer;
   removeLayout: Layout.Remover;
   services: Services;
-  addStatus: (status: Status.CrudeSpec) => void;
+  addStatus: Status.AddStatusFn;
+  handleException: Status.HandleExcFn;
 }
 
 export interface HandleSelectProps extends BaseProps {
@@ -43,6 +44,7 @@ export interface HandleMosaicDropProps {
   nodeKey: number;
   location: location.Location;
   addStatus: Status.AddStatusFn;
+  handleException: Status.HandleExcFn;
   id: ontology.ID;
 }
 
@@ -95,7 +97,9 @@ export type PaletteListItem = FC<List.ItemProps<string, ontology.Resource>>;
 
 export interface Service {
   type: ontology.ResourceType;
-  icon: ReactElement<Icon.BaseProps>;
+  icon:
+    | ReactElement<Icon.BaseProps>
+    | ((resource: ontology.Resource) => ReactElement<Icon.BaseProps>);
   hasChildren: boolean;
   onSelect: HandleSelect;
   canDrop: Haul.CanDrop;

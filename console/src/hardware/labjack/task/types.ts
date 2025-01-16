@@ -7,83 +7,76 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type task } from "@synnaxlabs/client";
+import { channel, device, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { outputChannelTypeZ } from "@/hardware/labjack/device/types";
+import {
+  AI_CHANNEL_TYPE,
+  DI_CHANNEL_TYPE,
+  outputChannelTypeZ,
+  TC_CHANNEL_TYPE,
+} from "@/hardware/labjack/device/types";
 import { thermocoupleTypeZ } from "@/hardware/task/common/thermocouple";
 
 export const PREFIX = "labjack";
 
-export const linearScaleZ = z.object({
-  type: z.literal("linear"),
+const LINEAR_SCALE_TYPE = "linear";
+
+const linearScaleZ = z.object({
+  type: z.literal(LINEAR_SCALE_TYPE),
   slope: z.number(),
   offset: z.number(),
 });
 
-export type LinearScale = z.infer<typeof linearScaleZ>;
+interface LinearScale extends z.infer<typeof linearScaleZ> {}
 
-export const ZERO_LINEAR_SCALE: LinearScale = {
-  type: "linear",
-  slope: 1,
-  offset: 0,
-};
+const ZERO_LINEAR_SCALE: LinearScale = { type: LINEAR_SCALE_TYPE, slope: 1, offset: 0 };
 
-export const thermocoupleScaleZ = z.object({
-  type: z.literal("thermocouple"),
-  thermocoupleType: thermocoupleTypeZ,
-});
+const NO_SCALE_TYPE = "none";
 
-export type ThermocoupleScale = z.infer<typeof thermocoupleScaleZ>;
+const noScaleZ = z.object({ type: z.literal(NO_SCALE_TYPE) });
 
-export const ZERO_THERMOCOUPLE_SCALE: ThermocoupleScale = {
-  type: "thermocouple",
-  thermocoupleType: "K",
-};
+interface NoScale extends z.infer<typeof noScaleZ> {}
 
-export const noScaleZ = z.object({
-  type: z.literal("none"),
-});
+const NO_SCALE: NoScale = { type: NO_SCALE_TYPE };
 
-export type NoScale = z.infer<typeof noScaleZ>;
-
-export const ZERO_NO_SCALE: NoScale = { type: "none" };
-
-export const scaleZ = z.union([noScaleZ, linearScaleZ]);
+const scaleZ = z.union([noScaleZ, linearScaleZ]);
 export type Scale = z.infer<typeof scaleZ>;
 export type ScaleType = Scale["type"];
 
 export const ZERO_SCALES: Record<ScaleType, Scale> = {
-  none: ZERO_NO_SCALE,
-  linear: ZERO_LINEAR_SCALE,
+  [NO_SCALE_TYPE]: NO_SCALE,
+  [LINEAR_SCALE_TYPE]: ZERO_LINEAR_SCALE,
 };
 
 export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
-  none: noScaleZ,
-  linear: linearScaleZ,
+  [NO_SCALE_TYPE]: noScaleZ,
+  [LINEAR_SCALE_TYPE]: linearScaleZ,
 };
 
-export const inputChan = z.object({
+export const inputChannelZ = z.object({
   port: z.string(),
   enabled: z.boolean(),
   key: z.string(),
   range: z.number().optional(),
-  channel: z.number(),
-  type: z.literal("AI").or(z.literal("DI")),
+  channel: channel.keyZ,
+  type: z.literal(AI_CHANNEL_TYPE).or(z.literal(DI_CHANNEL_TYPE)),
   scale: scaleZ,
 });
-export type InputChan = z.infer<typeof inputChan>;
 
-export const temperatureUnitsZ = z.enum(["C", "F", "K"]);
+const CELSIUS_UNIT = "C";
+const FAHRENHEIT_UNIT = "F";
+const KELVIN_UNIT = "K";
+const temperatureUnitsZ = z.enum([CELSIUS_UNIT, FAHRENHEIT_UNIT, KELVIN_UNIT]);
 export type TemperatureUnits = z.infer<typeof temperatureUnitsZ>;
 
-export const thermocoupleChanZ = z.object({
+export const thermocoupleChannelZ = z.object({
   key: z.string(),
   port: z.string(),
   enabled: z.boolean(),
-  channel: z.number(),
+  channel: channel.keyZ,
   range: z.number(),
-  type: z.literal("TC"),
+  type: z.literal(TC_CHANNEL_TYPE),
   thermocoupleType: thermocoupleTypeZ.or(z.literal("C")),
   posChan: z.number(),
   negChan: z.number(),
@@ -93,51 +86,48 @@ export const thermocoupleChanZ = z.object({
   units: temperatureUnitsZ,
   scale: scaleZ,
 });
-export type ThermocoupleChan = z.infer<typeof thermocoupleChanZ>;
-export type ThermocoupleChanType = ThermocoupleChan["type"];
-export const ZERO_THERMOCOUPLE_CHAN: ThermocoupleChan = {
+interface ThermocoupleChannel extends z.infer<typeof thermocoupleChannelZ> {}
+export const ZERO_THERMOCOUPLE_CHANNEL: ThermocoupleChannel = {
   port: "",
   enabled: true,
   key: "",
   channel: 0,
   range: 0,
-  type: "TC",
-  thermocoupleType: "K",
+  type: TC_CHANNEL_TYPE,
+  thermocoupleType: KELVIN_UNIT,
   posChan: 0,
   negChan: 199,
   units: "K",
   cjcSource: "TEMPERATURE_DEVICE_K",
   cjcSlope: 1,
   cjcOffset: 0,
-  scale: ZERO_NO_SCALE,
+  scale: NO_SCALE,
 };
 
-export const readChan = z.union([inputChan, thermocoupleChanZ]);
-export type ReadChan = z.infer<typeof readChan>;
-export type ReadChanType = ReadChan["type"];
+const readChannelZ = z.union([inputChannelZ, thermocoupleChannelZ]);
+export type ReadChannel = z.infer<typeof readChannelZ>;
 
-export const ZERO_READ_CHAN: ReadChan = {
+export const ZERO_READ_CHANNEL: ReadChannel = {
   port: "AIN0",
   enabled: true,
   key: "",
   channel: 0,
-  type: "AI",
+  type: AI_CHANNEL_TYPE,
   range: 0,
-  scale: { type: "none" },
+  scale: { ...NO_SCALE },
 };
 
-export const writeChan = z.object({
+const writeChannelZ = z.object({
   type: outputChannelTypeZ,
   port: z.string(),
   enabled: z.boolean(),
-  cmdKey: z.number(),
-  stateKey: z.number(),
+  cmdKey: channel.keyZ,
+  stateKey: channel.keyZ,
   key: z.string(),
 });
 
-export type WriteChan = z.infer<typeof writeChan>;
-export type WriteChanType = WriteChan["type"];
-export const ZERO_WRITE_CHAN: WriteChan = {
+export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
+export const ZERO_WRITE_CHANNEL: WriteChannel = {
   port: "DIO4",
   enabled: true,
   key: "",
@@ -148,12 +138,12 @@ export const ZERO_WRITE_CHAN: WriteChan = {
 
 const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");
 
-export const readTaskConfigZ = z
+export const readConfigZ = z
   .object({
     device: deviceKeyZ,
     sampleRate: z.number().int().min(0).max(50000),
     streamRate: z.number().int().min(0).max(50000),
-    channels: z.array(readChan),
+    channels: z.array(readChannelZ),
     dataSaving: z.boolean(),
   })
   .refine(
@@ -165,49 +155,43 @@ export const readTaskConfigZ = z
       message: "Stream rate must be less than or equal to the sample rate",
     },
   );
-export type ReadTaskConfig = z.infer<typeof readTaskConfigZ>;
+export type ReadConfig = z.infer<typeof readConfigZ>;
 
-export const writeTaskConfigZ = z.object({
+export const writeConfigZ = z.object({
   device: deviceKeyZ,
-  channels: z.array(writeChan),
+  channels: z.array(writeChannelZ),
   dataSaving: z.boolean(),
   stateRate: z.number().int().min(1).max(50000),
 });
-export type WriteTaskConfig = z.infer<typeof writeTaskConfigZ>;
+export type WriteConfig = z.infer<typeof writeConfigZ>;
 
-export const baseReadStateDetailsZ = z.object({
-  running: z.boolean(),
-  message: z.string(),
-});
-type baseReadStateDetails = z.infer<typeof baseReadStateDetailsZ>;
+type BaseReadStateDetails = {
+  running: boolean;
+  message: string;
+};
 
-export const errorReadStateDetailsZ = baseReadStateDetailsZ.extend({
-  errors: z.array(
-    z.object({
-      message: z.string(),
-      path: z.string(),
-    }),
-  ),
-});
-type ErrorReadStateDetails = z.infer<typeof errorReadStateDetailsZ>;
+type ErrorReadStateDetails = BaseReadStateDetails & {
+  errors: { message: string; path: string }[];
+};
 
-export type ReadStateDetails = baseReadStateDetails | ErrorReadStateDetails;
+export type ReadStateDetails = BaseReadStateDetails | ErrorReadStateDetails;
 
-export const writeStateDetailsZ = z.object({ running: z.boolean() });
-export type WriteStateDetails = z.infer<typeof writeStateDetailsZ>;
+export type WriteStateDetails = {
+  running: boolean;
+};
 
 export const READ_TYPE = `${PREFIX}_read`;
 export type ReadType = typeof READ_TYPE;
 
-export const ZERO_READ_CONFIG: ReadTaskConfig = {
+const ZERO_READ_CONFIG: ReadConfig = {
   device: "",
   sampleRate: 10,
   streamRate: 5,
   channels: [],
   dataSaving: true,
 };
-export type Read = task.Task<ReadTaskConfig, ReadStateDetails, ReadType>;
-export type ReadPayload = task.Payload<ReadTaskConfig, ReadStateDetails, ReadType>;
+export interface Read extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
+export type ReadPayload = task.Payload<ReadConfig, ReadStateDetails, ReadType>;
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
   name: "LabJack Read Task",
@@ -218,19 +202,18 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
 export const WRITE_TYPE = `${PREFIX}_write`;
 export type WriteType = typeof WRITE_TYPE;
 
-export const ZERO_WRITE_CONFIG: WriteTaskConfig = {
+const ZERO_WRITE_CONFIG: WriteConfig = {
   device: "",
   channels: [],
   dataSaving: true,
   stateRate: 10,
 };
-export type Write = task.Task<WriteTaskConfig, WriteStateDetails, WriteType>;
-export type WritePayload = task.Payload<WriteTaskConfig, WriteStateDetails, WriteType>;
+export type Write = task.Task<WriteConfig, WriteStateDetails, WriteType>;
+export interface WritePayload
+  extends task.Payload<WriteConfig, WriteStateDetails, WriteType> {}
 export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: "",
   name: "LabJack Write Task",
   config: ZERO_WRITE_CONFIG,
   type: WRITE_TYPE,
 };
-
-export type Chan = ReadChan | WriteChan;

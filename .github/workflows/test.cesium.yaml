@@ -1,14 +1,14 @@
-name: "Test - Cesium"
+name: Test - Cesium
 
 on:
-  pull_request:
-    branches:
-      - rc
-      - main
   push:
     branches:
-      - rc
       - main
+      - rc
+  pull_request:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
 
 jobs:
@@ -38,9 +38,14 @@ jobs:
     needs: changes
     if: needs.changes.outputs.changed == 'true'
     strategy:
-      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -50,10 +55,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache-dependency-path: |
-            alamos/go/go.sum
-            cesium/go.sum
-            x/go/go.sum
+          cache-dependency-path: go.work.sum
+
+      - name: Format
+        if: matrix.format
+        run: scripts/gofmt-check.sh cesium
 
       - name: Test
         run: go test -v -shuffle=on ./...

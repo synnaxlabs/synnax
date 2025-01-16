@@ -19,7 +19,7 @@ import {
   type XAxisKey,
   type YAxisKey,
 } from "@/lineplot/axis";
-import * as latest from "@/lineplot/migrations";
+import * as latest from "@/lineplot/types";
 
 export const shouldDisplayAxis = (key: AxisKey, state: State): boolean => {
   if (["x1", "y1"].includes(key)) return true;
@@ -52,7 +52,7 @@ export const ZERO_CHANNELS_STATE = latest.ZERO_CHANNELS_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
-export const parser = latest.parser;
+export const anyStateZ = latest.anyStateZ;
 
 export type StateWithName = State & { name: string };
 
@@ -207,7 +207,7 @@ const generateTypedLineKeys = (state: State): TypedLineKey[] =>
 const updateLines = (state: State): LineState[] => {
   const keys = generateTypedLineKeys(state);
   const lines: LineState[] = [];
-  unique(keys).forEach((key) => {
+  unique.unique(keys).forEach((key) => {
     const strKey = typedLineKeyToString(key);
     const existing = state.lines.find((line) => strKey === line.key);
     if (existing != null) lines.push(existing);
@@ -264,7 +264,7 @@ export const { actions, reducer } = createSlice({
       const p = state.plots[layoutKey];
       const prevShouldDisplay = shouldDisplayAxis(axisKey, p);
       if (mode === "set") p.channels[axisKey] = channels;
-      else p.channels[axisKey] = unique([...p.channels[axisKey], ...channels]);
+      else p.channels[axisKey] = unique.unique([...p.channels[axisKey], ...channels]);
       const nextShouldDisplay = shouldDisplayAxis(axisKey, p);
       p.lines = updateLines(p);
       p.viewport = deep.copy(latest.ZERO_VIEWPORT_STATE);
@@ -284,7 +284,7 @@ export const { actions, reducer } = createSlice({
       const p = state.plots[layoutKey];
       if (mode === "set") p.ranges[axisKey] = ranges;
       else if (mode === "add")
-        p.ranges[axisKey] = unique([...p.ranges[axisKey], ...ranges]);
+        p.ranges[axisKey] = unique.unique([...p.ranges[axisKey], ...ranges]);
       p.axes.renderTrigger += 1;
       p.lines = updateLines(p);
     },

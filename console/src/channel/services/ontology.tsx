@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { type channel, isCalculated, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   type Haul,
+  Icon as PIcon,
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,
@@ -21,6 +22,7 @@ import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
+import { createCalculatedLayout } from "@/channel/CreateCalculated";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -30,7 +32,6 @@ import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-
 const canDrop = (): boolean => false;
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -128,7 +129,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       await client.channels.delete(resources.map(({ id }) => Number(id.key))),
     onError: (
       e,
-      { selection: { resources }, addStatus, state: { setNodes } },
+      { selection: { resources }, handleException, state: { setNodes } },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
@@ -136,11 +137,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       let message = "Failed to delete channels";
       if (resources.length === 1)
         message = `Failed to delete channel ${resources[0].name}`;
-      addStatus({
-        variant: "error",
-        message,
-        description: e.message,
-      });
+      handleException(e, message);
     },
   }).mutate;
 };
@@ -158,16 +155,12 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
     },
     onError: (
       e: Error,
-      { selection: { resources }, addStatus, state: { setNodes } },
+      { selection: { resources }, handleException, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      addStatus({
-        variant: "error",
-        message: `Failed to set alias for ${first.name}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to set alias for ${first.name}`);
     },
   }).mutate;
 
@@ -181,16 +174,12 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
     },
     onError: (
       e: Error,
-      { selection: { resources }, addStatus, state: { setNodes } },
+      { selection: { resources }, handleException, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      addStatus({
-        variant: "error",
-        message: `Failed to rename ${first.name}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to rename ${first.name}`);
     },
   }).mutate;
 
@@ -205,18 +194,29 @@ export const useDeleteAlias = (): ((props: Ontology.TreeContextMenuProps) => voi
     },
     onError: (
       e: Error,
-      { selection: { resources }, addStatus, state: { setNodes } },
+      { selection: { resources }, handleException, state: { setNodes } },
       prevNodes,
     ) => {
       if (prevNodes != null) setNodes(prevNodes);
       const first = resources[0];
-      addStatus({
-        variant: "error",
-        message: `Failed to remove alias on ${first.name}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to remove alias on ${first.name}`);
     },
   }).mutate;
+
+const useOpenCalculated =
+  () =>
+  ({ selection: { resources }, placeLayout }: Ontology.TreeContextMenuProps) => {
+    if (resources.length !== 1) return;
+    const resource = resources[0];
+    const tabKey = `editCalculated-${resource.id.key}`;
+    return placeLayout(
+      createCalculatedLayout({
+        key: tabKey,
+        name: `Edit ${resource.name}`,
+        args: { channelKey: Number(resource.id.key) },
+      }),
+    );
+  };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
@@ -230,6 +230,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const handleRename = useRename();
   const handleLink = Link.useCopyToClipboard();
+  const openCalculated = useOpenCalculated();
   const handleSelect = {
     group: () => groupFromSelection(props),
     delete: () => del(props),
@@ -241,12 +242,24 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         name: resources[0].name,
         ontologyID: resources[0].id.payload,
       }),
+    openCalculated: () => openCalculated(props),
   };
   const singleResource = resources.length === 1;
+
+  const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
+
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
       <Group.GroupMenuItem selection={selection} />
+      {isCalc && (
+        <>
+          <PMenu.Divider />
+          <PMenu.Item itemKey="openCalculated" startIcon={<Icon.Edit />}>
+            Edit Calcuation
+          </PMenu.Item>
+        </>
+      )}
       {activeRange != null && activeRange.persisted && (
         <>
           <PMenu.Divider />
@@ -288,7 +301,11 @@ export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "channel",
-  icon: <Icon.Channel />,
+  icon: (p) => (
+    <PIcon.Icon topRight={Channel.resolveIcon(p.data as channel.Payload)}>
+      <Icon.Channel />
+    </PIcon.Icon>
+  ),
   hasChildren: false,
   allowRename,
   onRename: undefined,

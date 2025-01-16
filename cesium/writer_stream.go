@@ -111,7 +111,7 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 		for {
 			select {
 			case <-ctx.Done():
-				return errors.CombineErrors(w.close(context.TODO()), ctx.Err())
+				return errors.Combine(w.close(context.TODO()), ctx.Err())
 			case req, ok := <-w.In.Outlet():
 				if !ok {
 					return w.close(ctx)
@@ -297,7 +297,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 			return err
 		}
 	}
-	return errors.CombineErrors(w.err, c.Error())
+	return errors.Combine(w.err, c.Error())
 }
 
 type unaryWriterState struct {
@@ -444,8 +444,8 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		if fr.Series[i].Len() != lengthOfFrame {
 			return errors.Wrapf(
 				validate.Error,
-				`frame must have the same length for all series, expected %d, got %d. \n 
-				See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1 
+				`frame must have the same length for all series, expected %d, got %d. \n
+				See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
 				`,
 				lengthOfFrame,
 				fr.Series[i].Len(),

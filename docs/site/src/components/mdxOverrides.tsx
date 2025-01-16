@@ -12,11 +12,13 @@ interface TextFactoryProps {
   includeAnchor?: boolean;
 }
 
+interface TextProps extends Omit<Text.TextProps, "level"> {}
+
 export const textFactory = ({
   level,
   includeAnchor = false,
-}: TextFactoryProps): FC<Omit<Text.TextProps, "level">> => {
-  const Component = ({ children, id, ...p }: Omit<Text.TextProps, "level">) => (
+}: TextFactoryProps): FC<TextProps> => {
+  const Component = ({ children, id, ...p }: TextProps) => (
     <Text.Text id={id} level={level} {...p}>
       {children}
       {includeAnchor && (

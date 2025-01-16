@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"go/types"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -19,8 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/types"
+	xtypes "github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,9 +38,11 @@ type leaseProxy struct {
 	external        *set.Integer[LocalKey]
 }
 
-const leasedCounterSuffix = ".distribution.channel.leasedCounter"
-const freeCounterSuffix = ".distribution.channel.counter.free"
-const externalCounterSuffix = ".distribution.channel.externalCounter"
+const (
+	leasedCounterSuffix   = ".distribution.channel.leasedCounter"
+	freeCounterSuffix     = ".distribution.channel.counter.free"
+	externalCounterSuffix = ".distribution.channel.externalCounter"
+)
 
 func newLeaseProxy(
 	cfg ServiceConfig,
@@ -72,11 +76,13 @@ func newLeaseProxy(
 		}
 		p.freeCounter = c
 	}
-	p.Transport.CreateServer().BindHandler(p.handle)
+	p.Transport.CreateServer().BindHandler(p.createHandler)
+	p.Transport.DeleteServer().BindHandler(p.deleteHandler)
+	p.Transport.RenameServer().BindHandler(p.renameHandler)
 	return p, nil
 }
 
-func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
+func (lp *leaseProxy) createHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
 	txn := lp.ClusterDB.OpenTx()
 	err := lp.create(ctx, txn, &msg.Channels, msg.RetrieveIfNameExists)
 	if err != nil {
@@ -85,14 +91,35 @@ func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMess
 	return CreateMessage{Channels: msg.Channels}, txn.Commit(ctx)
 }
 
+func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
+	txn := lp.ClusterDB.OpenTx()
+	err := lp.delete(ctx, txn, msg.Keys, false)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, txn.Commit(ctx)
+}
+
+func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (types.Nil, error) {
+	txn := lp.ClusterDB.OpenTx()
+	err := lp.rename(ctx, txn, msg.Keys, msg.Names, false)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, txn.Commit(ctx)
+}
+
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, retrieveIfNameExists bool) error {
 	channels := *_channels
 	for i, ch := range channels {
-		if ch.LocalKey != 0 {
-			channels[i].LocalKey = 0
-		}
 		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
+		}
+		if ch.Expression != "" {
+			channels[i].Leaseholder = core.Free
+			channels[i].Virtual = true
+		} else if ch.LocalKey != 0 {
+			channels[i].LocalKey = 0
 		}
 	}
 	batch := lp.createRouter.Batch(channels)
@@ -112,7 +139,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			}
 			oChannels = append(oChannels, remoteChannels...)
 		} else {
-			err := lp.createFreeVirtual(ctx, tx, &batch.Free, retrieveIfNameExists)
+			err := lp.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, retrieveIfNameExists)
 			if err != nil {
 				return err
 			}
@@ -128,7 +155,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	return lp.maybeSetResources(ctx, tx, oChannels)
 }
 
-func (lp *leaseProxy) createFreeVirtual(
+func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
@@ -137,17 +164,44 @@ func (lp *leaseProxy) createFreeVirtual(
 	if lp.freeCounter == nil {
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
-	toCreate, err := lp.maybeRetrieveExisting(ctx, tx, channels, lp.freeCounter, retrieveIfNameExists)
+
+	// If existing channels are passed in, update the name, required channels and calc expression
+	keys := KeysFromChannels(*channels)
+	if err := gorp.NewUpdate[Key, Channel]().
+		WhereKeys(keys...).
+		ChangeErr(
+			func(c Channel) (Channel, error) {
+				idx := lo.IndexOf(keys, c.Key())
+				ic := (*channels)[idx]
+				// If retrieveIfNameExists is true and user has provided channels to update, we need
+				// to reset those channels to the actual values to ensure the user does not mistakenly
+				// think the update was successful.
+				if retrieveIfNameExists {
+					(*channels)[idx] = c
+					return c, nil
+				}
+				c.Name = ic.Name
+				c.Requires = ic.Requires
+				c.Expression = ic.Expression
+				return c, nil
+			}).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
+		return err
+	}
+
+	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.freeCounter, retrieveIfNameExists)
 	if err != nil {
 		return err
 	}
-	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
+
+	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
+		tx); err != nil {
 		return err
 	}
 	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
-func (lp *leaseProxy) maybeRetrieveExisting(
+func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
@@ -180,17 +234,17 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 		return
 	}
 
+	originalCounterValue := nextCounterValue - incCounterBy
 	toCreate = make([]Channel, 0, incCounterBy)
 	for i, ch := range *channels {
 		if ch.LocalKey == 0 {
-			ch.LocalKey = nextCounterValue - incCounterBy + LocalKey(len(toCreate)) + 1
+			ch.LocalKey = originalCounterValue + LocalKey(len(toCreate)) + 1
 			toCreate = append(toCreate, ch)
 		} else if ch.IsIndex {
-			ch.LocalIndex = ch.LocalKey
+			ch.LocalIndex = ch.LocalKey // remove and run tests
 		}
 		(*channels)[i] = ch
 	}
-
 	return toCreate, nil
 }
 
@@ -200,7 +254,7 @@ func (lp *leaseProxy) createGateway(
 	channels *[]Channel,
 	retrieveIfNameExists bool,
 ) error {
-	toCreate, err := lp.maybeRetrieveExisting(ctx, tx, channels, lp.leasedCounter, retrieveIfNameExists)
+	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.leasedCounter, retrieveIfNameExists)
 	if err != nil {
 		return err
 	}
@@ -221,7 +275,7 @@ func (lp *leaseProxy) createGateway(
 	newExternalChannels := len(externalCreatedKeys)
 	totalExternalChannels := LocalKey(newExternalChannels) + lp.externalCounter.value()
 	if newExternalChannels != 0 {
-		if err = lp.IntOverflowCheck(ctx, types.Uint20(totalExternalChannels)); err != nil {
+		if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(totalExternalChannels)); err != nil {
 			return err
 		}
 	}

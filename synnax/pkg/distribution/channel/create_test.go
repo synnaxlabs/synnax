@@ -47,7 +47,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 			})
 			It("Should not create the channel if it already exists by name", func() {
-				Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+				Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 				Expect(ch.LocalKey).To(Equal(channel.LocalKey(2)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
@@ -66,7 +66,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 			})
-			It("Should create the channel in the cesium gorpDB", func() {
+			It("Should create the channel in cesium", func() {
 				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
@@ -74,7 +74,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(cesiumCH.DataType).To(Equal(telem.Float64T))
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
-			It("Should not create the channel on another nodes cesium", func() {
+			It("Should not create the channel on another nodes cesium DB", func() {
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(MatchError(query.NotFound))
 				Expect(channels).To(HaveLen(0))
@@ -92,6 +92,25 @@ var _ = Describe("Create", Ordered, func() {
 					Expect(ch2.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 					Expect(ch2.Key().LocalKey()).To(Equal(channel.LocalKey(4)))
 				})
+			It("Should correctly create a virtual channel", func() {
+				ch3 := &channel.Channel{
+					Name:        "SG01",
+					DataType:    telem.JSONT,
+					Leaseholder: 2,
+					Virtual:     true,
+				}
+				err := services[1].Create(ctx, ch3)
+				Expect(err).To(BeNil())
+				Expect(ch3.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
+				Eventually(func(g Gomega) {
+					channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch3.Key().StorageKey())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(channels).To(HaveLen(1))
+					g.Expect(channels[0].DataType).To(Equal(telem.JSONT))
+					g.Expect(channels[0].Virtual).To(BeTrue())
+				})
+
+			})
 		})
 		Context("Free", func() {
 			BeforeEach(func() {
@@ -116,16 +135,16 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Leaseholder = 1
 		})
 		It("Should create the channel without error", func() {
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 			Expect(ch.Key().LocalKey()).To(Not(Equal(uint16(0))))
 		})
 		It("Should not create the channel if it already exists by name", func() {
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			k := ch.Key()
 			ch.Leaseholder = 0
 			ch.LocalKey = 0
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 		})
@@ -133,14 +152,102 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Name = "SG0002"
 			ch.Virtual = true
 			ch.Leaseholder = core.Free
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 			k := ch.Key()
 			ch.LocalKey = 0
 			ch.Leaseholder = 0
-			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 		})
+	})
+	Context("Updating a channel", func() {
+		var ch channel.Channel
+		var ch2 channel.Channel
+		BeforeEach(func() {
+			ch.Name = "SG0001"
+			ch.DataType = telem.Float64T
+			ch.Virtual = true
+			ch.Internal = false
+			ch.Leaseholder = core.Free
+
+			ch2.Rate = 5 * telem.Hz
+			ch2.Name = "SG0003"
+			ch2.DataType = telem.Float64T
+			ch2.Leaseholder = 1
+
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+		})
+		It("Should update the channel name without error", func() {
+			ch.Name = "SG0002"
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Name).To(Equal("SG0002"))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Name).To(Equal("SG0002"))
+		})
+		It("Should update the channel expression without error", func() {
+			ch.Expression = "sin(x)"
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Expression).To(Equal("sin(x)"))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Expression).To(Equal("sin(x)"))
+		})
+		It("Should update the requires without error", func() {
+			ch.Requires = []channel.Key{ch2.Key()}
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Requires).To(ContainElement(ch2.Key()))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Requires).To(ContainElement(ch2.Key()))
+		})
+		It("Should not update the channel if it already exists by name", func() {
+			ch.Name = "SG0003"
+			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists(true))).To(Succeed())
+			Expect(ch.Name).To(Equal("SG0001"))
+
+			var resChannels []channel.Channel
+			err := services[1].NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Name).To(Equal("SG0001"))
+		})
+		It("Should assign a new key when attempting to update a non-virtual channel",
+			func() {
+				// Create initial non-virtual channel
+				nonVirtualCh := channel.Channel{
+					Rate:        5 * telem.Hz,
+					Name:        "NonVirtual",
+					DataType:    telem.Float64T,
+					Leaseholder: 1,
+					Virtual:     false,
+				}
+				Expect(services[1].Create(ctx, &nonVirtualCh)).To(Succeed())
+				originalKey := nonVirtualCh.Key()
+
+				nonVirtualCh.Name = "UpdatedName"
+				Expect(services[1].Create(ctx, &nonVirtualCh)).To(Succeed())
+
+				Expect(nonVirtualCh.Key()).ToNot(Equal(originalKey))
+
+				var resChannels []channel.Channel
+				err := services[1].NewRetrieve().WhereKeys(originalKey, nonVirtualCh.Key()).Entries(&resChannels).Exec(ctx, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resChannels).To(HaveLen(2))
+
+				Expect(resChannels[0].Name).To(Equal("NonVirtual"))
+				Expect(resChannels[1].Name).To(Equal("UpdatedName"))
+			})
 	})
 })

@@ -34,16 +34,16 @@ import {
   type AIChanType,
   ANALOG_READ_TYPE,
   type AnalogRead,
+  type AnalogReadConfig,
+  analogReadConfigZ,
+  type AnalogReadDetails,
   type AnalogReadPayload,
-  type AnalogReadStateDetails,
-  type AnalogReadTaskConfig as AnalogReadConfig,
-  analogReadTaskConfigZ,
   type AnalogReadType,
   type Chan,
-  migrateAnalogReadTask,
+  migrateAnalogReadConfig,
   ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
-} from "@/hardware/ni/task/migrations";
+} from "@/hardware/ni/task/types";
 import {
   ChannelListContextMenu,
   ChannelListEmptyContent,
@@ -79,7 +79,7 @@ export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   }),
 };
 
-const schema = z.object({ name: z.string(), config: analogReadTaskConfigZ });
+const schema = z.object({ name: z.string(), config: analogReadConfigZ });
 
 const Wrapped = ({
   task,
@@ -96,7 +96,7 @@ const Wrapped = ({
     initialValues.config.channels.length > 0 ? 0 : null,
   );
 
-  const taskState = useObserveState<AnalogReadStateDetails>(
+  const taskState = useObserveState<AnalogReadDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -107,25 +107,18 @@ const Wrapped = ({
     running === true ? "running" : running === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
 
-  const createTask = useCreate<
-    AnalogReadConfig,
-    AnalogReadStateDetails,
-    AnalogReadType
-  >(layoutKey);
+  const createTask = useCreate<AnalogReadConfig, AnalogReadDetails, AnalogReadType>(
+    layoutKey,
+  );
 
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
 
   const configure = useMutation<void, Error, void, unknown>({
-    mutationKey: [client?.key, "configure"],
-    onError: ({ message }) =>
-      addStatus({
-        variant: "error",
-        message,
-      }),
+    onError: (e) => handleException(e, "Failed to configure NI Analog Read Task}"),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
-      const devices = unique(config.channels.map((c) => c.device));
+      const devices = unique.unique(config.channels.map((c) => c.device));
 
       for (const devKey of devices) {
         const dev = await client.hardware.devices.retrieve<Properties>(devKey);
@@ -216,7 +209,7 @@ const Wrapped = ({
 
   const handleTare = useMutation({
     mutationKey: [client?.key],
-    onError: (e) => addStatus({ variant: "error", message: e.message }),
+    onError: (e) => handleException(e, "Failed to tare channels"),
     mutationFn: async (keys: number[]) => {
       if (client == null) return;
       await task?.executeCommand("tare", { keys });
@@ -538,5 +531,5 @@ const ChannelListItem = ({
 export const ConfigureAnalogRead = wrapTaskLayout(
   Wrapped,
   ZERO_ANALOG_READ_PAYLOAD,
-  migrateAnalogReadTask as migrate.Migrator,
+  migrateAnalogReadConfig as migrate.Migrator,
 );

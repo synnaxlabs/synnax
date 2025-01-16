@@ -21,6 +21,7 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={props.selection} />
+      <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

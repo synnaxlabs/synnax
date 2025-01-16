@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import * as latest from "@/range/migrations";
+import * as latest from "@/range/types";
 
 export type SliceState = latest.SliceState;
 export type DynamicRange = latest.DynamicRange;

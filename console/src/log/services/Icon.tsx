@@ -16,3 +16,9 @@ export const CreateIcon = (): ReactElement => (
     <Icon.Log />
   </PIcon.Create>
 );
+
+export const ImportIcon = (): ReactElement => (
+  <PIcon.Import>
+    <Icon.Log />
+  </PIcon.Import>
+);

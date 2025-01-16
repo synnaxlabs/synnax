@@ -9,16 +9,28 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createLayout } from "@/channel/Create";
+import { CREATE_LAYOUT } from "@/channel/Create";
+import { createCalculatedLayout } from "@/channel/CreateCalculated";
 import { type Command, type CommandSelectionContext } from "@/palette/Palette";
+import { Version } from "@/version";
 
-export const createChannelCommand: Command = {
+const CREATE_CMD: Command = {
   icon: <Icon.Channel />,
   name: "Create Channel",
   key: "create-channel",
-  onSelect: (ctx: CommandSelectionContext) => {
-    ctx.placeLayout(createLayout);
+  onSelect: ({ placeLayout }: CommandSelectionContext) => {
+    placeLayout(CREATE_LAYOUT);
   },
 };
 
-export const COMMANDS = [createChannelCommand];
+const CREATE_CALCULATED_CMD: Command = {
+  icon: <Icon.Channel />,
+  name: "Create Calculated Channel",
+  key: "create-calculated-channel",
+  onSelect: ({ placeLayout }: CommandSelectionContext) => {
+    placeLayout(createCalculatedLayout);
+  },
+  actions: [<Version.BetaTag key="beta-tag" />],
+};
+
+export const COMMANDS = [CREATE_CMD, CREATE_CALCULATED_CMD];

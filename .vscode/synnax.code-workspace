@@ -1,126 +1,41 @@
 {
   "folders": [
-    {
-      "name": "root",
-      "path": ".."
-    },
-    {
-      "name": "aspen",
-      "path": "../aspen"
-    },
-    {
-      "name": "cesium",
-      "path": "../cesium"
-    },
-    {
-      "name": "client/ts",
-      "path": "../client/ts"
-    },
-    {
-      "name": "client/py",
-      "path": "../client/py"
-    },
-    {
-      "name": "client/cpp",
-      "path": "../client/cpp"
-    },
-    {
-      "name": "docs/site",
-      "path": "../docs/site"
-    },
-    {
-      "name": "docs/tech",
-      "path": "../docs/tech"
-    },
-    {
-      "name": "drift",
-      "path": "../drift"
-    },
-    {
-      "name": "freighter/ts",
-      "path": "../freighter/ts"
-    },
-    {
-      "name": "freighter/py",
-      "path": "../freighter/py"
-    },
-    {
-      "name": "freighter/go",
-      "path": "../freighter/go"
-    },
-    {
-      "name": "freighter/integration",
-      "path": "../freighter/integration"
-    },
-    {
-      "name": "server",
-      "path": "../synnax"
-    },
-    {
-      "name": "pluto",
-      "path": "../pluto"
-    },
-    {
-      "name": "console",
-      "path": "../console"
-    },
-    {
-      "name": "x/go",
-      "path": "../x/go"
-    },
-    {
-      "name": "x/ts",
-      "path": "../x/ts"
-    },
-    {
-      "name": "alamos/py",
-      "path": "../alamos/py"
-    },
-    {
-      "name": "alamos/go",
-      "path": "../alamos/go"
-    },
-    {
-      "name": "alamos/ts",
-      "path": "../alamos/ts"
-    },
-    {
-      "name": "x/media",
-      "path": "../x/media"
-    },
-    {
-      "name": "configs",
-      "path": "../configs"
-    },
-    {
-      "name": "integration",
-      "path": "../integration"
-    },
-    {
-      "name": "driver",
-      "path": "../driver"
-    }
+    { "name": "root", "path": ".." },
+    { "name": "alamos/go", "path": "../alamos/go" },
+    { "name": "alamos/py", "path": "../alamos/py" },
+    { "name": "alamos/ts", "path": "../alamos/ts" },
+    { "name": "aspen", "path": "../aspen" },
+    { "name": "cesium", "path": "../cesium" },
+    { "name": "client/cpp", "path": "../client/cpp" },
+    { "name": "client/py", "path": "../client/py" },
+    { "name": "client/ts", "path": "../client/ts" },
+    { "name": "configs/eslint", "path": "../configs/eslint" },
+    { "name": "configs/stylelint", "path": "../configs/stylelint" },
+    { "name": "configs/ts", "path": "../configs/ts" },
+    { "name": "configs/vite", "path": "../configs/vite" },
+    { "name": "console", "path": "../console" },
+    { "name": "docs/site", "path": "../docs/site" },
+    { "name": "docs/tech", "path": "../docs/tech" },
+    { "name": "drift", "path": "../drift" },
+    { "name": "driver", "path": "../driver" },
+    { "name": "freighter/cpp", "path": "../freighter/cpp" },
+    { "name": "freighter/go", "path": "../freighter/go" },
+    { "name": "freighter/py", "path": "../freighter/py" },
+    { "name": "freighter/ts", "path": "../freighter/ts" },
+    { "name": "media", "path": "../x/media" },
+    { "name": "pluto", "path": "../pluto" },
+    { "name": "server", "path": "../synnax" },
+    { "name": "x/go", "path": "../x/go" },
+    { "name": "x/ts", "path": "../x/ts" }
   ],
   "settings": {
     "editor.formatOnSave": true,
-    "[css]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
-    },
-    "[python]": {
-      "editor.defaultFormatter": "ms-python.black-formatter"
-    },
+    "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+    "[python]": { "editor.defaultFormatter": "ms-python.black-formatter" },
     "python.formatting.provider": "none",
-    "eslint.workingDirectories": [
-      {
-        "mode": "auto"
-      }
-    ],
-    "[rust]": {
-      "editor.defaultFormatter": "rust-lang.rust-analyzer"
-    },
-    "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": "always"
-    },
+    "eslint.workingDirectories": [{ "mode": "auto" }],
+    "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
+    "editor.codeActionsOnSave": { "source.fixAll.eslint": "always" },
     "files.associations": {
       "xstring": "cpp",
       "algorithm": "cpp",
@@ -235,6 +150,7 @@
       "lineplot",
       "Migratable",
       "msgpackr",
+      "mult",
       "NavDrawer",
       "nsis",
       "OPCUA",

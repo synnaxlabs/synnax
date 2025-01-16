@@ -38,3 +38,7 @@
 .synnax-icon-schematic {
     transform: scale(1);
 }
+
+.synnax-icon-decimal {
+    transform: scale(1.25);
+}

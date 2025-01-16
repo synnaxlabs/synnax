@@ -13,6 +13,7 @@ package gorp
 import (
 	"context"
 	"fmt"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -286,7 +287,7 @@ func filterRetrieve[K Key, E Entry[K]](
 		return err
 	}
 	defer func() {
-		err = errors.CombineErrors(err, iter.Close())
+		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value(ctx)

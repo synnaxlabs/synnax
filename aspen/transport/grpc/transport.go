@@ -19,7 +19,8 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
+	"github.com/synnaxlabs/aspen/transport"
+	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/v1"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
@@ -53,27 +54,27 @@ type (
 		gossip.Message,
 		*aspenv1.ClusterGossip,
 	]
-	batchClient = fgrpc.UnaryClient[
+	txClient = fgrpc.UnaryClient[
 		kv.TxRequest,
-		*aspenv1.BatchRequest,
+		*aspenv1.TxRequest,
 		kv.TxRequest,
-		*aspenv1.BatchRequest,
+		*aspenv1.TxRequest,
 	]
-	batchServer = fgrpc.UnaryServer[
+	txServer = fgrpc.UnaryServer[
 		kv.TxRequest,
-		*aspenv1.BatchRequest,
+		*aspenv1.TxRequest,
 		kv.TxRequest,
-		*aspenv1.BatchRequest,
+		*aspenv1.TxRequest,
 	]
 	leaseClient = fgrpc.UnaryClient[
 		kv.TxRequest,
-		*aspenv1.BatchRequest,
+		*aspenv1.TxRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	leaseServer = fgrpc.UnaryServer[
 		kv.TxRequest,
-		*aspenv1.BatchRequest,
+		*aspenv1.TxRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
@@ -89,7 +90,31 @@ type (
 		types.Nil,
 		*emptypb.Empty,
 	]
+	recoveryClient = fgrpc.StreamClient[
+		kv.RecoveryRequest,
+		*aspenv1.RecoveryRequest,
+		kv.RecoveryResponse,
+		*aspenv1.RecoveryResponse,
+	]
+	recoveryServerCore = fgrpc.StreamServerCore[
+		kv.RecoveryRequest,
+		*aspenv1.RecoveryRequest,
+		kv.RecoveryResponse,
+		*aspenv1.RecoveryResponse,
+	]
 )
+
+type recoveryServer struct {
+	recoveryServerCore
+}
+
+func (w *recoveryServer) Exec(server aspenv1.RecoveryService_ExecServer) error {
+	return w.Handler(server.Context(), server)
+}
+
+func (w *recoveryServer) BindTo(reg grpc.ServiceRegistrar) {
+	aspenv1.RegisterRecoveryServiceServer(reg, w)
+}
 
 var (
 	_ pledge.TransportServer             = (*pledgeServer)(nil)
@@ -98,15 +123,18 @@ var (
 	_ gossip.TransportClient             = (*clusterGossipClient)(nil)
 	_ gossip.TransportServer             = (*clusterGossipServer)(nil)
 	_ aspenv1.ClusterGossipServiceServer = (*clusterGossipServer)(nil)
-	_ kv.BatchTransportClient            = (*batchClient)(nil)
-	_ kv.BatchTransportServer            = (*batchServer)(nil)
-	_ aspenv1.BatchServiceServer         = (*batchServer)(nil)
+	_ kv.TxTransportClient               = (*txClient)(nil)
+	_ kv.TxTransportServer               = (*txServer)(nil)
+	_ aspenv1.TxServiceServer            = (*txServer)(nil)
 	_ kv.LeaseTransportClient            = (*leaseClient)(nil)
 	_ kv.LeaseTransportServer            = (*leaseServer)(nil)
 	_ aspenv1.LeaseServiceServer         = (*leaseServer)(nil)
 	_ kv.FeedbackTransportClient         = (*feedbackClient)(nil)
 	_ kv.FeedbackTransportServer         = (*feedbackServer)(nil)
 	_ aspenv1.FeedbackServiceServer      = (*feedbackServer)(nil)
+	_ kv.RecoveryTransportClient         = (*recoveryClient)(nil)
+	_ kv.RecoveryTransportServer         = (*recoveryServerCore)(nil)
+	_ aspenv1.RecoveryServiceServer      = (*recoveryServer)(nil)
 	_ fgrpc.BindableTransport            = (*Transport)(nil)
 	_ freighter.Transport                = (*Transport)(nil)
 )
@@ -151,24 +179,24 @@ func New(pool *fgrpc.Pool) *Transport {
 			ResponseTranslator: clusterGossipTranslator{},
 			ServiceDesc:        &aspenv1.ClusterGossipService_ServiceDesc,
 		},
-		batchClient: &batchClient{
+		txClient: &txClient{
 			Pool:               pool,
 			RequestTranslator:  batchTranslator{},
 			ResponseTranslator: batchTranslator{},
 			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
-				req *aspenv1.BatchRequest,
-			) (*aspenv1.BatchRequest, error) {
-				return aspenv1.NewBatchServiceClient(conn).Exec(ctx, req)
+				req *aspenv1.TxRequest,
+			) (*aspenv1.TxRequest, error) {
+				return aspenv1.NewTxServiceClient(conn).Exec(ctx, req)
 			},
-			ServiceDesc: &aspenv1.BatchService_ServiceDesc,
+			ServiceDesc: &aspenv1.TxService_ServiceDesc,
 		},
-		batchServer: &batchServer{
+		txServer: &txServer{
 			Internal:           true,
 			RequestTranslator:  batchTranslator{},
 			ResponseTranslator: batchTranslator{},
-			ServiceDesc:        &aspenv1.BatchService_ServiceDesc,
+			ServiceDesc:        &aspenv1.TxService_ServiceDesc,
 		},
 		leaseClient: &leaseClient{
 			Pool:               pool,
@@ -177,7 +205,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
-				req *aspenv1.BatchRequest,
+				req *aspenv1.TxRequest,
 			) (*emptypb.Empty, error) {
 				return aspenv1.NewLeaseServiceClient(conn).Exec(ctx, req)
 			},
@@ -208,6 +236,22 @@ func New(pool *fgrpc.Pool) *Transport {
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			ServiceDesc:        &aspenv1.FeedbackService_ServiceDesc,
 		},
+		recServer: &recoveryServer{
+			recoveryServerCore: recoveryServerCore{
+				RequestTranslator:  recoveryRequestTranslator{},
+				ResponseTranslator: recoveryResponseTranslator{},
+				ServiceDesc:        &aspenv1.RecoveryService_ServiceDesc,
+			},
+		},
+		recClient: &recoveryClient{
+			Pool:               pool,
+			RequestTranslator:  recoveryRequestTranslator{},
+			ResponseTranslator: recoveryResponseTranslator{},
+			ClientFunc: func(ctx context.Context, connInterface grpc.ClientConnInterface) (fgrpc.GRPCClientStream[*aspenv1.RecoveryRequest, *aspenv1.RecoveryResponse], error) {
+				return aspenv1.NewRecoveryServiceClient(connInterface).Exec(ctx)
+			},
+			ServiceDesc: &aspenv1.RecoveryService_ServiceDesc,
+		},
 	}
 }
 
@@ -217,13 +261,17 @@ type Transport struct {
 	pledgeClient   *pledgeClient
 	gossipServer   *clusterGossipServer
 	gossipClient   *clusterGossipClient
-	batchServer    *batchServer
-	batchClient    *batchClient
+	txServer       *txServer
+	txClient       *txClient
 	leaseServer    *leaseServer
 	leaseClient    *leaseClient
 	feedbackServer *feedbackServer
 	feedbackClient *feedbackClient
+	recServer      *recoveryServer
+	recClient      *recoveryClient
 }
+
+var _ transport.Transport = (*Transport)(nil)
 
 func (t Transport) PledgeServer() pledge.TransportServer { return t.pledgeServer }
 
@@ -233,9 +281,9 @@ func (t Transport) GossipServer() gossip.TransportServer { return t.gossipServer
 
 func (t Transport) GossipClient() gossip.TransportClient { return t.gossipClient }
 
-func (t Transport) BatchServer() kv.BatchTransportServer { return t.batchServer }
+func (t Transport) TxServer() kv.TxTransportServer { return t.txServer }
 
-func (t Transport) BatchClient() kv.BatchTransportClient { return t.batchClient }
+func (t Transport) TxClient() kv.TxTransportClient { return t.txClient }
 
 func (t Transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer }
 
@@ -245,12 +293,17 @@ func (t Transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedba
 
 func (t Transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
 
+func (t Transport) RecoveryServer() kv.RecoveryTransportServer { return t.recServer }
+
+func (t Transport) RecoveryClient() kv.RecoveryTransportClient { return t.recClient }
+
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.pledgeServer.BindTo(reg)
 	t.gossipServer.BindTo(reg)
-	t.batchServer.BindTo(reg)
+	t.txServer.BindTo(reg)
 	t.leaseServer.BindTo(reg)
 	t.feedbackServer.BindTo(reg)
+	t.recServer.BindTo(reg)
 }
 
 func (t Transport) Use(middleware ...freighter.Middleware) {
@@ -258,12 +311,14 @@ func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.pledgeClient.Use(middleware...)
 	t.gossipServer.Use(middleware...)
 	t.gossipClient.Use(middleware...)
-	t.batchServer.Use(middleware...)
-	t.batchClient.Use(middleware...)
+	t.txServer.Use(middleware...)
+	t.txClient.Use(middleware...)
 	t.leaseServer.Use(middleware...)
 	t.leaseClient.Use(middleware...)
 	t.feedbackServer.Use(middleware...)
 	t.feedbackClient.Use(middleware...)
+	t.recServer.Use(middleware...)
+	t.recClient.Use(middleware...)
 }
 
 func (t Transport) Report() alamos.Report {

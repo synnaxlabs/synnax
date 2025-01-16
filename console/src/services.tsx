@@ -21,7 +21,7 @@ import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
-import { Workspace } from "@/workspace";
+import { WorkspaceServices } from "@/workspace/services";
 
 export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
   type: "rack",
@@ -44,7 +44,7 @@ export const SERVICES: Ontology.Services = {
   node: Node.ONTOLOGY_SERVICE,
   group: Group.ONTOLOGY_SERVICE,
   range: RangeServices.ONTOLOGY_SERVICE,
-  workspace: Workspace.ONTOLOGY_SERVICE,
+  workspace: WorkspaceServices.ONTOLOGY_SERVICE,
   lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": EMPTY_ONTOLOGY_SERVICE,
   label: EMPTY_ONTOLOGY_SERVICE,

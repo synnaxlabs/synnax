@@ -1,20 +1,21 @@
 // Copyright 2024 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in
-// the file licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business
-// Source License, use of this software will be governed by the Apache License,
-// Version 2.0, included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type TableCells } from "@synnaxlabs/pluto";
 import { id, type location, mapValues, type UnknownRecord, xy } from "@synnaxlabs/x";
 
-import * as latest from "@/table/migrations";
-import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/migrations/v0";
+import * as latest from "@/table/types";
+import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/types";
 
 export type State = latest.State;
+export const stateZ = latest.stateZ;
 export const ZERO_STATE: State = latest.ZERO_STATE;
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
@@ -300,18 +301,19 @@ export const { actions, reducer } = createSlice({
       table.layout.rows[pos].cells.forEach((cell) => delete table.cells[cell.key]);
       table.layout.rows.splice(pos, 1);
     },
-    deleteCol: (state, { payload }: PayloadAction<DeleteColPayload>) => {
-      const { key, index, cellKey } = payload;
+    deleteCol: (
+      state,
+      { payload: { key, index, cellKey } }: PayloadAction<DeleteColPayload>,
+    ) => {
       const table = state.tables[key];
       if (table == null) return;
       let pos = index;
-      if (cellKey != null) {
+      if (pos == null) {
+        if (cellKey == null) return;
         const cellPos = findCellPosition(table, cellKey);
         if (cellPos == null) return;
         pos = cellPos.x;
-        return;
       }
-      if (pos == null) return;
       table.layout.rows.forEach((row) => {
         delete table.cells[row.cells[pos].key];
         row.cells.splice(pos, 1);

@@ -216,7 +216,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
         else if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }
-      const v = unique(nextSelected);
+      const v = unique.unique(nextSelected);
       if (allowNone === false && v.length === 0)
         // If we're not allowed to have no select, still call handleChange with the same
         // value. This is useful when you want to close a dialog on selection.

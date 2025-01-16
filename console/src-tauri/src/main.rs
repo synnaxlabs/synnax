@@ -59,7 +59,6 @@ fn main() {
     tauri::Builder::default()
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
-            return;
         })
         .on_window_event(move |win, event| match event {
             tauri::WindowEvent::Focused { .. } => {
@@ -82,6 +81,7 @@ fn main() {
             }
             _ => (),
         })
+        .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -92,9 +92,9 @@ fn main() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
-            #[cfg(target_os = "macos")] 
+            #[cfg(target_os = "macos")]
             let app_handle = app.handle().clone();
-            #[cfg(target_os = "macos")] 
+            #[cfg(target_os = "macos")]
             thread::spawn(move || {
                 let app_handle = app_handle.clone();
                 let device_state = DeviceState::new();

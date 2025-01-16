@@ -26,6 +26,8 @@ package ontology
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -39,7 +41,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
 )
 
 type (
@@ -142,14 +143,14 @@ type Writer interface {
 	// DeleteManyResources does nothing.
 	DeleteManyResources(ctx context.Context, ids []ID) error
 	// DefineRelationship defines a directional relationship of type t between the
-	// resources with the given Keys. If the relationship already exists, DefineRelationship
+	// resources with the given keys. If the relationship already exists, DefineRelationship
 	// does nothing.
 	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// DefineFromOneToManyRelationships defines a directional relationship of type t from
 	// the resource with the given ID to multiple resources. If any of the relationships
 	// already exist, DefineFromOneToManyRelationships does nothing.
 	DefineFromOneToManyRelationships(ctx context.Context, from ID, t RelationshipType, to []ID) error
-	// DeleteRelationship deletes the relationship with the given Keys and type. If the
+	// DeleteRelationship deletes the relationship with the given keys and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
 	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
@@ -247,7 +248,7 @@ func (o *Ontology) RegisterService(s Service) {
 			}
 			return nil
 		})
-		return errors.CombineErrors(err, n.Close())
+		return errors.Combine(err, n.Close())
 	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
 
 	o.disconnectObservers = append(o.disconnectObservers, d1, d2)

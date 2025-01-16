@@ -13,7 +13,7 @@ import { Icon as PIcon } from "@synnaxlabs/pluto";
 import { createAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { createDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
 import { createDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
-import { type ScanConfig } from "@/hardware/ni/task/migrations";
+import { type ScanConfig } from "@/hardware/ni/task/types";
 import { type Command } from "@/palette/Palette";
 
 export const createAnalogReadTaskCommand: Command = {
@@ -59,7 +59,7 @@ export const toggleNIScanner: Command = {
       <Icon.Logo.NI />
     </PIcon.Create>
   ),
-  onSelect: ({ client, addStatus }) => {
+  onSelect: ({ client, addStatus, handleException }) => {
     if (client == null) return;
     void (async () => {
       try {
@@ -75,11 +75,7 @@ export const toggleNIScanner: Command = {
           message: `NI device scanning ${!enabled ? "enabled" : "disabled"}`,
         });
       } catch (e) {
-        addStatus({
-          variant: "error",
-          message: "Failed to toggle NI scan task",
-          description: (e as Error).message,
-        });
+        handleException(e, "Failed to toggle NI scan task");
       }
     })();
   },

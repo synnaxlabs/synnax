@@ -41,12 +41,12 @@ interface ConfigureButtonProps {
 }
 
 const ConfigureButton = ({ deviceKey }: ConfigureButtonProps): ReactElement => {
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   return (
     <Button.Button
       variant="outlined"
       size="small"
-      onClick={() => placer(createConfigureLayout(deviceKey, {}))}
+      onClick={() => place(createConfigureLayout(deviceKey, {}))}
     >
       Configure
     </Button.Button>
