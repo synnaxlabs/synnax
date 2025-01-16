@@ -1,7 +1,6 @@
 package calculated_test
 
 import (
-	"runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -156,15 +155,9 @@ var _ = Describe("Calculated", Ordered, func() {
 				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
 			},
 		}
-
-		// Linux is typically stricter about floating point exceptions so this might not just be a warning there
-		if runtime.GOOS != "linux" {
-			var res framer.StreamerResponse
-			Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-			Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
-		} else {
-			Consistently(sOutlet.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
-		}
+		var res framer.StreamerResponse
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
+		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
 	})
 
 	It("Should handle nested calculations", func() {
