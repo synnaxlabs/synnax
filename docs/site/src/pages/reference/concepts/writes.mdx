@@ -29,9 +29,9 @@ Client](/reference/typescript-client/write-data) pages.
 ## Introduction
 
 Writing data to Synnax involves sending batches of telemetry samples to a cluster. These
-batches are called [frames](/reference/concepts/frames-and-series). The primary interface
-for writing these frames is, unsurprisingly, a **writer**. Writers are analogous to pipes
-that continuously feed a cluster with frames of data for one or more channels.
+batches are called [frames](/reference/concepts/overview#frames). The primary interface
+for writing these frames is, unsurprisingly, a **writer**. Writers are analogous to
+pipes that continuously feed a cluster with frames of data for one or more channels.
 
 When ingesting historical data, it's common to quickly write many large frames of
 previously recorded values. These frames can contain tens of thousands to millions of
