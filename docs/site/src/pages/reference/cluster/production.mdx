@@ -120,10 +120,10 @@ an example for a local cluster:
 synnax start --listen=localhost:9090 --auto-cert
 ```
 
-Please note that the `--auto-cert` option will require you to install the
-generated CA certificate on your client machine in order to trust the
-self-signed certificate authority. We have a guide on an efficient way to do
-this [here](/guides/sys-admin/deployment-self-signed).
+Please note that the `--auto-cert` option will require you to install the generated CA
+certificate on your client machine in order to trust the self-signed certificate
+authority. We have a guide on [deploying Synnax with self-signed
+certificates](/guides/sys-admin/deployment-self-signed).
 
 ### Using Let's Encrypt with Certbot
 
@@ -152,8 +152,6 @@ example of how to do this:
     --node-cert=fullchain.pem  \
     --node-key=privkey.pem
 ```
-
-<Divider.Divider direction="x" />
 
 ### Using Your Own Certificates
 
