@@ -124,6 +124,38 @@ I can successfully:
   - Schematic Visualization Toolbar
   - Task Configuration Dialog
 
+### Calculated Channels
+
+I can successfully:
+
+- **Create Calculated Channel Modal**
+  - [ ] Create a new channel from command palette.
+- **Resources Toolbar**
+  - [ ] Open a channel plot by double-clicking it.
+  - [ ] Drag and drop a channel onto a line plot.
+  - [ ] Drag and drop a channel onto the line plot toolbar.
+  - **Context Menu**
+    - [ ] Rename a channel.
+    - [ ] Delete a channel.
+    - [ ] Delete multiple channels.
+    - [ ] Group channels.
+    - [ ] Set an alias for a channel under a range.
+    - [ ] Clear an alias for a channel under a range.
+    - [ ] Copy a link to a channel.
+    - [ ] Edit a calculation 
+  - **Search and Command Palette**
+  - [ ] Open a channel plot by its name.
+  - [ ] Open the "Create Channel" modal.
+- **Using Calculated Channels**
+  - [ ] Plot a basic calculated channel.
+  - [ ] Plot a nested calculated channel.
+  - [ ] Intentionally create channel with an erroneous expression, plot it amke sure the server/console remains stable. Currently expect error to be logged in server.
+  - [ ] Plot a calculated channel that uses channels with hyphenated names.
+  - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
+    - [ ] 10hz
+    - [ ] 100hz
+    - [ ] 1000hz
+
 ### Clusters
 
 I can successfully:
