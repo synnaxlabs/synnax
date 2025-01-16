@@ -65,7 +65,7 @@ workspaces.
       </td>
     </tr>
     <tr>
-      <td>Users</td>
+      <td>[Users](/reference/console/users)</td>
       <td>
         A list of all users registered in the cluster. The workspaces created by the
         users can be found underneath their name.
@@ -98,7 +98,8 @@ resume the current tasks running on the cluster.
 ### <Icon.Visualize /> Visualizations
 
 The visualization toolbar allows you to edit the properties of [line
-plots](/reference/console/line-plots) and [schematics](/reference/console/schematics).
+plots](/reference/console/line-plots), [logs](/reference/console/logs),
+[schematics](/reference/console/schematics), and [tables](/reference/console/tables).
 
 <Video client:only="react" id="console/ui-overview/visualization-toolbar" />
 
@@ -133,7 +134,6 @@ You can also have multiple visualizations displayed at the same time:
 ## Getting Help
 
 The Synnax documentation website can be opened from within the console by clicking the
-
 <Icon.QuestionMark /> icon.
 
 <Video client:only="react" id="console/ui-overview/documentation" />
@@ -144,19 +144,16 @@ The Synnax documentation website can be opened from within the console by clicki
 
 The search and command palette at the top can be used to search for resources or to
 activate commands. Searching for resouces can be done by searching or pressing
-
-<Icon.Keyboard.Control />
-+`P` (Windows) / <Icon.Keyboard.Command />
-+`P` (MacOS). As an example of searching for resources, you could search for a test
-range and then automatically add it as the active range:
+<Icon.Keyboard.Control />+`P` (Windows) / <Icon.Keyboard.Command />+`P` (macOS). As an
+example of searching for resources, you could search for a test range and then
+automatically add it as the active range:
 
 <Video client:only="react" id="console/ui-overview/palette-search" />
 
 The search and command palette can run commands by entering a `>` into the toolbar or by
 pressing <Icon.Keyboard.Control />+<Icon.Keyboard.Shift />+`P` (Windows) /
-
-<Icon.Keyboard.Command />+<Icon.Keyboard.Shift />
-+`P` (MacOS). This allows you to run commands such as toggling the color theme, creating
-a visualization, adding a range, or opening the documentation:
+<Icon.Keyboard.Command />+<Icon.Keyboard.Shift />+`P` (macOS). This allows you to run
+commands such as toggling the color theme, creating a visualization, adding a range, or
+opening the documentation:
 
 <Video client:only="react" id="console/ui-overview/palette-command" />
