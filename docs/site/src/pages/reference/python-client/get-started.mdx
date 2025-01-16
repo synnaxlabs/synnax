@@ -102,7 +102,7 @@ client = sy.Synnax()
 
 Passing authentication parameters directly is ideal in scenarios where you'd like to use
 configuration files or environment variables to store your credentials. We recommend
-this approach when connecting to Synnax in custom applications and/or automated analysis
+this approach when connecting to Synnax in custom applications or automated analysis
 servers.
 
 To authenticate directly, simply pass your connection parameters to the `Synnax`
@@ -134,11 +134,3 @@ client = sy.Synnax(
     secure=bool(os.environ["SYNNAX_SECURE"])
 )
 ```
-
-<Divider.Divider direction="x" />
-
-## Next Steps
-
-Now that you've installed and authenticated the client, you're ready to start using
-Synnax! Next, learn how to create [channels](/reference/python-client/channels) for
-storing data.
