@@ -167,8 +167,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
               )}
             </Form.Field>
             <Text.Text level="small" shade={6}>
-              Name and email are optional. If you'd like a response, include them and
-              we'll respond within 30 min during pacific business hours.
+              If you'd like a response, please include your name and email.
             </Text.Text>
           </Align.Space>
         </Align.Space>
