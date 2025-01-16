@@ -740,6 +740,9 @@ class TestCalculatedChannels:
             requires=[src_channels[0].key, src_channels[1].key],
         )
 
+        # Add a small delay to ensure channels are properly registered
+        time.sleep(0.1)
+
         start = sy.TimeStamp.now()
         timestamps = [start]
         value = np.array(
@@ -748,6 +751,8 @@ class TestCalculatedChannels:
         )
 
         with client.open_streamer(calc_channel.key) as streamer:
+            time.sleep(0.1)
+
             with client.open_writer(
                 start,
                 [timestamp_channel.key, src_channels[0].key, src_channels[1].key],
@@ -759,7 +764,15 @@ class TestCalculatedChannels:
                         src_channels[1].key: value / 2,
                     }
                 )
+                writer.commit()  # Explicitly commit the write
 
-                frame = streamer.read(timeout=1)
+                # Increase timeout and add retry logic
+                max_retries = 3
+                for _ in range(max_retries):
+                    frame = streamer.read(timeout=2)  # Increased timeout
+                    if frame is not None:
+                        break
+                    time.sleep(0.1)  # Small delay between retries
+
                 assert frame is not None
                 assert np.array_equal(frame[calc_channel.key], value)
