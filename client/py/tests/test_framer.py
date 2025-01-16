@@ -707,6 +707,7 @@ class TestDeleter:
                 ),
             )
 
+
 @pytest.mark.framer
 class TestCalculatedChannels:
     def test_basic_calc_channel(self, client: sy.Synnax):
