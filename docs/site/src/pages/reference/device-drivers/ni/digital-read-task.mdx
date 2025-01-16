@@ -3,8 +3,10 @@ layout: "@/layouts/Reference.astro"
 title: "NI | Digital Read Task"
 heading: "NI Digital Read Task"
 description: "Learn how to create a digital read task for NI hardware."
-prev: "Digital Write Task"
-prevURL: "/reference/device-drivers/ni/digital-write-task"
+prev: "Analog Read Task"
+prevURL: "/reference/device-drivers/ni/analog-read-task"
+next: "Digital Write Task"
+nextURL: "/reference/device-drivers/ni/digital-write-task"
 ---
 
 import { Icon } from "@synnaxlabs/media";
@@ -63,7 +65,7 @@ reads from the same channel.
 
 To create a digital read task from the resources toolbar, open the Synnax Console and
 click on the "Resources" tab in the left sidebar. Find the device you'd like to create
-the task for, right-click on it, and select "Create Digital read Task".
+the task for, right-click on it, and select "Create Digital Read Task".
 
 <Video
   client:only="react"
@@ -73,11 +75,11 @@ the task for, right-click on it, and select "Create Digital read Task".
 ### From the Command Palette
 
 To create a digital read task from the command palette, open the Synnax Console and
-click on the Quick Search & Command Palette at the top. You can also open this palette with
-`Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
+click on the Quick Search & Command Palette at the top. You can also open this palette
+with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type
-"NI". You'll see an option called "Create a New Digital read Task". Select this
+"NI". You'll see an option called "Create a New Digital Read Task". Select this
 option to open the read task configuration dialog.
 
 <Video
@@ -88,7 +90,7 @@ option to open the read task configuration dialog.
 ### From The Layout Selector
 
 To create a digital read task from the layout selector, click on the "+" button in the
-top right corner and select "NI Digital read Task".
+top right corner and select "NI Digital Read Task".
 
 <Video
   client:only="react"

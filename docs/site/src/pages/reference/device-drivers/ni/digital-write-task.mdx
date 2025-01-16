@@ -3,10 +3,8 @@ layout: "@/layouts/Reference.astro"
 title: "NI | Digital Write Task"
 heading: "NI Digital Write Task"
 description: "Learn how to create a digital write task for NI hardware."
-prev: "Analog Read Task"
-prevURL: "/reference/device-drivers/ni/analog-read-task"
-next: "Digital Read Task"
-nextURL: "/reference/device-drivers/ni/digital-read-task"
+prev: "Digital Read Task"
+prevURL: "/reference/device-drivers/ni/digital-read-task"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -68,7 +66,7 @@ the state channel.
 State channels are typically suffixed with `_state`. A state channel maintains the same
 format as its corresponding command channel, but suffixed with `_state` instead of `_cmd`.
 
-As an example, to configure a valve in the [console schematic](/reference/console/schematics)
+As an example, to configure a valve in the [schematic](/reference/console/schematics)
 to write to a digital output, you would set the `command` field to the command channel
 of the digital output and the `state` field to the state channel of the digital output.
 Clicking the valve would send a command to the digital output, and the valve would turn
@@ -95,10 +93,10 @@ you'd like to create the task for, right-click on it, and select "Create Digital
 ### From the Command Palette
 
 To create a digital write task from the command palette, open the Synnax Console and
-click on the Quick Search & Command Palette at the top. You can also open this palette with
-`Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
+click on the Quick Search & Command Palette at the top. You can also open this palette
+with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
-In command moe (enabled when the first character in the input is ">"), type
+In command mode (enabled when the first character in the input is ">"), type
 "NI". You'll see an option called "Create a New Digital write Task". Select this
 option to open the read task configuration dialog.
 
@@ -110,7 +108,7 @@ option to open the read task configuration dialog.
 ### From The Layout Selector
 
 To create a digital write task from the layout selector, click on the "+" button in the
-top right corner and select "NI Digital write Task".
+top right corner and select "NI Digital Write Task".
 
 <Video
   client:only="react"
