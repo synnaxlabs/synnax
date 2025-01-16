@@ -21,7 +21,7 @@ operating system below.
     client:load
     tabs={[
         { name: "Windows", tabKey: "windows", },
-        { name: "MacOS", tabKey: "macos" }
+        { name: "macOS", tabKey: "macos" }
     ]}
 >
 <Icon.OS.Windows slot="windows-icon" />
@@ -39,7 +39,7 @@ Import-Certificate -FilePath PATH_TO_CA_CRT -CertStoreLocation Cert:\LocalMachin
 </Fragment>
 <Icon.OS.MacOS slot="macos-icon" />
 <Fragment slot="macos">
-## MacOS
+## macOS
 
 To start off, you'll need to pull the CA certificate from the cluster. If you have ssh
 access to the cluster, you can use the `scp` command to pull the certificate:
