@@ -327,7 +327,9 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 	defer fc.readers.Unlock()
 	for k, f := range fc.readers.files {
 		f.Lock()
-		for i, r := range f.open {
+		// iterate the slice of readers backwards to make concurrent pops
+		for i := len(f.open) - 1; i >= 0; i-- {
+			r := f.open[i]
 			if r.tryAcquire() {
 				err = r.HardClose()
 				if err != nil {

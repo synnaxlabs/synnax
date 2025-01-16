@@ -525,6 +525,30 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(r.Close()).To(Succeed())
 					Expect(i.Close()).To(Succeed())
 				})
+
+				// This regression test is used to verify that when calling gcReaders()
+				// in garbage collection, the slice will be popped correctly. Previously,
+				// the slice was being popped while iterated, causing out-of-bounds
+				// errors.
+				Specify("Reader gc", func() {
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						FileSize:        7 * telem.ByteSize,
+						GCThreshold:     0,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13})).To(Succeed()) // file 1
+					i := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+					Expect(i.SeekLE(ctx, 43*telem.SecondTS)).To(BeTrue())
+					r1 := MustSucceed(i.OpenReader(ctx))
+					r2 := MustSucceed(i.OpenReader(ctx))
+					Expect(r1.Close()).To(Succeed())
+					Expect(r2.Close()).To(Succeed())
+
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(i.Close()).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+				})
 			})
 
 			Context("Close", func() {
