@@ -58,7 +58,6 @@ I have verified that user-facing documentation for each of the following service
 - [ ] `reference/device-drivers/labjack`
 - [ ] `reference/device-drivers/ni`
 - [ ] `reference/device-drivers/opc-ua`
-- [ ] `reference/pluto`
 - [ ] `reference/python-client`
 - [ ] `reference/typescript-client`
 
@@ -69,9 +68,13 @@ I have verified that code examples for each of the following services run correc
 - [ ] `client/py`
 - [ ] `client/ts`
   - [ ] Version number in `examples/node` is up-to-date
-- [ ] `drift/electron`
-- [ ] `drift/tauri`
-- [ ] `pluto`
+
+### Broken Links
+
+- [ ] I have used a broken link checker like
+      [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. Link
+      Check](https://www.drlinkcheck.com/) to check that all links work on the live
+      website:
 
 ### Release Notes
 
