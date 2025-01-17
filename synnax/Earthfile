@@ -24,6 +24,7 @@ build:
     SAVE ARTIFACT build/synnax /synnax AS LOCAL build/synnax
 
 docker:
+    FROM ubuntu:23.10  # This version has GLIBC 2.38
     ARG tag="latest"
     COPY +build/synnax .
     ENTRYPOINT ["/synnax/synnax", "start"]
