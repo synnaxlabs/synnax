@@ -109,12 +109,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const snapshot = useSnapshot();
   const handleExport = Schematic.useExport();
   const handleLink = Link.useCopyToClipboard();
+  const group = Group.useCreateFromSelection();
   const onSelect = useAsyncActionMenu({
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
     export: () => handleExport(resources[0].id.key),
+    group: () => group(props),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
   });

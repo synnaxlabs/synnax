@@ -59,12 +59,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
   const handleExport = LinePlot.useExport();
+  const group = Group.useCreateFromSelection();
   const onSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
     export: () => handleExport(resources[0].id.key),
+    group: () => group(props),
   };
   const isSingle = resources.length === 1;
   return (
