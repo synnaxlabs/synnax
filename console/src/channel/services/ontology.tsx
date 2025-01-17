@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, isCalculated, ontology } from "@synnaxlabs/client";
+import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
@@ -238,10 +238,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     alias: () => setAlias(props),
     rename: () => handleRename(props),
     link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
+      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
     openCalculated: () => openCalculated(props),
   };
   const singleResource = resources.length === 1;
@@ -300,7 +297,7 @@ export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "channel",
+  type: channel.ONTOLOGY_TYPE,
   icon: (p) => (
     <PIcon.Icon topRight={Channel.resolveIcon(p.data as channel.Payload)}>
       <Icon.Channel />

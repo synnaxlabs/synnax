@@ -78,8 +78,8 @@ export const analyzeParams = (ranges: Params): ParamAnalysisResult => {
 export const ONTOLOGY_TYPE: ontology.ResourceType = "range";
 export const ALIAS_ONTOLOGY_TYPE: ontology.ResourceType = "range-alias";
 
-export const rangeOntologyID = (key: Key): ontology.ID =>
+export const ontologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key });
 
-export const rangeAliasOntologyID = (key: Key): ontology.ID =>
+export const aliasOntologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key });

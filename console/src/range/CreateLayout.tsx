@@ -9,7 +9,7 @@
 
 import "@/range/CreateLayout.css";
 
-import { ontology, type ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -124,8 +124,8 @@ const CreateLayoutForm = ({
       const key = initialValues.key ?? uuidv4();
       const parentID = primitiveIsZero(parent)
         ? undefined
-        : new ontology.ID({ key: parent as string, type: "range" });
-      const otgID = new ontology.ID({ key, type: "range" });
+        : ranger.ontologyID(parent as string);
+      const otgID = ranger.ontologyID(key);
       if (persisted && clientExists) {
         await client.ranges.create({ key, name, timeRange }, { parent: parentID });
         await client.labels.label(otgID, values.labels, { replace: true });

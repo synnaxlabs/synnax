@@ -45,7 +45,7 @@ type AOChannelType = typeof AO_CHANNEL_TYPE;
 export const AI_CHANNEL_TYPE = "AI";
 type AIChannelType = typeof AI_CHANNEL_TYPE;
 
-const DO_CHANNEL_TYPE = "DO";
+export const DO_CHANNEL_TYPE = "DO";
 type DOChannelType = typeof DO_CHANNEL_TYPE;
 
 export type InputChannelType = DIChannelType | AIChannelType | TCChannelType;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, ontology } from "@synnaxlabs/client";
+import { type label, ranger } from "@synnaxlabs/client";
 import { Form, Synnax } from "@synnaxlabs/pluto";
 import { compare, unique } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -23,7 +23,7 @@ interface LabelsProps {
 }
 
 export const Labels = ({ rangeKey }: LabelsProps) => {
-  const otgID = new ontology.ID({ key: rangeKey, type: "range" });
+  const otgID = ranger.ontologyID(rangeKey);
   const client = Synnax.use();
   const formCtx = Form.useSynced<typeof labelFormSchema, label.Label[]>({
     name: "Labels",

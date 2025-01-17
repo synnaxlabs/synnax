@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import { user as clientUser } from "@synnaxlabs/client";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
@@ -25,9 +25,9 @@ export const useFetchPermissions = async (): Promise<void> => {
     }
     const username = client.props.username;
     try {
-      const user_ = await client.user.retrieveByName(username);
+      const user = await client.user.retrieveByName(username);
       const policies = await client.access.policy.retrieveFor(
-        user.ontologyID(user_.key),
+        clientUser.ontologyID(user.key),
       );
       dispatch(set({ policies }));
     } catch (e) {

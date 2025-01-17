@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax, type task } from "@synnaxlabs/client";
+import { ontology, ranger, type Synnax, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -145,7 +145,7 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         ),
       );
       const otgIDs = tasks.map((t) => t.ontologyID);
-      const rangeID = new ontology.ID({ type: "range", key: activeRange });
+      const rangeID = ranger.ontologyID(activeRange);
       await client.ontology.moveChildren(
         new ontology.ID(parent.key),
         rangeID,
@@ -179,10 +179,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
     link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
+      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
     rangeSnapshot: () => snap(props),
     group: () => group(props),
   };
@@ -236,7 +233,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "task",
+  type: task.ONTOLOGY_TYPE,
   hasChildren: false,
   icon: <Icon.Task />,
   canDrop: () => false,

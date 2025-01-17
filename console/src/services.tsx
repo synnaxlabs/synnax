@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { rack } from "@synnaxlabs/client";
+
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
@@ -24,7 +26,7 @@ import { UserServices } from "@/user/services";
 import { WorkspaceServices } from "@/workspace/services";
 
 export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "rack",
+  type: rack.ONTOLOGY_TYPE,
   icon: <></>,
   hasChildren: true,
   canDrop: () => false,

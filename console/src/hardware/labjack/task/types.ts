@@ -13,6 +13,7 @@ import { z } from "zod";
 import {
   AI_CHANNEL_TYPE,
   DI_CHANNEL_TYPE,
+  DO_CHANNEL_TYPE,
   outputChannelTypeZ,
   TC_CHANNEL_TYPE,
 } from "@/hardware/labjack/device/types";
@@ -133,7 +134,7 @@ export const ZERO_WRITE_CHANNEL: WriteChannel = {
   key: "",
   cmdKey: 0,
   stateKey: 0,
-  type: "DO",
+  type: DO_CHANNEL_TYPE,
 };
 
 const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");

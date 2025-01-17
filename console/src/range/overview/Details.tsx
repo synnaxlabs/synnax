@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -157,7 +157,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   );
   const handleLink = Link.useCopyToClipboard();
   const handleCopyLink = () => {
-    handleLink({ name, ontologyID: { key: rangeKey, type: "range" } });
+    handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
   };
 
   useEffect(() => {

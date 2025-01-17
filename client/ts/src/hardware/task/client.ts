@@ -24,6 +24,7 @@ import {
   commandZ,
   type NewTask,
   newTaskZ,
+  ontologyID as payloadOntologyID,
   type Payload,
   type State,
   type StateObservable,
@@ -32,7 +33,7 @@ import {
   taskKeyZ,
   taskZ,
 } from "@/hardware/task/payload";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
 import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -95,7 +96,7 @@ export class Task<
   }
 
   get ontologyID(): ontology.ID {
-    return new ontology.ID({ type: "task", key: this.key });
+    return payloadOntologyID(this.key);
   }
 
   async executeCommand(type: string, args?: UnknownRecord): Promise<string> {

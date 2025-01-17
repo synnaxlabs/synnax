@@ -51,7 +51,7 @@ export const useRangeSnapshot = () => {
           return schematic.ontologyID(newSchematic.key);
         }),
       );
-      await client.ontology.addChildren(ranger.rangeOntologyID(rng.key), ...ids);
+      await client.ontology.addChildren(ranger.ontologyID(rng.key), ...ids);
     },
   });
   return snapshot;

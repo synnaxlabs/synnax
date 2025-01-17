@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/Task.css";
 
-import { type device, NotFoundError } from "@synnaxlabs/client";
+import { type device, NotFoundError, task as clientTask } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -243,7 +243,9 @@ const Wrapped = ({
                 tooltip={<Text.Text level="small">Copy Link</Text.Text>}
                 tooltipLocation="left"
                 variant="text"
-                onClick={() => handleLink({ name, ontologyID: { key, type: "task" } })}
+                onClick={() =>
+                  handleLink({ name, ontologyID: clientTask.ontologyID(key) })
+                }
               >
                 <Icon.Link />
               </Button.Icon>

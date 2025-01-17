@@ -12,6 +12,7 @@ import {
   log as clientLog,
   schematic as clientSchematic,
   table as clientTable,
+  workspace as clientWorkspace,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
@@ -263,10 +264,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     importSchematic: () => importSchematic(),
     export: () => handleExport(resources[0].id.key),
     link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
+      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
   };
   const singleResource = resources.length === 1;
   const canCreateSchematic = Schematic.useSelectHasPermission();
@@ -348,7 +346,7 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "workspace",
+  type: clientWorkspace.ONTOLOGY_TYPE,
   icon: <Icon.Workspace />,
   hasChildren: true,
   canDrop: () => false,

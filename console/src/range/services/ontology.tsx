@@ -274,10 +274,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
-  {
-    type: ranger.ONTOLOGY_TYPE,
-    key: id.key,
-  },
+  { type: ranger.ONTOLOGY_TYPE, key: id.key },
 ];
 
 const PaletteListItem: Ontology.PaletteListItem = (props) => {
@@ -308,7 +305,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "range",
+  type: ranger.ONTOLOGY_TYPE,
   hasChildren: true,
   icon: <Icon.Range />,
   canDrop: () => true,

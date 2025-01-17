@@ -315,7 +315,7 @@ const List = (): ReactElement => {
       save: () => rangeExists && save.mutate(rng.key),
       link: () =>
         rangeExists &&
-        handleLink({ name: rng.name, ontologyID: ranger.rangeOntologyID(rng.key) }),
+        handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) }),
       addToActivePlot: () => addToActivePlot(key),
       addToNewPlot: () => addToNewPlot(key),
       addChildRange: handleAddChildRange,

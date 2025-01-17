@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax } from "@synnaxlabs/client";
+import { ontology, schematic, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -72,9 +72,7 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
             ),
         ),
       );
-      const otgIDs = schematics.map(
-        ({ key }) => new ontology.ID({ type: "schematic", key }),
-      );
+      const otgIDs = schematics.map(({ key }) => schematic.ontologyID(key));
       const otg = await client.ontology.retrieve(otgIDs);
       state.setResources([...state.resources, ...otg]);
       const nextTree = Tree.setNode({
@@ -209,7 +207,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "schematic",
+  type: schematic.ONTOLOGY_TYPE,
   icon: <Icon.Schematic />,
   hasChildren: false,
   haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],

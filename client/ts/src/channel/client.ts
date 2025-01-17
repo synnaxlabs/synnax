@@ -25,6 +25,7 @@ import {
   type Key,
   type KeyOrName,
   type NewPayload,
+  ontologyID as payloadOntologyID,
   type Params,
   type Payload,
   payload,
@@ -40,7 +41,7 @@ import {
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -185,7 +186,7 @@ export class Channel {
    * @returns the ontology ID of the channel
    */
   get ontologyID(): ontology.ID {
-    return new ontology.ID({ type: "channel", key: this.key.toString() });
+    return payloadOntologyID(this.key);
   }
 
   /**

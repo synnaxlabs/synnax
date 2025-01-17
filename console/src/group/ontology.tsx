@@ -35,10 +35,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     newGroup: () => createEmptyGroup(props),
     group: () => createFromSelection(props),
     link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
+      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
   });
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
@@ -96,7 +93,7 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
         const id = res.id;
         const children =
           Tree.findNode({ tree: nodes, key: id.toString() })?.children ?? [];
-        const parentID = new ontology.ID(selection.parent.key as string);
+        const parentID = new ontology.ID(selection.parent.key);
         const childKeys = children.map((c) => new ontology.ID(c.key));
         await client.ontology.moveChildren(id, parentID, ...childKeys);
         await client.ontology.groups.delete(id.key);
@@ -176,11 +173,7 @@ export const useCreateEmpty = (): ((
     }) => {
       if (resources.length === 0) return;
       const resource = resources[resources.length - 1];
-      const res: ontology.Resource = {
-        key: newID.toString(),
-        id: newID,
-        name: "",
-      };
+      const res: ontology.Resource = { key: newID.toString(), id: newID, name: "" };
       expand(resource.id.toString());
       const newGroupNode = Ontology.toTreeNode(services, res);
       setNodes([
@@ -290,7 +283,7 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "group",
+  type: group.ONTOLOGY_TYPE,
   icon: <Icon.Group />,
   hasChildren: true,
   onRename: handleRename,
