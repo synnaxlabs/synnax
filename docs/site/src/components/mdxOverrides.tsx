@@ -1,6 +1,6 @@
 import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto";
-import { type FC, isValidElement } from "react";
+import { type FC } from "react";
 
 import pre from "@/components/code/Code.astro";
 import Details from "@/components/details/Details.astro";
