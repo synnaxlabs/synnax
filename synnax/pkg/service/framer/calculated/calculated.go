@@ -127,6 +127,8 @@ func (s *Service) Update(ctx context.Context, ch channel.Key) {
 	delete(s.mu.entries, ch)
 	if _, err := s.startCalculation(ctx, ch, e.count); err != nil {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
+		// add log just to commit change
+		s.cfg.L.Info("restarted calculated channel", zap.Stringer("key", ch))
 	}
 }
 
