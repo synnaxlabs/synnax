@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
-    "build": "tsc --noEmit && tauri build --verbose",
+    "build": "tsc --noEmit && tauri build",
     "dev-vite": "vite --force",
     "build-vite": "tsc --noEmit && vite build",
     "preview": "vite preview",

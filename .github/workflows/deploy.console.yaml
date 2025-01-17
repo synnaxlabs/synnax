@@ -19,89 +19,89 @@ env:
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
 
 jobs:
-  setup:
-    name: Setup
-    runs-on: ubuntu-latest
-    outputs:
-      PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
-      VERSION: ${{ steps.version.outputs.VERSION }}
-      changed: ${{ steps.filter.outputs.changed }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
+  #   setup:
+  #     name: Setup
+  #     runs-on: ubuntu-latest
+  #     outputs:
+  #       PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
+  #       VERSION: ${{ steps.version.outputs.VERSION }}
+  #       changed: ${{ steps.filter.outputs.changed }}
+  #     steps:
+  #       - name: Checkout Repository
+  #         uses: actions/checkout@v4
+  #         with:
+  #           fetch-depth: 0
+  #           ssh-key: ${{ secrets.DEPLOY_KEY }}
 
-      - name: Get Version
-        id: version
-        working-directory: console
-        run: |
-          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=$(node -p "require('./package.json').version")-rc" >> $GITHUB_OUTPUT
-            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-          fi
+  #       - name: Get Version
+  #         id: version
+  #         working-directory: console
+  #         run: |
+  #           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+  #             echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+  #             echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+  #           else
+  #             echo "VERSION=$(node -p "require('./package.json').version")-rc" >> $GITHUB_OUTPUT
+  #             echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+  #           fi
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            changed:
-              - .github/workflows/deploy.console.yaml
-              - alamos/ts/**
-              - client/ts/**
-              - configs/ts/**
-              - configs/vite/**
-              - console/**
-              - drift/**
-              - freighter/ts/**
-              - pluto/**
-              - x/media/**
-              - x/ts/**
+  #       - name: Diff Changes
+  #         uses: dorny/paths-filter@v3
+  #         id: filter
+  #         with:
+  #           base: ${{ github.ref }}
+  #           filters: |
+  #             changed:
+  #               - .github/workflows/deploy.console.yaml
+  #               - alamos/ts/**
+  #               - client/ts/**
+  #               - configs/ts/**
+  #               - configs/vite/**
+  #               - console/**
+  #               - drift/**
+  #               - freighter/ts/**
+  #               - pluto/**
+  #               - x/media/**
+  #               - x/ts/**
 
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
-    needs: setup
-    env:
-      VERSION: ${{ needs.setup.outputs.VERSION }}
-    outputs:
-      release_id: ${{ steps.create-release.outputs.result }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+  #   create-release:
+  #     name: Create Release
+  #     runs-on: ubuntu-latest
+  #     if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
+  #     needs: setup
+  #     env:
+  #       VERSION: ${{ needs.setup.outputs.VERSION }}
+  #     outputs:
+  #       release_id: ${{ steps.create-release.outputs.result }}
+  #     steps:
+  #       - name: Checkout Repository
+  #         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
+  #       - name: Set up Node.js
+  #         uses: actions/setup-node@v4
+  #         with:
+  #           node-version-file: package.json
 
-      - name: Create Release
-        id: create-release
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const  { data: releases } = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            })
-            const release = releases.find(r => r.tag_name === `console-v${process.env.VERSION}`)
-            if (release != null) return release.id
-            const { data: { id } }  = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: `console-v${process.env.VERSION}`,
-              name: `Synnax Console v${process.env.VERSION}`,
-              draft: false,
-              prerelease: false,
-            })
-            return id
+  #       - name: Create Release
+  #         id: create-release
+  #         uses: actions/github-script@v7
+  #         with:
+  #           script: |
+  #             const  { data: releases } = await github.rest.repos.listReleases({
+  #               owner: context.repo.owner,
+  #               repo: context.repo.repo
+  #             })
+  #             const release = releases.find(r => r.tag_name === `console-v${process.env.VERSION}`)
+  #             if (release != null) return release.id
+  #             const { data: { id } }  = await github.rest.repos.createRelease({
+  #               owner: context.repo.owner,
+  #               repo: context.repo.repo,
+  #               tag_name: `console-v${process.env.VERSION}`,
+  #               name: `Synnax Console v${process.env.VERSION}`,
+  #               draft: false,
+  #               prerelease: false,
+  #             })
+  #             return id
 
   tauri:
     name: Tauri
@@ -140,17 +140,36 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install
 
+      - name: Build frontend
+        run: pnpm build:console-vite
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          projectPath: console
+          # releaseId
           tagName: console-v${{ needs.setup.outputs.VERSION }}-test
           releaseName: Synnax Console v${{ needs.setup.outputs.VERSION }}-test
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
           prerelease: true
+          # releaseCommitsh
+          projectPath: ./console
+          distPath: ./console/dist
+          # iconPath
+          # appName
+          # appVersion
+          # includeDebug
+          # includeRelease
+          # includeUpdaterJson
+          # updaterJsonPreferNsis
+          # updaterJsonKeepUniversal
+          tauriScript: pnpm build
           args: ${{ matrix.args }}
+          # retryAttempts
+          # bundleIdentifier
+          # owner
+          # repo
 
   # build:
   #   name: Build (${{ matrix.os }})
