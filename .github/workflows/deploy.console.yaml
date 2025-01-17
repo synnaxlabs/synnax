@@ -164,7 +164,7 @@ jobs:
           # includeUpdaterJson
           # updaterJsonPreferNsis
           # updaterJsonKeepUniversal
-          tauriScript: pnpm build
+          tauriScript: pnpm
           args: ${{ matrix.args }}
           # retryAttempts
           # bundleIdentifier
