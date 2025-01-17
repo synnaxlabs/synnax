@@ -12,6 +12,7 @@ import { type Synnax } from "@synnaxlabs/client";
 import { ZodError } from "zod";
 
 import { type DirectoryIngestor, type FileIngestor } from "@/import/ingestor";
+import { trimFileName } from "@/import/trimFileName";
 import { type Layout } from "@/layout";
 
 interface DirectoryContent {
@@ -85,7 +86,7 @@ export const dataTransferItem = async (
 
   // Handling a file transfer, importing a single JSON file
   if (entry instanceof File) {
-    const name = entry.name;
+    const name = trimFileName(entry.name);
     if (entry.type !== "application/json") throw new Error("not a JSON file");
     const buffer = await entry.arrayBuffer();
     const fileData = new TextDecoder().decode(buffer);
