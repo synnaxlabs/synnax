@@ -286,8 +286,9 @@ export const analogReadConfigZ = v0.analogReadConfigZ
     });
   });
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
+const { device: _, ...rest } = v0.ZERO_ANALOG_READ_CONFIG;
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
-  ...v0.ZERO_ANALOG_READ_CONFIG,
+  ...rest,
   version: VERSION,
   channels: [],
 };
@@ -303,14 +304,17 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 
 export const ANALOG_READ_CONFIG_MIGRATION_NAME = "hardware.ni.task.analogRead.config";
 
-export const analogReadMigration = migrate.createMigration<
+export const analogReadConfigMigration = migrate.createMigration<
   v0.AnalogReadConfig,
   AnalogReadConfig
 >({
   name: ANALOG_READ_CONFIG_MIGRATION_NAME,
-  migrate: (s) => ({
-    ...s,
-    version: VERSION,
-    channels: s.channels.map((c) => ({ device: s.device, ...c })),
-  }),
+  migrate: (s) => {
+    const { device, ...rest } = s;
+    return {
+      ...rest,
+      version: VERSION,
+      channels: rest.channels.map((c) => ({ device, ...c })),
+    };
+  },
 });

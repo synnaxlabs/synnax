@@ -83,7 +83,7 @@ export interface ScanConfig extends v0.ScanConfig {}
 
 type AnyAnalogReadConfig = v0.AnalogReadConfig | v1.AnalogReadConfig;
 const ANALOG_READ_CONFIG_MIGRATIONS: migrate.Migrations = {
-  [v0.VERSION]: v1.analogReadMigration,
+  [v0.VERSION]: v1.analogReadConfigMigration,
 };
 export const migrateAnalogReadConfig = migrate.migrator<
   AnyAnalogReadConfig,
