@@ -3,7 +3,6 @@ package calculated
 import (
 	"context"
 	"fmt"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/computron"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -236,10 +235,9 @@ func (s *Service) startCalculation(
 	c := &calculator{
 		ch:          ch,
 		calculation: calculation,
-		requires: lo.SliceToMap(requires, func(item channel.Channel) (channel.Key, channel.Channel) {
-			return item.Key(), item
-		}),
-		locals: make(map[string]interface{}, len(requires)),
+		requires:    requires,
+		locals:      make(map[string]interface{}, len(requires)),
+		recent:      make(map[channel.Key]telem.Series, len(requires)),
 	}
 	sc := &streamCalculator{
 		internal: c,
@@ -312,27 +310,42 @@ func (s *streamCalculator) transform(_ context.Context, i framer.StreamerRespons
 }
 
 type calculator struct {
-	ch          channel.Channel
+	// ch is the specification for the calculated channel.
+	ch channel.Channel
+	// calculation is the Python calculation to run.
 	calculation *computron.Calculation
-	requires    map[channel.Key]channel.Channel
-	locals      map[string]interface{}
+	// requires is the set of channels required by the calculation to run correctly.
+	requires []channel.Channel
+	// locals is the set of local variables to pass to the calculation.
+	locals map[string]interface{}
+	// recent is the most recent series for each required channel. We use this for cases where channels in requires
+	// are arriving at different rates, so that we can still run calculations with the most recent value for each
+	// channel.
+	recent        map[channel.Key]telem.Series
+	prevAlignment telem.AlignmentPair
+}
+
+func (c calculator) resolveSeries(fr framer.Frame, ch channel.Key) (telem.Series, bool) {
+	s := fr.Get(ch)
+	if len(s) != 0 {
+		c.recent[ch] = s[0]
+		return s[0], true
+	}
+	rs, found := c.recent[ch]
+	return rs, found
 }
 
 func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string, err error) {
 	var alignment telem.AlignmentPair
-	for _, k := range c.ch.Requires {
-		s := fr.Get(k)
-		if len(s) == 0 {
+	for _, ch := range c.requires {
+		s, ok := c.resolveSeries(fr, ch.Key())
+		if !ok {
 			continue
 		}
-		alignment = s[0].Alignment
-		obj, err := computron.NewSeries(s[0])
+		alignment = s.Alignment
+		obj, err := computron.NewSeries(s)
 		if err != nil {
 			return of, "", err
-		}
-		ch, found := c.requires[k]
-		if !found {
-			continue
 		}
 		c.locals[ch.Name] = obj
 	}
@@ -340,7 +353,6 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string,
 	if err != nil {
 		return of, "", err
 	}
-
 	os.Alignment = alignment
 	of.Keys = []channel.Key{c.ch.Key()}
 	of.Series = []telem.Series{os}

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Create", Ordered, func() {
@@ -126,6 +127,29 @@ var _ = Describe("Create", Ordered, func() {
 			})
 		})
 	})
+
+	Describe("Calculated Channels", func() {
+		It("Should return an error for nested calculated channels", func() {
+			baseCh := &channel.Channel{
+				Name:        "base",
+				DataType:    telem.Float64T,
+				Expression:  "result = np.array([1,2,3])",
+				Virtual:     true,
+				Leaseholder: core.Free,
+			}
+			Expect(services[1].Create(ctx, baseCh)).To(Succeed())
+			nestedCh := &channel.Channel{
+				Name:       "nested",
+				DataType:   telem.Float64T,
+				Expression: "result = base",
+				Virtual:    true,
+				Requires:   []channel.Key{baseCh.Key()},
+			}
+			Expect(services[1].Create(ctx, nestedCh)).To(HaveOccurredAs(validate.Error))
+
+		})
+	})
+
 	Context("Creating if name doesn't exist", func() {
 		var ch channel.Channel
 		BeforeEach(func() {
@@ -202,6 +226,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(resChannels[0].Expression).To(Equal("sin(x)"))
 		})
 		It("Should update the requires without error", func() {
+			Expect(services[1].Create(ctx, &ch2)).To(Succeed())
 			ch.Requires = []channel.Key{ch2.Key()}
 			Expect(services[1].Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Requires).To(ContainElement(ch2.Key()))

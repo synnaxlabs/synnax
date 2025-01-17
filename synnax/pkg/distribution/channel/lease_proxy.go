@@ -165,6 +165,14 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
 
+	for _, ch := range *channels {
+		if ch.IsCalculated() {
+			if err := lp.validateCalculated(ctx, tx, ch); err != nil {
+				return err
+			}
+		}
+	}
+
 	// If existing channels are passed in, update the name, required channels and calc expression
 	keys := KeysFromChannels(*channels)
 	if err := gorp.NewUpdate[Key, Channel]().
@@ -194,8 +202,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		return err
 	}
 
-	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
-		tx); err != nil {
+	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
 		return err
 	}
 	return lp.maybeSetResources(ctx, tx, toCreate)
@@ -511,4 +518,24 @@ func (lp *leaseProxy) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, 
 		return err
 	}
 	return lp.TSChannel.RenameChannels(ctx, keys.Storage(), names)
+}
+
+func (lp *leaseProxy) validateCalculated(ctx context.Context, tx gorp.Tx, ch Channel) error {
+	if !ch.IsCalculated() {
+		return nil
+	}
+	// Check that none of the channels in required are calculated
+	var requiredChannels []Channel
+	if err := gorp.NewRetrieve[Key, Channel]().WhereKeys(ch.Requires...).Entries(&requiredChannels).Exec(ctx, tx); err != nil {
+		return err
+	}
+	for _, rCh := range requiredChannels {
+		if rCh.IsCalculated() {
+			return errors.Wrapf(validate.Error, "nested calculations are not yet supported. Cannot require %s", rCh.String())
+		}
+		if rCh.Key() == ch.Key() {
+			return errors.Wrapf(validate.Error, "calculatec channel cannot require self %s", rCh.String())
+		}
+	}
+	return nil
 }
