@@ -11,15 +11,17 @@ package domain
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/telem"
 	"io"
 	"math"
 	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/telem"
 )
 
 const extension = ".domain"
@@ -326,24 +328,28 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 	fc.readers.Lock()
 	defer fc.readers.Unlock()
 	for k, f := range fc.readers.files {
-		f.Lock()
-		for i, r := range f.open {
-			if r.tryAcquire() {
-				err = r.HardClose()
-				if err != nil {
-					f.Unlock()
-					return false, err
+		func() {
+			f.Lock()
+			defer f.Unlock()
+			f.open = lo.Filter[controlledReader](f.open, func(r controlledReader, i int) bool {
+				if !r.tryAcquire() {
+					// If file is held by someone else, we can't gc.
+					return true
 				}
-				fc.readers.files[k].open = append(f.open[:i], f.open[i+1:]...)
+				// If we encounter an error, we can't gc.
+				if err = r.HardClose(); err != nil {
+					return true
+				}
 				successful = true
+				// Good to GC, remove from open.
+				return false
+			})
+			if len(fc.readers.files[k].open) == 0 {
+				delete(fc.readers.files, k)
 			}
-		}
-		if len(fc.readers.files[k].open) == 0 {
-			delete(fc.readers.files, k)
-		}
-		f.Unlock()
+		}()
 	}
-	return successful, nil
+	return successful, err
 }
 
 // gcWriters closes all open writers to oversize files.
