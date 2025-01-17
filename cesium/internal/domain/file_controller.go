@@ -11,16 +11,17 @@ package domain
 
 import (
 	"context"
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/telem"
 	"io"
 	"math"
 	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/telem"
 )
 
 const extension = ".domain"
