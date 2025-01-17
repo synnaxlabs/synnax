@@ -30,7 +30,6 @@ export const useSyncComponent = <P>(
   const store = useStore<RootState>();
   const syncLayout = useMutation<void, Error>({
     retry: 3,
-    mutationKey: [],
     mutationFn: async () => {
       if (layoutKey == null || client == null) return;
       const ws = selectActiveKey(store.getState());

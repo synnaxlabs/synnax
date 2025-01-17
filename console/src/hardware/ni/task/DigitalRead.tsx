@@ -192,7 +192,6 @@ const Wrapped = ({
   });
 
   const start = useMutation({
-    mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (client == null) return;
       const isRunning = running === true;

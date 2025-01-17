@@ -36,7 +36,6 @@ export const useLoadRemote = <V extends migrate.Migratable>({
   const handleException = Status.useExceptionHandler();
   const client = PSynnax.use();
   const get = useMutation({
-    mutationKey: [layoutKey, client?.key],
     mutationFn: async () => {
       if (client == null) return;
       return fetcher(client, layoutKey);

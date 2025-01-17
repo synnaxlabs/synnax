@@ -29,7 +29,6 @@ export const useSyncLayout = async (): Promise<void> => {
   const handleException = Status.useExceptionHandler();
   const prevSync = useRef<unknown>(null);
   const sync = useMutation({
-    mutationKey: ["workspace.save"],
     retry: MAX_RETRY_COUNT,
     mutationFn: useDebouncedCallback(
       async (s: RootState) => {

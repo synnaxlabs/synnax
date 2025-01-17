@@ -69,7 +69,6 @@ export const Configure = <P extends UnknownRecord = UnknownRecord>({
   const identifierRef = useRef<HTMLInputElement>(null);
   const handleException = Status.useExceptionHandler();
   const { isPending, mutate } = useMutation<void, Error, void>({
-    mutationKey: [client?.key],
     onError: (e) => handleException(e, `Failed to configure ${device.name}`),
     mutationFn: async () => {
       if (client == null) throw new Error("Cannot reach cluster");

@@ -402,7 +402,6 @@ export const Tree = (): ReactElement => {
     { key: string; name: string },
     { prevName: string }
   >({
-    mutationKey: ["rename"],
     onMutate: ({ key, name }) => {
       const rProps = getRenameProps(key, name);
       const svc = services[rProps.id.type];

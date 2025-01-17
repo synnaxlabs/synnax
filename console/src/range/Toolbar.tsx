@@ -148,7 +148,6 @@ const useAddToActivePlot = (): ((key: string) => void) => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   return useMutation<void, Error, string>({
-    mutationKey: ["add-to-active-plot", client?.key],
     mutationFn: async (key: string) => {
       const active = Layout.selectActiveMosaicLayout(store.getState());
       if (active == null || client == null) return;
