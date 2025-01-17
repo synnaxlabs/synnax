@@ -2,26 +2,51 @@ name: Test - Computron
 
 on:
   push:
-    branches: [ main, rc ]
-    paths:
-      - 'computron/**'
-      - '.github/workflows/test.computron.yaml'
+    branches:
+      - main
+      - rc
   pull_request:
-    branches: [ main, rc ]
-    paths:
-      - 'computron/**'
-      - '.github/workflows/test.computron.yaml'
+    branches:
+      - main
+      - rc
   workflow_dispatch:
 
 jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            changed:
+              - .github/workflows/test.computron.yaml
+              - alamos/go/**
+              - computron/**
+              - x/go/**
+
   test:
     name: Test (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -31,6 +56,10 @@ jobs:
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
+
+      - name: Format
+        if: matrix.format
+        run: scripts/gofmt-check.sh computron
 
       - name: Install Visual Studio Build Tools
         if: matrix.os == 'windows-latest'
@@ -55,4 +84,4 @@ jobs:
 
       - name: Run Tests
         working-directory: computron
-        run: go test -v ./...
+        run: go test -v -shuffle=on ./...
