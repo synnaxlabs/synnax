@@ -2,7 +2,6 @@ syntax = "proto3";
 
 import "x/go/errors/errors.proto";
 import "x/go/telem/telem.proto";
-import "x/go/control/control.proto";
 import "google/protobuf/empty.proto";
 
 package ts.v1;
@@ -64,12 +63,6 @@ message WriterRequest {
 message WriterConfig {
     repeated uint32 keys = 1;
     int64 start = 2;
-    repeated uint32 authorities = 3;
-    control.ControlSubject control_subject = 4;
-    bool err_on_unauthorized = 5;
-    uint32 mode = 6;
-    bool enable_auto_commit = 7;
-    int64 auto_index_persist_interval = 8;
 }
 
 message WriterResponse {

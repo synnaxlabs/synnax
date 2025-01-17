@@ -48,7 +48,7 @@ const handleSelect: Ontology.HandleSelect = () => {};
 const handleConfigure = ({
   selection: { resources },
   placeLayout,
-  handleException,
+  addStatus,
 }: Ontology.TreeContextMenuProps): void => {
   const resource = resources[0];
   try {
@@ -57,7 +57,12 @@ const handleConfigure = ({
     const key = resource.id.key;
     placeLayout(baseLayout(key, {}));
   } catch (e) {
-    handleException(e, `Failed to configure ${resource.name}`);
+    if (!(e instanceof Error)) throw e;
+    addStatus({
+      variant: "error",
+      message: `Failed to configure ${resource.name}`,
+      description: e.message,
+    });
   }
 };
 
@@ -77,10 +82,14 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     mutationFn: async ({ selection, client }) =>
       await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
-    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
+    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
       if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(e, `Failed to delete devices`);
+      addStatus({
+        variant: "error",
+        message: `Failed to delete devices`,
+        description: e.message,
+      });
     },
   }).mutate;
 };

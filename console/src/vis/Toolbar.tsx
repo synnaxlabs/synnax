@@ -40,7 +40,7 @@ const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
 };
 
 const NoVis = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   return (
     <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
       <ToolbarHeader>
@@ -50,7 +50,7 @@ const NoVis = (): ReactElement => {
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
-        <Text.Link level="p" onClick={() => place(Layouts.createSelector({}))}>
+        <Text.Link level="p" onClick={() => placer(Layouts.createSelector({}))}>
           create a new one.
         </Text.Link>
       </Align.Center>

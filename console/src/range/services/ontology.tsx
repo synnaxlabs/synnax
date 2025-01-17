@@ -78,7 +78,12 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       await fetchIfNotInState(store, client, res.id.key);
       store.dispatch(setActive(res.id.key));
     },
-    onError: (e, { handleException }) => handleException(e, "Failed to activate range"),
+    onError: (e, { addStatus }) =>
+      addStatus({
+        variant: "error",
+        message: `Failed to activate range`,
+        description: e.message,
+      }),
   }).mutate;
 
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
@@ -97,12 +102,13 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
         }),
       );
     },
-    onError: (e, { handleException, selection: { resources } }) => {
+    onError: (e, { addStatus, selection: { resources } }) => {
       const rangeNames = resources.map((r) => r.name);
-      handleException(
-        e,
-        `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
-      );
+      addStatus({
+        variant: "error",
+        message: `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
+        description: e.message,
+      });
     },
   }).mutate;
 
@@ -122,19 +128,20 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         }),
       );
     },
-    onError: (e, { handleException, selection: { resources } }) => {
+    onError: (e, { addStatus, selection: { resources } }) => {
       const names = resources.map((r) => r.name);
-      handleException(
-        e,
-        `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
-      );
+      addStatus({
+        variant: "error",
+        message: `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
+        description: e.message,
+      });
     },
   }).mutate;
 
 const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   return ({ selection: { resources } }) =>
-    place({
+    placer({
       ...overviewLayout,
       name: resources[0].name,
       key: resources[0].id.key,
@@ -177,7 +184,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await client.ranges.delete(selection.resources.map((r) => r.id.key)),
     onError: (
       e,
-      { handleException, selection: { resources }, state: { setNodes }, store },
+      { addStatus, selection: { resources }, state: { setNodes }, store },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
@@ -190,7 +197,11 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       }
       let message = "Failed to delete ranges";
       if (resources.length === 1) message = `Failed to delete ${resources[0].name}`;
-      handleException(e, message);
+      addStatus({
+        variant: "error",
+        message,
+        description: e.message,
+      });
     },
   }).mutate;
 };

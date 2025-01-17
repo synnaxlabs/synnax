@@ -9,27 +9,45 @@
 
 import { Status } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 export interface UseAsyncActionProps {
   key: string;
   action: () => Promise<void>;
 }
 
-export const useAsyncAction = ({ action }: UseAsyncActionProps) => {
-  const handleException = Status.useExceptionHandler();
+export const useAsyncAction = ({ key, action }: UseAsyncActionProps) => {
+  const addStatus = Status.useAggregator();
   return useMutation({
+    mutationKey: [key],
     mutationFn: action,
-    onError: handleException,
+    onError: (error) => {
+      addStatus({
+        variant: "error",
+        message: error.message,
+      });
+    },
   }).mutate;
 };
 
 export const useAsyncActionMenu = (
+  key: string,
   actions: Record<string, () => Promise<void> | void>,
 ): ((key: string) => void) => {
-  const handleException = Status.useExceptionHandler();
+  const addStatus = Status.useAggregator();
+  const mutationKey = useMemo<string[]>(
+    () => [key, ...Object.keys(actions)],
+    [actions],
+  );
   const res = useMutation({
+    mutationKey,
     mutationFn: async (key: string) => await actions[key](),
-    onError: handleException,
+    onError: (error) => {
+      addStatus({
+        variant: "error",
+        message: error.message,
+      });
+    },
   });
   return (key: string) => res.mutate(key);
 };

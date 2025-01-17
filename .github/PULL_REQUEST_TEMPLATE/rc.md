@@ -58,6 +58,7 @@ I have verified that user-facing documentation for each of the following service
 - [ ] `reference/device-drivers/labjack`
 - [ ] `reference/device-drivers/ni`
 - [ ] `reference/device-drivers/opc-ua`
+- [ ] `reference/pluto`
 - [ ] `reference/python-client`
 - [ ] `reference/typescript-client`
 
@@ -68,13 +69,9 @@ I have verified that code examples for each of the following services run correc
 - [ ] `client/py`
 - [ ] `client/ts`
   - [ ] Version number in `examples/node` is up-to-date
-
-### Broken Links
-
-- [ ] I have used a broken link checker like
-      [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. Link
-      Check](https://www.drlinkcheck.com/) to check that all links work on the live
-      website:
+- [ ] `drift/electron`
+- [ ] `drift/tauri`
+- [ ] `pluto`
 
 ### Release Notes
 
@@ -399,7 +396,6 @@ I can successfully:
 - **Search and Command Palette**
   - [ ] Open an existing schematic.
   - [ ] Open the "Create Schematic" dialog.
-  - [ ] Import a schematic from a file.
 - [ ] Rename a schematic and ensure synchronization across:
   - Mosaic Tab
   - Resources Toolbar
@@ -465,7 +461,6 @@ I can successfully:
 I can successfully:
 
 - [ ] Create a new workspace.
-- [ ] Import a workspace by drag and dropping from a directory.
 - **Workspace Selector**
   - [ ] Create a new workspace.
   - [ ] Switch workspaces in the selector.
@@ -475,19 +470,15 @@ I can successfully:
   - **Context Menu**
     - [ ] Rename a workspace.
     - [ ] Delete a workspace.
-    - [ ] Export a workspace.
     - [ ] Create a new line plot in a workspace.
     - [ ] Create a new log in a workspace.
     - [ ] Create a new schematic in a workspace.
     - [ ] Import a line plot.
     - [ ] Import a schematic.
-    - [ ] Import a log.
-    - [ ] Import a table.
     - [ ] Create a new table in a workspace.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
   - [ ] Open the "Create Workspace" dialog.
-  - [ ] Import a workspace.
   - [ ] Open an existing workspace.
 - [ ] Rename a workspace and ensure synchronization across:
   - Resources Toolbar

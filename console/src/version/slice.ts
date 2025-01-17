@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import * as latest from "@/version/types";
+import * as latest from "@/version/migrations";
 
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;

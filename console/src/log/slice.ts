@@ -10,11 +10,10 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit/react";
 import { type channel } from "@synnaxlabs/client";
 
-import * as latest from "@/log/types";
+import * as latest from "@/log/migrations";
 
 export type State = latest.State;
 export type SliceState = latest.SliceState;
-export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_STATE = latest.ZERO_STATE;
 

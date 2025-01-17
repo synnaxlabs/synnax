@@ -123,13 +123,13 @@ export type CreateConfirmModal = (
 ) => Promise<boolean>;
 
 export const useModal = (): CreateConfirmModal => {
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   const store = useStore<RootState>();
   return async (args, layoutOverrides) => {
     let unsubscribe: ReturnType<typeof store.subscribe> | null = null;
     return await new Promise((resolve) => {
       const layout = configureLayout(args, layoutOverrides);
-      place(layout);
+      placer(layout);
       unsubscribe = store.subscribe(() => {
         const l = Layout.select(store.getState(), layout.key);
         if (l == null) resolve(false);

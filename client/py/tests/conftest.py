@@ -61,29 +61,3 @@ def indexed_pair(client: synnax.Synnax) -> tuple[Channel, Channel]:
         data_type=telem.DataType.FLOAT64,
     )
     return idx, data
-
-
-def pytest_addoption(parser):
-    parser.addoption(
-        "--run-multi-node",
-        action="store_true",
-        default=False,
-        help="Run tests marked as multi-node",
-    )
-
-
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers", "multi-node: tests that run only when a flag is provided"
-    )
-
-
-def pytest_collection_modifyitems(config, items):
-    if config.getoption("--run-multi-node"):
-        # If the flag is provided, no filtering is needed
-        return
-    # Else, skip tests marked as `multi-node`
-    skip_multi_node = pytest.mark.skip(reason="Need --run-multi-node option to run")
-    for item in items:
-        if "multi_node" in item.keywords:
-            item.add_marker(skip_multi_node)

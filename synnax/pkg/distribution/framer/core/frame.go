@@ -99,12 +99,6 @@ func (f Frame) Get(key channel.Key) (series []telem.Series) {
 	return series
 }
 
-func (f Frame) Extend(fr Frame) Frame {
-	f.Keys = append(f.Keys, fr.Keys...)
-	f.Series = append(f.Series, fr.Series...)
-	return f
-}
-
 func MergeFrames(frames []Frame) (f Frame) {
 	if len(frames) == 0 {
 		return f

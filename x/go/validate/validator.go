@@ -12,13 +12,12 @@ package validate
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
+	"reflect"
+	"strings"
 )
 
 type Validator struct {

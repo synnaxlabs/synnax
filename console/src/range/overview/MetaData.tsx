@@ -19,12 +19,13 @@ import {
   List,
   Text,
 } from "@synnaxlabs/pluto";
-import { type change, compare, deep, kv, link } from "@synnaxlabs/x";
+import { type change, compare, deep, kv } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useMemo } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { Link } from "@/link";
 
 interface MetaDataProps {
   rangeKey: string;
@@ -36,7 +37,7 @@ const metaDataFormSchema = z.object({
 });
 
 const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement => {
-  const isLink = link.is(value);
+  const isLink = Link.isLink(value);
   const copyToClipboard = useCopyToClipboard();
   return (
     <Input.Text

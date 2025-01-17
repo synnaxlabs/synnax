@@ -6,7 +6,9 @@ keywords = ["Synnax", "Cesium"]
 repository = "https://github.com/synnaxlabs/synnax"
 homepage = "https://synnaxlabs.com"
 authors = ["leo liu <leohliu@umich.edu>"]
-packages = [{ include = "./*.py" }]
+packages = [
+	{ include = "./*.py" }
+]
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.0.7"
 black = "^24.10.0"
@@ -18,7 +20,7 @@ profile = "black"
 python = "^3.11"
 pandas = "^2.0.2"
 urllib3 = "^2.2.1"
-numpy = "^2.2.1"
+numpy = "^1.24.3"
 matplotlib = "^3.7.1"
 
 [build-system]

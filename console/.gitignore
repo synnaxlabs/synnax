@@ -12,8 +12,6 @@ dist
 dist-ssr
 *.local
 
-python_install
-
 # Editor directories and files
 !.vscode/extensions.json
 .idea

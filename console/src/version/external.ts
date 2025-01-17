@@ -13,7 +13,6 @@ import { Info, infoLayout } from "@/version/Info";
 import { notificationAdapter } from "@/version/Updater";
 
 export * from "@/version/Badge";
-export * from "@/version/BetaTag";
 export * from "@/version/Info";
 export * from "@/version/selectors";
 export * from "@/version/slice";

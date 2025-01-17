@@ -1,81 +1,48 @@
-name: Test - Pluto
-
+name: "Test - Pluto"
 on:
-  push:
-    branches:
-      - main
-      - rc
   pull_request:
     branches:
-      - main
       - rc
+      - main
+  push:
+    branches:
+      - rc
+      - main
   workflow_dispatch:
-
 jobs:
-  changes:
-    name: Changes
+  test:
+    name: "Run Tests"
     runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/test.pluto.yaml
-              - alamos/ts/**
-              - client/ts/**
-              - configs/eslint/**
-              - configs/stylelint/**
-              - configs/ts/**
-              - configs/vite/**
-              - freighter/ts/**
-              - pluto/**
-              - x/media/**
-              - x/ts/**
-
-  test:
-    name: Test (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.changed == 'true'
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            lint: true
-        exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+              - "pluto/**"
+              - ".github/workflows/test.pluto.yaml"
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        if: steps.filter.outputs.changed == 'true'
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
 
-      - name: Set up Node.js
+      - name: Set up Node
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version-file: package.json
+          node-version: 20
           cache: pnpm
 
       - name: Install Dependencies
-        run: pnpm install
-
-      - name: Lint
-        if: matrix.lint
-        run: pnpm lint:pluto
-
-      - name: Build
-        run: pnpm build:pluto
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
 
       - name: Test
-        run: pnpm test:pluto
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm cov:pluto

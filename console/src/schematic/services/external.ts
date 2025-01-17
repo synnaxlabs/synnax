@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/schematic/services/Icon";
-export * from "@/schematic/services/import";
 export * from "@/schematic/services/link";
 export * from "@/schematic/services/ontology";
 export * from "@/schematic/services/palette";

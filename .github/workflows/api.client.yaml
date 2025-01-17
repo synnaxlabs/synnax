@@ -1,0 +1,74 @@
+name: "Client API"
+on:
+  pull_request:
+    branches:
+      - rc
+      - main
+  workflow_dispatch:
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changed:
+                - "configs/**"
+                - "x/ts/**"
+                - "alamos/ts/**"
+                - "freighter/ts/**"
+                - "client/ts/**"
+                - ".github/workflows/api.client.yaml"
+
+  api-typescript:
+    needs: setup
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.changed == 'true'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Fetch Remote Base Branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Set up Git user
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Merge Base Branch
+        run: |
+          git merge origin/${{ github.base_ref }} --no-commit --no-ff --allow-unrelated-histories
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Build Client
+        run: pnpm build:client
+
+      - name: Check API
+        run: pnpm checkApi:client

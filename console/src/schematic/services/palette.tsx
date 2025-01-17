@@ -10,24 +10,35 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
+import { importSchematic } from "@/schematic/file";
 import { create } from "@/schematic/Schematic";
 import { selectHasPermission } from "@/schematic/selectors";
 import { ImportIcon } from "@/schematic/services/Icon";
-import { import_ } from "@/schematic/services/import";
+import { Workspace } from "@/workspace";
 
-const CREATE_COMMAND: Command = {
+export const createCommand: Command = {
   key: "create-schematic",
-  name: "Create Schematic",
+  name: "Create a Schematic",
   icon: <Icon.Schematic />,
   onSelect: ({ placeLayout }) => placeLayout(create({})),
   visible: (state) => selectHasPermission(state),
 };
 
-const IMPORT_COMMAND: Command = {
+export const importSchematicCommand: Command = {
   key: "import-schematic",
-  name: "Import Schematic(s)",
+  name: "Import Schematic",
   icon: <ImportIcon />,
-  onSelect: import_,
+  onSelect: ({ placeLayout, ...props }) => {
+    const { store } = props;
+    const state = store.getState();
+    const activeWorkspaceKey = Workspace.selectActiveKey(state);
+    importSchematic({
+      activeWorkspaceKey,
+      placer: placeLayout,
+      dispatch: store.dispatch,
+      ...props,
+    });
+  },
 };
 
-export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];
+export const COMMANDS = [createCommand, importSchematicCommand];

@@ -10,7 +10,7 @@
 // Package cluster provides an interface for joining a Cluster of nodes and
 // exchanging state through an SI gossip model. nodes can join the Cluster without
 // needing to know all members. Cluster will automatically manage the membership of
-// new nodes by assigning them unique Channels and keeping them in sync with their peers.
+// new nodes by assigning them unique Keys and keeping them in sync with their peers.
 // To Open a Cluster, simply use cluster.Open.
 package cluster
 
@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
@@ -42,11 +41,7 @@ type State = store.State
 type Change = store.Change
 
 // NodeNotFound is returned when a node cannot be found in the Cluster.
-var NodeNotFound = errors.Wrap(query.NotFound, "node not found")
-
-func nodeNotFoundErr(key node.Key) error {
-	return errors.Wrapf(NodeNotFound, "node %d", key)
-}
+var NodeNotFound = errors.New("[Cluster] - node not found")
 
 // Open joins the host node to the Cluster and begins gossiping its state. The
 // node will spread addr as its listening address. A set of peer addresses
@@ -116,11 +111,10 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		// If our store isn't valid, and we haven't received peers, assume we're
 		// bootstrapping a new Cluster.
 		c.SetHost(ctx, node.Node{Key: 1, Address: c.HostAddress})
-		clusterKey := uuid.New()
-		c.SetClusterKey(ctx, clusterKey)
-		c.L.Info("no peers provided, bootstrapping new cluster", zap.Stringer("cluster_key", clusterKey))
+		c.SetClusterKey(ctx, uuid.New())
+		c.L.Info("no peers provided, bootstrapping new cluster")
 		c.Pledge.ClusterKey = c.Key()
-		if err = pledge_.Arbitrate(c.Pledge); err != nil {
+		if err := pledge_.Arbitrate(c.Pledge); err != nil {
 			return c, err
 		}
 	}
@@ -171,7 +165,7 @@ func (c *Cluster) Nodes() node.Group {
 func (c *Cluster) Node(key node.Key) (node.Node, error) {
 	n, ok := c.Store.GetNode(key)
 	if !ok {
-		return n, nodeNotFoundErr(key)
+		return n, NodeNotFound
 	}
 	return n, nil
 }
@@ -244,7 +238,7 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
 	}
 	err = cfg.Codec.Decode(ctx, encoded, &state)
-	err = errors.Combine(err, closer.Close())
+	err = errors.CombineErrors(err, closer.Close())
 	return state, err
 }
 

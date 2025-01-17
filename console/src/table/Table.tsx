@@ -1,12 +1,3 @@
-// Copyright 2024 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 import "@/table/Table.css";
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
@@ -107,7 +98,11 @@ export const useSyncComponent = (
       const data = select(storeState, layoutKey);
       if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
-      const setData = { ...data, key: undefined };
+      const setData = {
+        ...data,
+        key: undefined,
+        snapshot: undefined,
+      } as unknown as UnknownRecord;
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
       await client.workspaces.table.create(ws, {
         key: layoutKey,

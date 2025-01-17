@@ -16,13 +16,13 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 import click
+import time
 from datetime import datetime
 
 from synnax.cli import default
 from synnax.cli.flow import Context
 from synnax.cli.io import prompt_new_reader
 from synnax.cli.telem import ask_time_units_select
-from synnax.cli.warning import warning
 from synnax.io import BaseReader
 from synnax.io.factory import IO_FACTORY
 from synnax.telem import TimeSpanUnits, convert_time_units
@@ -40,7 +40,6 @@ OUTPUT_PRECISION_ARG_SHORT = "-op"
 
 
 @click.command()
-@click.pass_context
 @click.argument(
     "input_path",
     required=False,
@@ -88,7 +87,6 @@ OUTPUT_PRECISION_ARG_SHORT = "-op"
     default=True,
 )
 def tsconvert(
-    ctx: click.Context,
     input_path: str | None,
     output_path: str | None,
     input_channel: str | None,
@@ -102,7 +100,6 @@ def tsconvert(
     All arguments are optional. If not provided, the user will be prompted for
     the missing information.
     """
-    warning(ctx)
     pure_tsconvert(
         input_path,
         output_path,

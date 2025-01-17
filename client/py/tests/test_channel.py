@@ -77,22 +77,6 @@ class TestChannel:
         res = client.channels.retrieve(channel.key)
         assert res.virtual is True
 
-    @pytest.mark.multi_node
-    def test_create_with_leaseholder(self, client: sy.Synnax):
-        """Should create a channel with a leaseholder"""
-        channel = client.channels.create(
-            name="test", data_type=sy.DataType.JSON, leaseholder=2, virtual=True
-        )
-        res = client.channels.retrieve(channel.key)
-        assert res.leaseholder == 2
-
-    def test_create_with_leaseholder_not_found(self, client: sy.Synnax):
-        """Should raise a QueryError when leaseholder not found"""
-        with pytest.raises(sy.QueryError):
-            client.channels.create(
-                name="test", data_type=sy.DataType.JSON, leaseholder=1234, virtual=True
-            )
-
     def test_create_invalid_nptype(self, client: sy.Synnax):
         """Should throw a Validation Error when passing invalid numpy data type"""
         with pytest.raises(TypeError):

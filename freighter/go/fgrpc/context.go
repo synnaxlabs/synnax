@@ -11,7 +11,6 @@ package fgrpc
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"go.uber.org/zap"
@@ -20,15 +19,16 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
-func parseServerContext(
+func parseContext(
 	ctx context.Context,
 	serviceName string,
+	location freighter.Role,
 	variant freighter.Variant,
 ) freighter.Context {
 
 	oCtx := freighter.Context{
 		Context:  ctx,
-		Role:     freighter.Server,
+		Role:     location,
 		Target:   address.Address(serviceName),
 		Protocol: Reporter.Protocol,
 		Params:   make(freighter.Params),
@@ -47,6 +47,7 @@ func parseServerContext(
 		oCtx.Sec.TLS.Used = true
 		oCtx.Sec.TLS.ConnectionState = tlsAuth.State
 	}
+
 	grpcMD, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		zap.L().DPanic(

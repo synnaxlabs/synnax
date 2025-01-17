@@ -9,23 +9,34 @@
 
 import { Icon } from "@synnaxlabs/media";
 
+import { importPlot } from "@/lineplot/file";
 import { create } from "@/lineplot/LinePlot";
 import { ImportIcon } from "@/lineplot/services/Icon";
-import { import_ } from "@/lineplot/services/import";
 import { type Command } from "@/palette/Palette";
+import { Workspace } from "@/workspace";
 
-const CREATE_COMMAND: Command = {
+export const createLinePlotCommand: Command = {
   key: "create-line-plot",
-  name: "Create Line Plot",
+  name: "Create a Line Plot",
   icon: <Icon.Visualize />,
   onSelect: ({ placeLayout }) => placeLayout(create({})),
 };
 
-const IMPORT_COMMAND: Command = {
+export const importLinePlotCommand: Command = {
   key: "import-line-plot",
-  name: "Import Line Plot(s)",
+  name: "Import Line Plot",
   icon: <ImportIcon />,
-  onSelect: import_,
+  onSelect: ({ placeLayout, ...props }) => {
+    const { store } = props;
+    const state = store.getState();
+    const activeWorkspaceKey = Workspace.selectActiveKey(state);
+    importPlot({
+      activeWorkspaceKey,
+      placer: placeLayout,
+      dispatch: store.dispatch,
+      ...props,
+    });
+  },
 };
 
-export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];
+export const COMMANDS = [createLinePlotCommand, importLinePlotCommand];

@@ -11,8 +11,6 @@ package framer
 
 import (
 	"context"
-
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -22,9 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -48,19 +43,8 @@ func (writerRequestTranslator) Backward(
 	return writer.Request{
 		Command: writer.Command(req.Command),
 		Config: writer.Config{
-			ControlSubject: control.Subject{
-				Key:  req.Config.ControlSubject.Key,
-				Name: req.Config.ControlSubject.Name,
-			},
 			Keys:  channel.KeysFromUint32(req.Config.Keys),
 			Start: telem.TimeStamp(req.Config.Start),
-			Authorities: lo.Map(req.Config.Authorities, func(auth uint32, _ int) control.Authority {
-				return control.Authority(auth)
-			}),
-			ErrOnUnauthorized:        config.Bool(req.Config.ErrOnUnauthorized),
-			Mode:                     ts.WriterMode(req.Config.Mode),
-			EnableAutoCommit:         config.Bool(req.Config.EnableAutoCommit),
-			AutoIndexPersistInterval: telem.TimeSpan(req.Config.AutoIndexPersistInterval),
 		},
 		Frame: translateFrameForward(req.Frame),
 	}, nil
@@ -71,29 +55,13 @@ func (writerRequestTranslator) Forward(
 	_ context.Context,
 	req writer.Request,
 ) (*framerv1.WriterRequest, error) {
-	cfg := &framerv1.WriterConfig{
-		ControlSubject: &control.ControlSubject{
-			Key:  req.Config.ControlSubject.Key,
-			Name: req.Config.ControlSubject.Name,
-		},
-		Keys:  req.Config.Keys.Uint32(),
-		Start: int64(req.Config.Start),
-		Authorities: lo.Map(req.Config.Authorities, func(auth control.Authority, _ int) uint32 {
-			return uint32(auth)
-		}),
-		Mode:                     uint32(req.Config.Mode),
-		AutoIndexPersistInterval: int64(req.Config.AutoIndexPersistInterval),
-	}
-	if req.Config.ErrOnUnauthorized != nil {
-		cfg.ErrOnUnauthorized = *req.Config.ErrOnUnauthorized
-	}
-	if req.Config.EnableAutoCommit != nil {
-		cfg.EnableAutoCommit = *req.Config.EnableAutoCommit
-	}
 	return &framerv1.WriterRequest{
 		Command: int32(req.Command),
-		Config:  cfg,
-		Frame:   translateFrameBackward(req.Frame),
+		Config: &framerv1.WriterConfig{
+			Keys:  req.Config.Keys.Uint32(),
+			Start: int64(req.Config.Start),
+		},
+		Frame: translateFrameBackward(req.Frame),
 	}, nil
 }
 

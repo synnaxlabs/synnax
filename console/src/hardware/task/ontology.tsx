@@ -87,7 +87,7 @@ const handleSelect: Ontology.HandleSelect = ({
   selection,
   placeLayout,
   client,
-  handleException,
+  addStatus,
 }) => {
   if (selection.length === 0) return;
   const key = selection[0].id.key;
@@ -96,7 +96,12 @@ const handleSelect: Ontology.HandleSelect = ({
     try {
       await retrieveAndPlaceLayout(client, key, placeLayout);
     } catch (e) {
-      handleException(e, `Could not open ${name}`);
+      if (!(e instanceof Error)) throw e;
+      addStatus({
+        variant: "error",
+        message: `Could not open ${name}`,
+        description: e.message,
+      });
     }
   })();
 };
@@ -124,12 +129,16 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
       removeLayout(...resources.map(({ id }) => id.key));
     },
-    onError: (e: Error, { handleException, selection: { resources } }) => {
+    onError: (e: Error, { addStatus, selection: { resources } }) => {
       let message = "Failed to delete tasks";
       if (resources.length === 1)
         message = `Failed to delete task ${resources[0].name}`;
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, message);
+      addStatus({
+        variant: "error",
+        message,
+        description: e.message,
+      });
     },
   }).mutate;
 };
@@ -152,12 +161,17 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         ...otgIDs,
       );
     },
-    onError: (e: Error, { handleException }) =>
-      handleException(e, "Failed to create snapshot"),
+    onError: (e: Error, { addStatus }) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to create snapshot",
+        description: e.message,
+      });
+    },
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus, handleException } = props;
+  const { store, selection, client, addStatus } = props;
   const { resources, nodes } = selection;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
@@ -173,7 +187,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         client,
         addStatus,
         store,
-        handleException,
         removeLayout: props.removeLayout,
         services: props.services,
       }),

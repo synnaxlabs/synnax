@@ -62,10 +62,5 @@ export {
   SLICE_NAME,
   ZERO_SLICE_STATE,
 } from "@/state";
-export {
-  type WindowProps,
-  windowPropsZ,
-  type WindowStage,
-  type WindowState,
-} from "@/window";
+export type { WindowProps, WindowStage, WindowState } from "@/window";
 export { MAIN_WINDOW } from "@/window";

@@ -99,8 +99,6 @@ func (d Digest) Operation() Operation {
 	}
 }
 
-const digestPrefix = "--dig/"
-
 func digestKey(key []byte) (opKey []byte, err error) {
-	return kvx.CompositeKey(digestPrefix, key)
+	return kvx.CompositeKey("--dig/", key)
 }

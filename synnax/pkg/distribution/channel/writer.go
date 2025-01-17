@@ -17,8 +17,10 @@ import (
 )
 
 type Writer interface {
-	Create(ctx context.Context, c *Channel, opts ...CreateOption) error
-	CreateMany(ctx context.Context, channels *[]Channel, opts ...CreateOption) error
+	Create(ctx context.Context, c *Channel) error
+	CreateIfNameDoesntExist(ctx context.Context, c *Channel) error
+	CreateManyIfNamesDontExist(ctx context.Context, channels *[]Channel) error
+	CreateMany(ctx context.Context, channels *[]Channel) error
 	Delete(ctx context.Context, key Key, allowInternal bool) error
 	DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error
 	DeleteByName(ctx context.Context, name string, allowInternal bool) error
@@ -34,31 +36,26 @@ type writer struct {
 
 var _ Writer = writer{}
 
-func (w writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
+func (w writer) Create(ctx context.Context, c *Channel) error {
 	channels := []Channel{*c}
-	err := w.CreateMany(ctx, &channels, opts...)
+	err := w.CreateMany(ctx, &channels)
 	*c = channels[0]
 	return err
 }
 
-type createOptions struct {
-	retrieveIfNameExists bool
+func (w writer) CreateIfNameDoesntExist(ctx context.Context, c *Channel) error {
+	channels := []Channel{*c}
+	err := w.CreateManyIfNamesDontExist(ctx, &channels)
+	*c = channels[0]
+	return err
 }
 
-type CreateOption func(*createOptions)
-
-func RetrieveIfNameExists(v bool) CreateOption {
-	return func(o *createOptions) {
-		o.retrieveIfNameExists = v
-	}
+func (w writer) CreateManyIfNamesDontExist(ctx context.Context, channels *[]Channel) error {
+	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), true)
 }
 
-func (w writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...CreateOption) error {
-	var o createOptions
-	for _, opt := range opts {
-		opt(&o)
-	}
-	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), o.retrieveIfNameExists)
+func (w writer) CreateMany(ctx context.Context, channels *[]Channel) error {
+	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), false)
 }
 
 func (w writer) Delete(ctx context.Context, key Key, allowInternal bool) error {

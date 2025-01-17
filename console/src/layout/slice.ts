@@ -11,17 +11,20 @@ import {
   createSlice,
   type Dispatch,
   type PayloadAction,
+  type Store,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { type Synnax } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
+import { type Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
-import * as latest from "@/layout/types";
-import { type RootState } from "@/store";
+import { type CreateConfirmModal } from "@/confirm/Confirm";
+import { type Placer } from "@/layout/hooks";
+import * as latest from "@/layout/migrations";
 
-export type State<A = unknown> = latest.State<A>;
+export type State<A = any> = latest.State<A>;
 export type SliceState = latest.SliceState;
 export type NavDrawerLocation = latest.NavDrawerLocation;
 export type NavDrawerEntryState = latest.NavDrawerEntryState;
@@ -30,7 +33,6 @@ export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_MOSAIC_STATE = latest.ZERO_MOSAIC_STATE;
 export const MAIN_LAYOUT = latest.MAIN_LAYOUT;
 export const migrateSlice = latest.migrateSlice;
-export const anySliceStateZ = latest.anySliceStateZ;
 
 /**
  * The name of the layout slice in a larger store.
@@ -49,7 +51,7 @@ export interface StoreState {
 
 export const PERSIST_EXCLUDE = ["hauling", "alreadyCheckedGetStarted", "themes"].map(
   (key) => `${SLICE_NAME}.${key}`,
-) as Array<deep.Key<RootState>>;
+) as Array<deep.Key<StoreState>>;
 
 /** Signature for the placeLayout action. */
 export type PlacePayload = State;
@@ -107,6 +109,23 @@ interface SetFocusPayload {
 }
 
 interface SetHaulingPayload extends Haul.DraggingState {}
+
+export interface FileHandlerProps {
+  file: any;
+  name: string;
+  placer: Placer;
+  store: Store;
+  confirm: CreateConfirmModal;
+  client: Synnax | null;
+  workspaceKey?: string;
+  dispatch: Dispatch<UnknownAction>;
+  tab?: {
+    mosaicKey: number;
+    location: location.Location;
+  };
+}
+
+export type FileHandler = (props: FileHandlerProps) => Promise<boolean>;
 
 export interface SetNavDrawerPayload extends NavDrawerEntryState {
   location: NavDrawerLocation;
@@ -461,7 +480,7 @@ export const { actions, reducer } = createSlice({
       mosaic.focused = key;
     },
     setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
-      state.colorContext = Color.transformColorsToHex(payload.state);
+      state.colorContext = payload.state;
     },
   },
 });

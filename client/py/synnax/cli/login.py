@@ -6,6 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 
 import os
 from pathlib import Path
@@ -15,17 +22,14 @@ import click
 from synnax.cli.connect import connect_from_options, prompt_client_options
 from synnax.cli.console.rich import RichConsole
 from synnax.cli.flow import Context
-from synnax.cli.warning import warning
 from synnax.config import ClusterConfig, ClustersConfig, ConfigFile
 
 
 @click.command()
-@click.pass_context
-def login(ctx: click.Context) -> None:
+def login():
     """Logs the user into a Synnax cluster and saves the parameters to the configuration
     file.
     """
-    warning(ctx)
     ctx = Context(console=RichConsole())
     options = prompt_client_options(ctx)
     synnax = connect_from_options(ctx, options)

@@ -11,7 +11,6 @@ package unary
 
 import (
 	"context"
-
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
@@ -209,7 +208,7 @@ func Write(
 	}
 	defer func() {
 		_, err_ := w.Close()
-		err = db.wrapError(errors.Combine(err, err_))
+		err = db.wrapError(errors.CombineErrors(err, err_))
 	}()
 	if _, err = w.Write(series); err != nil {
 		return err

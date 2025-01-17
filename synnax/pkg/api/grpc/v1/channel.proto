@@ -51,7 +51,6 @@ message ChannelRetrieveResponse {
 
 message ChannelCreateRequest {
     repeated Channel channels = 1;
-    bool retrieve_if_name_exists = 2;
 }
 
 message ChannelCreateResponse {

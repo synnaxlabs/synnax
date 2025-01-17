@@ -101,12 +101,12 @@ export const useBase =
   runtime.getOS() === "MacOS" ? useDropOutsideMacOS : useDropOutsideWindows;
 
 export const useDropOutside = () => {
-  const place = usePlacer();
+  const placer = usePlacer();
   const dispatch = useDispatch();
   const handleDrop = useCallback(
     ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
       if (item == null) return [];
-      const { key } = place(
+      const { key } = placer(
         createMosaicWindow({
           position: cursor ? xy.translate(cursor, { x: -80, y: -45 }) : undefined,
         }),
@@ -121,7 +121,7 @@ export const useDropOutside = () => {
       );
       return [item];
     },
-    [place],
+    [placer],
   );
   const dropProps = {
     type: "Palette",

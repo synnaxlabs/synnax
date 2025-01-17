@@ -41,13 +41,13 @@ import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator
 import {
   type Write,
   WRITE_TYPE,
-  type WriteChannel,
-  type WriteConfig,
-  writeConfigZ,
+  type WriteChan,
   type WritePayload,
   type WriteStateDetails,
+  type WriteTaskConfig,
+  writeTaskConfigZ,
   type WriteType,
-  ZERO_WRITE_CHANNEL,
+  ZERO_WRITE_CHAN,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
 import {
@@ -83,7 +83,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   }),
 };
 
-const formSchema = z.object({ name: z.string().min(1), config: writeConfigZ });
+const formSchema = z.object({ name: z.string().min(1), config: writeTaskConfigZ });
 
 const Wrapped = ({
   task,
@@ -102,10 +102,18 @@ const Wrapped = ({
   const initialState =
     isRunning === true ? "running" : isRunning === false ? "paused" : undefined;
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-  const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
-  const handleException = Status.useExceptionHandler();
+  const createTask = useCreate<WriteTaskConfig, WriteStateDetails, WriteType>(
+    layoutKey,
+  );
+  const addStatus = Status.useAggregator();
   const configure = useMutation({
-    onError: (e) => handleException(e, "Failed to configure write task"),
+    mutationKey: [client?.key, "configure", addStatus],
+    onError: (e) =>
+      addStatus({
+        variant: "error",
+        message: "Failed to configure write task",
+        description: e.message,
+      }),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
@@ -132,8 +140,8 @@ const Wrapped = ({
         dev.properties.DO.channels = {};
         dev.properties.AO.channels = {};
       }
-      const commandChannelsToCreate: WriteChannel[] = [];
-      const stateChannelsToCreate: WriteChannel[] = [];
+      const commandChannelsToCreate: WriteChan[] = [];
+      const stateChannelsToCreate: WriteChan[] = [];
       for (const channel of config.channels) {
         const key = channel.port;
         const existingPair = dev.properties[channel.type].channels[key];
@@ -222,17 +230,18 @@ const Wrapped = ({
       setDesiredState("paused");
     },
   });
-  const toggleMutation = useMutation({
-    onError: (e) => {
-      const action =
-        isRunning === true ? "stop" : isRunning === false ? "start" : "toggle";
-      const name = methods.get<string>("name").value ?? "write task";
-      handleException(e, `Failed to ${action} ${name}`);
-    },
+  const start = useMutation({
+    mutationKey: [client?.key, isRunning, task?.key],
+    onError: (e) =>
+      addStatus({
+        variant: "error",
+        message: `Failed to ${isRunning ? "stop" : "start"} write task`,
+        description: e.message,
+      }),
     mutationFn: async () => {
-      if (client == null) throw new Error("Not connected to Synnax cluster");
-      if (task == null) throw new Error("Task is not defined");
-      if (isRunning == null) throw new Error("Task state is not defined");
+      if (client == null) throw new Error("No client");
+      if (task == null) throw new Error("No task state");
+      if (isRunning == null) throw new Error("No running state");
       setDesiredState(isRunning ? "paused" : "running");
       await task.executeCommand(isRunning ? "stop" : "start");
     },
@@ -277,13 +286,13 @@ const Wrapped = ({
           layoutKey={layoutKey}
           snapshot={task?.snapshot}
           startingOrStopping={
-            toggleMutation.isPending ||
+            start.isPending ||
             (!checkDesiredStateMatch(desiredState, isRunning) &&
               taskState?.variant === "success")
           }
           configuring={configure.isPending}
           onConfigure={configure.mutate}
-          onStartStop={toggleMutation.mutate}
+          onStartStop={start.mutate}
         />
       </Align.Space>
     </Align.Space>
@@ -301,7 +310,7 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
   if (device == null)
     return (
       <Align.Space grow empty align="center" justify="center">
-        <Text.Text level="p">No device selected</Text.Text>
+        <Text.Text level="p">{`No device selected`}</Text.Text>
       </Align.Space>
     );
   const handleConfigure = () => place(createConfigureLayout(device.key, {}));
@@ -327,16 +336,16 @@ interface ChannelListProps {
 
 const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
   const [selected, setSelected] = useState<string[]>([]);
-  const { value, push, remove } = Form.useFieldArray<WriteChannel>({
+  const { value, push, remove } = Form.useFieldArray<WriteChan>({
     path,
     updateOnChildren: true,
   });
   const handleAdd = useCallback(() => {
     const existingCommandStatePair =
-      device.properties[ZERO_WRITE_CHANNEL.type].channels[ZERO_WRITE_CHANNEL.port] ??
+      device.properties[ZERO_WRITE_CHAN.type].channels[ZERO_WRITE_CHAN.port] ??
       ZERO_COMMAND_STATE_PAIR;
     push({
-      ...deep.copy(ZERO_WRITE_CHANNEL),
+      ...deep.copy(ZERO_WRITE_CHAN),
       key: id.id(),
       cmdKey: existingCommandStatePair.command,
       stateKey: existingCommandStatePair.state,
@@ -360,19 +369,19 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
           )}
           {...menuProps}
         >
-          <List.List<string, WriteChannel>
+          <List.List<string, WriteChan>
             data={value}
             emptyContent={
               <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
             }
           >
-            <List.Selector<string, WriteChannel>
+            <List.Selector<string, WriteChan>
               value={selected}
               allowMultiple
               replaceOnSingle
               onChange={setSelected}
             >
-              <List.Core<string, WriteChannel>
+              <List.Core<string, WriteChan>
                 grow
                 style={{ height: "calc(100% - 6rem)" }}
               >
@@ -395,7 +404,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
   );
 };
 
-interface ChannelListItemProps extends List.ItemProps<string, WriteChannel> {
+interface ChannelListItemProps extends List.ItemProps<string, WriteChan> {
   path: string;
   snapshot?: boolean;
   device: ConfiguredDevice;
@@ -431,7 +440,7 @@ const ChannelListItem = ({
           empty
           onChange={(value, { path, get, set }) => {
             const channelPath = path.slice(0, path.lastIndexOf("."));
-            const previousChannel = get<WriteChannel>(channelPath).value;
+            const previousChannel = get<WriteChan>(channelPath).value;
             if (previousChannel.port === value) return;
             const existingCommandStatePair =
               device.properties[previousChannel.type].channels[value] ??
@@ -460,7 +469,7 @@ const ChannelListItem = ({
                   hideIfNull
                   onChange={(value, { path, get, set }) => {
                     const channelPath = path.slice(0, path.lastIndexOf("."));
-                    const previousChannel = get<WriteChannel>(channelPath).value;
+                    const previousChannel = get<WriteChan>(channelPath).value;
                     if (previousChannel.type === value) return;
                     const port = DEVICES[device.model].ports[value][0].key;
                     const existingCommandStatePair =

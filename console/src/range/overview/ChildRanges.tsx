@@ -27,10 +27,10 @@ import { createLayout, overviewLayout } from "@/range/external";
 
 export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
   const { entry } = props;
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   return (
     <List.ItemFrame
-      onClick={() => place({ ...overviewLayout, name: entry.name, key: entry.key })}
+      onClick={() => placer({ ...overviewLayout, name: entry.name, key: entry.key })}
       direction="x"
       size={0.5}
       justify="spaceBetween"
@@ -60,9 +60,9 @@ export interface ChildRangesProps {
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   const [childRanges, setChildRanges] = useState<ranger.Range[]>([]);
-  const handleException = Status.useExceptionHandler();
+  const addStatus = Status.useAggregator();
 
   useAsyncEffect(async () => {
     try {
@@ -75,7 +75,11 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
       tracker.onChange((ranges) => setChildRanges(ranges));
       return async () => await tracker.close();
     } catch (e) {
-      handleException(e, `Failed to retrieve child ranges`);
+      addStatus({
+        variant: "error",
+        message: `Failed to retrieve child ranges`,
+        description: (e as Error).message,
+      });
       return undefined;
     }
   }, [rangeKey, client?.key]);
@@ -96,7 +100,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         style={{ width: "fit-content" }}
         iconSpacing="small"
         variant="text"
-        onClick={() => place(createLayout({ initial: { parent: rangeKey } }))}
+        onClick={() => placer(createLayout({ initial: { parent: rangeKey } }))}
       >
         Add Child Range
       </Button.Button>

@@ -16,7 +16,10 @@ const isDev = process.env.TAURI_ENV_DEBUG === "true";
 
 export default defineConfig({
   clearScreen: false,
-  server: { port: 5173, strictPort: true },
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   resolve: {
     alias: isDev
       ? {
@@ -41,5 +44,7 @@ export default defineConfig({
     // is loaded directly from disc instead of OTN
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev },
+  define: {
+    IS_DEV: isDev,
+  },
 });

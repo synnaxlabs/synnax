@@ -11,12 +11,10 @@ package channel
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -36,19 +34,16 @@ func (c createMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.CreateMessage,
 ) (*channelv1.CreateMessage, error) {
-	tr := &channelv1.CreateMessage{RetrieveIfNameExists: msg.RetrieveIfNameExists}
+	tr := &channelv1.CreateMessage{}
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, &channelv1.Channel{
-			Name:        ch.Name,
-			Leaseholder: int32(ch.Leaseholder),
-			DataType:    string(ch.DataType),
-			IsIndex:     ch.IsIndex,
-			Rate:        float64(ch.Rate),
-			LocalKey:    uint32(ch.LocalKey),
-			LocalIndex:  int32(ch.LocalIndex),
-			Concurrency: uint32(ch.Concurrency),
-			Internal:    ch.Internal,
-			Virtual:     ch.Virtual,
+			StorageKey:   uint32(ch.LocalKey),
+			Name:         ch.Name,
+			NodeId:       int32(ch.Leaseholder),
+			DataType:     string(ch.DataType),
+			StorageIndex: int32(ch.LocalIndex),
+			IsIndex:      ch.IsIndex,
+			Rate:         float64(ch.Rate),
 		})
 	}
 	return tr, nil
@@ -58,19 +53,16 @@ func (c createMessageTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.CreateMessage,
 ) (channel.CreateMessage, error) {
-	tr := channel.CreateMessage{RetrieveIfNameExists: msg.RetrieveIfNameExists}
+	var tr channel.CreateMessage
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
+			LocalKey:    channel.LocalKey(ch.StorageKey),
 			Name:        ch.Name,
-			Leaseholder: dcore.NodeKey(ch.Leaseholder),
+			Leaseholder: dcore.NodeKey(ch.NodeId),
 			DataType:    telem.DataType(ch.DataType),
+			LocalIndex:  channel.LocalKey(ch.StorageIndex),
 			IsIndex:     ch.IsIndex,
 			Rate:        telem.Rate(ch.Rate),
-			LocalKey:    channel.LocalKey(ch.LocalKey),
-			LocalIndex:  channel.LocalKey(ch.LocalIndex),
-			Virtual:     ch.Virtual,
-			Concurrency: control.Concurrency(ch.Concurrency),
-			Internal:    ch.Internal,
 		})
 	}
 	return tr, nil

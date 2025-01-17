@@ -113,7 +113,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		}
 		t.mu.Racks[r.Key] = r
 	}
-	if err = cfg.Channels.CreateMany(
+	if err = cfg.Channels.CreateManyIfNamesDontExist(
 		ctx,
 		&[]channel.Channel{
 			{
@@ -138,7 +138,6 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 				Internal:    true,
 			},
 		},
-		channel.RetrieveIfNameExists(true),
 	); err != nil {
 		return nil, err
 	}

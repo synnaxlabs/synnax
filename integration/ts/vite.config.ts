@@ -12,5 +12,8 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [lib({ name: "integration" })],
-  build: { outDir: "dist", sourcemap: true },
+  build: {
+    outDir: 'dist',
+    sourcemap: true
+  },
 });

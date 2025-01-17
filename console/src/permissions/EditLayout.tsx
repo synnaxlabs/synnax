@@ -63,7 +63,6 @@ const formSchema = permissionsZ.extend({
 export const EditModal = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey, onClose } = props;
   const user_ = Layout.useSelectArgs<user.User>(layoutKey);
-  const handleException = Status.useExceptionHandler();
   const addStatus = Status.useAggregator();
   const [isPending, setIsPending] = useState(false);
 
@@ -107,7 +106,12 @@ export const EditModal = (props: Layout.RendererProps): ReactElement => {
         });
         values.keys[policy] = newPolicy.key;
       } catch (e) {
-        handleException(e, `Failed to set ${path}`);
+        if (!(e instanceof Error)) throw e;
+        addStatus({
+          variant: "error",
+          message: `Failed to set ${path}`,
+          description: e.message,
+        });
       } finally {
         setTimeout(() => setIsPending(false), 100);
       }

@@ -1,14 +1,14 @@
-name: Test - Aspen
+name: "Test - Aspen"
 
 on:
-  push:
-    branches:
-      - main
-      - rc
   pull_request:
     branches:
-      - main
       - rc
+      - main
+  push:
+    branches:
+      - rc
+      - main
   workflow_dispatch:
 
 jobs:
@@ -25,7 +25,6 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.ref }}
           filters: |
             changed:
               - .github/workflows/test.aspen.yaml
@@ -39,14 +38,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.changed == 'true'
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            format: true
-        exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -56,11 +50,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
-
-      - name: Format
-        if: matrix.format
-        run: scripts/gofmt-check.sh aspen
+          cache-dependency-path: |
+            alamos/go/go.sum
+            aspen/go.sum
+            freighter/go/go.sum
+            x/go/go.sum
 
       - name: Test
         run: go test -v -shuffle=on ./...

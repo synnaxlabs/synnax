@@ -240,10 +240,10 @@ client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_tw
 To delete a channel, we can use the `channels.delete` method:
 
 ```python
-# Delete channels matching a name
+# Delete a single channel
 client.channels.delete("my_sensor")
 
-# Delete channels matching a list of names
+# Delete multiple channels
 client.channels.delete(["sensor_one", "sensor_two"])
 
 # Delete by key

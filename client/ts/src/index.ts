@@ -10,7 +10,7 @@
 export { access } from "@/access";
 export { policy } from "@/access/policy";
 export { channel } from "@/channel";
-export { Channel, isCalculated } from "@/channel/client";
+export { Channel } from "@/channel/client";
 export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
 export * from "@/connection";
 export { control } from "@/control";

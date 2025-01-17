@@ -1,20 +1,17 @@
 name: Deploy - Synnax
-
 on:
   push:
     branches:
-      - main
       - rc
+      - main
   pull_request:
     branches:
-      - main
       - rc
+      - main
   workflow_dispatch:
-
 permissions:
   contents: write
   packages: write
-
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -23,11 +20,11 @@ jobs:
       changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Get Version
         id: version
-        working-directory: synnax
+        working-directory: ./synnax
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
@@ -42,14 +39,13 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/deploy.synnax.yaml
-              - alamos/go/**
-              - aspen/**
-              - cesium/**
-              - driver/**
-              - freighter/go/**
-              - synnax/**
-              - x/go/**
+              - 'synnax/**'
+              - 'cesium/**'
+              - 'x/**'
+              - 'aspen/**'
+              - 'freighter/go/**'
+              - 'driver/**'
+              - '.github/workflows/deploy.synnax.yaml'
 
   create-release:
     runs-on: ubuntu-latest
@@ -57,7 +53,7 @@ jobs:
     if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
     steps:
       - name: Create Release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v6
         with:
           script: |
             const { data: releases } = await github.rest.repos.listReleases({
@@ -77,24 +73,23 @@ jobs:
 
   build:
     needs: setup
-    name: Build (${{ matrix.os }})
-    if: needs.setup.outputs.changed == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        if: needs.setup.outputs.changed == 'true'
+        uses: actions/checkout@v3
 
       - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
-        if: matrix.os == 'windows-latest'
+        if: matrix.platform == 'windows-latest'  && needs.setup.outputs.changed == 'true'
         with:
           sdk-version: 22000
 
       - name: Build MbedTLS On Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
         shell: bash
         run: |
           curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
@@ -107,25 +102,20 @@ jobs:
         working-directory: driver/vendor/mbedtls
 
       - name: Install MbedTLS On Mac
-        if: matrix.os == 'macos-latest'
+        if: matrix.platform == 'macos-latest' && needs.setup.outputs.changed == 'true'
         run: brew install mbedtls
 
       - name: Install MbedTLS On Ubuntu
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-latest' && needs.setup.outputs.changed == 'true'
         run: |
           sudo apt-get install -y libmbedtls-dev
 
-      - name: Install Visual Studio Community On Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install visualstudio2022community -y
-          choco install visualstudio2022-workload-vctools -y
-          choco install visualstudio2022-workload-nativedesktop -y 
-
       - name: Update Submodules
+        if: needs.setup.outputs.changed == 'true'
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
+        if: needs.setup.outputs.changed == 'true'
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
           bazelisk-cache: true
@@ -133,7 +123,7 @@ jobs:
           repository-cache: true
 
       - name: Build Open65421 on Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
         shell: bash
         run: |
           mkdir build && cd build
@@ -142,7 +132,7 @@ jobs:
         working-directory: driver/vendor/open62541/open62541
 
       - name: Build Open62541 on Mac and Ubuntu
-        if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest'
+        if: (matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest') && needs.setup.outputs.changed == 'true'
         shell: bash
         run: |
           mkdir build && cd build
@@ -151,131 +141,96 @@ jobs:
         working-directory: driver/vendor/open62541/open62541
 
       - name: Build Driver on Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.platform == 'windows-latest' && needs.setup.outputs.changed == 'true'
         run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define use_ni=true
 
       - name: Build Driver on on Mac and Ubuntu
-        if: matrix.os != 'windows-latest'
+        if: matrix.platform != 'windows-latest' && needs.setup.outputs.changed == 'true'
         run: bazel build --enable_platform_specific_config //driver:driver_main --define use_ni=false
 
       - name: Upload Release Asset for Driver Symbols
-        if: matrix.os == 'windows-latest' && github.event_name == 'push'
+        if: matrix.platform == 'windows-latest' && github.event_name == 'push' && needs.setup.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver_main.pdb
 
       - name: Determine Executable Name
         id: executable
+        if: needs.setup.outputs.changed == 'true'
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
             echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
             echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
             echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
           fi
 
       - name: Move Driver
+        if: needs.setup.outputs.changed == 'true'
         run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/
 
       - name: Rename Driver
+        if: needs.setup.outputs.changed == 'true'
         run: mv synnax/pkg/service/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Set up Go
+        if: needs.setup.outputs.changed == 'true'
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.work
-          cache-dependency-path: go.work.sum
-
-      - name: Build Python for Computron
-        working-directory: computron
-        run: go generate
+          go-version-file: "go.work"
+          cache-dependency-path: |
+            "alamos/go/go.sum"
+            "aspen/go.sum"
+            "cesium/go.sum"
+            "freighter/go/go.sum"
+            "synnax/go.sum"
+            "x/go/go.sum"
 
       - name: Download Dependencies
-        working-directory: synnax
-        run: go mod download
+        if: needs.setup.outputs.changed == 'true'
+        working-directory: ./synnax
+        run: |
+          go mod download
 
       - name: Determine OS
         id: os
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
             echo "OS=macos" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
             echo "OS=windows" >> $GITHUB_OUTPUT
           fi
 
       - name: Build
-        working-directory: synnax
+        if: needs.setup.outputs.changed == 'true'
+        working-directory: ./synnax
         run: |
           go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
-      - name: Build Windows Installer
-        if: matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
-        shell: powershell
-        run: |
-          # Navigate to the synnax binary directory
-          Push-Location .\synnax
-          # Read version from VERSION file
-          $version = "${{ needs.setup.outputs.VERSION }}"
-          if (-not $version) {
-              Write-Error "Failed to read version file"
-              exit 1
-          }
-          $version = $version.Trim()
-          Write-Host "Building version: $version"
-          # Build the synnax binary
-          Write-Host "Building synnax binary..."
-          & go build -tags driver -o synnax.exe
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to build synnax binary"
-              exit 1
-          }
-          # Navigate back to scripts directory
-          Pop-Location
-          # Move the built binary to scripts directory
-          Write-Host "Moving synnax binary to scripts directory..."
-          Move-Item -Force .\synnax\synnax.exe .\scripts\
-          # Copy python DLL
-          Write-Host "Copying Python DLL..."
-          Copy-Item -Force .\computron\python_install\bin\python311.dll .\scripts\
-          # Build the NSIS installer
-          Write-Host "Building Windows installer..."
-          & makensis /DVERSION=$version .\scripts\windows-installer.nsi
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to build Windows installer"
-              exit 1
-          }
-          Write-Host "Build process completed successfully!"
-
-      - name: Upload Windows Installer
-        if: (github.event_name == 'push' || github.event_name == 'pull_request') && matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
-
       - name: Download Latest Earthly
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         uses: earthly/actions-setup@v1
 
       - name: Login to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -283,12 +238,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Image
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         run: earthly --push +docker -tag=${{ needs.setup.outputs.VERSION }}
         working-directory: ./synnax
 
       - name: Push to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         run: |
           docker push ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
@@ -300,7 +255,7 @@ jobs:
           fi
 
       - name: Push to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         run: |
           docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
           docker push synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}

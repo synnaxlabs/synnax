@@ -11,8 +11,6 @@ package framer
 
 import (
 	"context"
-	"go/types"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
@@ -22,12 +20,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
+	"go/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
-	writerClient = fgrpc.StreamClient[
+	writerClient = fgrpc.StreamClientCore[
 		writer.Request,
 		*framerv1.WriterRequest,
 		writer.Response,
@@ -39,7 +38,7 @@ type (
 		writer.Response,
 		*framerv1.WriterResponse,
 	]
-	iteratorClient = fgrpc.StreamClient[
+	iteratorClient = fgrpc.StreamClientCore[
 		iterator.Request,
 		*framerv1.IteratorRequest,
 		iterator.Response,
@@ -51,7 +50,7 @@ type (
 		iterator.Response,
 		*framerv1.IteratorResponse,
 	]
-	relayClient = fgrpc.StreamClient[
+	relayClient = fgrpc.StreamClientCore[
 		relay.Request,
 		*framerv1.RelayRequest,
 		relay.Response,
@@ -105,7 +104,6 @@ func New(pool *fgrpc.Pool) Transport {
 				) (fgrpc.GRPCClientStream[*framerv1.WriterRequest, *framerv1.WriterResponse], error) {
 					return framerv1.NewWriterServiceClient(conn).Write(ctx)
 				},
-				ServiceDesc: &framerv1.WriterService_ServiceDesc,
 			},
 			server: &writerServer{
 				writerServerCore: writerServerCore{
@@ -130,7 +128,6 @@ func New(pool *fgrpc.Pool) Transport {
 				) (fgrpc.GRPCClientStream[*framerv1.IteratorRequest, *framerv1.IteratorResponse], error) {
 					return framerv1.NewIteratorServiceClient(conn).Iterate(ctx)
 				},
-				ServiceDesc: &framerv1.IteratorService_ServiceDesc,
 			},
 		},
 		relay: relayTransport{
@@ -149,7 +146,6 @@ func New(pool *fgrpc.Pool) Transport {
 				) (fgrpc.GRPCClientStream[*framerv1.RelayRequest, *framerv1.RelayResponse], error) {
 					return framerv1.NewRelayServiceClient(conn).Relay(ctx)
 				},
-				ServiceDesc: &framerv1.RelayService_ServiceDesc,
 			},
 		},
 		deleter: deleteTransport{
@@ -205,13 +201,11 @@ func (t Transport) Deleter() deleter.Transport { return t.deleter }
 func (t Transport) BindTo(server grpc.ServiceRegistrar) {
 	framerv1.RegisterWriterServiceServer(server, t.writer.server)
 	framerv1.RegisterIteratorServiceServer(server, t.iterator.server)
-	framerv1.RegisterRelayServiceServer(server, t.relay.server)
 }
 
 func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.writer.client.Use(middleware...)
 	t.iterator.client.Use(middleware...)
-	t.relay.client.Use(middleware...)
 }
 
 type writerTransport struct {

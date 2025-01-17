@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { type ontology, task, UnexpectedError } from "@synnaxlabs/client";
+import { ontology, type task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -455,9 +455,9 @@ export const ParentRangeButton = ({
   taskKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const addStatus = Status.useAggregator();
   const [parent, setParent] = useState<ontology.Resource | null>();
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
 
   useAsyncEffect(async () => {
     try {
@@ -466,7 +466,7 @@ export const ParentRangeButton = ({
       const parent = await tsk.snapshottedTo();
       if (parent != null) setParent(parent);
       const tracker = await client.ontology.openDependentTracker({
-        target: task.ontologyID(taskKey),
+        target: new ontology.ID({ key: taskKey, type: "task" }),
         dependents: parent == null ? [] : [parent],
         relationshipDirection: "to",
       });
@@ -476,7 +476,11 @@ export const ParentRangeButton = ({
       });
       return async () => await tracker.close();
     } catch (e) {
-      handleException(e, "Failed to retrieve child ranges");
+      addStatus({
+        variant: "error",
+        message: `Failed to retrieve child ranges`,
+        description: (e as Error).message,
+      });
       return undefined;
     }
   }, [taskKey, client?.key]);
@@ -492,7 +496,7 @@ export const ParentRangeButton = ({
         iconSpacing="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          place({ ...overviewLayout, key: parent.id.key, name: parent.name })
+          placer({ ...overviewLayout, key: parent.id.key, name: parent.name })
         }
       >
         {parent.name}

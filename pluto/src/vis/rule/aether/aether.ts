@@ -56,7 +56,7 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
-  updatePositions({ decimalToDataScale: scale, plot }: RuleProps): number {
+  updatePositions({ decimalToDataScale: scale, plot, container }: RuleProps): number {
     const isDragging = this.state.dragging;
     const wasDragging = this.prevState.dragging && !isDragging;
 

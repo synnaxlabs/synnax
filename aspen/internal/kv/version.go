@@ -11,7 +11,7 @@ package kv
 
 import (
 	"context"
-
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -66,15 +66,16 @@ func (vc *versionFilter) filter(ctx context.Context, op Operation) bool {
 	if err != nil {
 		dig, err = getDigestFromKV(ctx, vc.Engine, op.Key)
 		if err != nil {
-			return errors.Is(err, kvx.NotFound)
+			return err == kvx.NotFound
 		}
 	}
 	// If the versions of the operation are equal, we select a winning operation
 	// based the which leasehold is higher.
-	if op.Version.EqualTo(dig.Version) {
-		return op.Leaseholder > dig.Leaseholder
-	}
-	return op.Version.NewerThan(dig.Version)
+	return lo.Ternary(
+		op.Version.EqualTo(dig.Version),
+		op.Leaseholder > dig.Leaseholder,
+		op.Version.OlderThan(dig.Version),
+	)
 }
 
 func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error) {
@@ -88,7 +89,7 @@ func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error
 		return dig, err
 	}
 	err = codec.Decode(ctx, b, &dig)
-	err = errors.Combine(err, closer.Close())
+	err = errors.CombineErrors(err, closer.Close())
 	return dig, err
 }
 
@@ -105,10 +106,6 @@ func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
 	v := &versionAssigner{Config: cfg, counter: c}
 	v.Transform = v.assign
 	return v, err
-}
-
-func (va *versionAssigner) currentVersion() version.Counter {
-	return version.Counter(va.counter.Value())
 }
 
 func (va *versionAssigner) assign(_ context.Context, br TxRequest) (TxRequest, bool, error) {

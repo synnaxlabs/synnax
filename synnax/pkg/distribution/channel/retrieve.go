@@ -11,9 +11,6 @@ package channel
 
 import (
 	"context"
-	"regexp"
-	"strings"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,6 +18,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
+	"regexp"
+	"strings"
 )
 
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution
@@ -145,7 +144,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
 	channels, vErr := r.validateRetrievedChannels(ctx, entries)
 	gorp.SetEntries[Key, Channel](r.gorp.Params, &channels)
-	return errors.Combine(err, vErr)
+	return errors.CombineErrors(err, vErr)
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction

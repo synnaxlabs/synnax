@@ -68,7 +68,7 @@ func ParseID(s string) (ID, error) {
 	return ID{Type: Type(split[0]), Key: split[1]}, nil
 }
 
-// ParseIDs parses the given strings into keys.
+// ParseIDs parses the given strings into Keys.
 func ParseIDs(s []string) ([]ID, error) {
 	ids := make([]ID, 0, len(s))
 	for _, id := range s {

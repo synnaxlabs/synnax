@@ -11,8 +11,6 @@ package aspen
 
 import (
 	"context"
-	"io"
-
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
@@ -20,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/signal"
+	"io"
 )
 
 func Open(
@@ -82,13 +81,11 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 	o.cluster.Gossip.TransportServer = o.transport.GossipServer()
 	o.cluster.Pledge.TransportClient = o.transport.PledgeClient()
 	o.cluster.Pledge.TransportServer = o.transport.PledgeServer()
-	o.kv.BatchTransportServer = o.transport.TxServer()
-	o.kv.BatchTransportClient = o.transport.TxClient()
+	o.kv.BatchTransportServer = o.transport.BatchServer()
+	o.kv.BatchTransportClient = o.transport.BatchClient()
 	o.kv.LeaseTransportServer = o.transport.LeaseServer()
 	o.kv.LeaseTransportClient = o.transport.LeaseClient()
 	o.kv.FeedbackTransportServer = o.transport.FeedbackServer()
 	o.kv.FeedbackTransportClient = o.transport.FeedbackClient()
-	o.kv.RecoveryTransportServer = o.transport.RecoveryServer()
-	o.kv.RecoveryTransportClient = o.transport.RecoveryClient()
 	return transportShutdown, nil
 }

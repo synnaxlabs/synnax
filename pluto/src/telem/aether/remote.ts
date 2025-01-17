@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, ValidationError } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import {
   type AsyncDestructor,
   bounds,
@@ -123,22 +123,12 @@ interface SelectedChannelProperties
 
 const fetchChannelProperties = async (
   client: client.ChannelClient,
-  ch: channel.KeyOrName,
-  fetchIndex: boolean,
+  channel: channel.KeyOrName,
+  fetchFromIndex: boolean,
 ): Promise<SelectedChannelProperties> => {
-  let c = await client.retrieveChannel(ch);
-  if (!fetchIndex || c.isIndex)
+  const c = await client.retrieveChannel(channel);
+  if (!fetchFromIndex || c.isIndex)
     return { key: c.key, dataType: c.dataType, virtual: c.virtual };
-  if (channel.isCalculated(c)) {
-    const indexKey = await channel.resolveCalculatedIndex(
-      client.retrieveChannel.bind(client),
-      c,
-    );
-    if (indexKey == null) throw new ValidationError("Cannot resolve calculated index");
-    c = await client.retrieveChannel(indexKey);
-    return { key: c.key, dataType: DataType.TIMESTAMP, virtual: false };
-  }
-  if (c.virtual) throw new ValidationError("Cannot plot data from virtual channels");
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false };
 };
 
@@ -172,11 +162,11 @@ export class ChannelData
   }
 
   async value(): Promise<[bounds.Bounds, Series[]]> {
-    const { timeRange, channel, useIndexOfChannel } = this.props;
+    const { timeRange, channel, useIndexOfChannel: indexOfChannel } = this.props;
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
     if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
-    const chan = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
+    const chan = await fetchChannelProperties(this.client, channel, indexOfChannel);
     if (!this.valid) await this.readFixed(chan.key);
     let b = bounds.max(this.data.map((d) => d.bounds));
     if (chan.dataType.equals(DataType.TIMESTAMP))

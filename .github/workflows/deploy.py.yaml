@@ -1,52 +1,65 @@
-name: Deploy - Python
-
+name: Python Deploy
 on:
   push:
     branches:
       - main
   workflow_dispatch:
-
+permissions:
+  contents: write
 jobs:
   publish:
-    name: Publish
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Poetry
-        run: pipx install poetry
+        with:
+          fetch-depth: 0
+          base-ref: main
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version-file: client/py/pyproject.toml
-          cache: poetry
+          python-version: 3.12
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            shared: &shared
-              - .github/workflows/deploy.py.yaml
-            alamos: &alamos
-              - *shared
-              - alamos/py/**
-            freighter:
-              - *shared
-              - *alamos
-              - freighter/py/**
-            client:
-              - *shared
-              - *alamos
-              - *freighter
-              - client/py/**
-
-      - name: Update Package Versions
+      - name: Install dependencies
         run: |
-          cd client/py
+          python -m pip install --upgrade pip
+          pip install poetry
+
+      - name: Check Alamos Changes
+        uses: dorny/paths-filter@v3
+        id: alamos
+        with:
+          filters: |
+            changed:
+              - "alamos/py/**"
+              - ".github/workflows/pypi.publish.yaml"
+
+      - name: Check Freighter Changes
+        uses: dorny/paths-filter@v3
+        id: freighter
+        with:
+          filters: |
+            changed:
+              - "alamos/py/**"
+              - "freighter/py/**"
+              - ".github/workflows/pypi.publish.yaml"
+
+      - name: Check Client Changes
+        uses: dorny/paths-filter@v3
+        id: client
+        with:
+          filters: |
+            changed:
+              - "alamos/py/**"
+              - "freighter/py/**"
+              - "client/py/**"
+              - ".github/workflows/pypi.publish.yaml"
+
+      - name: Update packages with correct versions
+        run: |
+          cd ./client/py
           CLIENT_VERSION=$(poetry version -s)
           cd ../../freighter/py
           FREIGHTER_VERSION=$(poetry version -s)
@@ -57,11 +70,12 @@ jobs:
           sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
           cd ../../freighter/py
           sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
+
           poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
 
-      - name: Publish Alamos
-        if: steps.filter.outputs.alamos == 'true'
-        working-directory: alamos/py
+      - name: Conditionally Publish Alamos
+        if: steps.alamos.outputs.changed == 'true'
+        working-directory: ./alamos/py
         run: |
           echo "Updating alamos version to $ALAMOS_VERSION"
           echo "Locking alamos dependencies"
@@ -71,9 +85,9 @@ jobs:
           echo "Publishing alamos"
           poetry publish --build --no-interaction
 
-      - name: Publish Freighter
-        if: steps.filter.outputs.freighter == 'true'
-        working-directory: freighter/py
+      - name: Conditionally Publish Freighter
+        if: steps.freighter.outputs.changed == 'true'
+        working-directory: ./freighter/py
         run: |
           echo "Updating freighter version to $FREIGHTER_VERSION"
           # poll until the new version of alamos is available
@@ -89,9 +103,9 @@ jobs:
           echo "Publishing freighter"
           poetry publish --build --no-interaction
 
-      - name: Publish Client
-        if: steps.filter.outputs.client == 'true'
-        working-directory: client/py
+      - name: Conditionally Publish Client
+        if: steps.client.outputs.changed == 'true'
+        working-directory: ./client/py
         run: |
           echo "Updating client version to $CLIENT_VERSION"
           # poll until the new version of freighter is available
@@ -106,3 +120,20 @@ jobs:
           poetry install -n
           echo "Publishing client"
           poetry publish --build --no-interaction
+
+      - name: Put back the original relative paths
+        run: |
+          # put back the original relative paths (set develop = true)
+          cd client/py
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = { path = \"..\/..\/freighter\/py\", develop = true }/" pyproject.toml
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = { path = \"..\/..\/alamos\/py\", develop = true }/" pyproject.toml
+          cd ../../freighter/py
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = { path = \"..\/..\/alamos\/py\", develop = true }/" pyproject.toml
+
+      - name: Commit and push changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "client/py/pyproject.toml freighter/py/pyproject.toml alamos/py/pyproject.toml"
+          message: "Update dependencies"
+          pull: "--commit --no-edit"
+          push: "origin ${{ github.ref }} --force"

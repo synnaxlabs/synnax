@@ -10,12 +10,11 @@
 package testutil
 
 import (
-	"io"
-	"os"
-
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
+	"io"
+	"os"
 )
 
 type FSFactory func() (xfs.FS, func() error)
@@ -81,23 +80,23 @@ func CopyFS(srcFS, destFS xfs.FS) error {
 
 			destFile, err := destFS.Open(item.Name(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
 			if err != nil {
-				return errors.Combine(err, srcFile.Close())
+				return errors.CombineErrors(err, srcFile.Close())
 			}
 
 			if _, err := io.Copy(destFile, srcFile); err != nil {
 				srcErr := srcFile.Close()
 				dstErr := destFile.Close()
-				return errors.Combine(err, errors.Combine(srcErr, dstErr))
+				return errors.CombineErrors(err, errors.CombineErrors(srcErr, dstErr))
 			}
 
 			if err := destFile.Sync(); err != nil {
 				srcErr := srcFile.Close()
 				dstErr := destFile.Close()
-				return errors.Combine(err, errors.Combine(srcErr, dstErr))
+				return errors.CombineErrors(err, errors.CombineErrors(srcErr, dstErr))
 			}
 			err = srcFile.Close()
 			if err != nil {
-				return errors.Combine(err, destFile.Close())
+				return errors.CombineErrors(err, destFile.Close())
 			}
 			err = destFile.Close()
 			if err != nil {

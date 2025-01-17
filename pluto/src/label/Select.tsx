@@ -98,7 +98,7 @@ export const SelectMultiple = ({
       ({ items }) => {
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         if (dropped.length === 0) return [];
-        const v = unique.unique([
+        const v = unique([
           ...toArray(value),
           ...(dropped.map((c) => c.key) as label.Key[]),
         ]);

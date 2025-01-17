@@ -9,7 +9,11 @@
 
 import "@/layout/Window.css";
 
-import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
+import {
+  MAIN_WINDOW,
+  setWindowProps,
+  type SetWindowPropsPayload,
+} from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
@@ -87,21 +91,20 @@ export const DefaultContextMenu = (): ReactElement => (
 const WindowInternal = (): ReactElement | null => {
   const currLabel = getCurrentWindow().label;
   const isMain = currLabel === MAIN_WINDOW;
-  let win = useSelectWindowKey(currLabel) ?? "";
+  let win = useSelectWindowKey(getCurrentWindow().label) ?? "";
   if (isMain) win = MAIN_WINDOW;
   const layout = useSelect(win);
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
   useEffect(() => {
     if (layout?.key == null) return;
-    dispatch(
-      setWindowProps({
-        key: layout?.key,
-        visible: true,
-        minimized: false,
-        decorations: os !== "Windows",
-      }),
-    );
+    const pld: SetWindowPropsPayload = {
+      key: layout?.key,
+      visible: true,
+      minimized: false,
+    };
+    if (os === "Windows") pld.decorations = false;
+    dispatch(setWindowProps(pld));
   }, [os, layout?.key]);
 
   const menuProps = PMenu.useContextMenu();

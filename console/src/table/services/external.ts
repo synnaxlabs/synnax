@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/table/services/Icon";
-export * from "@/table/services/import";
 export * from "@/table/services/link";
 export * from "@/table/services/ontology";
 export * from "@/table/services/palette";

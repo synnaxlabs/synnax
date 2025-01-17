@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// <reference types="vitest/config" />
-
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
 import { defineConfig } from "vite";
@@ -36,9 +34,17 @@ export default defineConfig({
         "electron",
       ],
       output: {
-        globals: { react: "react", "react-dom": "ReactDOM", electron: "electron" },
+        globals: {
+          react: "react",
+          "react-dom": "ReactDOM",
+          electron: "electron",
+        },
       },
     },
   },
-  test: { globals: true, environment: "jsdom" },
+  // @ts-expect-error - This is a valid configuration option.
+  test: {
+    globals: true,
+    environment: "jsdom",
+  },
 });

@@ -19,17 +19,10 @@ import {
   useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
-import { deep, unique } from "@synnaxlabs/x";
+import { compare, deep } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
-import {
-  isValidElement,
-  memo,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -57,7 +50,7 @@ export const toTreeNode = (
   return {
     key: id.toString(),
     name,
-    icon: isValidElement(icon) ? icon : icon(resource),
+    icon,
     hasChildren,
     haulItems: haulItems(resource),
     allowRename: services[id.type].allowRename(resource),
@@ -69,20 +62,14 @@ const updateResources = (
   additions: ontology.Resource[] = [],
   removals: ontology.ID[] = [],
 ): ontology.Resource[] => {
-  // If multiple additions have the same key, remove duplicates
-  const uniqueAdditions = unique.by(
-    additions,
-    (resource) => resource.id.toString(),
-    false,
-  );
-  const addedIds = uniqueAdditions.map(({ id }) => id.toString());
-  const removedIds = removals.map((id) => id.toString());
+  const newIds = additions.map(({ id }) => id.toString());
+  const removalIds = removals.map((id) => id.toString());
   return [
     ...p.filter(({ id }) => {
       const str = id.toString();
-      return !removedIds.includes(str) && !addedIds.includes(str);
+      return !removalIds.includes(str) && !newIds.includes(str);
     }),
-    ...uniqueAdditions,
+    ...additions,
   ];
 };
 
@@ -215,7 +202,6 @@ export const Tree = (): ReactElement => {
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const addStatus = Status.useAggregator();
-  const handleException = Status.useExceptionHandler();
   const menuProps = Menu.useContextMenu();
 
   const baseProps: BaseProps = useMemo<BaseProps>(
@@ -226,9 +212,8 @@ export const Tree = (): ReactElement => {
       removeLayout,
       services,
       addStatus,
-      handleException,
     }),
-    [client, store, placeLayout, removeLayout, services, addStatus, handleException],
+    [client, store, placeLayout, removeLayout, services, addStatus],
   );
 
   // Processes incoming changes to the ontology from the cluster.
@@ -341,7 +326,11 @@ export const Tree = (): ReactElement => {
     },
     onError: (error, _, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      handleException(error, "Failed to move resources");
+      addStatus({
+        variant: "error",
+        message: `Failed to move resources`,
+        description: error.message,
+      });
     },
   });
 
@@ -431,6 +420,7 @@ export const Tree = (): ReactElement => {
     ),
     onError: (error, { key, name }, ctx) => {
       if (ctx == null) return;
+      const { message } = error;
       const { prevName } = ctx;
       const rProps = getRenameProps(key, name);
       const svc = services[rProps.id.type];
@@ -441,7 +431,11 @@ export const Tree = (): ReactElement => {
           updater: (node) => ({ ...node, name: prevName }),
         }),
       ]);
-      handleException(error, `Failed to rename ${prevName} to ${name}`);
+      addStatus({
+        variant: "error",
+        message: `Failed to rename ${prevName} to ${name}`,
+        description: message,
+      });
       svc.onRename?.rollback?.(rProps, prevName);
     },
   });
@@ -460,7 +454,6 @@ export const Tree = (): ReactElement => {
         store,
         services,
         placeLayout,
-        handleException,
         removeLayout,
         addStatus,
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
@@ -506,9 +499,12 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
-        handleException,
         addStatus,
-        selection: { parent, nodes: selectedNodes, resources: selectedResources },
+        selection: {
+          parent,
+          nodes: selectedNodes,
+          resources: selectedResources,
+        },
         state: {
           nodes: nodeSnapshot,
           resources,

@@ -6,27 +6,25 @@ require (
 	github.com/blevesearch/bleve/v2 v2.4.4
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292
 	github.com/cockroachdb/pebble v1.1.2
-	github.com/gofiber/fiber/v2 v2.52.6
+	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/uuid v1.6.0
-	github.com/onsi/ginkgo/v2 v2.22.2
-	github.com/onsi/gomega v1.36.2
+	github.com/onsi/ginkgo/v2 v2.22.0
+	github.com/onsi/gomega v1.36.1
 	github.com/samber/lo v1.47.0
-	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e
 	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0
-	github.com/synnaxlabs/computron v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
 	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/uptrace/uptrace-go v1.32.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.31.0
 	golang.org/x/sys v0.28.0
-	google.golang.org/grpc v1.69.2
-	google.golang.org/protobuf v1.36.1
+	google.golang.org/grpc v1.69.0
+	google.golang.org/protobuf v1.36.0
 )
 
 replace github.com/synnaxlabs/aspen => ../aspen
@@ -38,8 +36,6 @@ replace github.com/synnaxlabs/freighter => ../freighter/go
 replace github.com/synnaxlabs/x => ../x/go
 
 replace github.com/synnaxlabs/alamos => ../alamos/go
-
-replace github.com/synnaxlabs/computron => ../computron
 
 require (
 	github.com/DataDog/zstd v1.5.6 // indirect
@@ -84,7 +80,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.24.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -139,12 +135,12 @@ require (
 	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
-	golang.org/x/net v0.33.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.28.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20241230172942-26aa7a208def // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241230172942-26aa7a208def // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20241216192217-9240e9c98484 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241216192217-9240e9c98484 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

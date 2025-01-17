@@ -1,12 +1,12 @@
 {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "chrome",
-      "request": "launch",
-      "name": "chrome",
-      "url": "http://localhost:6006",
-      "webRoot": "${workspaceFolder}/pluto"
-    }
-  ]
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "chrome",
+            "url": "http://localhost:6006",
+            "webRoot": "${workspaceFolder}/pluto",
+        },
+    ],
 }

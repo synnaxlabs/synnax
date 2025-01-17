@@ -35,7 +35,7 @@ import {
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { flatten, type FlattenedNode, type Node, type SortOption } from "@/tree/core";
+import { flatten, SortOption, type FlattenedNode, type Node } from "@/tree/core";
 import { Triggers } from "@/triggers";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
@@ -117,7 +117,7 @@ export const use = (props: UseProps): UseReturn => {
 
   const handleExpand = useCallback(
     (key: string): void => {
-      setExpanded((expanded) => unique.unique([...expanded, key]));
+      setExpanded((expanded) => unique([...expanded, key]));
       onExpand?.({ current: expanded, action: "expand", clicked: key });
     },
     [setExpanded],

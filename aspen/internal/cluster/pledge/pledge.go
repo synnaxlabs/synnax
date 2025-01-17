@@ -31,10 +31,6 @@ package pledge
 
 import (
 	"context"
-	"math/rand"
-	"sync"
-	"time"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/config"
@@ -44,6 +40,9 @@ import (
 	xtime "github.com/synnaxlabs/x/time"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"math/rand"
+	"sync"
+	"time"
 )
 
 var (
@@ -57,7 +56,7 @@ var (
 // Pledge pledges a new node to the cluster. This node, called the Pledge,
 // submits a request for id assignment to a peer in peers. If the cluster approves
 // the request, the node will be assigned an Name and registered to arbitrate in
-// future pledge (see the Arbitrate function for more on how this works). keys
+// future pledge (see the Arbitrate function for more on how this works). Keys
 // of nodes in the cluster are guaranteed to be unique, but are not guaranteed
 // to be sequential. Pledge will continue to contact peers at a scaling interval
 // (defined in cfg.RetryScale and cfg.RetryInterval) until the cluster approves
@@ -88,7 +87,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 	for {
 		select {
 		case <-ctx.Done():
-			return Response{}, errors.Combine(ctx.Err(), err)
+			return Response{}, errors.CombineErrors(ctx.Err(), err)
 		case dur := <-t.C:
 			addr, _ := addresses.Next(ctx)
 			cfg.L.Info("pledging to peer", zap.Stringer("address", addr))
@@ -111,7 +110,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 				return res, arbitrate(cfg)
 			}
 			if ctx.Err() != nil {
-				return res, errors.Combine(ctx.Err(), err)
+				return res, errors.CombineErrors(ctx.Err(), err)
 			}
 			cfg.L.Warn("failed to pledge, retrying",
 				zap.Duration("nextRetry", dur),
@@ -123,8 +122,8 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 
 // Arbitrate registers a node to arbitrate future pledges. When processing a pledge
 // request, the node will act as responsible for the pledge and submit proposed
-// keys to a jury of candidate nodes. The responsible node will continue to propose
-// keys until cfg.MaxProposals is reached. When processing a responisble's proposal,
+// Keys to a jury of candidate nodes. The responsible node will continue to propose
+// Keys until cfg.MaxProposals is reached. When processing a responisble's proposal,
 // the node will act a juror, and decide if it approves of the proposed Name
 // or not. To see the required configuration parameters, see the Config struct.
 func Arbitrate(cfgs ...Config) error {
@@ -165,7 +164,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	var propC int
 	for propC = 0; propC < r.MaxProposals; propC++ {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			err = errors.Combine(err, ctxErr)
+			err = errors.CombineErrors(err, ctxErr)
 			break
 		}
 
@@ -178,7 +177,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// Candidates may have already approved the request. This means that
 		// if we retry the request without incrementing the proposed Name, we'll
 		// get a rejection from the candidate that approved the request last time.
-		// This will result in marginally higher keys being assigned, but it's
+		// This will result in marginally higher Keys being assigned, but it's
 		// better than adding a lot of extra logic to the proposal process.
 		res.Key = r.idToPropose()
 
@@ -279,8 +278,8 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	j.L.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	for _, approval := range j.approvals {
-		if approval == req.Key {
+	for _, apschematic := range j.approvals {
+		if apschematic == req.Key {
 			j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
 			err = proposalRejected
 			return

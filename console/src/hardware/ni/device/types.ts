@@ -7,47 +7,83 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type device } from "@synnaxlabs/client";
+import { z } from "zod";
 
-export type PropertiesDigest = { key: string; enriched: boolean };
+// DEVICE DIGEST
 
-interface CommandStatePair {
-  command: channel.Key;
-  state: channel.Key;
-}
+const propertiesDigestZ = z.object({
+  key: z.string(),
+  enriched: z.boolean(),
+});
 
-export type Properties = PropertiesDigest & {
-  identifier: string;
-  analogInput: {
-    portCount: number;
-    index: number;
-    channels: Record<string, channel.Key>;
-  };
-  analogOutput: { portCount: number };
-  digitalInputOutput: { portCount: number; lineCounts: number[] };
-  digitalInput: {
-    portCount: number;
-    lineCounts: number[];
-    index: number;
-    channels: Record<string, channel.Key>;
-  };
-  digitalOutput: {
-    portCount: number;
-    lineCounts: number[];
-    stateIndex: number;
-    channels: Record<string, CommandStatePair>;
-  };
-};
+export type PropertiesDigest = z.infer<typeof propertiesDigestZ>;
+
+export const configurablePropertiesZ = z.object({
+  name: z.string(),
+  identifier: z.string().min(2).max(12),
+});
+
+const commandStatePairZ = z.object({
+  command: z.number(),
+  state: z.number(),
+});
+
+export const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
+  identifier: z.string().min(2).max(12),
+  analogInput: z.object({
+    portCount: z.number(),
+    index: z.number(),
+    channels: z.record(z.string(), z.number()),
+  }),
+  analogOutput: z.object({
+    portCount: z.number(),
+  }),
+  digitalInputOutput: z.object({
+    portCount: z.number(),
+    lineCounts: z.number().array(),
+  }),
+  digitalInput: z.object({
+    portCount: z.number(),
+    lineCounts: z.number().array(),
+    index: z.number(),
+    channels: z.record(z.string(), z.number()),
+  }),
+  digitalOutput: z.object({
+    portCount: z.number(),
+    lineCounts: z.number().array(),
+    stateIndex: z.number(),
+    channels: z.record(z.string(), commandStatePairZ),
+  }),
+});
+
+export type Properties = z.infer<typeof enrichedPropertiesDigestZ>;
 
 export const ZERO_PROPERTIES: Properties = {
   key: "",
   enriched: false,
   identifier: "",
-  analogInput: { portCount: 0, index: 0, channels: {} },
-  analogOutput: { portCount: 0 },
-  digitalInputOutput: { portCount: 0, lineCounts: [] },
-  digitalInput: { portCount: 0, lineCounts: [], index: 0, channels: {} },
-  digitalOutput: { portCount: 0, lineCounts: [], stateIndex: 0, channels: {} },
+  analogInput: {
+    portCount: 0,
+    index: 0,
+    channels: {},
+  },
+  analogOutput: {
+    portCount: 0,
+  },
+  digitalInputOutput: {
+    portCount: 0,
+    lineCounts: [],
+  },
+  digitalInput: {
+    portCount: 0,
+    lineCounts: [],
+    index: 0,
+    channels: {},
+  },
+  digitalOutput: {
+    portCount: 0,
+    lineCounts: [],
+    stateIndex: 0,
+    channels: {},
+  },
 };
-
-export interface Device extends device.Device<Properties> {}

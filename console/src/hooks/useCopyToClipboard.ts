@@ -11,7 +11,6 @@ import { Status } from "@synnaxlabs/pluto";
 
 export const useCopyToClipboard = (): ((text: string, name: string) => void) => {
   const addStatus = Status.useAggregator();
-  const handleException = Status.useExceptionHandler();
   return (text: string, name: string) => {
     navigator.clipboard
       .writeText(text)
@@ -21,6 +20,12 @@ export const useCopyToClipboard = (): ((text: string, name: string) => void) => 
           message: `Copied ${name} to clipboard.`,
         });
       })
-      .catch((e) => handleException(e, `Failed to copy ${name} to clipboard`));
+      .catch((e) => {
+        addStatus({
+          variant: "error",
+          message: `Failed to copy ${name} to clipboard.`,
+          description: e.message,
+        });
+      });
   };
 };

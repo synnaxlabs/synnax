@@ -52,12 +52,10 @@ export interface CreatorProps {
   store: RootStore;
 }
 
-type StateWithoutWindowKey = Omit<State, "windowKey">;
-
 /** A function that creates a layout given a set of utilities. */
-export type Creator = (props: CreatorProps) => StateWithoutWindowKey;
+export type Creator = (props: CreatorProps) => Omit<State, "windowKey">;
 
-export type PlacerArgs = StateWithoutWindowKey | Creator;
+export type PlacerArgs = Omit<State, "windowKey"> | Creator;
 
 /** A function that places a layout using the given properties or creation func. */
 export type Placer = (layout: PlacerArgs) => {

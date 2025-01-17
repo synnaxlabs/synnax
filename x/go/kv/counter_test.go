@@ -19,7 +19,9 @@ import (
 )
 
 var _ = Describe("Counter", Ordered, func() {
-	var db kv.DB
+	var (
+		db kv.DB
+	)
 	BeforeAll(func() {
 		db_, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})
 		Expect(err).NotTo(HaveOccurred())

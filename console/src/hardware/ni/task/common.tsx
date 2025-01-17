@@ -20,12 +20,12 @@ import { Link } from "@/link";
 
 export const SelectDevice = () => {
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   const handleDeviceChange = async (v: string) => {
     if (client == null) return;
     const { configured } = await client.hardware.devices.retrieve<Properties>(v);
     if (configured) return;
-    place(NIDevice.createConfigureLayout(v, {}));
+    placer(NIDevice.createConfigureLayout(v, {}));
   };
   return (
     <Form.Field<string>

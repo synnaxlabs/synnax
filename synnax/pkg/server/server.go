@@ -12,8 +12,6 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"net"
-
 	"github.com/cockroachdb/cmux"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -24,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"net"
 )
 
 // Config is the configuration for a Server.
@@ -120,7 +119,7 @@ func (s *Server) Started() <-chan struct{} { return s.started }
 // error if the server exits abnormally (i.e. it wil ignore any errors emitted during
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
-	s.L.Info("starting server", zap.Int("port", s.ListenAddress.Port()))
+	s.L.Info("starting server", zap.String("listen_address", s.ListenAddress.HostString()))
 	s.L.Debug("config", s.Report().ZapFields()...)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
 	s.wg = sCtx

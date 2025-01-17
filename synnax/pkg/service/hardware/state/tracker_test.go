@@ -157,7 +157,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			}))
 			Expect(w.Write(framer.Frame{
 				Keys: []channel.Key{taskStateCh.Key()},
-				Series: []telem.Series{{
+				Series: []telem.Series{telem.Series{
 					DataType: telem.JSONT,
 					Data:     append(b, '\n'),
 				}},

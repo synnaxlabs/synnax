@@ -139,17 +139,15 @@ data type of `timestamp`, while data channels can have any of the following type
 In addition to these basic types, virtual channels also support the following variable
 length data types:
 
-| Data Type | Description                                                                   |
-| --------- | ----------------------------------------------------------------------------- |
-| `string`  | UTF-8 string                                                                  |
-| `json`    | JSON object                                                                   |
-| `uuid`    | [Universally Unique IDentifiers](https://www.rfc-editor.org/rfc/rfc9562.html) |
+| Data Type | Description  |
+| --------- | ------------ |
+| `string`  | UTF-8 string |
+| `json`    | JSON object  |
 
 ### Is Index
 
 A boolean field indicating whether the channel should be treated as an index channel.
-This field defaults to `false`, and should only be set to `true` for index channels. All
-index channels have a data type of `timestamp`.
+This field defaults to `false`, and should only be set to `true` for index channels.
 
 ### Virtual
 

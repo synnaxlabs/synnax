@@ -25,7 +25,6 @@ from synnax.cli.connect import connect_client
 from synnax.cli.flow import Context, Flow
 from synnax.cli.io import prompt_file
 from synnax.cli.telem import select_data_type
-from synnax.cli.warning import warning
 from synnax.ingest.row import RowIngestionEngine
 from synnax.io import IO_FACTORY, ChannelMeta, IOFactory, ReaderType, RowFileReader
 from synnax.telem import DataType, Rate, TimeRange, TimeStamp
@@ -35,10 +34,8 @@ GROUP_ALL = "__all__"
 
 
 @click.command()
-@click.pass_context
 @click.argument("path_", type=click.Path(exists=True), required=False, default=None)
-def ingest(ctx: click.Context, path_: str | None) -> None:
-    warning(ctx)
+def ingest(path_: str | None):
     return pure_ingest(path_)
 
 

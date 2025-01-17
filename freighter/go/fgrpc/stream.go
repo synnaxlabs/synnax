@@ -11,6 +11,7 @@ package fgrpc
 
 import (
 	"context"
+	"google.golang.org/grpc/metadata"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -18,10 +19,9 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
-type StreamClient[RQ, RQT, RS, RST freighter.Payload] struct {
+type StreamClientCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	RequestTranslator  Translator[RQ, RQT]
 	ResponseTranslator Translator[RS, RST]
 	ServiceDesc        *grpc.ServiceDesc
@@ -39,7 +39,7 @@ type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	freighter.MiddlewareCollector
 }
 
-func (s *StreamClient[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (s *StreamClientCore[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 
@@ -58,7 +58,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 ) error {
 	attachedInitialMetaData := false
 	oCtx, err := s.MiddlewareCollector.Exec(
-		parseServerContext(ctx, s.ServiceDesc.ServiceName, freighter.Stream),
+		parseContext(ctx, s.ServiceDesc.ServiceName, freighter.Server, freighter.Stream),
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			attachedInitialMetaData = true
 			if err := stream.SendHeader(metadata.Pairs()); err != nil {
@@ -92,7 +92,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	return errors.Encode(ctx, err, s.Internal)
 }
 
-func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
+func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 	ctx context.Context,
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], _ error) {
@@ -106,21 +106,18 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 			Params:   make(freighter.Params),
 		},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
-			ctx = attachContext(ctx)
 			conn, err := s.Pool.Acquire(target)
 			if err != nil {
 				return oCtx, err
 			}
 			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
 			stream = s.adaptStream(grpcClient)
-			return freighter.Context{
-				Context:  ctx.Context,
-				Role:     ctx.Role,
-				Protocol: ctx.Protocol,
-				Target:   target,
-				Params:   make(freighter.Params),
-				Variant:  ctx.Variant,
-			}, err
+			return parseContext(
+				ctx,
+				s.ServiceDesc.ServiceName,
+				freighter.Client,
+				freighter.Stream,
+			), err
 		}),
 	)
 	return stream, err
@@ -136,7 +133,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) adaptStream(
 	}
 }
 
-func (s *StreamClient[RQ, RQT, RS, RST]) adaptStream(
+func (s *StreamClientCore[RQ, RQT, RS, RST]) adaptStream(
 	stream GRPCClientStream[RQT, RST],
 ) freighter.ClientStream[RQ, RS] {
 	return &ClientStream[RQ, RQT, RS, RST]{

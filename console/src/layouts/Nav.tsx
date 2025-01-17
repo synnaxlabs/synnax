@@ -39,7 +39,6 @@ import { UserServices } from "@/user/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
-import { WorkspaceServices } from "@/workspace/services";
 
 const DEFAULT_TRIGGER: Palette.TriggerConfig = {
   defaultMode: "command",
@@ -52,7 +51,7 @@ const COMMANDS = [
   ...Layout.COMMANDS,
   ...SchematicServices.COMMANDS,
   ...Docs.COMMANDS,
-  ...WorkspaceServices.COMMANDS,
+  ...Workspace.COMMANDS,
   ...ClusterServices.COMMANDS,
   ...RangeServices.COMMANDS,
   ...LabJack.COMMANDS,
@@ -80,11 +79,11 @@ const NavTopPalette = (): ReactElement => (
  * presentational.
  */
 export const NavTop = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
 
   const os = OS.use();
   const handleDocs = (): void => {
-    place(Docs.createLayout());
+    placer(Docs.createLayout());
   };
 
   return (

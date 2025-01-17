@@ -1,14 +1,14 @@
-name: Test - X
+name: "Test - X"
 
 on:
-  push:
-    branches:
-      - main
-      - rc
   pull_request:
     branches:
-      - main
       - rc
+      - main
+  push:
+    branches:
+      - rc
+      - main
   workflow_dispatch:
 
 jobs:
@@ -26,19 +26,15 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.ref }}
           filters: |
             shared: &shared
-              - .github/workflows/test.x.yaml
+              - .github/workflows/text.x.yaml
             go:
               - *shared
               - alamos/go/**
               - x/go/**
             ts:
               - *shared
-              - configs/eslint/**
-              - configs/ts/**
-              - configs/vite/**
               - x/ts/**
 
   go:
@@ -46,14 +42,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            format: true
-        exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -63,35 +54,24 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
-
-      - name: Check Formatting
-        if: matrix.format
-        run: scripts/gofmt-check.sh x/go
+          cache-dependency-path: |
+            alamos/go/go.sum
+            x/go/go.sum
 
       - name: Test
         run: go test -v -shuffle=on ./...
         working-directory: x/go
 
   ts:
-    name: TypeScript (${{ matrix.os }})
+    name: TypeScript
     needs: changes
     if: needs.changes.outputs.ts == 'true'
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            lint: true
-        exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
@@ -99,13 +79,10 @@ jobs:
         with:
           node-version-file: package.json
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Dependencies
         run: pnpm install
-
-      - name: Lint
-        if: matrix.lint
-        run: pnpm lint:x
 
       - name: Build
         run: pnpm build:x

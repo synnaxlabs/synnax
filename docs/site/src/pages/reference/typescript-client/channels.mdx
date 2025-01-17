@@ -51,10 +51,10 @@ const tempChannel = await client.channels.create({
 });
 ```
 
-Notice how we set the `isIndex` property to `true` on `timeIndexChannel`. This tells
-Synnax that this channel will be used to store timestamps for other channels. We then
-pass the `index` property to the `tempChannel` so it uses `timeIndexChannel` as its
-index.
+Notice how we set the `isIndex` property to `true` on the `"time"` index
+channel. This tells Synnax that this channel will be used to store timestamps
+for other channels. We then pass the `index` property to the temperature sensor
+channel so it uses the `"time"` channel as its index.
 
 ### Creating Multiple Channels
 
@@ -104,7 +104,8 @@ const sensors = await client.channels.create([sensorOne, sensorTwo, sensorThree]
 
 ## Retrieving Channels
 
-We can retrieve channels using the `channels.retrieve` method on the client.
+Like creating them, we can retrieve channels using the `channels.retrieve` method on
+the client.
 
 ### Retrieving a Single Channel
 
@@ -174,3 +175,11 @@ idempotent operation, and is safe to call even if the channel has already been
 deleted.
 
 Deleting a channel by name will delete **all** channels with that name.
+
+<Divider.Divider direction="x" />
+
+## Next Steps
+
+Now that we know how to create and retrieve channels, we can start reading and
+writing data to them. Check out the [reading data](read-data) and [writing
+data](write-data) guides to learn more.

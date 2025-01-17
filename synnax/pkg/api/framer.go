@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	framesvc "github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -87,8 +86,6 @@ func (s *FrameService) FrameDelete(
 	})
 }
 
-const FrameIteratorAutoSpan = ts.AutoSpan
-
 type (
 	FrameIteratorRequest  = framer.IteratorRequest
 	FrameIteratorResponse = framer.IteratorResponse
@@ -151,7 +148,6 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 }
 
 type (
-	FrameStreamerConfig   = framer.StreamerConfig
 	FrameStreamerRequest  = framer.StreamerRequest
 	FrameStreamerResponse = framer.StreamerResponse
 	StreamerStream        = freighter.ServerStream[FrameStreamerRequest, FrameStreamerResponse]

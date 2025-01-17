@@ -8,9 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { type Link } from "@/link";
-import { Log } from "@/log";
+import { create } from "@/log/Log";
+import { type State } from "@/log/slice";
 
-export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
-  const log = await client.workspaces.log.retrieve(key);
-  placeLayout(Log.create({ ...log.data, ...log }));
+export const linkHandler: Link.Handler = async ({
+  resource,
+  resourceKey,
+  client,
+  placer,
+  addStatus,
+}): Promise<boolean> => {
+  if (resource !== "log") return false;
+  try {
+    const log = await client.workspaces.log.retrieve(resourceKey);
+    const layoutCreator = create({
+      ...(log.data as unknown as State),
+      key: log.key,
+      name: log.name,
+    });
+    placer(layoutCreator);
+  } catch (e) {
+    addStatus({
+      variant: "error",
+      message: (e as Error).message,
+    });
+  }
+  return true;
 };

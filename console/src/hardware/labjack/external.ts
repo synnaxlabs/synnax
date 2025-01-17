@@ -22,5 +22,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 
 export const SELECTABLES = Task.SELECTABLES;
 
-export const MAKE = Device.MAKE;
-export type Make = Device.Make;
+export const MAKE = "LabJack";
+export type Make = typeof MAKE;

@@ -79,7 +79,6 @@ class Synnax(Client):
         keep_alive: TimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
-        cache_channels: bool = True,
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
         if none are provided, the client will attempt to load them from the Synnax
@@ -115,14 +114,15 @@ class Synnax(Client):
             self._transport.use(*self.auth.middleware())
             self._transport.use_async(*self.auth.async_middleware())
 
-        ch_retriever = ClusterChannelRetriever(self._transport.unary, instrumentation)
-        if cache_channels:
-            ch_retriever = CacheChannelRetriever(ch_retriever, instrumentation)
+        ch_retriever = CacheChannelRetriever(
+            ClusterChannelRetriever(self._transport.unary, instrumentation),
+            instrumentation,
+        )
         deleter = Deleter(self._transport.unary, instrumentation)
         ch_creator = ChannelWriter(
             self._transport.unary,
             instrumentation,
-            ch_retriever if cache_channels else None,
+            ch_retriever,
         )
         super().__init__(
             stream_client=self._transport.stream,

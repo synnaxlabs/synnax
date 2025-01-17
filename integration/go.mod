@@ -6,7 +6,7 @@ require golang.org/x/sync v0.10.0
 
 require github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 
-require github.com/synnaxlabs/synnax v0.0.0-20250101015019-dde1732a3d6e
+require github.com/synnaxlabs/synnax v0.0.0-20241217164335-f7e737a6c804
 
 require (
 	github.com/DataDog/zstd v1.5.6 // indirect
@@ -72,13 +72,13 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
-	golang.org/x/net v0.33.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20241230172942-26aa7a208def // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241230172942-26aa7a208def // indirect
-	google.golang.org/grpc v1.69.2 // indirect
-	google.golang.org/protobuf v1.36.1 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20241216192217-9240e9c98484 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241216192217-9240e9c98484 // indirect
+	google.golang.org/grpc v1.69.0 // indirect
+	google.golang.org/protobuf v1.36.0 // indirect
 )
 
 replace github.com/synnaxlabs/x => ../x/go

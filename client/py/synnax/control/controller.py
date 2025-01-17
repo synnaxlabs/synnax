@@ -415,17 +415,6 @@ class Controller:
         ch = self._retriever.retrieve_one(ch)
         return self._receiver.state.get(ch.key, default)
 
-    def schedule(
-        self,
-        *commands: ScheduledCommand,
-    ) -> tuple[Callable[[], None], bool]:
-        def start():
-            for cmd in commands:
-                self.sleep(cmd.delay, precise=True)
-                self.set(cmd.channel, cmd.value)
-
-        return start, True
-
     def __getitem__(self, item):
         ch = self._retriever.retrieve_one(item)
         try:
@@ -515,23 +504,3 @@ class _Receiver(AsyncThread):
     def stop(self):
         self.loop.call_soon_threadsafe(self.shutdown_future.set_result, None)
         self.join()
-
-
-class ScheduledCommand:
-    """A command that can be scheduled to run at a specific time in the future. This
-    command can be sent to the controller to be executed at a later time.
-    """
-
-    channel: ChannelKey | ChannelName
-    value: SampleValue
-    delay: TimeSpan
-
-    def __init__(
-        self,
-        channel: ChannelKey | ChannelName,
-        value: SampleValue,
-        delay: float | int | TimeSpan,
-    ):
-        self.channel = channel
-        self.value = value
-        self.delay = TimeSpan(delay)

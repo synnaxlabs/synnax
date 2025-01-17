@@ -69,8 +69,8 @@ const Content = (): ReactElement => {
   const client = Synnax.use();
   const [tasks, setTasks] = useState<task.Task[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const handleException = Status.useExceptionHandler();
   const handleRename = useMutation<void, Error, MutationVars, string>({
+    mutationKey: ["renameTask"],
     onMutate: ({ name, key }) => {
       const oldTask = tasks.find((t) => t.key === key);
       const oldName = oldTask?.name;
@@ -108,7 +108,11 @@ const Content = (): ReactElement => {
           return [...prev];
         });
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
+      addStatus({
+        variant: "error",
+        message: `Failed to rename ${oldName ?? "task"} to ${name}`,
+        description: e.message,
+      });
     },
   }).mutate;
   const [desiredStates, setDesiredStates] = useState<
@@ -225,7 +229,11 @@ const Content = (): ReactElement => {
     },
     onError: (e) => {
       if (errors.CANCELED.matches(e)) return;
-      handleException(e, "Failed to delete tasks");
+      addStatus({
+        variant: "error",
+        message: "Failed to delete tasks",
+        description: e.message,
+      });
     },
   });
   return (

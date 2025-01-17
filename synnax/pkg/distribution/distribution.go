@@ -101,13 +101,10 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	frameTransport := frametransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, channelTransport, frameTransport)
 
-	ver, err := verification.OpenService(
-		ctx,
-		cfg.Verifier,
-		verification.Config{
-			DB:  d.Storage.KV,
-			Ins: cfg.Instrumentation,
-		})
+	ver, err := verification.OpenService(cfg.Verifier, verification.Config{
+		DB:  d.Storage.KV,
+		Ins: cfg.Instrumentation,
+	})
 	if err != nil {
 		return d, err
 	}
@@ -162,7 +159,7 @@ func (d Distribution) configureControlUpdates(ctx context.Context) error {
 		DataType:    telem.StringT,
 		Internal:    true,
 	}}
-	if err := d.Channel.CreateMany(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
+	if err := d.Channel.CreateManyIfNamesDontExist(ctx, &controlCh); err != nil {
 		return err
 	}
 	return d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key())

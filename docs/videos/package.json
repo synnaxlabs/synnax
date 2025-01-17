@@ -10,14 +10,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@remotion/cli": "^4.0.248",
-    "@synnaxlabs/media": "workspace:*",
-    "@synnaxlabs/pluto": "workspace:*",
-    "@synnaxlabs/tsconfig": "workspace:*",
-    "eslint-config-synnaxlabs": "workspace:*",
+    "@remotion/cli": "^4.0.244",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "remotion": "^4.0.248",
+    "remotion": "^4.0.244",
+    "@synnaxlabs/pluto": "workspace:*",
+    "@synnaxlabs/media": "workspace:*",
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "eslint-config-synnaxlabs": "workspace:*",
     "stylelint-config-synnaxlabs": "workspace:*"
   }
 }

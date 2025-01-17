@@ -109,7 +109,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
       // Prevent parent context menus from opening.
       e.stopPropagation();
       const selected = findSelected(e.target as HTMLElement);
-      keys ??= unique.unique(selected.map((el) => el.id).filter((id) => id.length > 0));
+      keys ??= unique(selected.map((el) => el.id).filter((id) => id.length > 0));
     } else keys = [];
     setMenuState({ visible: true, keys, position: p, cursor: p });
   };

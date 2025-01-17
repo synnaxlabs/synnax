@@ -1,26 +1,21 @@
 name: Deploy - Console
-
 on:
   push:
     branches:
-      - main
       - rc
+      - main
   pull_request:
     branches:
-      - main
       - rc
+      - main
   workflow_dispatch:
-
 permissions:
   contents: write
-
 env:
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-
 jobs:
   setup:
-    name: Setup
     runs-on: ubuntu-latest
     outputs:
       PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
@@ -35,7 +30,7 @@ jobs:
 
       - name: Get Version
         id: version
-        working-directory: console
+        working-directory: ./console
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
@@ -52,20 +47,14 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/deploy.console.yaml
-              - alamos/ts/**
-              - client/ts/**
-              - configs/ts/**
-              - configs/vite/**
-              - console/**
-              - drift/**
-              - freighter/ts/**
-              - pluto/**
-              - x/media/**
-              - x/ts/**
+              - "console/**"
+              - "pluto/**"
+              - "client/ts/**"
+              - "freighter/ts/**"
+              - "x/ts/**"
+              - ".github/workflows/deploy.console.yaml"
 
   create-release:
-    name: Create Release
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
     needs: setup
@@ -75,20 +64,16 @@ jobs:
       release_id: ${{ steps.create-release.outputs.result }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: package.json
-          cache: pnpm
+          node-version: 20
 
       - name: Create Release
         id: create-release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v6
         with:
           script: |
             const  { data: releases } = await github.rest.repos.listReleases({
@@ -107,8 +92,7 @@ jobs:
             })
             return id
 
-  build:
-    name: Build (${{ matrix.os }})
+  build-tauri:
     needs: setup
     if: needs.setup.outputs.changed == 'true'
     env:
@@ -121,13 +105,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+        platform: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
     steps:
-      - name: Import Apple Developer Certificate
+      - name: MacOS - Import Apple Developer Certificate
         # Only notarize on MacOS and on push events, not on PRs. This prevents excessive
         # notarization requests and long CI times on PRs.
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        if: matrix.platform == 'macos-latest' && github.event_name == 'push'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -141,9 +125,9 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
 
-      - name: Verify Apple Developer Certificate
+      - name: MacOS - Verify Certificate
         # Same as above - only notarize on MacOS and on push events, not on PRs
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        if: matrix.platform == 'macos-latest' && github.event_name == 'push'
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           echo "Cert info"
@@ -152,20 +136,22 @@ jobs:
           echo "Certificate imported."
 
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
 
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: package.json
-          cache: pnpm
+          node-version: 20
+          cache: "pnpm"
 
       - name: Adjust Auto Updater URL for Release Candidate
         if: github.event_name == 'push' && github.ref == 'refs/heads/rc'
-        working-directory: console/src-tauri
+        working-directory: ./console/src-tauri
         run: |
           jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
           rm tauri.conf.json
@@ -191,16 +177,20 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Install Dependencies
-        run: pnpm install
+        run: pnpm i
 
-      - name: Build (TypeScript)
+      - name: Build Pluto
         if: needs.setup.outputs.changed == 'true'
-        run: pnpm build:console-vite
+        run: pnpm build:pluto
+
+      - name: Build Drift
+        if: needs.setup.outputs.changed == 'true'
+        run: pnpm build:drift
 
       # We need to build the console separately WITHOUT turbo repo because of strange
       # incompatibility issues with rust builds.
 
-      - name: Build
+      - name: Build Console
         if: needs.setup.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
@@ -208,41 +198,41 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
-        working-directory: console
+        working-directory: ./console
         run: pnpm build
 
       - name: Upload MacOS Release Asset
-        if: github.event_name == 'push' &&  matrix.os == 'macos-latest'
+        if: github.event_name == 'push' &&  matrix.platform == 'macos-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
 
       - name: Upload Windows Release Asset
-        if: github.event_name == 'push' && matrix.os == 'windows-latest'
+        if: github.event_name == 'push' && matrix.platform == 'windows-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.sig
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe.sig
 
-  publish:
-    name: Publish
+  publish-release:
     runs-on: ubuntu-latest
     if: needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id != ''
-    needs: [setup, create-release, build]
+    needs: [create-release, build-tauri, setup]
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
       PURE_VERSION: ${{ needs.setup.outputs.PURE_VERSION }}
       RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Publish
-        uses: actions/github-script@v7
+      - name: Publish Release
+        id: publish-release
+        uses: actions/github-script@v6
         with:
           script: |
             github.rest.repos.updateRelease({
@@ -253,17 +243,14 @@ jobs:
                 prerelease: false,
             })
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: package.json
-          cache: pnpm
+          node-version: 20
 
       - name: Add Auto Update JSON File
-        uses: actions/github-script@v7
+        id: auto-update-json-file
+        uses: actions/github-script@v6
         env:
           release_id: ${{ needs.create-release.outputs.release_id }}
         with:
@@ -312,21 +299,23 @@ jobs:
             fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2));
 
       - name: Commit & Push Auto Update JSON File on RC
+        id: commit-auto-update-json-file-rc
         if: github.ref == 'refs/heads/rc'
         uses: EndBug/add-and-commit@v9
         with:
           add: "*"
           default_author: github_actor
-          message: Auto Update JSON File
-          pull: --commit --no-edit
-          push: origin rc --force
+          message: "Auto Update JSON File"
+          pull: "--commit --no-edit"
+          push: "origin rc --force"
 
       - name: Commit & Push Auto Update JSON File on Main
+        id: commit-auto-update-json-file-main
         if: github.ref == 'refs/heads/main'
         uses: EndBug/add-and-commit@v9
         with:
           add: "*"
           default_author: github_actor
-          message: Auto Update JSON File
-          pull: --commit --no-edit
-          push: origin main --force
+          message: "Auto Update JSON File"
+          pull: "--commit --no-edit"
+          push: "origin main --force"

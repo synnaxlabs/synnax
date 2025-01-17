@@ -11,7 +11,7 @@ import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
-import { deep, primitiveIsZero, TimeSpan } from "@synnaxlabs/x";
+import { deep, primitiveIsZero, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { v4 as uuid } from "uuid";
 
@@ -39,7 +39,11 @@ export const useSyncComponent = (
       const data = select(storeState, layoutKey);
       if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
-      const setData = { ...data, key: undefined };
+      const setData = {
+        ...data,
+        key: undefined,
+        snapshot: undefined,
+      } as unknown as UnknownRecord;
       if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
       await client.workspaces.log.create(ws, {
         key: layoutKey,

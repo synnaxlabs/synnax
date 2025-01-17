@@ -10,14 +10,13 @@
 package meta
 
 import (
-	"os"
-
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"os"
 )
 
 const metaFile = "meta.json"
@@ -53,7 +52,7 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 	if err != nil {
 		return
 	}
-	defer func() { err = errors.Combine(err, metaF.Close()) }()
+	defer func() { err = errors.CombineErrors(err, metaF.Close()) }()
 
 	err = codec.DecodeStream(nil, metaF, &ch)
 	if err != nil {

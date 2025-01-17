@@ -14,10 +14,11 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
-import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
+import { useExport } from "@/lineplot/file";
+import { create } from "@/lineplot/LinePlot";
+import { type State } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { type Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
@@ -43,10 +44,14 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.linePlot.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      handleException(err, "Failed to delete line plot");
+      addStatus({
+        variant: "error",
+        message: "Failed to delete line plot",
+        description: err.message,
+      });
     },
   }).mutate;
 };
@@ -58,7 +63,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
-  const handleExport = LinePlot.useExport();
+  const handleExport = useExport(resources[0].name);
   const onSelect = {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
@@ -82,7 +87,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
-          <Export.MenuItem />
+          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
+            Export
+          </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
@@ -107,8 +114,8 @@ const handleSelect: Ontology.HandleSelect = async ({
 }): Promise<void> => {
   const linePlot = await client.workspaces.linePlot.retrieve(selection[0].id.key);
   placeLayout(
-    LinePlot.create({
-      ...(linePlot.data as unknown as LinePlot.State),
+    create({
+      ...(linePlot.data as unknown as State),
       key: linePlot.key,
       name: linePlot.name,
     }),
@@ -121,22 +128,26 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  handleException,
+  addStatus,
 }): void => {
   void (async () => {
     try {
       const linePlot = await client.workspaces.linePlot.retrieve(id.key);
       placeLayout(
-        LinePlot.create({
-          ...(linePlot.data as unknown as LinePlot.State),
+        create({
+          ...(linePlot.data as unknown as State),
           key: linePlot.key,
           name: linePlot.name,
           location: "mosaic",
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (e) {
-      handleException(e, "Failed to load line plot");
+    } catch (err) {
+      addStatus({
+        variant: "error",
+        message: "Failed to load line plot",
+        description: (err as Error).message,
+      });
     }
   })();
 };

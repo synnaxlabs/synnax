@@ -58,7 +58,7 @@ export const syncInitial = async (
   log(debug, "non-main windows in state", nonMain.sort());
   groupEnd(debug);
   // Create windows that are not in runtime, delete windows that are not in state
-  const allLabels = unique.unique([...runtimeLabels, ...nonMain]);
+  const allLabels = unique([...runtimeLabels, ...nonMain]);
   // Only the main runtime is allowed to create windows.
   for (const label of allLabels)
     if (!runtimeLabels.includes(label) && runtime.isMain()) {

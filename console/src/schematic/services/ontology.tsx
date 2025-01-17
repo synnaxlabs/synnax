@@ -14,7 +14,6 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
-import { Export } from "@/export";
 import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
@@ -45,10 +44,14 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.schematic.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      handleException(err, "Failed to delete schematic");
+      addStatus({
+        variant: "error",
+        message: "Failed to delete schematic",
+        description: err.message,
+      });
     },
   }).mutate;
 };
@@ -85,8 +88,12 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state.setNodes([...nextTree]);
       Tree.startRenaming(otg[0].id.toString());
     },
-    onError: (err, { handleException }) => {
-      handleException(err, "Failed to copy schematic");
+    onError: (err, { addStatus }) => {
+      addStatus({
+        variant: "error",
+        message: "Failed to copy schematic",
+        description: err.message,
+      });
     },
   }).mutate;
 
@@ -107,9 +114,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const copy = useCopy();
   const snapshot = useSnapshot();
-  const handleExport = Schematic.useExport();
+  const handleExport = Schematic.useExport(resources[0].name);
   const handleLink = Link.useCopyToClipboard();
-  const onSelect = useAsyncActionMenu({
+  const onSelect = useAsyncActionMenu("schematic.menu", {
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
@@ -139,7 +146,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
-          <Export.MenuItem />
+          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
+            Export
+          </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
@@ -185,8 +194,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   id,
   location,
   nodeKey,
+  addStatus,
   placeLayout,
-  handleException,
 }) => {
   void (async () => {
     try {
@@ -200,8 +209,12 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (e) {
-      handleException(e, "Failed to load schematic");
+    } catch (err) {
+      addStatus({
+        variant: "error",
+        message: "Failed to load schematic",
+        description: (err as Error).message,
+      });
     }
   })();
 };

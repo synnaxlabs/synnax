@@ -94,7 +94,7 @@ const Wrapped = ({
   task,
 }: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const addStatus = Status.useAggregator();
   const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
     undefined,
   );
@@ -137,6 +137,7 @@ const Wrapped = ({
   const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
 
   const configure = useMutation<void>({
+    mutationKey: [client?.key],
     mutationFn: async () => {
       if (!methods.validate() || client == null) return;
       const { config, name } = methods.value();
@@ -206,7 +207,12 @@ const Wrapped = ({
       });
       setDesiredState("paused");
     },
-    onError: (e) => handleException(e, `Failed to configure task`),
+    onError: (e) =>
+      addStatus({
+        variant: "error",
+        message: "Failed to configure task",
+        description: e.message,
+      }),
   });
 
   const start = useMutation({
@@ -219,7 +225,7 @@ const Wrapped = ({
     },
   });
 
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
 
   const name = task?.name;
   const key = task?.key;
@@ -268,7 +274,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => place(createConfigureLayout())}
+                        onClick={() => placer(createConfigureLayout())}
                       >
                         Connect a new server.
                       </Text.Link>

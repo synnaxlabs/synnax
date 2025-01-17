@@ -56,8 +56,6 @@ describe("channelRetriever", () => {
         leaseholder: 1,
         index: 0,
         virtual: false,
-        expression: "",
-        requires: [],
       }));
     });
     const retriever = new DebouncedBatchRetriever(base, 10);
@@ -85,8 +83,6 @@ describe("channelRetriever", () => {
         leaseholder: 1,
         index: 0,
         virtual: false,
-        expression: "",
-        requires: [],
       }));
     });
     const retriever = new DebouncedBatchRetriever(base, 10);

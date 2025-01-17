@@ -45,14 +45,14 @@ export const download = ({
   name = "synnax-data",
 }: DownloadProps): void => {
   (async () => {
-    let keys = unique.unique(
+    let keys = unique(
       lines
         .flatMap((l) => [l.channels.y, l.channels.x])
         .filter((v) => v != null && v != 0),
     ) as channel.Keys;
     const channels = await client.channels.retrieve(keys);
-    const indexes = unique.unique(channels.map((c) => c.index));
-    keys = unique.unique([...keys, ...indexes]);
+    const indexes = unique(channels.map((c) => c.index));
+    keys = unique([...keys, ...indexes]);
     const indexChannels = await client.channels.retrieve(indexes);
     const columns = new Map<channel.Key, string>();
     channels.forEach((c) => {

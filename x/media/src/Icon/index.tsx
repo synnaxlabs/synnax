@@ -27,7 +27,7 @@ import {
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
-import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
+import { BiLinkExternal, BiRename } from "react-icons/bi";
 import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -115,7 +115,6 @@ import {
   MdWorkspacesFilled,
 } from "react-icons/md";
 import {
-  PiBinary,
   PiCaretDown,
   PiCaretLeft,
   PiCaretRight,
@@ -139,14 +138,13 @@ import {
   TbArrowLeft,
   TbArrowRight,
   TbArrowUp,
-  TbDecimal,
   TbLivePhoto,
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
   TbVariable,
 } from "react-icons/tb";
-import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
+import { VscSplitHorizontal, VscSplitVertical } from "react-icons/vsc";
 
 export interface IconProps extends React.SVGProps<SVGSVGElement> {}
 type IconFC = FC<IconProps>;
@@ -420,11 +418,6 @@ export const Icon: IconType = {
   Release: wrapIcon(MdNewReleases, "release"),
   OpenExternal: wrapIcon(MdArrowOutward, "open-external"),
   Feedback: wrapIcon(MdFeedback, "feedback"),
-  Calculation: wrapIcon(BiMath, "calculation"),
-  Binary: wrapIcon(PiBinary, "binary"),
-  Index: wrapIcon(IoTime, "index"),
-  Decimal: wrapIcon(TbDecimal, "decimal"),
-  String: wrapIcon(VscSymbolString, "string"),
 };
 
 export interface IconType {
@@ -580,9 +573,4 @@ export interface IconType {
   Release: IconFC;
   OpenExternal: IconFC;
   Feedback: IconFC;
-  Binary: IconFC;
-  Calculation: IconFC;
-  Index: IconFC;
-  Decimal: IconFC;
-  String: IconFC;
 }

@@ -16,7 +16,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   ChannelData,
@@ -364,25 +364,20 @@ describe("remote", () => {
       async close(): Promise<void> {}
     }
 
-    let c: MockClient;
-
-    beforeEach(() => {
-      c = new MockClient();
-      vi.resetAllMocks();
-    });
-
     it("should return a zero value when no channel has been set", async () => {
+      const client = new MockClient();
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
         channel: 0,
       };
-      const cd = new StreamChannelData(c, props);
+      const cd = new StreamChannelData(client, props);
       const [b, data] = await cd.value();
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data).toHaveLength(0);
     });
 
     it("should return data when the channel is specified", async () => {
+      const c = new MockClient();
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: new TimeRange(
@@ -405,6 +400,7 @@ describe("remote", () => {
     });
 
     it("should bind a stream handler", async () => {
+      const c = new MockClient();
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
         channel: c.channel.key,
@@ -417,6 +413,7 @@ describe("remote", () => {
     });
 
     it("should garbage collect data that goes out of range", async () => {
+      const c = new MockClient();
       const now = TimeStamp.now();
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),
@@ -446,7 +443,7 @@ describe("remote", () => {
         data: new Float32Array([4, 5, 6]),
         timeRange: tr2,
       });
-      // wait for 10 milliseconds
+      // wait for 2 milliseconds
       await new Promise((resolve) => setTimeout(resolve, 10));
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [series2]),
@@ -460,6 +457,7 @@ describe("remote", () => {
     });
 
     it("should adjust the bounds of the data even if it was not garbage collected", async () => {
+      const c = new MockClient();
       const now = TimeStamp.now();
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),
@@ -482,7 +480,7 @@ describe("remote", () => {
       expect(data).toHaveLength(1);
       const tr2 = new TimeRange(
         now.add(TimeSpan.milliseconds(1)),
-        now.add(TimeSpan.milliseconds(40)),
+        now.add(TimeSpan.milliseconds(20)),
       );
       expect(series.refCount).toBe(1);
       // write the new series
@@ -495,7 +493,7 @@ describe("remote", () => {
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [series2]),
       });
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       const [b2, data2] = await cd.value();
       expect(series2.refCount).toBe(1);
       expect(series.refCount).toBe(1);
@@ -506,6 +504,7 @@ describe("remote", () => {
     });
 
     it("should destroy the stream handler when cleanup is called", async () => {
+      const c = new MockClient();
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
         channel: c.channel.key,
@@ -517,6 +516,7 @@ describe("remote", () => {
     });
 
     it("should drop the series refcounts to 0 when cleanup is called", async () => {
+      const c = new MockClient();
       const now = TimeStamp.now();
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),
@@ -541,6 +541,7 @@ describe("remote", () => {
     });
 
     it("should return the index channel data when the channel is not an index and fetchIndex is true", async () => {
+      const c = new MockClient();
       const now = TimeStamp.now();
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),
@@ -566,6 +567,7 @@ describe("remote", () => {
     });
 
     it("should return the index channel data when the channel is an index and fetchIndex is true", async () => {
+      const c = new MockClient();
       const now = TimeStamp.now();
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),

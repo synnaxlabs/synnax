@@ -11,7 +11,6 @@ import { DataType, Rate } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import { nullableArrayZ } from "@/util/zod";
 
 export const keyZ = z.number();
 export type Key = number;
@@ -33,8 +32,6 @@ export const payload = z.object({
   internal: z.boolean(),
   virtual: z.boolean(),
   alias: z.string().optional(),
-  expression: z.string(),
-  requires: nullableArrayZ(keyZ),
 });
 
 export type Payload = z.infer<typeof payload>;
@@ -47,8 +44,6 @@ export const newPayload = payload.extend({
   isIndex: z.boolean().optional(),
   internal: z.boolean().optional().default(false),
   virtual: z.boolean().optional().default(false),
-  expression: z.string().optional().default(""),
-  requires: nullableArrayZ(keyZ).optional().default([]),
 });
 
 export type NewPayload = z.input<typeof newPayload>;

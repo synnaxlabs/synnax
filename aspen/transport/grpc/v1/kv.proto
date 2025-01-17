@@ -44,15 +44,3 @@ message Operation {
   bytes value = 5;
 }
 
-
-service RecoveryService {
-    rpc Exec(stream RecoveryRequest) returns (stream RecoveryResponse);
-}
-
-message RecoveryRequest {
-    int64 high_water = 1;
-}
-
-message RecoveryResponse {
-    repeated Operation operations = 1;
-}

@@ -13,5 +13,4 @@ message PBSeries {
     PBTimeRange time_range = 1;
     string data_type = 2;
     bytes data = 3;
-    uint64 alignment = 4;
 }

@@ -42,9 +42,9 @@ const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+  const addStatus = Status.useAggregator();
   const [parent, setParent] = useState<ranger.Range | null>();
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
 
   useAsyncEffect(async () => {
     try {
@@ -57,7 +57,11 @@ const ParentRangeButton = ({
       tracker.onChange((ranges) => setParent(ranges));
       return async () => await tracker.close();
     } catch (e) {
-      handleException(e, "Failed to retrieve child ranges");
+      addStatus({
+        variant: "error",
+        message: `Failed to retrieve child ranges`,
+        description: (e as Error).message,
+      });
       return undefined;
     }
   }, [rangeKey, client?.key]);
@@ -72,7 +76,9 @@ const ParentRangeButton = ({
         startIcon={<Icon.Range />}
         iconSpacing="small"
         style={{ padding: "1rem" }}
-        onClick={() => place({ ...overviewLayout, key: parent.key, name: parent.name })}
+        onClick={() =>
+          placer({ ...overviewLayout, key: parent.key, name: parent.name })
+        }
       >
         {parent.name}
       </Button.Button>

@@ -46,7 +46,7 @@ import {
   type VelocityUnits,
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
-} from "@/hardware/ni/task/types";
+} from "@/hardware/ni/task/migrations";
 import { ThermocoupleTypeField } from "@/hardware/task/common/thermocouple";
 import { Layout } from "@/layout";
 
@@ -548,12 +548,12 @@ export interface DeviceFieldProps {
 
 export const DeviceField = ({ path }: DeviceFieldProps) => {
   const client = Synnax.use();
-  const place = Layout.usePlacer();
+  const placer = Layout.usePlacer();
   const handleDeviceChange = async (v: string) => {
     if (client == null) return;
     const { configured } = await client.hardware.devices.retrieve<Properties>(v);
     if (configured) return;
-    place(NIDevice.createConfigureLayout(v, {}));
+    placer(NIDevice.createConfigureLayout(v, {}));
   };
   return (
     <Form.Field<string>

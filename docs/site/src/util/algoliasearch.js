@@ -50,12 +50,13 @@ const data = filenames
       const markdownWithMeta = fs.readFileSync(`./src/pages/${filename}`);
       const { data: frontmatter, content } = matter(markdownWithMeta);
       let href = `/${filename.replace(".mdx", "").replace("index", "")}`;
-      if (filename.includes("releases") && !filename.includes("index"))
+      if (filename.includes("releases") && !filename.includes("index")) {
         href = `/releases/#${filename
           .replace(".mdx", "")
           .replaceAll("-", "")
           .slice(0, -1)
           .replace("releases/", "")}`;
+      }
       return {
         objectID: filename,
         href,

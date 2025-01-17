@@ -14,7 +14,6 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
-import { Export } from "@/export";
 import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
@@ -44,10 +43,14 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.log.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
+    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      handleException(err, "Failed to delete log");
+      addStatus({
+        variant: "error",
+        message: "Failed to delete log",
+        description: err.message,
+      });
     },
   }).mutate;
 };
@@ -59,13 +62,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
-  const handleExport = Log.useExport();
-  const onSelect = useAsyncActionMenu({
+  const onSelect = useAsyncActionMenu("log.menu", {
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
-    export: () => handleExport(resources[0].id.key),
   });
   const isSingle = resources.length === 1;
   return (
@@ -76,7 +77,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
-          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
@@ -117,7 +117,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  handleException,
+  addStatus,
 }) => {
   void (async () => {
     try {
@@ -131,8 +131,12 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (e) {
-      handleException(e, "Failed to load log");
+    } catch (err) {
+      addStatus({
+        variant: "error",
+        message: "Failed to load log",
+        description: (err as Error).message,
+      });
     }
   })();
 };

@@ -105,7 +105,7 @@ describe("DynamicCache", () => {
         expect(allocated[0].timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
         expect(flushed).toHaveLength(1);
         expect(flushed[0].timeRange.span.sub(waitSpan).valueOf()).toBeLessThanOrEqual(
-          TimeSpan.milliseconds(20).valueOf(),
+          TimeSpan.milliseconds(5).valueOf(),
         );
         expect(flushed[0].data.slice(0, 3)).toEqual(new Float32Array([1, 2, 3]));
         expect(flushed[0].data.slice(3, 6)).toEqual(new Float32Array([1, 2, 3]));

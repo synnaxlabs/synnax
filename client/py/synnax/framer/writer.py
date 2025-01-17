@@ -117,21 +117,19 @@ class Writer:
     ingesting data from a file). Simpler methods (such as the frame writer's write
     method) should be used in most cases.
 
-    For a detailed guide on writing data to Synnax, see
-    https://docs.synnaxlabs.com/reference/concepts/writes. A rough summary of the write
-    process is detailed below:
+    The protocol is as follows:
 
     1. The writer is opened with a starting timestamp and a list of channel keys (or
     names). The writer will fail to open if the starting timestamp overlaps with any
     existing telemetry for any of the channels specified. If the writer is opened
     successfully, the caller is then free to write frames to the writer.
 
-    2. To write a frame, the caller can use the write method and follow the validation
-    rules described in the method's documentation. This process is asynchronous,
-    meaning that write will return before the frame has been written to the cluster. This
-    also means that the writer can accumulate an error after write is called. If the
-    writer accumulates an error, all subsequent write and commit calls will return False.
-    The caller can check for errors by calling the error method, which returns the
+    2. To writer a frame, the caller can use the write method and follow the validation
+    rules described in its method's documentation. This process is asynchronous, meaning
+    that write will return before the frame has been written to the cluster. This also
+    means that the writer can accumulate an error after write is called. If the writer
+    accumulates an error, all subsequent write and commit calls will return False. The
+    caller can check for errors by calling the error method, which returns the
     accumulated error and resets the writer for future use. The caller can also check
     for errors by closing the writer, which will raise any accumulated error.
 

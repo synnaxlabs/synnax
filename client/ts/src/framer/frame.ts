@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { toArray, unique } from "@synnaxlabs/x";
 import {
   MultiSeries,
   Series,
@@ -18,6 +17,8 @@ import {
   TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
+import { unique } from "@synnaxlabs/x/unique";
 import { z } from "zod";
 
 import {
@@ -176,7 +177,7 @@ export class Frame {
    * error otherwise.
    */
   get uniqueKeys(): Keys {
-    return unique.unique(this.keys);
+    return unique(this.keys);
   }
 
   /**
@@ -193,7 +194,7 @@ export class Frame {
    * otherwise.
    */
   get uniqueNames(): Names {
-    return unique.unique(this.names);
+    return unique(this.names);
   }
 
   /**

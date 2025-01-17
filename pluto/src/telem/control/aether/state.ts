@@ -8,12 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import {
-  type channel,
-  control,
-  type Synnax,
-  UnexpectedError,
-} from "@synnaxlabs/client";
+import { type channel, control, type Synnax, UnexpectedError } from "@synnaxlabs/client";
 import { type Destructor, observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -120,8 +115,7 @@ export class StateProvider extends aether.Composite<
 
   get(key: channel.Key | channel.Key[]): SugaredState | SugaredState[] | undefined {
     if (Array.isArray(key))
-      return unique
-        .unique(key)
+      return unique(key)
         .map((k) => this.getOne(k))
         .filter((s) => s != null) as SugaredState[];
     return this.getOne(key);

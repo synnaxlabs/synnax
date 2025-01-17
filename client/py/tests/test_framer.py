@@ -16,11 +16,6 @@ import pytest
 
 import synnax as sy
 from synnax import TimeSpan, TimeRange, TimeStamp, UnauthorizedError
-from tests.eventually import assert_eventually
-
-
-def assert_eventually_channels_are_found(client: sy.Synnax, keys: list[int]):
-    assert_eventually(lambda: client.channels.retrieve(keys))
 
 
 @pytest.mark.framer
@@ -391,42 +386,6 @@ class TestWriter:
             w1.close()
             w2.close()
 
-    @pytest.mark.multi_node
-    def test_multi_node_write(self):
-        client = sy.Synnax(cache_channels=False)
-        idx = sy.Channel(
-            name="idx", data_type=sy.DataType.TIMESTAMP, is_index=True, leaseholder=2
-        )
-        idx = client.channels.create(idx)
-        data = sy.Channel(
-            name="data", data_type=sy.DataType.FLOAT64, index=idx.key, leaseholder=2
-        )
-        data = client.channels.create(data)
-
-        assert_eventually_channels_are_found(client, [idx.key, data.key])
-
-        start = sy.TimeStamp.now()
-        with client.open_writer(
-            start, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
-            w.write({idx.key: [start], data.key: [1]})
-            w.write({idx.key: [start + 1 * sy.TimeSpan.SECOND], data.key: [2]})
-            w.write({idx.key: [start + 2 * sy.TimeSpan.SECOND], data.key: [3]})
-            w.write({idx.key: [start + 3 * sy.TimeSpan.SECOND], data.key: [4]})
-            w.write({idx.key: [start + 4 * sy.TimeSpan.SECOND], data.key: [5]})
-
-        # Read the data
-        next_start = start + 5 * sy.TimeSpan.SECOND
-        series = client.read(
-            TimeRange(start - 5 * sy.TimeSpan.SECOND, next_start), data.key
-        )
-        assert len(series) == 5
-        assert series[0] == 1
-        assert series[1] == 2
-        assert series[2] == 3
-        assert series[3] == 4
-        assert series[4] == 5
-
 
 @pytest.mark.framer
 class TestStreamer:
@@ -444,6 +403,7 @@ class TestStreamer:
         with client.open_streamer([]):
             pass
 
+    @pytest.mark.focus
     def test_open_streamer_channel_not_found(self, client: sy.Synnax):
         """Should throw an exception when a streamer is opened with an unknown channel"""
         with pytest.raises(sy.NotFoundError):
@@ -511,60 +471,6 @@ class TestStreamer:
                 w.write(pd.DataFrame({channel.key: data}))
                 frame = s.read(timeout=1)
                 assert all(frame[channel.key] == data)
-
-    @pytest.mark.multi_node
-    def test_multi_node_stream_case_1(self):
-        client = sy.Synnax(cache_channels=False)
-        idx = client.channels.create(
-            name="idx", data_type=sy.DataType.TIMESTAMP, is_index=True, leaseholder=2
-        )
-        data = client.channels.create(
-            name="data", data_type=sy.DataType.FLOAT64, index=idx.key, leaseholder=2
-        )
-        assert_eventually_channels_are_found(client, [idx.key, data.key])
-        with client.open_streamer(data.key) as s:
-            with client.open_writer(
-                sy.TimeStamp.now(), [idx.key, data.key], enable_auto_commit=True
-            ) as w:
-                w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
-                f = s.read(timeout=1)
-                assert f is not None
-                assert f[data.key][0] == 1
-
-    @pytest.mark.multi_node
-    def test_multi_node_stream_case_2(self):
-        node_1_client = sy.Synnax(
-            host="localhost",
-            port=9090,
-            username="synnax",
-            password="seldon",
-            secure=False,
-            cache_channels=False,
-        )
-        node_2_client = sy.Synnax(
-            host="localhost",
-            port=9091,
-            username="synnax",
-            password="seldon",
-            secure=False,
-            cache_channels=False,
-        )
-        idx = node_2_client.channels.create(
-            name="idx", data_type=sy.DataType.TIMESTAMP, is_index=True, leaseholder=2
-        )
-        data = node_2_client.channels.create(
-            name="data", data_type=sy.DataType.FLOAT64, index=idx.key, leaseholder=2
-        )
-        assert_eventually_channels_are_found(node_1_client, [idx.key, data.key])
-        assert_eventually_channels_are_found(node_2_client, [idx.key, data.key])
-        with node_1_client.open_streamer(data.key) as s:
-            with node_2_client.open_writer(
-                sy.TimeStamp.now(), [idx.key, data.key], enable_auto_commit=True
-            ) as w:
-                w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
-                f = s.read(timeout=1)
-                assert f is not None
-                assert f[data.key][0] == 1
 
 
 @pytest.mark.framer
@@ -706,60 +612,3 @@ class TestDeleter:
                     TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))
                 ),
             )
-
-
-@pytest.mark.framer
-class TestCalculatedChannels:
-    def test_basic_calc_channel(self, client: sy.Synnax):
-        """Should correctly create and read from a basic calculated channel using streaming"""
-        timestamp_channel = client.channels.create(
-            name="test_timestamp",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-        )
-
-        src_channels = client.channels.create(
-            [
-                sy.Channel(
-                    name="test_a",
-                    index=timestamp_channel.key,
-                    data_type=sy.DataType.FLOAT32,
-                ),
-                sy.Channel(
-                    name="test_b",
-                    index=timestamp_channel.key,
-                    data_type=sy.DataType.FLOAT32,
-                ),
-            ]
-        )
-
-        calc_channel = client.channels.create(
-            name="test_calc",
-            data_type=sy.DataType.FLOAT32,
-            expression="result=test_a + test_b",
-            requires=[src_channels[0].key, src_channels[1].key],
-        )
-
-        start = sy.TimeStamp.now()
-        timestamps = [start]
-        value = np.array(
-            [2.0],
-            dtype=np.float32,
-        )
-
-        with client.open_streamer(calc_channel.key) as streamer:
-            with client.open_writer(
-                start,
-                [timestamp_channel.key, src_channels[0].key, src_channels[1].key],
-            ) as writer:
-                writer.write(
-                    {
-                        timestamp_channel.key: timestamps,
-                        src_channels[0].key: value / 2,
-                        src_channels[1].key: value / 2,
-                    }
-                )
-
-                frame = streamer.read(timeout=1)
-                assert frame is not None
-                assert np.array_equal(frame[calc_channel.key], value)

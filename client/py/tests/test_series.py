@@ -53,12 +53,11 @@ class TestSeries:
 
     def test_construction_from_series(self):
         """Should correctly construct the Series from another Series"""
-        d = Series([1, 2, 3], data_type=DataType.INT8, alignment=12)
+        d = Series([1, 2, 3], data_type=DataType.INT8)
         s = Series(d)
         assert len(s) == 3
         assert s[2] == 3
         assert s.data_type == DataType.INT8
-        assert s.alignment == 12
 
     def test_construction_from_buffer(self):
         """Should correctly construct the Series from a buffer"""

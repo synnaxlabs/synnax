@@ -76,7 +76,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   searcher,
   value,
   onChange,
-  pageSize = 15,
+  pageSize = 10,
   filter = defaultFilter,
 }: UseSearchProps<K, E>): UseSearchReturn => {
   const [internalValue, setInternalValue] = state.usePurePassthrough({
@@ -116,7 +116,6 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
             setHasMore(false);
           }
           offset.current += pageSize;
-          console.log("fetch");
           if (reset) setSourceData(r);
           else setSourceData((d) => [...d, ...r]);
         } catch (e) {

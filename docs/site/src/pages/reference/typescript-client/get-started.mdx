@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "TypeScript - Get Started"
-heading: "Synnax TypeScript Client"
+heading: "The Synnax TypeScript Client"
 description: "Learn how to use our TypeScript client to interact with a Synnax cluster."
 next: "Channels"
 nextURL: "/reference/typescript-client/channels"
@@ -43,10 +43,18 @@ const client = new Synnax({
 
 Here's a breakdown of the parameters you can pass to the client:
 
-| Parameter  | Description                                                                                                                                        | Default     |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `host`     | The hostname of the Synnax cluster                                                                                                                 | `localhost` |
-| `port`     | The port of the Synnax cluster                                                                                                                     | `9090`      |
-| `username` | The username to authenticate with                                                                                                                  | `""`        |
-| `password` | The password to authenticate with                                                                                                                  | `""`        |
-| `secure`   | Whether to use TLS encryption. This should be set to `true` if the cluster is using TLS. This should be true for [clusters running in production]. | `false`     |
+| Parameter  | Description                                                                                                                                            | Default     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| `host`     | The hostname of the Synnax cluster                                                                                                                     | `localhost` |
+| `port`     | The port of the Synnax cluster                                                                                                                         | `9090`      |
+| `username` | The username to authenticate with                                                                                                                      | `""`        |
+| `password` | The password to authenticate with                                                                                                                      | `""`        |
+| `secure`   | Whether to use TLS encryption. This should be set to `true` if the cluster is using TLS. See [production](../cluster/production) for more information. | `false`     |
+
+<Divider.Divider direction="x" />
+
+## Next Steps
+
+Now that you've installed and authenticated the client, you're ready to start
+using Synnax! We recommend starting with the [Channels](channels) section to
+learn how to create channels and retrieve data from them.
