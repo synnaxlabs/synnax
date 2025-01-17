@@ -157,6 +157,7 @@ const SelectorButton = ({
         CSS.altColor(altColor),
         closable && onClose != null && CSS.BEM(CLS, "btn", "closable"),
         hasIcon && CSS.BEM(CLS, "btn", "has-icon"),
+        CSS.editable(onRename != null && editable),
       )}
       draggable
       direction="x"
@@ -210,6 +211,8 @@ interface NameProps extends Text.CoreProps<Text.Level> {
   editable?: boolean;
 }
 
+const NAME_CLS = CSS.BE(CLS, "name");
+
 const Name = ({
   onRename,
   name,
@@ -219,17 +222,19 @@ const Name = ({
 }: NameProps): ReactElement => {
   if (onRename == null || !editable)
     return (
-      <Text.Text noWrap {...props}>
+      <Text.Text className={NAME_CLS} noWrap {...props}>
         {name}
       </Text.Text>
     );
   return (
-    <Text.Editable<Text.Level>
-      id={CSS.B(`tab-${tabKey}`)}
-      onChange={(newText: string) => onRename(tabKey, newText)}
-      value={name}
-      noWrap
-      {...props}
-    />
+    <div className={NAME_CLS}>
+      <Text.Editable<Text.Level>
+        id={CSS.B(`tab-${tabKey}`)}
+        onChange={(newText: string) => onRename(tabKey, newText)}
+        value={name}
+        noWrap
+        {...props}
+      />
+    </div>
   );
 };

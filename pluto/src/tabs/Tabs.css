@@ -17,7 +17,7 @@
 }
 
 .pluto-tabs-selector__btn--closable:not(.pluto-tabs-selector__btn--has-icon)
-    .pluto-text {
+    .pluto-tabs-selector__name {
     margin: 0 1rem 0 2.5rem !important;
     padding: 0 0.25rem;
 }
@@ -123,10 +123,12 @@
         color: var(--pluto-gray-l6);
     }
 
-    .pluto-text {
+    .pluto-tabs-selector__name {
         margin: 0 2rem;
         padding: 0 0.25rem;
         color: var(--pluto-gray-l6);
+        display: inline-flex;
+        align-items: center;
     }
 }
 
