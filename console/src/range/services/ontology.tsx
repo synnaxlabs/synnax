@@ -13,6 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
@@ -29,6 +30,7 @@ import {
   addChildRangeMenuItem,
   addToActivePlotMenuItem,
   addToNewPlotMenuItem,
+  clearActiveMenuItem,
   deleteMenuItem,
   fromClientRange,
   setAsActiveMenuItem,
@@ -208,6 +210,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const addToActivePlot = useAddToActivePlot();
   const addToNewPlot = useAddToNewPlot();
   const activate = useActivate();
+  const dispatch = useDispatch();
+  const clearActiveRange = () => {
+    dispatch(setActive(null));
+  };
   const groupFromSelection = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const handleAddChildRange = () => {
@@ -223,11 +229,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     group: () => groupFromSelection(props),
     details: () => viewDetails(props),
     link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
+      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
     addChildRange: handleAddChildRange,
+    clearActive: clearActiveRange,
   };
   const isSingle = resources.length === 1;
   let showAddToActivePlot = false;
@@ -242,7 +246,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {isSingle && (
         <>
-          {resources[0].id.key !== activeRange?.key && setAsActiveMenuItem}
+          {resources[0].id.key !== activeRange?.key
+            ? setAsActiveMenuItem
+            : clearActiveMenuItem}
           {viewDetailsMenuItem}
           <PMenu.Divider />
           <Menu.RenameItem />

@@ -37,7 +37,10 @@ import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { create as createLinePlot } from "@/lineplot/LinePlot";
+import {
+  create as createLinePlot,
+  LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE,
+} from "@/lineplot/LinePlot";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { createLayout } from "@/range/CreateLayout";
@@ -101,7 +104,13 @@ export const deleteMenuItem = (
 
 export const setAsActiveMenuItem = (
   <PMenu.Item itemKey="setAsActive" startIcon={<Icon.Dynamic />} iconSpacing="small">
-    Set as Active
+    Set as Active Range
+  </PMenu.Item>
+);
+
+export const clearActiveMenuItem = (
+  <PMenu.Item itemKey="clearActive" startIcon={<Icon.Dynamic />} iconSpacing="small">
+    Clear Active Range
   </PMenu.Item>
 );
 
@@ -182,10 +191,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
       if (client == null) return;
       const res = await fetchIfNotInState(store, client, key);
       place(
-        createLinePlot({
-          name: `Plot for ${res.name}`,
-          ranges: { x1: [key], x2: [] },
-        }),
+        createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
       );
     },
     onError: (e) => handleException(e, "Failed to add range to new plot"),
@@ -290,6 +296,9 @@ const List = (): ReactElement => {
     const handleSetActive = () => {
       dispatch(setActive(key));
     };
+    const handleClearActive = () => {
+      dispatch(setActive(null));
+    };
     const handleViewDetails = useViewDetails();
     const handleAddChildRange = () => {
       place(createLayout({ initial: { parent: key } }));
@@ -306,17 +315,12 @@ const List = (): ReactElement => {
       save: () => rangeExists && save.mutate(rng.key),
       link: () =>
         rangeExists &&
-        handleLink({
-          name: rng.name,
-          ontologyID: {
-            key: rng.key,
-            type: ranger.ONTOLOGY_TYPE,
-          },
-        }),
+        handleLink({ name: rng.name, ontologyID: ranger.rangeOntologyID(rng.key) }),
       addToActivePlot: () => addToActivePlot(key),
       addToNewPlot: () => addToNewPlot(key),
       addChildRange: handleAddChildRange,
       setAsActive: handleSetActive,
+      clearActive: handleClearActive,
     };
 
     return (
@@ -327,13 +331,13 @@ const List = (): ReactElement => {
         {rangeExists && (
           <>
             <PMenu.Divider />
-            {rng.key !== activeRange?.key && setAsActiveMenuItem}
+            {rng.key !== activeRange?.key ? setAsActiveMenuItem : clearActiveMenuItem}
             {rng.persisted && viewDetailsMenuItem}
-            {(rng.key !== activeRange?.key || rng.persisted) && <PMenu.Divider />}
+            <PMenu.Divider />
             <Menu.RenameItem />
             {rng.persisted && addChildRangeMenuItem}
             <PMenu.Divider />
-            {activeLayout?.type === "lineplot" && addToActivePlotMenuItem}
+            {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && addToActivePlotMenuItem}
             {addToNewPlotMenuItem}
             <PMenu.Divider />
             <PMenu.Item startIcon={<Icon.Close />} itemKey="remove">
@@ -434,10 +438,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
           direction="x"
           size="small"
           wrap
-          style={{
-            overflowX: "auto",
-            height: "fit-content",
-          }}
+          style={{ overflowX: "auto", height: "fit-content" }}
         >
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="small" color={l.color}>

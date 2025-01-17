@@ -16,10 +16,7 @@ export const baseRangeZ = z.object({
   persisted: z.boolean(),
 });
 
-export const timeRangeZ = z.object({
-  start: z.number(),
-  end: z.number(),
-});
+export const timeRangeZ = z.object({ start: z.number(), end: z.number() });
 
 export type TimeRange = z.infer<typeof timeRangeZ>;
 
