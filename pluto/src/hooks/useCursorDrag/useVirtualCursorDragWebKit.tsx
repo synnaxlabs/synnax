@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box,xy } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 import { type DragEvent, useEffect } from "react";
 
 import { useStateRef } from "@/hooks/ref";
@@ -56,11 +56,7 @@ export const useVirtualCursorDragWebKit = ({
       el.onpointermove = null;
       el.releasePointerCapture(e.pointerId);
       const { start, mouseKey } = stateRef.current;
-      onEnd?.(
-        box.construct(start, xy.construct(e)),
-        mouseKey,
-        e as unknown as MouseEvent,
-      );
+      onEnd?.(box.construct(start, xy.construct(e)), mouseKey, e);
     };
 
     return () => el.removeEventListener("pointerdown", handleDown);

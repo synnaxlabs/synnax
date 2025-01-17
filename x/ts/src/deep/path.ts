@@ -146,7 +146,7 @@ export const get = (<V = unknown, T = UnknownRecord>(
     result = v as UnknownRecord;
   }
   return result as V;
-}) as unknown as Get;
+}) as Get;
 
 /**
  * Sets the value at the given path on the object. If the parents of the deep path

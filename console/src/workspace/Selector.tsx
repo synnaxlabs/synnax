@@ -56,7 +56,7 @@ export const Selector = (): ReactElement => {
         dispatch(add(ws));
         dispatch(
           Layout.setWorkspace({
-            slice: ws.layout as unknown as Layout.SliceState,
+            slice: ws.layout as Layout.SliceState,
             keepNav: false,
           }),
         );

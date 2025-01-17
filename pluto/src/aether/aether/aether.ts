@@ -228,7 +228,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
     this.type = u.type;
     this.key = u.path[0];
     this._ctx = u.ctx;
-    this._internalState = {} as unknown as IS;
+    this._internalState = {} as IS;
     this.instrumentation = u.instrumentation.child(`${this.type}(${this.key})`);
   }
 

@@ -325,7 +325,7 @@ export const wrap = <P extends {}>(
   const Wrapped = memo<P & { aetherKey?: string }>(
     ({ aetherKey, ...props }: P & { aetherKey?: string }): ReactElement => {
       const key = useUniqueKey(aetherKey);
-      return <Component {...(props as unknown as P)} aetherKey={key} />;
+      return <Component {...(props as P)} aetherKey={key} />;
     },
   );
   Wrapped.displayName = displayName;

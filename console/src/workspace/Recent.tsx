@@ -34,9 +34,7 @@ export const Recent = (): ReactElement | null => {
     void (async () => {
       const ws = await client.workspaces.retrieve(key);
       dispatch(add(ws));
-      dispatch(
-        Layout.setWorkspace({ slice: ws.layout as unknown as Layout.SliceState }),
-      );
+      dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
     })();
   };
 

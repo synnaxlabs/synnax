@@ -98,13 +98,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const loadLog = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer) => {
   const log = await client.workspaces.log.retrieve(id.key);
-  placeLayout(
-    Log.create({
-      ...(log.data as unknown as Log.State),
-      key: log.key,
-      name: log.name,
-    }),
-  );
+  placeLayout(Log.create({ ...(log.data as Log.State), key: log.key, name: log.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = async ({
@@ -127,7 +121,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
       placeLayout(
         Log.create({
           name: log.name,
-          ...(log.data as unknown as Log.State),
+          ...log.data,
           key: id.key,
           location: "mosaic",
           tab: { mosaicKey: nodeKey, location },

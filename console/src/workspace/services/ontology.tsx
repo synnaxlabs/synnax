@@ -87,10 +87,7 @@ const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
     }
     dispatch(add(ws));
     dispatch(
-      Layout.setWorkspace({
-        slice: ws.layout as unknown as Layout.SliceState,
-        keepNav: false,
-      }),
+      Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
     );
   };
 };
@@ -157,13 +154,7 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
         clientLinePlot.ontologyID(linePlot.key),
       );
       maybeChangeWorkspace(workspace);
-      placeLayout(
-        LinePlot.create({
-          ...(linePlot.data as unknown as LinePlot.SliceState),
-          key: linePlot.key,
-          name: linePlot.name,
-        }),
-      );
+      placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
         tree: nodes,
@@ -343,7 +334,7 @@ const handleSelect: Ontology.HandleSelect = async ({ selection, client, store })
   store.dispatch(add(workspace));
   store.dispatch(
     Layout.setWorkspace({
-      slice: workspace.layout as unknown as Layout.SliceState,
+      slice: workspace.layout as Layout.SliceState,
       keepNav: false,
     }),
   );

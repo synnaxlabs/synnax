@@ -90,6 +90,4 @@ const CorePack = <E extends SpaceElementType = "div">(
  */
 export const Pack = forwardRef<HTMLElement>(
   CorePack as React.ForwardRefRenderFunction<HTMLElement>,
-) as unknown as <E extends SpaceElementType = "div">(
-  props: PackProps<E>,
-) => ReactElement;
+) as <E extends SpaceElementType = "div">(props: PackProps<E>) => ReactElement;

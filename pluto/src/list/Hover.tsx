@@ -44,8 +44,7 @@ const HoverContext = createContext<HoverContextValue>({
   setHover: () => {},
 });
 
-export const useHoverContext = (): HoverContextValue =>
-  useContext(HoverContext) as unknown as HoverContextValue;
+export const useHoverContext = (): HoverContextValue => useContext(HoverContext);
 
 export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,

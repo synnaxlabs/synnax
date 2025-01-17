@@ -622,10 +622,8 @@ export class Series<T extends TelemValue = TelemValue> {
     }
     const slice = this.data.slice(start, end);
     if (this.dataType.equals(DataType.STRING))
-      return new TextDecoder().decode(slice) as unknown as T;
-    return caseconv.snakeToCamel(
-      JSON.parse(new TextDecoder().decode(slice)),
-    ) as unknown as T;
+      return new TextDecoder().decode(slice) as T;
+    return caseconv.snakeToCamel(JSON.parse(new TextDecoder().decode(slice))) as T;
   }
 
   /**

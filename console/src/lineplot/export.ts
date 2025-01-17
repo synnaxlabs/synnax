@@ -19,7 +19,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   if (state == null || name == null) {
     if (client == null) throw new Error("Cannot reach cluster");
     const linePlot = await client.workspaces.linePlot.retrieve(key);
-    state ??= { ...(linePlot.data as unknown as State), key: linePlot.key };
+    state ??= { ...(linePlot.data as State), key: linePlot.key };
     name ??= linePlot.name;
   }
   return { data: JSON.stringify(state), name };

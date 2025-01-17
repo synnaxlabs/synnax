@@ -102,13 +102,7 @@ const loadTable = async (
   placeLayout: Layout.Placer,
 ) => {
   const table = await client.workspaces.table.retrieve(id.key);
-  placeLayout(
-    Table.create({
-      ...(table.data as unknown as Table.State),
-      key: table.key,
-      name: table.name,
-    }),
-  );
+  placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = async ({
@@ -131,7 +125,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
       placeLayout(
         Table.create({
           name: table.name,
-          ...(table.data as unknown as Table.State),
+          ...table.data,
           key: id.key,
           location: "mosaic",
           tab: { mosaicKey: nodeKey, location },

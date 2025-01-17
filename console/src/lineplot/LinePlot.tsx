@@ -33,7 +33,6 @@ import {
   scale,
   TimeRange,
   unique,
-  type UnknownRecord,
 } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
@@ -111,7 +110,7 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
       await client.workspaces.linePlot.create(ws, {
         key: layoutKey,
         name: la.name,
-        data: data as unknown as UnknownRecord,
+        data,
       });
     },
   );
@@ -532,7 +531,7 @@ export const LinePlot: Layout.Renderer = ({
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
       const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
-      return data as unknown as State;
+      return data as State;
     },
     actionCreator: internalCreate,
   });

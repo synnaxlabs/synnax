@@ -71,7 +71,7 @@ export const assertErrorType = <T>(type: string, error?: Error | null): T => {
     throw new Error(
       `Expected error of type ${type}, got ${error.type}: ${error.message}`,
     );
-  return error as unknown as T;
+  return error as T;
 };
 
 export const UNKNOWN = "unknown";

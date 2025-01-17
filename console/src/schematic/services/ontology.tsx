@@ -167,7 +167,7 @@ const loadSchematic = async (
   const schematic = await client.workspaces.schematic.retrieve(id.key);
   placeLayout(
     Schematic.create({
-      ...(schematic.data as unknown as Schematic.State),
+      ...schematic.data,
       key: schematic.key,
       name: schematic.name,
       snapshot: schematic.snapshot,
@@ -196,7 +196,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
       placeLayout(
         Schematic.create({
           name: schematic.name,
-          ...(schematic.data as unknown as Schematic.State),
+          ...schematic.data,
           key: id.key,
           location: "mosaic",
           tab: { mosaicKey: nodeKey, location },

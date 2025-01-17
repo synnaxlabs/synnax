@@ -59,10 +59,7 @@ export const createImporter: ImporterCreator =
       }
       store.dispatch(Workspace.add(ws));
       store.dispatch(
-        Layout.setWorkspace({
-          slice: ws.layout as unknown as Layout.SliceState,
-          keepNav: false,
-        }),
+        Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
       );
     }
     await Promise.allSettled(

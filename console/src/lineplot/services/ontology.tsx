@@ -109,11 +109,7 @@ const handleSelect: Ontology.HandleSelect = async ({
 }): Promise<void> => {
   const linePlot = await client.workspaces.linePlot.retrieve(selection[0].id.key);
   placeLayout(
-    LinePlot.create({
-      ...(linePlot.data as unknown as LinePlot.State),
-      key: linePlot.key,
-      name: linePlot.name,
-    }),
+    LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
   );
 };
 
@@ -130,7 +126,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
       const linePlot = await client.workspaces.linePlot.retrieve(id.key);
       placeLayout(
         LinePlot.create({
-          ...(linePlot.data as unknown as LinePlot.State),
+          ...linePlot.data,
           key: linePlot.key,
           name: linePlot.name,
           location: "mosaic",

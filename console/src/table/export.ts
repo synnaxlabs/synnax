@@ -19,7 +19,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   if (state == null || name == null) {
     if (client == null) throw new Error("Cannot reach cluster");
     const table = await client.workspaces.table.retrieve(key);
-    state ??= { ...(table.data as unknown as State), key: table.key };
+    state ??= { ...(table.data as State), key: table.key };
     name ??= table.name;
   }
   return { data: JSON.stringify(state), name };

@@ -63,4 +63,4 @@ export const getOS = ((props: GetOSProps = {}): OS | undefined => {
   if (os != null) return os;
   os = evalOS();
   return os ?? default_;
-}) as unknown as GetOS;
+}) as GetOS;
