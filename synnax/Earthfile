@@ -35,6 +35,7 @@ build:
     END
     SAVE ARTIFACT build/synnax /synnax AS LOCAL build/synnax
 
+
 docker:
     ARG tag="latest"
     COPY +build/synnax .
