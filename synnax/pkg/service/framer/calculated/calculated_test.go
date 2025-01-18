@@ -1,12 +1,13 @@
 package calculated_test
 
 import (
-	"context"
-	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -14,46 +15,59 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestCalculatedService(t *testing.T) {
-	ctx := context.Background()
-	dist := mock.NewBuilder().New(ctx)
+var sleepInterval = 25 * time.Millisecond
 
-	// Create base channel
-	baseCH := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
-	assert.NoError(t, dist.Channel.Create(ctx, &baseCH))
+var _ = Describe("Calculated", Ordered, func() {
+	var (
+		c    *calculated.Service
+		dist distribution.Distribution
+	)
 
-	// Create calculated channel
-	calcCH := channel.Channel{
-		Name:       "calculated",
-		DataType:   telem.Int64T,
-		Virtual:    true,
-		Requires:   []channel.Key{baseCH.Key()},
-		Expression: "result = base * 2",
-	}
-	assert.NoError(t, dist.Channel.Create(ctx, &calcCH))
+	BeforeAll(func() {
+		distB := mock.NewBuilder()
+		dist = distB.New(ctx)
+		c = MustSucceed(calculated.Open(calculated.Config{
+			Computron:         interpreter,
+			Framer:            dist.Framer,
+			Channel:           dist.Channel,
+			ChannelObservable: dist.Channel.NewObservable(),
+		}))
+	})
 
-	// Open the calculated service
-	service := calculated.MustSucceed(calculated.Open(calculated.Config{
-		Framer:  dist.Framer,
-		Channel: dist.Channel,
-	}))
-	defer service.Close()
+	AfterAll(func() {
+		Expect(c.Close()).To(Succeed())
+	})
 
-	// Simulate writing data to the base channel
-	go func() {
-		w, err := dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+	It("Output a basic calculation", func() {
+		baseCH := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+		calculatedCH := channel.Channel{
+			Name:        "calculated",
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: core.Free,
+			Requires:    []channel.Key{baseCH.Key()},
+			Expression:  "base * 2",
+		}
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
+		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		sCtx, cancel := signal.WithCancel(ctx)
+		defer cancel()
+		w := MustSucceed(dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 			Start: telem.Now(),
 			Keys:  []channel.Key{baseCH.Key()},
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		}))
 		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
-		w.Flow(signal.NewContext(ctx))
-
-		// Write base values
+		w.Flow(sCtx)
+		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Keys: []channel.Key{calculatedCH.Key()},
+		}))
+		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		streamer.Flow(sCtx)
+		time.Sleep(sleepInterval)
 		wInlet.Inlet() <- framer.WriterRequest{
 			Command: writer.Data,
 			Frame: framer.Frame{
@@ -61,73 +75,38 @@ func TestCalculatedService(t *testing.T) {
 				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
 			},
 		}
-	}()
-
-	// Allow some time for processing
-	time.Sleep(100 * time.Millisecond)
-
-	// Read from the calculated channel
-	streamer, err := dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-		Keys: []channel.Key{calcCH.Key()},
+		var res framer.StreamerResponse
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
+		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
-	streamer.Flow(signal.NewContext(ctx))
 
-	// Wait for the calculated result
-	var res framer.StreamerResponse
-	select {
-	case <-time.After(5 * time.Second):
-		t.Fatal("Timed out waiting for calculated result")
-	case res = <-sOutlet.Outlet():
-	}
-
-	// Validate the result
-	assert.Equal(t, channel.Keys{calcCH.Key()}, res.Frame.Keys)
-	assert.Equal(t, int64(2), telem.ValueAt[int64](res.Frame.Series[0], 0)) // Expecting 2 (1 * 2)
-	assert.Equal(t, int64(4), telem.ValueAt[int64](res.Frame.Series[0], 1)) // Expecting 4 (2 * 2)
-}
-
-func TestCalculatedServiceErrorHandling(t *testing.T) {
-	ctx := context.Background()
-	dist := mock.NewBuilder().New(ctx)
-
-	// Create base channel
-	baseCH := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
-	assert.NoError(t, dist.Channel.Create(ctx, &baseCH))
-
-	// Create calculated channel with an invalid expression
-	calcCH := channel.Channel{
-		Name:       "calculated",
-		DataType:   telem.Int64T,
-		Virtual:    true,
-		Requires:   []channel.Key{baseCH.Key()},
-		Expression: "result = base + fake", // Invalid expression
-	}
-	assert.NoError(t, dist.Channel.Create(ctx, &calcCH))
-
-	// Open the calculated service
-	service := calculated.MustSucceed(calculated.Open(calculated.Config{
-		Framer:  dist.Framer,
-		Channel: dist.Channel,
-	}))
-	defer service.Close()
-
-	// Simulate writing data to the base channel
-	go func() {
-		w, err := dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+	It("Handle undefined symbols", func() {
+		baseCH := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+		calculatedCH := channel.Channel{
+			Name:        "calculated",
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: core.Free,
+			Requires:    []channel.Key{baseCH.Key()},
+			Expression:  "base * fake",
+		}
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
+		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		sCtx, cancel := signal.WithCancel(ctx)
+		defer cancel()
+		w := MustSucceed(dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 			Start: telem.Now(),
 			Keys:  []channel.Key{baseCH.Key()},
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		}))
 		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
-		w.Flow(signal.NewContext(ctx))
-
-		// Write base values
+		w.Flow(sCtx)
+		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Keys: []channel.Key{calculatedCH.Key()},
+		}))
+		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		streamer.Flow(sCtx)
+		time.Sleep(sleepInterval)
 		wInlet.Inlet() <- framer.WriterRequest{
 			Command: writer.Data,
 			Frame: framer.Frame{
@@ -135,27 +114,118 @@ func TestCalculatedServiceErrorHandling(t *testing.T) {
 				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
 			},
 		}
-	}()
-
-	// Allow some time for processing
-	time.Sleep(100 * time.Millisecond)
-
-	// Read from the calculated channel
-	streamer, err := dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-		Keys: []channel.Key{calcCH.Key()},
+		Consistently(sOutlet.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
-	streamer.Flow(signal.NewContext(ctx))
 
-	// Wait for the calculated result
-	select {
-	case <-time.After(5 * time.Second):
-		t.Fatal("Timed out waiting for calculated result")
-	case res := <-sOutlet.Outlet():
-		// Expect an error due to invalid expression
-		assert.Error(t, res.Error)
-	}
-}
+	It("Return a warning for dividing by zero", func() {
+		baseCH := channel.Channel{
+			Name:     "base",
+			DataType: telem.Int64T,
+			Virtual:  true,
+		}
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+		calculatedCH := channel.Channel{
+			Name:        "calculated",
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: core.Free,
+			Requires:    []channel.Key{baseCH.Key()},
+			Expression:  "base / 0",
+		}
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
+		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		sCtx, cancel := signal.WithCancel(ctx)
+		defer cancel()
+		w := MustSucceed(dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+			Start: telem.Now(),
+			Keys:  []channel.Key{baseCH.Key()},
+		}))
+		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
+		w.Flow(sCtx)
+		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Keys: []channel.Key{calculatedCH.Key()},
+		}))
+		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		streamer.Flow(sCtx)
+		time.Sleep(sleepInterval)
+		wInlet.Inlet() <- framer.WriterRequest{
+			Command: writer.Data,
+			Frame: framer.Frame{
+				Keys:   channel.Keys{baseCH.Key()},
+				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
+			},
+		}
+		var res framer.StreamerResponse
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
+		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
+	})
+
+	It("Should handle nested calculations", func() {
+		baseCH := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+
+		// First calculated channel that doubles the base value
+		calc1CH := channel.Channel{
+			Name:        "calc1",
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: core.Free,
+			Requires:    []channel.Key{baseCH.Key()},
+			Expression:  "base * 2",
+		}
+		Expect(dist.Channel.Create(ctx, &calc1CH)).To(Succeed())
+
+		// Second calculated channel that adds 1 to the first calculated channel
+		calc2CH := channel.Channel{
+			Name:        "calc2",
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: core.Free,
+			Requires:    []channel.Key{calc1CH.Key()},
+			Expression:  "calc1 + 1",
+		}
+		Expect(dist.Channel.Create(ctx, &calc2CH)).To(Succeed())
+
+		MustSucceed(c.Request(ctx, calc1CH.Key()))
+		MustSucceed(c.Request(ctx, calc2CH.Key()))
+
+		sCtx, cancel := signal.WithCancel(ctx)
+		defer cancel()
+
+		w := MustSucceed(dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+			Start: telem.Now(),
+			Keys:  []channel.Key{baseCH.Key()},
+		}))
+		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
+		w.Flow(sCtx)
+
+		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Keys: []channel.Key{calc2CH.Key()},
+		}))
+		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		streamer.Flow(sCtx)
+
+		time.Sleep(sleepInterval)
+
+		// Write base values [1, 2]
+		wInlet.Inlet() <- framer.WriterRequest{
+			Command: writer.Data,
+			Frame: framer.Frame{
+				Keys:   channel.Keys{baseCH.Key()},
+				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
+			},
+		}
+
+		var res framer.StreamerResponse
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
+		Expect(res.Frame.Keys).To(Equal(channel.Keys{calc2CH.Key()}))
+
+		// For base values [1, 2]:
+		// calc1 should be [2, 4] (base * 2)
+		// calc2 should be [3, 5] (calc1 + 1)
+		series := res.Frame.Series[0]
+		Expect(series.Len()).To(Equal(int64(2)))
+		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(3)))
+		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(5)))
+	})
+})
