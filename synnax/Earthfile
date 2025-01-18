@@ -8,15 +8,19 @@ deps:
     COPY ../x/go+source/* /x/go
     COPY ../cesium+source/* /cesium
     COPY ../aspen+source/* /aspen
-    COPY ../computron+source/* /computron  # This references the built computron
+    COPY ../computron+source/* /computron
     COPY go.mod go.sum ./
-    # Download and install prebuilt glibc 2.38
-    RUN apt-get update && apt-get install -y wget build-essential
+    # Install required tools and dependencies
+    RUN apt-get update && apt-get install -y wget build-essential gawk bison && apt-get clean
+    # Download and build glibc 2.38
     RUN wget http://ftp.gnu.org/gnu/libc/glibc-2.38.tar.gz && \
         tar -xvf glibc-2.38.tar.gz && \
-        mv glibc-2.38 /opt/glibc-2.38 && \
-        rm -f glibc-2.38.tar.gz
-    # Set up environment to use glibc 2.38
+        cd glibc-2.38 && \
+        mkdir build && cd build && \
+        ../configure --prefix=/opt/glibc-2.38 && \
+        make -j$(nproc) && make install && \
+        rm -rf /glibc-2.38* && apt-get clean
+    # Set the environment for glibc 2.38
     ENV LD_LIBRARY_PATH="/opt/glibc-2.38/lib:$LD_LIBRARY_PATH"
     RUN go mod download
 
