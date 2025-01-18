@@ -3,13 +3,16 @@ package calculated
 import (
 	"context"
 	"fmt"
+	"io"
+	"sync"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/computron"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/computronx"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -22,21 +25,17 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
-	"strings"
-	"sync"
 )
 
-// Config is the configuration for opening the calculated channel service.
 type Config struct {
 	alamos.Instrumentation
 	// Framer is the underlying frame service to stream required channel values and write
 	// calculated samples.
 	// [REQUIRED]
 	Framer *framer.Service
-	// Computron is the computation service used to perform the Python based calculations.
+	// Computron is the computation service used to perform calculations.
 	// [REQUIRED]
-	Computron *computron.Interpreter
+	Computron *computronx.Interpreter
 	// Channel is used to retrieve information about the channels being calculated.
 	// [REQUIRED]
 	Channel channel.Readable
@@ -46,12 +45,10 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening calculated channel service.
-	DefaultConfig = Config{}
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
 )
 
-// Validate implements config.Config
 func (c Config) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "Framer", c.Framer)
@@ -61,7 +58,6 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Config
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
@@ -72,14 +68,11 @@ func (c Config) Override(other Config) Config {
 }
 
 type entry struct {
-	// count is the number of requests for the channel.
-	count int
-	// Input stream for calculation pipeline
+	count    int
 	inlet    confluence.Inlet[framer.StreamerRequest]
 	shutdown io.Closer
 }
 
-// Service manages collections of go-routines used to perform calculations on channels.
 type Service struct {
 	cfg Config
 	mu  struct {
@@ -88,9 +81,6 @@ type Service struct {
 	}
 }
 
-// Open opens a new calculated channel service using the provided configuration. See
-// Config for more information on the configuration options. If the service is opened
-// successfully, it must be closed using the Close method after it is no longer needed.
 func Open(cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -102,8 +92,7 @@ func Open(cfgs ...Config) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) handleChange(ctx context.Context, reader gorp.TxReader[channel.Key,
-	channel.Channel]) {
+func (s *Service) handleChange(ctx context.Context, reader gorp.TxReader[channel.Key, channel.Channel]) {
 	c, ok := reader.Next(ctx)
 	if !ok {
 		return
@@ -111,7 +100,6 @@ func (s *Service) handleChange(ctx context.Context, reader gorp.TxReader[channel
 	if c.Variant == change.Set && c.Value.IsCalculated() {
 		s.Update(ctx, c.Key)
 	}
-	// TODO: deletion
 }
 
 func (s *Service) Update(ctx context.Context, ch channel.Key) {
@@ -128,8 +116,6 @@ func (s *Service) Update(ctx context.Context, ch channel.Key) {
 	delete(s.mu.entries, ch)
 	if _, err := s.startCalculation(ctx, ch, e.count); err != nil {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
-		// add log just to commit change
-		s.cfg.L.Info("restarted calculated channel", zap.Stringer("key", ch))
 	}
 }
 
@@ -152,8 +138,6 @@ func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
 	})
 }
 
-// Close stops the calculated channel service, halting all calculation go-routines and
-// releasing any resources used by the service.
 func (s *Service) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -169,17 +153,6 @@ func (s *Service) Close() error {
 
 const defaultPipelineBufferSize = 50
 
-func generateChannelsAssignments(requires []channel.Channel) string {
-	var assignments []string
-	for _, ch := range requires {
-		assignments = append(assignments, fmt.Sprintf("channels['%s'] = locals()['%s']", ch.Name, ch.Name))
-	}
-	return strings.Join(assignments, "\n")
-}
-
-// Request starts calculating values for the channel identified by key and returns a closer
-// that must be called when the calculation is no longer needed. If the same channel is
-// requested multiple times, the calculations are shared between requests.
 func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -198,11 +171,12 @@ func (s *Service) startCalculation(
 	if !ch.IsCalculated() {
 		return nil, errors.Newf("channel %v is not calculated", ch)
 	}
-	// Check if the channel is already being calculated.
+
 	if _, exists := s.mu.entries[key]; exists {
 		s.mu.entries[key].count++
 		return s.releaseEntryCloser(key), nil
 	}
+
 	var requires []channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(ch.Requires...).
@@ -210,6 +184,7 @@ func (s *Service) startCalculation(
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
+
 	writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:  channel.Keys{ch.Key()},
 		Start: telem.Now(),
@@ -224,14 +199,13 @@ func (s *Service) startCalculation(
 	p := plumber.New()
 	plumber.SetSegment(p, "streamer", streamer_)
 	plumber.SetSegment(p, "writer", writer_)
-	safeExpr := fmt.Sprintf(`channels = {}
-%s
-%s`,
-		generateChannelsAssignments(requires),
-		ch.Expression,
-	)
 
-	calculation, err := s.cfg.Computron.NewCalculation(safeExpr)
+	interpreter, err := computronx.New()
+	if err != nil {
+		return nil, err
+	}
+
+	calculation, err := interpreter.NewCalculation(ch.Expression)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +215,6 @@ func (s *Service) startCalculation(
 		requires: lo.SliceToMap(requires, func(item channel.Channel) (channel.Key, channel.Channel) {
 			return item.Key(), item
 		}),
-		locals: make(map[string]interface{}, len(requires)),
 	}
 	sc := &streamCalculator{
 		internal: c,
@@ -250,9 +223,6 @@ func (s *Service) startCalculation(
 	sc.Transform = sc.transform
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](p, "calculator", sc)
 
-	// Wire up an observer that logs any errors that occurred with writing the calculated
-	// samples. Since we're writing to a free virtual channel, these errors should never
-	// occur.
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
 		s.cfg.L.DPanic(
@@ -262,7 +232,6 @@ func (s *Service) startCalculation(
 		)
 	})
 	plumber.SetSink[framer.WriterResponse](p, "obs", o)
-	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](p, "calculator", sc)
 	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "calculator", defaultPipelineBufferSize)
 	plumber.MustConnect[framer.WriterRequest](p, "calculator", "writer", defaultPipelineBufferSize)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)
@@ -277,7 +246,6 @@ func (s *Service) startCalculation(
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))
 	return s.releaseEntryCloser(key), nil
-
 }
 
 type streamCalculator struct {
@@ -289,22 +257,19 @@ type streamCalculator struct {
 
 func (s *streamCalculator) transform(_ context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
 	frame, warning, err := s.internal.calculate(i.Frame)
-
 	if err != nil {
-		// Log the error if it's different from the last one we saw
 		if !errors.Is(err, s.lastErr) {
-			s.cfg.L.Error("Python calculation error",
+			s.cfg.L.Error("calculation error",
 				zap.Error(err),
 				zap.String("channel_name", s.internal.ch.Name),
 				zap.String("expression", s.internal.ch.Expression))
 			s.lastErr = err
 		}
-		// Return empty request but don't propagate error to allow pipeline to continue
 		return framer.WriterRequest{}, false, nil
 	}
 
 	if warning != "" {
-		s.cfg.L.Warn("Python runtime warning",
+		s.cfg.L.Warn("calculation warning",
 			zap.String("warning", warning),
 			zap.String("channel_name", s.internal.ch.Name),
 			zap.String("expression", s.internal.ch.Expression))
@@ -315,30 +280,39 @@ func (s *streamCalculator) transform(_ context.Context, i framer.StreamerRespons
 
 type calculator struct {
 	ch          channel.Channel
-	calculation *computron.Calculation
+	calculation *computronx.Calculation
 	requires    map[channel.Key]channel.Channel
-	locals      map[string]interface{}
+}
+
+func (c *calculator) Close() {
+	if c.calculation != nil {
+		c.calculation.Close()
+	}
 }
 
 func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string, err error) {
+	var vars = make(map[string]interface{})
 	var alignment telem.AlignmentPair
+
+	// Ensure all required variables are initialized
 	for _, k := range c.ch.Requires {
 		s := fr.Get(k)
 		if len(s) == 0 {
 			continue
 		}
 		alignment = s[0].Alignment
-		obj, err := computron.NewSeries(s[0])
-		if err != nil {
-			return of, "", err
-		}
 		ch, found := c.requires[k]
 		if !found {
 			continue
 		}
-		c.locals[ch.Name] = obj
+		vars[ch.Name] = s[0]
 	}
-	os, warning, err := c.calculation.RunWarning(c.locals)
+
+	// Log the variables before running the calculation
+	fmt.Printf("Running calculation with vars: %+v\n", vars)
+
+	// Run the calculation
+	os, err := c.calculation.Run(vars)
 	if err != nil {
 		return of, "", err
 	}
@@ -346,5 +320,5 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string,
 	os.Alignment = alignment
 	of.Keys = []channel.Key{c.ch.Key()}
 	of.Series = []telem.Series{os}
-	return of, warning, nil
+	return of, "", nil
 }

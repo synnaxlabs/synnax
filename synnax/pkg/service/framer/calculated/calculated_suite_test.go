@@ -2,7 +2,7 @@ package calculated_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/computron"
+	"github.com/synnaxlabs/x/computronx"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -10,13 +10,13 @@ import (
 )
 
 var (
-	interpreter *computron.Interpreter
+	interpreter *computronx.Interpreter
 	ctx         = context.Background()
 )
 
 var _ = BeforeSuite(func() {
 	var err error
-	interpreter, err = computron.New()
+	interpreter, err = computronx.New()
 	Expect(err).ToNot(HaveOccurred())
 })
 

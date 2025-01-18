@@ -46,7 +46,6 @@ jobs:
               - alamos/go/**
               - aspen/**
               - cesium/**
-              - computron/**
               - driver/**
               - freighter/go/**
               - synnax/**
@@ -188,10 +187,6 @@ jobs:
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
-
-      - name: Build Python for Computron
-        working-directory: computron
-        run: go generate
 
       - name: Download Dependencies
         working-directory: synnax
