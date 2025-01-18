@@ -34,9 +34,9 @@ import {
   type DigitalWriteDetails,
   type DigitalWritePayload,
   type DigitalWriteType,
-  type DOChan,
+  type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
-  ZERO_DO_CHAN,
+  ZERO_DO_CHANNEL,
 } from "@/hardware/ni/task/types";
 import {
   ChannelListContextMenu,
@@ -73,7 +73,7 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
 
 const formSchema = z.object({ name: z.string().min(1), config: digitalWriteConfigZ });
 
-const generateKey: (chan: DOChan) => string = (chan) => `${chan.port}l${chan.line}`;
+const generateKey: (chan: DOChannel) => string = (chan) => `${chan.port}l${chan.line}`;
 
 const Wrapped = ({
   task,
@@ -129,8 +129,8 @@ const Wrapped = ({
         dev.properties.digitalOutput.stateIndex = stateIndex.key;
         dev.properties.digitalOutput.channels = {};
       }
-      const commandsToCreate: DOChan[] = [];
-      const statesToCreate: DOChan[] = [];
+      const commandsToCreate: DOChannel[] = [];
+      const statesToCreate: DOChannel[] = [];
       for (const channel of config.channels) {
         const key = generateKey(channel);
         const exPair = dev.properties.digitalOutput.channels[key];
@@ -319,14 +319,14 @@ interface ChannelListProps {
 
 const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
   const [selected, setSelected] = useState<string[]>([]);
-  const { value, push, remove } = Form.useFieldArray<DOChan>({
+  const { value, push, remove } = Form.useFieldArray<DOChannel>({
     path,
     updateOnChildren: true,
   });
   const handleAdd = useCallback((): void => {
     const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
     const zeroDigitalWriteChannel = {
-      ...ZERO_DO_CHAN,
+      ...ZERO_DO_CHANNEL,
       key: id.id(),
       line: availableLine,
       port: 0,
@@ -358,19 +358,22 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
           )}
           {...menuProps}
         >
-          <List.List<string, DOChan>
+          <List.List<string, DOChannel>
             data={value}
             emptyContent={
               <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
             }
           >
-            <List.Selector<string, DOChan>
+            <List.Selector<string, DOChannel>
               value={selected}
               allowMultiple
               onChange={setSelected}
               replaceOnSingle
             >
-              <List.Core<string, DOChan> grow style={{ height: "calc(100% - 6rem)" }}>
+              <List.Core<string, DOChannel>
+                grow
+                style={{ height: "calc(100% - 6rem)" }}
+              >
                 {({ key, entry, ...props }) => (
                   <ChannelListItem
                     key={key}
@@ -390,7 +393,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
   );
 };
 
-interface ChannelListItemProps extends List.ItemProps<string, DOChan> {
+interface ChannelListItemProps extends List.ItemProps<string, DOChannel> {
   path: string;
   snapshot?: boolean;
   device: Device;

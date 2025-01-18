@@ -37,16 +37,15 @@ export const SCALE_SCHEMAS = v0.SCALE_SCHEMAS;
 
 // Channels
 
-export type AIChan = v1.AIChan;
-export type AIChanType = v0.AIChanType;
+export type AIChannel = v1.AIChannel;
+export type AIChannelType = v0.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = v1.AI_CHANNEL_SCHEMAS;
 export const ZERO_AI_CHANNELS = v1.ZERO_AI_CHANNELS;
-export const AI_CHANNEL_TYPE_NAMES = v0.AI_CHAN_TYPE_NAMES;
-export const ZERO_DO_CHAN = v0.ZERO_DO_CHAN;
-export interface DOChan extends v0.DOChan {}
-export const ZERO_DI_CHAN = v0.ZERO_DI_CHAN;
-export interface DIChan extends v0.DIChan {}
-export type Chan = v1.Chan;
+export const AI_CHANNEL_TYPE_NAMES = v0.AI_CHANNEL_TYPE_NAMES;
+export const ZERO_DO_CHANNEL = v0.ZERO_DO_CHANNEL;
+export interface DOChannel extends v0.DOChannel {}
+export const ZERO_DI_CHANNEL = v0.ZERO_DI_CHANNEL;
+export interface DIChannel extends v0.DIChannel {}
 
 // Tasks
 

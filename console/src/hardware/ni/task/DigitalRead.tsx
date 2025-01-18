@@ -32,8 +32,7 @@ import { type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
-  type Chan,
-  type DIChan,
+  type DIChannel,
   DIGITAL_READ_TYPE,
   type DigitalRead,
   type DigitalReadConfig,
@@ -41,7 +40,7 @@ import {
   type DigitalReadDetails,
   type DigitalReadPayload,
   type DigitalReadType,
-  ZERO_DI_CHAN,
+  ZERO_DI_CHANNEL,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import {
@@ -141,7 +140,7 @@ const Wrapped = ({
         dev.properties.digitalInput.channels = {};
       }
 
-      const toCreate: DIChan[] = [];
+      const toCreate: DIChannel[] = [];
       for (const channel of config.channels) {
         const key = `${channel.port}l${channel.line}`;
         // check if the channel is in properties
@@ -310,11 +309,11 @@ const ChannelList = ({
   onSelect,
   snapshot,
 }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<DIChan>({ path });
+  const { value, push, remove } = Form.useFieldArray<DIChannel>({ path });
   const handleAdd = (): void => {
     const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
     push({
-      ...deep.copy(ZERO_DI_CHAN),
+      ...deep.copy(ZERO_DI_CHANNEL),
       port: 0,
       line: availableLine,
       key: id.id(),
@@ -344,13 +343,13 @@ const ChannelList = ({
         )}
         {...menuProps}
       >
-        <List.List<string, Chan>
+        <List.List<string, DIChannel>
           data={value}
           emptyContent={
             <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
           }
         >
-          <List.Selector<string, Chan>
+          <List.Selector<string, DIChannel>
             value={selected}
             allowNone={false}
             allowMultiple
@@ -359,7 +358,7 @@ const ChannelList = ({
             }
             replaceOnSingle
           >
-            <List.Core<string, Chan> grow>
+            <List.Core<string, DIChannel> grow>
               {({ key, ...props }) => (
                 <ChannelListItem key={key} {...props} snapshot={snapshot} path={path} />
               )}
@@ -375,14 +374,14 @@ const ChannelListItem = ({
   path,
   snapshot = false,
   ...props
-}: List.ItemProps<string, Chan> & {
+}: List.ItemProps<string, DIChannel> & {
   path: string;
   snapshot?: boolean;
 }): ReactElement => {
   const { entry } = props;
   const hasLine = "line" in entry;
   const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<DIChan>({
+  const childValues = Form.useChildFieldValues<DIChannel>({
     path: `${path}.${props.index}`,
     optional: true,
   });

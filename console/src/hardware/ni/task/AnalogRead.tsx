@@ -30,8 +30,8 @@ import { CopyButtons } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   AI_CHANNEL_TYPE_NAMES,
-  type AIChan,
-  type AIChanType,
+  type AIChannel,
+  type AIChannelType,
   ANALOG_READ_TYPE,
   type AnalogRead,
   type AnalogReadConfig,
@@ -39,7 +39,6 @@ import {
   type AnalogReadDetails,
   type AnalogReadPayload,
   type AnalogReadType,
-  type Chan,
   migrateAnalogReadConfig,
   ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
@@ -145,7 +144,7 @@ const Wrapped = ({
           dev.properties.analogInput.channels = {};
         }
 
-        const toCreate: AIChan[] = [];
+        const toCreate: AIChannel[] = [];
         for (const channel of config.channels) {
           if (channel.device !== dev.key) continue;
           // check if the channel is in properties
@@ -345,7 +344,7 @@ interface ChannelFormProps {
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const type = Form.useFieldValue<AIChanType>(`${prefix}.type`, true);
+  const type = Form.useFieldValue<AIChannelType>(`${prefix}.type`, true);
   if (type == null) return <></>;
   const TypeForm = ANALOG_INPUT_FORMS[type];
   if (selectedChannelIndex == -1) return <></>;
@@ -368,7 +367,7 @@ interface ChannelListProps {
   state?: task.State<{ running?: boolean; message?: string }>;
 }
 
-const availablePortFinder = (channels: Chan[]): (() => number) => {
+const availablePortFinder = (channels: AIChannel[]): (() => number) => {
   const exclude = new Set(channels.map((v) => v.port));
   return () => {
     let i = 0;
@@ -386,7 +385,7 @@ const ChannelList = ({
   state,
   onTare,
 }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<Chan>({ path });
+  const { value, push, remove } = Form.useFieldArray<AIChannel>({ path });
   const handleAdd = (): void => {
     const key = id.id();
     push({
@@ -426,13 +425,13 @@ const ChannelList = ({
         )}
         {...menuProps}
       >
-        <List.List<string, Chan>
+        <List.List<string, AIChannel>
           data={value}
           emptyContent={
             <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
           }
         >
-          <List.Selector<string, Chan>
+          <List.Selector<string, AIChannel>
             value={selected}
             allowNone={false}
             allowMultiple
@@ -441,7 +440,7 @@ const ChannelList = ({
             }
             replaceOnSingle
           >
-            <List.Core<string, Chan> grow>
+            <List.Core<string, AIChannel> grow>
               {({ key: i, ...props }) => (
                 <ChannelListItem
                   {...props}
@@ -466,7 +465,7 @@ const ChannelListItem = ({
   onTare,
   state,
   ...props
-}: List.ItemProps<string, Chan> & {
+}: List.ItemProps<string, AIChannel> & {
   path: string;
   snapshot?: boolean;
   onTare?: (channelKey: number) => void;
@@ -477,7 +476,7 @@ const ChannelListItem = ({
   const portValid = Form.useFieldValid(`${path}.port`);
 
   // TODO: fix bug so I can refactor this to original code
-  const channels = Form.useChildFieldValues<AIChan[]>({ path: basePath });
+  const channels = Form.useChildFieldValues<AIChannel[]>({ path: basePath });
   if (channels == null || props?.index == null) return <></>;
   const childValues = channels[props.index];
   // const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });

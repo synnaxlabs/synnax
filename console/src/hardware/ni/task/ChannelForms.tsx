@@ -30,8 +30,8 @@ import {
   type AccelSensitivityUnits,
   AI_CHANNEL_SCHEMAS,
   AI_CHANNEL_TYPE_NAMES,
-  type AIChan,
-  type AIChanType,
+  type AIChannel,
+  type AIChannelType,
   type ElectricalUnits,
   type ForceUnits,
   type PressureUnits,
@@ -285,21 +285,22 @@ const PortField = Form.buildNumericField({
 });
 
 export const SelectChannelTypeField = Form.buildSelectSingleField<
-  AIChanType,
-  KeyedNamed<AIChanType>
+  AIChannelType,
+  KeyedNamed<AIChannelType>
 >({
   fieldKey: "type",
   fieldProps: {
     label: "Channel Type",
     onChange: (value, { get, set, path }) => {
-      const prevType = get<AIChanType>(path).value;
+      const prevType = get<AIChannelType>(path).value;
       if (prevType === value) return;
       const next = deep.copy(ZERO_AI_CHANNELS[value]);
       const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<AIChan>(parentPath).value;
+      const prevParent = get<AIChannel>(parentPath).value;
       let schema = AI_CHANNEL_SCHEMAS[value];
-      // @ts-expect-error - schema source type checking
-      if ("sourceType" in schema) schema = schema.sourceType() as z.ZodObject<AIChan>;
+      if ("sourceType" in schema)
+        // @ts-expect-error - schema source type checking
+        schema = schema.sourceType() as z.ZodObject<AIChannel>;
       set(parentPath, {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,
@@ -310,7 +311,7 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
     hideColumnHeader: true,
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
-    data: (Object.entries(AI_CHANNEL_TYPE_NAMES) as [AIChanType, string][]).map(
+    data: (Object.entries(AI_CHANNEL_TYPE_NAMES) as [AIChannelType, string][]).map(
       ([key, name]) => ({ key, name }),
     ),
   },
@@ -576,7 +577,7 @@ export const DeviceField = ({ path }: DeviceFieldProps) => {
   );
 };
 
-export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
+export const ANALOG_INPUT_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
       <DevicePortCombo prefix={prefix} />

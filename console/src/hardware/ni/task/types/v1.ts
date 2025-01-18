@@ -174,7 +174,7 @@ const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
   ...ZERO_AI_CHAN_EXTENSION,
 };
 
-const aiChanZ = z.union([
+const aiChannelZ = z.union([
   aiAccelChanZ,
   aiBridgeChanZ,
   aiCurrentChanZ,
@@ -195,9 +195,9 @@ const aiChanZ = z.union([
   aiVoltageChanZ,
 ]);
 
-export type AIChan = z.infer<typeof aiChanZ>;
+export type AIChannel = z.infer<typeof aiChannelZ>;
 
-export const AI_CHANNEL_SCHEMAS: Record<v0.AIChanType, z.ZodType<AIChan>> = {
+export const AI_CHANNEL_SCHEMAS: Record<v0.AIChannelType, z.ZodType<AIChannel>> = {
   [v0.AI_ACCEL_CHAN_TYPE]: aiAccelChanZ,
   [v0.AI_BRIDGE_CHAN_TYPE]: aiBridgeChanZ,
   [v0.AI_CURRENT_CHAN_TYPE]: aiCurrentChanZ,
@@ -218,7 +218,7 @@ export const AI_CHANNEL_SCHEMAS: Record<v0.AIChanType, z.ZodType<AIChan>> = {
   [v0.AI_VOLTAGE_CHAN_TYPE]: aiVoltageChanZ,
 };
 
-export const ZERO_AI_CHANNELS: Record<v0.AIChanType, AIChan> = {
+export const ZERO_AI_CHANNELS: Record<v0.AIChannelType, AIChannel> = {
   [v0.AI_ACCEL_CHAN_TYPE]: ZERO_AI_ACCEL_CHAN,
   [v0.AI_BRIDGE_CHAN_TYPE]: ZERO_AI_BRIDGE_CHAN,
   [v0.AI_CURRENT_CHAN_TYPE]: ZERO_AI_CURRENT_CHAN,
@@ -241,11 +241,9 @@ export const ZERO_AI_CHANNELS: Record<v0.AIChanType, AIChan> = {
   [v0.AI_VOLTAGE_CHAN_TYPE]: ZERO_AI_VOLTAGE_CHAN,
 };
 
-export type Chan = v0.DIChan | AIChan | v0.DOChan;
-
 export const analogReadConfigZ = v0.analogReadConfigZ
   .omit({ version: true, device: true, channels: true })
-  .extend({ version: z.literal(VERSION), channels: z.array(aiChanZ) })
+  .extend({ version: z.literal(VERSION), channels: z.array(aiChannelZ) })
   .refine(
     (c) =>
       // Ensure that the stream Rate is lower than the sample rate
