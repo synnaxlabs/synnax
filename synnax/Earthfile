@@ -1,6 +1,8 @@
 VERSION 0.7
+FROM debian:bullseye
 FROM golang:1.23
 WORKDIR /synnax
+
 
 deps:
     COPY ../freighter/go+source/* /freighter/go
@@ -8,20 +10,8 @@ deps:
     COPY ../x/go+source/* /x/go
     COPY ../cesium+source/* /cesium
     COPY ../aspen+source/* /aspen
-    COPY ../computron+source/* /computron
+    COPY ../computron+source/* /computron  # This references the built computron
     COPY go.mod go.sum ./
-    # Install required tools and dependencies
-    RUN apt-get update && apt-get install -y wget build-essential gawk bison && apt-get clean
-    # Download and build glibc 2.38
-    RUN wget http://ftp.gnu.org/gnu/libc/glibc-2.38.tar.gz && \
-        tar -xvf glibc-2.38.tar.gz && \
-        cd glibc-2.38 && \
-        mkdir build && cd build && \
-        ../configure --prefix=/opt/glibc-2.38 && \
-        make -j$(nproc) && make install && \
-        rm -rf /glibc-2.38* && apt-get clean
-    # Set the environment for glibc 2.38
-    ENV LD_LIBRARY_PATH="/opt/glibc-2.38/lib:$LD_LIBRARY_PATH"
     RUN go mod download
 
 build:
@@ -34,7 +24,6 @@ build:
         RUN go build -o build/synnax .
     END
     SAVE ARTIFACT build/synnax /synnax AS LOCAL build/synnax
-
 
 docker:
     ARG tag="latest"

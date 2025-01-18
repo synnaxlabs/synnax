@@ -1,5 +1,6 @@
 VERSION 0.7
-FROM golang:1.23
+# Use debian:bullseye for a more stable base with compatible GLIBC
+FROM debian:bullseye
 
 deps:
     # Install Python build dependencies including SSL
@@ -15,7 +16,8 @@ deps:
         libnss3-dev \
         libreadline-dev \
         libffi-dev \
-        libsqlite3-dev
+        libsqlite3-dev \
+        golang-1.23
 
 build:
     FROM +deps
