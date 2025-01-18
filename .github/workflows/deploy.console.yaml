@@ -118,9 +118,59 @@ jobs:
           - os: windows-latest
             args: ""
     runs-on: ${{ matrix.os }}
+    env:
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Import Apple Developer Certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+      - name: Verify Certificate
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate imported."
+
+      #     - name: Import Apple Developer Certificate
+      #       # Only notarize on MacOS and on push events, not on PRs. This prevents excessive
+      #       # notarization requests and long CI times on PRs.
+      #       if: matrix.os == 'macos-latest' && github.event_name == 'push'
+      #       env:
+      #         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      #         APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      #         KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      #       run: |
+      #         echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+      #         security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+      #         security default-keychain -s build.keychain
+      #         security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+      #         security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+      #         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+      #         security find-identity -v -p codesigning build.keychain
+
+      #     - name: Verify Apple Developer Certificate
+      #       # Same as above - only notarize on MacOS and on push events, not on PRs
+      #       if: matrix.os == 'macos-latest' && github.event_name == 'push'
+      #       run: |
+      #         CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+      #         echo "Cert info"
+      #         CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+      #         echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+      #         echo "Certificate imported."
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -135,7 +185,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install frontend dependencies
         run: pnpm install
@@ -146,6 +196,9 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           # releaseId
           tagName: console-v${{ needs.setup.outputs.VERSION }}-test
