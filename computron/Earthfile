@@ -16,8 +16,7 @@ deps:
         libnss3-dev \
         libreadline-dev \
         libffi-dev \
-        libsqlite3-dev \
-        golang-1.23
+        libsqlite3-dev
 
 build:
     FROM +deps
