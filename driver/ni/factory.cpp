@@ -21,10 +21,10 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (!this->dlls_present) {
-        log_dll_error(ctx, task);
-        return {nullptr, false};
-    }
+//    if (!this->dlls_present) {
+//        log_dll_error(ctx, task);
+//        return {nullptr, false};
+//    }
 
     if (task.type == "ni_scanner")
         return {ni::ScannerTask::configure(ctx, task), true};
@@ -43,13 +43,15 @@ ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    if (!this->dlls_present) {
-        LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." <<
-                std::endl;
-        return {};
-    }
+//    if (!this->dlls_present) {
+//        LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." <<
+//                std::endl;
+//        return {};
+//    }
     // generate task list
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
+
+    LOG(INFO) << "NI SCANNER START";;
 
     // check for existing tasks
     auto [existing, err] = rack.tasks.list();

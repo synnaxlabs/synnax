@@ -1,0 +1,10 @@
+cc_library(
+    name = "lua",
+    srcs = glob(["src/*.c"]),
+    hdrs = glob(["src/*.h"]),
+    includes = ["src"],
+    visibility = ["//visibility:public"],
+    defines = ["LUA_COMPAT_5_3"],
+    linkopts = ["-lm", "-ldl"],
+    copts = ["-DLUA_USE_POSIX", "-DLUA_USE_DLOPEN"],
+)

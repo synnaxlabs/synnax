@@ -37,6 +37,7 @@
 #include "driver/meminfo/meminfo.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
+
 #ifdef _WIN32
 #include "driver/labjack/labjack.h"
 #endif
@@ -83,6 +84,23 @@ int main(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
     // Use the first argument as the config path if provided
     if (argc > 1) config_path = argv[1];
+
+    // Create a new Lua state
+    lua_State* L = luaL_newstate();
+
+    // Load Lua standard libraries
+    luaL_openlibs(L);
+
+    // Execute Lua code to print "Hello, World!" from Lua
+    const char* lua_code = "print('Hello, World from Lua!')";
+    if (luaL_dostring(L, lua_code) != LUA_OK) {
+        // Handle Lua errors
+        std::cerr << "Lua Error: " << lua_tostring(L, -1) << std::endl;
+        lua_pop(L, 1); // Remove the error message from the stack
+    }
+
+    // Close the Lua state
+    lua_close(L);
 
     // json cfg_json;
     LOG(INFO) << config_path;
@@ -145,7 +163,7 @@ int main(int argc, char *argv[]) {
         ni::INTEGRATION_NAME
     );
    
-    if (ni_enabled != cfg.integrations.end() && ni::dlls_available()) {
+    if (ni_enabled != cfg.integrations.end()) {
         std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
         factories.push_back(std::move(ni_factory));
     } else

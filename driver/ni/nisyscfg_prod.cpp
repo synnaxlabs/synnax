@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <stdio.h>
+#include <iostream>
 #include "nisyscfg.h"
 #include "nisyscfg_api.h"
 #include "nisyscfg_errors.h"
@@ -64,6 +66,7 @@ NISYSCFGCFUNC ni::NiSysCfgInterface::FindHardware(
     const char *expertNames,
     NISysCfgEnumResourceHandle *resourceEnumHandle
 ) {
+    std::cout << "Hello" << std::endl;
     return NISysCfgFindHardware(
         sessionHandle,
         filterMode,

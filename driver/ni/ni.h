@@ -590,6 +590,7 @@ private:
 };
 
 static inline bool dlls_available() {
+    return true;
     std::vector<std::string> dlls = {
         "nicaiu.dll",
         "nipalu.dll",

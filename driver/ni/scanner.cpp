@@ -46,16 +46,16 @@ ni::Scanner::Scanner(
         NISysCfgFilterPropertyIsDevice,
         NISysCfgBoolTrue
     );
-    ni::NiSysCfgInterface::SetFilterProperty(
-        this->filter,
-        NISysCfgFilterPropertyIsPresent,
-        NISysCfgIsPresentTypePresent
-    );
-    ni::NiSysCfgInterface::SetFilterProperty(
-        this->filter,
-        NISysCfgFilterPropertyIsChassis,
-        NISysCfgBoolFalse
-    );
+//    ni::NiSysCfgInterface::SetFilterProperty(
+//        this->filter,
+//        NISysCfgFilterPropertyIsPresent,
+//        NISysCfgIsPresentTypePresent
+//    );
+//    ni::NiSysCfgInterface::SetFilterProperty(
+//        this->filter,
+//        NISysCfgFilterPropertyIsChassis,
+//        NISysCfgBoolFalse
+//    );
     VLOG(1) << "[ni.scanner] successfully configured scanner for task " << this->task.
             name;
 
@@ -77,6 +77,7 @@ ni::Scanner::~Scanner() {
 }
 
 void ni::Scanner::scan() {
+    LOG(INFO) << "SCAN";
     if (!this->ok_state) return;
     NISysCfgResourceHandle resource = NULL;
 
@@ -86,6 +87,7 @@ void ni::Scanner::scan() {
         &this->resources_handle
     );
     if (err != NISysCfg_OK) return log_err("failed to find hardware");
+    LOG(INFO) << "SCAN SUCCESS";
 
     while (ni::NiSysCfgInterface::NextResource(
                this->session,
@@ -93,6 +95,7 @@ void ni::Scanner::scan() {
                &resource
            ) == NISysCfg_OK) {
         auto device = get_device_properties(resource);
+        LOG(INFO) << "device found";
         if(device["key"] != "" && device_keys.find(device["key"]) == device_keys.end()) {
             device["failed_to_create"] = false;
             devices["devices"].push_back(device);

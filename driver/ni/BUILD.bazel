@@ -15,7 +15,16 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = select({
-        ":use_ni": ["@nidaqmx"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [],
+        # If you want to only link on Linux (and not other *nix OS's),
+        # you can do @platforms//os:linux. If you prefer to link on
+        # all non-Windows OS's, replace with //conditions:default.
+        "@platforms//os:linux": [
+            "-lnidaqmx",
+        ],
         "//conditions:default": [],
     }),
 )
@@ -34,7 +43,13 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = select({
-        ":use_ni": ["@nisyscfg"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "@platforms//os:linux": [
+            "-lnisyscfg",
+        ],
         "//conditions:default": [],
     }),
 )
@@ -80,8 +95,8 @@ cc_library(
         "@platforms//os:windows": [
             "user32.lib",
             "delayimp.lib",
-            "/IGNORE:4199",         # ignore /DELAYLOAD warnings
-            "/IGNORE:4099",         # Ignores debug symbols not found for ni binaries
+            "/IGNORE:4199",  # ignore /DELAYLOAD warnings
+            "/IGNORE:4099",  # ignore debug symbols not found for ni binaries
             "/DELAYLOAD:NIDAQmx.dll",
             "/DELAYLOAD:nisyscfg.dll",
             "/DELAYLOAD:nicaiu.dll",
@@ -100,6 +115,12 @@ cc_library(
             "/DELAYLOAD:nirocoapi.dll",
             "/DELAYLOAD:nisysapi.dll",
             "/DELAYLOAD:niprtsiu.dll"
+        ],
+        "@platforms//os:linux": [
+            # If you need to link more NI libs directly on Linux, add them here.
+            # Often just linking -lnidaqmx and -lnisyscfg in daqmx/syscfg is enough.
+            # e.g. "-lnidaqmx" if you want to put all link flags in one place, but
+            # typically you won't need it repeated here if daqmx is already linking them.
         ],
         "//conditions:default": [],
     }),
