@@ -20,8 +20,8 @@ cc_library(
         "//driver/breaker",
         "//driver/config",
         "//driver/heartbeat",
-        "//driver/opc",
         "//driver/ni",
+        "//driver/opc",
         "//driver/task",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
@@ -57,15 +57,18 @@ cc_binary(
     }),
     copts = select({
         ":use_ni": ["-DUSE_NI"],
-                # "@platforms//os:windows": [
-                #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
-                #     "/ZI",                # Debug info
-                #     "/DEBUG",             # Enable debug info
-                #     "/MDd",               # Debug runtime
-                #     "-std:c++20",
-                #     "/D_DEBUG",          # Debug mode  "/D_DEBUG",
-                # ],
-        "//conditions:default": ["-std=c++20"],
+        # "@platforms//os:windows": [
+        #    "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
+        #     "/ZI",                # Debug info
+        #     "/DEBUG",             # Enable debug info
+        #     "/MDd",               # Debug runtime
+        #     "-std:c++20",
+        #     "/D_DEBUG",          # Debug mode  "/D_DEBUG",
+        # ],
+        "//conditions:default": [
+            "-std=c++20",
+            "-Wno-gnu-offsetof-extensions",
+        ],
     }),
     linkopts = select({
         "@platforms//os:windows": [
@@ -77,9 +80,12 @@ cc_binary(
             # "/INCREMENTAL:NO",    # Required for AddressSanitizer
             # "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
             "/DELAYLOAD:LabJackM.dll",
-            "/DELAYLOAD:LabJackWUSB.dll", # so that link to dll is only attempted once a function is called
+            "/DELAYLOAD:LabJackWUSB.dll",  # so that link to dll is only attempted once a function is called
         ],
-        "//conditions:default": ["-lm", "-ldl"],
+        "//conditions:default": [
+            "-lm",
+            "-ldl",
+        ],
     }),
     deps = select({
         "@platforms//os:windows": [
@@ -103,8 +109,8 @@ cc_binary(
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",
             "@com_github_google_glog//:glog",
+            "@lua",
             "@mbedtls_linux",
-            "@lua"
         ],
         "//conditions:default": [
             "//driver",
@@ -112,6 +118,7 @@ cc_binary(
             "//driver/meminfo",
             "//driver/ni",
             "//driver/opc",
+            "//driver/sequence",
             "//driver/task",
             "@com_github_gflags_gflags//:gflags",
             "@com_github_google_glog//:glog",

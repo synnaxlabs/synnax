@@ -37,6 +37,7 @@
 #include "driver/meminfo/meminfo.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
+#include "sequence/sequence.h"
 
 #ifdef _WIN32
 #include "driver/labjack/labjack.h"
@@ -85,23 +86,6 @@ int main(int argc, char *argv[]) {
     // Use the first argument as the config path if provided
     if (argc > 1) config_path = argv[1];
 
-    // Create a new Lua state
-    lua_State* L = luaL_newstate();
-
-    // Load Lua standard libraries
-    luaL_openlibs(L);
-
-    // Execute Lua code to print "Hello, World!" from Lua
-    const char* lua_code = "print('Hello, World from Lua!')";
-    if (luaL_dostring(L, lua_code) != LUA_OK) {
-        // Handle Lua errors
-        std::cerr << "Lua Error: " << lua_tostring(L, -1) << std::endl;
-        lua_pop(L, 1); // Remove the error message from the stack
-    }
-
-    // Close the Lua state
-    lua_close(L);
-
     // json cfg_json;
     LOG(INFO) << config_path;
     auto cfg_json = configd::read(config_path);
@@ -140,11 +124,11 @@ int main(int argc, char *argv[]) {
     }
 
     // auto meminfo_factory = std::make_unique<meminfo::Factory>();
-    auto heartbeat_factory = std::make_unique<heartbeat::Factory>();
+    // auto heartbeat_factory = std::make_unique<heartbeat::Factory>();
 
     std::vector<std::shared_ptr<task::Factory> > factories = {
         // std::move(meminfo_factory),
-        std::move(heartbeat_factory)
+        // std::move(heartbeat_factory)
     };
 
     auto opc_enabled = std::find(cfg.integrations.begin(), cfg.integrations.end(),
@@ -154,6 +138,9 @@ int main(int argc, char *argv[]) {
         factories.push_back(std::move(opc_factory));
     } else
         LOG(INFO) << "[driver] OPC integration is not enabled";
+
+    auto sequence_factory = std::make_unique<sequence::Factory>();
+    factories.push_back(std::move(sequence_factory));
 
 #ifdef USE_NI
 

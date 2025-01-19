@@ -110,6 +110,17 @@ struct Frame {
 
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series->size(); }
+
+    /// @brief creates a deep copy of the frame
+    /// @returns a new Frame containing copies of all channels and series
+    [[nodiscard]] Frame copy() const {
+        if (channels == nullptr || series == nullptr) {
+            return Frame();
+        }
+        auto new_channels = std::make_unique<std::vector<ChannelKey>>(*channels);
+        auto new_series = std::make_unique<std::vector<synnax::Series>>(*series);
+        return Frame(std::move(new_channels), std::move(new_series));
+    }
 };
 
 /// @brief configuration for opening a new streamer.
