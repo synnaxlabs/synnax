@@ -1003,7 +1003,7 @@ export const ZERO_DI_CHANNEL: DIChannel = {
 
 // Tasks
 
-const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");
+const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
 
 const baseConfigZ = z.object({ device: deviceKeyZ, dataSaving: z.boolean() });
 interface BaseConfig extends z.infer<typeof baseConfigZ> {}

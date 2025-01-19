@@ -35,7 +35,8 @@ const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
   },
 ];
 
-interface SelectNodeProps extends Omit<Select.SingleProps<string, NodeEntry>, "data"> {
+export interface SelectNodeProps
+  extends Omit<Select.SingleProps<string, NodeEntry>, "data"> {
   data: ScannedNode[];
 }
 

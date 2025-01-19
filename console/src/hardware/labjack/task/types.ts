@@ -138,7 +138,7 @@ export const ZERO_WRITE_CHANNEL: WriteChannel = {
   type: DO_CHANNEL_TYPE,
 };
 
-const deviceKeyZ = device.deviceKeyZ.min(1, "Must specify a device");
+const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
 
 export const readConfigZ = z
   .object({

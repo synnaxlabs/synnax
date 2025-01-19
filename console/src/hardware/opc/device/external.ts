@@ -10,8 +10,8 @@
 import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/opc/device/Configure";
 import { type Layout } from "@/layout";
 
+export * from "@/hardware/opc/device/Browser";
 export * from "@/hardware/opc/device/Configure";
-export * from "@/hardware/opc/device/ontology";
 export * from "@/hardware/opc/device/palette";
 export * from "@/hardware/opc/device/types";
 

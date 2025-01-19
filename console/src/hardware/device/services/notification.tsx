@@ -12,8 +12,8 @@ import { Button, type Icon as PIcon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Device } from "@/hardware/device";
+import { CONFIGURE_LAYOUTS } from "@/hardware/device/services/configureLayouts";
 import { type Make, makeZ } from "@/hardware/device/services/make";
-import { ZERO_CONFIGURE_LAYOUTS } from "@/hardware/device/services/zeroConfigureLayoutStates";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
@@ -26,10 +26,9 @@ const MAKE_ICONS: Record<Make, PIcon.Element> = {
   [OPC.Device.MAKE]: <Icon.Logo.OPC />,
 };
 
-const PREFIX_LENGTH = Device.NEW_STATUS_KEY_PREFIX.length;
-
 export const notificationAdapter: Notifications.NotificationAdapter = (status) => {
-  if (!status.key.startsWith(Device.NEW_STATUS_KEY_PREFIX)) return null;
+  const key = Device.getKeyFromStatus(status);
+  if (key == null) return null;
   const sugared: Notifications.SugaredNotification = { ...status };
   const make = makeZ.safeParse(status?.data?.make)?.data;
   const startIcon = make != null ? MAKE_ICONS[make] : <Icon.Device />;
@@ -39,14 +38,7 @@ export const notificationAdapter: Notifications.NotificationAdapter = (status) =
     </Text.WithIcon>
   );
   if (make != null)
-    sugared.actions = (
-      <ConfigureButton
-        layout={{
-          ...ZERO_CONFIGURE_LAYOUTS[make],
-          key: status.key.slice(PREFIX_LENGTH),
-        }}
-      />
-    );
+    sugared.actions = <ConfigureButton layout={{ ...CONFIGURE_LAYOUTS[make], key }} />;
   return sugared;
 };
 

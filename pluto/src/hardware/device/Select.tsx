@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device as PDevice } from "@synnaxlabs/client";
+import { type device } from "@synnaxlabs/client";
 import { type AsyncTermSearcher } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -15,20 +15,14 @@ import { type List } from "@/list";
 import { Select } from "@/select";
 import { Synnax } from "@/synnax";
 
-const deviceColumns: Array<List.ColumnSpec<PDevice.DeviceKey, PDevice.Device>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
-  {
-    key: "location",
-    name: "Location",
-  },
+const deviceColumns: Array<List.ColumnSpec<device.Key, device.Device>> = [
+  { key: "name", name: "Name" },
+  { key: "location", name: "Location" },
 ];
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<PDevice.DeviceKey, PDevice.Device>, "columns"> {
-  searchOptions?: PDevice.RetrieveOptions;
+  extends Omit<Select.SingleProps<device.Key, device.Device>, "columns"> {
+  searchOptions?: device.RetrieveOptions;
 }
 
 export const SelectSingle = ({
@@ -36,13 +30,12 @@ export const SelectSingle = ({
   ...props
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
-  let searcher:
-    | AsyncTermSearcher<string, PDevice.DeviceKey, PDevice.Device>
-    | undefined = client?.hardware.devices;
+  let searcher: AsyncTermSearcher<string, device.Key, device.Device> | undefined =
+    client?.hardware.devices;
   if (searchOptions != null && client != null)
     searcher = client.hardware.devices.newSearcherWithOptions(searchOptions);
   return (
-    <Select.Single<PDevice.DeviceKey, PDevice.Device>
+    <Select.Single<device.Key, device.Device>
       columns={deviceColumns}
       searcher={searcher}
       entryRenderKey={"name"}

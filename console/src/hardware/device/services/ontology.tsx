@@ -24,18 +24,18 @@ import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
 const ZERO_CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
-  [LabJack.Device.MAKE]: LabJack.Device.ZERO_CONFIGURE_LAYOUT,
-  [NI.Device.MAKE]: NI.Device.ZERO_CONFIGURE_LAYOUT,
-  [OPC.Device.MAKE]: OPC.Device.ZERO_CONFIGURE_LAYOUT,
+  [LabJack.Device.MAKE]: LabJack.Device.CONFIGURE_LAYOUT,
+  [NI.Device.MAKE]: NI.Device.CONFIGURE_LAYOUT,
+  [OPC.Device.MAKE]: OPC.Device.CONFIGURE_LAYOUT,
 };
 
 const CONTEXT_MENUS_ITEMS: Record<
   Make,
   (props: Ontology.TreeContextMenuProps) => ReactElement | null
 > = {
-  [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
-  [NI.Device.MAKE]: NI.Device.ContextMenuItems,
-  [OPC.Device.MAKE]: OPC.Device.ContextMenuItems,
+  [LabJack.Device.MAKE]: LabJack.ContextMenuItems,
+  [NI.Device.MAKE]: NI.ContextMenuItems,
+  [OPC.Device.MAKE]: OPC.ContextMenuItems,
 };
 
 const handleConfigure = ({
@@ -95,7 +95,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   const make = makeZ.safeParse(resources[0].data?.make)?.data;
   const C = make != null ? CONTEXT_MENUS_ITEMS[make] : null;
-  const customMenuItems = C == null ? null : <C {...props} />;
+  const customMenuItems = C != null ? <C {...props} /> : null;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />

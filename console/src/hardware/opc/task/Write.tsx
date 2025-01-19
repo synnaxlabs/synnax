@@ -35,7 +35,7 @@ import { CSS } from "@/css";
 import { Device as CoreDevice } from "@/hardware/device";
 import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
-import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
+import { CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
 import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Write,
@@ -244,7 +244,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => place({ ...ZERO_CONFIGURE_LAYOUT })}
+                        onClick={() => place({ ...CONFIGURE_LAYOUT })}
                       >
                         Connect a new server.
                       </Text.Link>

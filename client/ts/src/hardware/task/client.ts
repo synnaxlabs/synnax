@@ -16,21 +16,21 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { framer } from "@/framer";
-import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
 import {
   type Command,
   type CommandObservable,
   commandZ,
-  type NewTask,
-  newTaskZ,
-  ontologyID as payloadOntologyID,
+  type Key,
+  keyZ,
+  type New,
+  newZ,
+  ONTOLOGY_TYPE,
+  ontologyID,
   type Payload,
   type State,
   type StateObservable,
   stateZ,
-  type TaskKey,
-  taskKeyZ,
   taskZ,
 } from "@/hardware/task/payload";
 import { type ontology } from "@/ontology";
@@ -39,17 +39,17 @@ import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
-const TASK_STATE_CHANNEL = "sy_task_state";
-const TASK_CMD_CHANNEL = "sy_task_cmd";
+const STATE_CHANNEL_NAME = "sy_task_state";
+const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 
-const TASK_NOT_CREATED = new Error("Task not created");
+const NOT_CREATED_ERROR = new Error("Task not created");
 
 export class Task<
   C extends UnknownRecord = UnknownRecord,
   D extends {} = UnknownRecord,
   T extends string = string,
 > {
-  readonly key: TaskKey;
+  readonly key: Key;
   name: string;
   readonly internal: boolean;
   readonly type: T;
@@ -61,7 +61,7 @@ export class Task<
   private readonly rangeClient: ranger.Client | null;
 
   constructor(
-    key: TaskKey,
+    key: Key,
     name: string,
     type: T,
     config: C,
@@ -96,14 +96,14 @@ export class Task<
   }
 
   get ontologyID(): ontology.ID {
-    return payloadOntologyID(this.key);
+    return ontologyID(this.key);
   }
 
   async executeCommand(type: string, args?: UnknownRecord): Promise<string> {
-    if (this.frameClient == null) throw TASK_NOT_CREATED;
-    const writer = await this.frameClient.openWriter(TASK_CMD_CHANNEL);
+    if (this.frameClient == null) throw NOT_CREATED_ERROR;
+    const writer = await this.frameClient.openWriter(COMMAND_CHANNEL_NAME);
     const key = id.id();
-    await writer.write(TASK_CMD_CHANNEL, [{ task: this.key, type, key, args }]);
+    await writer.write(COMMAND_CHANNEL_NAME, [{ task: this.key, type, key, args }]);
     await writer.close();
     return key;
   }
@@ -113,21 +113,21 @@ export class Task<
     args: UnknownRecord,
     timeout: CrudeTimeSpan,
   ): Promise<State<D>> {
-    if (this.frameClient == null) throw TASK_NOT_CREATED;
-    const streamer = await this.frameClient.openStreamer(TASK_STATE_CHANNEL);
+    if (this.frameClient == null) throw NOT_CREATED_ERROR;
+    const streamer = await this.frameClient.openStreamer(STATE_CHANNEL_NAME);
     const cmdKey = await this.executeCommand(type, args);
     let res: State<D>;
     const to = new Promise((resolve) =>
       setTimeout(() => resolve(false), new TimeSpan(timeout).milliseconds),
     );
     while (true) {
-      const frame = (await Promise.any([streamer.read(), to])) as Frame | false;
+      const frame = (await Promise.any([streamer.read(), to])) as framer.Frame | false;
       if (frame === false) throw new Error("Command timed out");
       const parsed = stateZ.safeParse(frame.at(-1).sy_task_state);
       if (parsed.success) {
         res = parsed.data as State<D>;
         if (res.key === cmdKey) break;
-      } else console.error(parsed.error);
+      } else throw parsed.error;
     }
     streamer.close();
     return res;
@@ -136,11 +136,11 @@ export class Task<
   async openStateObserver<D extends UnknownRecord = UnknownRecord>(): Promise<
     StateObservable<D>
   > {
-    if (this.frameClient == null) throw TASK_NOT_CREATED;
+    if (this.frameClient == null) throw NOT_CREATED_ERROR;
     return new framer.ObservableStreamer<State<D>>(
-      await this.frameClient.openStreamer(TASK_STATE_CHANNEL),
+      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(TASK_STATE_CHANNEL);
+        const s = frame.get(STATE_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
         const parse = stateZ.safeParse(s.at(-1));
         if (!parse.success) {
@@ -157,11 +157,11 @@ export class Task<
   async openCommandObserver<A extends UnknownRecord = UnknownRecord>(): Promise<
     CommandObservable<A>
   > {
-    if (this.frameClient == null) throw TASK_NOT_CREATED;
+    if (this.frameClient == null) throw NOT_CREATED_ERROR;
     return new framer.ObservableStreamer<Command<A>>(
-      await this.frameClient.openStreamer(TASK_CMD_CHANNEL),
+      await this.frameClient.openStreamer(COMMAND_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(TASK_CMD_CHANNEL);
+        const s = frame.get(COMMAND_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
         const parse = commandZ.safeParse(s.at(-1));
         if (!parse.success) {
@@ -176,7 +176,8 @@ export class Task<
   }
 
   async snapshottedTo(): Promise<ontology.Resource | null> {
-    if (this.ontologyClient == null || this.rangeClient == null) throw TASK_NOT_CREATED;
+    if (this.ontologyClient == null || this.rangeClient == null)
+      throw NOT_CREATED_ERROR;
     if (!this.snapshot) return null;
     const parents = await this.ontologyClient.retrieveParents(this.ontologyID);
     if (parents.length == 0) return null;
@@ -185,43 +186,35 @@ export class Task<
 }
 
 const retrieveReqZ = z.object({
-  rack: rack.rackKeyZ.optional(),
-  keys: z.string().array().optional(),
+  rack: rack.keyZ.optional(),
+  keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
   includeState: z.boolean().optional(),
 });
 
-const retrieveResZ = z.object({
-  tasks: nullableArrayZ(taskZ),
-});
+const retrieveResZ = z.object({ tasks: nullableArrayZ(taskZ) });
 
-export type RetrieveRequest = z.infer<typeof retrieveReqZ>;
+export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
-export type RetrieveOptions = Pick<
-  RetrieveRequest,
-  "rack" | "offset" | "limit" | "includeState"
->;
+export interface RetrieveOptions
+  extends Pick<RetrieveRequest, "rack" | "offset" | "limit" | "includeState"> {}
 
 const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
 const CREATE_ENDPOINT = "/hardware/task/create";
 const DELETE_ENDPOINT = "/hardware/task/delete";
 const COPY_ENDPOINT = "/hardware/task/copy";
 
-const createReqZ = z.object({ tasks: newTaskZ.array() });
+const createReqZ = z.object({ tasks: newZ.array() });
 const createResZ = z.object({ tasks: taskZ.array() });
-const deleteReqZ = z.object({ keys: taskKeyZ.array() });
+const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
-const copyReqZ = z.object({
-  key: taskKeyZ,
-  name: z.string(),
-  snapshot: z.boolean(),
-});
+const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
 const copyResZ = z.object({ task: taskZ });
 
-export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
-  readonly type: string = "task";
+export class Client implements AsyncTermSearcher<string, Key, Payload> {
+  readonly type: string = ONTOLOGY_TYPE;
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
   private readonly ontologyClient: ontology.Client;
@@ -243,21 +236,19 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
     C extends UnknownRecord = UnknownRecord,
     D extends {} = UnknownRecord,
     T extends string = string,
-  >(task: NewTask<C, T>): Promise<Task<C, D, T>>;
+  >(task: New<C, T>): Promise<Task<C, D, T>>;
 
   async create<
     C extends UnknownRecord = UnknownRecord,
     D extends {} = UnknownRecord,
     T extends string = string,
-  >(tasks: NewTask<C, T>[]): Promise<Task<C, D, T>[]>;
+  >(tasks: New<C, T>[]): Promise<Task<C, D, T>[]>;
 
   async create<
     C extends UnknownRecord = UnknownRecord,
     D extends {} = UnknownRecord,
     T extends string = string,
-  >(
-    task: NewTask<C, T> | Array<NewTask<C, T>>,
-  ): Promise<Task<C, D, T> | Array<Task<C, D, T>>> {
+  >(task: New<C, T> | Array<New<C, T>>): Promise<Task<C, D, T> | Array<Task<C, D, T>>> {
     const isSingle = !Array.isArray(task);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
@@ -399,9 +390,9 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
     StateObservable<D>
   > {
     return new framer.ObservableStreamer<State<D>>(
-      await this.frameClient.openStreamer(TASK_STATE_CHANNEL),
+      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(TASK_STATE_CHANNEL);
+        const s = frame.get(STATE_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
         const parse = stateZ.safeParse(s.at(-1));
         if (!parse.success) {
@@ -417,9 +408,9 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
     CommandObservable<A>
   > {
     return new framer.ObservableStreamer<Command<A>>(
-      await this.frameClient.openStreamer(TASK_CMD_CHANNEL),
+      await this.frameClient.openStreamer(COMMAND_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(TASK_CMD_CHANNEL);
+        const s = frame.get(COMMAND_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
         const parse = commandZ.safeParse(s.at(-1));
         if (!parse.success) {

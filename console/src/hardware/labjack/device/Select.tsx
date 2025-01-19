@@ -48,7 +48,9 @@ export const SelectPort = ({ model, channelType, ...props }: SelectPortProps) =>
   );
 };
 
-const INPUT_CHANNEL_TYPES: KeyedNamed<InputChannelType>[] = [
+interface InputChannelTypeEntry extends KeyedNamed<InputChannelType> {}
+
+const INPUT_CHANNEL_TYPES: InputChannelTypeEntry[] = [
   { key: "AI", name: "Analog In" },
   { key: "DI", name: "Digital In" },
   { key: "TC", name: "Thermocouple" },
@@ -56,7 +58,7 @@ const INPUT_CHANNEL_TYPES: KeyedNamed<InputChannelType>[] = [
 
 export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   InputChannelType,
-  KeyedNamed<InputChannelType>
+  InputChannelTypeEntry
 >({
   fieldKey: "type",
   fieldProps: { label: "Channel Type" },
@@ -67,7 +69,7 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   },
 });
 
-type OutputChannelTypeEntry = KeyedNamed<OutputChannelType>;
+interface OutputChannelTypeEntry extends KeyedNamed<OutputChannelType> {}
 
 const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
   { key: "AO", name: "Analog" },

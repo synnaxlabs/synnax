@@ -11,22 +11,19 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const rackKeyZ = z.number();
+export const keyZ = z.number();
 
-export type RackKey = z.infer<typeof rackKeyZ>;
+export type Key = z.infer<typeof keyZ>;
 
-export const rackZ = z.object({
-  key: rackKeyZ,
-  name: z.string(),
-});
+export const rackZ = z.object({ key: keyZ, name: z.string() });
 
-export type RackPayload = z.infer<typeof rackZ>;
+export interface Payload extends z.infer<typeof rackZ> {}
 
-export const newRackZ = rackZ.partial({ key: true });
+export const newZ = rackZ.partial({ key: true });
 
-export type NewRack = z.input<typeof newRackZ>;
+export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE: ontology.ResourceType = "rack";
 
-export const ontologyID = (key: RackKey): ontology.ID =>
+export const ontologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });

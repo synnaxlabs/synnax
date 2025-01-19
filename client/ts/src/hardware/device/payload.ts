@@ -10,14 +10,14 @@
 import { binary, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { rackKeyZ } from "@/hardware/rack/payload";
+import { rack } from "@/hardware/rack";
 import { ontology } from "@/ontology";
 
-export const deviceKeyZ = z.string();
+export const keyZ = z.string();
 
 export const deviceZ = z.object({
-  key: deviceKeyZ,
-  rack: rackKeyZ,
+  key: keyZ,
+  rack: rack.keyZ,
   name: z.string(),
   make: z.string(),
   model: z.string(),
@@ -31,23 +31,23 @@ export const deviceZ = z.object({
   ) as z.ZodType<UnknownRecord>,
 });
 
-export type Device<P extends UnknownRecord = UnknownRecord> = Omit<
-  z.output<typeof deviceZ>,
-  "properties"
-> & { properties: P };
+export interface Device<P extends UnknownRecord = UnknownRecord>
+  extends Omit<z.output<typeof deviceZ>, "properties"> {
+  properties: P;
+}
 
-export type DeviceKey = z.infer<typeof deviceKeyZ>;
+export type Key = z.infer<typeof keyZ>;
 
-export const newDeviceZ = deviceZ.extend({
+export const newZ = deviceZ.extend({
   properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
 
-export type NewDevice<P extends UnknownRecord = UnknownRecord> = Omit<
-  z.input<typeof newDeviceZ>,
-  "properties"
-> & { properties: P };
+export interface New<P extends UnknownRecord = UnknownRecord>
+  extends Omit<z.input<typeof newZ>, "properties"> {
+  properties: P;
+}
 
 export const ONTOLOGY_TYPE: ontology.ResourceType = "device";
 
-export const ontologyID = (key: DeviceKey): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

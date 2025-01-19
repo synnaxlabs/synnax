@@ -29,6 +29,7 @@ import { type Layout } from "@/layout";
 export * from "@/hardware/ni/task/AnalogRead";
 export * from "@/hardware/ni/task/DigitalRead";
 export * from "@/hardware/ni/task/DigitalWrite";
+export * from "@/hardware/ni/task/palette";
 export * from "@/hardware/ni/task/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

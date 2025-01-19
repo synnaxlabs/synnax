@@ -13,8 +13,8 @@ import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { type Layout } from "@/layout";
 
-export const ZERO_CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
-  [LabJack.Device.MAKE]: LabJack.Device.ZERO_CONFIGURE_LAYOUT,
-  [NI.Device.MAKE]: NI.Device.ZERO_CONFIGURE_LAYOUT,
-  [OPC.Device.MAKE]: OPC.Device.ZERO_CONFIGURE_LAYOUT,
+export const CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
+  [LabJack.Device.MAKE]: LabJack.Device.CONFIGURE_LAYOUT,
+  [NI.Device.MAKE]: NI.Device.CONFIGURE_LAYOUT,
+  [OPC.Device.MAKE]: OPC.Device.CONFIGURE_LAYOUT,
 };

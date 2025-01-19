@@ -20,7 +20,7 @@ export const SelectDevice = () => {
     if (client == null) return;
     const { configured } = await client.hardware.devices.retrieve<Properties>(v);
     if (configured) return;
-    place({ ...Device.ZERO_CONFIGURE_LAYOUT, key: v });
+    place({ ...Device.CONFIGURE_LAYOUT, key: v });
   };
   return (
     <Form.Field<string>

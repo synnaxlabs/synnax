@@ -19,7 +19,7 @@ export const Configure = (props: Layout.RendererProps): ReactElement => (
 
 export const CONFIGURE_LAYOUT_TYPE = `${Device.CONFIGURE_LAYOUT_TYPE}_NI`;
 
-export const ZERO_CONFIGURE_LAYOUT: Layout.BaseState = {
+export const CONFIGURE_LAYOUT: Layout.BaseState = {
   ...Device.CONFIGURE_LAYOUT,
   key: CONFIGURE_LAYOUT_TYPE,
   type: CONFIGURE_LAYOUT_TYPE,

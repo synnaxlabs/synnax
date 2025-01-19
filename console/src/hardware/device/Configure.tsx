@@ -27,6 +27,7 @@ import { type ReactElement, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { identifierZ } from "@/hardware/device/types";
 import { type Layout } from "@/layout";
 
 export const CONFIGURE_LAYOUT_TYPE = "configure";
@@ -87,12 +88,6 @@ interface InternalProps<P extends UnknownRecord>
   device: device.Device<P>;
   zeroProperties: P;
 }
-
-const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
-
-const identifierZ = z.string().min(2, IDENTIFIER_MESSAGE).max(12, IDENTIFIER_MESSAGE);
-
-export type Identifier = z.infer<typeof identifierZ>;
 
 const configurablePropertiesZ = z.object({
   name: z.string().min(1, "Name must be at least 1 character long"),

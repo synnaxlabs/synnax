@@ -8,32 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon } from "@synnaxlabs/pluto";
 
 import { createReadLayout } from "@/hardware/labjack/task/Read";
 import { createWriteLayout } from "@/hardware/labjack/task/Write";
 import { type Command } from "@/palette/Palette";
 
-const createReadTaskCommand: Command = {
+const createReadCommand: Command = {
   key: "labjack-create-read-task",
-  name: "Create a LabJack Read Task",
-  icon: (
-    <PIcon.Create>
-      <Icon.Logo.LabJack />
-    </PIcon.Create>
-  ),
+  name: "Create LabJack Read Task",
+  icon: <Icon.Logo.LabJack />,
   onSelect: ({ placeLayout }) => placeLayout(() => createReadLayout({ create: true })),
 };
 
-const createWriteTaskCommand: Command = {
+const createWriteCommand: Command = {
   key: "labjack-create-write-task",
-  name: "Create a LabJack Write Task",
-  icon: (
-    <PIcon.Create>
-      <Icon.Logo.LabJack />
-    </PIcon.Create>
-  ),
+  name: "Create LabJack Write Task",
+  icon: <Icon.Logo.LabJack />,
   onSelect: ({ placeLayout }) => placeLayout(createWriteLayout({ create: true })),
 };
 
-export const COMMANDS = [createReadTaskCommand, createWriteTaskCommand];
+export const COMMANDS = [createReadCommand, createWriteCommand];

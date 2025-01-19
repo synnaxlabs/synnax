@@ -27,7 +27,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { use } from "@/hardware/device/use";
-import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/labjack/device/Configure";
+import { CONFIGURE_LAYOUT } from "@/hardware/labjack/device/Configure";
 import { SelectOutputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
 import {
   type ConfiguredDevice,
@@ -304,7 +304,7 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
         <Text.Text level="p">No device selected</Text.Text>
       </Align.Space>
     );
-  const handleConfigure = () => place({ ...ZERO_CONFIGURE_LAYOUT, key: device.key });
+  const handleConfigure = () => place({ ...CONFIGURE_LAYOUT, key: device.key });
   if (!device.configured)
     return (
       <Align.Space grow align="center" justify="center" direction="y">

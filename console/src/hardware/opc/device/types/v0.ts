@@ -11,6 +11,8 @@ import { type device, type task } from "@synnaxlabs/client";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
+export const VERSION = "0.0.0";
+
 export const MAKE = "opc";
 
 export const securityModeZ = z.union([
@@ -18,7 +20,6 @@ export const securityModeZ = z.union([
   z.literal("Sign"),
   z.literal("SignAndEncrypt"),
 ]);
-
 export type SecurityMode = z.infer<typeof securityModeZ>;
 
 export const securityPolicyZ = z.union([
@@ -29,7 +30,6 @@ export const securityPolicyZ = z.union([
   z.literal("Aes128_Sha256_RsaOaep"),
   z.literal("Aes256_Sha256_RsaPss"),
 ]);
-
 export type SecurityPolicy = z.infer<typeof securityPolicyZ>;
 
 export const connectionConfigZ = z.object({
@@ -42,8 +42,7 @@ export const connectionConfigZ = z.object({
   clientPrivateKey: z.string().optional(),
   serverCertificate: z.string().optional(),
 });
-
-export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
+export interface ConnectionConfig extends z.infer<typeof connectionConfigZ> {}
 export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   endpoint: "opc.tcp://localhost:4840",
   securityMode: "None",
@@ -62,26 +61,26 @@ export const scannedNodeZ = z.object({
   nodeClass: z.string(),
   isArray: z.boolean(),
 });
-
-export type ScannedNode = z.infer<typeof scannedNodeZ>;
+export interface ScannedNode extends z.infer<typeof scannedNodeZ> {}
 
 export const propertiesZ = z.object({
-  version: z.literal("0.0.0").optional().default("0.0.0"),
+  version: z.literal(VERSION).optional().default(VERSION),
   connection: connectionConfigZ,
   read: z.object({ index: z.number(), channels: z.record(z.string(), z.number()) }),
   write: z.object({ channels: z.record(z.string(), z.number()) }),
 });
 
-export type Properties = z.infer<typeof propertiesZ>;
+export interface Properties extends z.infer<typeof propertiesZ> {}
 
-export type Device = device.Device<Properties>;
+export interface Device extends device.Device<Properties> {}
 
 export interface TestConnCommandResponse extends UnknownRecord {
   message: string;
 }
 
-export type TestConnCommandState = task.State<TestConnCommandResponse>;
+export interface TestConnCommandState extends task.State<TestConnCommandResponse> {}
 
 export const scannerScanCommandResult = z.object({ channels: scannedNodeZ.array() });
 
-export type ScannerScanCommandResult = z.infer<typeof scannerScanCommandResult>;
+export interface ScannerScanCommandResult
+  extends z.infer<typeof scannerScanCommandResult> {}

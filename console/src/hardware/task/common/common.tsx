@@ -43,7 +43,7 @@ import { Menu as CMenu } from "@/components/menu";
 import { CSS } from "@/css";
 import { type LayoutArgs } from "@/hardware/task/common/createLayoutCreator";
 import { Layout } from "@/layout";
-import { overviewLayout } from "@/range/external";
+import { Range } from "@/range";
 
 export interface ControlsProps {
   layoutKey: string;
@@ -369,12 +369,12 @@ export const useCreate = <
 >(
   layoutKey: string,
 ): ((
-  t: Optional<task.NewTask<C, T>, "key">,
+  t: Optional<task.New<C, T>, "key">,
 ) => Promise<task.Task<C, D, T> | undefined>) => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   return useCallback(
-    async (pld: task.NewTask<C, T>) => {
+    async (pld: task.New<C, T>) => {
       if (client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const ot = await rack.createTask<C, D, T>(pld);
@@ -491,7 +491,7 @@ export const ParentRangeButton = ({
         iconSpacing="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          place({ ...overviewLayout, key: parent.id.key, name: parent.name })
+          place({ ...Range.overviewLayout, key: parent.id.key, name: parent.name })
         }
       >
         {parent.name}

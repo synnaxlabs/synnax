@@ -38,10 +38,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { use } from "@/hardware/device/use";
+import { Device as CoreDevice } from "@/hardware/device";
 import { Device } from "@/hardware/opc/device";
-import { Browser } from "@/hardware/opc/device/Browser";
-import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
 import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Read,
@@ -96,7 +94,7 @@ const Wrapped = ({
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const methods = Form.use({ schema, values: initialValues });
-  const dev = use<Device.Properties>(methods);
+  const dev = CoreDevice.use<Device.Properties>(methods);
   const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
@@ -324,7 +322,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => place({ ...ZERO_CONFIGURE_LAYOUT })}
+                        onClick={() => place(Device.CONFIGURE_LAYOUT)}
                       >
                         Connect a new server.
                       </Text.Link>
@@ -358,7 +356,7 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            {task?.snapshot !== true && <Browser device={dev} />}
+            {task?.snapshot !== true && <Device.Browser device={dev} />}
             <ChannelList
               path="config.channels"
               device={dev}

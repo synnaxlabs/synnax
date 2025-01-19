@@ -15,28 +15,28 @@ import { z } from "zod";
 import { type framer } from "@/framer";
 import {
   type Device,
-  type DeviceKey,
-  deviceKeyZ,
   deviceZ,
-  type NewDevice,
-  newDeviceZ,
+  type Key,
+  keyZ,
+  type New,
+  newZ,
 } from "@/hardware/device/payload";
 import { signals } from "@/signals";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
-const DEVICE_SET_NAME = "sy_device_set";
-const DEVICE_DELETE_NAME = "sy_device_delete";
+const SET_CHANNEL_NAME = "sy_device_set";
+const DELETE_CHANNEL_NAME = "sy_device_delete";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 const CREATE_ENDPOINT = "/hardware/device/create";
 const DELETE_ENDPOINT = "/hardware/device/delete";
 
-const createReqZ = z.object({ devices: newDeviceZ.array() });
+const createReqZ = z.object({ devices: newZ.array() });
 
 const createResZ = z.object({ devices: deviceZ.array() });
 
-const deleteReqZ = z.object({ keys: deviceKeyZ.array() });
+const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const deleteResZ = z.object({});
 
@@ -44,20 +44,21 @@ const retrieveReqZ = z.object({
   search: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
-  keys: deviceKeyZ.array().optional(),
+  keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   makes: z.string().array().optional(),
 });
 
-type RetrieveRequest = z.input<typeof retrieveReqZ>;
+interface RetrieveRequest extends z.input<typeof retrieveReqZ> {}
 
-export type RetrieveOptions = Pick<RetrieveRequest, "limit" | "offset" | "makes">;
+export interface RetrieveOptions
+  extends Pick<RetrieveRequest, "limit" | "offset" | "makes"> {}
 
-type PageOptions = Pick<RetrieveOptions, "makes">;
+interface PageOptions extends Pick<RetrieveOptions, "makes"> {}
 
 const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
-export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
+export class Client implements AsyncTermSearcher<string, Key, Device> {
   readonly type = "device";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
@@ -90,7 +91,7 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
       retrieveResZ,
     );
     checkForMultipleOrNoResults("Device", keys, res.devices, isSingle);
-    return (isSingle ? res.devices[0] : res.devices) as Device<P> | Array<Device<P>>;
+    return isSingle ? (res.devices[0] as Device<P>) : (res.devices as Array<Device<P>>);
   }
 
   async search(term: string, options?: RetrieveOptions): Promise<Device[]> {
@@ -118,15 +119,15 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
   }
 
   async create<P extends UnknownRecord = UnknownRecord>(
-    device: NewDevice<P>,
+    device: New<P>,
   ): Promise<Device<P>>;
 
   async create<P extends UnknownRecord = UnknownRecord>(
-    devices: NewDevice<P>[],
+    devices: New<P>[],
   ): Promise<Device<P>[]>;
 
   async create<P extends UnknownRecord = UnknownRecord>(
-    devices: NewDevice<P> | NewDevice<P>[],
+    devices: New<P> | New<P>[],
   ): Promise<Device<P> | Device<P>[]> {
     const isSingle = !Array.isArray(devices);
     const res = await sendRequired(
@@ -152,15 +153,15 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
   async openDeviceTracker(): Promise<signals.Observable<string, Device>> {
     return await signals.openObservable<string, Device>(
       this.frameClient,
-      DEVICE_SET_NAME,
-      DEVICE_DELETE_NAME,
+      SET_CHANNEL_NAME,
+      DELETE_CHANNEL_NAME,
       decodeDeviceChanges,
     );
   }
 
   newSearcherWithOptions(
     options: RetrieveOptions,
-  ): AsyncTermSearcher<string, DeviceKey, Device> {
+  ): AsyncTermSearcher<string, Key, Device> {
     return {
       type: this.type,
       search: async (term: string) => await this.search(term, options),

@@ -11,7 +11,6 @@ import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/labjack/device/Conf
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/labjack/device/Configure";
-export * from "@/hardware/labjack/device/ontology";
 export * from "@/hardware/labjack/device/Select";
 export * from "@/hardware/labjack/device/types";
 

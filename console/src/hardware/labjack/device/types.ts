@@ -11,7 +11,7 @@ import { type channel, type device } from "@synnaxlabs/client";
 import { bounds, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Identifier } from "@/hardware/device/Configure";
+import { type Identifier } from "@/hardware/device/types";
 
 // Makes
 

@@ -12,106 +12,89 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const taskKeyZ = z.union([
+export const keyZ = z.union([
   z.string(),
   z.bigint().transform((k) => k.toString()),
   z.number().transform((k) => k.toString()),
 ]);
 
-export type TaskKey = z.infer<typeof taskKeyZ>;
+export type Key = z.infer<typeof keyZ>;
 
 export const stateZ = z.object({
-  task: taskKeyZ,
+  task: keyZ,
   variant: z.string(),
   key: z.string().optional(),
   details: z
     .record(z.unknown())
-    .or(
-      z.string().transform((c) => {
-        if (c === "") return {};
-        return JSON.parse(c);
-      }),
-    )
+    .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
     .or(z.array(z.unknown()))
     .or(z.null()),
 });
 
-export type State<D extends {} = UnknownRecord> = Omit<
-  z.infer<typeof stateZ>,
-  "details"
-> & {
+export interface State<D extends {} = UnknownRecord>
+  extends Omit<z.infer<typeof stateZ>, "details"> {
   details?: D;
-};
+}
 
 export const taskZ = z.object({
-  key: taskKeyZ,
+  key: keyZ,
   name: z.string(),
   type: z.string(),
   internal: z.boolean().optional(),
-  config: z.record(z.unknown()).or(
-    z.string().transform((c) => {
-      if (c === "") return {};
-      return binary.JSON_CODEC.decodeString(c);
-    }),
-  ) as z.ZodType<UnknownRecord>,
+  config: z
+    .record(z.unknown())
+    .or(
+      z.string().transform((c) => (c === "" ? {} : JSON.parse(c))),
+    ) as z.ZodType<UnknownRecord>,
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });
 
-export const newTaskZ = taskZ.omit({ key: true }).extend({
-  key: taskKeyZ.transform((k) => k.toString()).optional(),
+export const newZ = taskZ.omit({ key: true }).extend({
+  key: keyZ.transform((k) => k.toString()).optional(),
   config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
 
-export type NewTask<
-  C extends UnknownRecord = UnknownRecord,
-  T extends string = string,
-> = Omit<z.input<typeof newTaskZ>, "config" | "state"> & {
+export interface New<C extends UnknownRecord = UnknownRecord, T extends string = string>
+  extends Omit<z.input<typeof newZ>, "config" | "state"> {
   type: T;
   config: C;
-};
+}
 
-export type Payload<
+export interface Payload<
   C extends UnknownRecord = UnknownRecord,
   D extends {} = UnknownRecord,
   T extends string = string,
-> = Omit<z.output<typeof taskZ>, "config" | "type" | "state"> & {
+> extends Omit<z.output<typeof taskZ>, "config" | "type" | "state"> {
   type: T;
   config: C;
   state?: State<D> | null;
-};
+}
 
 export const commandZ = z.object({
-  task: taskKeyZ,
+  task: keyZ,
   type: z.string(),
   key: z.string(),
   args: z
     .record(z.unknown())
-    .or(
-      z.string().transform((c) => {
-        if (c === "") return {};
-        return JSON.parse(c);
-      }),
-    )
+    .or(z.string().transform((c) => (c === "" ? {} : JSON.parse(c))))
     .or(z.array(z.unknown()))
     .or(z.null())
     .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
 });
 
-export type Command<A extends {} = UnknownRecord> = Omit<
-  z.infer<typeof commandZ>,
-  "args"
-> & {
+export interface Command<A extends {} = UnknownRecord>
+  extends Omit<z.infer<typeof commandZ>, "args"> {
   args?: A;
-};
+}
 
-export type StateObservable<D extends UnknownRecord = UnknownRecord> =
-  observe.ObservableAsyncCloseable<State<D>>;
+export interface StateObservable<D extends UnknownRecord = UnknownRecord>
+  extends observe.ObservableAsyncCloseable<State<D>> {}
 
-export type CommandObservable<A extends UnknownRecord = UnknownRecord> =
-  observe.ObservableAsyncCloseable<Command<A>>;
+export interface CommandObservable<A extends UnknownRecord = UnknownRecord>
+  extends observe.ObservableAsyncCloseable<Command<A>> {}
 
 export const ONTOLOGY_TYPE: ontology.ResourceType = "task";
 
-export const ontologyID = (key: TaskKey): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

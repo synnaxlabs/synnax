@@ -573,7 +573,7 @@ export const DeviceField = ({ path }: DeviceFieldProps) => {
     if (client == null) return;
     const { configured } = await client.hardware.devices.retrieve<Properties>(v);
     if (configured) return;
-    place({ ...NIDevice.ZERO_CONFIGURE_LAYOUT, key: v });
+    place({ ...NIDevice.CONFIGURE_LAYOUT, key: v });
   };
   return (
     <Form.Field<string>

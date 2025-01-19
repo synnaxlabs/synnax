@@ -111,9 +111,9 @@ const Content = (): ReactElement => {
       handleException(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
     },
   }).mutate;
-  const [desiredStates, setDesiredStates] = useState<
-    Record<task.TaskKey, DesiredState>
-  >({});
+  const [desiredStates, setDesiredStates] = useState<Record<task.Key, DesiredState>>(
+    {},
+  );
   const menuProps = PMenu.useContextMenu();
   const addStatus = Status.useAggregator();
   const dispatch = useDispatch();

@@ -13,13 +13,13 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { type framer } from "@/framer";
 import {
-  type NewRack,
-  newRackZ,
-  type RackKey,
-  rackKeyZ,
-  type RackPayload,
+  type Key,
+  keyZ,
+  type New,
+  newZ,
+  ONTOLOGY_TYPE,
+  type Payload,
   rackZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
@@ -27,70 +27,56 @@ import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
-const CREATE_RACK_ENDPOINT = "/hardware/rack/create";
-const DELETE_RACK_ENDPOINT = "/hardware/rack/delete";
+const CREATE_ENDPOINT = "/hardware/rack/create";
+const DELETE_ENDPOINT = "/hardware/rack/delete";
 
-const retrieveRackReqZ = z.object({
-  keys: rackKeyZ.array().optional(),
+const retrieveReqZ = z.object({
+  keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   search: z.string().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
 
-const retrieveRackResZ = z.object({
-  racks: nullableArrayZ(rackZ),
-});
+const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
 
-const createReqZ = z.object({
-  racks: newRackZ.array(),
-});
+const createReqZ = z.object({ racks: newZ.array() });
 
-const createResZ = z.object({
-  racks: rackZ.array(),
-});
+const createResZ = z.object({ racks: rackZ.array() });
 
-const deleteReqZ = z.object({
-  keys: rackKeyZ.array(),
-});
+const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const deleteResZ = z.object({});
 
-export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
-  readonly type: string = "rack";
+export class Client implements AsyncTermSearcher<string, Key, Payload> {
+  readonly type = ONTOLOGY_TYPE;
   private readonly client: UnaryClient;
-  private readonly frameClient: framer.Client;
   private readonly tasks: task.Client;
 
-  constructor(
-    client: UnaryClient,
-    frameClient: framer.Client,
-    taskClient: task.Client,
-  ) {
+  constructor(client: UnaryClient, taskClient: task.Client) {
     this.client = client;
-    this.frameClient = frameClient;
     this.tasks = taskClient;
   }
 
-  async delete(keys: RackKey | RackKey[]): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      DELETE_RACK_ENDPOINT,
+      DELETE_ENDPOINT,
       { keys: toArray(keys) },
       deleteReqZ,
       deleteResZ,
     );
   }
 
-  async create(rack: NewRack): Promise<Rack>;
+  async create(rack: New): Promise<Rack>;
 
-  async create(racks: NewRack[]): Promise<Rack[]>;
+  async create(racks: New[]): Promise<Rack[]>;
 
-  async create(rack: NewRack | NewRack[]): Promise<Rack | Rack[]> {
+  async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
-      CREATE_RACK_ENDPOINT,
+      CREATE_ENDPOINT,
       { racks: toArray(rack) },
       createReqZ,
       createResZ,
@@ -101,64 +87,62 @@ export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
   }
 
   async search(term: string): Promise<Rack[]> {
-    const res = await sendRequired<typeof retrieveRackReqZ, typeof retrieveRackResZ>(
+    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
       { search: term },
-      retrieveRackReqZ,
-      retrieveRackResZ,
+      retrieveReqZ,
+      retrieveResZ,
     );
     return this.sugar(res.racks);
   }
 
   async page(offset: number, limit: number): Promise<Rack[]> {
-    const res = await sendRequired<typeof retrieveRackReqZ, typeof retrieveRackResZ>(
+    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
       { offset, limit },
-      retrieveRackReqZ,
-      retrieveRackResZ,
+      retrieveReqZ,
+      retrieveResZ,
     );
     return this.sugar(res.racks);
   }
 
-  async retrieve(key: string | RackKey): Promise<Rack>;
+  async retrieve(key: string | Key): Promise<Rack>;
 
-  async retrieve(keys: number[] | RackKey[]): Promise<Rack[]>;
+  async retrieve(keys: Key[]): Promise<Rack[]>;
 
-  async retrieve(
-    racks: string | RackKey | string[] | RackKey[],
-  ): Promise<Rack | Rack[]> {
+  async retrieve(racks: string | Key | Key[]): Promise<Rack | Rack[]> {
     const { variant, normalized, single } = analyzeParams(racks, {
       string: "names",
       number: "keys",
     });
-    const res = await sendRequired<typeof retrieveRackReqZ, typeof retrieveRackResZ>(
+    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
       { [variant]: normalized },
-      retrieveRackReqZ,
-      retrieveRackResZ,
+      retrieveReqZ,
+      retrieveResZ,
     );
     const sugared = this.sugar(res.racks);
     checkForMultipleOrNoResults("Rack", racks, sugared, single);
     return single ? sugared[0] : sugared;
   }
 
-  private sugar(payloads: RackPayload[]): Rack[] {
+  private sugar(payloads: Payload[]): Rack[] {
     return payloads.map(({ key, name }) => new Rack(key, name, this.tasks));
   }
 }
 
 export class Rack {
-  key: number;
+  key: Key;
   name: string;
   private readonly tasks: task.Client;
 
-  constructor(key: number, name: string, client: task.Client) {
+  constructor(key: Key, name: string, taskClient: task.Client) {
     this.key = key;
     this.name = name;
-    this.tasks = client;
+    this.tasks = taskClient;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -173,7 +157,7 @@ export class Rack {
     C extends UnknownRecord,
     D extends {} = UnknownRecord,
     T extends string = string,
-  >(task: task.NewTask<C, T>): Promise<task.Task<C, D, T>> {
+  >(task: task.New<C, T>): Promise<task.Task<C, D, T>> {
     task.key = (
       (BigInt(this.key) << 32n) +
       (BigInt(task.key ?? 0) & 0xffffffffn)
@@ -185,4 +169,3 @@ export class Rack {
     await this.tasks.delete([task]);
   }
 }
-export { rackKeyZ };

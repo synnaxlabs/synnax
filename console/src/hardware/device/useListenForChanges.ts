@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { type UnknownRecord } from "@synnaxlabs/x";
 
-export const NEW_STATUS_KEY_PREFIX = "new-device-";
+const PREFIX = "new-device-";
 
 export const useListenForChanges = (): void => {
   const client = Synnax.use();
@@ -24,12 +26,19 @@ export const useListenForChanges = (): void => {
           if (device.configured) return;
           addStatus({
             variant: "info",
-            key: `${NEW_STATUS_KEY_PREFIX}${device.key}`,
+            key: `${PREFIX}${device.key}`,
             message: `New ${device.model} connected`,
-            data: device,
+            data: device as unknown as UnknownRecord,
           });
         });
     });
     return () => void tracker.close();
   }, [addStatus, client]);
 };
+
+const PREFIX_LENGTH = PREFIX.length;
+
+export const getKeyFromStatus = ({
+  key,
+}: Status.NotificationSpec): device.Key | null =>
+  key.startsWith(PREFIX) ? key.slice(PREFIX_LENGTH) : null;

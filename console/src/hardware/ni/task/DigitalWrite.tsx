@@ -22,7 +22,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { use } from "@/hardware/device/use";
-import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
+import { CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
 import { type Device, type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
@@ -295,7 +295,7 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
         <Text.Text level="p">No device selected</Text.Text>
       </Align.Space>
     );
-  const handleConfigure = () => place({ ...ZERO_CONFIGURE_LAYOUT, key: device.key });
+  const handleConfigure = () => place({ ...CONFIGURE_LAYOUT, key: device.key });
   if (!device.configured)
     return (
       <Align.Space grow align="center" justify="center" direction="y">

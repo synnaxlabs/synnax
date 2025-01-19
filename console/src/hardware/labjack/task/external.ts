@@ -12,8 +12,9 @@ import { READ_TYPE, WRITE_TYPE } from "@/hardware/labjack/task/types";
 import { ConfigureWrite, WRITE_SELECTABLE } from "@/hardware/labjack/task/Write";
 import { type Layout } from "@/layout";
 
-export * from "@/hardware/labjack/task/SelectDevice";
+export * from "@/hardware/labjack/task/palette";
 export * from "@/hardware/labjack/task/Read";
+export * from "@/hardware/labjack/task/SelectDevice";
 export * from "@/hardware/labjack/task/types";
 export * from "@/hardware/labjack/task/Write";
 

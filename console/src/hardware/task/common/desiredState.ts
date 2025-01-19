@@ -15,7 +15,7 @@ export type DesiredState = "running" | "paused" | null;
 
 export const useDesiredState = (
   initialState: DesiredState = null,
-  taskKey?: task.TaskKey,
+  taskKey?: task.Key,
 ): [DesiredState, Dispatch<SetStateAction<DesiredState>>] => {
   const [state, setState] = useState<DesiredState>(initialState);
   const client = Synnax.use();

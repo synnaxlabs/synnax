@@ -56,7 +56,7 @@ export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const ZERO_CONFIGURE_LAYOUT: Layout.BaseState = {
+export const CONFIGURE_LAYOUT: Layout.BaseState = {
   key: CONFIGURE_LAYOUT_TYPE,
   type: CONFIGURE_LAYOUT_TYPE,
   name: "OPC.Device.Configure",

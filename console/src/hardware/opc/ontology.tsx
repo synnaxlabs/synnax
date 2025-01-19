@@ -11,46 +11,37 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
+import { CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
 import { configureReadLayout } from "@/hardware/opc/task/Read";
 import { createWriteLayout } from "@/hardware/opc/task/Write";
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
-interface Args {
-  create: boolean;
-  initialValues: { config: { device: string } };
-}
-
 export const ContextMenuItems = ({
   selection: { resources },
 }: Ontology.TreeContextMenuProps): ReactElement | null => {
-  const first = resources[0];
-  const isSingle = resources.length === 1;
-  const place = Layout.usePlacer();
-  const initialArgs: Args = {
-    create: true,
-    initialValues: { config: { device: first.id.key } },
-  };
-  const createReadTask = () => place(configureReadLayout(initialArgs));
-  const createWriteTask = () => place(createWriteLayout(initialArgs));
-  const createConfigure = () => place({ ...ZERO_CONFIGURE_LAYOUT, key: first.id.key });
-  if (!isSingle) return null;
+  const placeLayout = Layout.usePlacer();
+  if (resources.length !== 1) return null;
+  const key = resources[0].id.key;
+  const handleEditConnection = () => placeLayout({ ...CONFIGURE_LAYOUT, key });
+  const args = { create: true, initialValues: { config: { device: key } } };
+  const handleCreateReadTask = () => placeLayout(configureReadLayout(args));
+  const handleCreateWriteTask = () => placeLayout(createWriteLayout(args));
   return (
     <>
       <Menu.Item
         itemKey="opc.connect"
         startIcon={<Icon.Connect />}
-        onClick={createConfigure}
+        onClick={handleEditConnection}
       >
         Edit Connection
       </Menu.Item>
       <Menu.Divider />
-      <Task.CreateMenuItem itemKey="opc.readTask" onClick={createReadTask}>
+      <Task.CreateMenuItem itemKey="opc.readTask" onClick={handleCreateReadTask}>
         Create a Read Task
       </Task.CreateMenuItem>
-      <Task.CreateMenuItem itemKey="opc.writeTask" onClick={createWriteTask}>
+      <Task.CreateMenuItem itemKey="opc.writeTask" onClick={handleCreateWriteTask}>
         Create a Write Task
       </Task.CreateMenuItem>
     </>

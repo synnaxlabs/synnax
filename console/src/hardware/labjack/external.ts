@@ -12,7 +12,7 @@ import { Task } from "@/hardware/labjack/task";
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/labjack/device";
-export * from "@/hardware/labjack/palette";
+export * from "@/hardware/labjack/ontology";
 export * from "@/hardware/labjack/task";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
@@ -21,3 +21,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const SELECTABLES = Task.SELECTABLES;
+
+export const COMMANDS = Task.COMMANDS;

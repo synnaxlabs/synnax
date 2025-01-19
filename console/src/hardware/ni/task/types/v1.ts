@@ -15,7 +15,7 @@ import * as v0 from "@/hardware/ni/task/types/v0";
 
 const VERSION = "1.0.0";
 
-const aiChanExtensionZ = z.object({ device: device.deviceKeyZ });
+const aiChanExtensionZ = z.object({ device: device.keyZ });
 interface AIChanExtension extends z.infer<typeof aiChanExtensionZ> {}
 const ZERO_AI_CHAN_EXTENSION: AIChanExtension = { device: "" };
 

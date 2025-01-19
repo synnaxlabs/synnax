@@ -74,7 +74,7 @@ export const createLayout = (task: task.Task): Layout.State => {
 
 export const retrieveAndPlaceLayout = async (
   client: Synnax,
-  key: task.TaskKey,
+  key: task.Key,
   placeLayout: Layout.Placer,
 ) => {
   const t = await client.hardware.tasks.retrieve(key);

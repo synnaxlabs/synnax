@@ -13,6 +13,7 @@ import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
 export * from "@/hardware/opc/device";
+export * from "@/hardware/opc/ontology";
 export * from "@/hardware/opc/task";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
@@ -20,5 +21,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Task.LAYOUTS,
 };
 
-export const SELECTABLES: Layout.Selectable[] = [...Task.SELECTABLES];
+export const SELECTABLES: Layout.Selectable[] = Task.SELECTABLES;
 export const COMMANDS: Palette.Command[] = [...Device.COMMANDS, ...Task.COMMANDS];
