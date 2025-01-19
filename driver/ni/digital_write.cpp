@@ -32,7 +32,7 @@ void ni::DigitalWriteSink::get_index_keys() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    daqWriter                                  //
+//                            DigitalWriteSink                                   //
 ///////////////////////////////////////////////////////////////////////////////////
 ni::DigitalWriteSink::DigitalWriteSink(
     TaskHandle task_handle,
@@ -81,7 +81,6 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
 
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
         this->writer_config.device_key);
-
     if (err != freighter::NIL)
         return this->log_error(
             "failed to retrieve device with key " + this->writer_config.device_key);
@@ -461,4 +460,126 @@ void ni::StateSource::update_state(
         modified_state_values.pop();
     }
     waiting_reader.notify_one();
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+//                             AnalogWriteSink                                   //
+///////////////////////////////////////////////////////////////////////////////////
+void ni::DigitalWriteSink::get_index_keys() {
+    if (this->writer_config.state_channel_keys.empty()) return;
+    auto state_channel = this->writer_config.state_channel_keys[0];
+    auto [state_channel_info, err] = this->ctx->client->channels.
+            retrieve(state_channel);
+    if (err) return this->log_error("failed to retrieve channel " + state_channel);
+    this->writer_config.state_index_key = state_channel_info.index;
+}
+
+ni::AnalogWriteSink::AnalogWriteSink(
+    TaskHandle task_handle,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task)
+    : task_handle(task_handle),
+      ctx(ctx),
+      task(task),
+      err_info({}) {
+    auto config_parser = config::Parser(task.config);
+    this->writer_config.task_name = task.name;
+    this->parse_config(config_parser);
+    if (!config_parser.ok()) {
+        this->log_error(
+            "failed to parse configuration for " + this->writer_config.task_name);
+        this->ctx->set_state({
+            .task = this->task.key,
+            .variant = "error",
+            .details = config_parser.error_json()
+        });
+        return;
+    }
+    auto breaker_config = breaker::Config{
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
+    };
+    this->breaker = breaker::Breaker(breaker_config);
+    if (this->init())
+        this->log_error("failed to configure NI hardware for task " + this->
+                        writer_config.task_name);
+    this->get_index_keys();
+    this->writer_state_source = std::make_shared<ni::StateSource>(
+        this->writer_config.state_rate,
+        this->writer_config.state_index_key,
+        this->writer_config.state_channel_keys
+    );
+}
+
+void ni::AnalogWriteSink::parse_config(config::Parser &parser){
+    this->writer_config.state_rate = parser.required<float>("state_rate");
+    this->writer_config.device_key = parser.required<std::string>("device");
+
+    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+        this->writer_config.device_key);
+    if(err != freighter::NIL)
+        return this->log_error(
+            "failed to retrieve device with key " + this->writer_config.device_key);
+
+    this->writer_config.device_name = dev.location;
+    std::uint64_t c_count = 0;
+    parser.iter(
+            "channels",
+            [&](config::Parser &channel_builder) {
+                ni::ChannelConfig config;
+                // analog channel names are formatted: <device_name>/ai<port>
+                std::string port = std::to_string(
+                        channel_builder.required<std::uint64_t>(
+                                "port"));
+
+                config.name = name + "/ao" + port;
+                config.enabled = channel_builder.optional<bool>("enabled", true);
+                config.channel_type = channel_builder.required<std::string>("type");
+                config.min_val = channel_builder.required<float>("min_val");
+                config.max_val = channel_builder.required<float>("max_val");
+
+                if(config.enabled) {
+                    config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
+                    this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
+
+                    auto state_key = channel_builder.required<uint32_t>("state_channel");
+                    this->writer_config.state_channel_keys.push_back(state_key);
+
+                    config.state_channel_key = state_key;
+
+                    this->channel_map[config.name] = "channels." + std::to_string(c_count);
+
+                    this->writer_config.channels.push_back(config);
+                    c_count++;
+                }
+            });
+}
+
+int ni::AnalogWriteSink::init(){
+    int err = 0;
+    auto channels = this->writer_config.channels;
+    for (auto &channel: channels) {
+        if(channel.channel_type == "current") { // TODO: might have to chane
+           err = this->check_ni_err(ni::NiDAQmxInterface::CreateAOCurrentChan(
+                   this->task_handle,
+                     channel.name.c_str(),
+                     "",
+
+                   )
+        }
+        else if(channel.channel_type == "voltage") {
+            err = this->check_ni_error(ni::NiDAQmxInterface::CreateAOVoltageChan(
+                    this->task_handle, channel.name.c_str(), "",
+                    -10.0, 10.0, DAQmx_Val_Volts, ""));
+        }
+
+
+        this->num_channels++;
+        if (err < 0) {
+            this->log_error("failed to create channel " + channel.name);
+            return -1;
+        }
+    }
 }

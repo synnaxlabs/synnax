@@ -113,6 +113,8 @@ struct ChannelConfig {
     std::shared_ptr<ni::Analog> ni_channel;
     bool enabled = true;
     synnax::DataType data_type;
+    double min_val = 0;
+    double max_val = 0;
 };
 
 struct ReaderConfig {
@@ -319,6 +321,8 @@ public:
           std::queue<std::uint8_t> &modified_state_values
       );
 
+    //TODO create an update state function for float32/float64
+
 private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
@@ -412,6 +416,75 @@ private:
     synnax::Task task;
     std::map<std::string, std::string> channel_map;
 }; // class DigitalWriteSink
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                 AnalogWriteSink                               //
+///////////////////////////////////////////////////////////////////////////////////
+class AnalogWriteSink final : public pipeline::Sink{
+public:
+    explicit AnalogWriteSink(
+        TaskHandle task_handle,
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    );
+
+    ~AnalogWriteSink();
+
+    int init();
+
+    freighter::Error write(synnax::Frame frame) override;
+
+    freighter::Error stop(const std::string &cmd_key);
+
+    freighter::Error start(const std::string &cmd_key);
+
+    freighter::Error start_ni();
+
+    freighter::Error stop_ni();
+
+    freighter::Error cycle();
+
+    std::vector<synnax::ChannelKey> get_cmd_channel_keys();
+
+    std::vector<synnax::ChannelKey< get_state_channel_keys();
+
+    void get_index_keys();
+
+    bool ok();
+
+    void jsonify_error(std::string);
+
+    void stopped_with_err(const freighter::Error &err) override;
+
+    void log_error(std::string err_msg);
+
+    void clear_task();
+
+    std::shared_ptr<ni::StateSource> writer_state_source;
+
+private:
+    freighter::Error format_data(const synnax::Frame &frame);
+
+    void parse_config(config::Parser &parser);
+
+    int check_ni_error(int32 error);
+
+    uint8_t *write_buffer = nullptr;
+    int buffer_size = 0;
+    int num_samples_per_channel = 0;
+    TaskHandle task_handle = 0;
+
+    uint64_t num_channels = 0;
+
+    json err_info;
+
+    bool ok_state = true;
+    std::shared_ptr<task::Context> ctx;
+    WriterConfig writer_config;
+    breaker::Breaker breaker;
+    synnax::Task task;
+    std::map<std::string, std::string> channel_map;
+}; // class AnalogWriteSink
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Scanner                                    //
