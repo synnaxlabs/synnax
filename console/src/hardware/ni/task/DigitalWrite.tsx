@@ -21,8 +21,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { useDevice } from "@/hardware/device/useDevice";
-import { createConfigureLayout } from "@/hardware/ni/device/Configure";
+import { use } from "@/hardware/device/use";
+import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
 import { type Device, type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
@@ -53,7 +53,7 @@ import {
 import {
   checkDesiredStateMatch,
   useDesiredState,
-} from "@/hardware/task/common/useDesiredState";
+} from "@/hardware/task/common/desiredState";
 import { Layout } from "@/layout";
 
 export const createDigitalWriteLayout = createLayoutCreator<DigitalWritePayload>(
@@ -287,16 +287,15 @@ interface MainContentProps {
 
 const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
   const formCtx = Form.useContext();
-  const device = useDevice(formCtx) as Device | undefined;
+  const device = use(formCtx) as Device | undefined;
   const place = Layout.usePlacer();
-  console.log(device);
   if (device == null)
     return (
       <Align.Space grow empty align="center" justify="center">
         <Text.Text level="p">No device selected</Text.Text>
       </Align.Space>
     );
-  const handleConfigure = () => place(createConfigureLayout(device.key, {}));
+  const handleConfigure = () => place({ ...ZERO_CONFIGURE_LAYOUT, key: device.key });
   if (!device.configured)
     return (
       <Align.Space grow align="center" justify="center" direction="y">

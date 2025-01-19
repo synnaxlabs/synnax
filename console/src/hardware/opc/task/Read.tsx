@@ -38,10 +38,10 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { useDevice } from "@/hardware/device/useDevice";
+import { use } from "@/hardware/device/use";
 import { Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
-import { createConfigureLayout } from "@/hardware/opc/device/Configure";
+import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
 import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Read,
@@ -67,7 +67,7 @@ import {
 import {
   checkDesiredStateMatch,
   useDesiredState,
-} from "@/hardware/task/common/useDesiredState";
+} from "@/hardware/task/common/desiredState";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
@@ -96,7 +96,7 @@ const Wrapped = ({
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const methods = Form.use({ schema, values: initialValues });
-  const dev = useDevice<Device.Properties>(methods);
+  const dev = use<Device.Properties>(methods);
   const taskState = useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
@@ -324,7 +324,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => place(createConfigureLayout())}
+                        onClick={() => place({ ...ZERO_CONFIGURE_LAYOUT })}
                       >
                         Connect a new server.
                       </Text.Link>

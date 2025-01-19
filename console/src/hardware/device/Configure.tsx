@@ -22,12 +22,71 @@ import {
   Triggers,
 } from "@synnaxlabs/pluto";
 import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
+
+export const CONFIGURE_LAYOUT_TYPE = "configure";
+
+export const CONFIGURE_LAYOUT: Layout.BaseState = {
+  key: CONFIGURE_LAYOUT_TYPE,
+  type: CONFIGURE_LAYOUT_TYPE,
+  name: "Device.Configure",
+  icon: "Device",
+  location: "modal",
+  window: { resizable: false, size: { height: 350, width: 800 }, navTop: true },
+};
+
+interface ConfigureProps<P extends UnknownRecord> extends Layout.RendererProps {
+  zeroProperties: P;
+}
+
+export const Configure = <P extends UnknownRecord>({
+  layoutKey,
+  onClose,
+  zeroProperties,
+}: ConfigureProps<P>): ReactElement => {
+  const client = Synnax.use();
+  const {
+    isPending,
+    isError,
+    error,
+    data: device,
+  } = useQuery({
+    queryKey: [layoutKey, client?.key],
+    queryFn: async () => {
+      if (client == null) throw new Error("Cannot reach server");
+      return await client.hardware.devices.retrieve<P>(layoutKey);
+    },
+  });
+  if (isPending)
+    return (
+      <Status.Text.Centered variant="loading" level="h2">
+        Fetching device from server
+      </Status.Text.Centered>
+    );
+  if (isError)
+    return (
+      <Align.Space direction="y" grow align="center" justify="center">
+        <Text.Text level="h2" color={Status.variantColors.error}>
+          Failed to load data for device with key {layoutKey}
+        </Text.Text>
+        <Text.Text level="p" color={Status.variantColors.error}>
+          {error.message}
+        </Text.Text>
+      </Align.Space>
+    );
+  return <Internal device={device} onClose={onClose} zeroProperties={zeroProperties} />;
+};
+
+interface InternalProps<P extends UnknownRecord>
+  extends Pick<Layout.RendererProps, "onClose"> {
+  device: device.Device<P>;
+  zeroProperties: P;
+}
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
 
@@ -42,25 +101,14 @@ const configurablePropertiesZ = z.object({
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export type ConfigureProps<P extends UnknownRecord = UnknownRecord> = Pick<
-  Layout.RendererProps,
-  "onClose"
-> & {
-  device: device.Device<P>;
-  zeroProperties: P;
-};
-
-export const Configure = <P extends UnknownRecord = UnknownRecord>({
+const Internal = <P extends UnknownRecord>({
   device,
   device: { name },
   onClose,
   zeroProperties,
-}: ConfigureProps<P>): ReactElement => {
+}: InternalProps<P>): ReactElement => {
   const methods = Form.use<typeof configurablePropertiesZ>({
-    values: {
-      name, // TODO: something odd with naming here if i rename and reconfigure through ontology context menu
-      identifier: "",
-    },
+    values: { name, identifier: "" },
     schema: configurablePropertiesZ,
   });
   const client = Synnax.use();
@@ -69,16 +117,16 @@ export const Configure = <P extends UnknownRecord = UnknownRecord>({
   const identifierRef = useRef<HTMLInputElement>(null);
   const handleException = Status.useExceptionHandler();
   const { isPending, mutate } = useMutation<void, Error, void>({
-    onError: (e) => handleException(e, `Failed to configure ${device.name}`),
+    onError: (e) => handleException(e, `Failed to configure ${name}`),
     mutationFn: async () => {
-      if (client == null) throw new Error("Cannot reach cluster");
+      if (client == null) throw new Error("Cannot reach server");
       if (step === "name") {
         if (methods.validate("name")) {
           setStep("identifier");
           setRecommendedIds(
             strings.generateShortIdentifiers(methods.get<string>("name").value),
           );
-          setTimeout(() => identifierRef.current?.focus(), 100); // TODO jank
+          setTimeout(() => identifierRef.current?.focus(), 100);
         }
         return;
       }
@@ -97,7 +145,6 @@ export const Configure = <P extends UnknownRecord = UnknownRecord>({
       onClose();
     },
   });
-
   return (
     <Align.Space className={CSS.B("configure")} align="stretch" empty>
       <Form.Form {...methods}>

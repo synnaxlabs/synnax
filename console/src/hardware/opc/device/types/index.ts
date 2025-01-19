@@ -12,6 +12,7 @@ import { migrate } from "@synnaxlabs/x";
 import * as v0 from "@/hardware/opc/device/types/v0";
 import * as v1 from "@/hardware/opc/device/types/v1";
 
+export const MAKE = v0.MAKE;
 export const securityModeZ = v0.securityModeZ;
 export type SecurityMode = v0.SecurityMode;
 export const securityPolicyZ = v0.securityPolicyZ;

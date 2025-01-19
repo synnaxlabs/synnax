@@ -84,7 +84,7 @@ const useColumns = (
   }, [filter, aliases]);
 };
 
-export const resolveIcon = (ch?: channel.Payload): ReactElement<PIcon.BaseProps> => {
+export const resolveIcon = (ch?: channel.Payload): PIcon.Element => {
   if (ch == null) return <Icon.Channel />;
   if (channel.isCalculated(ch)) return <Icon.Calculation />;
   if (ch.isIndex) return <Icon.Index />;

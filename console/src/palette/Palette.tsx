@@ -399,7 +399,7 @@ interface CommandActionProps {
 export interface Command {
   key: string;
   name: ReactElement | string;
-  icon?: ReactElement<PIcon.BaseProps>;
+  icon?: PIcon.Element;
   visible?: (state: Permissions.StoreState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
   actions?: (CommandActionProps | ReactElement)[];

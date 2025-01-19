@@ -106,7 +106,7 @@ export const NavControls = (): ReactElement => {
       </Button.ToggleIcon>
       <Select.Button<
         ClickMode,
-        { key: ClickMode; icon: ReactElement<PIcon.BaseProps>; tooltip: ReactNode }
+        { key: ClickMode; icon: PIcon.Element; tooltip: ReactNode }
       >
         value={control.clickMode}
         onChange={handleClickModeChange}

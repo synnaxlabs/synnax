@@ -17,7 +17,6 @@ import {
   outputChannelTypeZ,
   TC_CHANNEL_TYPE,
 } from "@/hardware/labjack/device/types";
-import { thermocoupleTypeZ } from "@/hardware/task/common/thermocouple";
 
 export const PREFIX = "labjack";
 
@@ -71,6 +70,8 @@ const KELVIN_UNIT = "K";
 const temperatureUnitsZ = z.enum([CELSIUS_UNIT, FAHRENHEIT_UNIT, KELVIN_UNIT]);
 export type TemperatureUnits = z.infer<typeof temperatureUnitsZ>;
 
+const thermocoupleTypeZ = z.enum(["J", "K", "N", "R", "S", "T", "B", "E", "C"]);
+
 export const thermocoupleChannelZ = z.object({
   key: z.string(),
   port: z.string(),
@@ -78,7 +79,7 @@ export const thermocoupleChannelZ = z.object({
   channel: channel.keyZ,
   range: z.number(),
   type: z.literal(TC_CHANNEL_TYPE),
-  thermocoupleType: thermocoupleTypeZ.or(z.literal("C")),
+  thermocoupleType: thermocoupleTypeZ,
   posChan: z.number(),
   negChan: z.number(),
   cjcSource: z.string(),

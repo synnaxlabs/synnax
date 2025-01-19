@@ -23,7 +23,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { type Dispatch, type ReactElement, useCallback, useState } from "react";
+import { type Dispatch, useCallback, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { useOpenInNewWindow } from "@/layout/Menu";
@@ -52,12 +52,12 @@ export interface CreatorProps {
   store: RootStore;
 }
 
-type StateWithoutWindowKey = Omit<State, "windowKey">;
+export interface BaseState extends Omit<State, "windowKey"> {}
 
 /** A function that creates a layout given a set of utilities. */
-export type Creator = (props: CreatorProps) => StateWithoutWindowKey;
+export type Creator = (props: CreatorProps) => BaseState;
 
-export type PlacerArgs = StateWithoutWindowKey | Creator;
+export type PlacerArgs = BaseState | Creator;
 
 /** A function that places a layout using the given properties or creation func. */
 export type Placer = (layout: PlacerArgs) => {
@@ -182,7 +182,7 @@ const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void>
 
 export interface NavMenuItem {
   key: string;
-  icon: ReactElement<Icon.BaseProps>;
+  icon: Icon.Element;
   tooltip: string;
 }
 

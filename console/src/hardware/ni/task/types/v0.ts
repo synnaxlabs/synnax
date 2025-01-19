@@ -880,6 +880,93 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   [AI_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
+// Analog Output Channels
+
+const baseAOChanZ = baseChannelZ.extend({
+  cmdChannel: channel.keyZ,
+  stateChannel: channel.keyZ,
+});
+interface BaseAOChan extends z.infer<typeof baseAOChanZ> {}
+const ZERO_BASE_AO_CHAN: BaseAOChan = {
+  ...ZERO_BASE_CHANNEL,
+  cmdChannel: 0,
+  stateChannel: 0,
+};
+
+const AO_CURRENT_CHAN_TYPE = "ao_current";
+const aoCurrentChanZ = baseAOChanZ
+  .merge(minMaxValZ)
+  .merge(customScaleZ)
+  .extend({ type: z.literal(AO_CURRENT_CHAN_TYPE), units: z.literal(AMPS) });
+interface AOCurrentChan extends z.infer<typeof aoCurrentChanZ> {}
+const ZERO_AO_CURRENT_CHAN: AOCurrentChan = {
+  ...ZERO_BASE_AO_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: AO_CURRENT_CHAN_TYPE,
+  units: AMPS,
+};
+
+const AO_FUNC_GEN_CHAN_TYPE = "ao_func_gen";
+const SINE = "Sine";
+const TRIANGLE = "Triangle";
+const SQUARE = "Square";
+const SAWTOOTH = "Sawtooth";
+
+const aoFuncGenChanZ = baseAOChanZ.extend({
+  type: z.literal(AO_FUNC_GEN_CHAN_TYPE),
+  // note that waveType is called type in DAQmx, but this conflicts with our convention
+  waveType: z.enum([SINE, SQUARE, TRIANGLE, SAWTOOTH]),
+  frequency: z.number(),
+  amplitude: z.number(),
+  offset: z.number(),
+});
+interface AOFuncGenChan extends z.infer<typeof aoFuncGenChanZ> {}
+const ZERO_AO_FUNC_GEN_CHAN: AOFuncGenChan = {
+  ...ZERO_BASE_AO_CHAN,
+  type: AO_FUNC_GEN_CHAN_TYPE,
+  waveType: SINE,
+  frequency: 0,
+  amplitude: 0,
+  offset: 0,
+};
+
+const AO_VOLTAGE_CHAN_TYPE = "ao_voltage";
+const aoVoltageChanZ = baseAOChanZ
+  .merge(minMaxValZ)
+  .merge(customScaleZ)
+  .extend({ type: z.literal(AO_VOLTAGE_CHAN_TYPE), units: z.literal(VOLTS) });
+interface AOVoltageChan extends z.infer<typeof aoVoltageChanZ> {}
+const ZERO_AO_VOLTAGE_CHAN: AOVoltageChan = {
+  ...ZERO_BASE_AO_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: AO_VOLTAGE_CHAN_TYPE,
+  units: VOLTS,
+};
+
+const aoChannelZ = z.union([aoCurrentChanZ, aoFuncGenChanZ, aoVoltageChanZ]);
+type AOChannel = z.infer<typeof aoChannelZ>;
+type AOChannelType = AOChannel["type"];
+
+const AO_CHANNEL_SCHEMAS: Record<AOChannelType, z.ZodType<AOChannel>> = {
+  [AO_CURRENT_CHAN_TYPE]: aoCurrentChanZ,
+  [AO_FUNC_GEN_CHAN_TYPE]: aoFuncGenChanZ,
+  [AO_VOLTAGE_CHAN_TYPE]: aoVoltageChanZ,
+};
+
+const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
+  [AO_CURRENT_CHAN_TYPE]: "Current",
+  [AO_FUNC_GEN_CHAN_TYPE]: "Function Generator",
+  [AO_VOLTAGE_CHAN_TYPE]: "Voltage",
+};
+
+const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
+  [AO_CURRENT_CHAN_TYPE]: ZERO_AO_CURRENT_CHAN,
+  [AO_FUNC_GEN_CHAN_TYPE]: ZERO_AO_FUNC_GEN_CHAN,
+  [AO_VOLTAGE_CHAN_TYPE]: ZERO_AO_VOLTAGE_CHAN,
+};
+
 // Digital Output Channels
 
 const DO_CHANNEL_TYPE = "digital_output";
@@ -957,6 +1044,35 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   name: "NI Analog Read Task",
   config: ZERO_ANALOG_READ_CONFIG,
   type: ANALOG_READ_TYPE,
+};
+
+// Analog Write Task
+
+const analogWriteConfigZ = baseConfigZ.extend({
+  stateRate: z.number().min(0).max(50000),
+  channels: z.array(aoChannelZ),
+});
+interface AnalogWriteConfig extends z.infer<typeof analogWriteConfigZ> {}
+const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
+  ...ZERO_BASE_CONFIG,
+  stateRate: 10,
+  channels: [],
+};
+
+interface AnalogWriteDetails extends BaseDetails {}
+
+const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
+type AnalogWriteType = typeof ANALOG_WRITE_TYPE;
+
+interface AnalogWrite
+  extends task.Task<AnalogWriteConfig, AnalogWriteDetails, AnalogWriteType> {}
+interface AnalogWritePayload
+  extends task.Payload<AnalogWriteConfig, AnalogWriteDetails, AnalogWriteType> {}
+const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
+  key: "",
+  name: "NI Analog Write Task",
+  config: ZERO_ANALOG_WRITE_CONFIG,
+  type: ANALOG_WRITE_TYPE,
 };
 
 // Digital Write Task

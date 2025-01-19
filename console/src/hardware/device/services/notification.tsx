@@ -8,46 +8,56 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Text } from "@synnaxlabs/pluto";
+import { Button, type Icon as PIcon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type Make, MAKE_ICONS } from "@/hardware/makes";
-import { createConfigureLayout } from "@/hardware/ni/device/Configure";
+import { Device } from "@/hardware/device";
+import { type Make, makeZ } from "@/hardware/device/services/make";
+import { ZERO_CONFIGURE_LAYOUTS } from "@/hardware/device/services/zeroConfigureLayoutStates";
+import { LabJack } from "@/hardware/labjack";
+import { NI } from "@/hardware/ni";
+import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
-import {
-  type NotificationAdapter,
-  type SugaredNotification,
-} from "@/notifications/Notifications";
+import { type Notifications } from "@/notifications";
 
-export const notificationAdapter: NotificationAdapter = (status) => {
-  if (!status.key.startsWith("new-device-")) return null;
-  // grab the device key from the status key
-  const deviceKey = status.key.slice("new-device-".length);
-  const sugared: SugaredNotification = {
-    ...status,
-    actions: [<ConfigureButton deviceKey={deviceKey} key="configure" />],
-  };
-  const icon = MAKE_ICONS[status?.data?.make as Make] ?? <Icon.Device />;
+const MAKE_ICONS: Record<Make, PIcon.Element> = {
+  [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
+  [NI.Device.MAKE]: <Icon.Logo.NI />,
+  [OPC.Device.MAKE]: <Icon.Logo.OPC />,
+};
+
+const PREFIX_LENGTH = Device.NEW_STATUS_KEY_PREFIX.length;
+
+export const notificationAdapter: Notifications.NotificationAdapter = (status) => {
+  if (!status.key.startsWith(Device.NEW_STATUS_KEY_PREFIX)) return null;
+  const sugared: Notifications.SugaredNotification = { ...status };
+  const make = makeZ.safeParse(status?.data?.make)?.data;
+  const startIcon = make != null ? MAKE_ICONS[make] : <Icon.Device />;
   sugared.content = (
-    <Text.WithIcon level="p" startIcon={icon}>
+    <Text.WithIcon level="p" startIcon={startIcon}>
       {status.message}
     </Text.WithIcon>
   );
+  if (make != null)
+    sugared.actions = (
+      <ConfigureButton
+        layout={{
+          ...ZERO_CONFIGURE_LAYOUTS[make],
+          key: status.key.slice(PREFIX_LENGTH),
+        }}
+      />
+    );
   return sugared;
 };
 
 interface ConfigureButtonProps {
-  deviceKey: string;
+  layout: Layout.BaseState;
 }
 
-const ConfigureButton = ({ deviceKey }: ConfigureButtonProps): ReactElement => {
-  const place = Layout.usePlacer();
+const ConfigureButton = ({ layout }: ConfigureButtonProps): ReactElement => {
+  const placeLayout = Layout.usePlacer();
   return (
-    <Button.Button
-      variant="outlined"
-      size="small"
-      onClick={() => place(createConfigureLayout(deviceKey, {}))}
-    >
+    <Button.Button variant="outlined" size="small" onClick={() => placeLayout(layout)}>
       Configure
     </Button.Button>
   );

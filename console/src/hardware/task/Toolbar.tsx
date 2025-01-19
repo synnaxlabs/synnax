@@ -33,20 +33,20 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
-import { checkDesiredStateMatch } from "@/hardware/task/common/useDesiredState";
+import {
+  checkDesiredStateMatch,
+  type DesiredState,
+} from "@/hardware/task/common/desiredState";
 import { createLayout } from "@/hardware/task/ontology";
-import { createSelector } from "@/hardware/task/Selector";
+import { ZERO_SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
-type DesiredTaskState = "running" | "paused" | null;
-
 const EmptyContent = (): ReactElement => {
   const place = Layout.usePlacer();
-  const handleClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
-    e.stopPropagation();
-    place(createSelector({}));
+  const handleClick: React.MouseEventHandler<HTMLParagraphElement> = () => {
+    place(ZERO_SELECTOR_LAYOUT);
   };
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
@@ -112,7 +112,7 @@ const Content = (): ReactElement => {
     },
   }).mutate;
   const [desiredStates, setDesiredStates] = useState<
-    Record<task.TaskKey, DesiredTaskState>
+    Record<task.TaskKey, DesiredState>
   >({});
   const menuProps = PMenu.useContextMenu();
   const addStatus = Status.useAggregator();
@@ -328,7 +328,7 @@ const Content = (): ReactElement => {
             {[
               {
                 children: <Icon.Add />,
-                onClick: () => place(createSelector({})),
+                onClick: () => place(ZERO_SELECTOR_LAYOUT),
               },
             ]}
           </Header.Actions>
@@ -372,8 +372,8 @@ export const Toolbar: Layout.NavDrawerItem = {
 };
 
 interface TaskListItemProps extends List.ItemProps<string, task.Task> {
-  desiredState: DesiredTaskState;
-  onStopStart: (state: DesiredTaskState) => void;
+  desiredState: DesiredState;
+  onStopStart: (state: DesiredState) => void;
   onRename: (name: string) => void;
 }
 

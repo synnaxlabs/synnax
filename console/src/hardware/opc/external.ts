@@ -20,8 +20,5 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Task.LAYOUTS,
 };
 
-export const SELECTABLES: Layout.Selectable[] = Task.SELECTABLES;
+export const SELECTABLES: Layout.Selectable[] = [...Task.SELECTABLES];
 export const COMMANDS: Palette.Command[] = [...Device.COMMANDS, ...Task.COMMANDS];
-
-export const MAKE = "opc";
-export type Make = typeof MAKE;

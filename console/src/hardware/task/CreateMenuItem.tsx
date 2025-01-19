@@ -1,0 +1,26 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Icon } from "@synnaxlabs/media";
+import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
+
+export interface CreateMenuItemProps extends Menu.ItemProps {}
+
+export const CreateMenuItem = ({ children, ...props }: CreateMenuItemProps) => (
+  <Menu.Item
+    startIcon={
+      <PIcon.Create>
+        <Icon.Task />
+      </PIcon.Create>
+    }
+    {...props}
+  >
+    {children}
+  </Menu.Item>
+);

@@ -58,7 +58,7 @@ import {
 import {
   checkDesiredStateMatch,
   useDesiredState,
-} from "@/hardware/task/common/useDesiredState";
+} from "@/hardware/task/common/desiredState";
 import { type Layout } from "@/layout";
 
 export const createDigitalReadLayout = createLayoutCreator<DigitalReadPayload>(
@@ -84,10 +84,7 @@ const Wrapped = ({
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
-    schema: z.object({
-      name: z.string(),
-      config: digitalReadConfigZ,
-    }),
+    schema: z.object({ name: z.string(), config: digitalReadConfigZ }),
   });
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);

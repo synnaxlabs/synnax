@@ -17,7 +17,7 @@ import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Butto
 
 interface Entry {
   key: Align.Alignment;
-  icon: ReactElement<PIcon.BaseProps>;
+  icon: PIcon.Element;
 }
 
 export interface AlignmentProps
@@ -27,18 +27,9 @@ export interface AlignmentProps
   > {}
 
 const DATA: Entry[] = [
-  {
-    key: "start",
-    icon: <Icon.TextAlign.Left />,
-  },
-  {
-    key: "center",
-    icon: <Icon.TextAlign.Center />,
-  },
-  {
-    key: "end",
-    icon: <Icon.TextAlign.Right />,
-  },
+  { key: "start", icon: <Icon.TextAlign.Left /> },
+  { key: "center", icon: <Icon.TextAlign.Center /> },
+  { key: "end", icon: <Icon.TextAlign.Right /> },
 ];
 
 const defaultSelectTextAlignmentButton = ({

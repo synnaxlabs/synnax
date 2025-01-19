@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/hardware/device/Configure";
-export * from "@/hardware/device/useDevice";
+export * from "@/hardware/device/use";
 export * from "@/hardware/device/useListenForChanges";

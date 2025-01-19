@@ -28,7 +28,7 @@ import { type FC, type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { useDevice } from "@/hardware/device/useDevice";
+import { use } from "@/hardware/device/use";
 import {
   SelectInputChannelTypeField,
   SelectPort,
@@ -40,8 +40,8 @@ import {
   type ModelKey,
   type Properties,
 } from "@/hardware/labjack/device/types";
-import { SelectDevice } from "@/hardware/labjack/task/common";
 import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
+import { SelectDevice } from "@/hardware/labjack/task/SelectDevice";
 import {
   inputChannelZ,
   type Read,
@@ -75,11 +75,10 @@ import {
   type WrappedTaskLayoutProps,
   wrapTaskLayout,
 } from "@/hardware/task/common/common";
-import { LabJackThermocoupleTypeField } from "@/hardware/task/common/thermocouple";
 import {
   checkDesiredStateMatch,
   useDesiredState,
-} from "@/hardware/task/common/useDesiredState";
+} from "@/hardware/task/common/desiredState";
 import { type Layout } from "@/layout";
 
 export const createReadLayout = createLayoutCreator<ReadPayload>(
@@ -207,7 +206,7 @@ const Wrapped = ({
       await task?.executeCommand("tare", { keys });
     },
   }).mutate;
-  const dev = useDevice(methods);
+  const dev = use(methods);
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
@@ -559,6 +558,27 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement | null => {
 interface ThermocoupleFormProps extends FormProps {
   model: ModelKey;
 }
+
+const LabJackThermocoupleTypeField = Form.buildDropdownButtonSelectField({
+  fieldKey: "thermocoupleType",
+  fieldProps: { label: "Thermocouple Type" },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: [{ key: "name", name: "Name" }],
+    hideColumnHeader: true,
+    data: [
+      { key: "B", name: "B" },
+      { key: "E", name: "E" },
+      { key: "J", name: "J" },
+      { key: "K", name: "K" },
+      { key: "N", name: "N" },
+      { key: "R", name: "R" },
+      { key: "S", name: "S" },
+      { key: "T", name: "T" },
+      { key: "C", name: "C" },
+    ],
+  },
+});
 
 const ThermocoupleForm = ({
   prefix,

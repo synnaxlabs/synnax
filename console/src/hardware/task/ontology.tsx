@@ -240,12 +240,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   onSelect: handleSelect,
   onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
-  haulItems: (r) => [
-    {
-      type: Mosaic.HAUL_CREATE_TYPE,
-      key: r.id.toString(),
-    },
-  ],
+  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
 };

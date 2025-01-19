@@ -21,6 +21,3 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const SELECTABLES = Task.SELECTABLES;
-
-export const MAKE = "NI";
-export type Make = typeof MAKE;

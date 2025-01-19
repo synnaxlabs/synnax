@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon } from "@synnaxlabs/pluto";
 
-import { createConfigureLayout } from "@/hardware/opc/device/Configure";
+import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
 import { type Palette } from "@/palette";
 
 const connectServerCommand: Palette.Command = {
@@ -21,7 +21,7 @@ const connectServerCommand: Palette.Command = {
       <Icon.Logo.OPC />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) => placeLayout(createConfigureLayout()),
+  onSelect: ({ placeLayout }) => placeLayout({ ...ZERO_CONFIGURE_LAYOUT }),
 };
 
 export const COMMANDS: Palette.Command[] = [connectServerCommand];

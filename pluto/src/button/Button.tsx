@@ -62,8 +62,8 @@ export type ButtonProps = Omit<
   ButtonExtensionProps &
   BaseProps & {
     level?: Text.Level;
-    startIcon?: ReactElement<PIcon.BaseProps> | ReactElement<PIcon.BaseProps>[];
-    endIcon?: ReactElement<PIcon.BaseProps> | ReactElement<PIcon.BaseProps>[];
+    startIcon?: PIcon.Element | PIcon.Element[];
+    endIcon?: PIcon.Element | PIcon.Element[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;
@@ -105,7 +105,7 @@ export const Button = Tooltip.wrap(
     loading = false,
     level,
     triggers,
-    startIcon = [] as ReactElement<PIcon.BaseProps>[],
+    startIcon = [],
     onClickDelay = 0,
     onClick,
     color,

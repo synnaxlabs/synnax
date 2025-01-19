@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type change } from "@synnaxlabs/x";
+
+export const NEW_STATUS_KEY_PREFIX = "new-device-";
 
 export const useListenForChanges = (): void => {
   const client = Synnax.use();
@@ -18,18 +18,18 @@ export const useListenForChanges = (): void => {
     if (client == null) return;
     const tracker = await client.hardware.devices.openDeviceTracker();
     tracker.onChange((changes) => {
-      const sets = changes.filter(({ variant }) => variant === "set") as Array<
-        change.Set<string, device.Device>
-      >;
-      sets.forEach(({ value: dev }) => {
-        if (dev.configured === true) return;
-        addStatus({
-          variant: "info",
-          message: `New ${dev.model} connected`,
-          data: dev,
+      changes
+        .filter((c) => c.variant === "set")
+        .forEach(({ value: device }) => {
+          if (device.configured) return;
+          addStatus({
+            variant: "info",
+            key: `${NEW_STATUS_KEY_PREFIX}${device.key}`,
+            message: `New ${device.model} connected`,
+            data: device,
+          });
         });
-      });
     });
     return () => void tracker.close();
-  }, [client, addStatus]);
+  }, [addStatus, client]);
 };

@@ -56,22 +56,14 @@ export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const createConfigureLayout =
-  (device?: string, initial: Omit<Partial<Layout.State>, "type" | "icon"> = {}) =>
-  (): Layout.State => {
-    const { name = "OPC UA.Connect", location = "modal", ...rest } = initial;
-    const key = device ?? initial.key ?? CONFIGURE_LAYOUT_TYPE;
-    return {
-      key,
-      type: CONFIGURE_LAYOUT_TYPE,
-      windowKey: key,
-      name,
-      icon: "Logo.OPC",
-      window: { navTop: true, resizable: true, size: { height: 710, width: 800 } },
-      location,
-      ...rest,
-    };
-  };
+export const ZERO_CONFIGURE_LAYOUT: Layout.BaseState = {
+  key: CONFIGURE_LAYOUT_TYPE,
+  type: CONFIGURE_LAYOUT_TYPE,
+  name: "OPC.Device.Configure",
+  icon: "Logo.OPC",
+  location: "modal",
+  window: { resizable: false, size: { height: 710, width: 800 }, navTop: true },
+};
 
 export const Configure: Layout.Renderer = ({ onClose, layoutKey }): ReactElement => {
   const client = Synnax.use();

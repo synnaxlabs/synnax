@@ -26,8 +26,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { useDevice } from "@/hardware/device/useDevice";
-import { createConfigureLayout } from "@/hardware/labjack/device/Configure";
+import { use } from "@/hardware/device/use";
+import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/labjack/device/Configure";
 import { SelectOutputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
 import {
   type ConfiguredDevice,
@@ -36,8 +36,8 @@ import {
   type OutputChannelType,
   ZERO_COMMAND_STATE_PAIR,
 } from "@/hardware/labjack/device/types";
-import { SelectDevice } from "@/hardware/labjack/task/common";
 import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
+import { SelectDevice } from "@/hardware/labjack/task/SelectDevice";
 import {
   type Write,
   WRITE_TYPE,
@@ -65,7 +65,7 @@ import {
 import {
   checkDesiredStateMatch,
   useDesiredState,
-} from "@/hardware/task/common/useDesiredState";
+} from "@/hardware/task/common/desiredState";
 import { Layout } from "@/layout";
 
 export const createWriteLayout = createLayoutCreator<WritePayload>(
@@ -296,7 +296,7 @@ interface MainContentProps {
 
 const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
   const formCtx = Form.useContext();
-  const device = useDevice(formCtx) as Device | undefined;
+  const device = use(formCtx) as Device | undefined;
   const place = Layout.usePlacer();
   if (device == null)
     return (
@@ -304,7 +304,7 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
         <Text.Text level="p">No device selected</Text.Text>
       </Align.Space>
     );
-  const handleConfigure = () => place(createConfigureLayout(device.key, {}));
+  const handleConfigure = () => place({ ...ZERO_CONFIGURE_LAYOUT, key: device.key });
   if (!device.configured)
     return (
       <Align.Space grow align="center" justify="center" direction="y">

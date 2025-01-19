@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
-
-import { createConfigureLayout } from "@/hardware/ni/device/Configure";
+import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
 import { createAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
 import { createDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
 import { createDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
@@ -34,7 +32,7 @@ export const ContextMenuItems = ({
   };
   const maybeConfigure = () => {
     if (first.data?.configured === false)
-      place(createConfigureLayout(first.id.key, {}));
+      place({ ...ZERO_CONFIGURE_LAYOUT, key: first.id.key });
   };
   const handleCreateDigitalReadTask = () => {
     maybeConfigure();
@@ -51,40 +49,24 @@ export const ContextMenuItems = ({
   if (!isSingle) return null;
   return (
     <>
-      <Menu.Divider />
-      <Menu.Item
-        startIcon={
-          <PIcon.Create>
-            <Icon.Task />
-          </PIcon.Create>
-        }
+      <Task.CreateMenuItem
         itemKey="ni.analogReadTask"
         onClick={handleCreateAnalogReadTask}
       >
         Create Analog Read Task
-      </Menu.Item>
-      <Menu.Item
-        startIcon={
-          <PIcon.Create>
-            <Icon.Task />
-          </PIcon.Create>
-        }
+      </Task.CreateMenuItem>
+      <Task.CreateMenuItem
         itemKey="ni.digitalReadTask"
         onClick={handleCreateDigitalReadTask}
       >
         Create Digital Read Task
-      </Menu.Item>
-      <Menu.Item
-        startIcon={
-          <PIcon.Create>
-            <Icon.Task />
-          </PIcon.Create>
-        }
+      </Task.CreateMenuItem>
+      <Task.CreateMenuItem
         itemKey="ni.digitalWriteTask"
         onClick={handleCreateDigitalWriteTask}
       >
         Create Digital Write Task
-      </Menu.Item>
+      </Task.CreateMenuItem>
     </>
   );
 };

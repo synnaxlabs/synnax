@@ -13,5 +13,5 @@ import { createLayoutCreator as createTaskLayoutCreator } from "@/hardware/task/
 
 export const createLayoutCreator = <P extends task.Payload>(
   type: string,
-  defaultName: string = "New LabJack Task",
+  defaultName: string = "LabJack Task",
 ) => createTaskLayoutCreator<P>(type, defaultName, "Logo.LabJack");

@@ -26,7 +26,7 @@ export const ToolbarHeader = (
 );
 
 export interface ToolbarTitleProps extends Pick<Header.TitleProps, "children"> {
-  icon: ReactElement<Icon.BaseProps>;
+  icon: Icon.Element;
 }
 
 export const ToolbarTitle = ({ icon, children }: ToolbarTitleProps): ReactElement => (

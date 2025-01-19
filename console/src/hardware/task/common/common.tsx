@@ -35,7 +35,6 @@ import {
   type UnknownRecord,
 } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
-import { type Migratable } from "node_modules/@synnaxlabs/x/dist/src/migrate/migrate";
 import { type FC, type ReactElement, useCallback, useId, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
@@ -426,7 +425,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
           if (e instanceof SyntaxError) key = altKey;
         }
         const t = await client.hardware.tasks.retrieve(key, { includeState: true });
-        if (migrator != null) t.config = migrator(t.config as Migratable);
+        if (migrator != null) t.config = migrator(t.config as migrate.Migratable);
         return { initialValues: t as unknown as P, task: t as T, layoutKey };
       },
     });

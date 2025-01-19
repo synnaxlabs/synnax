@@ -9,10 +9,17 @@
 
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Device, Form, Synnax, Text } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Device as PDevice,
+  Form,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
-import { Device as NIDevice } from "@/hardware/ni/device";
+import { Device } from "@/hardware/ni/device";
 import { type Properties } from "@/hardware/ni/device/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
@@ -25,7 +32,7 @@ export const SelectDevice = () => {
     if (client == null) return;
     const { configured } = await client.hardware.devices.retrieve<Properties>(v);
     if (configured) return;
-    place(NIDevice.createConfigureLayout(v, {}));
+    place({ ...Device.ZERO_CONFIGURE_LAYOUT, key: v });
   };
   return (
     <Form.Field<string>
@@ -36,7 +43,7 @@ export const SelectDevice = () => {
       style={{ width: "100%" }}
     >
       {(p) => (
-        <Device.SelectSingle
+        <PDevice.SelectSingle
           allowNone={false}
           grow
           {...p}

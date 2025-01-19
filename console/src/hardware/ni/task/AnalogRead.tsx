@@ -59,7 +59,7 @@ import {
 import {
   checkDesiredStateMatch,
   useDesiredState,
-} from "@/hardware/task/common/useDesiredState";
+} from "@/hardware/task/common/desiredState";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { type Layout } from "@/layout";
 

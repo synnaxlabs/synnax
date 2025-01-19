@@ -47,7 +47,6 @@ import {
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
 } from "@/hardware/ni/task/types";
-import { ThermocoupleTypeField } from "@/hardware/task/common/thermocouple";
 import { Layout } from "@/layout";
 
 export interface FormProps {
@@ -258,6 +257,26 @@ const TemperatureUnitsField = Form.buildDropdownButtonSelectField<
       { key: "DegF", name: "Fahrenheit" },
       { key: "Kelvins", name: "Kelvin" },
       { key: "DegR", name: "Rankine" },
+    ],
+  },
+});
+
+const ThermocoupleTypeField = Form.buildDropdownButtonSelectField({
+  fieldKey: "thermocoupleType",
+  fieldProps: { label: "Thermocouple Type" },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: [{ key: "name", name: "Name" }],
+    hideColumnHeader: true,
+    data: [
+      { key: "B", name: "B" },
+      { key: "E", name: "E" },
+      { key: "J", name: "J" },
+      { key: "K", name: "K" },
+      { key: "N", name: "N" },
+      { key: "R", name: "R" },
+      { key: "S", name: "S" },
+      { key: "T", name: "T" },
     ],
   },
 });
@@ -554,7 +573,7 @@ export const DeviceField = ({ path }: DeviceFieldProps) => {
     if (client == null) return;
     const { configured } = await client.hardware.devices.retrieve<Properties>(v);
     if (configured) return;
-    place(NIDevice.createConfigureLayout(v, {}));
+    place({ ...NIDevice.ZERO_CONFIGURE_LAYOUT, key: v });
   };
   return (
     <Form.Field<string>

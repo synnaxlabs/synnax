@@ -16,35 +16,27 @@ import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
+import { type Make, makeZ } from "@/hardware/device/services/make";
 import { LabJack } from "@/hardware/labjack";
-import { type Make, makeZ } from "@/hardware/makes";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { type Layout } from "@/layout";
-import { type Ontology } from "@/ontology";
-import { useConfirmDelete } from "@/ontology/hooks";
+import { Ontology } from "@/ontology";
 
-type DeviceLayoutCreator = (
-  device: string,
-  initial: Partial<Layout.State>,
-) => Layout.Creator;
-
-const ZERO_LAYOUT_STATES: Record<Make, DeviceLayoutCreator> = {
-  [LabJack.MAKE]: LabJack.Device.createConfigureLayout,
-  [NI.MAKE]: NI.Device.createConfigureLayout,
-  [OPC.MAKE]: OPC.Device.createConfigureLayout,
+const ZERO_CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
+  [LabJack.Device.MAKE]: LabJack.Device.ZERO_CONFIGURE_LAYOUT,
+  [NI.Device.MAKE]: NI.Device.ZERO_CONFIGURE_LAYOUT,
+  [OPC.Device.MAKE]: OPC.Device.ZERO_CONFIGURE_LAYOUT,
 };
 
-const CONTEXT_MENUS: Record<
+const CONTEXT_MENUS_ITEMS: Record<
   Make,
   (props: Ontology.TreeContextMenuProps) => ReactElement | null
 > = {
-  [LabJack.MAKE]: LabJack.Device.ContextMenuItems,
-  [NI.MAKE]: NI.Device.ContextMenuItems,
-  [OPC.MAKE]: OPC.Device.ContextMenuItems,
+  [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
+  [NI.Device.MAKE]: NI.Device.ContextMenuItems,
+  [OPC.Device.MAKE]: OPC.Device.ContextMenuItems,
 };
-
-const handleSelect: Ontology.HandleSelect = () => {};
 
 const handleConfigure = ({
   selection: { resources },
@@ -54,16 +46,15 @@ const handleConfigure = ({
   const resource = resources[0];
   try {
     const make = makeZ.parse(resource.data?.make);
-    const baseLayout = ZERO_LAYOUT_STATES[make];
-    const key = resource.id.key;
-    placeLayout(baseLayout(key, {}));
+    const baseLayout = ZERO_CONFIGURE_LAYOUTS[make];
+    placeLayout({ ...baseLayout, key: resource.id.key });
   } catch (e) {
     handleException(e, `Failed to configure ${resource.name}`);
   }
 };
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({ type: "Device" });
+  const confirm = Ontology.useConfirmDelete({ type: "Device" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
@@ -102,12 +93,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     rename: () => Tree.startRenaming(nodes[0].key),
     group: () => group(props),
   };
-  const make = resources[0].data?.make;
-  let customMenuItems: ReactElement | null = null;
-  if (make != null) {
-    const C = CONTEXT_MENUS[make as Make];
-    if (C != null) customMenuItems = <C {...props} />;
-  }
+  const make = makeZ.safeParse(resources[0].data?.make)?.data;
+  const C = make != null ? CONTEXT_MENUS_ITEMS[make] : null;
+  const customMenuItems = C == null ? null : <C {...props} />;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />
@@ -128,6 +116,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
+      {customMenuItems != null && <PMenu.Divider />}
       {customMenuItems}
       <PMenu.Divider />
       <Menu.HardReloadItem />
@@ -147,7 +136,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   hasChildren: false,
   icon: <Icon.Device />,
   canDrop: () => false,
-  onSelect: handleSelect,
+  onSelect: () => {},
   TreeContextMenu,
   haulItems: () => [],
   allowRename: () => true,

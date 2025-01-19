@@ -7,19 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
-
-import { createConfigureLayout } from "@/hardware/labjack/device/Configure";
+import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/labjack/device/Configure";
 import { createReadLayout } from "@/hardware/labjack/task/Read";
 import { createWriteLayout } from "@/hardware/labjack/task/Write";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
-
-interface InitialArgs {
-  create: true;
-  initialValues: { config: { device: string } };
-}
 
 export const ContextMenuItems = ({
   selection: { resources },
@@ -27,13 +20,10 @@ export const ContextMenuItems = ({
   const place = Layout.usePlacer();
   const first = resources[0];
   const isSingle = resources.length === 1;
-  const args: InitialArgs = {
-    create: true,
-    initialValues: { config: { device: first.id.key } },
-  };
+  const args = { create: true, initialValues: { config: { device: first.id.key } } };
   const maybeConfigure = () => {
     if (first.data?.configured === false)
-      place(createConfigureLayout(first.id.key, {}));
+      place({ ...ZERO_CONFIGURE_LAYOUT, key: first.id.key });
   };
   const handleCreateReadTask = () => {
     maybeConfigure();
@@ -46,29 +36,12 @@ export const ContextMenuItems = ({
   if (!isSingle) return null;
   return (
     <>
-      <Menu.Divider />
-      <Menu.Item
-        startIcon={
-          <PIcon.Create>
-            <Icon.Task />
-          </PIcon.Create>
-        }
-        itemKey="labjack.readTask"
-        onClick={handleCreateReadTask}
-      >
+      <Task.CreateMenuItem itemKey="labjack.readTask" onClick={handleCreateReadTask}>
         Create Read Task
-      </Menu.Item>
-      <Menu.Item
-        startIcon={
-          <PIcon.Create>
-            <Icon.Task />
-          </PIcon.Create>
-        }
-        itemKey="labjack.writeTask"
-        onClick={handleCreateWriteTask}
-      >
+      </Task.CreateMenuItem>
+      <Task.CreateMenuItem itemKey="labjack.writeTask" onClick={handleCreateWriteTask}>
         Create Write Task
-      </Menu.Item>
+      </Task.CreateMenuItem>
     </>
   );
 };

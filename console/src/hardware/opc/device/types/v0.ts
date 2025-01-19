@@ -11,6 +11,8 @@ import { type device, type task } from "@synnaxlabs/client";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
+export const MAKE = "opc";
+
 export const securityModeZ = z.union([
   z.literal("None"),
   z.literal("Sign"),

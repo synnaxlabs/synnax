@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
+import { Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { createConfigureLayout } from "@/hardware/opc/device/Configure";
+import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
 import { configureReadLayout } from "@/hardware/opc/task/Read";
 import { createWriteLayout } from "@/hardware/opc/task/Write";
+import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
@@ -34,7 +35,7 @@ export const ContextMenuItems = ({
   };
   const createReadTask = () => place(configureReadLayout(initialArgs));
   const createWriteTask = () => place(createWriteLayout(initialArgs));
-  const createConfigure = () => place(createConfigureLayout(first.id.key));
+  const createConfigure = () => place({ ...ZERO_CONFIGURE_LAYOUT, key: first.id.key });
   if (!isSingle) return null;
   return (
     <>
@@ -46,28 +47,12 @@ export const ContextMenuItems = ({
         Edit Connection
       </Menu.Item>
       <Menu.Divider />
-      <Menu.Item
-        startIcon={
-          <PIcon.Create>
-            <Icon.Task />
-          </PIcon.Create>
-        }
-        itemKey="opc.readTask"
-        onClick={createReadTask}
-      >
+      <Task.CreateMenuItem itemKey="opc.readTask" onClick={createReadTask}>
         Create a Read Task
-      </Menu.Item>
-      <Menu.Item
-        startIcon={
-          <PIcon.Create>
-            <Icon.Task />
-          </PIcon.Create>
-        }
-        itemKey="opc.writeTask"
-        onClick={createWriteTask}
-      >
+      </Task.CreateMenuItem>
+      <Task.CreateMenuItem itemKey="opc.writeTask" onClick={createWriteTask}>
         Create a Write Task
-      </Menu.Item>
+      </Task.CreateMenuItem>
     </>
   );
 };

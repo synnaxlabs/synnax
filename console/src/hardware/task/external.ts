@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Selector, SELECTOR_TYPE } from "@/hardware/task/Selector";
+import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
 import { type Layout } from "@/layout";
 
+export * from "@/hardware/task/CreateMenuItem";
 export * from "@/hardware/task/link";
 export * from "@/hardware/task/ontology";
 export * from "@/hardware/task/Selector";
@@ -17,5 +18,5 @@ export * from "@/hardware/task/Toolbar";
 export * from "@/hardware/task/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [SELECTOR_TYPE]: Selector,
+  [SELECTOR_LAYOUT_TYPE]: Selector,
 };

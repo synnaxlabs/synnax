@@ -16,7 +16,7 @@ import { type Identifier } from "@/hardware/device/Configure";
 // Makes
 
 export const MAKE = "LabJack";
-export type Make = typeof MAKE;
+type Make = typeof MAKE;
 
 // Model Keys
 

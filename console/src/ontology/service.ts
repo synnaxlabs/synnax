@@ -16,7 +16,7 @@ import {
   type Tree,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
@@ -97,9 +97,7 @@ export type PaletteListItem = FC<List.ItemProps<string, ontology.Resource>>;
 
 export interface Service {
   type: ontology.ResourceType;
-  icon:
-    | ReactElement<Icon.BaseProps>
-    | ((resource: ontology.Resource) => ReactElement<Icon.BaseProps>);
+  icon: Icon.Element | ((resource: ontology.Resource) => Icon.Element);
   hasChildren: boolean;
   onSelect: HandleSelect;
   canDrop: Haul.CanDrop;

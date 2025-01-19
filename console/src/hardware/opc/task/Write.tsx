@@ -24,7 +24,6 @@ import {
   Status,
   Synnax,
   Text,
-  useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
@@ -33,9 +32,10 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
+import { Device as CoreDevice } from "@/hardware/device";
 import { type Device } from "@/hardware/opc/device";
 import { Browser } from "@/hardware/opc/device/Browser";
-import { createConfigureLayout } from "@/hardware/opc/device/Configure";
+import { ZERO_CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
 import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Write,
@@ -61,7 +61,7 @@ import {
 import {
   checkDesiredStateMatch,
   useDesiredState,
-} from "@/hardware/task/common/useDesiredState";
+} from "@/hardware/task/common/desiredState";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
@@ -95,34 +95,9 @@ const Wrapped = ({
 }: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
-  const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
-    undefined,
-  );
 
   const methods = Form.use({ schema, values: initialValues });
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const dev = methods.value().config.device;
-    if (dev === "") return;
-    const d = await client.hardware.devices.retrieve<Device.Properties>(dev);
-    setDevice(d);
-  }, [client?.key]);
-
-  Form.useFieldListener<string, typeof schema>({
-    ctx: methods,
-    path: "config.device",
-    onChange: useCallback(
-      (fs) => {
-        if (!fs.touched || fs.status.variant !== "success" || client == null) return;
-        client.hardware.devices
-          .retrieve<Device.Properties>(fs.value)
-          .then((d) => setDevice(d))
-          .catch(console.error);
-      },
-      [client?.key, setDevice],
-    ),
-  });
+  const device = CoreDevice.use<Device.Properties>(methods);
 
   const taskState = useObserveState<WriteStateDetails>(
     methods.setStatus,
@@ -269,7 +244,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => place(createConfigureLayout())}
+                        onClick={() => place({ ...ZERO_CONFIGURE_LAYOUT })}
                       >
                         Connect a new server.
                       </Text.Link>

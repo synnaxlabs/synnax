@@ -21,7 +21,7 @@ export type LayoutArgs<P extends task.Payload = task.Payload> = {
 export const createLayoutCreator =
   <P extends task.Payload>(
     type: string,
-    defaultName: string = "New Task",
+    defaultName: string = "Task",
     icon: string = "Task",
   ): ((args: LayoutArgs<P>) => Layout.State<LayoutArgs<P>>) =>
   (args) => {
