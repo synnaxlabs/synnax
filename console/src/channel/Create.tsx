@@ -61,7 +61,7 @@ export const createFormValidator = (v: z.ZodSchema) =>
       path: ["dataType"],
     });
 
-export const baseFormSchema = channel.newPayload.extend({
+export const baseFormSchema = channel.newZ.extend({
   name: z.string().min(1, "Name must not be empty"),
   dataType: DataType.z.transform((v) => v.toString()),
 });

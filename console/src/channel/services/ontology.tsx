@@ -28,7 +28,7 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -104,10 +104,7 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
   ];
 };
 
-const allowRename: Ontology.AllowRename = (res) => {
-  if (res.data?.internal === true) return false;
-  return true;
-};
+const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;
 
 export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({
@@ -286,29 +283,26 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
-  const alias = Channel.useAlias(Number(new ontology.ID(props.entry.key).key));
+export const Item: Tree.Item = ({ entry, ...props }: Tree.ItemProps): ReactElement => {
+  const alias = Channel.useAlias(Number(new ontology.ID(entry.key).key));
   return (
-    <Tree.DefaultItem
-      {...props}
-      entry={{ ...props.entry, name: alias ?? props.entry.name }}
-    />
+    <Tree.DefaultItem {...props} entry={{ ...entry, name: alias ?? entry.name }} />
   );
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.BASE_SERVICE,
   type: channel.ONTOLOGY_TYPE,
-  icon: (p) => (
-    <PIcon.Icon topRight={Channel.resolveIcon(p.data as channel.Payload)}>
+  icon: ({ data }) => (
+    <PIcon.Icon topRight={Channel.resolveIcon(data as channel.Payload)}>
       <Icon.Channel />
     </PIcon.Icon>
   ),
   hasChildren: false,
-  allowRename,
-  onRename: undefined,
-  canDrop,
   onSelect: handleSelect,
+  canDrop,
   haulItems,
+  allowRename,
   Item,
   TreeContextMenu,
 };

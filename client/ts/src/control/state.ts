@@ -12,15 +12,14 @@ import { binary } from "@synnaxlabs/x/binary";
 import { type observe } from "@synnaxlabs/x/observe";
 import { z } from "zod";
 
-import { type Key as ChannelKey } from "@/channel/payload";
+import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import { type Streamer as FrameStreamer } from "@/framer/streamer";
 
-export type Authority = control.Authority;
+export interface Authority extends control.Authority {}
 export const Authority = control.Authority;
-export type Transfer = control.Transfer<ChannelKey>;
-export type State = control.State<ChannelKey>;
-export type Subject = control.Subject;
+export type Transfer = control.Transfer<channel.Key>;
+export interface State extends control.State<channel.Key> {}
+export interface Subject extends control.Subject {}
 export const stateZ = control.stateZ(z.number());
 
 export const transferString = (t: Transfer): string => {
@@ -35,17 +34,17 @@ export const transferString = (t: Transfer): string => {
 };
 
 interface Update {
-  transfers: control.Transfer<ChannelKey>[];
+  transfers: control.Transfer<channel.Key>[];
 }
 
 export class StateTracker
   extends framer.ObservableStreamer<Transfer[]>
   implements observe.ObservableAsyncCloseable<Transfer[]>
 {
-  readonly states: Map<ChannelKey, State>;
+  readonly states: Map<channel.Key, State>;
   private readonly codec: binary.Codec;
 
-  constructor(streamer: FrameStreamer) {
+  constructor(streamer: framer.Streamer) {
     super(streamer, (frame) => {
       const update: Update = this.codec.decode(frame.series[0].buffer);
       this.merge(update);

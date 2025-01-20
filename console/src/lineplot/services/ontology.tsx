@@ -19,7 +19,7 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
@@ -140,14 +140,14 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.BASE_SERVICE,
   type: linePlot.ONTOLOGY_TYPE,
   icon: <Icon.Visualize />,
   hasChildren: false,
-  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
+  onSelect: handleSelect,
+  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
-  canDrop: () => false,
-  TreeContextMenu,
   onMosaicDrop: handleMosaicDrop,
-  onSelect: handleSelect,
+  TreeContextMenu,
 };

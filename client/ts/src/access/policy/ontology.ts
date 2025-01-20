@@ -7,4 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as schematic from "@/workspace/schematic/external";
+// This needs to be a separate file because these types are imported by the ontology
+// module, but the policy module need to import the ID schema from the ontology module.
+
+export const ONTOLOGY_TYPE = "policy";
+export const ALLOW_ALL_ONTOLOGY_TYPE = "allow_all";

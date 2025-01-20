@@ -110,4 +110,13 @@ export interface Service {
   PaletteListItem?: PaletteListItem;
 }
 
+export const BASE_SERVICE: Omit<Service, "type"> = {
+  icon: <></>,
+  hasChildren: true,
+  onSelect: () => {},
+  canDrop: () => false,
+  haulItems: () => [],
+  allowRename: () => false,
+};
+
 export type Services = Record<ontology.ResourceType, Service>;

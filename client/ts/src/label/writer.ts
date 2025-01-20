@@ -14,21 +14,14 @@ import { z } from "zod";
 import { type Key, keyZ, type Label, labelZ } from "@/label/payload";
 import { ontology } from "@/ontology";
 
-export const newLabelPayloadZ = labelZ.extend({ key: keyZ.optional() });
+export const newZ = labelZ.extend({ key: keyZ.optional() });
+export interface New extends z.infer<typeof newZ> {}
 
-export type NewLabelPayload = z.infer<typeof newLabelPayloadZ>;
+const createReqZ = z.object({ labels: newZ.array() });
 
-const createReqZ = z.object({
-  labels: newLabelPayloadZ.array(),
-});
+const createResZ = z.object({ labels: labelZ.array() });
 
-const createResZ = z.object({
-  labels: labelZ.array(),
-});
-
-const deleteReqZ = z.object({
-  keys: keyZ.array(),
-});
+const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const setReqZ = z.object({
   id: ontology.idZ,
@@ -36,8 +29,8 @@ const setReqZ = z.object({
   replace: z.boolean().optional(),
 });
 
-type SetReq = z.infer<typeof setReqZ>;
-export type SetOptions = Pick<SetReq, "replace">;
+interface SetReq extends z.infer<typeof setReqZ> {}
+export interface SetOptions extends Pick<SetReq, "replace"> {}
 
 const removeReqZ = setReqZ.omit({ replace: true });
 
@@ -55,7 +48,7 @@ export class Writer {
     this.client = client;
   }
 
-  async create(labels: NewLabelPayload | NewLabelPayload[]): Promise<Label[]> {
+  async create(labels: New | New[]): Promise<Label[]> {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,

@@ -20,13 +20,13 @@ describe("Ontology", () => {
   describe("retrieve", () => {
     test("retrieve", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
+      const g = await client.ontology.groups.create(ontology.RootID, name);
       const g2 = await client.ontology.retrieve(g.ontologyID);
       expect(g2.name).toEqual(name);
     });
     test("retrieve children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
+      const g = await client.ontology.groups.create(ontology.RootID, name);
       const name2 = randomName();
       await client.ontology.groups.create(g.ontologyID, name2);
       const children = await client.ontology.retrieveChildren(g.ontologyID);
@@ -35,7 +35,7 @@ describe("Ontology", () => {
     });
     test("retrieve parents", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
+      const g = await client.ontology.groups.create(ontology.RootID, name);
       const name2 = randomName();
       const g2 = await client.ontology.groups.create(g.ontologyID, name2);
       const parents = await client.ontology.retrieveParents(g2.ontologyID);
@@ -46,7 +46,7 @@ describe("Ontology", () => {
   describe("page", () => {
     it("should return a page of resources", async () => {
       for (let i = 0; i < 10; i++)
-        await client.ontology.groups.create(ontology.Root, randomName());
+        await client.ontology.groups.create(ontology.RootID, randomName());
       const page = await client.ontology.page(0, 5);
       expect(page.length).toEqual(5);
       const page2 = await client.ontology.page(5, 5);
@@ -60,9 +60,9 @@ describe("Ontology", () => {
   describe("write", () => {
     test("add children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
+      const g = await client.ontology.groups.create(ontology.RootID, name);
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create(ontology.Root, name2);
+      const g2 = await client.ontology.groups.create(ontology.RootID, name2);
       await client.ontology.addChildren(g.ontologyID, g2.ontologyID);
       const children = await client.ontology.retrieveChildren(g.ontologyID);
       expect(children.length).toEqual(1);
@@ -70,9 +70,9 @@ describe("Ontology", () => {
     });
     test("remove children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
+      const g = await client.ontology.groups.create(ontology.RootID, name);
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create(ontology.Root, name2);
+      const g2 = await client.ontology.groups.create(ontology.RootID, name2);
       await client.ontology.addChildren(g.ontologyID, g2.ontologyID);
       await client.ontology.removeChildren(g.ontologyID, g2.ontologyID);
       const children = await client.ontology.retrieveChildren(g.ontologyID);
@@ -80,15 +80,15 @@ describe("Ontology", () => {
     });
     test("move children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
+      const g = await client.ontology.groups.create(ontology.RootID, name);
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create(ontology.Root, name2);
-      const oldRootLength = (await client.ontology.retrieveChildren(ontology.Root))
+      const g2 = await client.ontology.groups.create(ontology.RootID, name2);
+      const oldRootLength = (await client.ontology.retrieveChildren(ontology.RootID))
         .length;
-      await client.ontology.moveChildren(ontology.Root, g.ontologyID, g2.ontologyID);
+      await client.ontology.moveChildren(ontology.RootID, g.ontologyID, g2.ontologyID);
       const children = await client.ontology.retrieveChildren(g.ontologyID);
       expect(children.length).toEqual(1);
-      const newRootLength = (await client.ontology.retrieveChildren(ontology.Root))
+      const newRootLength = (await client.ontology.retrieveChildren(ontology.RootID))
         .length;
       expect(newRootLength).toEqual(oldRootLength - 1);
     });
@@ -107,7 +107,7 @@ describe("Ontology", () => {
       const p = new Promise<ontology.ResourceChange[]>((resolve) =>
         change.resources.onChange((changes) => resolve(changes)),
       );
-      await client.ontology.groups.create(ontology.Root, randomName());
+      await client.ontology.groups.create(ontology.RootID, randomName());
       const c = await p;
       expect(c.length).toBeGreaterThan(0);
       await change.close();
@@ -119,7 +119,7 @@ describe("Ontology", () => {
           resolve(changes);
         });
       });
-      await client.ontology.groups.create(ontology.Root, randomName());
+      await client.ontology.groups.create(ontology.RootID, randomName());
       const c = await p;
       expect(c.length).toBeGreaterThan(0);
       await change.close();

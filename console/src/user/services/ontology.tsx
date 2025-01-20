@@ -107,13 +107,10 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.BASE_SERVICE,
   type: user.ONTOLOGY_TYPE,
   icon: <Icon.User />,
-  hasChildren: true,
   allowRename: () => true,
   onRename: handleRename,
-  haulItems: () => [],
-  canDrop: () => false,
-  onSelect: () => {},
   TreeContextMenu,
 };

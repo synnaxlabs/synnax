@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { NIL as ZERO_UUID } from "uuid";
 import { describe, expect, test } from "vitest";
 
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
-
-const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 
 describe("Workspace", () => {
   describe("create", () => {

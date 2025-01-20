@@ -9,8 +9,6 @@
 
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
-
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -24,15 +22,12 @@ export const userZ = z.object({
   lastName: z.string().default(""),
   rootUser: z.boolean().default(true),
 });
-export type User = z.infer<typeof userZ>;
+export interface User extends z.infer<typeof userZ> {}
 
-export const newUserZ = userZ
+export const newZ = userZ
   .partial({ key: true, firstName: true, lastName: true })
   .omit({ rootUser: true })
   .extend({ password: z.string().min(1) });
-export type NewUser = z.infer<typeof newUserZ>;
+export interface New extends z.infer<typeof newZ> {}
 
-export const ONTOLOGY_TYPE: ontology.ResourceType = "user";
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ONTOLOGY_TYPE = "user";

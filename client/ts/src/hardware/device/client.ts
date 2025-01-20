@@ -20,7 +20,9 @@ import {
   keyZ,
   type New,
   newZ,
+  ONTOLOGY_TYPE,
 } from "@/hardware/device/payload";
+import { ontology } from "@/ontology";
 import { signals } from "@/signals";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
@@ -59,7 +61,7 @@ interface PageOptions extends Pick<RetrieveOptions, "makes"> {}
 const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
 export class Client implements AsyncTermSearcher<string, Key, Device> {
-  readonly type = "device";
+  readonly type = ONTOLOGY_TYPE;
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
 
@@ -121,11 +123,9 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
   async create<P extends UnknownRecord = UnknownRecord>(
     device: New<P>,
   ): Promise<Device<P>>;
-
   async create<P extends UnknownRecord = UnknownRecord>(
     devices: New<P>[],
   ): Promise<Device<P>[]>;
-
   async create<P extends UnknownRecord = UnknownRecord>(
     devices: New<P> | New<P>[],
   ): Promise<Device<P> | Device<P>[]> {
@@ -177,3 +177,6 @@ const decodeDeviceChanges: signals.Decoder<string, Device> = (variant, data) => 
     return data.toStrings().map((k) => ({ variant, key: k, value: undefined }));
   return data.parseJSON(deviceZ).map((d) => ({ variant, key: d.key, value: d }));
 };
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

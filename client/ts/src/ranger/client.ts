@@ -14,25 +14,23 @@ import { type Series } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { type Key as ChannelKey } from "@/channel/payload";
-import { type Retriever as ChannelRetriever } from "@/channel/retriever";
+import { type channel } from "@/channel";
 import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
-import { type Label } from "@/label/payload";
-import { type ontology } from "@/ontology";
-import { type Resource } from "@/ontology/payload";
+import { ontology } from "@/ontology";
 import { type Alias, Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
+  ALIAS_ONTOLOGY_TYPE,
   analyzeParams,
   type Key,
   type Keys,
   keyZ,
   type Name,
   type Names,
-  type NewPayload,
-  ontologyID,
+  type New,
+  ONTOLOGY_TYPE,
   type Params,
   type Payload,
   payloadZ,
@@ -47,7 +45,7 @@ export class Range {
   readonly kv: KV;
   readonly timeRange: TimeRange;
   readonly color: string | undefined;
-  readonly channels: ChannelRetriever;
+  readonly channels: channel.Retriever;
   private readonly aliaser: Aliaser;
   private readonly frameClient: framer.Client;
   private readonly labelClient: label.Client;
@@ -62,7 +60,7 @@ export class Range {
     _frameClient: framer.Client,
     _kv: KV,
     _aliaser: Aliaser,
-    _channels: ChannelRetriever,
+    _channels: channel.Retriever,
     _labelClient: label.Client,
     _ontologyClient: ontology.Client,
     _rangeClient: Client,
@@ -93,22 +91,21 @@ export class Range {
     };
   }
 
-  async setAlias(channel: ChannelKey | Name, alias: string): Promise<void> {
+  async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
     const ch = await this.channels.retrieve(channel);
     if (ch.length === 0) throw new QueryError(`Channel ${channel} does not exist`);
-
     await this.aliaser.set({ [ch[0].key]: alias });
   }
 
-  async deleteAlias(...channels: ChannelKey[]): Promise<void> {
+  async deleteAlias(...channels: channel.Key[]): Promise<void> {
     await this.aliaser.delete(channels);
   }
 
-  async listAliases(): Promise<Record<ChannelKey, string>> {
+  async listAliases(): Promise<Record<channel.Key, string>> {
     return await this.aliaser.list();
   }
 
-  async resolveAlias(alias: string): Promise<ChannelKey> {
+  async resolveAlias(alias: string): Promise<channel.Key> {
     return await this.aliaser.resolve(alias);
   }
 
@@ -131,14 +128,12 @@ export class Range {
   }
 
   async read(channel: Key | Name): Promise<Series>;
-
   async read(channels: Params): Promise<framer.Frame>;
-
   async read(channels: Params): Promise<Series | framer.Frame> {
     return await this.frameClient.read(this.timeRange, channels);
   }
 
-  async labels(): Promise<Label[]> {
+  async labels(): Promise<label.Label[]> {
     return await this.labelClient.retrieveFor(ontologyID(this.key));
   }
 
@@ -161,7 +156,7 @@ export class Range {
       dependents: initial,
       resourceType: "range",
     });
-    base.onChange((r: Resource[]) =>
+    base.onChange((r: ontology.Resource[]) =>
       wrapper.notify(this.rangeClient.resourcesToRanges(r)),
     );
     wrapper.setCloser(async () => await base.close());
@@ -179,7 +174,7 @@ export class Range {
       dependents: [resourceP],
       relationshipDirection: "to",
     });
-    base.onChange((resources: Resource[]) => {
+    base.onChange((resources: ontology.Resource[]) => {
       const ranges = this.rangeClient.resourcesToRanges(resources);
       if (ranges.length === 0) return;
       const p = ranges[0];
@@ -202,20 +197,18 @@ const retrieveReqZ = z.object({
   offset: z.number().int().optional(),
 });
 
-export type RetrieveRequest = z.infer<typeof retrieveReqZ>;
+export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const RETRIEVE_ENDPOINT = "/range/retrieve";
 
-const retrieveResZ = z.object({
-  ranges: nullableArrayZ(payloadZ),
-});
+const retrieveResZ = z.object({ ranges: nullableArrayZ(payloadZ) });
 
 export class Client implements AsyncTermSearcher<string, Key, Range> {
   readonly type: string = "range";
   private readonly frameClient: framer.Client;
   private readonly writer: Writer;
   private readonly unaryClient: UnaryClient;
-  private readonly channels: ChannelRetriever;
+  private readonly channels: channel.Retriever;
   private readonly labelClient: label.Client;
   private readonly ontologyClient: ontology.Client;
 
@@ -223,7 +216,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     frameClient: framer.Client,
     writer: Writer,
     unary: UnaryClient,
-    channels: ChannelRetriever,
+    channels: channel.Retriever,
     labelClient: label.Client,
     ontologyClient: ontology.Client,
   ) {
@@ -235,14 +228,9 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     this.ontologyClient = ontologyClient;
   }
 
-  async create(range: NewPayload, options?: CreateOptions): Promise<Range>;
-
-  async create(ranges: NewPayload[], options?: CreateOptions): Promise<Range[]>;
-
-  async create(
-    ranges: NewPayload | NewPayload[],
-    options?: CreateOptions,
-  ): Promise<Range | Range[]> {
+  async create(range: New, options?: CreateOptions): Promise<Range>;
+  async create(ranges: New[], options?: CreateOptions): Promise<Range[]>;
+  async create(ranges: New | New[], options?: CreateOptions): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
     const res = this.sugarMany(await this.writer.create(toArray(ranges), options));
     return single ? res[0] : res;
@@ -265,11 +253,8 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   }
 
   async retrieve(range: CrudeTimeRange): Promise<Range[]>;
-
   async retrieve(range: Key | Name): Promise<Range>;
-
   async retrieve(range: Keys | Names): Promise<Range[]>;
-
   async retrieve(ranges: Params | CrudeTimeRange): Promise<Range | Range[]> {
     if (typeof ranges === "object" && "start" in ranges)
       return await this.execRetrieve({ overlapsWith: new TimeRange(ranges) });
@@ -341,11 +326,11 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     );
   }
 
-  resourcesToRanges(resources: Resource[]): Range[] {
+  resourcesToRanges(resources: ontology.Resource[]): Range[] {
     return resources.map((r) => this.resourceToRange(r));
   }
 
-  resourceToRange(resource: Resource): Range {
+  resourceToRange(resource: ontology.Resource): Range {
     return this.sugarOne({
       key: resource.id.key,
       name: resource.data?.name as string,
@@ -354,3 +339,9 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     });
   }
 }
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+
+export const aliasOntologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key });

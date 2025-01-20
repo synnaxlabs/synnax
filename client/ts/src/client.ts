@@ -31,20 +31,10 @@ import { user } from "@/user";
 import { workspace } from "@/workspace";
 
 export const synnaxPropsZ = z.object({
-  host: z
-    .string({
-      required_error: "Host is required",
-    })
-    .min(1, "Host is required"),
+  host: z.string({ required_error: "Host is required" }).min(1, "Host is required"),
   port: z
-    .number({
-      required_error: "Port is required",
-    })
-    .or(
-      z.string({
-        required_error: "Port is required",
-      }),
-    ),
+    .number({ required_error: "Port is required" })
+    .or(z.string({ required_error: "Port is required" })),
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
@@ -53,8 +43,8 @@ export const synnaxPropsZ = z.object({
   retry: breaker.breakerConfig.optional(),
 });
 
-export type SynnaxProps = z.input<typeof synnaxPropsZ>;
-export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
+export interface SynnaxProps extends z.input<typeof synnaxPropsZ> {}
+export interface ParsedSynnaxProps extends z.output<typeof synnaxPropsZ> {}
 
 /**
  * Client to perform operations against a Synnax cluster.

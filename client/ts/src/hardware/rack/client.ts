@@ -23,6 +23,7 @@ import {
   rackZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
+import { ontology } from "@/ontology";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
@@ -69,9 +70,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
   }
 
   async create(rack: New): Promise<Rack>;
-
   async create(racks: New[]): Promise<Rack[]>;
-
   async create(rack: New | New[]): Promise<Rack | Rack[]> {
     const isSingle = !Array.isArray(rack);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
@@ -109,9 +108,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
   }
 
   async retrieve(key: string | Key): Promise<Rack>;
-
   async retrieve(keys: Key[]): Promise<Rack[]>;
-
   async retrieve(racks: string | Key | Key[]): Promise<Rack | Rack[]> {
     const { variant, normalized, single } = analyzeParams(racks, {
       string: "names",
@@ -169,3 +166,6 @@ export class Rack {
     await this.tasks.delete([task]);
   }
 }
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });

@@ -10,14 +10,11 @@
 import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
-
 export const keyZ = z.union([
   z.string(),
   z.bigint().transform((k) => k.toString()),
   z.number().transform((k) => k.toString()),
 ]);
-
 export type Key = z.infer<typeof keyZ>;
 
 export const stateZ = z.object({
@@ -30,7 +27,6 @@ export const stateZ = z.object({
     .or(z.array(z.unknown()))
     .or(z.null()),
 });
-
 export interface State<D extends {} = UnknownRecord>
   extends Omit<z.infer<typeof stateZ>, "details"> {
   details?: D;
@@ -49,18 +45,6 @@ export const taskZ = z.object({
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });
-
-export const newZ = taskZ.omit({ key: true }).extend({
-  key: keyZ.transform((k) => k.toString()).optional(),
-  config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
-});
-
-export interface New<C extends UnknownRecord = UnknownRecord, T extends string = string>
-  extends Omit<z.input<typeof newZ>, "config" | "state"> {
-  type: T;
-  config: C;
-}
-
 export interface Payload<
   C extends UnknownRecord = UnknownRecord,
   D extends {} = UnknownRecord,
@@ -69,6 +53,16 @@ export interface Payload<
   type: T;
   config: C;
   state?: State<D> | null;
+}
+
+export const newZ = taskZ.omit({ key: true }).extend({
+  key: keyZ.transform((k) => k.toString()).optional(),
+  config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
+});
+export interface New<C extends UnknownRecord = UnknownRecord, T extends string = string>
+  extends Omit<z.input<typeof newZ>, "config" | "state"> {
+  type: T;
+  config: C;
 }
 
 export const commandZ = z.object({
@@ -82,7 +76,6 @@ export const commandZ = z.object({
     .or(z.null())
     .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
 });
-
 export interface Command<A extends {} = UnknownRecord>
   extends Omit<z.infer<typeof commandZ>, "args"> {
   args?: A;
@@ -94,7 +87,4 @@ export interface StateObservable<D extends UnknownRecord = UnknownRecord>
 export interface CommandObservable<A extends UnknownRecord = UnknownRecord>
   extends observe.ObservableAsyncCloseable<Command<A>> {}
 
-export const ONTOLOGY_TYPE: ontology.ResourceType = "task";
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ONTOLOGY_TYPE = "task";

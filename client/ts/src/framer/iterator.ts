@@ -18,9 +18,8 @@ import {
 } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
-import { type Params } from "@/channel/payload";
-import { type Retriever } from "@/channel/retriever";
-import { ReadFrameAdapter } from "@/framer/adapter";
+import { channel } from "@/channel";
+import { ReadAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -49,11 +48,10 @@ const reqZ = z.object({
   span: TimeSpan.z.optional(),
   bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
-  keys: z.number().array().optional(),
+  keys: channel.keyZ.array().optional(),
   chunkSize: z.number().optional(),
 });
-
-type Request = z.infer<typeof reqZ>;
+interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
   variant: z.nativeEnum(ResponseVariant),
@@ -65,8 +63,8 @@ const resZ = z.object({
 
 export interface IteratorConfig {
   /** chunkSize is the maximum number of samples contained per channel in the frame
-  * resulting from a call to next with {@link AUTO_SPAN}.
-  */
+   * resulting from a call to next with {@link AUTO_SPAN}.
+   */
   chunkSize?: number;
 }
 
@@ -81,13 +79,10 @@ export interface IteratorConfig {
 export class Iterator {
   private static readonly ENDPOINT = "/frame/iterate";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
-  private readonly adapter: ReadFrameAdapter;
+  private readonly adapter: ReadAdapter;
   value: Frame;
 
-  private constructor(
-    stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: ReadFrameAdapter,
-  ) {
+  private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: ReadAdapter) {
     this.stream = new StreamProxy("Iterator", stream);
     this.value = new Frame();
     this.adapter = adapter;
@@ -106,12 +101,12 @@ export class Iterator {
    */
   static async _open(
     tr: CrudeTimeRange,
-    channels: Params,
-    retriever: Retriever,
+    channels: channel.Params,
+    retriever: channel.Retriever,
     client: StreamClient,
     opts: IteratorConfig = {},
   ): Promise<Iterator> {
-    const adapter = await ReadFrameAdapter.open(retriever, channels);
+    const adapter = await ReadAdapter.open(retriever, channels);
     const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);
     const iter = new Iterator(stream, adapter);
     await iter.execute({

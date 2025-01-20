@@ -27,8 +27,7 @@ import { useDispatch } from "react-redux";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
-import { Device } from "@/hardware/device";
-import { DeviceServices } from "@/hardware/device/services";
+import { Hardware } from "@/hardware";
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
@@ -46,7 +45,7 @@ import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
 const NOTIFICATION_ADAPTERS = [
-  ...DeviceServices.NOTIFICATION_ADAPTERS,
+  ...Hardware.Device.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
   ...Cluster.NOTIFICATION_ADAPTERS,
 ];
@@ -69,7 +68,7 @@ const SideEffect = (): null => {
   }, []);
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();
-  Device.useListenForChanges();
+  Hardware.Device.useListenForChanges();
   Workspace.useSyncLayout();
   Link.useDeep(LINK_HANDLERS);
   Layout.useTriggers();

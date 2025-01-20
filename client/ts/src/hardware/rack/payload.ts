@@ -9,21 +9,13 @@
 
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
-
 export const keyZ = z.number();
-
 export type Key = z.infer<typeof keyZ>;
 
 export const rackZ = z.object({ key: keyZ, name: z.string() });
-
 export interface Payload extends z.infer<typeof rackZ> {}
 
 export const newZ = rackZ.partial({ key: true });
-
 export interface New extends z.input<typeof newZ> {}
 
-export const ONTOLOGY_TYPE: ontology.ResourceType = "rack";
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+export const ONTOLOGY_TYPE = "rack";

@@ -207,14 +207,14 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.BASE_SERVICE,
   type: schematic.ONTOLOGY_TYPE,
   icon: <Icon.Schematic />,
   hasChildren: false,
-  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
+  onSelect: handleSelect,
+  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
-  canDrop: () => false,
-  TreeContextMenu,
   onMosaicDrop: handleMosaicDrop,
-  onSelect: handleSelect,
+  TreeContextMenu,
 };

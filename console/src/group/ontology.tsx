@@ -283,15 +283,13 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.BASE_SERVICE,
   type: group.ONTOLOGY_TYPE,
   icon: <Icon.Group />,
-  hasChildren: true,
-  onRename: handleRename,
   canDrop: () => true,
-  onSelect: () => {},
   // This haul item allows the group to be dragged between nodes in the tree.
-  haulItems: ({ key }) => [group.ontologyID(key)],
+  haulItems: ({ id }) => [id],
   allowRename: () => true,
-  onMosaicDrop: () => {},
+  onRename: handleRename,
   TreeContextMenu,
 };

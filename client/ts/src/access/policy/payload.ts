@@ -16,30 +16,18 @@ import { nullableArrayZ } from "@/util/zod";
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const newPolicyZ = z.object({
-  key: keyZ.optional(),
-  subjects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
-  objects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
-  actions: actionZ.array().or(actionZ),
-});
-export type NewPolicy = z.input<typeof newPolicyZ>;
-
 export const policyZ = z.object({
   key: keyZ,
   subjects: nullableArrayZ(ontology.idZ),
   objects: nullableArrayZ(ontology.idZ),
   actions: nullableArrayZ(actionZ),
 });
-export type Policy = z.infer<typeof policyZ>;
+export interface Policy extends z.infer<typeof policyZ> {}
 
-export const ONTOLOGY_TYPE: ontology.ResourceType = "policy";
-
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
-
-export const ALLOW_ALL_ONTOLOGY_TYPE: ontology.ResourceType = "allow_all";
-
-export const ALLOW_ALL_ONTOLOGY_ID = new ontology.ID({
-  type: ALLOW_ALL_ONTOLOGY_TYPE,
-  key: "",
+export const newZ = z.object({
+  key: keyZ.optional(),
+  subjects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
+  objects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
+  actions: actionZ.array().or(actionZ),
 });
+export interface New extends z.input<typeof newZ> {}

@@ -7,18 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
-
 export type Params = Key | Key[];
 
-export const labelZ = z.object({
+export const logZ = z.object({
   key: keyZ,
-  name: z.string().min(1),
-  color: z.string(),
+  name: z.string(),
+  data: unknownRecordZ.or(z.string().transform((s) => JSON.parse(s) as UnknownRecord)),
 });
-export interface Label extends z.infer<typeof labelZ> {}
+export interface Log extends z.infer<typeof logZ> {}
 
-export const ONTOLOGY_TYPE = "label";
+export const newZ = logZ
+  .partial({ key: true })
+  .transform((p) => ({ ...p, data: JSON.stringify(p.data) }));
+export interface New extends z.input<typeof newZ> {}
+
+export const ONTOLOGY_TYPE = "log";

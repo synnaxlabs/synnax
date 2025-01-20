@@ -25,8 +25,8 @@ import {
   type RelationshipDirection,
   type Resource,
   type ResourceChange,
-  resourceSchemaZ,
   resourceTypeZ,
+  resourceZ,
 } from "@/ontology/payload";
 import { Writer } from "@/ontology/writer";
 
@@ -43,17 +43,12 @@ const retrieveReqZ = z.object({
   offset: z.number().optional(),
   types: resourceTypeZ.array().optional(),
 });
+interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
-type RetrieveRequest = z.infer<typeof retrieveReqZ>;
+export interface RetrieveOptions
+  extends Pick<RetrieveRequest, "includeSchema" | "excludeFieldData" | "types"> {}
 
-export type RetrieveOptions = Pick<
-  RetrieveRequest,
-  "includeSchema" | "excludeFieldData" | "types"
->;
-
-const retrieveResZ = z.object({
-  resources: resourceSchemaZ.array(),
-});
+const retrieveResZ = z.object({ resources: resourceZ.array() });
 
 export const parseIDs = (ids: CrudeID | CrudeID[] | string | string[]): IDPayload[] =>
   toArray(ids).map((id) => new ID(id).payload);
@@ -250,10 +245,10 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   }
 }
 
-const RESOURCE_SET_NAME = "sy_ontology_resource_set";
-const RESOURCE_DELETE_NAME = "sy_ontology_resource_delete";
-const RELATIONSHIP_SET_NAME = "sy_ontology_relationship_set";
-const RELATIONSHIP_DELETE_NAME = "sy_ontology_relationship_delete";
+const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
+const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
+const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
+const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
 
 /**
  * A class that tracks changes to the ontology's resources and relationships.
@@ -306,7 +301,7 @@ export class ChangeTracker {
   }
 
   private parseRelationshipSets(frame: framer.Frame): RelationshipChange[] {
-    const relationships = frame.get(RELATIONSHIP_SET_NAME);
+    const relationships = frame.get(RELATIONSHIP_SET_CHANNEL_NAME);
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
       variant: "set",
@@ -316,7 +311,7 @@ export class ChangeTracker {
   }
 
   private parseRelationshipDeletes(frame: framer.Frame): RelationshipChange[] {
-    const relationships = frame.get(RELATIONSHIP_DELETE_NAME);
+    const relationships = frame.get(RELATIONSHIP_DELETE_CHANNEL_NAME);
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
       variant: "delete",
@@ -325,7 +320,7 @@ export class ChangeTracker {
   }
 
   private async parseResourceSets(frame: framer.Frame): Promise<ResourceChange[]> {
-    const sets = frame.get(RESOURCE_SET_NAME);
+    const sets = frame.get(RESOURCE_SET_CHANNEL_NAME);
     if (sets.length === 0) return [];
     // We should only ever get one series of sets
     const ids = Array.from(sets.as("string")).map((id: string) => new ID(id));
@@ -343,7 +338,7 @@ export class ChangeTracker {
   }
 
   private parseResourceDeletes(frame: framer.Frame): ResourceChange[] {
-    const deletes = frame.get(RESOURCE_DELETE_NAME);
+    const deletes = frame.get(RESOURCE_DELETE_CHANNEL_NAME);
     if (deletes.length === 0) return [];
     // We should only ever get one series of deletes
     return Array.from(deletes.as("string")).map((str) => ({
@@ -354,10 +349,10 @@ export class ChangeTracker {
 
   static async open(client: framer.Client, retriever: Client): Promise<ChangeTracker> {
     const streamer = await client.openStreamer([
-      RESOURCE_SET_NAME,
-      RESOURCE_DELETE_NAME,
-      RELATIONSHIP_SET_NAME,
-      RELATIONSHIP_DELETE_NAME,
+      RESOURCE_SET_CHANNEL_NAME,
+      RESOURCE_DELETE_CHANNEL_NAME,
+      RELATIONSHIP_SET_CHANNEL_NAME,
+      RELATIONSHIP_DELETE_CHANNEL_NAME,
     ]);
     return new ChangeTracker(streamer, retriever);
   }

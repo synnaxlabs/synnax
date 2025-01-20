@@ -20,7 +20,7 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createLayout } from "@/range/CreateLayout";
 import { overviewLayout } from "@/range/overview/Overview";
@@ -305,14 +305,14 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.BASE_SERVICE,
   type: ranger.ONTOLOGY_TYPE,
-  hasChildren: true,
   icon: <Icon.Range />,
-  canDrop: () => true,
   onSelect: handleSelect,
-  TreeContextMenu,
+  canDrop: () => true,
   haulItems,
   allowRename: () => true,
   onRename: handleRename,
+  TreeContextMenu,
   PaletteListItem,
 };

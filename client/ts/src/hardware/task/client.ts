@@ -16,7 +16,7 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { framer } from "@/framer";
-import { rack } from "@/hardware/rack";
+import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import {
   type Command,
   type CommandObservable,
@@ -26,14 +26,13 @@ import {
   type New,
   newZ,
   ONTOLOGY_TYPE,
-  ontologyID,
   type Payload,
   type State,
   type StateObservable,
   stateZ,
   taskZ,
 } from "@/hardware/task/payload";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
 import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -186,7 +185,7 @@ export class Task<
 }
 
 const retrieveReqZ = z.object({
-  rack: rack.keyZ.optional(),
+  rack: rackKeyZ.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   offset: z.number().optional(),
@@ -422,3 +421,6 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     );
   }
 }
+
+export const ontologyID = (key: Key): ontology.ID =>
+  new ontology.ID({ type: ONTOLOGY_TYPE, key });

@@ -30,7 +30,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
 const formSchema = z.object({
-  labels: label.newLabelPayloadZ.array(),
+  labels: label.newZ.array(),
 });
 
 const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
