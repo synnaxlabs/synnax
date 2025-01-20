@@ -27,8 +27,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { type Properties } from "@/hardware/ni/device/types";
+import { Common } from "@/hardware/common";
+import { Device } from "@/hardware/ni/device";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
@@ -43,22 +43,6 @@ import {
   ZERO_DI_CHANNEL,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import {
-  ChannelListContextMenu,
-  ChannelListEmptyContent,
-  ChannelListHeader,
-  Controls,
-  EnableDisableButton,
-  ParentRangeButton,
-  useCreate,
-  useObserveState,
-  type WrappedTaskLayoutProps,
-  wrapTaskLayout,
-} from "@/hardware/task/common/common";
-import {
-  checkDesiredStateMatch,
-  useDesiredState,
-} from "@/hardware/task/common/desiredState";
 import { type Layout } from "@/layout";
 
 export const createDigitalReadLayout = createLayoutCreator<DigitalReadPayload>(
@@ -80,7 +64,10 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: WrappedTaskLayoutProps<DigitalRead, DigitalReadPayload>): ReactElement => {
+}: Common.Task.WrappedTaskLayoutProps<
+  DigitalRead,
+  DigitalReadPayload
+>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -90,7 +77,7 @@ const Wrapped = ({
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const taskState = useObserveState<DigitalReadDetails>(
+  const taskState = Common.Task.useObserveState<DigitalReadDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -99,11 +86,16 @@ const Wrapped = ({
   const running = taskState?.details?.running;
   const initialState =
     running === true ? "running" : running === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-
-  const createTask = useCreate<DigitalReadConfig, DigitalReadDetails, DigitalReadType>(
-    layoutKey,
+  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
+    initialState,
+    task?.key,
   );
+
+  const createTask = Common.Task.useCreate<
+    DigitalReadConfig,
+    DigitalReadDetails,
+    DigitalReadType
+  >(layoutKey);
 
   const handleException = Status.useExceptionHandler();
 
@@ -113,8 +105,10 @@ const Wrapped = ({
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
 
-      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
-      dev.properties = enrich(dev.model, dev.properties);
+      const dev = await client.hardware.devices.retrieve<Device.Properties>(
+        config.device,
+      );
+      dev.properties = Device.enrich(dev.model, dev.properties);
 
       let modified = false;
       let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
@@ -211,7 +205,7 @@ const Wrapped = ({
               getConfig={() => methods.get("config").value}
             />
           </Align.Space>
-          <ParentRangeButton taskKey={task?.key} />
+          <Common.Task.ParentRangeButton key={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -260,13 +254,13 @@ const Wrapped = ({
             </Align.Space>
           </Align.Space>
         </Form.Form>
-        <Controls
+        <Common.Task.Controls
           layoutKey={layoutKey}
           state={taskState}
           snapshot={task?.snapshot}
           startingOrStopping={
             start.isPending ||
-            (!checkDesiredStateMatch(desiredState, running) &&
+            (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
               taskState?.variant === "success")
           }
           configuring={configure.isPending}
@@ -319,10 +313,10 @@ const ChannelList = ({
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
+      <Common.Task.ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps) => (
-          <ChannelListContextMenu
+          <Common.Task.ChannelListContextMenu
             path={path}
             keys={keys}
             value={value}
@@ -343,7 +337,10 @@ const ChannelList = ({
         <List.List<string, DIChannel>
           data={value}
           emptyContent={
-            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+            <Common.Task.ChannelListEmptyContent
+              onAdd={handleAdd}
+              snapshot={snapshot}
+            />
           }
         >
           <List.Selector<string, DIChannel>
@@ -430,7 +427,7 @@ const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
-      <EnableDisableButton
+      <Common.Task.EnableDisableButton
         value={childValues.enabled}
         onChange={(v) => ctx?.set(`${path}.${props.index}.enabled`, v)}
         snapshot={snapshot}
@@ -439,4 +436,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalRead = wrapTaskLayout(Wrapped, ZERO_DIGITAL_READ_PAYLOAD);
+export const ConfigureDigitalRead = Common.Task.wrapTaskLayout(
+  Wrapped,
+  ZERO_DIGITAL_READ_PAYLOAD,
+);

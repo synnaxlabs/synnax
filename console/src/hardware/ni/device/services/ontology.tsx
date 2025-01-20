@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { Task } from "@/hardware/ni/task";
-import { Task as CoreTask } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
@@ -39,24 +39,24 @@ export const ContextMenuItems = ({
   };
   return (
     <>
-      <CoreTask.CreateMenuItem
+      <Common.Task.CreateMenuItem
         itemKey="ni.analogReadTask"
         onClick={handleCreateAnalogReadTask}
       >
         Create Analog Read Task
-      </CoreTask.CreateMenuItem>
-      <CoreTask.CreateMenuItem
+      </Common.Task.CreateMenuItem>
+      <Common.Task.CreateMenuItem
         itemKey="ni.digitalReadTask"
         onClick={handleCreateDigitalReadTask}
       >
         Create Digital Read Task
-      </CoreTask.CreateMenuItem>
-      <CoreTask.CreateMenuItem
+      </Common.Task.CreateMenuItem>
+      <Common.Task.CreateMenuItem
         itemKey="ni.digitalWriteTask"
         onClick={handleCreateDigitalWriteTask}
       >
         Create Digital Write Task
-      </CoreTask.CreateMenuItem>
+      </Common.Task.CreateMenuItem>
     </>
   );
 };

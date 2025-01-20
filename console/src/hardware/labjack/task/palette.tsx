@@ -11,16 +11,16 @@ import { Icon } from "@synnaxlabs/media";
 
 import { createReadLayout } from "@/hardware/labjack/task/Read";
 import { createWriteLayout } from "@/hardware/labjack/task/Write";
-import { type Command } from "@/palette/Palette";
+import { type Palette } from "@/palette";
 
-const createReadCommand: Command = {
+const createReadCommand: Palette.Command = {
   key: "labjack-create-read-task",
   name: "Create LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
   onSelect: ({ placeLayout }) => placeLayout(() => createReadLayout({ create: true })),
 };
 
-const createWriteCommand: Command = {
+const createWriteCommand: Palette.Command = {
   key: "labjack-create-write-task",
   name: "Create LabJack Write Task",
   icon: <Icon.Logo.LabJack />,

@@ -7,26 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device } from "@synnaxlabs/client";
+import { type channel, type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import * as v0 from "@/hardware/opc/device/types/v0";
 
 const VERSION = "1.0.0";
+type Version = typeof VERSION;
 
-export const propertiesZ = v0.propertiesZ.omit({ read: true }).extend({
-  read: z.object({
-    indexes: channel.keyZ.array(),
-    channels: z.record(z.string(), channel.keyZ),
-  }),
-  version: z.literal(VERSION),
-});
-export interface Properties extends z.infer<typeof propertiesZ> {}
+export type Properties = Omit<v0.Properties, "read" | "version"> & {
+  read: { indexes: channel.Key[]; channels: Record<string, channel.Key> };
+  version: Version;
+};
 export const ZERO_PROPERTIES: Properties = {
-  connection: v0.ZERO_CONNECTION_CONFIG,
+  ...v0.ZERO_PROPERTIES,
   read: { indexes: [], channels: {} },
-  write: { channels: {} },
   version: VERSION,
 };
 

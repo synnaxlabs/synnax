@@ -20,7 +20,6 @@ import {
 import { binary } from "@synnaxlabs/x";
 
 import { Device } from "@/hardware/ni/device";
-import { type Properties } from "@/hardware/ni/device/types";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -30,7 +29,7 @@ export const SelectDevice = () => {
   const place = Layout.usePlacer();
   const handleDeviceChange = async (v: string) => {
     if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
+    const { configured } = await client.hardware.devices.retrieve<Device.Properties>(v);
     if (configured) return;
     place({ ...Device.CONFIGURE_LAYOUT, key: v });
   };

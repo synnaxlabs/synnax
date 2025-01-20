@@ -15,19 +15,18 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
+import { type Common } from "@/hardware/common";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { type LayoutArgs } from "@/hardware/task/common/createLayoutCreator";
 import { type Layout } from "@/layout";
 import { Link } from "@/link";
-import { type Ontology } from "@/ontology";
-import { useConfirmDelete } from "@/ontology/hooks";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 
 const ZERO_LAYOUT_STATES: Record<
   string,
-  (args: LayoutArgs) => Layout.State<LayoutArgs>
+  (args: Common.Task.LayoutArgs) => Layout.State<Common.Task.LayoutArgs>
 > = {
   [LabJack.Task.READ_TYPE]: (args) =>
     LabJack.Task.createReadLayout({
@@ -102,7 +101,7 @@ const handleSelect: Ontology.HandleSelect = ({
 };
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const confirm = useConfirmDelete({ type: "Task" });
+  const confirm = Ontology.useConfirmDelete({ type: "Task" });
   return useMutation({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
@@ -233,14 +232,14 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.BASE_SERVICE,
   type: task.ONTOLOGY_TYPE,
-  hasChildren: false,
   icon: <Icon.Task />,
-  canDrop: () => false,
+  hasChildren: false,
   onSelect: handleSelect,
-  onMosaicDrop: handleMosaicDrop,
-  TreeContextMenu,
-  haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],
+  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
   allowRename: () => true,
   onRename: handleRename,
+  onMosaicDrop: handleMosaicDrop,
+  TreeContextMenu,
 };

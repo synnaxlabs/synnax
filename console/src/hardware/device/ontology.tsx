@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
-import { type Make, makeZ } from "@/hardware/device/services/make";
+import { type Make, makeZ } from "@/hardware/device/make";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
@@ -33,9 +33,9 @@ const CONTEXT_MENUS_ITEMS: Record<
   Make,
   (props: Ontology.TreeContextMenuProps) => ReactElement | null
 > = {
-  [LabJack.Device.MAKE]: LabJack.ContextMenuItems,
-  [NI.Device.MAKE]: NI.ContextMenuItems,
-  [OPC.Device.MAKE]: OPC.ContextMenuItems,
+  [LabJack.Device.MAKE]: LabJack.DeviceServices.ContextMenuItems,
+  [NI.Device.MAKE]: NI.DeviceServices.ContextMenuItems,
+  [OPC.Device.MAKE]: OPC.DeviceServices.ContextMenuItems,
 };
 
 const handleConfigure = ({
@@ -132,13 +132,11 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
+  ...Ontology.BASE_SERVICE,
   type: device.ONTOLOGY_TYPE,
-  hasChildren: false,
   icon: <Icon.Device />,
-  canDrop: () => false,
-  onSelect: () => {},
-  TreeContextMenu,
-  haulItems: () => [],
+  hasChildren: false,
   allowRename: () => true,
   onRename: handleRename,
+  TreeContextMenu,
 };

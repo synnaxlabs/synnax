@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/device/Configure.css";
+import "@/hardware/common/device/Configure.css";
 
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
@@ -27,7 +27,7 @@ import { type ReactElement, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { identifierZ } from "@/hardware/device/types";
+import { identifierZ } from "@/hardware/common/device/types";
 import { type Layout } from "@/layout";
 
 export const CONFIGURE_LAYOUT_TYPE = "configure";
@@ -41,7 +41,7 @@ export const CONFIGURE_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 350, width: 800 }, navTop: true },
 };
 
-interface ConfigureProps<P extends UnknownRecord> extends Layout.RendererProps {
+export interface ConfigureProps<P extends UnknownRecord> extends Layout.RendererProps {
   zeroProperties: P;
 }
 

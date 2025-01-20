@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/task/common/common.css";
+import "@/hardware/common/task/common.css";
 
 import { type ontology, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
@@ -17,7 +17,7 @@ import {
   Eraser,
   Form,
   Header,
-  Menu,
+  Menu as PMenu,
   Observe,
   Status,
   Synnax,
@@ -39,9 +39,9 @@ import { type FC, type ReactElement, useCallback, useId, useState } from "react"
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { Menu as CMenu } from "@/components/menu";
+import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
-import { type LayoutArgs } from "@/hardware/task/common/createLayoutCreator";
+import { type LayoutArgs } from "@/hardware/common/task/createLayoutCreator";
 import { Layout } from "@/layout";
 import { Range } from "@/range";
 
@@ -125,7 +125,7 @@ export const ChannelListContextMenu = <
   const allowDisable = indices.some((i) => value[i].enabled);
   const allowEnable = indices.some((i) => !value[i].enabled);
   return (
-    <Menu.Menu
+    <PMenu.Menu
       onChange={{
         remove: handleRemove,
         duplicate: handleDuplicate,
@@ -137,45 +137,42 @@ export const ChannelListContextMenu = <
     >
       {!snapshot && indices.length > 0 && (
         <>
-          <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+          <PMenu.Item itemKey="remove" startIcon={<Icon.Close />}>
             Remove
-          </Menu.Item>
+          </PMenu.Item>
           {onDuplicate != null && (
-            <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+            <PMenu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
               Duplicate
-            </Menu.Item>
+            </PMenu.Item>
           )}
-          <Menu.Divider />
+          <PMenu.Divider />
           {allowDisable && (
-            <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+            <PMenu.Item itemKey="disable" startIcon={<Icon.Disable />}>
               Disable
-            </Menu.Item>
+            </PMenu.Item>
           )}
           {allowEnable && (
-            <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+            <PMenu.Item itemKey="enable" startIcon={<Icon.Enable />}>
               Enable
-            </Menu.Item>
+            </PMenu.Item>
           )}
-          {(allowEnable || allowDisable) && <Menu.Divider />}
+          {(allowEnable || allowDisable) && <PMenu.Divider />}
           {allowTare && (
             <>
-              <Menu.Item itemKey="tare" startIcon={<Icon.Tare />}>
+              <PMenu.Item itemKey="tare" startIcon={<Icon.Tare />}>
                 Tare
-              </Menu.Item>
-              <Menu.Divider />
+              </PMenu.Item>
+              <PMenu.Divider />
             </>
           )}
         </>
       )}
-      <CMenu.HardReloadItem />
-    </Menu.Menu>
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 
-export const parserErrorZ = z.object({
-  message: z.string(),
-  path: z.string(),
-});
+export const parserErrorZ = z.object({ message: z.string(), path: z.string() });
 
 export type ParserError = z.infer<typeof parserErrorZ>;
 
@@ -257,10 +254,7 @@ export const Controls = ({
         direction="x"
         bordered
         rounded
-        style={{
-          padding: "2rem",
-          borderRadius: "1rem",
-        }}
+        style={{ padding: "2rem", borderRadius: "1rem" }}
         justify="end"
       >
         <Button.Icon
@@ -299,14 +293,7 @@ export const ChannelListHeader = ({ onAdd, snapshot }: ChannelListHeaderProps) =
     <Header.Title weight={500}>Channels</Header.Title>
     {!snapshot && (
       <Header.Actions>
-        {[
-          {
-            key: "add",
-            onClick: onAdd,
-            children: <Icon.Add />,
-            size: "large",
-          },
-        ]}
+        {[{ key: "add", onClick: onAdd, children: <Icon.Add />, size: "large" }]}
       </Header.Actions>
     )}
   </Header.Header>
@@ -447,25 +434,24 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
 };
 
 export interface ParentRangeButtonProps {
-  taskKey?: string;
+  key?: string;
 }
 
 export const ParentRangeButton = ({
-  taskKey,
+  key,
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
-  const [parent, setParent] = useState<ontology.Resource | null>();
-  const place = Layout.usePlacer();
-
+  const [parent, setParent] = useState<ontology.Resource | null>(null);
+  const placeLayout = Layout.usePlacer();
   useAsyncEffect(async () => {
     try {
-      if (client == null || taskKey == null) return;
-      const tsk = await client.hardware.tasks.retrieve(taskKey);
+      if (client == null || key == null) return;
+      const tsk = await client.hardware.tasks.retrieve(key);
       const parent = await tsk.snapshottedTo();
       if (parent != null) setParent(parent);
       const tracker = await client.ontology.openDependentTracker({
-        target: task.ontologyID(taskKey),
+        target: task.ontologyID(key),
         dependents: parent == null ? [] : [parent],
         relationshipDirection: "to",
       });
@@ -475,10 +461,10 @@ export const ParentRangeButton = ({
       });
       return async () => await tracker.close();
     } catch (e) {
-      handleException(e, "Failed to retrieve child ranges");
+      handleException(e, "Failed to retrieve parent ranges");
       return undefined;
     }
-  }, [taskKey, client?.key]);
+  }, [key, client?.key]);
   if (parent == null) return null;
   return (
     <Align.Space direction="x" size="small" align="center">
@@ -491,7 +477,11 @@ export const ParentRangeButton = ({
         iconSpacing="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          place({ ...Range.overviewLayout, key: parent.id.key, name: parent.name })
+          placeLayout({
+            ...Range.overviewLayout,
+            key: parent.id.key,
+            name: parent.name,
+          })
         }
       >
         {parent.name}

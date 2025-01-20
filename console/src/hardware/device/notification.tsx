@@ -12,8 +12,8 @@ import { Button, type Icon as PIcon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Device } from "@/hardware/device";
-import { CONFIGURE_LAYOUTS } from "@/hardware/device/services/configureLayouts";
-import { type Make, makeZ } from "@/hardware/device/services/make";
+import { CONFIGURE_LAYOUTS } from "@/hardware/device/configureLayouts";
+import { type Make, makeZ } from "@/hardware/device/make";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";

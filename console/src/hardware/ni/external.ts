@@ -12,7 +12,7 @@ import { Task } from "@/hardware/ni/task";
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/ni/device";
-export * from "@/hardware/ni/ontology";
+export * from "@/hardware/ni/device/services";
 export * from "@/hardware/ni/task";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

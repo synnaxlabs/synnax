@@ -11,7 +11,7 @@ import { type channel, type device } from "@synnaxlabs/client";
 import { bounds, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Identifier } from "@/hardware/device/types";
+import { type Common } from "@/hardware/common";
 
 // Makes
 
@@ -240,7 +240,7 @@ interface CommandStatePair {
 export const ZERO_COMMAND_STATE_PAIR: CommandStatePair = { command: 0, state: 0 };
 
 export type Properties = {
-  identifier: Identifier;
+  identifier: Common.Device.Identifier;
   readIndex: channel.Key;
   thermocoupleIndex: channel.Key;
   writeStateIndex: channel.Key;

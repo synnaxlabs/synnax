@@ -38,7 +38,7 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Device as CoreDevice } from "@/hardware/device";
+import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
@@ -52,20 +52,6 @@ import {
   type ReadType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import {
-  ChannelListContextMenu,
-  Controls,
-  EnableDisableButton,
-  ParentRangeButton,
-  useCreate,
-  useObserveState,
-  type WrappedTaskLayoutProps,
-  wrapTaskLayout,
-} from "@/hardware/task/common/common";
-import {
-  checkDesiredStateMatch,
-  useDesiredState,
-} from "@/hardware/task/common/desiredState";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
@@ -90,12 +76,12 @@ const Wrapped = ({
   layoutKey,
   initialValues,
   task,
-}: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
+}: Common.Task.WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const methods = Form.use({ schema, values: initialValues });
-  const dev = CoreDevice.use<Device.Properties>(methods);
-  const taskState = useObserveState<ReadStateDetails>(
+  const dev = Common.Device.use<Device.Properties>(methods);
+  const taskState = Common.Task.useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -104,8 +90,13 @@ const Wrapped = ({
   const running = taskState?.details?.running;
   const initialState =
     running === true ? "running" : running === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-  const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
+  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
+    initialState,
+    task?.key,
+  );
+  const createTask = Common.Task.useCreate<ReadConfig, ReadStateDetails, ReadType>(
+    layoutKey,
+  );
   const configure = useMutation<void>({
     mutationFn: async () => {
       if (client == null) throw new Error("Client not available");
@@ -303,7 +294,7 @@ const Wrapped = ({
               </Button.Icon>
             )}
           </Align.Space>
-          <ParentRangeButton taskKey={task?.key} />
+          <Common.Task.ParentRangeButton key={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
               path="config.device"
@@ -364,12 +355,12 @@ const Wrapped = ({
             />
           </Align.Space>
         </Form.Form>
-        <Controls
+        <Common.Task.Controls
           layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={
             start.isPending ||
-            (!checkDesiredStateMatch(desiredState, running) &&
+            (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
               taskState?.variant === "success")
           }
           configuring={configure.isPending}
@@ -456,7 +447,7 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
       <Menu.ContextMenu
         style={{ maxHeight: value.length > 0 ? "calc(100% - 200px)" : "100%" }}
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
-          <ChannelListContextMenu
+          <Common.Task.ChannelListContextMenu
             path={path}
             keys={keys}
             value={value}
@@ -583,7 +574,7 @@ export const ChannelListItem = ({
             Index
           </Text.Text>
         )}
-        <EnableDisableButton
+        <Common.Task.EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
           snapshot={snapshot}
@@ -635,4 +626,7 @@ const ChannelForm = ({
   );
 };
 
-export const ReadTask: Layout.Renderer = wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);
+export const ReadTask: Layout.Renderer = Common.Task.wrapTaskLayout(
+  Wrapped,
+  ZERO_READ_PAYLOAD,
+);

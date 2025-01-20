@@ -10,13 +10,7 @@
 import { channel, device, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import {
-  AI_CHANNEL_TYPE,
-  DI_CHANNEL_TYPE,
-  DO_CHANNEL_TYPE,
-  outputChannelTypeZ,
-  TC_CHANNEL_TYPE,
-} from "@/hardware/labjack/device/types";
+import { Device } from "@/hardware/labjack/device";
 
 export const PREFIX = "labjack";
 
@@ -60,7 +54,7 @@ export const inputChannelZ = z.object({
   key: z.string(),
   range: z.number().optional(),
   channel: channel.keyZ,
-  type: z.literal(AI_CHANNEL_TYPE).or(z.literal(DI_CHANNEL_TYPE)),
+  type: z.literal(Device.AI_CHANNEL_TYPE).or(z.literal(Device.DI_CHANNEL_TYPE)),
   scale: scaleZ,
 });
 
@@ -78,7 +72,7 @@ export const thermocoupleChannelZ = z.object({
   enabled: z.boolean(),
   channel: channel.keyZ,
   range: z.number(),
-  type: z.literal(TC_CHANNEL_TYPE),
+  type: z.literal(Device.TC_CHANNEL_TYPE),
   thermocoupleType: thermocoupleTypeZ,
   posChan: z.number(),
   negChan: z.number(),
@@ -95,7 +89,7 @@ export const ZERO_THERMOCOUPLE_CHANNEL: ThermocoupleChannel = {
   key: "",
   channel: 0,
   range: 0,
-  type: TC_CHANNEL_TYPE,
+  type: Device.TC_CHANNEL_TYPE,
   thermocoupleType: KELVIN_UNIT,
   posChan: 0,
   negChan: 199,
@@ -114,13 +108,13 @@ export const ZERO_READ_CHANNEL: ReadChannel = {
   enabled: true,
   key: "",
   channel: 0,
-  type: AI_CHANNEL_TYPE,
+  type: Device.AI_CHANNEL_TYPE,
   range: 0,
   scale: { ...NO_SCALE },
 };
 
 const writeChannelZ = z.object({
-  type: outputChannelTypeZ,
+  type: Device.outputChannelTypeZ,
   port: z.string(),
   enabled: z.boolean(),
   cmdKey: channel.keyZ,
@@ -135,7 +129,7 @@ export const ZERO_WRITE_CHANNEL: WriteChannel = {
   key: "",
   cmdKey: 0,
   stateKey: 0,
-  type: DO_CHANNEL_TYPE,
+  type: Device.DO_CHANNEL_TYPE,
 };
 
 const deviceKeyZ = device.keyZ.min(1, "Must specify a device");

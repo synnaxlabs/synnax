@@ -24,7 +24,6 @@ export const ZERO_PROPERTIES = v1.ZERO_PROPERTIES;
 export interface Device extends v1.Device {}
 export interface TestConnCommandResponse extends v0.TestConnCommandResponse {}
 export interface TestConnCommandState extends v0.TestConnCommandState {}
-export const scannerScanCommandResult = v0.scannerScanCommandResult;
 export interface ScannerScanCommandResult extends v0.ScannerScanCommandResult {}
 
 const PROPERTIES_MIGRATIONS: migrate.Migrations = {

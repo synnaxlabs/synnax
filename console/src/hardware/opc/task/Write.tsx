@@ -32,10 +32,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Device as CoreDevice } from "@/hardware/device";
-import { type Device } from "@/hardware/opc/device";
-import { Browser } from "@/hardware/opc/device/Browser";
-import { CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
+import { Common } from "@/hardware/common";
+import { Device } from "@/hardware/opc/device";
 import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Write,
@@ -48,20 +46,6 @@ import {
   type WriteType,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import {
-  ChannelListContextMenu,
-  Controls,
-  EnableDisableButton,
-  ParentRangeButton,
-  useCreate,
-  useObserveState,
-  type WrappedTaskLayoutProps,
-  wrapTaskLayout,
-} from "@/hardware/task/common/common";
-import {
-  checkDesiredStateMatch,
-  useDesiredState,
-} from "@/hardware/task/common/desiredState";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
@@ -92,14 +76,14 @@ const Wrapped = ({
   layoutKey,
   initialValues,
   task,
-}: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
+}: Common.Task.WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
 
   const methods = Form.use({ schema, values: initialValues });
-  const device = CoreDevice.use<Device.Properties>(methods);
+  const device = Common.Device.use<Device.Properties>(methods);
 
-  const taskState = useObserveState<WriteStateDetails>(
+  const taskState = Common.Task.useObserveState<WriteStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -108,8 +92,13 @@ const Wrapped = ({
   const running = taskState?.details?.running;
   const initialState =
     running === true ? "running" : running === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-  const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
+  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
+    initialState,
+    task?.key,
+  );
+  const createTask = Common.Task.useCreate<WriteConfig, WriteStateDetails, WriteType>(
+    layoutKey,
+  );
 
   const configure = useMutation<void>({
     mutationFn: async () => {
@@ -225,7 +214,7 @@ const Wrapped = ({
               </Button.Icon>
             )}
           </Align.Space>
-          <ParentRangeButton taskKey={task?.key} />
+          <Common.Task.ParentRangeButton key={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Form.Field<string>
               path="config.device"
@@ -244,7 +233,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => place({ ...CONFIGURE_LAYOUT })}
+                        onClick={() => place({ ...Device.CONFIGURE_LAYOUT })}
                       >
                         Connect a new server.
                       </Text.Link>
@@ -268,7 +257,7 @@ const Wrapped = ({
             grow
             style={{ overflow: "hidden", height: "500px" }}
           >
-            {task?.snapshot !== true && <Browser device={device} />}
+            {task?.snapshot !== true && <Device.Browser device={device} />}
             <ChannelList
               path="config.channels"
               device={device}
@@ -276,12 +265,12 @@ const Wrapped = ({
             />
           </Align.Space>
         </Form.Form>
-        <Controls
+        <Common.Task.Controls
           layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={
             start.isPending ||
-            (!checkDesiredStateMatch(desiredState, running) &&
+            (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
               taskState?.variant === "success")
           }
           configuring={configure.isPending}
@@ -365,7 +354,7 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
       </Header.Header>
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
-          <ChannelListContextMenu
+          <Common.Task.ChannelListContextMenu
             path={path}
             keys={keys}
             value={value}
@@ -487,7 +476,7 @@ const ChannelListItem = ({
         </Text.WithIcon>
       </Align.Space>
       <Align.Space direction="x" align="center">
-        <EnableDisableButton
+        <Common.Task.EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
           snapshot={snapshot}
@@ -530,4 +519,7 @@ const ChannelForm = ({
   );
 };
 
-export const WriteTask: Layout.Renderer = wrapTaskLayout(Wrapped, ZERO_WRITE_PAYLOAD);
+export const WriteTask: Layout.Renderer = Common.Task.wrapTaskLayout(
+  Wrapped,
+  ZERO_WRITE_PAYLOAD,
+);

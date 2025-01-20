@@ -9,9 +9,9 @@
 
 import { type task } from "@synnaxlabs/client";
 
-import { createLayoutCreator as createTaskLayoutCreator } from "@/hardware/task/common/createLayoutCreator";
+import { Common } from "@/hardware/common";
 
 export const createLayoutCreator = <P extends task.Payload>(
   type: string,
   defaultName: string = "New OPC UA Task",
-) => createTaskLayoutCreator<P>(type, defaultName, "Logo.OPC");
+) => Common.Task.createLayoutCreator<P>(type, defaultName, "Logo.OPC");

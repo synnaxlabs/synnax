@@ -10,7 +10,6 @@
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
 import { type Layout } from "@/layout";
 
-export * from "@/hardware/task/CreateMenuItem";
 export * from "@/hardware/task/link";
 export * from "@/hardware/task/ontology";
 export * from "@/hardware/task/Selector";

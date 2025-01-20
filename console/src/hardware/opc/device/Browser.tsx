@@ -25,7 +25,7 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import {
-  type Device as OPCDevice,
+  type Device,
   type ScannerScanCommandResult,
 } from "@/hardware/opc/device/types";
 
@@ -36,17 +36,16 @@ const ICONS: Record<string, ReactElement> = {
   Object: <Icon.Group />,
 };
 
-export interface BrowserProps {
-  device?: OPCDevice;
-}
-
 const nodeKey = (nodeId: string, parentId: string): string => `${nodeId}---${parentId}`;
 const parseNodeID = (key: string): string => key.split("---")[0];
+
+export interface BrowserProps {
+  device?: Device;
+}
 
 export const Browser = ({ device }: BrowserProps): ReactElement => {
   const client = Synnax.use();
   const [nodes, setNodes] = useState<Tree.Node[]>([]);
-
   const { data: scanTask } = useQuery({
     queryKey: [client?.key],
     queryFn: async () => {
@@ -55,9 +54,7 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       return await rack.retrieveTaskByName("opc Scanner");
     },
   });
-
   const [loading, setLoading] = useState<string | undefined>(undefined);
-
   const expand = useMutation({
     mutationFn: async (
       props: Optional<Tree.HandleExpandProps, "clicked"> & { delay?: number },
@@ -103,22 +100,17 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
         ]);
     },
   });
-
   const treeProps = Tree.use({ nodes, onExpand: expand.mutate });
-
   const [initialLoading, setInitialLoading] = useState(false);
-
   const refresh = useCallback(() => {
     if (device == null || scanTask == null) return;
     setInitialLoading(true);
     expand.mutate({ action: "expand", current: [], delay: 200 });
     treeProps.clearExpanded();
   }, [device, scanTask?.key, treeProps.clearExpanded]);
-
   useEffect(() => {
     refresh();
   }, [refresh]);
-
   let content: ReactElement;
   if (initialLoading)
     content = (
@@ -150,7 +142,6 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
         {...treeProps}
       />
     );
-
   return (
     <Align.Space
       className={CSS.B("browser")}
@@ -158,10 +149,7 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       grow
       bordered
       rounded
-      style={{
-        overflow: "hidden",
-        height: "100%",
-      }}
+      style={{ overflow: "hidden", height: "100%" }}
       empty
       background={1}
     >

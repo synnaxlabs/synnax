@@ -11,10 +11,9 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
-import { configureReadLayout } from "@/hardware/opc/task/Read";
-import { createWriteLayout } from "@/hardware/opc/task/Write";
-import { Task } from "@/hardware/task";
+import { Common } from "@/hardware/common";
+import { Device } from "@/hardware/opc/device";
+import { Task } from "@/hardware/opc/task";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
@@ -24,10 +23,10 @@ export const ContextMenuItems = ({
   const placeLayout = Layout.usePlacer();
   if (resources.length !== 1) return null;
   const key = resources[0].id.key;
-  const handleEditConnection = () => placeLayout({ ...CONFIGURE_LAYOUT, key });
+  const handleEditConnection = () => placeLayout({ ...Device.CONFIGURE_LAYOUT, key });
   const args = { create: true, initialValues: { config: { device: key } } };
-  const handleCreateReadTask = () => placeLayout(configureReadLayout(args));
-  const handleCreateWriteTask = () => placeLayout(createWriteLayout(args));
+  const handleCreateReadTask = () => placeLayout(Task.configureReadLayout(args));
+  const handleCreateWriteTask = () => placeLayout(Task.createWriteLayout(args));
   return (
     <>
       <Menu.Item
@@ -38,12 +37,15 @@ export const ContextMenuItems = ({
         Edit Connection
       </Menu.Item>
       <Menu.Divider />
-      <Task.CreateMenuItem itemKey="opc.readTask" onClick={handleCreateReadTask}>
+      <Common.Task.CreateMenuItem itemKey="opc.readTask" onClick={handleCreateReadTask}>
         Create a Read Task
-      </Task.CreateMenuItem>
-      <Task.CreateMenuItem itemKey="opc.writeTask" onClick={handleCreateWriteTask}>
+      </Common.Task.CreateMenuItem>
+      <Common.Task.CreateMenuItem
+        itemKey="opc.writeTask"
+        onClick={handleCreateWriteTask}
+      >
         Create a Write Task
-      </Task.CreateMenuItem>
+      </Common.Task.CreateMenuItem>
     </>
   );
 };

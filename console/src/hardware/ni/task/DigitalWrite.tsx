@@ -11,19 +11,26 @@ import "@/hardware/ni/task/DigitalWrite.css";
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Channel, Form, List, Menu, Status, Synnax } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Input } from "@synnaxlabs/pluto/input";
-import { Text } from "@synnaxlabs/pluto/text";
+import {
+  Align,
+  Channel,
+  Form,
+  Input,
+  List,
+  Menu,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
 import { id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { use } from "@/hardware/device/use";
+import { Common } from "@/hardware/common";
+import { type Device } from "@/hardware/ni/device";
 import { CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
-import { type Device, type Properties } from "@/hardware/ni/device/types";
 import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
@@ -38,22 +45,6 @@ import {
   ZERO_DIGITAL_WRITE_PAYLOAD,
   ZERO_DO_CHANNEL,
 } from "@/hardware/ni/task/types";
-import {
-  ChannelListContextMenu,
-  ChannelListEmptyContent,
-  ChannelListHeader,
-  Controls,
-  EnableDisableButton,
-  ParentRangeButton,
-  useCreate,
-  useObserveState,
-  type WrappedTaskLayoutProps,
-  wrapTaskLayout,
-} from "@/hardware/task/common/common";
-import {
-  checkDesiredStateMatch,
-  useDesiredState,
-} from "@/hardware/task/common/desiredState";
 import { Layout } from "@/layout";
 
 export const createDigitalWriteLayout = createLayoutCreator<DigitalWritePayload>(
@@ -79,10 +70,13 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: WrappedTaskLayoutProps<DigitalWrite, DigitalWritePayload>): ReactElement => {
+}: Common.Task.WrappedTaskLayoutProps<
+  DigitalWrite,
+  DigitalWritePayload
+>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({ values: initialValues, schema: formSchema });
-  const taskState = useObserveState<DigitalWriteDetails>(
+  const taskState = Common.Task.useObserveState<DigitalWriteDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -91,8 +85,11 @@ const Wrapped = ({
   const isRunning = taskState?.details?.running;
   const initialState =
     isRunning === true ? "running" : isRunning === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-  const createTask = useCreate<
+  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
+    initialState,
+    task?.key,
+  );
+  const createTask = Common.Task.useCreate<
     DigitalWriteConfig,
     DigitalWriteDetails,
     DigitalWriteType
@@ -107,7 +104,9 @@ const Wrapped = ({
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
-      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
+      const dev = await client.hardware.devices.retrieve<Device.Properties>(
+        config.device,
+      );
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(
         dev.properties.digitalOutput.stateIndex,
@@ -238,7 +237,7 @@ const Wrapped = ({
                 getConfig={() => methods.get<DigitalWriteConfig>("config").value}
               />
             </Align.Space>
-            <ParentRangeButton taskKey={task?.key} />
+            <Common.Task.ParentRangeButton key={task?.key} />
             <Align.Space direction="x" className={CSS.B("task-properties")}>
               <SelectDevice />
               <Align.Space direction="x">
@@ -263,12 +262,12 @@ const Wrapped = ({
             <MainContent snapshot={task?.snapshot} />
           </Align.Space>
         </Form.Form>
-        <Controls
+        <Common.Task.Controls
           layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={
             toggleMutation.isPending ||
-            (!checkDesiredStateMatch(desiredState, isRunning) &&
+            (!Common.Task.checkDesiredStateMatch(desiredState, isRunning) &&
               taskState?.variant === "success")
           }
           snapshot={task?.snapshot}
@@ -287,7 +286,7 @@ interface MainContentProps {
 
 const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
   const formCtx = Form.useContext();
-  const device = use(formCtx) as Device | undefined;
+  const device = Common.Device.use(formCtx) as Device.Device | undefined;
   const place = Layout.usePlacer();
   if (device == null)
     return (
@@ -313,7 +312,7 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
 interface ChannelListProps {
   path: string;
   snapshot?: boolean;
-  device: Device;
+  device: Device.Device;
 }
 
 const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
@@ -342,11 +341,11 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space grow empty direction="y">
-      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
+      <Common.Task.ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Align.Space grow empty style={{ height: "100%" }}>
         <Menu.ContextMenu
           menu={({ keys }): ReactElement => (
-            <ChannelListContextMenu
+            <Common.Task.ChannelListContextMenu
               path={path}
               keys={keys}
               value={value}
@@ -360,7 +359,10 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
           <List.List<string, DOChannel>
             data={value}
             emptyContent={
-              <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+              <Common.Task.ChannelListEmptyContent
+                onAdd={handleAdd}
+                snapshot={snapshot}
+              />
             }
           >
             <List.Selector<string, DOChannel>
@@ -395,7 +397,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
 interface ChannelListItemProps extends List.ItemProps<string, DOChannel> {
   path: string;
   snapshot?: boolean;
-  device: Device;
+  device: Device.Device;
 }
 
 const NO_COMMAND_CHANNEL_NAME = "No Command Channel";
@@ -482,7 +484,7 @@ const ChannelListItem = ({
         >
           {stateChannelName}
         </Text.Text>
-        <EnableDisableButton
+        <Common.Task.EnableDisableButton
           value={entry.enabled}
           onChange={(v) => ctx.set(`${path}.enabled`, v)}
           snapshot={snapshot}
@@ -492,7 +494,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalWrite = wrapTaskLayout(
+export const ConfigureDigitalWrite = Common.Task.wrapTaskLayout(
   Wrapped,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 );

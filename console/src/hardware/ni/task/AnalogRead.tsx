@@ -9,19 +9,26 @@
 
 import { NotFoundError, QueryError, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Input } from "@synnaxlabs/pluto/input";
-import { List } from "@synnaxlabs/pluto/list";
-import { Text } from "@synnaxlabs/pluto/text";
+import {
+  Align,
+  Button,
+  Form,
+  Header,
+  Input,
+  List,
+  Menu,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
 import { binary, deep, id, type migrate, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { enrich } from "@/hardware/ni/device/enrich/enrich";
-import { type Properties } from "@/hardware/ni/device/types";
+import { Common } from "@/hardware/common";
+import { Device } from "@/hardware/ni/device";
 import {
   ANALOG_INPUT_FORMS,
   SelectChannelTypeField,
@@ -43,23 +50,6 @@ import {
   ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import {
-  ChannelListContextMenu,
-  ChannelListEmptyContent,
-  ChannelListHeader,
-  Controls,
-  EnableDisableButton,
-  ParentRangeButton,
-  TareButton,
-  useCreate,
-  useObserveState,
-  type WrappedTaskLayoutProps,
-  wrapTaskLayout,
-} from "@/hardware/task/common/common";
-import {
-  checkDesiredStateMatch,
-  useDesiredState,
-} from "@/hardware/task/common/desiredState";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { type Layout } from "@/layout";
 
@@ -84,7 +74,7 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: WrappedTaskLayoutProps<AnalogRead, AnalogReadPayload>): ReactElement => {
+}: Common.Task.WrappedTaskLayoutProps<AnalogRead, AnalogReadPayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({ values: initialValues, schema });
 
@@ -95,7 +85,7 @@ const Wrapped = ({
     initialValues.config.channels.length > 0 ? 0 : null,
   );
 
-  const taskState = useObserveState<AnalogReadDetails>(
+  const taskState = Common.Task.useObserveState<AnalogReadDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -104,11 +94,16 @@ const Wrapped = ({
   const running = taskState?.details?.running;
   const initialState =
     running === true ? "running" : running === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-
-  const createTask = useCreate<AnalogReadConfig, AnalogReadDetails, AnalogReadType>(
-    layoutKey,
+  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
+    initialState,
+    task?.key,
   );
+
+  const createTask = Common.Task.useCreate<
+    AnalogReadConfig,
+    AnalogReadDetails,
+    AnalogReadType
+  >(layoutKey);
 
   const handleException = Status.useExceptionHandler();
 
@@ -120,8 +115,8 @@ const Wrapped = ({
       const devices = unique.unique(config.channels.map((c) => c.device));
 
       for (const devKey of devices) {
-        const dev = await client.hardware.devices.retrieve<Properties>(devKey);
-        dev.properties = enrich(dev.model, dev.properties);
+        const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
+        dev.properties = Device.enrich(dev.model, dev.properties);
 
         let modified = false;
         let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
@@ -234,7 +229,7 @@ const Wrapped = ({
               getConfig={() => methods.get("config").value}
             />
           </Align.Space>
-          <ParentRangeButton taskKey={task?.key} />
+          <Common.Task.ParentRangeButton key={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <Align.Space direction="x">
               <Form.NumericField
@@ -275,12 +270,12 @@ const Wrapped = ({
             <ChannelDetails selectedChannelIndex={selectedChannelIndex} />
           </Align.Space>
         </Form.Form>
-        <Controls
+        <Common.Task.Controls
           layoutKey={layoutKey}
           state={taskState}
           startingOrStopping={
             startOrStop.isPending ||
-            (!checkDesiredStateMatch(desiredState, running) &&
+            (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
               taskState?.variant === "success")
           }
           configuring={configure.isPending}
@@ -398,10 +393,10 @@ const ChannelList = ({
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
+      <Common.Task.ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
-          <ChannelListContextMenu
+          <Common.Task.ChannelListContextMenu
             path={path}
             keys={keys}
             value={value}
@@ -428,7 +423,10 @@ const ChannelList = ({
         <List.List<string, AIChannel>
           data={value}
           emptyContent={
-            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+            <Common.Task.ChannelListEmptyContent
+              onAdd={handleAdd}
+              snapshot={snapshot}
+            />
           }
         >
           <List.Selector<string, AIChannel>
@@ -510,12 +508,12 @@ const ChannelListItem = ({
       </Align.Space>
       <Align.Pack direction="x" align="center" size="small">
         {showTareButton && (
-          <TareButton
+          <Common.Task.TareButton
             disabled={tareIsDisabled}
             onClick={() => onTare(childValues.channel)}
           />
         )}
-        <EnableDisableButton
+        <Common.Task.EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.enabled`, v)}
           snapshot={snapshot}
@@ -525,7 +523,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureAnalogRead = wrapTaskLayout(
+export const ConfigureAnalogRead = Common.Task.wrapTaskLayout(
   Wrapped,
   ZERO_ANALOG_READ_PAYLOAD,
   migrateAnalogReadConfig as migrate.Migrator,

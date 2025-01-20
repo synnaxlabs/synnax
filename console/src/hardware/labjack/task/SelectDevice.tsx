@@ -10,7 +10,6 @@
 import { Device as PlutoDevice, Form, Synnax } from "@synnaxlabs/pluto";
 
 import { Device } from "@/hardware/labjack/device";
-import { type Properties } from "@/hardware/labjack/device/types";
 import { Layout } from "@/layout";
 
 export const SelectDevice = () => {
@@ -18,7 +17,7 @@ export const SelectDevice = () => {
   const place = Layout.usePlacer();
   const handleDeviceChange = async (v: string) => {
     if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
+    const { configured } = await client.hardware.devices.retrieve<Device.Properties>(v);
     if (configured) return;
     place({ ...Device.CONFIGURE_LAYOUT, key: v });
   };
@@ -36,7 +35,7 @@ export const SelectDevice = () => {
           grow
           {...p}
           autoSelectOnNone={false}
-          searchOptions={{ makes: ["LabJack"] }}
+          searchOptions={{ makes: [Device.MAKE] }}
         />
       )}
     </Form.Field>

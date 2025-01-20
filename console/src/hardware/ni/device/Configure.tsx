@@ -9,18 +9,18 @@
 
 import { type ReactElement } from "react";
 
-import { Device } from "@/hardware/device";
+import { Common } from "@/hardware/common";
 import { ZERO_PROPERTIES } from "@/hardware/ni/device/types";
 import { type Layout } from "@/layout";
 
 export const Configure = (props: Layout.RendererProps): ReactElement => (
-  <Device.Configure {...props} zeroProperties={ZERO_PROPERTIES} />
+  <Common.Device.Configure {...props} zeroProperties={ZERO_PROPERTIES} />
 );
 
-export const CONFIGURE_LAYOUT_TYPE = `${Device.CONFIGURE_LAYOUT_TYPE}_NI`;
+export const CONFIGURE_LAYOUT_TYPE = `${Common.Device.CONFIGURE_LAYOUT_TYPE}_NI`;
 
 export const CONFIGURE_LAYOUT: Layout.BaseState = {
-  ...Device.CONFIGURE_LAYOUT,
+  ...Common.Device.CONFIGURE_LAYOUT,
   key: CONFIGURE_LAYOUT_TYPE,
   type: CONFIGURE_LAYOUT_TYPE,
   name: "NI.Device.Configure",

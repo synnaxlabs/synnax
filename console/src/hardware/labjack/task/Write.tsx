@@ -26,16 +26,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { use } from "@/hardware/device/use";
-import { CONFIGURE_LAYOUT } from "@/hardware/labjack/device/Configure";
-import { SelectOutputChannelType, SelectPort } from "@/hardware/labjack/device/Select";
-import {
-  type ConfiguredDevice,
-  type Device,
-  DEVICES,
-  type OutputChannelType,
-  ZERO_COMMAND_STATE_PAIR,
-} from "@/hardware/labjack/device/types";
+import { Common } from "@/hardware/common";
+import { Device } from "@/hardware/labjack/device";
 import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
 import { SelectDevice } from "@/hardware/labjack/task/SelectDevice";
 import {
@@ -50,22 +42,6 @@ import {
   ZERO_WRITE_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import {
-  ChannelListContextMenu,
-  ChannelListEmptyContent,
-  ChannelListHeader,
-  Controls,
-  EnableDisableButton,
-  ParentRangeButton,
-  useCreate,
-  useObserveState,
-  type WrappedTaskLayoutProps,
-  wrapTaskLayout,
-} from "@/hardware/task/common/common";
-import {
-  checkDesiredStateMatch,
-  useDesiredState,
-} from "@/hardware/task/common/desiredState";
 import { Layout } from "@/layout";
 
 export const createWriteLayout = createLayoutCreator<WritePayload>(
@@ -89,10 +65,10 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
+}: Common.Task.WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({ values: initialValues, schema: formSchema });
-  const taskState = useObserveState<WriteStateDetails>(
+  const taskState = Common.Task.useObserveState<WriteStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -101,8 +77,13 @@ const Wrapped = ({
   const isRunning = taskState?.details?.running;
   const initialState =
     isRunning === true ? "running" : isRunning === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-  const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
+  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
+    initialState,
+    task?.key,
+  );
+  const createTask = Common.Task.useCreate<WriteConfig, WriteStateDetails, WriteType>(
+    layoutKey,
+  );
   const handleException = Status.useExceptionHandler();
   const configure = useMutation({
     onError: (e) => handleException(e, "Failed to configure write task"),
@@ -111,7 +92,7 @@ const Wrapped = ({
       const { name, config } = methods.value();
       const dev = (await client.hardware.devices.retrieve(
         config.device,
-      )) as ConfiguredDevice;
+      )) as Device.ConfiguredDevice;
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
       if (!shouldCreateStateIndex)
@@ -247,7 +228,7 @@ const Wrapped = ({
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </Form.Field>
             </Align.Space>
-            <ParentRangeButton taskKey={task?.key} />
+            <Common.Task.ParentRangeButton key={task?.key} />
             <Align.Space direction="x" className={CSS.B("task-properties")}>
               <SelectDevice />
               <Align.Space direction="x">
@@ -272,13 +253,13 @@ const Wrapped = ({
             <MainContent snapshot={task?.snapshot} />
           </Align.Space>
         </Form.Form>
-        <Controls
+        <Common.Task.Controls
           state={taskState}
           layoutKey={layoutKey}
           snapshot={task?.snapshot}
           startingOrStopping={
             toggleMutation.isPending ||
-            (!checkDesiredStateMatch(desiredState, isRunning) &&
+            (!Common.Task.checkDesiredStateMatch(desiredState, isRunning) &&
               taskState?.variant === "success")
           }
           configuring={configure.isPending}
@@ -296,7 +277,7 @@ interface MainContentProps {
 
 const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
   const formCtx = Form.useContext();
-  const device = use(formCtx) as Device | undefined;
+  const device = Common.Device.use(formCtx) as Device.Device | undefined;
   const place = Layout.usePlacer();
   if (device == null)
     return (
@@ -304,7 +285,7 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
         <Text.Text level="p">No device selected</Text.Text>
       </Align.Space>
     );
-  const handleConfigure = () => place({ ...CONFIGURE_LAYOUT, key: device.key });
+  const handleConfigure = () => place({ ...Device.CONFIGURE_LAYOUT, key: device.key });
   if (!device.configured)
     return (
       <Align.Space grow align="center" justify="center" direction="y">
@@ -322,7 +303,7 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
 interface ChannelListProps {
   path: string;
   snapshot?: boolean;
-  device: ConfiguredDevice;
+  device: Device.ConfiguredDevice;
 }
 
 const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
@@ -334,7 +315,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
   const handleAdd = useCallback(() => {
     const existingCommandStatePair =
       device.properties[ZERO_WRITE_CHANNEL.type].channels[ZERO_WRITE_CHANNEL.port] ??
-      ZERO_COMMAND_STATE_PAIR;
+      Device.ZERO_COMMAND_STATE_PAIR;
     push({
       ...deep.copy(ZERO_WRITE_CHANNEL),
       key: id.id(),
@@ -345,11 +326,11 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space grow empty direction="y">
-      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
+      <Common.Task.ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Align.Space grow empty style={{ height: "100%" }}>
         <Menu.ContextMenu
           menu={({ keys }: Menu.ContextMenuMenuProps) => (
-            <ChannelListContextMenu
+            <Common.Task.ChannelListContextMenu
               path={path}
               keys={keys}
               value={value}
@@ -363,7 +344,10 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
           <List.List<string, WriteChannel>
             data={value}
             emptyContent={
-              <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+              <Common.Task.ChannelListEmptyContent
+                onAdd={handleAdd}
+                snapshot={snapshot}
+              />
             }
           >
             <List.Selector<string, WriteChannel>
@@ -398,7 +382,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
 interface ChannelListItemProps extends List.ItemProps<string, WriteChannel> {
   path: string;
   snapshot?: boolean;
-  device: ConfiguredDevice;
+  device: Device.ConfiguredDevice;
 }
 
 const NO_COMMAND_CHANNEL_NAME = "No Command Channel";
@@ -435,7 +419,7 @@ const ChannelListItem = ({
             if (previousChannel.port === value) return;
             const existingCommandStatePair =
               device.properties[previousChannel.type].channels[value] ??
-              ZERO_COMMAND_STATE_PAIR;
+              Device.ZERO_COMMAND_STATE_PAIR;
             set(channelPath, {
               ...previousChannel,
               cmdKey: existingCommandStatePair.command,
@@ -445,7 +429,7 @@ const ChannelListItem = ({
           }}
         >
           {(p) => (
-            <SelectPort
+            <Device.SelectPort
               {...p}
               model={device.model}
               channelType={entry.type}
@@ -453,7 +437,7 @@ const ChannelListItem = ({
               onClick={(e: MouseEvent) => e.stopPropagation()}
               style={{ width: 250 }}
               actions={[
-                <Form.Field<OutputChannelType>
+                <Form.Field<Device.OutputChannelType>
                   key="type"
                   path={`${path}.type`}
                   showLabel={false}
@@ -462,10 +446,10 @@ const ChannelListItem = ({
                     const channelPath = path.slice(0, path.lastIndexOf("."));
                     const previousChannel = get<WriteChannel>(channelPath).value;
                     if (previousChannel.type === value) return;
-                    const port = DEVICES[device.model].ports[value][0].key;
+                    const port = Device.DEVICES[device.model].ports[value][0].key;
                     const existingCommandStatePair =
                       device.properties[value].channels[port] ??
-                      ZERO_COMMAND_STATE_PAIR;
+                      Device.ZERO_COMMAND_STATE_PAIR;
                     set(channelPath, {
                       ...previousChannel,
                       cmdKey: existingCommandStatePair.command,
@@ -477,7 +461,7 @@ const ChannelListItem = ({
                   empty
                 >
                   {(p) => (
-                    <SelectOutputChannelType
+                    <Device.SelectOutputChannelType
                       {...p}
                       onClick={(e) => e.stopPropagation()}
                       pack={false}
@@ -513,7 +497,7 @@ const ChannelListItem = ({
         >
           {stateChannelName}
         </Text.Text>
-        <EnableDisableButton
+        <Common.Task.EnableDisableButton
           value={entry.enabled}
           onChange={(v) => ctx.set(`${path}.enabled`, v)}
           snapshot={snapshot}
@@ -523,4 +507,4 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureWrite = wrapTaskLayout(Wrapped, ZERO_WRITE_PAYLOAD);
+export const ConfigureWrite = Common.Task.wrapTaskLayout(Wrapped, ZERO_WRITE_PAYLOAD);

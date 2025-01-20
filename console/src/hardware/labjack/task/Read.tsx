@@ -28,18 +28,8 @@ import { type FC, type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { use } from "@/hardware/device/use";
-import {
-  SelectInputChannelTypeField,
-  SelectPort,
-} from "@/hardware/labjack/device/Select";
-import {
-  type ChannelType,
-  DEVICES,
-  type InputChannelType,
-  type ModelKey,
-  type Properties,
-} from "@/hardware/labjack/device/types";
+import { Common } from "@/hardware/common";
+import { Device } from "@/hardware/labjack/device";
 import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
 import { SelectDevice } from "@/hardware/labjack/task/SelectDevice";
 import {
@@ -62,23 +52,6 @@ import {
   ZERO_SCALES,
   ZERO_THERMOCOUPLE_CHANNEL,
 } from "@/hardware/labjack/task/types";
-import {
-  ChannelListContextMenu,
-  ChannelListEmptyContent,
-  ChannelListHeader,
-  Controls,
-  EnableDisableButton,
-  ParentRangeButton,
-  TareButton,
-  useCreate,
-  useObserveState,
-  type WrappedTaskLayoutProps,
-  wrapTaskLayout,
-} from "@/hardware/task/common/common";
-import {
-  checkDesiredStateMatch,
-  useDesiredState,
-} from "@/hardware/task/common/desiredState";
 import { type Layout } from "@/layout";
 
 export const createReadLayout = createLayoutCreator<ReadPayload>(
@@ -100,7 +73,7 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
+}: Common.Task.WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -112,7 +85,7 @@ const Wrapped = ({
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
     initialValues.config.channels.length > 0 ? 0 : null,
   );
-  const taskState = useObserveState<ReadStateDetails>(
+  const taskState = Common.Task.useObserveState<ReadStateDetails>(
     methods.setStatus,
     methods.clearStatuses,
     task?.key,
@@ -121,15 +94,22 @@ const Wrapped = ({
   const running = taskState?.details?.running;
   const initialState =
     running === true ? "running" : running === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
-  const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
+  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
+    initialState,
+    task?.key,
+  );
+  const createTask = Common.Task.useCreate<ReadConfig, ReadStateDetails, ReadType>(
+    layoutKey,
+  );
   const handleException = Status.useExceptionHandler();
   const configure = useMutation({
     onError: (e) => handleException(e, "Failed to configure LabJack Read task"),
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
-      const dev = await client.hardware.devices.retrieve<Properties>(config.device);
+      const dev = await client.hardware.devices.retrieve<Device.Properties>(
+        config.device,
+      );
       let shouldCreateIndex = false;
       if (dev.properties.readIndex)
         try {
@@ -206,7 +186,7 @@ const Wrapped = ({
       await task?.executeCommand("tare", { keys });
     },
   }).mutate;
-  const dev = use(methods);
+  const dev = Common.Device.use(methods);
   return (
     <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
       <Align.Space>
@@ -216,7 +196,7 @@ const Wrapped = ({
               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
           </Align.Space>
-          <ParentRangeButton taskKey={task?.key} />
+          <Common.Task.ParentRangeButton key={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
             <SelectDevice />
             <Align.Space direction="x">
@@ -270,13 +250,13 @@ const Wrapped = ({
             </Align.Space>
           </Align.Space>
         </Form.Form>
-        <Controls
+        <Common.Task.Controls
           layoutKey={layoutKey}
           state={taskState}
           snapshot={task?.snapshot}
           startingOrStopping={
             start.isPending ||
-            (!checkDesiredStateMatch(desiredState, running) &&
+            (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
               taskState?.variant === "success")
           }
           configuring={configure.isPending}
@@ -298,17 +278,17 @@ const ChannelForm = ({
   device,
 }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const channelType = (Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ??
+  const channelType = (Form.useFieldValue<Device.ChannelType>(`${prefix}.type`, true) ??
     "AI") as "AI" | "DI" | "TC";
-  const model = (device?.model ?? "LJM_dtT4") as ModelKey;
+  const model = (device?.model ?? "LJM_dtT4") as Device.ModelKey;
   if (selectedChannelIndex === -1) return <></>;
   return (
     <Align.Space direction="y" size="small">
       <Align.Space direction="x" grow>
-        <SelectInputChannelTypeField
+        <Device.SelectInputChannelTypeField
           path={prefix}
           onChange={(value, { get, path, set }) => {
-            const prevType = get<InputChannelType>(path).value;
+            const prevType = get<Device.InputChannelType>(path).value;
             if (prevType === value) return;
             const next = deep.copy(
               value === "TC" ? ZERO_THERMOCOUPLE_CHANNEL : ZERO_READ_CHANNEL,
@@ -316,7 +296,8 @@ const ChannelForm = ({
             const parentPath = path.slice(0, path.lastIndexOf("."));
             const prevParent = get<ReadChannel>(parentPath).value;
             const schema = value === "TC" ? thermocoupleChannelZ : inputChannelZ;
-            const port = DEVICES[model].ports[value === "TC" ? "AI" : value][0].key;
+            const port =
+              Device.DEVICES[model].ports[value === "TC" ? "AI" : value][0].key;
             set(parentPath, {
               ...deep.overrideValidItems(next, prevParent, schema),
               type: next.type,
@@ -328,7 +309,7 @@ const ChannelForm = ({
           grow
         />
         <Form.Field<string> path={`${prefix}.port`} grow hideIfNull>
-          {(p) => <SelectPort {...p} model={model} channelType={channelType} />}
+          {(p) => <Device.SelectPort {...p} model={model} channelType={channelType} />}
         </Form.Field>
       </Align.Space>
       <Form.NumericField
@@ -366,10 +347,10 @@ const ChannelList = ({
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
+      <Common.Task.ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps) => (
-          <ChannelListContextMenu
+          <Common.Task.ChannelListContextMenu
             path={path}
             keys={keys}
             value={value}
@@ -391,7 +372,10 @@ const ChannelList = ({
         <List.List<string, ReadChannel>
           data={value}
           emptyContent={
-            <ChannelListEmptyContent onAdd={handleAdd} snapshot={snapshot} />
+            <Common.Task.ChannelListEmptyContent
+              onAdd={handleAdd}
+              snapshot={snapshot}
+            />
           }
         >
           <List.Selector<string, ReadChannel>
@@ -479,12 +463,12 @@ const ChannelListItem = ({
       </Align.Space>
       <Align.Pack direction="x" align="center" size="small">
         {showTareButton && (
-          <TareButton
+          <Common.Task.TareButton
             disabled={tareIsDisabled}
             onClick={() => onTare(childValues.channel as number)}
           />
         )}
-        <EnableDisableButton
+        <Common.Task.EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx?.set(`${path}.${props.index}.enabled`, v)}
           snapshot={snapshot}
@@ -494,7 +478,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureRead = wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);
+export const ConfigureRead = Common.Task.wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);
 
 export const SelectScaleTypeField = Form.buildDropdownButtonSelectField<
   ScaleType,
@@ -543,7 +527,7 @@ const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
 
 export const CustomScaleForm = ({ prefix }: FormProps): ReactElement | null => {
   const path = `${prefix}.scale`;
-  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true);
+  const channelType = Form.useFieldValue<Device.ChannelType>(`${prefix}.type`, true);
   const scaleType = Form.useFieldValue<ScaleType>(`${path}.type`, true);
   if (channelType !== "AI" || scaleType == null) return null;
   const FormComponent = SCALE_FORMS[scaleType];
@@ -556,7 +540,7 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement | null => {
 };
 
 interface ThermocoupleFormProps extends FormProps {
-  model: ModelKey;
+  model: Device.ModelKey;
 }
 
 const LabJackThermocoupleTypeField = Form.buildDropdownButtonSelectField({
@@ -584,7 +568,7 @@ const ThermocoupleForm = ({
   prefix,
   model,
 }: ThermocoupleFormProps): ReactElement | null => {
-  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true);
+  const channelType = Form.useFieldValue<Device.ChannelType>(`${prefix}.type`, true);
   if (channelType !== "TC") return null;
   return (
     <Align.Space direction="y" grow>
@@ -613,7 +597,7 @@ const ThermocoupleForm = ({
 };
 
 interface SelectCJCSourceProps extends Select.SingleProps<string, CJCSourceType> {
-  model: ModelKey;
+  model: Device.ModelKey;
 }
 
 interface CJCSourceType {
@@ -621,7 +605,7 @@ interface CJCSourceType {
 }
 
 const SelectCJCSourceField = ({ model, ...props }: SelectCJCSourceProps) => {
-  const ports: CJCSourceType[] = DEVICES[model].ports.AI;
+  const ports: CJCSourceType[] = Device.DEVICES[model].ports.AI;
   const data = [
     { key: "TEMPERATURE_DEVICE_K" },
     { key: "TEMPERATURE_AIR_K" },

@@ -11,7 +11,9 @@ import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/labjack/device/Conf
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/labjack/device/Configure";
-export * from "@/hardware/labjack/device/Select";
+export * from "@/hardware/labjack/device/SelectInputChannelTypeField";
+export * from "@/hardware/labjack/device/SelectOutputChannelType";
+export * from "@/hardware/labjack/device/SelectPort";
 export * from "@/hardware/labjack/device/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

@@ -9,7 +9,7 @@
 
 import {
   Align,
-  Device,
+  Device as PDevice,
   Divider,
   Form,
   Input,
@@ -24,8 +24,7 @@ import { type FC, type ReactElement, useRef } from "react";
 import { z } from "zod";
 
 import { FS } from "@/fs";
-import { Device as NIDevice } from "@/hardware/ni/device";
-import { type Properties } from "@/hardware/ni/device/types";
+import { Device } from "@/hardware/ni/device";
 import {
   type AccelSensitivityUnits,
   AI_CHANNEL_SCHEMAS,
@@ -571,9 +570,9 @@ export const DeviceField = ({ path }: DeviceFieldProps) => {
   const place = Layout.usePlacer();
   const handleDeviceChange = async (v: string) => {
     if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
+    const { configured } = await client.hardware.devices.retrieve<Device.Properties>(v);
     if (configured) return;
-    place({ ...NIDevice.CONFIGURE_LAYOUT, key: v });
+    place({ ...Device.CONFIGURE_LAYOUT, key: v });
   };
   return (
     <Form.Field<string>
@@ -584,7 +583,7 @@ export const DeviceField = ({ path }: DeviceFieldProps) => {
       style={{ width: "100%" }}
     >
       {(p) => (
-        <Device.SelectSingle
+        <PDevice.SelectSingle
           allowNone={false}
           grow
           {...p}

@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type task } from "@synnaxlabs/client";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type channel, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
+type Version = typeof VERSION;
 
 export const MAKE = "opc";
 
-export const securityModeZ = z.union([
+const securityModeZ = z.union([
   z.literal("None"),
   z.literal("Sign"),
   z.literal("SignAndEncrypt"),
 ]);
 export type SecurityMode = z.infer<typeof securityModeZ>;
 
-export const securityPolicyZ = z.union([
+const securityPolicyZ = z.union([
   z.literal("None"),
   z.literal("Basic128Rsa15"),
   z.literal("Basic256"),
@@ -54,33 +54,29 @@ export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   serverCertificate: "",
 };
 
-export const scannedNodeZ = z.object({
-  nodeId: z.string(),
-  dataType: z.string(),
-  name: z.string(),
-  nodeClass: z.string(),
-  isArray: z.boolean(),
-});
-export interface ScannedNode extends z.infer<typeof scannedNodeZ> {}
+export type ScannedNode = {
+  nodeId: string;
+  dataType: string;
+  name: string;
+  nodeClass: string;
+  isArray: boolean;
+};
 
-export const propertiesZ = z.object({
-  version: z.literal(VERSION).optional().default(VERSION),
-  connection: connectionConfigZ,
-  read: z.object({ index: z.number(), channels: z.record(z.string(), z.number()) }),
-  write: z.object({ channels: z.record(z.string(), z.number()) }),
-});
+export type Properties = {
+  version: Version;
+  connection: ConnectionConfig;
+  read: { index: channel.Key; channels: Record<string, channel.Key> };
+  write: { channels: Record<string, channel.Key> };
+};
+export const ZERO_PROPERTIES: Properties = {
+  version: VERSION,
+  connection: ZERO_CONNECTION_CONFIG,
+  read: { index: 0, channels: {} },
+  write: { channels: {} },
+};
 
-export interface Properties extends z.infer<typeof propertiesZ> {}
-
-export interface Device extends device.Device<Properties> {}
-
-export interface TestConnCommandResponse extends UnknownRecord {
-  message: string;
-}
+export type TestConnCommandResponse = { message: string };
 
 export interface TestConnCommandState extends task.State<TestConnCommandResponse> {}
 
-export const scannerScanCommandResult = z.object({ channels: scannedNodeZ.array() });
-
-export interface ScannerScanCommandResult
-  extends z.infer<typeof scannerScanCommandResult> {}
+export type ScannerScanCommandResult = { channels: ScannedNode[] };

@@ -9,10 +9,9 @@
 
 import { type channel, type device } from "@synnaxlabs/client";
 
-import { type Device } from "@/hardware/device";
+import { type Common } from "@/hardware/common";
 
 export const MAKE = "ni";
-export type MAKE = typeof MAKE;
 
 export type PropertiesDigest = { key: string; enriched: boolean };
 
@@ -22,7 +21,7 @@ interface CommandStatePair {
 }
 
 export type Properties = PropertiesDigest & {
-  identifier: Device.Identifier;
+  identifier: Common.Device.Identifier;
   analogInput: {
     portCount: number;
     index: channel.Key;
