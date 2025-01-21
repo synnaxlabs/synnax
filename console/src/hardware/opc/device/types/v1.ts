@@ -25,8 +25,10 @@ export const ZERO_PROPERTIES: Properties = {
   version: VERSION,
 };
 
+export const PROPERTIES_MIGRATION_NAME = "hardware.opc.device.properties";
+
 export const propertiesMigration = migrate.createMigration<v0.Properties, Properties>({
-  name: "hardware.opc.device.properties",
+  name: PROPERTIES_MIGRATION_NAME,
   migrate: (p) => {
     const read = p.read;
     return {

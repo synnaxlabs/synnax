@@ -40,6 +40,14 @@ export type Write = v0.Write;
 export type WritePayload = v0.WritePayload;
 export const ZERO_WRITE_PAYLOAD = v0.ZERO_WRITE_PAYLOAD;
 
+// Scan
+export const TEST_CONNECTION_COMMAND = v0.TEST_CONNECTION_COMMAND;
+export const SCAN_NAME = v0.SCAN_NAME;
+export interface TestConnectionCommandResponse
+  extends v0.TestConnectionCommandResponse {}
+export interface TestConnectionCommandState extends v0.TestConnectionCommandState {}
+export type ScanCommandResult = v0.ScanCommandResult;
+
 export interface NodeId extends v0.NodeId {}
 export const parseNodeId = v0.parseNodeId;
 export const nodeIdToString = v0.nodeIdToString;

@@ -257,3 +257,23 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
 };
 
 type NodeIdType = "Numeric" | "String" | "GUID" | "ByteString";
+
+// scan task
+
+export const SCAN_NAME = "opc Scanner";
+
+type ScannedNode = {
+  nodeId: string;
+  dataType: string;
+  name: string;
+  nodeClass: string;
+  isArray: boolean;
+};
+
+export const TEST_CONNECTION_COMMAND = "test_connection";
+export type TestConnectionCommandResponse = { message: string };
+
+export interface TestConnectionCommandState
+  extends task.State<TestConnectionCommandResponse> {}
+
+export type ScanCommandResult = { channels: ScannedNode[] };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type task } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -15,20 +15,29 @@ type Version = typeof VERSION;
 
 export const MAKE = "opc";
 
-const securityModeZ = z.union([
-  z.literal("None"),
-  z.literal("Sign"),
-  z.literal("SignAndEncrypt"),
+export const NO_SECURITY_MODE = "None";
+export const SIGN_SECURITY_MODE = "Sign";
+export const SIGN_AND_ENCRYPT_SECURITY_MODE = "SignAndEncrypt";
+const securityModeZ = z.enum([
+  NO_SECURITY_MODE,
+  SIGN_SECURITY_MODE,
+  SIGN_AND_ENCRYPT_SECURITY_MODE,
 ]);
 export type SecurityMode = z.infer<typeof securityModeZ>;
 
-const securityPolicyZ = z.union([
-  z.literal("None"),
-  z.literal("Basic128Rsa15"),
-  z.literal("Basic256"),
-  z.literal("Basic256Sha256"),
-  z.literal("Aes128_Sha256_RsaOaep"),
-  z.literal("Aes256_Sha256_RsaPss"),
+export const NO_SECURITY_POLICY = "None";
+export const BASIC128_RSA15_SECURITY_POLICY = "Basic128Rsa15";
+export const BASIC256_SECURITY_POLICY = "Basic256";
+export const BASIC256_SHA256_SECURITY_POLICY = "Basic256Sha256";
+export const AES128_SHA256_RSAOAEP_SECURITY_POLICY = "Aes128_Sha256_RsaOaep";
+export const AES256_SHA256_RSAPSS_SECURITY_POLICY = "Aes256_Sha256_RsaPss";
+const securityPolicyZ = z.enum([
+  NO_SECURITY_POLICY,
+  BASIC128_RSA15_SECURITY_POLICY,
+  BASIC256_SECURITY_POLICY,
+  BASIC256_SHA256_SECURITY_POLICY,
+  AES128_SHA256_RSAOAEP_SECURITY_POLICY,
+  AES256_SHA256_RSAPSS_SECURITY_POLICY,
 ]);
 export type SecurityPolicy = z.infer<typeof securityPolicyZ>;
 
@@ -45,21 +54,13 @@ export const connectionConfigZ = z.object({
 export interface ConnectionConfig extends z.infer<typeof connectionConfigZ> {}
 export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   endpoint: "opc.tcp://localhost:4840",
-  securityMode: "None",
-  securityPolicy: "None",
+  securityMode: NO_SECURITY_MODE,
+  securityPolicy: NO_SECURITY_POLICY,
   username: "",
   password: "",
   clientCertificate: "",
   clientPrivateKey: "",
   serverCertificate: "",
-};
-
-type ScannedNode = {
-  nodeId: string;
-  dataType: string;
-  name: string;
-  nodeClass: string;
-  isArray: boolean;
 };
 
 export type Properties = {
@@ -74,10 +75,3 @@ export const ZERO_PROPERTIES: Properties = {
   read: { index: 0, channels: {} },
   write: { channels: {} },
 };
-
-export type TestConnectionCommandResponse = { message: string };
-
-export interface TestConnectionCommandState
-  extends task.State<TestConnectionCommandResponse> {}
-
-export type ScanCommandResult = { channels: ScannedNode[] };

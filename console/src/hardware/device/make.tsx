@@ -24,11 +24,14 @@ type Make = z.infer<typeof makeZ>;
 export const getMake = (make: unknown): Make | null =>
   makeZ.safeParse(make).data ?? null;
 
-export const MAKE_ICONS: Record<Make, PIcon.Element> = {
+const MAKE_ICONS: Record<Make, PIcon.Element> = {
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
   [NI.Device.MAKE]: <Icon.Logo.NI />,
   [OPC.Device.MAKE]: <Icon.Logo.OPC />,
 };
+
+export const getIcon = (make: Make | null): PIcon.Element =>
+  make ? MAKE_ICONS[make] : <Icon.Device />;
 
 export const CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
   [LabJack.Device.MAKE]: LabJack.Device.CONFIGURE_LAYOUT,

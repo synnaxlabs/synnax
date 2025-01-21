@@ -23,6 +23,6 @@ export const CONFIGURE_LAYOUT: Layout.BaseState = {
   ...Common.Device.CONFIGURE_LAYOUT,
   key: CONFIGURE_LAYOUT_TYPE,
   type: CONFIGURE_LAYOUT_TYPE,
-  name: "LabJack.Device.Configure",
+  name: "Device.Configure",
   icon: "Logo.LabJack",
 };

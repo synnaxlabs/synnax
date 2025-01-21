@@ -8,18 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/pluto";
+import { type KeyedNamed } from "@synnaxlabs/x";
 
-import { type SecurityMode } from "@/hardware/opc/device/types";
+import {
+  NO_SECURITY_MODE,
+  type SecurityMode,
+  SIGN_AND_ENCRYPT_SECURITY_MODE,
+  SIGN_SECURITY_MODE,
+} from "@/hardware/opc/device/types";
 
-interface SecurityModeInfo {
-  key: SecurityMode;
-  name: string;
-}
+interface SecurityModeInfo extends KeyedNamed<SecurityMode> {}
 
 const SECURITY_MODES: SecurityModeInfo[] = [
-  { key: "None", name: "None" },
-  { key: "Sign", name: "Sign" },
-  { key: "SignAndEncrypt", name: "Sign And Encrypt" },
+  { key: NO_SECURITY_MODE, name: "None" },
+  { key: SIGN_SECURITY_MODE, name: "Sign" },
+  { key: SIGN_AND_ENCRYPT_SECURITY_MODE, name: "Sign And Encrypt" },
 ];
 
 export interface SelectSecurityModeProps

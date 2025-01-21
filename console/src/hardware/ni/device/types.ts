@@ -11,7 +11,7 @@ import { type channel, type device } from "@synnaxlabs/client";
 
 import { type Common } from "@/hardware/common";
 
-export const MAKE = "ni";
+export const MAKE = "NI";
 
 export type PropertiesDigest = { key: string; enriched: boolean };
 

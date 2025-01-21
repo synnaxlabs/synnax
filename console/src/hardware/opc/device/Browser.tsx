@@ -24,7 +24,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
-import { type Device, type ScanCommandResult } from "@/hardware/opc/device/types";
+import { type Device } from "@/hardware/opc/device/types";
+import { type ScanCommandResult } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,

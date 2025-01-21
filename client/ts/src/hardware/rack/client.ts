@@ -27,6 +27,8 @@ import { ontology } from "@/ontology";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
+export const DEFAULT_CHANNEL_NAME = "sy_node_1_rack";
+
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";

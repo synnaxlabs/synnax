@@ -7,15 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device } from "@synnaxlabs/client";
+import { device, type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
+import { type Icon as PIcon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
-import { CONFIGURE_LAYOUTS, getContextMenuItems, makeZ } from "@/hardware/device/make";
+import {
+  CONFIGURE_LAYOUTS,
+  getContextMenuItems,
+  getIcon,
+  getMake,
+  makeZ,
+} from "@/hardware/device/make";
 import { Ontology } from "@/ontology";
 
 const handleRename: Ontology.HandleTreeRename = {
@@ -110,10 +116,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
+const icon = (resource: ontology.Resource): PIcon.Element =>
+  getIcon(getMake(resource.data?.make));
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.BASE_SERVICE,
   type: device.ONTOLOGY_TYPE,
-  icon: <Icon.Device />,
+  icon,
   hasChildren: false,
   allowRename: () => true,
   onRename: handleRename,

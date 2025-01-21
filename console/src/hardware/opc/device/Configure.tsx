@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Configure.css";
 
-import { TimeSpan } from "@synnaxlabs/client";
+import { rack as clientRack, TimeSpan } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -37,14 +37,19 @@ import {
   connectionConfigZ,
   MAKE,
   migrateProperties,
+  NO_SECURITY_MODE,
   type Properties,
   type SecurityMode,
   type SecurityPolicy,
-  type TestConnectionCommandResponse,
-  type TestConnectionCommandState,
   ZERO_CONNECTION_CONFIG,
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
+import {
+  SCAN_NAME,
+  TEST_CONNECTION_COMMAND,
+  type TestConnectionCommandResponse,
+  type TestConnectionCommandState,
+} from "@/hardware/opc/task/types";
 import { Layout } from "@/layout";
 
 export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
@@ -52,7 +57,7 @@ export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
 export const CONFIGURE_LAYOUT: Layout.BaseState = {
   key: CONFIGURE_LAYOUT_TYPE,
   type: CONFIGURE_LAYOUT_TYPE,
-  name: "OPC UA.Server.Connect",
+  name: "Server.Connect",
   icon: "Logo.OPC",
   location: "modal",
   window: { resizable: false, size: { height: 710, width: 800 }, navTop: true },
@@ -71,7 +76,7 @@ export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement
     queryFn: async () => {
       if (client == null || layoutKey === CONFIGURE_LAYOUT_TYPE)
         return [
-          { name: "OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG } },
+          { name: "New OPC UA Server", connection: { ...ZERO_CONNECTION_CONFIG } },
           deep.copy(ZERO_PROPERTIES),
         ];
       const dev = await client.hardware.devices.retrieve<Properties>(layoutKey);
@@ -102,12 +107,12 @@ export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement
   const [initialValues, properties] = data;
   return (
     <Internal
-      onClose={onClose}
-      layoutKey={layoutKey}
-      properties={properties}
-      initialValues={initialValues}
-      visible
       focused
+      initialValues={initialValues}
+      layoutKey={layoutKey}
+      onClose={onClose}
+      properties={properties}
+      visible
     />
   );
 };
@@ -130,35 +135,39 @@ const Internal = ({
     useState<TestConnectionCommandState | null>(null);
   const handleException = Status.useExceptionHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
-  const testConnection = useMutation<void, Error, void>({
+  const testConnectionMutation = useMutation({
     onError: (e) => handleException(e, "Failed to test connection"),
     mutationFn: async () => {
       if (client == null) throw new Error("Cannot reach Synnax server");
       if (!methods.validate("connection")) throw new Error("Invalid configuration");
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      const task = await rack.retrieveTaskByName("opc Scanner");
+      const rack = await client.hardware.racks.retrieve(
+        clientRack.DEFAULT_CHANNEL_NAME,
+      );
+      const task = await rack.retrieveTaskByName(SCAN_NAME);
       const t = await task.executeCommandSync<TestConnectionCommandResponse>(
-        "test_connection",
+        TEST_CONNECTION_COMMAND,
         { connection: methods.get("connection").value },
         TimeSpan.seconds(10),
       );
       setConnectionState(t);
     },
   });
-  const confirm = useMutation<void, Error, void>({
+  const configureMutation = useMutation({
     onError: (e) => handleException(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
       if (client == null) throw new Error("Cannot reach Synnax server");
       if (!methods.validate()) throw new Error("Invalid configuration");
-      await testConnection.mutateAsync();
+      await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
-      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
+      const rack = await client.hardware.racks.retrieve(
+        clientRack.DEFAULT_CHANNEL_NAME,
+      );
       const key = layoutKey === CONFIGURE_LAYOUT_TYPE ? uuid() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,
         name: methods.get<string>("name").value,
-        model: "opc",
+        model: MAKE,
         make: MAKE,
         rack: rack.key,
         location: methods.get<string>("connection.endpoint").value,
@@ -172,18 +181,18 @@ const Internal = ({
       onClose();
     },
   });
-  const hasSecPolicy =
+  const hasSecurityPolicy =
     Form.useFieldValue<SecurityPolicy>("connection.securityMode", undefined, methods) !=
-    "None";
+    NO_SECURITY_MODE;
+  const isPending = testConnectionMutation.isPending || configureMutation.isPending;
   return (
     <Align.Space
       direction="y"
       justify="center"
-      className={CSS.B("connect")}
+      className={CSS.B("opc-configure")}
       align="start"
-      grow
     >
-      <Align.Space direction="y" style={{ padding: "3rem 4rem" }} grow size="small">
+      <Align.Space direction="y" grow size="small" className={CSS.B("content")}>
         <Form.Form {...methods}>
           <Form.TextField
             path="name"
@@ -217,11 +226,11 @@ const Internal = ({
           <Form.Field<SecurityPolicy>
             path="connection.securityPolicy"
             label="Security Policy"
-            grow={!hasSecPolicy}
+            grow={!hasSecurityPolicy}
           >
             {(p) => <SelectSecurityPolicy size="medium" {...p} />}
           </Form.Field>
-          {hasSecPolicy && (
+          {hasSecurityPolicy && (
             <>
               <Form.Field<string>
                 path="connection.clientCertificate"
@@ -265,15 +274,19 @@ const Internal = ({
           <Button.Button
             variant="outlined"
             triggers={[SAVE_TRIGGER]}
-            loading={testConnection.isPending}
-            disabled={testConnection.isPending}
-            onClick={() => {
-              testConnection.mutate();
-            }}
+            loading={testConnectionMutation.isPending}
+            disabled={isPending}
+            onClick={() => testConnectionMutation.mutate()}
           >
             Test Connection
           </Button.Button>
-          <Button.Button onClick={() => confirm.mutate()}>Save</Button.Button>
+          <Button.Button
+            disabled={isPending}
+            loading={configureMutation.isPending}
+            onClick={() => configureMutation.mutate()}
+          >
+            Save
+          </Button.Button>
         </Nav.Bar.End>
       </Layout.BottomNavBar>
     </Align.Space>
