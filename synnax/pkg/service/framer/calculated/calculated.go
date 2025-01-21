@@ -2,7 +2,7 @@ package calculated
 
 import (
 	"context"
-	"fmt"
+	// "fmt"
 	"io"
 	"sync"
 
@@ -309,7 +309,7 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string,
 	}
 
 	// Log the variables before running the calculation
-	fmt.Printf("Running calculation with vars: %+v\n", vars)
+	// fmt.Printf("Running calculation with vars: %+v\n", vars)
 
 	// Run the calculation
 	os, err := c.calculation.Run(vars)

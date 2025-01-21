@@ -62,7 +62,7 @@ func (c *Calculation) Run(vars map[string]interface{}) (telem.Series, error) {
 	}
 
 	luaExpr := fmt.Sprintf("return %s", c.expression)
-	fmt.Printf("Evaluating Lua expression: %s\n", luaExpr) // Log the expression
+	// fmt.Printf("Evaluating Lua expression: %s\n", luaExpr) // Log the expression
 	if err := L.DoString(luaExpr); err != nil {
 		return telem.Series{}, errors.Wrapf(err, "failed to evaluate expression: %s", c.expression)
 	}
