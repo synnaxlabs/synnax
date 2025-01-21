@@ -619,6 +619,54 @@ namespace ni {
                 float64 currentExcitVal,
                 const char customScaleName[]
         );
+
+        static int32 CreateAOCurrentChan(
+                TaskHandle task,
+                const char physicalChannel[],
+                const char nameToAssignToChannel[],
+                float64 minVal,
+                float64 maxVal,
+                int32 units,
+                const char customScaleName[]
+        );
+
+        static int32 CreateAOFuncGenChan(
+                TaskHandle task,
+                const char physicalChannel[],
+                const char nameToAssignToChannel[],
+                int32 type,
+                float64 freq,
+                float64 amplitude,
+                float64 offset
+        );
+
+        static int32 CreateAOVoltageChan(
+                TaskHandle task,
+                const char physicalChannel[],
+                const char nameToAssignToChannel[],
+                float64 minVal,
+                float64 maxVal,
+                int32 units,
+                const char customScaleName[]
+        );
+
+        static int32 WriteAnalogF64(
+                TaskHandle task,
+                int32 numSampsPerChan,
+                bool32 autoStart,
+                float64 timeout,
+                int32 dataLayout,
+                const float64 writeArray[],
+                int32* sampsPerChanWritten, bool32* reserved
+        );
+
+        static int32 WriteAnalogScalarF64(
+                TaskHandle task,
+                bool32 autoStart,
+                float64 timeout,
+                float64 value,
+                bool32* reserved
+        );
     };
 }
 
@@ -691,9 +739,6 @@ namespace ni {
 // virtual int32 CreateAIVelocityIEPEChan(TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[], int32 terminalConfig, float64 minVal, float64 maxVal, int32 units, float64 sensitivity, int32 sensitivityUnits, int32 currentExcitSource, float64 currentExcitVal, const char customScaleName[]) = 0;
 // virtual int32 CreateAIVoltageChanWithExcit(TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[], int32 terminalConfig, float64 minVal, float64 maxVal, int32 units, int32 bridgeConfig, int32 voltageExcitSource, float64 voltageExcitVal, bool32 useExcitForScaling, const char customScaleName[]) = 0;
 // virtual int32 CreateAIVoltageRMSChan(TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[], int32 terminalConfig, float64 minVal, float64 maxVal, int32 units, const char customScaleName[]) = 0;
-// virtual int32 CreateAOCurrentChan(TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[], float64 minVal, float64 maxVal, int32 units, const char customScaleName[]) = 0;
-// virtual int32 CreateAOFuncGenChan(TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[], int32 type, float64 freq, float64 amplitude, float64 offset) = 0;
-// virtual int32 CreateAOVoltageChan(TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[], float64 minVal, float64 maxVal, int32 units, const char customScaleName[]) = 0;
 // virtual int32 CreateCIAngEncoderChan(TaskHandle task, const char counter[], const char nameToAssignToChannel[], int32 decodingType, bool32 zidxEnable, float64 zidxVal, int32 zidxPhase, int32 units, uInt32 pulsesPerRev, float64 initialAngle, const char customScaleName[]) = 0;
 // virtual int32 CreateCIAngVelocityChan(TaskHandle task, const char counter[], const char nameToAssignToChannel[], float64 minVal, float64 maxVal, int32 decodingType, int32 units, uInt32 pulsesPerRev, const char customScaleName[]) = 0;
 // virtual int32 CreateCICountEdgesChan(TaskHandle task, const char counter[], const char nameToAssignToChannel[], int32 edge, uInt32 initialCount, int32 countDirection) = 0;
@@ -986,8 +1031,7 @@ namespace ni {
 // virtual int32 WaitForNextSampleClock(TaskHandle task, float64 timeout, bool32* isLate) = 0;
 // virtual int32 WaitForValidTimestamp(TaskHandle task, int32 timestampEvent, float64 timeout, CVIAbsoluteTime* timestamp) = 0;
 // virtual int32 WaitUntilTaskDone(TaskHandle task, float64 timeToWait) = 0;
-// virtual int32 WriteAnalogF64(TaskHandle task, int32 numSampsPerChan, bool32 autoStart, float64 timeout, int32 dataLayout, const float64 writeArray[], int32* sampsPerChanWritten, bool32* reserved) = 0;
-// virtual int32 WriteAnalogScalarF64(TaskHandle task, bool32 autoStart, float64 timeout, float64 value, bool32* reserved) = 0;
+
 // virtual int32 WriteBinaryI16(TaskHandle task, int32 numSampsPerChan, bool32 autoStart, float64 timeout, int32 dataLayout, const int16 writeArray[], int32* sampsPerChanWritten, bool32* reserved) = 0;
 // virtual int32 WriteBinaryI32(TaskHandle task, int32 numSampsPerChan, bool32 autoStart, float64 timeout, int32 dataLayout, const int32 writeArray[], int32* sampsPerChanWritten, bool32* reserved) = 0;
 // virtual int32 WriteBinaryU16(TaskHandle task, int32 numSampsPerChan, bool32 autoStart, float64 timeout, int32 dataLayout, const uInt16 writeArray[], int32* sampsPerChanWritten, bool32* reserved) = 0;

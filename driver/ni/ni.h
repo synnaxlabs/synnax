@@ -303,6 +303,14 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
+struct out_state {
+    std::string location = "";
+    double state = 0.0;
+    synnax::DataType data_type = synnax::FLOAT64;
+    synnax::ChannelKey state_key = 0;
+};
+
+
 class StateSource final : public pipeline::Source {
 public:
     explicit StateSource() = default;
@@ -328,7 +336,8 @@ private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
     synnax::Rate state_rate = synnax::Rate(1);
-    std::map<synnax::ChannelKey, uint8_t> state_map;
+    std::map<synnax::ChannelKey, uint8_t> digital_state_map;
+    std::map<synnax::ChannelKey, double> analog_state_map;
     synnax::ChannelKey state_index_key;
     loop::Timer timer;
 }; // class StateSource

@@ -234,8 +234,10 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
     }
-    this->writer_state_source->update_state(this->writer_config.modified_state_keys,
-                                            this->writer_config.modified_state_values);
+    this->writer_state_source->update_digital_state(
+        this->writer_config.modified_state_keys,
+        this->writer_config.modified_state_values
+    );
 
     return freighter::NIL;
 }
@@ -451,13 +453,26 @@ synnax::Frame ni::StateSource::get_state() {
     return state_frame;
 }
 
-void ni::StateSource::update_state(
+void ni::StateSource::update_digital_state(
     std::queue<synnax::ChannelKey> &modified_state_keys,
     std::queue<std::uint8_t> &modified_state_values
 ) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     while (!modified_state_keys.empty()) {
-        this->state_map[modified_state_keys.front()] = modified_state_values.front();
+        this->digital_state_map[modified_state_keys.front()] = modified_state_values.front();
+        modified_state_keys.pop();
+        modified_state_values.pop();
+    }
+    waiting_reader.notify_one();
+}
+
+void ni::StateSource::update_state(
+    std::vector<synnax::ChannelKey> &modified_state_keys,
+    std::vector<std::double> &modified_state_values
+) {
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    while (!modified_state_keys.empty()) {
+        this->analog_state_map[modified_state_keys.front()] = modified_state_values.front();
         modified_state_keys.pop();
         modified_state_values.pop();
     }
@@ -680,7 +695,7 @@ freighter::Error ni::AnalogWriteSink::write(synnax::Frame frame) {
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
     }
-    this->writer_state_source->update_state(this->writer_config.modified_state_keys,
+    this->writer_state_source->update_analog_state(this->writer_config.modified_state_keys,
                                             this->writer_config.modified_state_values);
 
     return freighter::NIL;

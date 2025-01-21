@@ -1309,3 +1309,101 @@ int32 ni::NiDAQmxInterface::CreateAIVelocityIEPEChan(
         customScaleName
     );
 }
+
+int32 ni::NiDAQmxInterface::CreateAOCurrentChan(
+    TaskHandle task,
+    const char physicalChannel[],
+    const char nameToAssignToChannel[],
+    float64 minVal,
+    float64 maxVal,
+    int32 units,
+    const char customScaleName[]
+) {
+    return DAQmxCreateAOCurrentChan(
+        task,
+        physicalChannel,
+        nameToAssignToChannel,
+        minVal,
+        maxVal,
+        units,
+        customScaleName
+    );
+}
+
+int32 ni::NiDAQmxInterface::CreateAOFuncGenChan(
+    TaskHandle task,
+    const char physicalChannel[],
+    const char nameToAssignToChannel[],
+    int32 type,
+    float64 freq,
+    float64 amplitude,
+    float64 offset
+) {
+    return DAQmxCreateAOFuncGenChan(
+        task,
+        physicalChannel,
+        nameToAssignToChannel,
+        type,
+        freq,
+        amplitude,
+        offset
+    );
+}
+
+int32 ni::NiDAQmxInterface::CreateAOVoltageChan(
+    TaskHandle task,
+    const char physicalChannel[],
+    const char nameToAssignToChannel[],
+    float64 minVal,
+    float64 maxVal,
+    int32 units,
+    const char customScaleName[]
+) {
+    return DAQmxCreateAOVoltageChan(
+        task,
+        physicalChannel,
+        nameToAssignToChannel,
+        minVal,
+        maxVal,
+        units,
+        customScaleName
+    );
+}
+
+int32 ni::NiDAQmxInterface::WriteAnalogF64(
+    TaskHandle task,
+    int32 numSampsPerChan,
+    bool32 autoStart,
+    float64 timeout,
+    int32 dataLayout,
+    const float64 writeArray[],
+    int32 *sampsPerChanWritten,
+    bool32 *reserved
+) {
+    return DAQmxWriteAnalogF64(
+        task,
+        numSampsPerChan,
+        autoStart,
+        timeout,
+        dataLayout,
+        writeArray,
+        sampsPerChanWritten,
+        reserved
+    );
+}
+
+int32 ni::NiDAQmxInterface::WriteAnalogScalarF64(
+    TaskHandle task,
+    bool32 autoStart,
+    float64 timeout,
+    float64 value,
+    bool32 *reserved
+) {
+    return DAQmxWriteAnalogScalarF64(
+        task,
+        autoStart,
+        timeout,
+        value,
+        reserved
+    );
+}
