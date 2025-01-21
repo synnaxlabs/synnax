@@ -95,10 +95,8 @@ describe("Persist", () => {
     });
     it("should maintain a maximum history of 4", async () => {
       const store = new kv.MockAsync();
-      const engine = await Persist.open({
-        openKV: async () => store,
-        initial: ZERO_MOCK_STATE,
-      });
+      const openKV = async () => store;
+      const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       for (let i = 0; i < 10; i++)
         await engine.persist({
           [Version.SLICE_NAME]: {
@@ -109,10 +107,7 @@ describe("Persist", () => {
 
       await expect(store.length()).resolves.toBe(5);
       // Open the engine again to make sure the initial state is correct
-      const engine2 = await Persist.open({
-        openKV: async () => store,
-        initial: ZERO_MOCK_STATE,
-      });
+      const engine2 = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       expect(engine2.initialState).toEqual({
         [Version.SLICE_NAME]: {
           ...ZERO_MOCK_STATE[Version.SLICE_NAME],
@@ -142,10 +137,8 @@ describe("Persist", () => {
     });
     it("should correctly revert the state when it has multiple versions", async () => {
       const store = new kv.MockAsync();
-      const engine = await Persist.open({
-        openKV: async () => store,
-        initial: ZERO_MOCK_STATE,
-      });
+      const openKV = async () => store;
+      const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       const state = {
         [Version.SLICE_NAME]: {
           ...ZERO_MOCK_STATE[Version.SLICE_NAME],
@@ -161,20 +154,15 @@ describe("Persist", () => {
       };
       await engine.persist(state2);
       await engine.revert();
-      const engine2 = await Persist.open({
-        openKV: async () => store,
-        initial: ZERO_MOCK_STATE,
-      });
+      const engine2 = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       expect(engine2.initialState).toEqual(state);
     });
   });
   describe("engine.clear", () => {
     it("should correctly clear the store", async () => {
       const store = new kv.MockAsync();
-      const engine = await Persist.open({
-        openKV: async () => store,
-        initial: ZERO_MOCK_STATE,
-      });
+      const openKV = async () => store;
+      const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       await engine.persist({
         [Version.SLICE_NAME]: {
           ...ZERO_MOCK_STATE[Version.SLICE_NAME],
@@ -186,11 +174,8 @@ describe("Persist", () => {
       await expect(store.get(Persist.DB_VERSION_KEY)).resolves.toEqual({
         version: 0,
       });
-      await expect(store.get(Persist.persistedStateKey(1))).resolves.toBeUndefined();
-      const engine2 = await Persist.open({
-        openKV: async () => store,
-        initial: ZERO_MOCK_STATE,
-      });
+      await expect(store.get(Persist.persistedStateKey(1))).resolves.toBeNull();
+      const engine2 = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       expect(engine2.initialState).toEqual(ZERO_MOCK_STATE);
     });
   });
