@@ -105,6 +105,7 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     // TODO: verify this is an option in the console for sensitivity units
 };
 
+
 struct ChannelConfig {
     uint32_t channel_key;
     uint32_t state_channel_key;
@@ -318,7 +319,7 @@ public:
 
     void update_state(
             std::queue<synnax::ChannelKey> &modified_state_keys,
-          std::queue<std::uint8_t> &modified_state_values
+            std::queue<std::uint8_t> &modified_state_values
       );
 
     //TODO create an update state function for float32/float64
@@ -469,7 +470,7 @@ private:
 
     int check_ni_error(int32 error);
 
-    uint8_t *write_buffer = nullptr;
+    double *write_buffer = nullptr;
     int buffer_size = 0;
     int num_samples_per_channel = 0;
     TaskHandle task_handle = 0;
