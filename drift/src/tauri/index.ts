@@ -75,15 +75,11 @@ const capWindowDimensions = (
 
 const monitorBoxes = async (): Promise<box.Box[]> => {
   const monitors = await availableMonitors();
-  return monitors.map((monitor) =>
-    box.construct(
-      {
-        x: monitor.position.x,
-        y: monitor.position.y,
-      },
-      { width: monitor.size.width, height: monitor.size.height },
-    ),
-  );
+  return monitors.map((monitor) => {
+    const pos = parsePosition(monitor.position, monitor.scaleFactor);
+    const dims = { width: monitor.size.width, height: monitor.size.height };
+    return box.construct(pos, dims);
+  });
 };
 
 const isPositionVisible = async (position?: xy.XY): Promise<boolean> => {
