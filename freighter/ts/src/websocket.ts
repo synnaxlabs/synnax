@@ -22,7 +22,7 @@ const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
 };
 
 const MessageSchema = z.object({
-  type: z.union([z.literal("data"), z.literal("close"), z.literal("open")]),
+  type: z.enum(["data", "close", "open"]),
   payload: z.unknown().optional(),
   error: z.optional(errorZ),
 });

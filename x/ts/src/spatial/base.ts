@@ -82,7 +82,7 @@ export const bigCrudeBounds = z.union([bigBounds, numberCouple]);
 export type CrudeBounds<T extends number | bigint = number> =
   | Bounds<T>
   | NumberCouple<T>;
-export const crudeDirection = z.union([direction, location]);
+export const crudeDirection = z.enum([...direction.options, ...location.options]);
 export type CrudeDirection = z.infer<typeof crudeDirection>;
 export const crudeLocation = z.union([direction, location, z.instanceof(String)]);
 export type CrudeLocation = z.infer<typeof crudeLocation>;
