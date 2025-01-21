@@ -9,48 +9,45 @@
 
 import { z } from "zod";
 
-export interface KV<K = string, V = string, WK = K, WV = V, D = K>
-  extends Reader<K, V>,
-    Writer<WK, WV>,
-    Deleter<D> {}
+export interface KV<V = string> extends Reader<V>, Writer<V>, Deleter {}
 
-export interface Reader<K = string, V = string> {
+export interface Reader<V = string> {
   /** @returns the value for a given key, or null if the key is not present. */
-  get: (key: K) => V | null;
+  get: <IV = V>(key: string) => IV | null;
 }
 
-export interface Writer<K = string, V = string> {
+export interface Writer<V = string> {
   /** Sets a key-value pair in the store. */
-  set: (key: K, value: V) => void;
+  set: <IV = V>(key: string, value: IV) => void;
 }
 
-export interface Deleter<K = string> {
+export interface Deleter {
   /** Deletes a key-value pair from the store. */
-  delete: (key: K) => void;
+  delete: (key: string) => void;
 }
 
 /** A read-writable key-value store. */
-export interface Async<K = string, V = string, WK = K, WV = V, D = K>
-  extends AsyncReader<K, V>,
-    AsyncWriter<WK, WV>,
-    AsyncDeleter<D> {}
+export interface Async<V = string>
+  extends AsyncReader<V>,
+    AsyncWriter<V>,
+    AsyncDeleter {}
 
 /** A readable key-value store. */
-export interface AsyncReader<K = string, V = string> {
+export interface AsyncReader<V = string> {
   /** Get the value for a given key. */
-  get: (key: K) => Promise<V | null>;
+  get: <IV = V>(key: string) => Promise<IV | null>;
 }
 
 /** A writable key-value store. */
-export interface AsyncWriter<K = string, V = string> {
+export interface AsyncWriter<V = string> {
   /** Sets a key-value pair in the store. The value must be serializable. */
-  set: (key: K, value: V) => Promise<void>;
+  set: <IV = V>(key: string, value: IV) => Promise<void>;
 }
 
 /** A key-value store that can delete key-value pairs. */
-export interface AsyncDeleter<K = string> {
+export interface AsyncDeleter {
   /** Deletes a key-value pair from the store. */
-  delete: (key: K) => Promise<void>;
+  delete: (key: string) => Promise<void>;
 }
 
 export const stringPairZ = z.object({
@@ -59,7 +56,7 @@ export const stringPairZ = z.object({
 });
 
 /** A general purpose key-value pair. */
-export interface Pair<K = string, V = string> {
-  key: K;
+export interface Pair<V = string> {
+  key: string;
   value: V;
 }

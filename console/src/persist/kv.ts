@@ -7,18 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { load, type Store } from "@tauri-apps/plugin-store";
-
-export const multipleWindowsOpen = new Error("[persist] - windows open");
+import { type kv } from "@synnaxlabs/x";
+import { LazyStore } from "@tauri-apps/plugin-store";
 
 /**
- * TauriKV an implementation of AsyncKV that communicates with a rust key-value
+ * A SugaredKV is a spiced up key-value store that provides a few extra goodies needed
+ * for efficient persistence.
+ */
+export interface SugaredKV extends kv.Async {
+  /** Get the number of key-value pairs in the store. */
+  length(): Promise<number>;
+  /** Clear the store of all key-value pairs. */
+  clear(): Promise<void>;
+}
+
+/**
+ * TauriKV an implementation of SugaredKV that communicates with a rust key-value
  * store running on the backend.
  */
-export class TauriKV {
-  store: Store;
+export class TauriKV implements SugaredKV {
+  store: LazyStore;
 
-  constructor(store: Store) {
+  constructor(store: LazyStore) {
     this.store = store;
   }
 
@@ -35,12 +45,19 @@ export class TauriKV {
     await this.store.delete(key);
   }
 
+  async length(): Promise<number> {
+    return await this.store.length();
+  }
+
   async clear(): Promise<void> {
     await this.store.clear();
   }
 }
 
-export const createTauriKV = async (): Promise<TauriKV> => {
-  const store = await load("~/.synnax/console/persisted-state.dat");
-  return new TauriKV(store);
-};
+/**
+ * Open a new SugaredKV instance.
+ * @param dir - The directory to store the key-value store in.
+ * @returns A new SugaredKV instance.
+ */
+export const openTauriKV = async (dir: string): Promise<SugaredKV> =>
+  new TauriKV(new LazyStore(dir, { autoSave: true }));

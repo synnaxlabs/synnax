@@ -126,25 +126,25 @@ export const migrateState = (prev: RootState): RootState => {
 };
 
 const createStore = async (): Promise<RootStore> => {
-  const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
+  const engine = await Persist.open<RootState>({
     initial: ZERO_STATE,
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });
   return await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(),
-    preloadedState,
+    preloadedState: engine.initialState,
     middleware: (def) =>
       new Tuple(
         ...def(),
         ...LinePlot.MIDDLEWARE,
         ...Layout.MIDDLEWARE,
         ...Schematic.MIDDLEWARE,
-        persistMiddleware,
+        Persist.middleware(engine),
       ),
     reducer,
     enablePrerender: true,
-    debug: false,
+    debug: true,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };

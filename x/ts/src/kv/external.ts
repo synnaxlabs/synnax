@@ -7,4 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as kv from "@/kv/external";
+export * from "@/kv/mock";
+export * from "@/kv/types";
