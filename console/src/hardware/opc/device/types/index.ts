@@ -18,13 +18,13 @@ export type SecurityPolicy = v0.SecurityPolicy;
 export const connectionConfigZ = v0.connectionConfigZ;
 export interface ConnectionConfig extends v0.ConnectionConfig {}
 export const ZERO_CONNECTION_CONFIG = v0.ZERO_CONNECTION_CONFIG;
-export interface ScannedNode extends v0.ScannedNode {}
 export interface Properties extends v1.Properties {}
 export const ZERO_PROPERTIES = v1.ZERO_PROPERTIES;
 export interface Device extends v1.Device {}
-export interface TestConnCommandResponse extends v0.TestConnCommandResponse {}
-export interface TestConnCommandState extends v0.TestConnCommandState {}
-export interface ScannerScanCommandResult extends v0.ScannerScanCommandResult {}
+export interface TestConnectionCommandResponse
+  extends v0.TestConnectionCommandResponse {}
+export interface TestConnectionCommandState extends v0.TestConnectionCommandState {}
+export interface ScanCommandResult extends v0.ScanCommandResult {}
 
 const PROPERTIES_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.propertiesMigration,

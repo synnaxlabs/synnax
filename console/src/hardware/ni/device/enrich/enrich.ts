@@ -16,29 +16,24 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/ni/device/types";
 
-type PickedEnrichedProperties = Pick<
-  Properties,
-  | "analogInput"
-  | "analogOutput"
-  | "digitalInputOutput"
-  | "digitalInput"
-  | "digitalOutput"
->;
+interface PickedEnrichedProperties
+  extends Pick<
+    Properties,
+    | "analogInput"
+    | "analogOutput"
+    | "digitalInputOutput"
+    | "digitalInput"
+    | "digitalOutput"
+  > {}
 
 export const enrich = (model: string, info: PropertiesDigest): Properties => {
-  if (info.enriched === true) return info as Properties;
   const enriched = (data as UnknownRecord)[model] as {
     estimatedPinout: PickedEnrichedProperties;
   };
-  if (enriched == null)
-    return {
-      ...deep.copy(ZERO_PROPERTIES),
-      ...info,
-      enriched: true,
-    };
   return {
+    ...deep.copy(ZERO_PROPERTIES),
+    ...enriched?.estimatedPinout,
     ...info,
-    ...enriched.estimatedPinout,
     enriched: true,
-  } as Properties;
+  };
 };

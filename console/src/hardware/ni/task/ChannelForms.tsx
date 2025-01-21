@@ -9,14 +9,12 @@
 
 import {
   Align,
-  Device as PDevice,
   Divider,
   Form,
   Input,
   type List,
   Select,
   state,
-  Synnax,
 } from "@synnaxlabs/pluto";
 import { binary, deep, type KeyedNamed } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
@@ -46,7 +44,6 @@ import {
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
 } from "@/hardware/ni/task/types";
-import { Layout } from "@/layout";
 
 export interface FormProps {
   prefix: string;
@@ -544,7 +541,7 @@ export const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
 
 const DevicePortCombo = ({ prefix }: FormProps): ReactElement => (
   <Align.Space direction="x" grow>
-    <DeviceField path={prefix} />
+    <Device.Select path={`${prefix}.device`} />
     <PortField path={prefix} />
   </Align.Space>
 );
@@ -558,40 +555,6 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
       <SelectCustomScaleTypeField path={path} />
       <FormComponent prefix={path} />
     </>
-  );
-};
-
-export interface DeviceFieldProps {
-  path: string;
-}
-
-export const DeviceField = ({ path }: DeviceFieldProps) => {
-  const client = Synnax.use();
-  const place = Layout.usePlacer();
-  const handleDeviceChange = async (v: string) => {
-    if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Device.Properties>(v);
-    if (configured) return;
-    place({ ...Device.CONFIGURE_LAYOUT, key: v });
-  };
-  return (
-    <Form.Field<string>
-      path={`${path}.device`}
-      label="Device"
-      grow
-      onChange={handleDeviceChange}
-      style={{ width: "100%" }}
-    >
-      {(p) => (
-        <PDevice.SelectSingle
-          allowNone={false}
-          grow
-          {...p}
-          autoSelectOnNone={false}
-          searchOptions={{ makes: ["NI"] }}
-        />
-      )}
-    </Form.Field>
   );
 };
 

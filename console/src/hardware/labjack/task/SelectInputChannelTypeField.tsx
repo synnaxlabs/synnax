@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/pluto";
 import { type KeyedNamed } from "@synnaxlabs/x";
 
-import { type InputChannelType } from "@/hardware/labjack/device/types";
+import { type InputChannelType } from "@/hardware/labjack/task/types";
 
 interface InputChannelTypeEntry extends KeyedNamed<InputChannelType> {}
 

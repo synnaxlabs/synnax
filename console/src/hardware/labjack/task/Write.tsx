@@ -29,8 +29,9 @@ import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
 import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
-import { SelectDevice } from "@/hardware/labjack/task/SelectDevice";
+import { SelectOutputChannelType } from "@/hardware/labjack/task/SelectOutputChannelType";
 import {
+  type OutputChannelType,
   type Write,
   WRITE_TYPE,
   type WriteChannel,
@@ -65,7 +66,7 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: Common.Task.WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
+}: Common.Task.WrappedLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const taskState = Common.Task.useObserveState<WriteStateDetails>(
@@ -92,7 +93,7 @@ const Wrapped = ({
       const { name, config } = methods.value();
       const dev = (await client.hardware.devices.retrieve(
         config.device,
-      )) as Device.ConfiguredDevice;
+      )) as Device.Configured;
       let modified = false;
       let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
       if (!shouldCreateStateIndex)
@@ -230,7 +231,7 @@ const Wrapped = ({
             </Align.Space>
             <Common.Task.ParentRangeButton key={task?.key} />
             <Align.Space direction="x" className={CSS.B("task-properties")}>
-              <SelectDevice />
+              <Device.Select />
               <Align.Space direction="x">
                 <Form.NumericField
                   label="State Update Rate"
@@ -303,7 +304,7 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
 interface ChannelListProps {
   path: string;
   snapshot?: boolean;
-  device: Device.ConfiguredDevice;
+  device: Device.Configured;
 }
 
 const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
@@ -315,7 +316,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
   const handleAdd = useCallback(() => {
     const existingCommandStatePair =
       device.properties[ZERO_WRITE_CHANNEL.type].channels[ZERO_WRITE_CHANNEL.port] ??
-      Device.ZERO_COMMAND_STATE_PAIR;
+      Common.Device.ZERO_COMMAND_STATE_PAIR;
     push({
       ...deep.copy(ZERO_WRITE_CHANNEL),
       key: id.id(),
@@ -382,7 +383,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
 interface ChannelListItemProps extends List.ItemProps<string, WriteChannel> {
   path: string;
   snapshot?: boolean;
-  device: Device.ConfiguredDevice;
+  device: Device.Configured;
 }
 
 const NO_COMMAND_CHANNEL_NAME = "No Command Channel";
@@ -419,7 +420,7 @@ const ChannelListItem = ({
             if (previousChannel.port === value) return;
             const existingCommandStatePair =
               device.properties[previousChannel.type].channels[value] ??
-              Device.ZERO_COMMAND_STATE_PAIR;
+              Common.Device.ZERO_COMMAND_STATE_PAIR;
             set(channelPath, {
               ...previousChannel,
               cmdKey: existingCommandStatePair.command,
@@ -432,12 +433,12 @@ const ChannelListItem = ({
             <Device.SelectPort
               {...p}
               model={device.model}
-              channelType={entry.type}
+              portType={entry.type}
               allowNone={false}
               onClick={(e: MouseEvent) => e.stopPropagation()}
               style={{ width: 250 }}
               actions={[
-                <Form.Field<Device.OutputChannelType>
+                <Form.Field<OutputChannelType>
                   key="type"
                   path={`${path}.type`}
                   showLabel={false}
@@ -449,7 +450,7 @@ const ChannelListItem = ({
                     const port = Device.DEVICES[device.model].ports[value][0].key;
                     const existingCommandStatePair =
                       device.properties[value].channels[port] ??
-                      Device.ZERO_COMMAND_STATE_PAIR;
+                      Common.Device.ZERO_COMMAND_STATE_PAIR;
                     set(channelPath, {
                       ...previousChannel,
                       cmdKey: existingCommandStatePair.command,
@@ -461,7 +462,7 @@ const ChannelListItem = ({
                   empty
                 >
                   {(p) => (
-                    <Device.SelectOutputChannelType
+                    <SelectOutputChannelType
                       {...p}
                       onClick={(e) => e.stopPropagation()}
                       pack={false}
@@ -507,4 +508,4 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureWrite = Common.Task.wrapTaskLayout(Wrapped, ZERO_WRITE_PAYLOAD);
+export const ConfigureWrite = Common.Task.wrapLayout(Wrapped, ZERO_WRITE_PAYLOAD);

@@ -10,7 +10,7 @@
 import { Select } from "@synnaxlabs/pluto";
 import { type KeyedNamed } from "@synnaxlabs/x";
 
-import { type OutputChannelType } from "@/hardware/labjack/device/types";
+import { type OutputChannelType } from "@/hardware/labjack/task/types";
 
 interface OutputChannelTypeEntry extends KeyedNamed<OutputChannelType> {}
 

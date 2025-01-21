@@ -8,8 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { notificationAdapter } from "@/hardware/device/notification";
+import { LabJack } from "@/hardware/labjack";
+import { NI } from "@/hardware/ni";
+import { OPC } from "@/hardware/opc";
+import { type Layout } from "@/layout";
+import { type Notifications } from "@/notifications";
+import { type Palette } from "@/palette";
 
 export * from "@/hardware/device/ontology";
 export * from "@/hardware/device/useListenForChanges";
 
-export const NOTIFICATION_ADAPTERS = [notificationAdapter];
+export const COMMANDS: Palette.Command[] = OPC.Device.COMMANDS;
+
+export const LAYOUTS: Record<string, Layout.Renderer> = {
+  ...LabJack.Device.LAYOUTS,
+  ...NI.Device.LAYOUTS,
+  ...OPC.Device.LAYOUTS,
+};
+
+export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];

@@ -9,7 +9,6 @@
 
 import { type channel, type device } from "@synnaxlabs/client";
 import { bounds, type UnknownRecord } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import { type Common } from "@/hardware/common";
 
@@ -31,51 +30,41 @@ type T8ModelKey = typeof T8_MODEL_KEY;
 
 export type ModelKey = T4ModelKey | T7ModelKey | T8ModelKey;
 
-// Channel Types
-
-export const DI_CHANNEL_TYPE = "DI";
-type DIChannelType = typeof DI_CHANNEL_TYPE;
-
-export const TC_CHANNEL_TYPE = "TC";
-type TCChannelType = typeof TC_CHANNEL_TYPE;
-
-const AO_CHANNEL_TYPE = "AO";
-type AOChannelType = typeof AO_CHANNEL_TYPE;
-
-export const AI_CHANNEL_TYPE = "AI";
-type AIChannelType = typeof AI_CHANNEL_TYPE;
-
-export const DO_CHANNEL_TYPE = "DO";
-type DOChannelType = typeof DO_CHANNEL_TYPE;
-
-export type InputChannelType = DIChannelType | AIChannelType | TCChannelType;
-export const outputChannelTypeZ = z.enum([AO_CHANNEL_TYPE, DO_CHANNEL_TYPE]);
-export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
-export type ChannelType = InputChannelType | OutputChannelType;
-
 interface BasePort {
   key: string;
   aliases: string[];
 }
 
+const AI_PORT_TYPE = "AI";
+type AIPortType = typeof AI_PORT_TYPE;
+
 interface AIPort extends BasePort {
-  type: AIChannelType;
+  type: AIPortType;
   voltageRange: bounds.Bounds;
 }
 
-interface DIPort extends BasePort {
-  type: DIChannelType;
-}
-
-interface DOPort extends BasePort {
-  type: DOChannelType;
-}
+const AO_PORT_TYPE = "AO";
+type AOPortType = typeof AO_PORT_TYPE;
 
 interface AOPort extends BasePort {
-  type: AOChannelType;
+  type: AOPortType;
+}
+
+const DI_PORT_TYPE = "DI";
+type DIPortType = typeof DI_PORT_TYPE;
+interface DIPort extends BasePort {
+  type: DIPortType;
+}
+
+const DO_PORT_TYPE = "DO";
+type DOPortType = typeof DO_PORT_TYPE;
+
+interface DOPort extends BasePort {
+  type: DOPortType;
 }
 
 export type Port = AOPort | AIPort | DOPort | DIPort;
+export type PortType = Port["type"];
 
 interface AltConfig {
   prefix: string;
@@ -94,7 +83,7 @@ const aiFactory = (
     const port = i + b.lower;
     return {
       key: `AIN${port}`,
-      type: AI_CHANNEL_TYPE,
+      type: AI_PORT_TYPE,
       voltageRange,
       aliases: mapAltConfigsToAliases(altConfigs, port),
     };
@@ -105,7 +94,7 @@ const diFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DIPort[] =>
     const port = i + b.lower;
     return {
       key: `DIO${port}`,
-      type: DI_CHANNEL_TYPE,
+      type: DI_PORT_TYPE,
       aliases: mapAltConfigsToAliases(altConfigs, port),
     };
   });
@@ -114,8 +103,8 @@ const doFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DOPort[] =>
   Array.from({ length: bounds.span(b) + 1 }, (_, i) => {
     const port = i + b.lower;
     return {
-      key: `DIO${i + b.lower}`,
-      type: DO_CHANNEL_TYPE,
+      key: `DIO${port}`,
+      type: DO_PORT_TYPE,
       aliases: mapAltConfigsToAliases(altConfigs, port),
     };
   });
@@ -125,7 +114,7 @@ const aoFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): AOPort[] =>
     const port = i + b.lower;
     return {
       key: `DAC${port}`,
-      type: AO_CHANNEL_TYPE,
+      type: AO_PORT_TYPE,
       aliases: mapAltConfigsToAliases(altConfigs, port),
     };
   });
@@ -225,29 +214,22 @@ export const DEVICES: Devices = {
   [T8_MODEL_KEY]: T8,
 };
 
-interface UnconfiguredDevice extends device.Device {
+interface Unconfigured extends device.Device {
   model: ModelKey;
   make: Make;
-  configured: false | undefined;
+  configured?: false;
   properties: UnknownRecord;
 }
-
-interface CommandStatePair {
-  command: channel.Key;
-  state: channel.Key;
-}
-
-export const ZERO_COMMAND_STATE_PAIR: CommandStatePair = { command: 0, state: 0 };
 
 export type Properties = {
   identifier: Common.Device.Identifier;
   readIndex: channel.Key;
   thermocoupleIndex: channel.Key;
   writeStateIndex: channel.Key;
-  [AI_CHANNEL_TYPE]: { channels: Record<string, channel.Key> };
-  [DI_CHANNEL_TYPE]: { channels: Record<string, channel.Key> };
-  [AO_CHANNEL_TYPE]: { channels: Record<string, CommandStatePair> };
-  [DO_CHANNEL_TYPE]: { channels: Record<string, CommandStatePair> };
+  [AI_PORT_TYPE]: { channels: Record<string, channel.Key> };
+  [DI_PORT_TYPE]: { channels: Record<string, channel.Key> };
+  [AO_PORT_TYPE]: { channels: Record<string, Common.Device.CommandStatePair> };
+  [DO_PORT_TYPE]: { channels: Record<string, Common.Device.CommandStatePair> };
 };
 
 export const ZERO_PROPERTIES: Properties = {
@@ -255,16 +237,15 @@ export const ZERO_PROPERTIES: Properties = {
   thermocoupleIndex: 0,
   writeStateIndex: 0,
   identifier: "",
-  [AI_CHANNEL_TYPE]: { channels: {} },
-  [AO_CHANNEL_TYPE]: { channels: {} },
-  [DI_CHANNEL_TYPE]: { channels: {} },
-  [DO_CHANNEL_TYPE]: { channels: {} },
+  [AI_PORT_TYPE]: { channels: {} },
+  [AO_PORT_TYPE]: { channels: {} },
+  [DI_PORT_TYPE]: { channels: {} },
+  [DO_PORT_TYPE]: { channels: {} },
 };
 
-export interface ConfiguredDevice
-  extends Omit<UnconfiguredDevice, "configured" | "properties"> {
+export interface Configured extends Omit<Unconfigured, "configured" | "properties"> {
   configured: true;
   properties: Properties;
 }
 
-export type Device = ConfiguredDevice | UnconfiguredDevice;
+export type Device = Configured | Unconfigured;

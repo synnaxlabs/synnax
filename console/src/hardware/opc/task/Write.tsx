@@ -14,7 +14,6 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  Device as PDevice,
   Form,
   Haul,
   Header,
@@ -46,7 +45,7 @@ import {
   type WriteType,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { Link } from "@/link";
 
 export const createWriteLayout = createLayoutCreator<WritePayload>(
@@ -76,7 +75,7 @@ const Wrapped = ({
   layoutKey,
   initialValues,
   task,
-}: Common.Task.WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
+}: Common.Task.WrappedLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
 
@@ -182,8 +181,6 @@ const Wrapped = ({
     },
   });
 
-  const place = Layout.usePlacer();
-
   const name = task?.name;
   const key = task?.key;
   const handleLink = Link.useCopyToClipboard();
@@ -216,32 +213,7 @@ const Wrapped = ({
           </Align.Space>
           <Common.Task.ParentRangeButton key={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <Form.Field<string>
-              path="config.device"
-              label="OPC UA Server"
-              style={{ width: "100%" }}
-            >
-              {(p) => (
-                <PDevice.SelectSingle
-                  {...p}
-                  allowNone={false}
-                  searchOptions={{ makes: ["opc"] }}
-                  emptyContent={
-                    <Align.Center>
-                      <Text.Text shade={6} level="p">
-                        No OPC UA servers found.
-                      </Text.Text>
-                      <Text.Link
-                        level="p"
-                        onClick={() => place({ ...Device.CONFIGURE_LAYOUT })}
-                      >
-                        Connect a new server.
-                      </Text.Link>
-                    </Align.Center>
-                  }
-                />
-              )}
-            </Form.Field>
+            <Device.Select />
             <Align.Space direction="x">
               <Form.Field<boolean>
                 label="Data Saving"
@@ -519,7 +491,7 @@ const ChannelForm = ({
   );
 };
 
-export const WriteTask: Layout.Renderer = Common.Task.wrapTaskLayout(
+export const WriteTask: Layout.Renderer = Common.Task.wrapLayout(
   Wrapped,
   ZERO_WRITE_PAYLOAD,
 );

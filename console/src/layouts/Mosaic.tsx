@@ -33,7 +33,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Controls } from "@/components";
 import { Menu } from "@/components/menu";
-import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
+import { NAV_DRAWER_ITEMS, NavDrawer, NavMenu } from "@/components/nav/Nav";
 import { Import } from "@/import";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
@@ -363,7 +363,7 @@ export const NavTop = (): ReactElement | null => {
 
 export const MosaicWindow = memo(
   ({ layoutKey }: Layout.RendererProps): ReactElement | null => {
-    const { menuItems, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
+    const { menuItems, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWER_ITEMS);
     const dispatch = useDispatch();
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {

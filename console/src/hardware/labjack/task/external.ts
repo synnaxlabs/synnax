@@ -14,7 +14,8 @@ import { type Layout } from "@/layout";
 
 export * from "@/hardware/labjack/task/palette";
 export * from "@/hardware/labjack/task/Read";
-export * from "@/hardware/labjack/task/SelectDevice";
+export * from "@/hardware/labjack/task/SelectInputChannelTypeField";
+export * from "@/hardware/labjack/task/SelectOutputChannelType";
 export * from "@/hardware/labjack/task/types";
 export * from "@/hardware/labjack/task/Write";
 

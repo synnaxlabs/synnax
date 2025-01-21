@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { type NotificationAdapter } from "@/notifications/Notifications";
+import { type Notifications } from "@/notifications";
 import { Info, infoLayout } from "@/version/Info";
 import { notificationAdapter } from "@/version/Updater";
 
@@ -24,4 +24,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [infoLayout.type]: Info,
 };
 
-export const NOTIFICATION_ADAPTERS: NotificationAdapter[] = [notificationAdapter];
+export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];

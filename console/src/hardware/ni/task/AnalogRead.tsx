@@ -74,7 +74,7 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: Common.Task.WrappedTaskLayoutProps<AnalogRead, AnalogReadPayload>): ReactElement => {
+}: Common.Task.WrappedLayoutProps<AnalogRead, AnalogReadPayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({ values: initialValues, schema });
 
@@ -523,7 +523,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureAnalogRead = Common.Task.wrapTaskLayout(
+export const ConfigureAnalogRead = Common.Task.wrapLayout(
   Wrapped,
   ZERO_ANALOG_READ_PAYLOAD,
   migrateAnalogReadConfig as migrate.Migrator,

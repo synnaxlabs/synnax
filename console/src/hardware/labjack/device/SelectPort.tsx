@@ -10,37 +10,34 @@
 import { Select, Text } from "@synnaxlabs/pluto";
 
 import {
-  type ChannelType,
   DEVICES,
   type ModelKey,
   type Port,
+  type PortType,
 } from "@/hardware/labjack/device/types";
 
 export interface SelectPortProps extends Select.SingleProps<string, Port> {
   model: ModelKey;
-  channelType: ChannelType;
+  portType: PortType;
 }
 
-export const SelectPort = ({ model, channelType, ...props }: SelectPortProps) => {
-  const data = DEVICES[model].ports[channelType === "TC" ? "AI" : channelType];
-  return (
-    <Select.Single<string, Port>
-      data={data}
-      columns={[
-        { key: "key", name: "Port" },
-        {
-          key: "aliases",
-          name: "Aliases",
-          render: ({ entry: { aliases } }) => (
-            <Text.Text level="small" shade={8}>
-              {aliases.join(", ")}
-            </Text.Text>
-          ),
-        },
-      ]}
-      allowNone={false}
-      entryRenderKey="key"
-      {...props}
-    />
-  );
-};
+export const SelectPort = ({ model, portType, ...props }: SelectPortProps) => (
+  <Select.Single<string, Port>
+    data={DEVICES[model].ports[portType]}
+    columns={[
+      { key: "key", name: "Port" },
+      {
+        key: "aliases",
+        name: "Aliases",
+        render: ({ entry: { aliases } }) => (
+          <Text.Text level="small" shade={8}>
+            {aliases.join(", ")}
+          </Text.Text>
+        ),
+      },
+    ]}
+    allowNone={false}
+    entryRenderKey="key"
+    {...props}
+  />
+);

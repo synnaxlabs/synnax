@@ -28,10 +28,7 @@ import { Cluster } from "@/cluster";
 import { Confirm } from "@/confirm";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
-import { LabJack } from "@/hardware/labjack";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { Task } from "@/hardware/task";
+import { Hardware } from "@/hardware";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
@@ -56,11 +53,9 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Workspace.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...LinePlot.LAYOUTS,
-  ...LabJack.LAYOUTS,
-  ...OPC.LAYOUTS,
+  ...Hardware.LAYOUTS,
   ...Range.LAYOUTS,
   ...Cluster.LAYOUTS,
-  ...NI.LAYOUTS,
   ...Channel.LAYOUTS,
   ...Version.LAYOUTS,
   ...Confirm.LAYOUTS,
@@ -68,7 +63,6 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...User.LAYOUTS,
   ...Permissions.LAYOUTS,
   ...Log.LAYOUTS,
-  ...Task.LAYOUTS,
   ...Table.LAYOUTS,
 };
 

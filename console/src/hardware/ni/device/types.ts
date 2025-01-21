@@ -15,11 +15,6 @@ export const MAKE = "ni";
 
 export type PropertiesDigest = { key: string; enriched: boolean };
 
-interface CommandStatePair {
-  command: channel.Key;
-  state: channel.Key;
-}
-
 export type Properties = PropertiesDigest & {
   identifier: Common.Device.Identifier;
   analogInput: {
@@ -30,7 +25,7 @@ export type Properties = PropertiesDigest & {
   analogOutput: {
     portCount: number;
     stateIndex: channel.Key;
-    channels: Record<string, CommandStatePair>;
+    channels: Record<string, Common.Device.CommandStatePair>;
   };
   digitalInputOutput: { portCount: number; lineCounts: number[] };
   digitalInput: {
@@ -43,7 +38,7 @@ export type Properties = PropertiesDigest & {
     portCount: number;
     lineCounts: number[];
     stateIndex: channel.Key;
-    channels: Record<string, CommandStatePair>;
+    channels: Record<string, Common.Device.CommandStatePair>;
   };
 };
 

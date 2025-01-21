@@ -54,7 +54,7 @@ export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   serverCertificate: "",
 };
 
-export type ScannedNode = {
+type ScannedNode = {
   nodeId: string;
   dataType: string;
   name: string;
@@ -75,8 +75,9 @@ export const ZERO_PROPERTIES: Properties = {
   write: { channels: {} },
 };
 
-export type TestConnCommandResponse = { message: string };
+export type TestConnectionCommandResponse = { message: string };
 
-export interface TestConnCommandState extends task.State<TestConnCommandResponse> {}
+export interface TestConnectionCommandState
+  extends task.State<TestConnectionCommandResponse> {}
 
-export type ScannerScanCommandResult = { channels: ScannedNode[] };
+export type ScanCommandResult = { channels: ScannedNode[] };

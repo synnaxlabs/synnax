@@ -13,6 +13,7 @@ import { type Layout } from "@/layout";
 export * from "@/hardware/opc/device/Browser";
 export * from "@/hardware/opc/device/Configure";
 export * from "@/hardware/opc/device/palette";
+export * from "@/hardware/opc/device/Select";
 export * from "@/hardware/opc/device/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

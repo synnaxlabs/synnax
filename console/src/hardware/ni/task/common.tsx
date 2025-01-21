@@ -9,50 +9,11 @@
 
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Button,
-  Device as PDevice,
-  Form,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Text } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
-import { Device } from "@/hardware/ni/device";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { Layout } from "@/layout";
 import { Link } from "@/link";
-
-export const SelectDevice = () => {
-  const client = Synnax.use();
-  const place = Layout.usePlacer();
-  const handleDeviceChange = async (v: string) => {
-    if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Device.Properties>(v);
-    if (configured) return;
-    place({ ...Device.CONFIGURE_LAYOUT, key: v });
-  };
-  return (
-    <Form.Field<string>
-      path="config.device"
-      label="Device"
-      grow
-      onChange={handleDeviceChange}
-      style={{ width: "100%" }}
-    >
-      {(p) => (
-        <PDevice.SelectSingle
-          allowNone={false}
-          grow
-          {...p}
-          autoSelectOnNone={false}
-          searchOptions={{ makes: ["NI"] }}
-        />
-      )}
-    </Form.Field>
-  );
-};
 
 export interface UseCopyRetrievalCodeProps {
   importClass: string;

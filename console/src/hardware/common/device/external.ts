@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/hardware/common/device/Configure";
+export * from "@/hardware/common/device/Select";
 export * from "@/hardware/common/device/types";
 export * from "@/hardware/common/device/use";

@@ -29,9 +29,9 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
-import { type Device } from "@/hardware/ni/device";
+import { Device } from "@/hardware/ni/device";
 import { CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
-import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
+import { CopyButtons } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   DIGITAL_WRITE_TYPE,
@@ -70,10 +70,7 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: Common.Task.WrappedTaskLayoutProps<
-  DigitalWrite,
-  DigitalWritePayload
->): ReactElement => {
+}: Common.Task.WrappedLayoutProps<DigitalWrite, DigitalWritePayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const taskState = Common.Task.useObserveState<DigitalWriteDetails>(
@@ -239,7 +236,7 @@ const Wrapped = ({
             </Align.Space>
             <Common.Task.ParentRangeButton key={task?.key} />
             <Align.Space direction="x" className={CSS.B("task-properties")}>
-              <SelectDevice />
+              <Device.Select />
               <Align.Space direction="x">
                 <Form.NumericField
                   label="State Update Rate"
@@ -494,7 +491,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalWrite = Common.Task.wrapTaskLayout(
+export const ConfigureDigitalWrite = Common.Task.wrapLayout(
   Wrapped,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 );

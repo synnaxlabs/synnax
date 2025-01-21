@@ -15,9 +15,9 @@ import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 
 export const SELECTABLES: Layout.Selectable[] = [
-  ...LabJack.SELECTABLES,
-  ...NI.SELECTABLES,
-  ...OPC.SELECTABLES,
+  ...LabJack.Task.SELECTABLES,
+  ...NI.Task.SELECTABLES,
+  ...OPC.Task.SELECTABLES,
 ];
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";

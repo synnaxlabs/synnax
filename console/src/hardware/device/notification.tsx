@@ -8,36 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, type Icon as PIcon, Text } from "@synnaxlabs/pluto";
+import { Button, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Device } from "@/hardware/device";
-import { CONFIGURE_LAYOUTS } from "@/hardware/device/configureLayouts";
-import { type Make, makeZ } from "@/hardware/device/make";
-import { LabJack } from "@/hardware/labjack";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
+import { CONFIGURE_LAYOUTS, getMake, MAKE_ICONS } from "@/hardware/device/make";
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
-const MAKE_ICONS: Record<Make, PIcon.Element> = {
-  [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
-  [NI.Device.MAKE]: <Icon.Logo.NI />,
-  [OPC.Device.MAKE]: <Icon.Logo.OPC />,
-};
-
-export const notificationAdapter: Notifications.NotificationAdapter = (status) => {
+export const notificationAdapter: Notifications.Adapter = (status) => {
   const key = Device.getKeyFromStatus(status);
   if (key == null) return null;
-  const sugared: Notifications.SugaredNotification = { ...status };
-  const make = makeZ.safeParse(status?.data?.make)?.data;
-  const startIcon = make != null ? MAKE_ICONS[make] : <Icon.Device />;
+  const sugared: Notifications.Sugared = { ...status };
+  const make = getMake(status.data?.make);
+  const startIcon = make ? MAKE_ICONS[make] : <Icon.Device />;
   sugared.content = (
     <Text.WithIcon level="p" startIcon={startIcon}>
       {status.message}
     </Text.WithIcon>
   );
-  if (make != null)
+  if (make)
     sugared.actions = <ConfigureButton layout={{ ...CONFIGURE_LAYOUTS[make], key }} />;
   return sugared;
 };

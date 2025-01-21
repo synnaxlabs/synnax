@@ -29,7 +29,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { CopyButtons, SelectDevice } from "@/hardware/ni/task/common";
+import { CopyButtons } from "@/hardware/ni/task/common";
 import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   type DIChannel,
@@ -64,10 +64,7 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: Common.Task.WrappedTaskLayoutProps<
-  DigitalRead,
-  DigitalReadPayload
->): ReactElement => {
+}: Common.Task.WrappedLayoutProps<DigitalRead, DigitalReadPayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -207,7 +204,7 @@ const Wrapped = ({
           </Align.Space>
           <Common.Task.ParentRangeButton key={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <SelectDevice />
+            <Device.Select />
             <Align.Space direction="x">
               <Form.NumericField
                 label="Sample Rate"
@@ -436,7 +433,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalRead = Common.Task.wrapTaskLayout(
+export const ConfigureDigitalRead = Common.Task.wrapLayout(
   Wrapped,
   ZERO_DIGITAL_READ_PAYLOAD,
 );

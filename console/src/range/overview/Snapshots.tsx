@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type FC, useState } from "react";
 
-import { Task } from "@/hardware/task";
+import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/external";
 
@@ -42,7 +42,7 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   task: {
     icon: <Icon.Task />,
     onClick: (client, res, place) =>
-      void Task.retrieveAndPlaceLayout(client, res.id.key, place),
+      void Hardware.Task.retrieveAndPlaceLayout(client, res.id.key, place),
   },
 };
 

@@ -373,14 +373,14 @@ export const useCreate = <
   );
 };
 
-export interface WrappedTaskLayoutProps<T extends task.Task, P extends task.Payload> {
+export interface WrappedLayoutProps<T extends task.Task, P extends task.Payload> {
   layoutKey: string;
   task?: T;
   initialValues: P;
 }
 
-export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
-  Wrapped: FC<WrappedTaskLayoutProps<T, P>>,
+export const wrapLayout = <T extends task.Task, P extends task.Payload>(
+  Wrapped: FC<WrappedLayoutProps<T, P>>,
   zeroPayload: P,
   migrator?: migrate.Migrator,
 ): Layout.Renderer => {
@@ -391,7 +391,7 @@ export const wrapTaskLayout = <T extends task.Task, P extends task.Payload>(
     const id = useId();
     // The query can't take into account state changes, so we need to use a unique
     // key for every query.
-    const fetchTask = useQuery<WrappedTaskLayoutProps<T, P>>({
+    const fetchTask = useQuery<WrappedLayoutProps<T, P>>({
       queryKey: [layoutKey, client?.key, altKey, id],
       queryFn: async () => {
         if (client == null || args.create) {

@@ -31,8 +31,10 @@ import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
 import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
-import { SelectDevice } from "@/hardware/labjack/task/SelectDevice";
+import { SelectInputChannelTypeField } from "@/hardware/labjack/task/SelectInputChannelTypeField";
 import {
+  type ChannelType,
+  type InputChannelType,
   inputChannelZ,
   type Read,
   READ_TYPE,
@@ -73,7 +75,7 @@ const Wrapped = ({
   task,
   initialValues,
   layoutKey,
-}: Common.Task.WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
+}: Common.Task.WrappedLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -198,7 +200,7 @@ const Wrapped = ({
           </Align.Space>
           <Common.Task.ParentRangeButton key={task?.key} />
           <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <SelectDevice />
+            <Device.Select />
             <Align.Space direction="x">
               <Form.NumericField
                 label="Sample Rate"
@@ -278,17 +280,17 @@ const ChannelForm = ({
   device,
 }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const channelType = (Form.useFieldValue<Device.ChannelType>(`${prefix}.type`, true) ??
+  const channelType = (Form.useFieldValue<ChannelType>(`${prefix}.type`, true) ??
     "AI") as "AI" | "DI" | "TC";
   const model = (device?.model ?? "LJM_dtT4") as Device.ModelKey;
   if (selectedChannelIndex === -1) return <></>;
   return (
     <Align.Space direction="y" size="small">
       <Align.Space direction="x" grow>
-        <Device.SelectInputChannelTypeField
+        <SelectInputChannelTypeField
           path={prefix}
           onChange={(value, { get, path, set }) => {
-            const prevType = get<Device.InputChannelType>(path).value;
+            const prevType = get<InputChannelType>(path).value;
             if (prevType === value) return;
             const next = deep.copy(
               value === "TC" ? ZERO_THERMOCOUPLE_CHANNEL : ZERO_READ_CHANNEL,
@@ -309,7 +311,13 @@ const ChannelForm = ({
           grow
         />
         <Form.Field<string> path={`${prefix}.port`} grow hideIfNull>
-          {(p) => <Device.SelectPort {...p} model={model} channelType={channelType} />}
+          {(p) => (
+            <Device.SelectPort
+              {...p}
+              model={model}
+              portType={channelType === "TC" ? "AI" : channelType}
+            />
+          )}
         </Form.Field>
       </Align.Space>
       <Form.NumericField
@@ -478,7 +486,7 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureRead = Common.Task.wrapTaskLayout(Wrapped, ZERO_READ_PAYLOAD);
+export const ConfigureRead = Common.Task.wrapLayout(Wrapped, ZERO_READ_PAYLOAD);
 
 export const SelectScaleTypeField = Form.buildDropdownButtonSelectField<
   ScaleType,
@@ -527,7 +535,7 @@ const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
 
 export const CustomScaleForm = ({ prefix }: FormProps): ReactElement | null => {
   const path = `${prefix}.scale`;
-  const channelType = Form.useFieldValue<Device.ChannelType>(`${prefix}.type`, true);
+  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true);
   const scaleType = Form.useFieldValue<ScaleType>(`${path}.type`, true);
   if (channelType !== "AI" || scaleType == null) return null;
   const FormComponent = SCALE_FORMS[scaleType];
@@ -568,7 +576,7 @@ const ThermocoupleForm = ({
   prefix,
   model,
 }: ThermocoupleFormProps): ReactElement | null => {
-  const channelType = Form.useFieldValue<Device.ChannelType>(`${prefix}.type`, true);
+  const channelType = Form.useFieldValue<ChannelType>(`${prefix}.type`, true);
   if (channelType !== "TC") return null;
   return (
     <Align.Space direction="y" grow>

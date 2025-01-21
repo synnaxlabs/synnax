@@ -24,10 +24,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
-import {
-  type Device,
-  type ScannerScanCommandResult,
-} from "@/hardware/opc/device/types";
+import { type Device, type ScanCommandResult } from "@/hardware/opc/device/types";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -67,7 +64,7 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       const nodeID = isRoot ? "" : parseNodeID(props.clicked as string);
       const { connection } = device.properties;
       setLoading(props.clicked as string);
-      const res = await scanTask.executeCommandSync<ScannerScanCommandResult>(
+      const res = await scanTask.executeCommandSync<ScanCommandResult>(
         "scan",
         { connection, node_id: nodeID },
         TimeSpan.seconds(10),

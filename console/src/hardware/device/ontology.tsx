@@ -12,30 +12,17 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
-import { type Make, makeZ } from "@/hardware/device/make";
-import { LabJack } from "@/hardware/labjack";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { type Layout } from "@/layout";
+import { CONFIGURE_LAYOUTS, getContextMenuItems, makeZ } from "@/hardware/device/make";
 import { Ontology } from "@/ontology";
 
-const ZERO_CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
-  [LabJack.Device.MAKE]: LabJack.Device.CONFIGURE_LAYOUT,
-  [NI.Device.MAKE]: NI.Device.CONFIGURE_LAYOUT,
-  [OPC.Device.MAKE]: OPC.Device.CONFIGURE_LAYOUT,
-};
-
-const CONTEXT_MENUS_ITEMS: Record<
-  Make,
-  (props: Ontology.TreeContextMenuProps) => ReactElement | null
-> = {
-  [LabJack.Device.MAKE]: LabJack.DeviceServices.ContextMenuItems,
-  [NI.Device.MAKE]: NI.DeviceServices.ContextMenuItems,
-  [OPC.Device.MAKE]: OPC.DeviceServices.ContextMenuItems,
+const handleRename: Ontology.HandleTreeRename = {
+  execute: async ({ client, id, name }) => {
+    const device = await client.hardware.devices.retrieve(id.key);
+    await client.hardware.devices.create({ ...device, name });
+  },
 };
 
 const handleConfigure = ({
@@ -46,7 +33,7 @@ const handleConfigure = ({
   const resource = resources[0];
   try {
     const make = makeZ.parse(resource.data?.make);
-    const baseLayout = ZERO_CONFIGURE_LAYOUTS[make];
+    const baseLayout = CONFIGURE_LAYOUTS[make];
     placeLayout({ ...baseLayout, key: resource.id.key });
   } catch (e) {
     handleException(e, `Failed to configure ${resource.name}`);
@@ -82,20 +69,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection,
     selection: { nodes, resources },
   } = props;
-  if (nodes.length === 0) return null;
   const singleResource = nodes.length === 1;
   const first = resources[0];
-  const del = useDelete();
+  const handleDelete = useDelete();
   const group = Group.useCreateFromSelection();
+  if (nodes.length === 0) return null;
   const handleSelect = {
     configure: () => handleConfigure(props),
-    delete: () => del(props),
+    delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(nodes[0].key),
     group: () => group(props),
   };
-  const make = makeZ.safeParse(resources[0].data?.make)?.data;
-  const C = make != null ? CONTEXT_MENUS_ITEMS[make] : null;
-  const customMenuItems = C != null ? <C {...props} /> : null;
+  const C = getContextMenuItems(resources[0].data?.make);
+  const customMenuItems = C ? <C {...props} /> : null;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />
@@ -122,13 +108,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );
-};
-
-const handleRename: Ontology.HandleTreeRename = {
-  execute: async ({ client, id, name }) => {
-    const device = await client.hardware.devices.retrieve(id.key);
-    await client.hardware.devices.create({ ...device, name });
-  },
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

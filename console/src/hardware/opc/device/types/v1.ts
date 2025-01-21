@@ -25,8 +25,6 @@ export const ZERO_PROPERTIES: Properties = {
   version: VERSION,
 };
 
-export interface Device extends device.Device<Properties> {}
-
 export const propertiesMigration = migrate.createMigration<v0.Properties, Properties>({
   name: "hardware.opc.device.properties",
   migrate: (p) => {
@@ -38,3 +36,5 @@ export const propertiesMigration = migrate.createMigration<v0.Properties, Proper
     };
   },
 });
+
+export interface Device extends device.Device<Properties> {}
