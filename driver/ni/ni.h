@@ -20,9 +20,9 @@
 #include <set>
 #include <condition_variable>
 
-#include "nidaqmx_api.h"
-#include "daqmx.h"
-#include "nisyscfg.h"
+#include "nilibs/nidaqmx_api.h"
+#include "nilibs/nidaqmx.h"
+#include "nilibs/nisyscfg.h"
 
 #include "nlohmann/json.hpp"
 

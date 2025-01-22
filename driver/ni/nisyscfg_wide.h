@@ -20,7 +20,7 @@
 #ifndef ___nisysconfig_wide_h___
 #define ___nisysconfig_wide_h___
 
-#include "nisyscfg.h"
+#include "nilibs/nisyscfg.h"
 
 #if defined(__cplusplus) || defined(__cplusplus__)
 extern "C" {

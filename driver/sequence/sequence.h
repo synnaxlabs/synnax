@@ -49,15 +49,19 @@ public:
             luaL_unref(L.get(), LUA_REGISTRYINDEX, script_ref);
     }
 
-    freighter::Error next() {
+    [[nodiscard]] freighter::Error next() const {
+        // Bind source variables to the lua state.
         if (auto err = this->source->bind(this->L.get())) return err;
+        // Reset operations.
         this->ops->next();
+        // Retrieve and execute the compiled LUA script.
         lua_rawgeti(L.get(), LUA_REGISTRYINDEX, script_ref);
         if (lua_pcall(L.get(), 0, 0, 0) != LUA_OK) {
             const char *error_msg = lua_tostring(L.get(), -1);
             lua_pop(L.get(), 1);
             return freighter::Error(RUNTIME_ERROR, error_msg);
         }
+        // Flush operations.
         this->ops->flush();
         return freighter::NIL;
     }

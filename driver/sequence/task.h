@@ -1,6 +1,8 @@
 #pragma once
 
 /// external.
+#include <utility>
+
 #include "nlohmann/json.hpp"
 
 /// internal.
@@ -60,10 +62,10 @@ class Task final : public task::Task {
 public:
     Task(
         const std::shared_ptr<task::Context> &ctx,
-        const TaskConfig &cfg,
+        TaskConfig cfg,
         const std::vector<synnax::Channel> &read_channels,
         const std::vector<synnax::Channel> &write_channels
-    ): cfg(cfg),
+    ): cfg(std::move(cfg)),
        ctx(ctx),
        read_channels(read_channels),
        write_channels(write_channels),
@@ -86,7 +88,7 @@ public:
         // Step 1 - instantiate the JSON source
         auto json_source = std::make_shared<JSONSource>(cfg.globals);
 
-        /// Step 2 - instantiate the channel source and streamer config.
+        // Step 2 - instantiate the channel source and streamer config.
         auto ch_source = std::make_shared<ChannelSource>(read_channel_map);
         synnax::StreamerConfig streamer_cfg{.channels = cfg.read,};
 

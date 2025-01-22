@@ -12,9 +12,9 @@
 #include <string>
 #include <map>
 
-#include "daqmx.h"
-#include "nidaqmx_api.h"
-#include "nisyscfg.h"
+#include "nilibs/nidaqmx.h"
+#include "nilibs/nidaqmx_api.h"
+#include "nilibs/nisyscfg.h"
 #include "driver/ni/ni.h"
 
 #include "client/cpp/telem/telem.h"

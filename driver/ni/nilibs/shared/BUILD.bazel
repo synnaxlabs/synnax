@@ -1,0 +1,5 @@
+cc_library(
+    name = "shared",
+    hdrs = ["shared_library.h"],
+    visibility = ["//visibility:public"],
+)

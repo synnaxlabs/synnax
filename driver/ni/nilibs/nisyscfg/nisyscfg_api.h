@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "nisyscfg.h"
+#include "driver/ni/nilibs/nisyscfg.h"
 #include "nisyscfg_errors.h"
 
 namespace ni {

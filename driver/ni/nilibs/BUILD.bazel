@@ -1,0 +1,26 @@
+cc_library(
+    name = "daqmx",
+    srcs = select({
+        ":use_ni": ["nidaqmx_prod.cpp"],
+        "//conditions:default": ["nidaqmx_mock.cpp"],
+    }),
+    hdrs = [
+        "daqmx.h",
+        "nidaqmx_api.h",
+    ],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        # If you want to only link on Linux (and not other *nix OS's),
+        # you can do @platforms//os:linux. If you prefer to link on
+        # all non-Windows OS's, replace with //conditions:default.
+        "@platforms//os:linux": [
+            "-lnidaqmx",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = select({
+        ":use_ni": ["@nidaqmx"],
+        "//conditions:default": [],
+    }),
+)

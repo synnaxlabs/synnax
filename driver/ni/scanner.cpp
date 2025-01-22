@@ -11,7 +11,7 @@
 #include <algorithm>
 
 #include "driver/ni/ni.h"
-#include "driver/ni/nisyscfg_api.h"
+#include "nilibs/nisyscfg_api.h"
 
 #include "nlohmann/json.hpp"
 

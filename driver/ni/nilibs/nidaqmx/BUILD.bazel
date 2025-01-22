@@ -1,0 +1,14 @@
+cc_library(
+    name = "nidaqmx",
+    srcs = [
+        "nidaqmx_prod.cpp",
+    ],
+    hdrs = [
+        "nidaqmx.h",
+        "nidaqmx_api.h",
+        "nidaqmx_prod.h",
+    ],
+    deps = [
+        "//driver/ni/nilibs/shared",
+    ],
+)

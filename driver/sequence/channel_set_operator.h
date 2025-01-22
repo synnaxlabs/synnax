@@ -44,7 +44,7 @@ public:
     virtual freighter::Error write(synnax::Frame &frame) = 0;
 };
 
-class SynnaxSink final: public Sink {
+class SynnaxSink final : public Sink {
 private:
     std::unique_ptr<synnax::Writer> writer;
 
@@ -54,14 +54,21 @@ public:
     }
 
     freighter::Error write(synnax::Frame &frame) override {
-        if (const bool ok = this->writer->write(frame); !ok) return this->writer->error();
+        if (const bool ok = this->writer->write(frame); !ok) return this->writer->
+                error();
         return freighter::NIL;
     }
 };
 
+/// @brief ChannelSetOperator allows the user of a sequence to write values to channels.
+/// It binds a "set" method to the lua state of the form `set(channel_name, value)`.
 class ChannelSetOperator final : public sequence::Operator {
+    /// @brief the current output frame to write.
     synnax::Frame frame;
+    /// @brief the sink to write the frame to. This is typically backed by a Synnax
+    /// writer.
     std::shared_ptr<Sink> sink;
+    /// @brief a map of channel names to info on the channel.
     std::unordered_map<std::string, synnax::Channel> channels;
 
 public:
@@ -75,14 +82,11 @@ public:
     }
 
     void bind(lua_State *L) override {
-        // Push the SetOperator instance as userdata
         lua_pushlightuserdata(L, this);
-
-        // Create closure with the SetOperator instance as upvalue
         lua_pushcclosure(L, [](lua_State *L) -> int {
             auto *op = static_cast<ChannelSetOperator *>(
-                lua_touserdata(L, lua_upvalueindex(1)));
-
+                lua_touserdata(L, lua_upvalueindex(1))
+            );
             const char *channel_name = lua_tostring(L, 1);
             auto it = op->channels.find(channel_name);
             if (it == op->channels.end()) {
@@ -94,7 +98,6 @@ public:
             op->frame.add(channel.key, std::move(value));
             return 0;
         }, 1);
-
         lua_setglobal(L, "set");
     }
 

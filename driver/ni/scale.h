@@ -15,11 +15,11 @@
 #include <cstdint>
 #include <map>
 
-#include "daqmx.h"
-#include "nisyscfg.h"
+#include "nilibs/nidaqmx.h"
+#include "nilibs/nisyscfg.h"
 
 #include "driver/ni/ni.h"
-#include "driver/ni/nidaqmx_api.h"
+#include "nilibs/nidaqmx_api.h"
 #include "driver/config/config.h"
 
 #include "nlohmann/json.hpp"
