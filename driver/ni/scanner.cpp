@@ -19,7 +19,7 @@ ni::Scanner::Scanner(
     const std::shared_ptr<SysCfg> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
-) : task(task), ctx(ctx) {
+) : syscfg(syscfg), task(task), ctx(ctx) {
     // initialize syscfg session for the scanner (TODO: Error Handling for status)
     NISysCfgStatus status = NISysCfg_OK;
     status = syscfg->InitializeSession(
@@ -88,7 +88,6 @@ void ni::Scanner::scan() {
         &this->resources_handle
     );
     if (err != NISysCfg_OK) return log_err("failed to find hardware");
-    LOG(INFO) << "SCAN SUCCESS";
 
     while (this->syscfg->NextResource(
                this->session,
@@ -96,7 +95,6 @@ void ni::Scanner::scan() {
                &resource
            ) == NISysCfg_OK) {
         auto device = get_device_properties(resource);
-        LOG(INFO) << "device found";
         if(device["key"] != "" && device_keys.find(device["key"]) == device_keys.end()) {
             device["failed_to_create"] = false;
             devices["devices"].push_back(device);

@@ -55,7 +55,6 @@ cc_binary(
         #     "/DEBUG",             # Enable debug info
         #     "/MDd",               # Debug runtime
         #     "-std:c++20",
-        #     "/D_DEBUG",          # Debug mode  "/D_DEBUG",
         # ],
         "//conditions:default": [
             "-std=c++20",

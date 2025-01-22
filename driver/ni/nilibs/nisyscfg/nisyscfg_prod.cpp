@@ -12,6 +12,7 @@
 /// std. lib.
 #include <stdio.h>
 #include <iostream>
+#include <cstring>
 
 /// internal.
 #include "driver/ni/nilibs/nisyscfg/nisyscfg.h"
@@ -19,31 +20,44 @@
 #include "driver/ni/nilibs/nisyscfg/nisyscfg_errors.h"
 #include "driver/ni/nilibs/shared/shared_library.h"
 
-SysCfgProd::SysCfgProd(std::shared_ptr<SharedLibrary> library)
-    : shared_library_(std::move(library)) {
-    
+#ifdef _WIN32
+static const char* kLibraryName = "nisyscfg.dll";
+#else
+static const char *kLibraryName = "libnisyscfg.so";
+#endif
+
+
+SysCfgProd::SysCfgProd(std::shared_ptr<SharedLibrary> library) : shared_library_(std::move(library)) {
+    shared_library_->set_library_name(kLibraryName);
+    shared_library_->load();
+    bool loaded = shared_library_->is_loaded();
+    memset(&function_pointers_, 0, sizeof(function_pointers_));
+    if (!loaded) {
+        return;
+    }
+
     // Initialize function pointers
     function_pointers_.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
         const_cast<void*>(shared_library_->get_function_pointer("NISysCfgInitializeSession")));
-    
+
     function_pointers_.CreateFilter = reinterpret_cast<CreateFilterPtr>(
         const_cast<void*>(shared_library_->get_function_pointer("NISysCfgCreateFilter")));
-    
+
     function_pointers_.SetFilterProperty = reinterpret_cast<SetFilterPropertyPtr>(
         const_cast<void*>(shared_library_->get_function_pointer("NISysCfgSetFilterProperty")));
-    
+
     function_pointers_.CloseHandle = reinterpret_cast<CloseHandlePtr>(
         const_cast<void*>(shared_library_->get_function_pointer("NISysCfgCloseHandle")));
-    
+
     function_pointers_.FindHardware = reinterpret_cast<FindHardwarePtr>(
         const_cast<void*>(shared_library_->get_function_pointer("NISysCfgFindHardware")));
-    
+
     function_pointers_.NextResource = reinterpret_cast<NextResourcePtr>(
         const_cast<void*>(shared_library_->get_function_pointer("NISysCfgNextResource")));
-    
+
     function_pointers_.GetResourceProperty = reinterpret_cast<GetResourcePropertyPtr>(
         const_cast<void*>(shared_library_->get_function_pointer("NISysCfgGetResourceProperty")));
-    
+
     function_pointers_.GetResourceIndexedProperty = reinterpret_cast<GetResourceIndexedPropertyPtr>(
         const_cast<void*>(shared_library_->get_function_pointer("NISysCfgGetResourceIndexedProperty")));
 }
