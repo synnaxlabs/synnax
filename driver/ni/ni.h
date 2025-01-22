@@ -256,9 +256,11 @@ public:
 
     int create_channels() override;
 
-    std::shared_ptr<ni::Analog> parse_channel(config::Parser &parser,
-                                              const std::string &channel_type,
-                                              const std::string &channel_name);
+    std::shared_ptr<ni::Analog> parse_channel(
+        config::Parser &parser,
+        const std::string &channel_type,
+        const std::string &channel_name
+    );
 
     void parse_channels(config::Parser &parser) override;
 
@@ -478,6 +480,12 @@ public:
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 
     std::vector<synnax::ChannelKey> get_state_channel_keys();
+
+    std::shared_ptr<ni::Analog> parse_channel(
+        config::Parser &parser,
+        const std::string &channel_type,
+        const std::string &channel_name
+    );
 
     void get_index_keys();
 

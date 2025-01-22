@@ -20,6 +20,7 @@
 #include "client/cpp/telem/telem.h"
 #include "driver/config/config.h"
 #include "driver/ni/scale.h"
+#include "driver/task/task.h"
 
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
@@ -309,18 +310,19 @@ public:
 /// @brief voltage channel.
 class Voltage : public Analog {
 public:
-    explicit Voltage(config::Parser &parser, TaskHandle task_handle,
-                     const std::string &name)
-        : Analog(parser, task_handle, name),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config"))) {
+    explicit Voltage(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config"))) {
     }
 
     ~Voltage() = default;
 
     int32 create_ni_channel() override {
-        std::string s = "";
         return ni::NiDAQmxInterface::CreateAIVoltageChan(
             this->task_handle,
             this->name.c_str(),
@@ -366,13 +368,15 @@ public:
     int32_t bridge_config = 0;
     VoltageExcitationConfig excitation_config;
 
-    explicit VoltageWithExcit(config::Parser &parser, TaskHandle task_handle,
-                              const std::string &name)
-        : Voltage(parser, task_handle, name),
-          bridge_config(
-              get_bridge_config(
-                  parser.required<std::string>("bridge_config"))),
-          excitation_config(parser) {
+    explicit VoltageWithExcit(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Voltage(parser, task_handle, name),
+        bridge_config(
+            get_bridge_config(
+                parser.required<std::string>("bridge_config"))),
+        excitation_config(parser) {
     }
 
     ~VoltageWithExcit() = default;
@@ -406,17 +410,19 @@ public:
         return DAQmx_Val_Default;
     }
 
-    explicit Current(config::Parser &parser, TaskHandle task_handle,
-                     const std::string &name)
-        : Analog(parser, task_handle, name),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config"))),
-          shunt_resistor_loc(
-              getShuntResistorLocation(
-                  parser.required<std::string>("shunt_resistor_loc"))),
-          ext_shunt_resistor_val(
-              parser.required<double>("ext_shunt_resistor_val")) {
+    explicit Current(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config"))),
+        shunt_resistor_loc(
+            getShuntResistorLocation(
+                parser.required<std::string>("shunt_resistor_loc"))),
+        ext_shunt_resistor_val(
+            parser.required<double>("ext_shunt_resistor_val")) {
     }
 
     int32 create_ni_channel() override {
@@ -547,10 +553,17 @@ public:
                           std::map<std::int32_t, std::string> &cjc_sources)
         : Analog(parser, task_handle, name),
           thermocouple_type(
-              get_type(parser.required<std::string>("thermocouple_type"),
-                       parser)),
-          cjc_source(get_cjc_source(parser.required<std::string>("cjc_source"),
-                                    parser)),
+              get_type(
+                  parser.required<std::string>("thermocouple_type"),
+                  parser
+              )
+          ),
+          cjc_source(
+              get_cjc_source(
+                  parser.required<std::string>("cjc_source"),
+                  parser
+              )
+          ),
           cjc_val(parser.optional<double>("cjc_val", 0)) {
         auto source = parser.required<std::int32_t>("cjc_port");
         if (cjc_sources.find(source) == cjc_sources.end()) this->cjcPort = "";
@@ -581,9 +594,11 @@ private:
 
 class TemperatureBuiltInSensor final : public Analog {
 public:
-    explicit TemperatureBuiltInSensor(config::Parser &parser,
-                                      TaskHandle task_handle,
-                                      const std::string &name) {
+    explicit TemperatureBuiltInSensor(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) {
         this->units = ni::UNITS_MAP.at(parser.required<std::string>("units"));
         this->task_handle = task_handle;
         size_t pos = name.find("/");
@@ -1518,5 +1533,97 @@ public:
 
 private:
     int32 terminal_config = 0;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////
+//                                  Output Channels                                       //
+//                                                                                        //
+///////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
+//                                      Voltage                                  //
+///////////////////////////////////////////////////////////////////////////////////
+
+class VoltageOut final : public Analog {
+public:
+    explicit VoltageOut(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name) {
+    }
+
+    ~VoltageOut() = default;
+
+    int32 create_ni_channel() override {
+        return ni::NiDAQmxInterface::CreateAOVoltageChan(
+            this->task_handle,
+            this->name.c_str(),
+            "", // name to assign to the virtual channel
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->scale_name.c_str()
+        );
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                      CurrentOut                               //
+///////////////////////////////////////////////////////////////////////////////////
+class CurrentOut final : public Analog {
+    explicit CurrentOut(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name) {
+    }
+
+    int32 create_ni_channel() override {
+        return ni::NiDAQmxInterface::CreateAOCurrentChan(
+            this->task_handle,
+            this->name.c_str(),
+            "",
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->scale_name.c_str()
+        );
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////////
+//                               FunctionGeneratorOut                            //
+///////////////////////////////////////////////////////////////////////////////////
+class FunctionGeneratorOut final : public Analog {
+public:
+    int32_t get_type(const std::string &type, config::Parser &parser) {
+        if (type == "Sine") return DAQmx_Val_Sine;
+        if (type == "Triangle") return DAQmx_Val_Triangle;
+        if (type == "Square") return DAQmx_Val_Square;
+        if (type == "Sawtooth") return DAQmx_Val_Sawtooth;
+        parser.field_err(
+            "channel" + this->name,
+            "Invalid wave type:" + type +
+            ". Defaulting to Sine.");
+        return DAQmx_Val_Sine;
+    }
+
+
+    explicit FunctionGeneratorOut(
+        config::Parser &parser,
+        TaskHandle task_handle,
+        const std::string &name
+    ) : Analog(parser, task_handle, name),
+        frequency(parser.required<double>("frequency")),
+        amplitude(parser.required<double>("amplitude")),
+        offset(parser.required<double>("offset")),
+        wave_type(get_type(parser.required<std::string>("waveType"), parser)) {
+    }
+
+private:
+    double frequency;
+    double amplitude;
+    double offset;
+    int32 wave_type;
 };
 } // namespace ni

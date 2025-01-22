@@ -564,9 +564,47 @@ void ni::AnalogWriteSink::parse_config(config::Parser &parser) {
         });
 }
 
+std::shared_ptr<ni::Analog> ni::AnalogWriteSink::parse_channel(
+    config::Parser &parser,
+    const std::string &channel_type,
+    const std::string &channel_name
+) {
+    if (channel_type == "ao_current")
+        return std::make_shared<CurrentOut>(
+            parser, this->task_handle, channel_name
+        );
+    if (channel_type == "ao_voltage")
+        return std::make_shared<VoltageOut>(
+            parser, this->task_handle, channel_name
+        );
+    if (channel_type == "ao_func_gen")
+        return std::make_shared<FunctionGeneratorOut>(
+            parser, this->task_handle, channel_name
+        );
+
+    // If the channel type is not recognized, update task state
+    std::string msg = "Channel " + channel_name + " has an unrecognized type: " + channel_type;
+    this->ctx->set_state({
+        .task = this->task.key,
+        .variant = "error",
+        .details = {
+            {"running", false},
+            {"message", msg}
+        }
+    });
+    this->log_error(msg);
+    return nullptr;
+}
+
+
 int ni::AnalogWriteSink::init() {
     int err = 0;
     auto channels = this->writer_config.channels;
+
+    for (auto &channel: channels) {
+    }
+
+
     for (auto &channel: channels) {
         if (channel.channel_type == "current") {
             // TODO: might have to chane
@@ -918,4 +956,3 @@ void ni::AnalogStateSource::update_state(
     }
     waiting_reader.notify_one();
 }
-
