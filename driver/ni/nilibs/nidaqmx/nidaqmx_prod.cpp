@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <utility>
+#include <cstring>
 
 #include "driver/ni/nilibs/shared/shared_library.h"
 #include "driver/ni/nilibs/nidaqmx/nidaqmx_prod.h"

@@ -131,14 +131,14 @@ struct PolynomialConfig {
         auto eu = parser.required<std::string>("electrical_units");
         auto pu = parser.required<std::string>("physical_units");
 
-        if (!ni::UNITS_MAP.contains(eu)) {
+        if (ni::UNITS_MAP.find(eu) == ni::UNITS_MAP.end()) {
             LOG(WARNING) << "Invalid units: " << eu << ". Defaulting to Volts.";
             electrical_units = DAQmx_Val_Volts;
         } else {
             electrical_units = ni::UNITS_MAP.at(eu);
         }
 
-        if (!ni::UNITS_MAP.contains(pu)) {
+        if (ni::UNITS_MAP.find(pu) == ni::UNITS_MAP.end()) {
             LOG(WARNING) << "Invalid units: " << pu << ". Defaulting to Volts.";
             physical_units = DAQmx_Val_Volts;
         } else {
@@ -267,7 +267,7 @@ public:
     }
 
     int32 get_units(const std::string &s) {
-        if (!ni::UNITS_MAP.contains(s)) {
+        if (ni::UNITS_MAP.find(s) == ni::UNITS_MAP.end()) {
             LOG(WARNING) << "Invalid units: " << s << ". Defaulting to Volts.";
             return DAQmx_Val_Volts;
         }
@@ -580,7 +580,7 @@ public:
                                     parser)),
           cjc_val(parser.optional<double>("cjc_val", 0)) {
         const auto source = parser.required<std::int32_t>("cjc_port");
-        if (!cjc_sources.contains(source)) this->cjcPort = "";
+        if (cjc_sources.find(source) == cjc_sources.end()) this->cjcPort = "";
         else this->cjcPort = cjc_sources.at(source);
     }
 
