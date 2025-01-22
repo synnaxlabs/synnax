@@ -303,14 +303,6 @@ public:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
-struct out_state {
-    std::string location = "";
-    double state = 0.0;
-    synnax::DataType data_type = synnax::FLOAT64;
-    synnax::ChannelKey state_key = 0;
-};
-
-
 class StateSource final : public pipeline::Source {
 public:
     explicit StateSource() = default;
@@ -325,27 +317,18 @@ public:
 
     synnax::Frame get_state();
 
-    void update_digital_state(
+    void update_state(
         std::queue<synnax::ChannelKey> &modified_state_keys,
-        std::queue<double> &modified_state_values
+        std::queue<std::uint8_t> &modified_state_values
     );
-
-    void update_analog_state(
-            std::queue<synnax::ChannelKey> &modified_state_keys,
-            std::queue<double> &modified_state_values
-    );
-
-    //TODO create an update state function for float32/float64
 
 private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
     synnax::Rate state_rate = synnax::Rate(1);
-    std::map<synnax::ChannelKey, uint8_t> digital_state_map;
-    std::map<synnax::ChannelKey, double> analog_state_map;
+    std::map<synnax::ChannelKey, uint8_t> state_map;
     synnax::ChannelKey state_index_key;
     loop::Timer timer;
-    bool is_digital = true;
 }; // class StateSource
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    DigitalWriteSink                           //
@@ -363,7 +346,7 @@ struct WriterConfig {
 
     synnax::ChannelKey state_index_key;
     std::queue<synnax::ChannelKey> modified_state_keys;
-    std::queue<double> modified_state_values;
+    std::queue<uint8_t> modified_state_values;
 }; // struct WriterConfig
 
 class DigitalWriteSink final : public pipeline::Sink {

@@ -424,12 +424,8 @@ ni::StateSource::StateSource(
     this->state_index_key = state_index_key;
 
     // initialize all states to 0 (logic low)
-    if (this->is_digital)
-        for (auto &key: state_channel_keys)
-            this->digital_state_map[key] = 0;
-    else
-        for (auto &key: state_channel_keys)
-            this->analog_state_map[key] = 0;
+    for (auto &key: state_channel_keys)
+        this->state_map[key] = 0;
     this->timer = loop::Timer(this->state_rate);
 }
 
@@ -444,10 +440,7 @@ std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
 
 synnax::Frame ni::StateSource::get_state() {
     // frame size = # monitored states + 1 state index channel
-    int frame_size;
-    if(this->is_digital) frame_size = this->digital_state_map.size() + 1;
-    else frame_size = this->analog_state_map.size() + 1;
-
+    auto frame_size = this->state_map.size() + 1;
     auto state_frame = synnax::Frame(frame_size);
     state_frame.add(
         this->state_index_key,
@@ -457,35 +450,18 @@ synnax::Frame ni::StateSource::get_state() {
         )
     );
 
-    if (this->is_digital)
-        for (auto &[key, value]: this->digital_state_map)
-            state_frame.add(key, synnax::Series(value));
-    else
-        for (auto &[key, value]: this->analog_state_map)
-            state_frame.add(key, synnax::Series(value));
+    for (auto &[key, value]: this->state_map)
+        state_frame.add(key, synnax::Series(value));
     return state_frame;
 }
 
-void ni::StateSource::update_digital_state(
+void ni::StateSource::update_state(
     std::queue<synnax::ChannelKey> &modified_state_keys,
-    std::queue<std::double> &modified_state_values
+    std::queue<std::uint8_t> &modified_state_values
 ) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     while (!modified_state_keys.empty()) {
-        this->digital_state_map[modified_state_keys.front()] = static_cast<std::uint8_t>(modified_state_values.front());
-        modified_state_keys.pop();
-        modified_state_values.pop();
-    }
-    waiting_reader.notify_one();
-}
-
-void ni::StateSource::update_analog_state(
-    std::queue<synnax::ChannelKey> &modified_state_keys,
-    std::queue<double> &modified_state_values
-) {
-    std::unique_lock<std::mutex> lock(this->state_mutex);
-    while (!modified_state_keys.empty()) {
-        this->analog_state_map[modified_state_keys.front()] = modified_state_values.front();
+        this->state_map[modified_state_keys.front()] = static_cast<std::uint8_t>(modified_state_values.front());
         modified_state_keys.pop();
         modified_state_values.pop();
     }
