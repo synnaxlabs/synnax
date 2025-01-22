@@ -51,7 +51,7 @@ int ni::DigitalReadSource::create_channels() {
     for (auto &channel: channels) {
         if (channel.channel_type != "index" && channel.enabled) {
             err = this->check_ni_error(
-                ni::NiDAQmxInterface::CreateDIChan(task_handle,
+                this->dmx->CreateDIChan(task_handle,
                                                    channel.name.c_str(),
                                                    "", DAQmx_Val_ChanPerLine));
             VLOG(1) << "Channel name: " << channel.name;
@@ -73,7 +73,7 @@ int ni::DigitalReadSource::configure_timing() {
         this->num_samples_per_channel = 1;
     } else {
         if (this->check_ni_error(
-            ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+            this->dmx->CfgSampClkTiming(this->task_handle,
                                                    this->reader_config.timing_source.c_str(),
                                                    this->reader_config.sample_rate.value,
                                                    DAQmx_Val_Rising,
@@ -105,7 +105,7 @@ void ni::DigitalReadSource::acquire_data() {
         // sleep per sample rate
         this->sample_timer.wait();
         if (this->check_ni_error(
-            ni::NiDAQmxInterface::ReadDigitalLines(
+            this->dmx->ReadDigitalLines(
                 this->task_handle,
                 this->num_samples_per_channel,
                 -1,

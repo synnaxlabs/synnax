@@ -9,13 +9,14 @@
 
 #pragma once
 
-#include "driver/ni/nilibs/nisyscfg.h"
-#include "nisyscfg_errors.h"
+#include "driver/ni/nilibs/nisyscfg/nisyscfg.h"
+#include "driver/ni/nilibs/nisyscfg/nisyscfg_errors.h"
 
-namespace ni {
-class NiSysCfgInterface {
+class SysCfg {
 public:
-    static NISYSCFGCFUNC InitializeSession(
+    virtual ~SysCfg() = default;
+
+    virtual NISYSCFGCFUNC InitializeSession(
         const char *targetName,
         const char *username,
         const char *password,
@@ -24,48 +25,47 @@ public:
         unsigned int connectTimeoutMsec,
         NISysCfgEnumExpertHandle *expertEnumHandle,
         NISysCfgSessionHandle *sessionHandle
-    );
+    ) = 0;
 
-    static NISYSCFGCFUNC CreateFilter(
+    virtual NISYSCFGCFUNC CreateFilter(
         NISysCfgSessionHandle sessionHandle,
         NISysCfgFilterHandle *filterHandle
-    );
+    ) = 0;
 
-    static NISYSCFGCDECL SetFilterProperty(
+    virtual NISYSCFGCDECL SetFilterProperty(
         NISysCfgFilterHandle filterHandle,
         NISysCfgFilterProperty propertyID,
         ...
-    );
+    ) = 0;
 
-    static NISYSCFGCFUNC CloseHandle(
+    virtual NISYSCFGCFUNC CloseHandle(
         void *syscfgHandle
-    );
+    ) = 0;
 
-    static NISYSCFGCFUNC FindHardware(
+    virtual NISYSCFGCFUNC FindHardware(
         NISysCfgSessionHandle sessionHandle,
         NISysCfgFilterMode filterMode,
         NISysCfgFilterHandle filterHandle,
         const char *expertNames,
         NISysCfgEnumResourceHandle *resourceEnumHandle
-    );
+    ) = 0;
 
-    static NISYSCFGCFUNC NextResource(
+    virtual NISYSCFGCFUNC NextResource(
         NISysCfgSessionHandle sessionHandle,
         NISysCfgEnumResourceHandle resourceEnumHandle,
         NISysCfgResourceHandle *resourceHandle
-    );
+    ) = 0;
 
-    static NISYSCFGCFUNC GetResourceProperty(
+    virtual NISYSCFGCFUNC GetResourceProperty(
         NISysCfgResourceHandle resourceHandle,
         NISysCfgResourceProperty propertyID,
         void *value
-    );
+    ) = 0;
 
-    static NISYSCFGCFUNC GetResourceIndexedProperty(
+    virtual NISYSCFGCFUNC GetResourceIndexedProperty(
         NISysCfgResourceHandle resourceHandle,
         NISysCfgIndexedProperty propertyID,
         unsigned int index,
         void *value
-    );
+    ) = 0;
 };
-}

@@ -21,7 +21,7 @@ using json = nlohmann::json;
 
 void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     std::uint64_t c_count = 0;
-//    LOG(INFO) << "channel config:" << parser.get_json().dump(4);
+    //    LOG(INFO) << "channel config:" << parser.get_json().dump(4);
     parser.iter("channels",
                 [&](config::Parser &channel_builder) {
                     ni::ChannelConfig config;
@@ -30,15 +30,17 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
                         channel_builder.required<std::uint64_t>("port"));
 
                     std::string name;
-                    if(this->reader_config.device_key != "cross-device"){
+                    if (this->reader_config.device_key != "cross-device") {
                         name = this->reader_config.device_name;
                     } else {
-                        auto device_key = channel_builder.required<std::string>("device");
+                        auto device_key = channel_builder.required<std::string>(
+                            "device");
                         auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
-                                device_key
+                            device_key
                         );
                         if (err) {
-                            this->log_error("failed to retrieve device with key " + device_key);
+                            this->log_error(
+                                "failed to retrieve device with key " + device_key);
                             return;
                         }
                         name = dev.location;
@@ -65,78 +67,77 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
                 });
 }
 
-std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
+std::shared_ptr<ni::AIChan> ni::AnalogReadSource::parse_channel(
     config::Parser &parser, const std::string &channel_type,
     const std::string &channel_name) {
-
     if (channel_type == "ai_accel")
-        return std::make_shared<Acceleration>(
+        return std::make_shared<AIAccelChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_accel_4_wire_dc_voltage")
         return std::make_shared<
-            Acceleration4WireDCVoltage>(parser, this->task_handle, channel_name);
+            AIAccel4WireDCVoltageChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_bridge")
-        return std::make_shared<Bridge>(
+        return std::make_shared<AIBridgeChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_charge")
-        return std::make_shared<Charge>(
+        return std::make_shared<AIChargeChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_current")
-        return std::make_shared<Current>(
+        return std::make_shared<AICurrentChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_bridge_polynomial")
         return std::make_shared<
-            ForceBridgePolynomial>(parser, this->task_handle, channel_name);
+            AIForceBridgePolynomialChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_bridge_table")
         return std::make_shared<
-            ForceBridgeTable>(parser, this->task_handle, channel_name);
+            AIForceBridgeTableChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_bridge_two_point_lin")
         return std::make_shared<
-            ForceBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+            AIForceBridgeTwoPointLinChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_force_iepe")
-        return std::make_shared<ForceIEPE>(
+        return std::make_shared<AIForceIEPEChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_microphone")
-        return std::make_shared<Microphone>(
+        return std::make_shared<AIMicrophoneChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_pressure_bridge_polynomial")
         return std::make_shared<
-            PressureBridgePolynomial>(parser, this->task_handle, channel_name);
+            AIPressureBridgePolynomialChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_pressure_bridge_table")
         return std::make_shared<
-            PressureBridgeTable>(parser, this->task_handle, channel_name);
+            AIPressureBridgeTableChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_pressure_bridge_two_point_lin")
         return std::make_shared<
-            PressureBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+            AIPressureBridgeTwoPointLinChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_resistance")
-        return std::make_shared<Resistance>(
+        return std::make_shared<AIResistanceChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_rtd")
-        return std::make_shared<RTD>(
+        return std::make_shared<AIRTDChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_strain_gauge")
-        return std::make_shared<StrainGage>(
+        return std::make_shared<AIStrainGaugeChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_temp_builtin")
         return std::make_shared<
-            TemperatureBuiltInSensor>(parser, this->task_handle, channel_name);
+            AITempBuiltInChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_thermocouple")
-        return std::make_shared<Thermocouple>(
+        return std::make_shared<AIThermocoupleChan>(
             parser, this->task_handle, channel_name, this->port_to_channel);
     if (channel_type == "ai_torque_bridge_polynomial")
         return std::make_shared<
-            TorqueBridgePolynomial>(parser, this->task_handle, channel_name);
+            AITorqueBridgePolynomialChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_torque_bridge_table")
         return std::make_shared<
-            TorqueBridgeTable>(parser, this->task_handle, channel_name);
+            AITorqueBridgeTableChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_torque_bridge_two_point_lin")
         return std::make_shared<
-            TorqueBridgeTwoPointLin>(parser, this->task_handle, channel_name);
+            AITorqueBridgeTwoPointLinChan>(parser, this->task_handle, channel_name);
     if (channel_type == "ai_velocity_iepe")
-        return std::make_shared<VelocityIEPE>(
+        return std::make_shared<AIVelocityIEPEChan>(
             parser, this->task_handle, channel_name);
     if (channel_type == "ai_voltage")
-        return std::make_shared<Voltage>(
+        return std::make_shared<AIVoltageChan>(
             parser, this->task_handle, channel_name);
 
     // If channel type not recognized update task state
@@ -157,23 +158,27 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
 int ni::AnalogReadSource::configure_timing() {
     if (this->reader_config.timing_source == "none") {
         if (this->check_ni_error(
-            ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-                                                   "",
-                                                   this->reader_config.sample_rate.value,
-                                                   DAQmx_Val_Rising,
-                                                   DAQmx_Val_ContSamps,
-                                                   this->reader_config.sample_rate.value))) {
+            this->dmx->CfgSampClkTiming(
+                this->task_handle,
+                "",
+                this->reader_config.sample_rate.value,
+                DAQmx_Val_Rising,
+                DAQmx_Val_ContSamps,
+                this->reader_config.sample_rate.value
+            ))) {
             this->log_error("failed while configuring timing for task "
                             + this->reader_config.task_name);
             return -1;
         }
     } else if (this->check_ni_error(
-        ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-                                               this->reader_config.timing_source.c_str(),
-                                               this->reader_config.sample_rate.value,
-                                               DAQmx_Val_Rising,
-                                               DAQmx_Val_ContSamps,
-                                               this->reader_config.sample_rate.value))) {
+        this->dmx->CfgSampClkTiming(
+            this->task_handle,
+            this->reader_config.timing_source.c_str(),
+            this->reader_config.sample_rate.value,
+            DAQmx_Val_Rising,
+            DAQmx_Val_ContSamps,
+            this->reader_config.sample_rate.value
+        ))) {
         this->log_error("failed while configuring timing for task "
                         + this->reader_config.task_name);
         return -1;
@@ -197,7 +202,7 @@ void ni::AnalogReadSource::acquire_data() {
         DataPacket data_packet;
         data_packet.analog_data.resize(this->buffer_size);
         data_packet.t0 = synnax::TimeStamp::now().value;
-        if (this->check_ni_error(ni::NiDAQmxInterface::ReadAnalogF64(
+        if (this->check_ni_error(this->dmx->ReadAnalogF64(
             this->task_handle,
             this->num_samples_per_channel,
             -1,
@@ -243,12 +248,14 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
             continue;
         }
         synnax::Series series = synnax::Series(synnax::FLOAT32, s);
-        if (this->reader_config.channels[ch].data_type == synnax::FLOAT32) series = synnax::Series(synnax::FLOAT32, s);
+        if (this->reader_config.channels[ch].data_type == synnax::FLOAT32)
+            series = synnax::Series(synnax::FLOAT32, s);
         else if (this->reader_config.channels[ch].data_type == synnax::FLOAT64)
             series = synnax::Series(synnax::FLOAT64, s);
         for (int i = 0; i < d.samples_read_per_channel; i++)
-            this->write_to_series(series, d.analog_data[data_index * d.samples_read_per_channel + i],
-                                  this->reader_config.channels[ch].data_type);
+            this->write_to_series(
+                series, d.analog_data[data_index * d.samples_read_per_channel + i],
+                this->reader_config.channels[ch].data_type);
         f.add(this->reader_config.channels[ch].channel_key, std::move(series));
         data_index++;
     }
@@ -270,8 +277,8 @@ int ni::AnalogReadSource::create_channels() {
             !channel.ni_channel)
             continue;
         this->num_ai_channels++;
-        this->check_ni_error(channel.ni_channel->create_ni_scale());
-        this->check_ni_error(channel.ni_channel->create_ni_channel());
+        this->check_ni_error(channel.ni_channel->create_ni_scale(this->dmx));
+        this->check_ni_error(channel.ni_channel->create_ni_channel(this->dmx));
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);
             return -1;
@@ -292,8 +299,10 @@ int ni::AnalogReadSource::validate_channels() {
         // if not index, make sure channel type is valid
         auto [channel_info, err] = this->ctx->client->channels.retrieve(
             channel.channel_key);
-        if (channel_info.data_type != synnax::FLOAT32 && channel_info.data_type != synnax::FLOAT64) {
-            this->log_error("Channel " + channel.name + " is not of type float32 or float64");
+        if (channel_info.data_type != synnax::FLOAT32 && channel_info.data_type !=
+            synnax::FLOAT64) {
+            this->log_error(
+                "Channel " + channel.name + " is not of type float32 or float64");
             this->ctx->set_state({
                 .task = task.key,
                 .variant = "error",
@@ -301,7 +310,9 @@ int ni::AnalogReadSource::validate_channels() {
                     {"running", false},
                     {
                         "message",
-                        "Channel " + channel.name + " must be type float32 or float64. Got " + channel_info.data_type.
+                        "Channel " + channel.name +
+                        " must be type float32 or float64. Got " + channel_info.
+                        data_type.
                         value
                     },
                     {"path", channel.name}

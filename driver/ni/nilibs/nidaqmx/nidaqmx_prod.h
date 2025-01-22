@@ -14,10 +14,10 @@
 #include <memory>
 
 
-class NiDAQmxLibrary : public NiDAQmxLibraryInterface {
+class DAQmxProd : public DAQmx {
  public:
-  NiDAQmxLibrary(std::shared_ptr<SharedLibrary> library);
-  ~NiDAQmxLibrary() override;
+  DAQmxProd(std::shared_ptr<SharedLibrary> library);
+  ~DAQmxProd() override;
 
   int32 AddCDAQSyncConnection(const char portList[]) override;
   int32 AddGlobalChansToTask(TaskHandle task, const char channelNames[]) override;

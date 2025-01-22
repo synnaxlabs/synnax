@@ -35,10 +35,12 @@ void ni::DigitalWriteSink::get_index_keys() {
 //                                    daqWriter                                  //
 ///////////////////////////////////////////////////////////////////////////////////
 ni::DigitalWriteSink::DigitalWriteSink(
+    const std::shared_ptr<DAQmx> &dmx,
     TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task)
-    : task_handle(task_handle),
+    : dmx(dmx),
+      task_handle(task_handle),
       ctx(ctx),
       task(task),
       err_info({}) {
@@ -101,14 +103,15 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
                                 "line"));
 
             config.name = (this->writer_config.device_name + "/" + port + "/" +
-                            line);
+                           line);
 
-            
+
             config.enabled = channel_builder.optional<bool>("enabled", true);
-            
-            if(config.enabled) {
+
+            if (config.enabled) {
                 config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
-                this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
+                this->writer_config.drive_cmd_channel_keys.
+                        push_back(config.channel_key);
 
                 auto state_key = channel_builder.required<uint32_t>("state_channel");
                 this->writer_config.state_channel_keys.push_back(state_key);
@@ -130,7 +133,7 @@ int ni::DigitalWriteSink::init() {
 
     for (auto &channel: channels) {
         if (channel.channel_type != "index" && channel.enabled) {
-            err = this->check_ni_error(ni::NiDAQmxInterface::CreateDOChan(
+            err = this->check_ni_error(this->dmx->CreateDOChan(
                 this->task_handle, channel.name.c_str(), "",
                 DAQmx_Val_ChanPerLine));
         }
@@ -157,7 +160,7 @@ freighter::Error ni::DigitalWriteSink::cycle() {
 }
 
 freighter::Error ni::DigitalWriteSink::start_ni() {
-    if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
+    if (this->check_ni_error(this->dmx->StartTask(this->task_handle))) {
         this->log_error(
             "failed to start writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
@@ -170,7 +173,7 @@ freighter::Error ni::DigitalWriteSink::start_ni() {
 
 
 freighter::Error ni::DigitalWriteSink::stop_ni() {
-    if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(task_handle))) {
+    if (this->check_ni_error(this->dmx->StopTask(task_handle))) {
         this->log_error(
             "failed to stop writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
@@ -219,7 +222,7 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
     int32 samplesWritten = 0;
     format_data(std::move(frame));
 
-    if (this->check_ni_error(ni::NiDAQmxInterface::WriteDigitalLines(
+    if (this->check_ni_error(this->dmx->WriteDigitalLines(
         this->task_handle,
         1, // number of samples per channel
         1, // auto start
@@ -273,7 +276,7 @@ ni::DigitalWriteSink::~DigitalWriteSink() {
 }
 
 void ni::DigitalWriteSink::clear_task() {
-    if (this->check_ni_error(ni::NiDAQmxInterface::ClearTask(task_handle)))
+    if (this->check_ni_error(this->dmx->ClearTask(task_handle)))
         this->log_error(
             "failed to clear writer for task " + this->writer_config.task_name);
 }
@@ -281,7 +284,7 @@ void ni::DigitalWriteSink::clear_task() {
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_cmd_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->writer_config.channels)
-        if (channel.channel_type != "index" && channel.enabled) 
+        if (channel.channel_type != "index" && channel.enabled)
             keys.push_back(channel.channel_key);
     // Don't need index key as we're only using this for streaming cmds
     return keys;
@@ -299,7 +302,7 @@ std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_state_channel_keys() {
 int ni::DigitalWriteSink::check_ni_error(int32 error) {
     if (error < 0) {
         char errBuff[2048] = {'\0'};
-        ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
+        this->dmx->GetExtendedErrorInfo(errBuff, 2048);
 
         std::string s(errBuff);
         jsonify_error(s);
@@ -377,15 +380,18 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
 
     std::string device = "";
     std::smatch device_match;
-    if (std::regex_search(s, device_match, device_regex)) device = device_match[1].str();
+    if (std::regex_search(s, device_match, device_regex))
+        device = device_match[1].str();
 
     std::string cn = "";
     std::smatch physical_channel_match;
     std::smatch channel_match;
     if (std::regex_search(s, physical_channel_match, physical_channel_regex)) {
         cn = physical_channel_match[1].str();
-        if (!device.empty()) cn = device + "/" + cn; // Combine device and physical channel name
-    } else if (std::regex_search(s, channel_match, channel_regex)) cn = channel_match[1].str();
+        if (!device.empty()) cn = device + "/" + cn;
+        // Combine device and physical channel name
+    } else if (std::regex_search(s, channel_match, channel_regex))
+        cn = channel_match[1].str();
 
     // Check if the channel name is in the channel map
     this->err_info["path"] = channel_map.count(cn) != 0
@@ -394,7 +400,9 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
                                        ? cn
                                        : "";
     // Handle the special case for -200170 error
-    if (is_port_error) this->err_info["path"] = this->err_info["path"].get<std::string>() + ".port";
+    if (is_port_error)
+        this->err_info["path"] =
+                this->err_info["path"].get<std::string>() + ".port";
 
     std::string error_message = "NI Error " + sc + ": " + message + " Path: " + this->
                                 err_info["path"].get<std::string>();

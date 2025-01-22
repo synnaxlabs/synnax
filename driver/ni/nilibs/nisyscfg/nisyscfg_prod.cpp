@@ -9,13 +9,46 @@
 
 #pragma once
 
+/// std. lib.
 #include <stdio.h>
 #include <iostream>
-#include "driver/ni/nilibs/nisyscfg.h"
-#include "driver/ni/nilibs/nisyscfg_api.h"
-#include "driver/ni/nilibs/nisyscfg_errors.h"
 
-NISYSCFGCFUNC ni::NiSysCfgInterface::InitializeSession(
+/// internal.
+#include "driver/ni/nilibs/nisyscfg/nisyscfg.h"
+#include "driver/ni/nilibs/nisyscfg/nisyscfg_prod.h"
+#include "driver/ni/nilibs/nisyscfg/nisyscfg_errors.h"
+#include "driver/ni/nilibs/shared/shared_library.h"
+
+SysCfgProd::SysCfgProd(std::shared_ptr<SharedLibrary> library)
+    : shared_library_(std::move(library)) {
+    
+    // Initialize function pointers
+    function_pointers_.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
+        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgInitializeSession")));
+    
+    function_pointers_.CreateFilter = reinterpret_cast<CreateFilterPtr>(
+        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgCreateFilter")));
+    
+    function_pointers_.SetFilterProperty = reinterpret_cast<SetFilterPropertyPtr>(
+        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgSetFilterProperty")));
+    
+    function_pointers_.CloseHandle = reinterpret_cast<CloseHandlePtr>(
+        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgCloseHandle")));
+    
+    function_pointers_.FindHardware = reinterpret_cast<FindHardwarePtr>(
+        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgFindHardware")));
+    
+    function_pointers_.NextResource = reinterpret_cast<NextResourcePtr>(
+        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgNextResource")));
+    
+    function_pointers_.GetResourceProperty = reinterpret_cast<GetResourcePropertyPtr>(
+        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgGetResourceProperty")));
+    
+    function_pointers_.GetResourceIndexedProperty = reinterpret_cast<GetResourceIndexedPropertyPtr>(
+        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgGetResourceIndexedProperty")));
+}
+
+NISYSCFGCFUNC SysCfgProd::InitializeSession(
     const char *targetName,
     const char *username,
     const char *password,
@@ -25,7 +58,7 @@ NISYSCFGCFUNC ni::NiSysCfgInterface::InitializeSession(
     NISysCfgEnumExpertHandle *expertEnumHandle,
     NISysCfgSessionHandle *sessionHandle
 ) {
-    return NISysCfgInitializeSession(
+    return function_pointers_.InitializeSession(
         targetName,
         username,
         password,
@@ -37,37 +70,35 @@ NISYSCFGCFUNC ni::NiSysCfgInterface::InitializeSession(
     );
 }
 
-NISYSCFGCFUNC ni::NiSysCfgInterface::CreateFilter(
+NISYSCFGCFUNC SysCfgProd::CreateFilter(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgFilterHandle *filterHandle
 ) {
-    return NISysCfgCreateFilter(sessionHandle, filterHandle);
+    return function_pointers_.CreateFilter(sessionHandle, filterHandle);
 }
 
-NISYSCFGCDECL ni::NiSysCfgInterface::SetFilterProperty(
+NISYSCFGCDECL SysCfgProd::SetFilterProperty(
     NISysCfgFilterHandle filterHandle,
     NISysCfgFilterProperty propertyID,
     ...
 ) {
-    return NISysCfgSetFilterProperty(filterHandle, propertyID);
+    return function_pointers_.SetFilterProperty(filterHandle, propertyID);
 }
 
-NISYSCFGCFUNC ni::NiSysCfgInterface::CloseHandle(
+NISYSCFGCFUNC SysCfgProd::CloseHandle(
     void *syscfgHandle
 ) {
-    return NISysCfgCloseHandle(syscfgHandle);
+    return function_pointers_.CloseHandle(syscfgHandle);
 }
 
-
-NISYSCFGCFUNC ni::NiSysCfgInterface::FindHardware(
+NISYSCFGCFUNC SysCfgProd::FindHardware(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgFilterMode filterMode,
     NISysCfgFilterHandle filterHandle,
     const char *expertNames,
     NISysCfgEnumResourceHandle *resourceEnumHandle
 ) {
-    std::cout << "Hello" << std::endl;
-    return NISysCfgFindHardware(
+    return function_pointers_.FindHardware(
         sessionHandle,
         filterMode,
         filterHandle,
@@ -76,27 +107,27 @@ NISYSCFGCFUNC ni::NiSysCfgInterface::FindHardware(
     );
 }
 
-NISYSCFGCFUNC ni::NiSysCfgInterface::NextResource(
+NISYSCFGCFUNC SysCfgProd::NextResource(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgEnumResourceHandle resourceEnumHandle,
     NISysCfgResourceHandle *resourceHandle
 ) {
-    return NISysCfgNextResource(sessionHandle, resourceEnumHandle, resourceHandle);
+    return function_pointers_.NextResource(sessionHandle, resourceEnumHandle, resourceHandle);
 }
 
-NISYSCFGCFUNC ni::NiSysCfgInterface::GetResourceProperty(
+NISYSCFGCFUNC SysCfgProd::GetResourceProperty(
     NISysCfgResourceHandle resourceHandle,
     NISysCfgResourceProperty propertyID,
     void *value
 ) {
-    return NISysCfgGetResourceProperty(resourceHandle, propertyID, value);
+    return function_pointers_.GetResourceProperty(resourceHandle, propertyID, value);
 }
 
-NISYSCFGCFUNC ni::NiSysCfgInterface::GetResourceIndexedProperty(
+NISYSCFGCFUNC SysCfgProd::GetResourceIndexedProperty(
     NISysCfgResourceHandle resourceHandle,
     NISysCfgIndexedProperty propertyID,
     unsigned int index,
     void *value
 ) {
-    return NISysCfgGetResourceIndexedProperty(resourceHandle, propertyID, index, value);
+    return function_pointers_.GetResourceIndexedProperty(resourceHandle, propertyID, index, value);
 }

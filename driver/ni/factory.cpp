@@ -12,26 +12,25 @@
 #include "nlohmann/json.hpp"
 #include <vector>
 
-ni::Factory::Factory() {
-    this->dlls_present = ni::dlls_available();
-}
+#include "nilibs/nidaqmx/nidaqmx_prod.h"
+#include "nilibs/nisyscfg/nisyscfg_prod.h"
+#include "nilibs/shared/shared_library.h"
+
+ni::Factory::Factory() : 
+    dmx(std::make_shared<DAQmxProd>(std::make_shared<SharedLibrary>())),
+    syscfg(std::make_shared<SysCfgProd>(std::make_shared<SharedLibrary>())) {}
 
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-//    if (!this->dlls_present) {
-//        log_dll_error(ctx, task);
-//        return {nullptr, false};
-//    }
-
     if (task.type == "ni_scanner")
-        return {ni::ScannerTask::configure(ctx, task), true};
+        return {ni::ScannerTask::configure(this->syscfg, ctx, task), true};
     if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
-        return {ni::ReaderTask::configure(ctx, task), true};
+        return {ni::ReaderTask::configure(this->dmx, ctx, task), true};
     if (task.type == "ni_digital_write")
-        return {ni::WriterTask::configure(ctx, task), true};
+        return {ni::WriterTask::configure(this->dmx, ctx, task), true};
 
     return {nullptr, false};
 }
@@ -43,11 +42,6 @@ ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-//    if (!this->dlls_present) {
-//        LOG(ERROR) << "[ni] Required NI DLLs not found, cannot configure task." <<
-//                std::endl;
-//        return {};
-//    }
     // generate task list
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
 

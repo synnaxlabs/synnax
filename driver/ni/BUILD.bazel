@@ -1,67 +1,3 @@
-config_setting(
-    name = "use_ni",
-    values = {"define": "use_ni=true"},
-)
-
-config_setting(
-    name = "use_ni_windows",
-    values = {"define": "use_ni=true"},
-    constraint_values = ["@platforms//os:windows"],
-)
-
-cc_library(
-    name = "daqmx",
-    srcs = select({
-        ":use_ni": ["nidaqmx_prod.cpp"],
-        "//conditions:default": ["nidaqmx_mock.cpp"],
-    }),
-    hdrs = [
-        "daqmx.h",
-        "nidaqmx_api.h",
-    ],
-    visibility = ["//visibility:public"],
-    deps = select({
-        ":use_ni": ["@nidaqmx"],
-        "//conditions:default": [],
-    }),
-    linkopts = select({
-        "@platforms//os:windows": [],
-        # If you want to only link on Linux (and not other *nix OS's),
-        # you can do @platforms//os:linux. If you prefer to link on
-        # all non-Windows OS's, replace with //conditions:default.
-        "@platforms//os:linux": [
-            "-lnidaqmx",
-        ],
-        "//conditions:default": [],
-    }),
-)
-
-cc_library(
-    name = "syscfg",
-    srcs = select({
-        ":use_ni": ["nisyscfg_prod.cpp"],
-        "//conditions:default": ["nisyscfg_mock.cpp"],
-    }),
-    hdrs = [
-        "nisyscfg_api.h",
-        "nisyscfg.h",
-        "nisyscfg_errors.h",
-        # "nisyscfg_wide.h", // double check why we would need this api
-    ],
-    visibility = ["//visibility:public"],
-    deps = select({
-        ":use_ni_windows": ["@nisyscfg"],
-        "//conditions:default": [],
-    }),
-    linkopts = select({
-        "@platforms//os:windows": [],
-        "@platforms//os:linux": [
-            "-lnisyscfg",
-        ],
-        "//conditions:default": [],
-    }),
-)
-
 cc_library(
     name = "ni",
     srcs = [
@@ -73,80 +9,30 @@ cc_library(
         "scanner.cpp",
         "task.cpp",
     ],
-    hdrs = select({
-        "@platforms//os:windows": [
-            "ai_channels.h",
-            "dll_check_windows.h",
-            "error.h",
-            "ni.h",
-            "scale.h",
-            "//client/cpp:synnax",
-            "//driver/pipeline",
-            "//driver/task",
-        ],
-        "//conditions:default": [
-            "ai_channels.h",
-            "dll_check_linux.h",
-            "error.h",
-            "ni.h",
-            "scale.h",
-            "//client/cpp:synnax",
-            "//driver/pipeline",
-            "//driver/task",
-        ],
-    }),
+    hdrs = [
+        "ai_channels.h",
+        "error.h",
+        "ni.h",
+        "scale.h",
+        "//client/cpp:synnax",
+        "//driver/pipeline",
+        "//driver/task",
+    ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
-    linkopts = select({
-        "@platforms//os:windows": [
-            "user32.lib",
-            "delayimp.lib",
-            "/IGNORE:4199",  # ignore /DELAYLOAD warnings
-            "/IGNORE:4099",  # ignore debug symbols not found for ni binaries
-            "/DELAYLOAD:NIDAQmx.dll",
-            "/DELAYLOAD:nisyscfg.dll",
-            "/DELAYLOAD:nicaiu.dll",
-            "/DELAYLOAD:nipalu.dll",
-            "/DELAYLOAD:nimdbgu.dll",
-            "/DELAYLOAD:nidmxfu.dll",
-            "/DELAYLOAD:niorbu.dll",
-            "/DELAYLOAD:nimxdfu.dll",
-            "/DELAYLOAD:nimru2u.dll",
-            "/DELAYLOAD:nipalut.dll",
-            "/DELAYLOAD:nicrtsiu.dll",
-            "/DELAYLOAD:nimhwcfu.dll",
-            "/DELAYLOAD:nidimu.dll",
-            "/DELAYLOAD:nirpc.dll",
-            "/DELAYLOAD:nimdnsResponder.dll",
-            "/DELAYLOAD:nirocoapi.dll",
-            "/DELAYLOAD:nisysapi.dll",
-            "/DELAYLOAD:niprtsiu.dll"
-        ],
-        "@platforms//os:linux": [
-            # If you need to link more NI libs directly on Linux, add them here.
-            # Often just linking -lnidaqmx and -lnisyscfg in daqmx/syscfg is enough.
-            # e.g. "-lnidaqmx" if you want to put all link flags in one place, but
-            # typically you won't need it repeated here if daqmx is already linking them.
-        ],
-        "//conditions:default": [],
-    }),
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
-        "daqmx",
-        "syscfg",
         "//client/cpp:synnax",
         "//driver/breaker",
         "//driver/config",
-        "//driver/queue",
         "//driver/errors",
         "//driver/loop",
+        "//driver/ni/nilibs/nidaqmx",
+        "//driver/ni/nilibs/nisyscfg",
         "//driver/pipeline",
+        "//driver/queue",
         "//driver/task",
         "@nlohmann_json//:json",
     ],

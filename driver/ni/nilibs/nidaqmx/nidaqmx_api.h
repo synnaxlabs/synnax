@@ -8,9 +8,9 @@
 
 #include "driver/ni/nilibs/nidaqmx/nidaqmx.h"
 
-class NiDAQmxLibraryInterface {
+class DAQmx {
  public:
-  virtual ~NiDAQmxLibraryInterface() = default;
+  virtual ~DAQmx() = default;
 
   virtual int32 AddCDAQSyncConnection(const char portList[]) = 0;
   virtual int32 AddGlobalChansToTask(TaskHandle task, const char channelNames[]) = 0;
