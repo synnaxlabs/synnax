@@ -142,8 +142,6 @@ int main(int argc, char *argv[]) {
     auto sequence_factory = std::make_unique<sequence::Factory>();
     factories.push_back(std::move(sequence_factory));
 
-#ifdef USE_NI
-
     auto ni_enabled = std::find(
         cfg.integrations.begin(), 
         cfg.integrations.end(),
@@ -156,8 +154,6 @@ int main(int argc, char *argv[]) {
     } else
         LOG(INFO)
             << "[driver] NI integration is not enabled or the required DLLs are not available";
-
-#endif
 
 #ifdef _WIN32
     auto labjack_enabled = std::find(
