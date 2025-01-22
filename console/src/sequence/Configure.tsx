@@ -4,7 +4,6 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Editor } from "@/code/Editor";
-import { CSS } from "@/css";
 import {
   Controls,
   useCreate,
@@ -99,14 +98,14 @@ export const Wrapped = ({
         </Form.Field>
         <Form.NumericField path="config.rate" padHelpText={!task?.snapshot} />
         <Form.Field<string>
-          path="config.readFrom"
+          path="config.read"
           label="Read From"
           padHelpText={!task?.snapshot}
         >
           {(p) => <Channel.SelectMultiple {...p} />}
         </Form.Field>
         <Form.Field<string>
-          path="config.writeTo"
+          path="config.write"
           label="Write To"
           padHelpText={!task?.snapshot}
         >

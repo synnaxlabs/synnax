@@ -6,18 +6,20 @@ export type SequenceType = typeof SEQUENCE_TYPE;
 
 export const configZ = z.object({
   rate: z.number(),
-  readFrom: z.array(channel.keyZ),
-  writeTo: z.array(channel.keyZ),
+  read: z.array(channel.keyZ),
+  write: z.array(channel.keyZ),
   script: z.string(),
+  globals: z.record(z.string(), z.any()),
 });
 
 export type Config = z.infer<typeof configZ>;
 
 export const ZERO_CONFIG: Config = {
   rate: 0,
-  readFrom: [],
-  writeTo: [],
+  read: [],
+  write: [],
   script: "",
+  globals: {},
 };
 
 export const stateDetailsZ = z.object({

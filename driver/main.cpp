@@ -37,7 +37,7 @@
 #include "driver/meminfo/meminfo.h"
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
-#include "sequence/sequence.h"
+#include "sequence/task.h"
 
 #ifdef _WIN32
 #include "driver/labjack/labjack.h"
