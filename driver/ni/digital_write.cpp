@@ -424,8 +424,12 @@ ni::StateSource::StateSource(
     this->state_index_key = state_index_key;
 
     // initialize all states to 0 (logic low)
-    for (auto &key: state_channel_keys)
-        this->state_map[key] = 0;
+    if (this->is_digital)
+        for (auto &key: state_channel_keys)
+            this->digital_state_map[key] = 0;
+    else
+        for (auto &key: state_channel_keys)
+            this->analog_state_map[key] = 0;
     this->timer = loop::Timer(this->state_rate);
 }
 
@@ -440,7 +444,11 @@ std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
 
 synnax::Frame ni::StateSource::get_state() {
     // frame size = # monitored states + 1 state index channel
-    auto state_frame = synnax::Frame(this->state_map.size() + 1);
+    int frame_size;
+    if(this->is_digital) frame_size = this->digital_state_map.size() + 1;
+    else frame_size = this->analog_state_map.size() + 1;
+
+    auto state_frame = synnax::Frame(frame_size);
     state_frame.add(
         this->state_index_key,
         synnax::Series(
@@ -448,27 +456,32 @@ synnax::Frame ni::StateSource::get_state() {
             synnax::TIMESTAMP
         )
     );
-    for (auto &[key, value]: this->state_map)
-        state_frame.add(key, synnax::Series(value));
+
+    if (this->is_digital)
+        for (auto &[key, value]: this->digital_state_map)
+            state_frame.add(key, synnax::Series(value));
+    else
+        for (auto &[key, value]: this->analog_state_map)
+            state_frame.add(key, synnax::Series(value));
     return state_frame;
 }
 
 void ni::StateSource::update_digital_state(
     std::queue<synnax::ChannelKey> &modified_state_keys,
-    std::queue<std::uint8_t> &modified_state_values
+    std::queue<std::double> &modified_state_values
 ) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     while (!modified_state_keys.empty()) {
-        this->digital_state_map[modified_state_keys.front()] = modified_state_values.front();
+        this->digital_state_map[modified_state_keys.front()] = static_cast<std::uint8_t>(modified_state_values.front());
         modified_state_keys.pop();
         modified_state_values.pop();
     }
     waiting_reader.notify_one();
 }
 
-void ni::StateSource::update_state(
-    std::vector<synnax::ChannelKey> &modified_state_keys,
-    std::vector<std::double> &modified_state_values
+void ni::StateSource::update_analog_state(
+    std::queue<synnax::ChannelKey> &modified_state_keys,
+    std::queue<double> &modified_state_values
 ) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     while (!modified_state_keys.empty()) {
@@ -482,7 +495,7 @@ void ni::StateSource::update_state(
 ///////////////////////////////////////////////////////////////////////////////////
 //                             AnalogWriteSink                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-void ni::DigitalWriteSink::get_index_keys() {
+void ni::AnalogWriteSink::get_index_keys() {
     if (this->writer_config.state_channel_keys.empty()) return;
     auto state_channel = this->writer_config.state_channel_keys[0];
     auto [state_channel_info, err] = this->ctx->client->channels.
@@ -551,7 +564,7 @@ void ni::AnalogWriteSink::parse_config(config::Parser &parser){
                         channel_builder.required<std::uint64_t>(
                                 "port"));
 
-                config.name = name + "/ao" + port;
+                config.name = this->writer_config.device_name + "/ao" + port;
                 config.enabled = channel_builder.optional<bool>("enabled", true);
                 config.channel_type = channel_builder.required<std::string>("type");
                 config.min_val = channel_builder.required<float>("min_val");
@@ -579,7 +592,7 @@ int ni::AnalogWriteSink::init(){
     auto channels = this->writer_config.channels;
     for (auto &channel: channels) {
         if(channel.channel_type == "current") { // TODO: might have to chane
-           err = this->check_ni_err(ni::NiDAQmxInterface::CreateAOCurrentChan(
+           err = this->check_ni_error(ni::NiDAQmxInterface::CreateAOCurrentChan(
                    this->task_handle,
                    channel.name.c_str(),
                    "",
@@ -695,8 +708,10 @@ freighter::Error ni::AnalogWriteSink::write(synnax::Frame frame) {
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
     }
-    this->writer_state_source->update_analog_state(this->writer_config.modified_state_keys,
-                                            this->writer_config.modified_state_values);
+    this->writer_state_source->update_analog_state(
+            this->writer_config.modified_state_keys,
+            this->writer_config.modified_state_values
+        );
 
     return freighter::NIL;
 }

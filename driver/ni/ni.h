@@ -325,10 +325,15 @@ public:
 
     synnax::Frame get_state();
 
-    void update_state(
+    void update_digital_state(
+        std::queue<synnax::ChannelKey> &modified_state_keys,
+        std::queue<double> &modified_state_values
+    );
+
+    void update_analog_state(
             std::queue<synnax::ChannelKey> &modified_state_keys,
-            std::queue<std::uint8_t> &modified_state_values
-      );
+            std::queue<double> &modified_state_values
+    );
 
     //TODO create an update state function for float32/float64
 
@@ -340,8 +345,8 @@ private:
     std::map<synnax::ChannelKey, double> analog_state_map;
     synnax::ChannelKey state_index_key;
     loop::Timer timer;
+    bool is_digital = true;
 }; // class StateSource
-
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    DigitalWriteSink                           //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -358,7 +363,7 @@ struct WriterConfig {
 
     synnax::ChannelKey state_index_key;
     std::queue<synnax::ChannelKey> modified_state_keys;
-    std::queue<std::uint8_t> modified_state_values;
+    std::queue<double> modified_state_values;
 }; // struct WriterConfig
 
 class DigitalWriteSink final : public pipeline::Sink {
@@ -456,7 +461,7 @@ public:
 
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 
-    std::vector<synnax::ChannelKey< get_state_channel_keys();
+    std::vector<synnax::ChannelKey> get_state_channel_keys();
 
     void get_index_keys();
 
