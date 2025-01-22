@@ -339,6 +339,7 @@ struct WriterConfig {
     std::string device_name;
     std::string device_key;
     std::string task_name;
+
     synnax::ChannelKey task_key;
 
     std::vector<synnax::ChannelKey> state_channel_keys;
@@ -346,7 +347,8 @@ struct WriterConfig {
 
     synnax::ChannelKey state_index_key;
     std::queue<synnax::ChannelKey> modified_state_keys;
-    std::queue<std::uint8_t> modified_state_values;
+    std::queue<std::uint8_t> digital_modified_state_values;
+    std::queue<double> analog_modified_state_values;
 }; // struct WriterConfig
 
 class DigitalWriteSink final : public pipeline::Sink {

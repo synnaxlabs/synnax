@@ -234,9 +234,9 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
     }
-    this->writer_state_source->update_digital_state(
+    this->writer_state_source->update_state(
         this->writer_config.modified_state_keys,
-        this->writer_config.modified_state_values
+        this->writer_config.digital_modified_state_values
     );
 
     return freighter::NIL;
@@ -263,7 +263,7 @@ freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
             write_buffer[cmd_channel_index] = series[0];
             this->writer_config.modified_state_keys.push(
                 this->writer_config.state_channel_keys[cmd_channel_index]);
-            this->writer_config.modified_state_values.push(series[0]);
+            this->writer_config.digital_modified_state_values.push(series[0]);
         }
         frame_index++;
     }
@@ -687,7 +687,7 @@ freighter::Error ni::AnalogWriteSink::write(synnax::Frame frame) {
     }
     this->writer_state_source->update_state(
         this->writer_config.modified_state_keys,
-        this->writer_config.modified_state_values
+        this->writer_config.analog_modified_state_values
     );
 
     return freighter::NIL;
@@ -714,7 +714,7 @@ freighter::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
             write_buffer[cmd_channel_index] = series[0];
             this->writer_config.modified_state_keys.push(
                 this->writer_config.state_channel_keys[cmd_channel_index]);
-            this->writer_config.modified_state_values.push(series[0]);
+            this->writer_config.analog_modified_state_values.push(series[0]);
         }
         frame_index++;
     }
