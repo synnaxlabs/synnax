@@ -76,6 +76,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
 
 
 void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
+    LOG(INFO) << parser.get_json().dump(4);
     this->writer_config.state_rate = parser.required<float>("state_rate");
     this->writer_config.device_key = parser.required<std::string>("device");
 

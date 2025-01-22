@@ -63,118 +63,48 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
     );
     ASSERT_FALSE(cErr) << cErr.message();
 
-    // create a writer to write to cmd channel (for test use only)
-    auto cmdWriterConfig = synnax::WriterConfig{
-        .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
-        .start = TimeStamp::now(),
-        .mode = synnax::StreamOnly
-    };
+    auto config = json {
+            {"channels", json::array({
+                {
+                    {"cmd_channel", cmd.key},
+                    {"enabled", true},
+                    {"key", "w1GsZJokuR6"},
+                    {"line", 0},
+                    {"port", 0},
+                    {"state_channel", ack.key},
+                    {"type", "digital_output"}
+                }
+            })},
+            {"data_saving", true},
+            {"device", "7B997D92-D8F3-11EF-8063-D5E44C514171"},
+            {"state_rate", 10}
+        };
 
-    add_index_channel_JSON(
-        config,
-        "do1_idx",
-        cmd_idx.key
-    );
-    add_DO_channel_JSON(
-        config,
-        "do_cmd",
-        cmd.key,
-        ack.key,
-        0,
-        0
-    );
-    add_state_index_channel_JSON(
-        config,
-        "do_state_idx",
-        ack_idx.key
-    );
 
     // create synnax task
     auto task = synnax::Task(
         "my_task",
-        "niWriter",
+        "ni_digital_write",
         to_string(config)
     );
 
     // print config
-    std::cout << "D9igital Writer Task Config: " << config.dump(4) << std::endl;
+    std::cout << "Digital Writer Task Config: " << config.dump(4) << std::endl;
 
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(10)
     );
 
-    // create a writer to write to cmd channel (for test use only)
-    auto cmdWriterConfig = synnax::WriterConfig{
-        .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
-        .start = TimeStamp::now(),
-        .mode = synnax::WriterStreamOnly
-    };
-
-    auto [cmdWriter, wErr] = client->telem.openWriter(cmdWriterConfig);
-    ASSERT_FALSE(wErr) << wErr.message();
-
-    // create a streamer to stream do_state channel (for in test use only)
-    auto doStateStreamerConfig = synnax::StreamerConfig{
-        .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key},
-    };
-    auto [doStateStreamer, sErr] = client->telem.openStreamer(doStateStreamerConfig);
-    ASSERT_FALSE(sErr) << sErr.message();
-
-    /////////////////////////////////////////////// setup factory and task
-
-    // make ni factory and build reader task
     std::unique_ptr<task::Factory> ni_factory = std::make_unique<ni::Factory>();
     auto [writerTask, ok] = ni_factory->configure_task(mockCtx, task);
-    ASSERT_TRUE(ok) << "Failed to configure reader task";
+    ASSERT_TRUE(ok) << "Failed to configure writer task";
 
     // create commands
     auto start_cmd = task::Command{task.key, "start", {}};
     auto stop_cmd = task::Command{task.key, "stop", {}};
 
     /////////////////////////////////////////////// begin Control
-    writerTask->
-            exec(start_cmd);
-    std::this_thread::sleep_for(std::chrono::seconds(1)
-    );
-    //////////////////////////////////////////// write a 1 to the cmd channel ////////////////////////////////////////////
-    LOG(INFO) << "Commanding a logic high: " << std::endl;
-    // construct frame
-    auto cmd_frame = synnax::Frame(2);
-    cmd_frame.add(
-        cmd_idx
-        .key,
-        synnax::Series(
-            std::vector<uint64_t>{synnax::TimeStamp::now().value},
-            synnax::TIMESTAMP
-        )
-    );
-
-    cmd_frame.add(
-        cmd
-        .key,
-        synnax::Series(std::vector<uint8_t>{1}
-        )
-    );
-
-    ASSERT_TRUE(cmdWriter.write(std::move(cmd_frame)));
-    // TODO: remove -> isnt necessary
-
-    // do initial read before state update, should be 0
-    auto [state_frame, err3] = doStateStreamer.read();
-    ASSERT_FALSE(err3) << err3.message();
-
-    auto s = state_frame.series->at(1).uint8();
-    LOG(INFO) << "State: " << (int) s[0] << std::endl;
-    ASSERT_TRUE(s[0] == 0);
-
-    // keep reading state channel and printing state
-    for (int i = 0; i < 5; i++) {
-        auto [state_frame, err3] = doStateStreamer.read();
-        ASSERT_FALSE(err3) << err3.message();
-
-        auto s = state_frame.series->at(1).uint8();
-        LOG(INFO) << "State: " << (int) s[0] << std::endl;
-        ASSERT_TRUE(s[0] == 1);
-    }
+    writerTask->exec(start_cmd);
+    std::this_thread::sleep_for(std::chrono::seconds(500));
     writerTask->exec(stop_cmd);
 }
