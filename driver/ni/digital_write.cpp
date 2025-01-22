@@ -100,12 +100,12 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
                                 "line"));
 
             config.name = (this->writer_config.device_name + "/" + port + "/" +
-                            line);
+                           line);
 
-            
+
             config.enabled = channel_builder.optional<bool>("enabled", true);
-            
-            if(config.enabled) {
+
+            if (config.enabled) {
                 config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
                 this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
 
@@ -284,7 +284,7 @@ void ni::DigitalWriteSink::clear_task() {
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_cmd_channel_keys() {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->writer_config.channels)
-        if (channel.channel_type != "index" && channel.enabled) 
+        if (channel.channel_type != "index" && channel.enabled)
             keys.push_back(channel.channel_key);
     // Don't need index key as we're only using this for streaming cmds
     return keys;
@@ -519,75 +519,75 @@ ni::AnalogWriteSink::AnalogWriteSink(
     );
 }
 
-void ni::AnalogWriteSink::parse_config(config::Parser &parser){
+void ni::AnalogWriteSink::parse_config(config::Parser &parser) {
     this->writer_config.state_rate = parser.required<float>("state_rate");
     this->writer_config.device_key = parser.required<std::string>("device");
 
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
         this->writer_config.device_key);
-    if(err != freighter::NIL)
+    if (err != freighter::NIL)
         return this->log_error(
             "failed to retrieve device with key " + this->writer_config.device_key);
 
     this->writer_config.device_name = dev.location;
     std::uint64_t c_count = 0;
     parser.iter(
-            "channels",
-            [&](config::Parser &channel_builder) {
-                ni::ChannelConfig config;
-                // analog channel names are formatted: <device_name>/ai<port>
-                std::string port = std::to_string(
-                        channel_builder.required<std::uint64_t>(
-                                "port"));
+        "channels",
+        [&](config::Parser &channel_builder) {
+            ni::ChannelConfig config;
+            // analog channel names are formatted: <device_name>/ai<port>
+            std::string port = std::to_string(
+                channel_builder.required<std::uint64_t>(
+                    "port"));
 
-                config.name = this->writer_config.device_name + "/ao" + port;
-                config.enabled = channel_builder.optional<bool>("enabled", true);
-                config.channel_type = channel_builder.required<std::string>("type");
-                config.min_val = channel_builder.required<float>("min_val");
-                config.max_val = channel_builder.required<float>("max_val");
+            config.name = this->writer_config.device_name + "/ao" + port;
+            config.enabled = channel_builder.optional<bool>("enabled", true);
+            config.channel_type = channel_builder.required<std::string>("type");
+            config.min_val = channel_builder.required<float>("min_val");
+            config.max_val = channel_builder.required<float>("max_val");
 
-                if(config.enabled) {
-                    config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
-                    this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
+            if (config.enabled) {
+                config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
+                this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
 
-                    auto state_key = channel_builder.required<uint32_t>("state_channel");
-                    this->writer_config.state_channel_keys.push_back(state_key);
+                auto state_key = channel_builder.required<uint32_t>("state_channel");
+                this->writer_config.state_channel_keys.push_back(state_key);
 
-                    config.state_channel_key = state_key;
+                config.state_channel_key = state_key;
 
-                    this->channel_map[config.name] = "channels." + std::to_string(c_count);
+                this->channel_map[config.name] = "channels." + std::to_string(c_count);
 
-                    this->writer_config.channels.push_back(config);
-                    c_count++;
-                }
-            });
+                this->writer_config.channels.push_back(config);
+                c_count++;
+            }
+        });
 }
 
-int ni::AnalogWriteSink::init(){
+int ni::AnalogWriteSink::init() {
     int err = 0;
     auto channels = this->writer_config.channels;
     for (auto &channel: channels) {
-        if(channel.channel_type == "current") { // TODO: might have to chane
-           err = this->check_ni_error(ni::NiDAQmxInterface::CreateAOCurrentChan(
-                   this->task_handle,
-                   channel.name.c_str(),
-                   "",
-                   channel.min_val,
-                   channel.max_val,
-                   DAQmx_Val_Amps,
-                   ""
-               ));
-        }
-        else if(channel.channel_type == "voltage") {
+        if (channel.channel_type == "current") {
+            // TODO: might have to chane
+            err = this->check_ni_error(ni::NiDAQmxInterface::CreateAOCurrentChan(
+                this->task_handle,
+                channel.name.c_str(),
+                "",
+                channel.min_val,
+                channel.max_val,
+                DAQmx_Val_Amps,
+                ""
+            ));
+        } else if (channel.channel_type == "voltage") {
             err = this->check_ni_error(ni::NiDAQmxInterface::CreateAOVoltageChan(
-                    this->task_handle,
-                    channel.name.c_str(),
-                    "",
-                    channel.min_val,
-                    channel.max_val,
-                    DAQmx_Val_Volts,
-                    ""
-                ));
+                this->task_handle,
+                channel.name.c_str(),
+                "",
+                channel.min_val,
+                channel.max_val,
+                DAQmx_Val_Volts,
+                ""
+            ));
         }
         this->num_channels++;
         if (err < 0) {
@@ -597,22 +597,22 @@ int ni::AnalogWriteSink::init(){
     }
     this->buffer_size = this->num_channels;
     this->write_buffer = new double[this->buffer_size];
-    for(int i = 0; i < this->buffer_size; i++) write_buffer[i] = 0;
+    for (int i = 0; i < this->buffer_size; i++) write_buffer[i] = 0;
     return 0;
 }
 
-freighter::Error ni::AnalogWriteSink::cycle(){
+freighter::Error ni::AnalogWriteSink::cycle() {
     auto err = this->start_ni();
-    if(err) return err;
+    if (err) return err;
     err = this->stop_ni();
-    if(err) return err;
+    if (err) return err;
     return freighter::NIL;
 }
 
 freighter::Error ni::AnalogWriteSink::start_ni() {
     if (this->check_ni_error(ni::NiDAQmxInterface::StartTask(this->task_handle))) {
         this->log_error(
-                "failed to start writer for task " + this->writer_config.task_name);
+            "failed to start writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
         this->clear_task();
     }
@@ -624,7 +624,7 @@ freighter::Error ni::AnalogWriteSink::start_ni() {
 freighter::Error ni::AnalogWriteSink::stop_ni() {
     if (this->check_ni_error(ni::NiDAQmxInterface::StopTask(task_handle))) {
         this->log_error(
-                "failed to stop writer for task " + this->writer_config.task_name);
+            "failed to stop writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[ni.writer] successfully stopped writer for task " << this->
@@ -638,14 +638,14 @@ freighter::Error ni::AnalogWriteSink::start(const std::string &cmd_key) {
     freighter::Error err = this->start_ni();
     if (err) return err;
     ctx->set_state({
-                           .task = this->task.key,
-                           .key = cmd_key,
-                           .variant = "success",
-                           .details = {
-                                   {"running", true},
-                                   {"message", "Task started successfully"}
-                           }
-                   });
+        .task = this->task.key,
+        .key = cmd_key,
+        .variant = "success",
+        .details = {
+            {"running", true},
+            {"message", "Task started successfully"}
+        }
+    });
     return freighter::NIL;
 }
 
@@ -655,14 +655,14 @@ freighter::Error ni::AnalogWriteSink::stop(const std::string &cmd_key) {
     freighter::Error err = this->stop_ni();
     if (err) return err;
     ctx->set_state({
-                           .task = this->task.key,
-                           .key = cmd_key,
-                           .variant = "success",
-                           .details = {
-                                   {"running", false},
-                                   {"message", "Task stopped successfully"}
-                           }
-                   });
+        .task = this->task.key,
+        .key = cmd_key,
+        .variant = "success",
+        .details = {
+            {"running", false},
+            {"message", "Task stopped successfully"}
+        }
+    });
     return freighter::NIL;
 }
 
@@ -671,23 +671,23 @@ freighter::Error ni::AnalogWriteSink::write(synnax::Frame frame) {
     format_data(std::move(frame));
 
     if (this->check_ni_error(ni::NiDAQmxInterface::WriteAnalogF64(
-            this->task_handle,
-            1, // number of samples per channel
-            1, // auto start
-            10.0, // timeout
-            DAQmx_Val_GroupByChannel, // data layout
-            write_buffer, // data
-            &samplesWritten, // samples written
-            NULL
+        this->task_handle,
+        1, // number of samples per channel
+        1, // auto start
+        10.0, // timeout
+        DAQmx_Val_GroupByChannel, // data layout
+        write_buffer, // data
+        &samplesWritten, // samples written
+        NULL
     ))) {
         this->log_error("failed while writing digital data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
     }
     this->writer_state_source->update_analog_state(
-            this->writer_config.modified_state_keys,
-            this->writer_config.modified_state_values
-        );
+        this->writer_config.modified_state_keys,
+        this->writer_config.modified_state_values
+    );
 
     return freighter::NIL;
 }
@@ -704,14 +704,15 @@ freighter::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
         if (it != this->writer_config.drive_cmd_channel_keys.end()) {
             // if so, now find which index it is in the vector (i.e. which channel it is in the write_buffer)
             cmd_channel_index = std::distance(
-                    this->writer_config.drive_cmd_channel_keys.begin(),
-                    it);
+                this->writer_config.drive_cmd_channel_keys.begin(),
+                it);
             // this corresponds to where in the order its NI channel was created
             // now we grab the level we'd like to write and put it into that location in the write_buffer
-            auto series = frame.series->at(frame_index).values<float>(); // TODO: Could be a double too, so handle tha. Could be all kinds of types actually
+            auto series = frame.series->at(frame_index).values<float>();
+            // TODO: Could be a double too, so handle tha. Could be all kinds of types actually
             write_buffer[cmd_channel_index] = series[0];
             this->writer_config.modified_state_keys.push(
-                    this->writer_config.state_channel_keys[cmd_channel_index]);
+                this->writer_config.state_channel_keys[cmd_channel_index]);
             this->writer_config.modified_state_values.push(series[0]);
         }
         frame_index++;
@@ -727,7 +728,7 @@ ni::AnalogWriteSink::~AnalogWriteSink() {
 void ni::AnalogWriteSink::clear_task() {
     if (this->check_ni_error(ni::NiDAQmxInterface::ClearTask(task_handle)))
         this->log_error(
-                "failed to clear writer for task " + this->writer_config.task_name);
+            "failed to clear writer for task " + this->writer_config.task_name);
 }
 
 std::vector<synnax::ChannelKey> ni::AnalogWriteSink::get_cmd_channel_keys() {
@@ -757,10 +758,10 @@ int ni::AnalogWriteSink::check_ni_error(int32 error) {
         jsonify_error(s);
 
         this->ctx->set_state({
-                                     .task = this->task.key,
-                                     .variant = "error",
-                                     .details = err_info
-                             });
+            .task = this->task.key,
+            .variant = "error",
+            .details = err_info
+        });
         this->log_error("NI Vendor Error: " + std::string(errBuff));
         return -1;
     }
@@ -768,11 +769,11 @@ int ni::AnalogWriteSink::check_ni_error(int32 error) {
 }
 
 
-bool ni::AnalogWriteSink::ok(){
+bool ni::AnalogWriteSink::ok() {
     return this->ok_state;
 }
 
-void ni::AnalogWriteSink::log_error(std::string err_msg){
+void ni::AnalogWriteSink::log_error(std::string err_msg) {
     // TODO get rid of the fields outside of the errors array
     LOG(ERROR) << "[ni.writer] " << err_msg;
     this->ok_state = false;
@@ -784,13 +785,13 @@ void ni::AnalogWriteSink::stopped_with_err(const freighter::Error &err) {
     this->log_error("stopped with error: " + err.message());
     json j = json(err.message());
     this->ctx->set_state({
-                                 .task = this->task.key,
-                                 .variant = "error",
-                                 .details = {
-                                         {"running", false},
-                                         {"message", j}
-                                 }
-                         });
+        .task = this->task.key,
+        .variant = "error",
+        .details = {
+            {"running", false},
+            {"message", j}
+        }
+    });
 }
 
 void ni::AnalogWriteSink::jsonify_error(std::string s) {
@@ -804,8 +805,8 @@ void ni::AnalogWriteSink::jsonify_error(std::string s) {
     std::string message = s;
 
     std::vector<std::string> fields = {
-            "Status Code:", "Channel Name:", "Physical Channel Name:",
-            "Device:", "Task Name:"
+        "Status Code:", "Channel Name:", "Physical Channel Name:",
+        "Device:", "Task Name:"
     };
 
     size_t first_field_pos = std::string::npos;
@@ -840,15 +841,15 @@ void ni::AnalogWriteSink::jsonify_error(std::string s) {
 
     // Check if the channel name is in the channel map
     this->err_info["path"] = channel_map.count(cn) != 0
-                             ? channel_map[cn]
-                             : !cn.empty()
-                               ? cn
-                               : "";
+                                 ? channel_map[cn]
+                                 : !cn.empty()
+                                       ? cn
+                                       : "";
     // Handle the special case for -200170 error
     if (is_port_error) this->err_info["path"] = this->err_info["path"].get<std::string>() + ".port";
 
     std::string error_message = "NI Error " + sc + ": " + message + " Path: " + this->
-            err_info["path"].get<std::string>();
+                                err_info["path"].get<std::string>();
 
     if (!cn.empty()) error_message += " Channel: " + cn;
 

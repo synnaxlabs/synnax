@@ -308,10 +308,10 @@ public:
     explicit StateSource() = default;
 
     explicit StateSource(
-            float state_rate,   // TODO: should this be a float?
-            synnax::ChannelKey &state_index_key,
-            std::vector<synnax::ChannelKey> &state_channel_keys
-        );
+        float state_rate, // TODO: should this be a float?
+        synnax::ChannelKey &state_index_key,
+        std::vector<synnax::ChannelKey> &state_channel_keys
+    );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
 
@@ -352,10 +352,10 @@ struct WriterConfig {
 class DigitalWriteSink final : public pipeline::Sink {
 public:
     explicit DigitalWriteSink(
-            TaskHandle task_handle,
-            const std::shared_ptr<task::Context> &ctx,
-            const synnax::Task &task
-        );
+        TaskHandle task_handle,
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    );
 
     ~DigitalWriteSink();
 
@@ -418,7 +418,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 //                                 AnalogWriteSink                               //
 ///////////////////////////////////////////////////////////////////////////////////
-class AnalogWriteSink final : public pipeline::Sink{
+class AnalogWriteSink final : public pipeline::Sink {
 public:
     explicit AnalogWriteSink(
         TaskHandle task_handle,
@@ -550,7 +550,6 @@ public:
     std::string name() override { return task.name; }
 
     bool ok();
-
 
 private:
     breaker::Breaker breaker;
