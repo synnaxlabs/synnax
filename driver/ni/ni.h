@@ -301,14 +301,14 @@ public:
 }; // class DigitalReadSource
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    StateSource                                //
+//                                    DigitalStateSource                         //
 ///////////////////////////////////////////////////////////////////////////////////
-class StateSource final : public pipeline::Source {
+class DigitalStateSource final : public pipeline::Source {
 public:
-    explicit StateSource() = default;
+    explicit DigitalStateSource() = default;
 
-    explicit StateSource(
-        float state_rate, // TODO: should this be a float?
+    explicit DigitalStateSource(
+        float state_rate,
         synnax::ChannelKey &state_index_key,
         std::vector<synnax::ChannelKey> &state_channel_keys
     );
@@ -329,7 +329,7 @@ private:
     std::map<synnax::ChannelKey, uint8_t> state_map;
     synnax::ChannelKey state_index_key;
     loop::Timer timer;
-}; // class StateSource
+}; // class DigitalStateSource
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    DigitalWriteSink                           //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -346,7 +346,7 @@ struct WriterConfig {
 
     synnax::ChannelKey state_index_key;
     std::queue<synnax::ChannelKey> modified_state_keys;
-    std::queue<uint8_t> modified_state_values;
+    std::queue<std::uint8_t> modified_state_values;
 }; // struct WriterConfig
 
 class DigitalWriteSink final : public pipeline::Sink {
@@ -389,7 +389,7 @@ public:
 
     void clear_task();
 
-    std::shared_ptr<ni::StateSource> writer_state_source;
+    std::shared_ptr<ni::DigitalStateSource> writer_state_source;
 
 private:
     freighter::Error format_data(const synnax::Frame &frame);
@@ -414,6 +414,37 @@ private:
     synnax::Task task;
     std::map<std::string, std::string> channel_map;
 }; // class DigitalWriteSink
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                    AnalogStateSource                          //
+///////////////////////////////////////////////////////////////////////////////////
+class AnalogStateSource final : public pipeline::Source {
+public:
+    explicit AnalogStateSource() = default;
+
+    explicit AnalogStateSource(
+        float state_rate,
+        synnax::ChannelKey &state_index_key,
+        std::vector<synnax::ChannelKey> &state_channel_keys
+    );
+
+    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+
+    synnax::Frame get_state();
+
+    void update_state(
+        std::queue<synnax::ChannelKey> &modified_state_keys,
+        std::queue<double> &modified_state_values
+    );
+
+private:
+    std::mutex state_mutex;
+    std::condition_variable waiting_reader;
+    synnax::Rate state_rate = synnax::Rate(1);
+    std::map<synnax::ChannelKey, double> state_map;
+    synnax::ChannelKey state_index_key;
+    loop::Timer timer;
+}; // class AnalogStateSource
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                 AnalogWriteSink                               //
@@ -458,7 +489,7 @@ public:
 
     void clear_task();
 
-    std::shared_ptr<ni::StateSource> writer_state_source;
+    std::shared_ptr<ni::AnalogStateSource> writer_state_source;
 
 private:
     freighter::Error format_data(const synnax::Frame &frame);

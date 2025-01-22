@@ -67,7 +67,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
                         writer_config.task_name);
 
     this->get_index_keys();
-    this->writer_state_source = std::make_shared<ni::StateSource>(
+    this->writer_state_source = std::make_shared<ni::DigitalStateSource>(
         this->writer_config.state_rate,
         this->writer_config.state_index_key,
         this->writer_config.state_channel_keys
@@ -412,9 +412,9 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    StateSource                                //
+//                                    DigitalStateSource                         //
 ///////////////////////////////////////////////////////////////////////////////////
-ni::StateSource::StateSource(
+ni::DigitalStateSource::DigitalStateSource(
     float state_rate,
     synnax::ChannelKey &state_index_key,
     std::vector<synnax::ChannelKey> &state_channel_keys
@@ -429,8 +429,9 @@ ni::StateSource::StateSource(
     this->timer = loop::Timer(this->state_rate);
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
-    breaker::Breaker &breaker) {
+std::pair<synnax::Frame, freighter::Error> ni::DigitalStateSource::read(
+    breaker::Breaker &breaker
+) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     // sleep for state period
     this->timer.wait(breaker);
@@ -438,7 +439,7 @@ std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
     return std::make_pair(this->get_state(), freighter::NIL);
 }
 
-synnax::Frame ni::StateSource::get_state() {
+synnax::Frame ni::DigitalStateSource::get_state() {
     // frame size = # monitored states + 1 state index channel
     auto frame_size = this->state_map.size() + 1;
     auto state_frame = synnax::Frame(frame_size);
@@ -455,7 +456,7 @@ synnax::Frame ni::StateSource::get_state() {
     return state_frame;
 }
 
-void ni::StateSource::update_state(
+void ni::DigitalStateSource::update_state(
     std::queue<synnax::ChannelKey> &modified_state_keys,
     std::queue<std::uint8_t> &modified_state_values
 ) {
@@ -512,7 +513,7 @@ ni::AnalogWriteSink::AnalogWriteSink(
         this->log_error("failed to configure NI hardware for task " + this->
                         writer_config.task_name);
     this->get_index_keys();
-    this->writer_state_source = std::make_shared<ni::StateSource>(
+    this->writer_state_source = std::make_shared<ni::AnalogStateSource>(
         this->writer_config.state_rate,
         this->writer_config.state_index_key,
         this->writer_config.state_channel_keys
@@ -684,7 +685,7 @@ freighter::Error ni::AnalogWriteSink::write(synnax::Frame frame) {
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
     }
-    this->writer_state_source->update_analog_state(
+    this->writer_state_source->update_state(
         this->writer_config.modified_state_keys,
         this->writer_config.modified_state_values
     );
@@ -859,3 +860,62 @@ void ni::AnalogWriteSink::jsonify_error(std::string s) {
     j.push_back(this->err_info);
     this->err_info["errors"] = j;
 }
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                    AnalogStateSource                          //
+///////////////////////////////////////////////////////////////////////////////////
+ni::AnalogStateSource::AnalogStateSource(
+    float state_rate,
+    synnax::ChannelKey &state_index_key,
+    std::vector<synnax::ChannelKey> &state_channel_keys
+) {
+    this->state_rate.value = state_rate;
+    // start the periodic thread
+    this->state_index_key = state_index_key;
+
+    // initialize all states to 0 (logic low)
+    for (auto &key: state_channel_keys)
+        this->state_map[key] = 0;
+    this->timer = loop::Timer(this->state_rate);
+}
+
+std::pair<synnax::Frame, freighter::Error> ni::AnalogStateSource::read(
+    breaker::Breaker &breaker
+) {
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    // sleep for state period
+    this->timer.wait(breaker);
+    waiting_reader.wait_for(lock, this->state_rate.period().chrono());
+    return std::make_pair(this->get_state(), freighter::NIL);
+}
+
+synnax::Frame ni::AnalogStateSource::get_state() {
+    // frame size = # monitored states + 1 state index channel
+    auto frame_size = this->state_map.size() + 1;
+    auto state_frame = synnax::Frame(frame_size);
+    state_frame.add(
+        this->state_index_key,
+        synnax::Series(
+            synnax::TimeStamp::now().value,
+            synnax::TIMESTAMP
+        )
+    );
+
+    for (auto &[key, value]: this->state_map)
+        state_frame.add(key, synnax::Series(value));
+    return state_frame;
+}
+
+void ni::AnalogStateSource::update_state(
+    std::queue<synnax::ChannelKey> &modified_state_keys,
+    std::queue<double> &modified_state_values
+) {
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    while (!modified_state_keys.empty()) {
+        this->state_map[modified_state_keys.front()] = static_cast<double>(modified_state_values.front());
+        modified_state_keys.pop();
+        modified_state_values.pop();
+    }
+    waiting_reader.notify_one();
+}
+
