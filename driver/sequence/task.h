@@ -108,7 +108,6 @@ public:
 
         /// Step 4 - open a synnax writer
         synnax::WriterConfig writer_cfg{
-
             .channels = cfg.write,
             .start = synnax::TimeStamp::now(),
         };

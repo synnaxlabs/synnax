@@ -3,6 +3,12 @@ config_setting(
     values = {"define": "use_ni=true"},
 )
 
+config_setting(
+    name = "use_ni_windows",
+    values = {"define": "use_ni=true"},
+    constraint_values = ["@platforms//os:windows"],
+)
+
 cc_library(
     name = "daqmx",
     srcs = select({
@@ -15,6 +21,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = select({
+        ":use_ni": ["@nidaqmx"],
         "//conditions:default": [],
     }),
     linkopts = select({
@@ -43,6 +50,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = select({
+        ":use_ni_windows": ["@nisyscfg"],
         "//conditions:default": [],
     }),
     linkopts = select({
