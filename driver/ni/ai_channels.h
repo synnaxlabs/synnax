@@ -1702,6 +1702,7 @@ public:
 //                                      CurrentOut                               //
 ///////////////////////////////////////////////////////////////////////////////////
 class CurrentOut final : public Analog {
+public:
     explicit CurrentOut(
         config::Parser &parser,
         TaskHandle task_handle,
