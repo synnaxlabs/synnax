@@ -108,8 +108,9 @@ public:
 
         /// Step 4 - open a synnax writer
         synnax::WriterConfig writer_cfg{
-            .start = synnax::TimeStamp::now(),
+
             .channels = cfg.write,
+            .start = synnax::TimeStamp::now(),
         };
 
         auto [writer, err] = ctx->client->telem.openWriter(writer_cfg);
