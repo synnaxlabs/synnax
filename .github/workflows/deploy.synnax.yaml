@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-1887-embedded-control-sequencing
   pull_request:
     branches:
       - main
