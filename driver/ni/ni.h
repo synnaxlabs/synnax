@@ -114,8 +114,6 @@ struct ChannelConfig {
     std::shared_ptr<ni::Analog> ni_channel;
     bool enabled = true;
     synnax::DataType data_type;
-    double min_val = 0;
-    double max_val = 0;
 };
 
 struct ReaderConfig {

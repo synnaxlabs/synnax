@@ -300,22 +300,21 @@ std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_state_channel_keys() {
 }
 
 int ni::DigitalWriteSink::check_ni_error(int32 error) {
-    if (error < 0) {
-        char errBuff[2048] = {'\0'};
-        ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
+    if (error == 0) return 0;
+    char errBuff[2048] = {'\0'};
+    ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
 
-        std::string s(errBuff);
-        jsonify_error(s);
+    std::string s(errBuff);
+    jsonify_error(s);
 
-        this->ctx->set_state({
-            .task = this->task.key,
-            .variant = "error",
-            .details = err_info
-        });
-        this->log_error("NI Vendor Error: " + std::string(errBuff));
-        return -1;
-    }
-    return 0;
+    this->ctx->set_state({
+        .task = this->task.key,
+        .variant = "error",
+        .details = err_info
+    });
+    this->log_error("NI Vendor Error: " + std::string(errBuff));
+    this->ok_state = false;
+    return -1;
 }
 
 
@@ -537,31 +536,35 @@ void ni::AnalogWriteSink::parse_config(config::Parser &parser) {
         [&](config::Parser &channel_builder) {
             ni::ChannelConfig config;
             // analog channel names are formatted: <device_name>/ai<port>
+            config.enabled = channel_builder.optional<bool>("enabled", true);
+            if (!config.enabled) return;
+
             std::string port = std::to_string(
                 channel_builder.required<std::uint64_t>(
-                    "port"));
+                    "port"
+                )
+            );
 
             config.name = this->writer_config.device_name + "/ao" + port;
-            config.enabled = channel_builder.optional<bool>("enabled", true);
             config.channel_type = channel_builder.required<std::string>("type");
-            config.min_val = channel_builder.required<float>("min_val");
-            config.max_val = channel_builder.required<float>("max_val");
+            config.ni_channel = this->parse_channel(
+                channel_builder, config.channel_type, config.name
+            );
 
-            if (config.enabled) {
-                config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
-                this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
+            config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
+            this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
 
-                auto state_key = channel_builder.required<uint32_t>("state_channel");
-                this->writer_config.state_channel_keys.push_back(state_key);
+            auto state_key = channel_builder.required<uint32_t>("state_channel");
+            this->writer_config.state_channel_keys.push_back(state_key);
 
-                config.state_channel_key = state_key;
+            config.state_channel_key = state_key;
 
-                this->channel_map[config.name] = "channels." + std::to_string(c_count);
+            this->channel_map[config.name] = "channels." + std::to_string(c_count);
 
-                this->writer_config.channels.push_back(config);
-                c_count++;
-            }
-        });
+            this->writer_config.channels.push_back(config);
+            c_count++;
+        }
+    );
 }
 
 std::shared_ptr<ni::Analog> ni::AnalogWriteSink::parse_channel(
@@ -602,37 +605,13 @@ int ni::AnalogWriteSink::init() {
     auto channels = this->writer_config.channels;
 
     for (auto &channel: channels) {
-    }
-
-
-    for (auto &channel: channels) {
-        if (channel.channel_type == "current") {
-            // TODO: might have to chane
-            err = this->check_ni_error(ni::NiDAQmxInterface::CreateAOCurrentChan(
-                this->task_handle,
-                channel.name.c_str(),
-                "",
-                channel.min_val,
-                channel.max_val,
-                DAQmx_Val_Amps,
-                ""
-            ));
-        } else if (channel.channel_type == "voltage") {
-            err = this->check_ni_error(ni::NiDAQmxInterface::CreateAOVoltageChan(
-                this->task_handle,
-                channel.name.c_str(),
-                "",
-                channel.min_val,
-                channel.max_val,
-                DAQmx_Val_Volts,
-                ""
-            ));
-        }
-        this->num_channels++;
-        if (err < 0) {
-            this->log_error("failed to create channel " + channel.name);
+        this->check_ni_error(channel.ni_channel->create_ni_scale());
+        this->check_ni_error(channel.ni_channel->create_ni_channel());
+        if (!this->ok()) {
+            this->log_error("failed while creating channel " + channel.name);
             return -1;
         }
+        this->num_channels++;
     }
     this->buffer_size = this->num_channels;
     this->write_buffer = new double[this->buffer_size];
@@ -789,22 +768,21 @@ std::vector<synnax::ChannelKey> ni::AnalogWriteSink::get_state_channel_keys() {
 }
 
 int ni::AnalogWriteSink::check_ni_error(int32 error) {
-    if (error < 0) {
-        char errBuff[2048] = {'\0'};
-        ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
+    if (error == 0) return 0;
+    char errBuff[2048] = {'\0'};
+    ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
 
-        std::string s(errBuff);
-        jsonify_error(s);
+    std::string s(errBuff);
+    jsonify_error(s);
 
-        this->ctx->set_state({
-            .task = this->task.key,
-            .variant = "error",
-            .details = err_info
-        });
-        this->log_error("NI Vendor Error: " + std::string(errBuff));
-        return -1;
-    }
-    return 0;
+    this->ctx->set_state({
+        .task = this->task.key,
+        .variant = "error",
+        .details = err_info
+    });
+    this->log_error("NI Vendor Error: " + std::string(errBuff));
+    this->ok_state = false;
+    return -1;
 }
 
 

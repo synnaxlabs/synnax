@@ -22,48 +22,51 @@ using json = nlohmann::json;
 void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     std::uint64_t c_count = 0;
     //    LOG(INFO) << "channel config:" << parser.get_json().dump(4);
-    parser.iter("channels",
-                [&](config::Parser &channel_builder) {
-                    ni::ChannelConfig config;
-                    // analog channel names are formatted: <device_name>/ai<port>
-                    std::string port = std::to_string(
-                        channel_builder.required<std::uint64_t>("port"));
+    parser.iter(
+        "channels",
+        [&](config::Parser &channel_builder) {
+            ni::ChannelConfig config;
+            // analog channel names are formatted: <device_name>/ai<port>
+            std::string port = std::to_string(
+                channel_builder.required<std::uint64_t>("port"));
 
-                    std::string name;
-                    if (this->reader_config.device_key != "cross-device") {
-                        name = this->reader_config.device_name;
-                    } else {
-                        auto device_key = channel_builder.required<std::string>("device");
-                        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
-                            device_key
-                        );
-                        if (err) {
-                            this->log_error("failed to retrieve device with key " + device_key);
-                            return;
-                        }
-                        name = dev.location;
-                    }
-                    config.name = name + "/ai" + port;
+            std::string name;
+            if (this->reader_config.device_key != "cross-device") {
+                name = this->reader_config.device_name;
+            } else {
+                auto device_key = channel_builder.required<std::string>("device");
+                auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+                    device_key
+                );
+                if (err) {
+                    this->log_error("failed to retrieve device with key " + device_key);
+                    return;
+                }
+                name = dev.location;
+            }
+            config.name = name + "/ai" + port;
 
-                    config.channel_key = channel_builder.required<uint32_t>("channel");
-                    config.channel_type = channel_builder.required<std::string>("type");
+            config.channel_key = channel_builder.required<uint32_t>("channel");
+            config.channel_type = channel_builder.required<std::string>("type");
 
-                    config.ni_channel = this->parse_channel(
-                        channel_builder, config.channel_type, config.name);
+            config.ni_channel = this->parse_channel(
+                channel_builder, config.channel_type, config.name
+            );
 
-                    this->channel_map[config.name] =
-                            "channels." + std::to_string(c_count);
+            this->channel_map[config.name] = "channels." + std::to_string(c_count);
 
-                    this->port_to_channel[channel_builder.required<std::uint64_t>(
-                        "port")] = config.name;
+            this->port_to_channel[channel_builder.required<std::uint64_t>(
+                "port")] = config.name;
 
-                    config.enabled = channel_builder.optional<bool>("enabled", true);
+            config.enabled = channel_builder.optional<bool>("enabled", true);
 
-                    this->reader_config.channels.push_back(config);
+            this->reader_config.channels.push_back(config);
 
-                    c_count++;
-                });
+            c_count++;
+        }
+    );
 }
+
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     config::Parser &parser,
