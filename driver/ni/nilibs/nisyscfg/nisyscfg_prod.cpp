@@ -18,48 +18,49 @@
 #include "driver/ni/nilibs/nisyscfg/nisyscfg.h"
 #include "driver/ni/nilibs/nisyscfg/nisyscfg_prod.h"
 #include "driver/ni/nilibs/nisyscfg/nisyscfg_errors.h"
-#include "driver/ni/nilibs/shared/shared_library.h"
 
 #ifdef _WIN32
-static const char* kLibraryName = "nisyscfg.dll";
+static const std::string LIB_NAME = "nisyscfg.dll";
 #else
-static const char *kLibraryName = "libnisyscfg.so";
+static const std::string LIB_NAME = "libnisyscfg.so";
 #endif
 
+const auto LOAD_ERROR = freighter::Error(
+    shared::LOAD_ERROR,
+    "failed to load NI System Configuration library. Is it installed?"
+);
 
-SysCfgProd::SysCfgProd(std::shared_ptr<SharedLibrary> library) : shared_library_(std::move(library)) {
-    shared_library_->set_library_name(kLibraryName);
-    shared_library_->load();
-    bool loaded = shared_library_->is_loaded();
+std::pair<std::shared_ptr<SysCfg>, freighter::Error> SysCfgProd::load() {
+    auto lib = std::make_unique<shared::Lib>(LIB_NAME);
+    if (!lib->load()) return {nullptr, LOAD_ERROR};
+    return {std::make_shared<SysCfgProd>(lib), freighter::NIL};
+}
+
+SysCfgProd::SysCfgProd(std::unique_ptr<shared::Lib> &lib) : lib(std::move(lib)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
-    if (!loaded) {
-        return;
-    }
-
-    // Initialize function pointers
     function_pointers_.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
-        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgInitializeSession")));
+        const_cast<void*>(lib->get_func_ptr("NISysCfgInitializeSession")));
 
     function_pointers_.CreateFilter = reinterpret_cast<CreateFilterPtr>(
-        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgCreateFilter")));
+        const_cast<void*>(lib->get_func_ptr("NISysCfgCreateFilter")));
 
     function_pointers_.SetFilterProperty = reinterpret_cast<SetFilterPropertyPtr>(
-        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgSetFilterProperty")));
+        const_cast<void*>(lib->get_func_ptr("NISysCfgSetFilterProperty")));
 
     function_pointers_.CloseHandle = reinterpret_cast<CloseHandlePtr>(
-        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgCloseHandle")));
+        const_cast<void*>(lib->get_func_ptr("NISysCfgCloseHandle")));
 
     function_pointers_.FindHardware = reinterpret_cast<FindHardwarePtr>(
-        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgFindHardware")));
+        const_cast<void*>(lib->get_func_ptr("NISysCfgFindHardware")));
 
     function_pointers_.NextResource = reinterpret_cast<NextResourcePtr>(
-        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgNextResource")));
+        const_cast<void*>(lib->get_func_ptr("NISysCfgNextResource")));
 
     function_pointers_.GetResourceProperty = reinterpret_cast<GetResourcePropertyPtr>(
-        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgGetResourceProperty")));
+        const_cast<void*>(lib->get_func_ptr("NISysCfgGetResourceProperty")));
 
     function_pointers_.GetResourceIndexedProperty = reinterpret_cast<GetResourceIndexedPropertyPtr>(
-        const_cast<void*>(shared_library_->get_function_pointer("NISysCfgGetResourceIndexedProperty")));
+        const_cast<void*>(lib->get_func_ptr("NISysCfgGetResourceIndexedProperty")));
 }
 
 NISYSCFGCFUNC SysCfgProd::InitializeSession(

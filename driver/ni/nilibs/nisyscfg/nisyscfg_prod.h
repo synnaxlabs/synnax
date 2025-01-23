@@ -1,14 +1,14 @@
 #pragma once
 
-#include <memory>
-
 #include "driver/ni/nilibs/nisyscfg/nisyscfg.h"
 #include "driver/ni/nilibs/nisyscfg/nisyscfg_api.h"
-#include "driver/ni/nilibs/shared/shared_library.h"
+#include "driver/shared/lib.h"
 
 class SysCfgProd : public SysCfg {
 public:
-    explicit SysCfgProd(std::shared_ptr<SharedLibrary> library);
+    explicit SysCfgProd(std::unique_ptr<shared::Lib> &lib);
+
+    static std::pair<std::shared_ptr<SysCfg>, freighter::Error> load();
 
     NISYSCFGCFUNC InitializeSession(
         const char *targetName,
@@ -86,6 +86,6 @@ private:
         GetResourceIndexedPropertyPtr GetResourceIndexedProperty;
     } FunctionPointers;
 
-    std::shared_ptr<SharedLibrary> shared_library_;
+    std::unique_ptr<shared::Lib> lib;
     FunctionPointers function_pointers_;
 };

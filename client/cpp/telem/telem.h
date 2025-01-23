@@ -359,7 +359,7 @@ public:
     }
 
 
-    std::chrono::nanoseconds chrono() const {
+    [[nodiscard]] std::chrono::nanoseconds chrono() const {
         return std::chrono::nanoseconds(value);
     }
 };

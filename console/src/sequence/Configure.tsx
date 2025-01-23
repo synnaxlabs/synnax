@@ -1,11 +1,18 @@
 import { Icon } from "@synnaxlabs/media";
-import { Align, Channel, Form, Input, Synnax } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Channel,
+  Form,
+  Synnax,
+  Text,
+  Triggers,
+} from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Editor } from "@/code/Editor";
 import {
-  Controls,
   useCreate,
   useObserveState,
   type WrappedTaskLayoutProps,
@@ -24,13 +31,14 @@ import {
 
 export const createSequenceLayout = createLayoutCreator<Payload>(
   SEQUENCE_TYPE,
-  "New LabJack Sequence Task",
+  "Control Sequence",
+  "Control",
 );
 
 export const SEQUENCE_SELECTABLE: Layout.Selectable = {
   key: SEQUENCE_TYPE,
-  title: "LabJack Sequence Task",
-  icon: <Icon.Logo.LabJack />,
+  title: "Control Sequence",
+  icon: <Icon.Control />,
   create: (layoutKey) => ({
     ...createSequenceLayout({ create: true }),
     key: layoutKey,
@@ -42,7 +50,6 @@ export const Wrapped = ({
   initialValues,
   layoutKey,
 }: WrappedTaskLayoutProps<Task, Payload>) => {
-  console.log(initialValues);
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
@@ -55,7 +62,6 @@ export const Wrapped = ({
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const { name, config } = methods.value();
-      console.log(config);
       await create({
         key: task?.key,
         name,
@@ -82,45 +88,95 @@ export const Wrapped = ({
     },
   });
 
+  const startingOrStopping = start.isPending;
+  const configuring = configure.isPending;
+  const onStartStop = start.mutate;
+  const onConfigure = configure.mutate;
+
+  console.log(taskState);
+
   return (
-    <Align.Space style={{ padding: 0 }} direction="y" grow empty>
+    <Align.Space style={{ padding: 0, height: "100%" }} direction="y" grow empty>
       <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}
           showHelpText={false}
-          padHelpText={!task?.snapshot}
+          padHelpText={false}
         >
-          {(p) => <Editor style={{ height: 600 }} {...p} />}
+          {(p) => <Editor style={{ height: "100%" }} {...p} />}
         </Form.Field>
-        <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
-          {(p) => <Input.Text variant="natural" level="h2" {...p} />}
-        </Form.Field>
-        <Form.NumericField path="config.rate" padHelpText={!task?.snapshot} />
-        <Form.Field<string>
-          path="config.read"
-          label="Read From"
-          padHelpText={!task?.snapshot}
+        <Align.Pack
+          direction="y"
+          style={{
+            position: "absolute",
+            width: "calc(100% - 6rem)",
+            bottom: 20,
+            left: "3rem",
+            border: "var(--pluto-border)",
+            background: "var(--pluto-gray-l0)",
+            boxShadow: "var(--pluto-shadow-menu)",
+            "--pluto-pack-br": "1rem",
+          }}
         >
-          {(p) => <Channel.SelectMultiple {...p} />}
-        </Form.Field>
-        <Form.Field<string>
-          path="config.write"
-          label="Write To"
-          padHelpText={!task?.snapshot}
-        >
-          {(p) => <Channel.SelectMultiple {...p} />}
-        </Form.Field>
+          <Align.Space direction="y" style={{ padding: "2rem" }}>
+            <Form.NumericField
+              label="Loop Rate"
+              path="config.rate"
+              padHelpText={false}
+              inputProps={{ endContent: "Hz" }}
+            />
+            <Form.Field<string>
+              path="config.read"
+              label="Read From"
+              padHelpText={false}
+            >
+              {(p) => <Channel.SelectMultiple {...p} />}
+            </Form.Field>
+            <Form.Field<string>
+              path="config.write"
+              label="Write To"
+              padHelpText={false}
+            >
+              {(p) => <Channel.SelectMultiple {...p} />}
+            </Form.Field>
+          </Align.Space>
+
+          <Align.Space
+            direction="x"
+            bordered
+            rounded
+            style={{
+              padding: "2rem",
+            }}
+            justify="end"
+          >
+            <Button.Icon
+              loading={startingOrStopping}
+              disabled={startingOrStopping || taskState == null || task?.snapshot}
+              onClick={onStartStop}
+              variant="outlined"
+            >
+              {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
+            </Button.Icon>
+            <Button.Button
+              loading={configuring}
+              disabled={configuring || task?.snapshot}
+              onClick={onConfigure}
+              tooltip={
+                <Align.Space direction="x" align="center" size="small">
+                  <Triggers.Text shade={7} level="small" />
+                  <Text.Text shade={7} level="small">
+                    To Configure
+                  </Text.Text>
+                </Align.Space>
+              }
+            >
+              Configure
+            </Button.Button>
+          </Align.Space>
+        </Align.Pack>
       </Form.Form>
-      <Controls
-        layoutKey={layoutKey}
-        state={taskState}
-        snapshot={task?.snapshot}
-        startingOrStopping={start.isPending || taskState?.variant === "success"}
-        configuring={configure.isPending}
-        onConfigure={configure.mutate}
-        onStartStop={start.mutate}
-      />
     </Align.Space>
   );
 };

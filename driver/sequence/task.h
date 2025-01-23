@@ -18,6 +18,8 @@
 using json = nlohmann::json;
 
 namespace sequence {
+const std::string INTEGRATION_NAME = "sequence";
+
 /// @brief TaskConfig is the configuration for creating a sequence task.
 struct TaskConfig {
     /// @brief rate is the rate at which the script loop will execute.
@@ -52,6 +54,7 @@ class Task final : public task::Task {
     /// @brief ctx is the task execution context for communicating with the Synnax cluster
     /// and updating the task state.
     std::shared_ptr<task::Context> ctx;
+    const synnax::Task task;
     /// @brief breaker is used to manage the lifecycle of the sequence.
     breaker::Breaker breaker;
     /// @brief thread is the thread that will execute the sequence.
@@ -62,11 +65,13 @@ class Task final : public task::Task {
 public:
     Task(
         const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task,
         TaskConfig cfg,
         const std::vector<synnax::Channel> &read_channels,
         const std::vector<synnax::Channel> &write_channels
     ): cfg(std::move(cfg)),
        ctx(ctx),
+       task(task),
        read_channels(read_channels),
        write_channels(write_channels),
        breaker(breaker::Config{
@@ -109,9 +114,16 @@ public:
         );
 
         /// Step 4 - open a synnax writer
+        synnax::ControlSubject subject {
+            .name = task.name,
+            .key = std::to_string(task.key)
+        };
+
         synnax::WriterConfig writer_cfg{
             .channels = cfg.write,
             .start = synnax::TimeStamp::now(),
+            .authorities = {200},
+            .subject = subject,
         };
 
         auto [writer, err] = ctx->client->telem.openWriter(writer_cfg);
@@ -140,10 +152,29 @@ public:
 
         loop::Timer timer(this->cfg.rate);
         while (this->breaker.running()) {
-            seq->next();
+            if (auto next_err = seq->next(); next_err) {
+                ctx->set_state({
+                    .task = task.key,
+                    .variant = "error",
+                    .details = {
+                        {"running", false},
+                        {"message", next_err.message()}
+                    }
+                });
+            }
             timer.wait(breaker);
         }
         pipe.stop();
+        if (auto next_err =  sink->close(); next_err) {
+            ctx->set_state({
+                .task = task.key,
+                .variant = "error",
+                .details = {
+                    {"running", false},
+                    {"message", next_err.message()}
+                }
+            });
+        }
     }
 
     void stop() override { this->stop(""); };
@@ -158,6 +189,15 @@ public:
         this->breaker.reset();
         this->breaker.start();
         this->thread = std::thread([this] { this->run(); });
+        ctx->set_state({
+            .task = this->task.key,
+            .key = key,
+            .variant = "success",
+            .details = json{
+                {"running", true},
+                {"message", "Sequence started successfully"}
+            }
+        });
     }
 
     void stop(const std::string &key) {
@@ -165,6 +205,15 @@ public:
         this->breaker.stop();
         this->breaker.reset();
         if (this->thread.joinable()) this->thread.join();
+        ctx->set_state({
+            .task = this->task.key,
+            .key = key,
+            .variant = "success",
+            .details = json{
+                {"running", false},
+                {"message", "Sequence stopped"}
+            }
+        });
     }
 
     static std::unique_ptr<task::Task> configure(
@@ -177,6 +226,11 @@ public:
         if (!parser.ok()) {
             LOG(ERROR) << "[sequence] failed to parse task configuration: " << parser.
                     error();
+            ctx->set_state({
+                .task = task.key,
+                .variant = "error",
+                .details = parser.error_json()
+            });
             return nullptr;
         }
 
@@ -194,9 +248,18 @@ public:
             return nullptr;
         }
 
+        ctx->set_state({
+            .task = task.key,
+            .variant = "success",
+            .details = json{
+                {"running", false},
+                {"message", "Sequence configured successfully"}
+            }
+        });
 
         return std::make_unique<Task>(
             ctx,
+            task,
             cfg,
             read_channels,
             write_channels

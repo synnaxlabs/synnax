@@ -595,7 +595,17 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class Factory final : public task::Factory {
 public:
-    Factory();
+    Factory(
+        const std::shared_ptr<DAQmx> &dmx,
+        const std::shared_ptr<SysCfg> &syscfg
+    );
+
+    bool check_health(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    );
+
+    static std::shared_ptr<ni::Factory> create();
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,

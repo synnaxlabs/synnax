@@ -21,17 +21,15 @@ extern "C" {
 
 inline synnax::Series luaToSeries(lua_State *L, int index, const synnax::Channel &ch) {
     if (ch.data_type == synnax::FLOAT64)
-        return synnax::Series(synnax::FLOAT64, lua_tonumber(L, index));
+        return synnax::Series(lua_tonumber(L, index), synnax::FLOAT64);
     if (ch.data_type == synnax::INT64)
-        return synnax::Series(synnax::INT64, lua_tointeger(L, index));
+        return synnax::Series(lua_tointeger(L, index), synnax::INT64);
     if (ch.data_type == synnax::SY_UINT8)
-        return synnax::Series(synnax::SY_UINT8,
-                              static_cast<uint8_t>(lua_toboolean(L, index)));
+        return synnax::Series(static_cast<uint8_t>(lua_toboolean(L, index)), synnax::SY_UINT8);
     if (ch.data_type == synnax::STRING)
-        return synnax::Series(std::string(lua_tostring(L, index)));
+        return synnax::Series(std::string(lua_tostring(L, index)), synnax::STRING);
     if (ch.data_type == synnax::FLOAT32)
-        return synnax::Series(synnax::FLOAT32,
-                              static_cast<float>(lua_tonumber(L, index)));
+        return synnax::Series(static_cast<float>(lua_tonumber(L, index)), synnax::FLOAT32);
 
     luaL_error(L, "Unsupported data type for channel %u", ch.key);
     return synnax::Series(synnax::DATA_TYPE_UNKNOWN, 0);
@@ -45,18 +43,21 @@ public:
 };
 
 class SynnaxSink final : public Sink {
-private:
     std::unique_ptr<synnax::Writer> writer;
-
 public:
     explicit SynnaxSink(std::unique_ptr<synnax::Writer> writer)
         : writer(std::move(writer)) {
     }
 
     freighter::Error write(synnax::Frame &frame) override {
-        if (const bool ok = this->writer->write(frame); !ok) return this->writer->
-                error();
+        if (const bool ok = this->writer->write(frame); !ok)
+            return this->writer->
+                    error();
         return freighter::NIL;
+    }
+
+    freighter::Error close() const {
+        return this->writer->close();
     }
 };
 
@@ -75,10 +76,9 @@ public:
     ChannelSetOperator(
         std::shared_ptr<Sink> sink,
         const std::unordered_map<std::string, synnax::Channel> &channels
-    )
-        : sink(std::move(sink))
-          , channels(channels)
-          , frame(Frame(channels.size())) {
+    ): frame(Frame(channels.size()))
+       , sink(std::move(sink))
+       , channels(channels) {
     }
 
     void bind(lua_State *L) override {

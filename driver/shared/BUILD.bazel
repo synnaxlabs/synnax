@@ -1,0 +1,9 @@
+cc_library(
+    name = "shared",
+    hdrs = ["lib.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//freighter/cpp:freighter",
+    ],
+)
