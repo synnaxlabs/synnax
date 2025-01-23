@@ -20,10 +20,10 @@
 #include <set>
 #include <condition_variable>
 
-#include "nilibs/nidaqmx/nidaqmx_api.h"
-#include "nilibs/nidaqmx/nidaqmx.h"
-#include "nilibs/nisyscfg/nisyscfg.h"
-#include "nilibs/nisyscfg/nisyscfg_api.h"
+#include "nidaqmx/nidaqmx_api.h"
+#include "nidaqmx/nidaqmx.h"
+#include "nisyscfg/nisyscfg.h"
+#include "nisyscfg/nisyscfg_api.h"
 
 #include "nlohmann/json.hpp"
 

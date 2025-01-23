@@ -19,13 +19,13 @@ typedef HMODULE LibraryHandle;
 typedef void *LibraryHandle;
 #endif
 
-namespace shared {
+namespace libutil {
 const freighter::Error BASE_ERROR = synnax::BASE_ERROR.sub("shared");
 const freighter::Error LOAD_ERROR = BASE_ERROR.sub("load");
 
 #ifdef _WIN32
-/// Lib is a shared library loader and lifecycle manager implemented for Windows.
-class Lib {
+/// SharedLib is a shared library loader and lifecycle manager implemented for Windows.
+class SharedLIb {
     const std::string name;
     LibraryHandle handle = nullptr;
 public:
@@ -54,13 +54,13 @@ public:
 
 /// Lib is a shared library loader and lifecycle manager implemented for POSIX compliant
 /// systems.
-class Lib {
+class SharedLib {
     const std::string name;
     LibraryHandle handle = nullptr;
 public:
-    explicit Lib(const std::string &name): name(name) {}
+    explicit SharedLib(const std::string &name): name(name) {}
 
-    ~Lib() {
+    ~SharedLib() {
         this->unload();
     }
 

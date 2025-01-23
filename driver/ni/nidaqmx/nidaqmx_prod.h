@@ -13,14 +13,14 @@
 #include <memory>
 
 /// internal
-#include "driver/ni/nilibs/nidaqmx/nidaqmx_api.h"
-#include "driver/ni/nilibs/nidaqmx/nidaqmx.h"
-#include "driver/shared/lib.h"
+#include "driver/ni/nidaqmx/nidaqmx_api.h"
+#include "driver/ni/nidaqmx/nidaqmx.h"
+#include "driver/libutil/libutil.h"
 #include "freighter/cpp/freighter.h"
 
 class DAQmxProd final : public DAQmx {
 public:
-    explicit DAQmxProd(std::unique_ptr<shared::Lib> &lib_);
+    explicit DAQmxProd(std::unique_ptr<libutil::SharedLib> &lib_);
 
     ~DAQmxProd() override;
 
@@ -3222,5 +3222,5 @@ private:
     } FunctionLoadStatus;
 
     FunctionPointers function_pointers_{};
-    std::unique_ptr<shared::Lib> lib;
+    std::unique_ptr<libutil::SharedLib> lib;
 };

@@ -1,12 +1,12 @@
 #pragma once
 
-#include "driver/ni/nilibs/nisyscfg/nisyscfg.h"
-#include "driver/ni/nilibs/nisyscfg/nisyscfg_api.h"
-#include "driver/shared/lib.h"
+#include "driver/ni/nisyscfg/nisyscfg.h"
+#include "driver/ni/nisyscfg/nisyscfg_api.h"
+#include "driver/libutil/libutil.h"
 
 class SysCfgProd : public SysCfg {
 public:
-    explicit SysCfgProd(std::unique_ptr<shared::Lib> &lib);
+    explicit SysCfgProd(std::unique_ptr<libutil::SharedLib> &lib_);
 
     static std::pair<std::shared_ptr<SysCfg>, freighter::Error> load();
 
@@ -86,6 +86,6 @@ private:
         GetResourceIndexedPropertyPtr GetResourceIndexedProperty;
     } FunctionPointers;
 
-    std::unique_ptr<shared::Lib> lib;
+    std::unique_ptr<libutil::SharedLib> lib;
     FunctionPointers function_pointers_;
 };

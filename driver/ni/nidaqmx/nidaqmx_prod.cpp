@@ -12,8 +12,8 @@
 #include <utility>
 #include <cstring>
 
-#include "driver/shared/lib.h"
-#include "driver/ni/nilibs/nidaqmx/nidaqmx_prod.h"
+#include "driver/libutil/libutil.h"
+#include "driver/ni/nidaqmx/nidaqmx_prod.h"
 
 #ifdef _WIN32
 static const std::string LIB_NAME = "nicaiu.dll";
@@ -22,17 +22,17 @@ static const std::string LIB_NAME = "libnidaqmx.so.1";
 #endif
 
 const auto LOAD_ERROR = freighter::Error(
-    shared::LOAD_ERROR,
+    libutil::LOAD_ERROR,
     "failed to load DAQmx shared libraries. Are they installed?"
 );
 
 std::pair<std::shared_ptr<DAQmx>, freighter::Error> DAQmxProd::load() {
-    auto lib = std::make_unique<shared::Lib>(LIB_NAME);
+    auto lib = std::make_unique<libutil::SharedLib>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
     return {std::make_shared<DAQmxProd>(lib), freighter::Error()};
 }
 
-DAQmxProd::DAQmxProd(std::unique_ptr<shared::Lib> &lib_): lib(std::move(lib_)) {
+DAQmxProd::DAQmxProd(std::unique_ptr<libutil::SharedLib> &lib_): lib(std::move(lib_)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
     function_pointers_.AddCDAQSyncConnection =
             reinterpret_cast<AddCDAQSyncConnectionPtr>(

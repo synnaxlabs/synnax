@@ -11,6 +11,6 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/shared",
+        "//driver/libutil",
     ],
 )

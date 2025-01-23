@@ -12,8 +12,8 @@
 #include <string>
 #include <map>
 
-#include "nilibs/nidaqmx/nidaqmx.h"
-#include "nilibs/nidaqmx/nidaqmx_api.h"
+#include "nidaqmx/nidaqmx.h"
+#include "nidaqmx/nidaqmx_api.h"
 #include "driver/config/config.h"
 #include "driver/ni/scale.h"
 

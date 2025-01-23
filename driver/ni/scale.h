@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <map>
 
-#include "nilibs/nidaqmx/nidaqmx.h"
+#include "nidaqmx/nidaqmx.h"
 #include "driver/config/config.h"
 
 #include "nlohmann/json.hpp"

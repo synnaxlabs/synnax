@@ -16,8 +16,8 @@
 #include "nlohmann/json.hpp"
 
 /// internal
-#include "nilibs/nidaqmx/nidaqmx_prod.h"
-#include "nilibs/nisyscfg/nisyscfg_prod.h"
+#include "nidaqmx/nidaqmx_prod.h"
+#include "nisyscfg/nisyscfg_prod.h"
 
 ni::Factory::Factory(
     const std::shared_ptr<DAQmx> &dmx,
