@@ -589,7 +589,7 @@ public:
     std::string name() override { return task.name; }
 
     bool ok();
-
+    
 private:
     breaker::Breaker breaker;
     ni::Scanner scanner;
