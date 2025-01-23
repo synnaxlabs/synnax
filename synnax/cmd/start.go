@@ -62,8 +62,6 @@ import (
 
 const stopKeyWord = "stop"
 
-var integrations = []string{"opc", "ni", "labjack"}
-
 func scanForStopKeyword(interruptC chan os.Signal) {
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -418,7 +416,8 @@ func buildEmbeddedDriverConfig(
 		Enabled: config.Bool(!viper.GetBool(noDriverFlag)),
 		Integrations: getIntegrations(
 			viper.GetStringSlice(enableIntegrationsFlag),
-			viper.GetStringSlice(disableIntegrationsFlag)),
+			viper.GetStringSlice(disableIntegrationsFlag),
+		),
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString(listenFlag)),
 		RackName:        rackName,
@@ -448,17 +447,9 @@ func getIntegrations(enabled, disabled []string) []string {
 	if len(enabled) > 0 {
 		return enabled
 	}
-	if len(disabled) > 0 {
-		return lo.Filter(integrations, func(integration string, _ int) bool {
-			for _, disabledIntegration := range disabled {
-				if integration == disabledIntegration {
-					return false
-				}
-			}
-			return true
-		})
-	}
-	return integrations // Ensure a return value in case both slices are empty
+	return lo.Filter(embedded.AllIntegrations, func(integration string, _ int) bool {
+		return !lo.Contains(disabled, integration)
+	})
 }
 
 // sets the base permissions that need to exist in the server.
