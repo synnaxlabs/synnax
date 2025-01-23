@@ -30,7 +30,6 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
-import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
 import { SelectInputChannelTypeField } from "@/hardware/labjack/task/SelectInputChannelTypeField";
 import {
   type ChannelType,
@@ -56,19 +55,19 @@ import {
 } from "@/hardware/labjack/task/types";
 import { type Layout } from "@/layout";
 
-export const createReadLayout = createLayoutCreator<ReadPayload>(
-  READ_TYPE,
-  "New LabJack Read Task",
-);
+export const READ_LAYOUT: Common.Task.LayoutBaseState = {
+  ...Common.Task.LAYOUT,
+  key: READ_TYPE,
+  type: READ_TYPE,
+  name: ZERO_READ_PAYLOAD.name,
+  icon: "Logo.LabJack",
+};
 
 export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  create: (layoutKey) => ({
-    ...createReadLayout({ create: true }),
-    key: layoutKey,
-  }),
+  create: (key) => ({ ...READ_LAYOUT, key }),
 };
 
 const Wrapped = ({
@@ -486,8 +485,6 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureRead = Common.Task.wrapLayout(Wrapped, ZERO_READ_PAYLOAD);
-
 export const SelectScaleTypeField = Form.buildDropdownButtonSelectField<
   ScaleType,
   KeyedNamed<ScaleType>
@@ -645,4 +642,15 @@ const TemperatureUnitsField = Form.buildDropdownButtonSelectField<
       { key: "K", name: "Kelvin" },
     ],
   },
+});
+
+const TaskForm: FC<
+  Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>
+> = () => <></>;
+
+export const ReadTask = Common.Task.wrapForm(TaskForm, {
+  configSchema: readConfigZ,
+  type: READ_TYPE,
+  zeroPayload: ZERO_READ_PAYLOAD,
+  onConfigure: async () => {},
 });

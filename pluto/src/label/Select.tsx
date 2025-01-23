@@ -42,10 +42,7 @@ const rangeCols: Array<List.ColumnSpec<label.Key, label.Label>> = [
       />
     ),
   },
-  {
-    key: "name",
-    name: "Name",
-  },
+  { key: "name", name: "Name" },
 ];
 
 const canDrop = (

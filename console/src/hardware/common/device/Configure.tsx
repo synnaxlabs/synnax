@@ -30,12 +30,8 @@ import { CSS } from "@/css";
 import { identifierZ } from "@/hardware/common/device/types";
 import { type Layout } from "@/layout";
 
-export const CONFIGURE_LAYOUT_TYPE = "configure";
-
-export const CONFIGURE_LAYOUT: Layout.BaseState = {
-  key: CONFIGURE_LAYOUT_TYPE,
-  type: CONFIGURE_LAYOUT_TYPE,
-  name: "Device.Configure",
+export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type" | "key"> = {
+  name: "Configure",
   icon: "Device",
   location: "modal",
   window: { resizable: false, size: { height: 350, width: 800 }, navTop: true },

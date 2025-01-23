@@ -21,10 +21,7 @@ import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 const rangeCols: Array<List.ColumnSpec<ranger.Key, ranger.Payload>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
+  { key: "name", name: "Name" },
 ];
 
 const canDrop = (

@@ -24,7 +24,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useState } from "react";
+import { type FC, type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -32,7 +32,6 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
 import { CopyButtons } from "@/hardware/ni/task/common";
-import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   DIGITAL_WRITE_TYPE,
   type DigitalWrite,
@@ -47,19 +46,19 @@ import {
 } from "@/hardware/ni/task/types";
 import { Layout } from "@/layout";
 
-export const createDigitalWriteLayout = createLayoutCreator<DigitalWritePayload>(
-  DIGITAL_WRITE_TYPE,
-  "New NI Digital Write Task",
-);
+export const DIGITAL_WRITE_LAYOUT: Common.Task.LayoutBaseState = {
+  ...Common.Task.LAYOUT,
+  type: DIGITAL_WRITE_TYPE,
+  name: ZERO_DIGITAL_WRITE_PAYLOAD.name,
+  icon: "Logo.NI",
+  key: DIGITAL_WRITE_TYPE,
+};
 
 export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({
-    ...createDigitalWriteLayout({ create: true }),
-    key: layoutKey,
-  }),
+  create: (key) => ({ ...DIGITAL_WRITE_LAYOUT, key }),
 };
 
 const formSchema = z.object({ name: z.string().min(1), config: digitalWriteConfigZ });
@@ -491,7 +490,13 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalWrite = Common.Task.wrapLayout(
-  Wrapped,
-  ZERO_DIGITAL_WRITE_PAYLOAD,
-);
+const TaskForm: FC<
+  Common.Task.FormProps<DigitalWriteConfig, DigitalWriteDetails, DigitalWriteType>
+> = () => <></>;
+
+export const DigitalWriteTask = Common.Task.wrapForm(TaskForm, {
+  configSchema: digitalWriteConfigZ,
+  type: DIGITAL_WRITE_TYPE,
+  zeroPayload: ZERO_DIGITAL_WRITE_PAYLOAD,
+  onConfigure: async () => {},
+});

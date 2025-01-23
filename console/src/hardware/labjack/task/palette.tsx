@@ -9,22 +9,22 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createReadLayout } from "@/hardware/labjack/task/Read";
-import { createWriteLayout } from "@/hardware/labjack/task/Write";
+import { READ_LAYOUT } from "@/hardware/labjack/task/Read";
+import { WRITE_LAYOUT } from "@/hardware/labjack/task/Write";
 import { type Palette } from "@/palette";
 
 const createReadCommand: Palette.Command = {
   key: "labjack-create-read-task",
   name: "Create LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  onSelect: ({ placeLayout }) => placeLayout(() => createReadLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(READ_LAYOUT),
 };
 
 const createWriteCommand: Palette.Command = {
   key: "labjack-create-write-task",
   name: "Create LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  onSelect: ({ placeLayout }) => placeLayout(createWriteLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
 };
 
 export const COMMANDS = [createReadCommand, createWriteCommand];

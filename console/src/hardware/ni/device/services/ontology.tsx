@@ -18,24 +18,22 @@ export const ContextMenuItems = ({
 }: Ontology.TreeContextMenuProps) => {
   const placeLayout = Layout.usePlacer();
   if (resources.length !== 1) return null;
-  const first = resources[0];
-  const key = first.id.key;
   const maybeConfigure = () => {
+    const first = resources[0];
     if (first.data?.configured === false)
-      placeLayout({ ...Device.CONFIGURE_LAYOUT, key });
+      placeLayout({ ...Device.CONFIGURE_LAYOUT, key: first.id.key });
   };
-  const args = { create: true, initialValues: { config: { device: key } } };
   const handleCreateDigitalReadTask = () => {
     maybeConfigure();
-    placeLayout(Task.createDigitalReadLayout(args));
+    placeLayout(Task.DIGITAL_READ_LAYOUT);
   };
   const handleCreateAnalogReadTask = () => {
     maybeConfigure();
-    placeLayout(Task.createAnalogReadLayout({ create: true }));
+    placeLayout(Task.ANALOG_READ_LAYOUT);
   };
   const handleCreateDigitalWriteTask = () => {
     maybeConfigure();
-    placeLayout(Task.createDigitalWriteLayout(args));
+    placeLayout(Task.DIGITAL_WRITE_LAYOUT);
   };
   return (
     <>

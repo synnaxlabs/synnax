@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
-import { createDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
-import { createDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
+import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
+import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
+import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
 import { type ScanConfig } from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
@@ -19,23 +19,21 @@ const createAnalogReadCommand: Palette.Command = {
   key: "ni-create-analog-read-task",
   name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  onSelect: ({ placeLayout }) =>
-    placeLayout(() => createAnalogReadLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(ANALOG_READ_LAYOUT),
 };
 
 const createDigitalWriteCommand: Palette.Command = {
   key: "ni-create-digital-write-task",
   name: "Create an NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  onSelect: ({ placeLayout }) =>
-    placeLayout(createDigitalWriteLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(DIGITAL_WRITE_LAYOUT),
 };
 
 const createDigitalReadCommand: Palette.Command = {
   key: "ni-create-digital-read-task",
   name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  onSelect: ({ placeLayout }) => placeLayout(createDigitalReadLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(DIGITAL_READ_LAYOUT),
 };
 
 const toggleScanner: Palette.Command = {

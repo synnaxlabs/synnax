@@ -24,51 +24,20 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 
-const ZERO_LAYOUT_STATES: Record<
-  string,
-  (args: Common.Task.LayoutArgs) => Layout.State<Common.Task.LayoutArgs>
-> = {
-  [LabJack.Task.READ_TYPE]: (args) =>
-    LabJack.Task.createReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: LabJack.Task.READ_TYPE },
-    }),
-  [LabJack.Task.WRITE_TYPE]: (args) =>
-    LabJack.Task.createWriteLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: LabJack.Task.WRITE_TYPE },
-    }),
-  [OPC.Task.READ_TYPE]: (args) =>
-    OPC.Task.configureReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: OPC.Task.READ_TYPE },
-    }),
-  [OPC.Task.WRITE_TYPE]: (args) =>
-    OPC.Task.createWriteLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: OPC.Task.WRITE_TYPE },
-    }),
-  [NI.Task.ANALOG_READ_TYPE]: (args) =>
-    NI.Task.createAnalogReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: NI.Task.ANALOG_READ_TYPE },
-    }),
-  [NI.Task.DIGITAL_WRITE_TYPE]: (args) =>
-    NI.Task.createDigitalWriteLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: NI.Task.DIGITAL_WRITE_TYPE },
-    }),
-  [NI.Task.DIGITAL_READ_TYPE]: (args) =>
-    NI.Task.createDigitalReadLayout({
-      ...args,
-      initialValues: { ...args.initialValues, type: NI.Task.DIGITAL_READ_TYPE },
-    }),
+const ZERO_LAYOUT_STATES: Record<string, Common.Task.LayoutBaseState> = {
+  [LabJack.Task.READ_TYPE]: LabJack.Task.READ_LAYOUT,
+  [LabJack.Task.WRITE_TYPE]: LabJack.Task.WRITE_LAYOUT,
+  [OPC.Task.READ_TYPE]: OPC.Task.READ_LAYOUT,
+  [OPC.Task.WRITE_TYPE]: OPC.Task.WRITE_LAYOUT,
+  [NI.Task.ANALOG_READ_TYPE]: NI.Task.ANALOG_READ_LAYOUT,
+  [NI.Task.DIGITAL_WRITE_TYPE]: NI.Task.DIGITAL_WRITE_LAYOUT,
+  [NI.Task.DIGITAL_READ_TYPE]: NI.Task.DIGITAL_READ_LAYOUT,
 };
 
-export const createLayout = (task: task.Task): Layout.State => {
+export const createLayout = (task: task.Task): Layout.BaseState => {
   const configureLayout = ZERO_LAYOUT_STATES[task.type];
   if (configureLayout == null) throw new Error(`No layout configured for ${task.type}`);
-  return configureLayout({ create: false, initialValues: task.payload });
+  return { ...configureLayout, args: { taskKey: task.key } };
 };
 
 export const retrieveAndPlaceLayout = async (

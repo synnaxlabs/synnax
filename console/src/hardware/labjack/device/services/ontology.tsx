@@ -18,20 +18,18 @@ export const ContextMenuItems = ({
 }: Ontology.TreeContextMenuProps) => {
   const placeLayout = Layout.usePlacer();
   if (resources.length !== 1) return null;
-  const first = resources[0];
-  const key = first.id.key;
   const maybeConfigure = () => {
+    const first = resources[0];
     if (first.data?.configured === false)
-      placeLayout({ ...Device.CONFIGURE_LAYOUT, key });
+      placeLayout({ ...Device.CONFIGURE_LAYOUT, key: first.id.key });
   };
-  const args = { create: true, initialValues: { config: { device: key } } };
   const handleCreateReadTask = () => {
     maybeConfigure();
-    placeLayout(Task.createReadLayout(args));
+    placeLayout(Task.READ_LAYOUT);
   };
   const handleCreateWriteTask = () => {
     maybeConfigure();
-    placeLayout(Task.createWriteLayout(args));
+    placeLayout(Task.WRITE_LAYOUT);
   };
   return (
     <>

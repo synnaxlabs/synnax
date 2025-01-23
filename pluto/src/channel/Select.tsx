@@ -25,34 +25,13 @@ import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
-  {
-    key: "alias",
-    name: "Alias",
-  },
-  {
-    key: "rate",
-    name: "Rate",
-  },
-  {
-    key: "dataType",
-    name: "Data Type",
-  },
-  {
-    key: "index",
-    name: "Index",
-  },
-  {
-    key: "key",
-    name: "Key",
-  },
-  {
-    key: "isIndex",
-    name: "Is Index",
-  },
+  { key: "name", name: "Name" },
+  { key: "alias", name: "Alias" },
+  { key: "rate", name: "Rate" },
+  { key: "dataType", name: "Data Type" },
+  { key: "index", name: "Index" },
+  { key: "key", name: "Key" },
+  { key: "isIndex", name: "Is Index" },
 ];
 
 const canDrop = (

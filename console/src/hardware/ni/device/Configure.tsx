@@ -17,11 +17,10 @@ export const Configure = (props: Layout.RendererProps): ReactElement => (
   <Common.Device.Configure {...props} zeroProperties={ZERO_PROPERTIES} />
 );
 
-export const CONFIGURE_LAYOUT_TYPE = `${Common.Device.CONFIGURE_LAYOUT_TYPE}_NI`;
+export const CONFIGURE_LAYOUT_TYPE = "configure_NI";
 
-export const CONFIGURE_LAYOUT: Layout.BaseState = {
+export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "key"> = {
   ...Common.Device.CONFIGURE_LAYOUT,
-  key: CONFIGURE_LAYOUT_TYPE,
   type: CONFIGURE_LAYOUT_TYPE,
   name: "Device.Configure",
   icon: "Logo.NI",

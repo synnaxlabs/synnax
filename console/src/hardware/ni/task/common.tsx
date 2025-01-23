@@ -15,24 +15,19 @@ import { binary } from "@synnaxlabs/x";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Link } from "@/link";
 
-export interface UseCopyRetrievalCodeProps {
+export interface CopyButtonsProps {
   importClass: string;
   taskKey?: string;
   getName: () => string;
   getConfig: () => any;
 }
 
-export interface UseCopyRetrievalCodeReturn {
-  copyPython: () => void;
-  copyJSON: () => void;
-}
-
-export const useCopyUtils = ({
+export const CopyButtons = ({
   importClass,
   taskKey,
   getName,
   getConfig,
-}: UseCopyRetrievalCodeProps): UseCopyRetrievalCodeReturn => {
+}: CopyButtonsProps) => {
   const copy = useCopyToClipboard();
   const handleCopyPythonCode = () => {
     const name = getName();
@@ -49,14 +44,7 @@ export const useCopyUtils = ({
     const name = getName();
     copy(binary.JSON_CODEC.encodeString(getConfig()), `configuration JSON for ${name}`);
   };
-
-  return { copyPython: handleCopyPythonCode, copyJSON: handleCopyJsonConfig };
-};
-
-export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
-  const { getName, taskKey } = props;
-  const { copyPython, copyJSON } = useCopyUtils(props);
-  const handleCopyToClipBoard = Link.useCopyToClipboard();
+  const handleCopyToClipboard = Link.useCopyToClipboard();
   return (
     <Align.Space direction="x" size="small">
       {taskKey != null && (
@@ -64,7 +52,7 @@ export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
           tooltip={() => <Text.Text level="small">Copy Python Code</Text.Text>}
           tooltipLocation="left"
           variant="text"
-          onClick={copyPython}
+          onClick={handleCopyPythonCode}
         >
           <Icon.Python style={{ color: "var(--pluto-gray-l7)" }} />
         </Button.Icon>
@@ -73,7 +61,7 @@ export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
         tooltip={() => <Text.Text level="small">Copy JSON Configuration</Text.Text>}
         tooltipLocation="left"
         variant="text"
-        onClick={copyJSON}
+        onClick={handleCopyJsonConfig}
       >
         <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
       </Button.Icon>
@@ -83,7 +71,7 @@ export const CopyButtons = (props: UseCopyRetrievalCodeProps) => {
           tooltipLocation="left"
           variant="text"
           onClick={() =>
-            handleCopyToClipBoard({
+            handleCopyToClipboard({
               name: getName(),
               ontologyID: task.ontologyID(taskKey),
             })

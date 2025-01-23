@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  Form,
+  Form as PForm,
   Haul,
   Header,
   Input,
@@ -27,13 +27,12 @@ import {
 } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useState } from "react";
+import { type FC, type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
-import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Write,
   WRITE_TYPE,
@@ -48,19 +47,19 @@ import {
 import { type Layout } from "@/layout";
 import { Link } from "@/link";
 
-export const createWriteLayout = createLayoutCreator<WritePayload>(
-  WRITE_TYPE,
-  "New OPC UA Write Task",
-);
+export const WRITE_LAYOUT: Common.Task.LayoutBaseState = {
+  ...Common.Task.LAYOUT,
+  key: WRITE_TYPE,
+  type: WRITE_TYPE,
+  name: ZERO_WRITE_PAYLOAD.name,
+  icon: "Logo.OPC",
+};
 
 export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({
-    ...createWriteLayout({ create: true }),
-    key: layoutKey,
-  }),
+  create: (key) => ({ ...WRITE_LAYOUT, key }),
 };
 
 const schema = z.object({
@@ -71,189 +70,131 @@ const schema = z.object({
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
-const Wrapped = ({
-  layoutKey,
-  initialValues,
-  task,
-}: Common.Task.WrappedLayoutProps<Write, WritePayload>): ReactElement => {
-  const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
+// const Wrapped = ({
+//   layoutKey,
+//   initialValues,
+//   task,
+// }: Common.Task.WrappedLayoutProps<Write, WritePayload>): ReactElement => {
+//   const client = Synnax.use();
+//   const handleException = Status.useExceptionHandler();
 
-  const methods = Form.use({ schema, values: initialValues });
-  const device = Common.Device.use<Device.Properties>(methods);
+//   const methods = Form.use({ schema, values: initialValues });
+//   const device = Common.Device.use<Device.Properties>(methods);
 
-  const taskState = Common.Task.useObserveState<WriteStateDetails>(
-    methods.setStatus,
-    methods.clearStatuses,
-    task?.key,
-    task?.state,
-  );
-  const running = taskState?.details?.running;
-  const initialState =
-    running === true ? "running" : running === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
-    initialState,
-    task?.key,
-  );
-  const createTask = Common.Task.useCreate<WriteConfig, WriteStateDetails, WriteType>(
-    layoutKey,
-  );
+//   const taskState = Common.Task.useObserveState<WriteStateDetails>(
+//     methods.setStatus,
+//     methods.clearStatuses,
+//     task?.key,
+//     task?.state,
+//   );
+//   const running = taskState?.details?.running;
+//   const initialState =
+//     running === true ? "running" : running === false ? "paused" : undefined;
+//   const [desiredState, setDesiredState] = Common.Task.useDesiredState(
+//     initialState,
+//     task?.key,
+//   );
+//   const createTask = Common.Task.useCreate<WriteConfig, WriteStateDetails, WriteType>(
+//     layoutKey,
+//   );
 
-  const configure = useMutation<void>({
-    mutationFn: async () => {
-      if (!methods.validate() || client == null) return;
-      const { config, name } = methods.value();
+//   const configure = useMutation<void>({
+//     mutationFn: async () => {
+//       if (!methods.validate() || client == null) return;
+//       const { config, name } = methods.value();
+//       await createTask({
+//         key: task?.key,
+//         name,
+//         type: WRITE_TYPE,
+//         config,
+//       });
+//       setDesiredState("paused");
+//     },
+//     onError: (e) => handleException(e, `Failed to configure task`),
+//   });
 
-      const dev = await client.hardware.devices.retrieve<Device.Properties>(
-        config.device,
-      );
+//   const start = useMutation({
+//     mutationFn: async () => {
+//       if (task == null) return;
+//       const isRunning = running === true;
+//       setDesiredState(isRunning ? "paused" : "running");
+//       await task.executeCommand(isRunning ? "stop" : "start");
+//     },
+//   });
 
-      let modified = false;
+//   const name = task?.name;
+//   const key = task?.key;
+//   const handleLink = Link.useCopyToClipboard();
 
-      const commandsToCreate: WriteChannelConfig[] = [];
-      for (const channel of config.channels) {
-        const key = getChannelByNodeID(dev.properties, channel.nodeId);
-        if (primitiveIsZero(key)) commandsToCreate.push(channel);
-        else
-          try {
-            await client.channels.retrieve(key);
-          } catch (e) {
-            if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-            else throw e;
-          }
-      }
-
-      if (commandsToCreate.length > 0) {
-        modified = true;
-        if (
-          dev.properties.write.channels == null ||
-          Array.isArray(dev.properties.write.channels)
-        )
-          dev.properties.write.channels = {};
-        const commandIndexes = await client.channels.create(
-          commandsToCreate.map((c) => ({
-            name: `${c.name}_cmd_time`,
-            dataType: "timestamp",
-            isIndex: true,
-          })),
-        );
-        const commands = await client.channels.create(
-          commandsToCreate.map((c, i) => ({
-            name: `${c.name}_cmd`,
-            dataType: c.dataType,
-            index: commandIndexes[i].key,
-          })),
-        );
-        commands.forEach((c, i) => {
-          const key = commandsToCreate[i].nodeId;
-          dev.properties.write.channels[key] = c.key;
-        });
-      }
-
-      config.channels = config.channels.map((c) => ({
-        ...c,
-        channel: getChannelByNodeID(dev.properties, c.nodeId),
-      }));
-
-      if (modified)
-        await client.hardware.devices.create({
-          ...dev,
-          properties: dev.properties,
-        });
-
-      await createTask({
-        key: task?.key,
-        name,
-        type: WRITE_TYPE,
-        config,
-      });
-      setDesiredState("paused");
-    },
-    onError: (e) => handleException(e, `Failed to configure task`),
-  });
-
-  const start = useMutation({
-    mutationFn: async () => {
-      if (task == null) return;
-      const isRunning = running === true;
-      setDesiredState(isRunning ? "paused" : "running");
-      await task.executeCommand(isRunning ? "stop" : "start");
-    },
-  });
-
-  const name = task?.name;
-  const key = task?.key;
-  const handleLink = Link.useCopyToClipboard();
-
-  return (
-    <Align.Space
-      className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
-      direction="y"
-      grow
-      empty
-    >
-      <Align.Space direction="y" grow>
-        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
-          <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name" label="Name" padHelpText={!task?.snapshot}>
-              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-            </Form.Field>
-            {key != null && (
-              <Button.Icon
-                tooltip={<Text.Text level="small">Copy Link</Text.Text>}
-                tooltipLocation="left"
-                variant="text"
-                onClick={() =>
-                  handleLink({ name, ontologyID: clientTask.ontologyID(key) })
-                }
-              >
-                <Icon.Link />
-              </Button.Icon>
-            )}
-          </Align.Space>
-          <Common.Task.ParentRangeButton key={task?.key} />
-          <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <Device.Select />
-            <Align.Space direction="x">
-              <Form.Field<boolean>
-                label="Data Saving"
-                path="config.dataSaving"
-                optional
-              >
-                {(p) => <Input.Switch {...p} />}
-              </Form.Field>
-            </Align.Space>
-          </Align.Space>
-          <Align.Space
-            direction="x"
-            grow
-            style={{ overflow: "hidden", height: "500px" }}
-          >
-            {task?.snapshot !== true && <Device.Browser device={device} />}
-            <ChannelList
-              path="config.channels"
-              device={device}
-              snapshot={task?.snapshot}
-            />
-          </Align.Space>
-        </Form.Form>
-        <Common.Task.Controls
-          layoutKey={layoutKey}
-          state={taskState}
-          startingOrStopping={
-            start.isPending ||
-            (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
-              taskState?.variant === "success")
-          }
-          configuring={configure.isPending}
-          onStartStop={start.mutate}
-          onConfigure={configure.mutate}
-          snapshot={task?.snapshot}
-        />
-      </Align.Space>
-    </Align.Space>
-  );
-};
+//   return (
+//     <Align.Space
+//       className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
+//       direction="y"
+//       grow
+//       empty
+//     >
+//       <Align.Space direction="y" grow>
+//         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
+//           <Align.Space direction="x" justify="spaceBetween">
+//             <Form.Field<string> path="name" label="Name" padHelpText={!task?.snapshot}>
+//               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+//             </Form.Field>
+//             {key != null && (
+//               <Button.Icon
+//                 tooltip={<Text.Text level="small">Copy Link</Text.Text>}
+//                 tooltipLocation="left"
+//                 variant="text"
+//                 onClick={() =>
+//                   handleLink({ name, ontologyID: clientTask.ontologyID(key) })
+//                 }
+//               >
+//                 <Icon.Link />
+//               </Button.Icon>
+//             )}
+//           </Align.Space>
+//           <Common.Task.ParentRangeButton key={task?.key} />
+//           <Align.Space direction="x" className={CSS.B("task-properties")}>
+//             <Device.Select />
+//             <Align.Space direction="x">
+//               <Form.Field<boolean>
+//                 label="Data Saving"
+//                 path="config.dataSaving"
+//                 optional
+//               >
+//                 {(p) => <Input.Switch {...p} />}
+//               </Form.Field>
+//             </Align.Space>
+//           </Align.Space>
+//           <Align.Space
+//             direction="x"
+//             grow
+//             style={{ overflow: "hidden", height: "500px" }}
+//           >
+//             {task?.snapshot !== true && <Device.Browser device={device} />}
+//             <ChannelList
+//               path="config.channels"
+//               device={device}
+//               snapshot={task?.snapshot}
+//             />
+//           </Align.Space>
+//         </Form.Form>
+//         <Common.Task.Controls
+//           layoutKey={layoutKey}
+//           state={taskState}
+//           startingOrStopping={
+//             start.isPending ||
+//             (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
+//               taskState?.variant === "success")
+//           }
+//           configuring={configure.isPending}
+//           onStartStop={start.mutate}
+//           onConfigure={configure.mutate}
+//           snapshot={task?.snapshot}
+//         />
+//       </Align.Space>
+//     </Align.Space>
+//   );
+// };
 
 interface ChannelListProps {
   path: string;
@@ -262,7 +203,7 @@ interface ChannelListProps {
 }
 
 const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<WriteChannelConfig>({ path });
+  const { value, push, remove } = PForm.useFieldArray<WriteChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
 
   const menuProps = Menu.useContextMenu();
@@ -407,8 +348,8 @@ const ChannelListItem = ({
   ...props
 }: ChannelListItemProps): ReactElement => {
   const { entry } = props;
-  const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<WriteChannelConfig>({
+  const ctx = PForm.useContext();
+  const childValues = PForm.useChildFieldValues<WriteChannelConfig>({
     path: `${path}.${props.index}`,
     optional: true,
   });
@@ -480,18 +421,105 @@ const ChannelForm = ({
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
     <Align.Space direction="y" grow className={CSS.B("channel-form")} empty>
-      <Form.Field<string>
+      <PForm.Field<string>
         path={`${prefix}.name`}
         padHelpText={!snapshot}
         label="Channel Name"
       >
         {(p) => <Input.Text variant="natural" level="h3" {...p} />}
-      </Form.Field>
+      </PForm.Field>
     </Align.Space>
   );
 };
 
-export const WriteTask: Layout.Renderer = Common.Task.wrapLayout(
-  Wrapped,
-  ZERO_WRITE_PAYLOAD,
-);
+// export const WriteTask: Layout.Renderer = Common.Task.wrapLayout(
+//   Wrapped,
+//   ZERO_WRITE_PAYLOAD,
+// );
+
+const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>> = ({
+  methods,
+  task,
+}) => {
+  const device = Common.Device.use<Device.Properties>(methods);
+  return (
+    <>
+      <Align.Space direction="x" className={CSS.B("task-properties")}>
+        <Device.Select />
+        <Align.Space direction="x">
+          <PForm.Field<boolean> label="Data Saving" path="config.dataSaving" optional>
+            {(p) => <Input.Switch {...p} />}
+          </PForm.Field>
+        </Align.Space>
+      </Align.Space>
+      <Align.Space direction="x" grow style={{ overflow: "hidden", height: "500px" }}>
+        {task.snapshot !== true && <Device.Browser device={device} />}
+        <ChannelList path="config.channels" device={device} snapshot={task.snapshot} />
+      </Align.Space>
+    </>
+  );
+};
+
+export const WriteTask = Common.Task.wrapForm(Form, {
+  configSchema: writeConfigZ,
+  type: WRITE_TYPE,
+  zeroPayload: ZERO_WRITE_PAYLOAD,
+  onConfigure: async (client, config) => {
+    const dev = await client.hardware.devices.retrieve<Device.Properties>(
+      config.device,
+    );
+
+    let modified = false;
+
+    const commandsToCreate: WriteChannelConfig[] = [];
+    for (const channel of config.channels) {
+      const key = getChannelByNodeID(dev.properties, channel.nodeId);
+      if (primitiveIsZero(key)) commandsToCreate.push(channel);
+      else
+        try {
+          await client.channels.retrieve(key);
+        } catch (e) {
+          if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+          else throw e;
+        }
+    }
+
+    if (commandsToCreate.length > 0) {
+      modified = true;
+      if (
+        dev.properties.write.channels == null ||
+        Array.isArray(dev.properties.write.channels)
+      )
+        dev.properties.write.channels = {};
+      const commandIndexes = await client.channels.create(
+        commandsToCreate.map((c) => ({
+          name: `${c.name}_cmd_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        })),
+      );
+      const commands = await client.channels.create(
+        commandsToCreate.map((c, i) => ({
+          name: `${c.name}_cmd`,
+          dataType: c.dataType,
+          index: commandIndexes[i].key,
+        })),
+      );
+      commands.forEach((c, i) => {
+        const key = commandsToCreate[i].nodeId;
+        dev.properties.write.channels[key] = c.key;
+      });
+    }
+
+    config.channels = config.channels.map((c) => ({
+      ...c,
+      channel: getChannelByNodeID(dev.properties, c.nodeId),
+    }));
+
+    if (modified)
+      await client.hardware.devices.create({
+        ...dev,
+        properties: dev.properties,
+      });
+  },
+});

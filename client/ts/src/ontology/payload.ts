@@ -141,7 +141,11 @@ export interface Resource<T extends UnknownRecord = UnknownRecord>
   data?: T | null;
 }
 
-export type RelationshipDirection = "from" | "to";
+export const TO_RELATIONSHIP_DIRECTION = "to";
+export const FROM_RELATIONSHIP_DIRECTION = "from";
+export type RelationshipDirection =
+  | typeof TO_RELATIONSHIP_DIRECTION
+  | typeof FROM_RELATIONSHIP_DIRECTION;
 
 export const relationshipSchemaZ = z.object({ from: ID.z, type: z.string(), to: ID.z });
 export interface Relationship extends z.infer<typeof relationshipSchemaZ> {}

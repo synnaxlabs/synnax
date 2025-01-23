@@ -22,13 +22,12 @@ import {
 } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useState } from "react";
+import { type FC, type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
-import { createLayoutCreator } from "@/hardware/labjack/task/createLayoutCreator";
 import { SelectOutputChannelType } from "@/hardware/labjack/task/SelectOutputChannelType";
 import {
   type OutputChannelType,
@@ -45,19 +44,19 @@ import {
 } from "@/hardware/labjack/task/types";
 import { Layout } from "@/layout";
 
-export const createWriteLayout = createLayoutCreator<WritePayload>(
-  WRITE_TYPE,
-  "New LabJack Write Task",
-);
+export const WRITE_LAYOUT: Common.Task.LayoutBaseState = {
+  ...Common.Task.LAYOUT,
+  type: WRITE_TYPE,
+  key: WRITE_TYPE,
+  name: ZERO_WRITE_PAYLOAD.name,
+  icon: "Logo.LabJack",
+};
 
 export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  create: (layoutKey) => ({
-    ...createWriteLayout({ create: true }),
-    key: layoutKey,
-  }),
+  create: (key) => ({ ...WRITE_LAYOUT, key }),
 };
 
 const formSchema = z.object({ name: z.string().min(1), config: writeConfigZ });
@@ -508,4 +507,13 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureWrite = Common.Task.wrapLayout(Wrapped, ZERO_WRITE_PAYLOAD);
+const TaskForm: FC<
+  Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>
+> = () => <></>;
+
+export const WriteTask = Common.Task.wrapForm(TaskForm, {
+  configSchema: writeConfigZ,
+  type: WRITE_TYPE,
+  zeroPayload: ZERO_WRITE_PAYLOAD,
+  onConfigure: async () => {},
+});

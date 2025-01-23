@@ -23,7 +23,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { binary, deep, id, type migrate, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useState } from "react";
+import { type FC, type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -34,7 +34,6 @@ import {
   SelectChannelTypeField,
 } from "@/hardware/ni/task/ChannelForms";
 import { CopyButtons } from "@/hardware/ni/task/common";
-import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   AI_CHANNEL_TYPE_NAMES,
   type AIChannel,
@@ -53,19 +52,19 @@ import {
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { type Layout } from "@/layout";
 
-export const createAnalogReadLayout = createLayoutCreator<AnalogReadPayload>(
-  ANALOG_READ_TYPE,
-  "New NI Analog Read Task",
-);
+export const ANALOG_READ_LAYOUT: Common.Task.LayoutBaseState = {
+  ...Common.Task.LAYOUT,
+  type: ANALOG_READ_TYPE,
+  name: ZERO_ANALOG_READ_PAYLOAD.name,
+  icon: "Logo.NI",
+  key: ANALOG_READ_TYPE,
+};
 
 export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   key: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({
-    ...createAnalogReadLayout({ create: true }),
-    key: layoutKey,
-  }),
+  create: (key) => ({ ...ANALOG_READ_LAYOUT, key }),
 };
 
 const schema = z.object({ name: z.string(), config: analogReadConfigZ });
@@ -523,8 +522,13 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureAnalogRead = Common.Task.wrapLayout(
-  Wrapped,
-  ZERO_ANALOG_READ_PAYLOAD,
-  migrateAnalogReadConfig as migrate.Migrator,
-);
+const TaskForm: FC<
+  Common.Task.FormProps<AnalogReadConfig, AnalogReadDetails, AnalogReadType>
+> = () => <></>;
+
+export const AnalogReadTask = Common.Task.wrapForm(TaskForm, {
+  configSchema: analogReadConfigZ,
+  type: ANALOG_READ_TYPE,
+  zeroPayload: ZERO_ANALOG_READ_PAYLOAD,
+  onConfigure: async () => {},
+});

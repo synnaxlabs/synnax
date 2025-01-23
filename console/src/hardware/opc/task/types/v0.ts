@@ -250,7 +250,6 @@ export type WriteConfig = z.infer<typeof writeConfigZ>;
 export type Write = task.Task<WriteConfig, WriteStateDetails, WriteType>;
 export type WritePayload = task.Payload<WriteConfig, WriteStateDetails, WriteType>;
 export const ZERO_WRITE_PAYLOAD: WritePayload = {
-  key: WRITE_TYPE,
   type: WRITE_TYPE,
   name: "OPC Write Task",
   config: { device: "", channels: [], dataSaving: true },

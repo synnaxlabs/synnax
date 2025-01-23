@@ -23,14 +23,13 @@ import {
 } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useState } from "react";
+import { type FC, type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { CopyButtons } from "@/hardware/ni/task/common";
-import { createLayoutCreator } from "@/hardware/ni/task/createLayoutCreator";
 import {
   type DIChannel,
   DIGITAL_READ_TYPE,
@@ -45,19 +44,19 @@ import {
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
 
-export const createDigitalReadLayout = createLayoutCreator<DigitalReadPayload>(
-  DIGITAL_READ_TYPE,
-  "New NI Digital Read Task",
-);
+export const DIGITAL_READ_LAYOUT: Common.Task.LayoutBaseState = {
+  ...Common.Task.LAYOUT,
+  type: DIGITAL_READ_TYPE,
+  name: ZERO_DIGITAL_READ_PAYLOAD.name,
+  icon: "Logo.NI",
+  key: DIGITAL_READ_TYPE,
+};
 
 export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_READ_TYPE,
   title: "NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({
-    ...createDigitalReadLayout({ create: true }),
-    key: layoutKey,
-  }),
+  create: (key) => ({ ...DIGITAL_READ_LAYOUT, key }),
 };
 
 const Wrapped = ({
@@ -433,7 +432,13 @@ const ChannelListItem = ({
   );
 };
 
-export const ConfigureDigitalRead = Common.Task.wrapLayout(
-  Wrapped,
-  ZERO_DIGITAL_READ_PAYLOAD,
-);
+const TaskForm: FC<
+  Common.Task.FormProps<DigitalReadConfig, DigitalReadDetails, DigitalReadType>
+> = () => <></>;
+
+export const DigitalReadTask = Common.Task.wrapForm(TaskForm, {
+  configSchema: digitalReadConfigZ,
+  type: DIGITAL_READ_TYPE,
+  zeroPayload: ZERO_DIGITAL_READ_PAYLOAD,
+  onConfigure: async () => {},
+});

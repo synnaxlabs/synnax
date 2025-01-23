@@ -22,11 +22,10 @@ export const ContextMenuItems = ({
 }: Ontology.TreeContextMenuProps): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
   if (resources.length !== 1) return null;
-  const key = resources[0].id.key;
-  const handleEditConnection = () => placeLayout({ ...Device.CONFIGURE_LAYOUT, key });
-  const args = { create: true, initialValues: { config: { device: key } } };
-  const handleCreateReadTask = () => placeLayout(Task.configureReadLayout(args));
-  const handleCreateWriteTask = () => placeLayout(Task.createWriteLayout(args));
+  const handleEditConnection = () =>
+    placeLayout({ ...Device.CONFIGURE_LAYOUT, key: resources[0].id.key });
+  const handleCreateReadTask = () => placeLayout(Task.READ_LAYOUT);
+  const handleCreateWriteTask = () => placeLayout(Task.WRITE_LAYOUT);
   return (
     <>
       <Menu.Item

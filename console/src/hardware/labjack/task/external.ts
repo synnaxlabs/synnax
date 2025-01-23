@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ConfigureRead, READ_SELECTABLE } from "@/hardware/labjack/task/Read";
+import { READ_SELECTABLE, ReadTask } from "@/hardware/labjack/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/hardware/labjack/task/types";
-import { ConfigureWrite, WRITE_SELECTABLE } from "@/hardware/labjack/task/Write";
+import { WRITE_SELECTABLE, WriteTask } from "@/hardware/labjack/task/Write";
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/labjack/task/palette";
@@ -20,8 +20,8 @@ export * from "@/hardware/labjack/task/types";
 export * from "@/hardware/labjack/task/Write";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [READ_TYPE]: ConfigureRead,
-  [WRITE_TYPE]: ConfigureWrite,
+  [READ_TYPE]: ReadTask,
+  [WRITE_TYPE]: WriteTask,
 };
 
 export const SELECTABLES: Layout.Selectable[] = [READ_SELECTABLE, WRITE_SELECTABLE];

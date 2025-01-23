@@ -33,13 +33,12 @@ import {
 } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useState } from "react";
+import { type FC, type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
-import { createLayoutCreator } from "@/hardware/opc/task/createLayoutCreator";
 import {
   type Read,
   READ_TYPE,
@@ -54,16 +53,19 @@ import {
 import { type Layout } from "@/layout";
 import { Link } from "@/link";
 
-export const configureReadLayout = createLayoutCreator<ReadPayload>(
-  READ_TYPE,
-  "New OPC UA Read Task",
-);
+export const READ_LAYOUT: Common.Task.LayoutBaseState = {
+  ...Common.Task.LAYOUT,
+  key: READ_TYPE,
+  type: READ_TYPE,
+  name: ZERO_READ_PAYLOAD.name,
+  icon: "Logo.OPC",
+};
 
 export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({ ...configureReadLayout({ create: true }), key: layoutKey }),
+  create: (key) => ({ ...READ_LAYOUT, key }),
 };
 
 const schema = z.object({ name: z.string(), config: readConfigZ });
@@ -246,7 +248,7 @@ const Wrapped = ({
       createTask({ key: task?.key, name, type: READ_TYPE, config });
       setDesiredState("paused");
     },
-    onError: (e) => handleException(e, `Failed to configure task`),
+    onError: (e) => handleException(e, "Failed to configure task"),
   });
 
   const start = useMutation({
@@ -598,7 +600,13 @@ const ChannelForm = ({
   );
 };
 
-export const ReadTask: Layout.Renderer = Common.Task.wrapLayout(
-  Wrapped,
-  ZERO_READ_PAYLOAD,
-);
+const TaskForm: FC<
+  Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>
+> = () => <></>;
+
+export const ReadTask = Common.Task.wrapForm(TaskForm, {
+  configSchema: readConfigZ,
+  type: READ_TYPE,
+  zeroPayload: ZERO_READ_PAYLOAD,
+  onConfigure: async () => {},
+});
