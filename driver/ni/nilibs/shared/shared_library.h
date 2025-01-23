@@ -56,7 +56,7 @@ public:
             return;
         }
         if (!library_name_.empty()) {
-#if defined(_MSC_VER)
+#ifdef _WIN32
             handle_ = ::LoadLibraryA(library_name_.c_str());
 #else
             handle_ = ::dlopen(library_name_.c_str(), RTLD_NOW | RTLD_GLOBAL);
@@ -66,7 +66,7 @@ public:
 
     void unload() {
         if (handle_) {
-#if defined(_MSC_VER)
+#ifdef _WIN32
             ::FreeLibrary(handle_);
 #else
             ::dlclose(handle_);
@@ -79,7 +79,7 @@ public:
         if (!handle_) {
             return nullptr;
         }
-#if defined(_MSC_VER)
+#ifdef _WIN32
         return ::GetProcAddress(handle_, name);
 #else
         return ::dlsym(handle_, name);
