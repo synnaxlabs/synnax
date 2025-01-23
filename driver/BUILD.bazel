@@ -5,7 +5,7 @@ cc_library(
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
-        "@platforms//os:linux": ["-std=c++20"],
+        "@platforms//os:linux": ["-std=c++17"],
         "//conditions:default": [],
     }),
     deps = [
@@ -57,7 +57,7 @@ cc_binary(
         #     "-std:c++20",
         # ],
         "//conditions:default": [
-            "-std=c++20",
+            "-std=c++17",
             "-Wno-gnu-offsetof-extensions",
         ],
     }),
