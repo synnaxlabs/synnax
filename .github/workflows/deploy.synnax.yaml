@@ -51,6 +51,7 @@ jobs:
               - freighter/go/**
               - synnax/**
               - x/go/**
+              - "WORKSPACE"
 
   create-release:
     runs-on: ubuntu-22.04
