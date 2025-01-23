@@ -1,15 +1,3 @@
-genrule(
-    name = "glibc_version_script",
-    outs = ["version_script.txt"],
-    cmd = """cat > $@ << 'EOF'
-GLIBC_2.35 {
-  global:
-    *;
-};
-EOF
-""",
-)
-
 cc_library(
     name = "driver",
     hdrs = [
@@ -88,7 +76,6 @@ cc_binary(
         "//conditions:default": [
             "-lm",
             "-ldl",
-            "-Wl,--version-script=$(location :glibc_version_script)",
         ],
     }),
     deps = [
@@ -113,5 +100,4 @@ cc_binary(
             "@mbedtls_macos",
         ],
     }),
-    data = [":glibc_version_script"],
 )
