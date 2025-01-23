@@ -54,8 +54,7 @@ bool should_stop = false;
 std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
     const configd::Config &config,
     breaker::Breaker &breaker,
-    const std::shared_ptr<synnax::Synnax> &client)
-{
+    const std::shared_ptr<synnax::Synnax> &client) {
     std::pair<synnax::Rack, freighter::Error> res;
     if (config.rack_key != 0)
         res = client->hardware.retrieveRack(config.rack_key);
@@ -69,13 +68,10 @@ std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
 
 const std::string STOP_COMMAND = "STOP";
 
-void input_listener()
-{
+void input_listener() {
     std::string input;
-    while (std::getline(std::cin, input))
-    {
-        if (input == STOP_COMMAND)
-        {
+    while (std::getline(std::cin, input)) {
+        if (input == STOP_COMMAND) {
             {
                 std::lock_guard lock(mtx);
                 should_stop = true;
@@ -88,10 +84,8 @@ void input_listener()
 
 void configure_opc(
     const configd::Config &config,
-    std::vector<std::shared_ptr<task::Factory>> &factories)
-{
-    if (!config.integration_enabled(opc::INTEGRATION_NAME))
-    {
+    std::vector<std::shared_ptr<task::Factory> > &factories) {
+    if (!config.integration_enabled(opc::INTEGRATION_NAME)) {
         LOG(INFO) << "[driver] OPC integration disabled";
     }
     factories.push_back(std::make_shared<opc::Factory>());
@@ -99,10 +93,8 @@ void configure_opc(
 
 void configure_ni(
     const configd::Config &config,
-    std::vector<std::shared_ptr<task::Factory>> &factories)
-{
-    if (!config.integration_enabled(ni::INTEGRATION_NAME))
-    {
+    std::vector<std::shared_ptr<task::Factory> > &factories) {
+    if (!config.integration_enabled(ni::INTEGRATION_NAME)) {
         LOG(INFO) << "[driver] NI integration disabled";
         return;
     }
@@ -112,18 +104,34 @@ void configure_ni(
 
 void configure_sequences(
     const configd::Config &config,
-    std::vector<std::shared_ptr<task::Factory>> &factories)
-{
-    if (!config.integration_enabled(sequence::INTEGRATION_NAME))
-    {
+    std::vector<std::shared_ptr<task::Factory> > &factories) {
+    if (!config.integration_enabled(sequence::INTEGRATION_NAME)) {
         LOG(INFO) << "[driver] Sequence integration disabled";
         return;
     }
     factories.push_back(std::make_shared<sequence::Factory>());
 }
 
-int main(int argc, char *argv[])
-{
+void configure_labjack(
+    const configd::Config &config,
+    std::vector<std::shared_ptr<task::Factory> > &factories
+) {
+#ifdef _WIN32
+    if (
+        !config.integration_enabled(labjack::INTEGRATION_NAME) ||
+        !labjack::dlls_available()
+    ) {
+        LOG(INFO) << "[driver] LabJack integration disabled";
+        return;
+    }
+    auto labjack_factory = std::make_shared<labjack::Factory>();
+    factories.push_back(labjack_factory);
+    return;
+#endif
+    LOG(INFO) << "[driver] LabJack integration not available on this platform";
+}
+
+int main(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
     if (argc > 1)
         config_path = argv[1];
@@ -131,12 +139,12 @@ int main(int argc, char *argv[])
     auto cfg_json = configd::read(config_path);
     LOG(INFO) << "[driver] reading configuration from " << config_path;
     if (cfg_json.empty())
-        LOG(INFO) << "[driver] no configuration found at " << config_path << ". We'll just use the default configuration";
+        LOG(INFO) << "[driver] no configuration found at " << config_path <<
+                ". We'll just use the default configuration";
     else
         LOG(INFO) << "[driver] loaded configuration from " << config_path;
     auto [cfg, cfg_err] = configd::parse(cfg_json);
-    if (cfg_err)
-    {
+    if (cfg_err) {
         LOG(FATAL) << "[driver] failed to parse configuration: " << cfg_err;
         return 1;
     }
@@ -159,18 +167,19 @@ int main(int argc, char *argv[])
     VLOG(1) << "[driver] retrieving meta-data";
     auto [rack, rack_err] = retrieve_driver_rack(cfg, breaker, client);
     breaker.stop();
-    if (rack_err)
-    {
-        LOG(FATAL) << "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
-                   << rack_err;
+    if (rack_err) {
+        LOG(FATAL) <<
+                "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
+                << rack_err;
         return 1;
     }
 
     auto hb_factory = std::make_shared<heartbeat::Factory>();
-    std::vector<std::shared_ptr<task::Factory>> factories{hb_factory};
+    std::vector<std::shared_ptr<task::Factory> > factories{hb_factory};
     configure_opc(cfg, factories);
     configure_ni(cfg, factories);
     configure_sequences(cfg, factories);
+    configure_labjack(cfg, factories);
 
     LOG(INFO) << "[driver] starting task manager";
 
@@ -183,15 +192,12 @@ int main(int argc, char *argv[])
 
     std::thread listener(input_listener);
 
-    if (auto err = task_manager->start())
-    {
+    if (auto err = task_manager->start()) {
         LOG(FATAL) << "[driver] failed to start: " << err;
         return 1;
-    }
-    {
+    } {
         std::unique_lock lock(mtx);
-        cv.wait(lock, []
-                { return should_stop; });
+        cv.wait(lock, [] { return should_stop; });
     }
 
     LOG(INFO) << "[driver] received stop command. Shutting down";
