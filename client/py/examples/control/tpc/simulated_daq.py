@@ -50,14 +50,9 @@ daq_time = client.channels.create(
 )
 
 for cmd, state in VALVES.items():
-    cmd_time = client.channels.create(
-        name=f"{cmd}_time",
-        is_index=True,
-        retrieve_if_name_exists=True,
-    )
     client.channels.create(
         [
-            sy.Channel(name=cmd, data_type=sy.DataType.UINT8, index=cmd_time.key),
+            sy.Channel(name=cmd, data_type=sy.DataType.UINT8, virtual=True),
             sy.Channel(name=state, data_type=sy.DataType.UINT8, index=daq_time.key),
         ],
         retrieve_if_name_exists=True,

@@ -11,17 +11,18 @@
 #include <algorithm>
 
 #include "driver/ni/ni.h"
-#include "driver/ni/nisyscfg_api.h"
+#include "nisyscfg/nisyscfg_api.h"
 
 #include "nlohmann/json.hpp"
 
 ni::Scanner::Scanner(
+    const std::shared_ptr<SysCfg> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
-) : task(task), ctx(ctx) {
+) : syscfg(syscfg), task(task), ctx(ctx) {
     // initialize syscfg session for the scanner (TODO: Error Handling for status)
     NISysCfgStatus status = NISysCfg_OK;
-    status = ni::NiSysCfgInterface::InitializeSession(
+    status = syscfg->InitializeSession(
         "localhost", // target (ip, mac or dns name)
         NULL, // username (NULL for local system)
         NULL, // password (NULL for local system)
@@ -40,22 +41,22 @@ ni::Scanner::Scanner(
 
     // create a filter to only identify NI devices rather than chassis and devices which are connected (which includes simulated devices)
     this->filter = NULL;
-    ni::NiSysCfgInterface::CreateFilter(this->session, &this->filter);
-    ni::NiSysCfgInterface::SetFilterProperty(
+    syscfg->CreateFilter(this->session, &this->filter);
+    syscfg->SetFilterProperty(
         this->filter,
         NISysCfgFilterPropertyIsDevice,
         NISysCfgBoolTrue
     );
-    ni::NiSysCfgInterface::SetFilterProperty(
-        this->filter,
-        NISysCfgFilterPropertyIsPresent,
-        NISysCfgIsPresentTypePresent
-    );
-    ni::NiSysCfgInterface::SetFilterProperty(
-        this->filter,
-        NISysCfgFilterPropertyIsChassis,
-        NISysCfgBoolFalse
-    );
+//    this->syscfg->SetFilterProperty(
+//        this->filter,
+//        NISysCfgFilterPropertyIsPresent,
+//        NISysCfgIsPresentTypePresent
+//    );
+//    this->syscfg->SetFilterProperty(
+//        this->filter,
+//        NISysCfgFilterPropertyIsChassis,
+//        NISysCfgBoolFalse
+//    );
     VLOG(1) << "[ni.scanner] successfully configured scanner for task " << this->task.
             name;
 
@@ -72,22 +73,22 @@ void ni::Scanner::join_scan_thread() {
 
 ni::Scanner::~Scanner() {
     if (this->scan_thread && scan_thread->joinable()) scan_thread->join();
-    ni::NiSysCfgInterface::CloseHandle(this->filter);
-    ni::NiSysCfgInterface::CloseHandle(this->session);
+    this->syscfg->CloseHandle(this->filter);
+    this->syscfg->CloseHandle(this->session);
 }
 
 void ni::Scanner::scan() {
     if (!this->ok_state) return;
     NISysCfgResourceHandle resource = NULL;
 
-    auto err = ni::NiSysCfgInterface::FindHardware(
+    auto err = this->syscfg->FindHardware(
         this->session, NISysCfgFilterModeAll,
         this->filter, NULL,
         &this->resources_handle
     );
     if (err != NISysCfg_OK) return log_err("failed to find hardware");
 
-    while (ni::NiSysCfgInterface::NextResource(
+    while (this->syscfg->NextResource(
                this->session,
                this->resources_handle,
                &resource
@@ -98,9 +99,9 @@ void ni::Scanner::scan() {
             devices["devices"].push_back(device);
             device_keys.insert(device["key"]);
         }
-        ni::NiSysCfgInterface::CloseHandle(resource);
+        this->syscfg->CloseHandle(resource);
     }
-    ni::NiSysCfgInterface::CloseHandle(this->resources_handle);
+    this->syscfg->CloseHandle(this->resources_handle);
 }
 
 json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
@@ -109,7 +110,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     char propertyValue[1024] = "";
     int status;
 
-    status = ni::NiSysCfgInterface::GetResourceProperty(
+    status = this->syscfg->GetResourceProperty(
         resource,
         NISysCfgResourcePropertySerialNumber,
         propertyValue
@@ -117,7 +118,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     if (status != NISysCfg_OK) log_err("failed to get serial number");
     device["serial_number"] = propertyValue;
 
-    status = ni::NiSysCfgInterface::GetResourceProperty(
+    status = this->syscfg->GetResourceProperty(
         resource,
         NISysCfgResourcePropertyProductName,
         propertyValue
@@ -127,7 +128,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     if (model.size() > 3) model = model.substr(3);
     device["model"] = model;
 
-    status = ni::NiSysCfgInterface::GetResourceIndexedProperty(
+    status = this->syscfg->GetResourceIndexedProperty(
         resource,
         NISysCfgIndexedPropertyExpertUserAlias,
         0,
@@ -136,7 +137,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     if (status != NISysCfg_OK) log_err("failed to get location");
     device["location"] = propertyValue;
 
-    status = ni::NiSysCfgInterface::GetResourceIndexedProperty(
+    status = this->syscfg->GetResourceIndexedProperty(
         resource,
         NISysCfgIndexedPropertyExpertResourceName,
         0,
@@ -149,7 +150,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     device["resource_name"] = rsrc_name;
 
     double temp = 0;
-    status = ni::NiSysCfgInterface::GetResourceProperty(
+    status = this->syscfg->GetResourceProperty(
         resource,
         NISysCfgResourcePropertyCurrentTemp,
         &temp
@@ -157,7 +158,7 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     device["temperature"] = temp;
 
     NISysCfgBool isSimulated;
-    status = ni::NiSysCfgInterface::GetResourceProperty(
+    status = this->syscfg->GetResourceProperty(
         resource,
         NISysCfgResourcePropertyIsSimulated,
         &isSimulated

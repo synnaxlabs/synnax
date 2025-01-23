@@ -18,9 +18,10 @@
 //                                    ScannerTask                                //
 ///////////////////////////////////////////////////////////////////////////////////
 ni::ScannerTask::ScannerTask(
+    const std::shared_ptr<SysCfg> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
-    synnax::Task task
-) : scanner(ctx, task), ctx(ctx), task(task) {
+    const synnax::Task &task
+) : scanner(syscfg, ctx, task), ctx(ctx), task(task) {
     this->breaker = breaker::Breaker(breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
@@ -45,10 +46,11 @@ ni::ScannerTask::ScannerTask(
 }
 
 std::unique_ptr<task::Task> ni::ScannerTask::configure(
+    const std::shared_ptr<SysCfg> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    return std::make_unique<ni::ScannerTask>(ctx, task);
+    return std::make_unique<ni::ScannerTask>(syscfg, ctx, task);
 }
 
 
@@ -89,31 +91,35 @@ bool ni::ScannerTask::ok() {
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
 ni::ReaderTask::ReaderTask(
-        const std::shared_ptr<task::Context> &ctx,
-        synnax::Task task,
-        std::shared_ptr<pipeline::Source> source,
-        std::shared_ptr<ni::Source> ni_source,
-        synnax::WriterConfig writer_config,
-        const breaker::Config breaker_config
-) : ctx(ctx),
+    const std::shared_ptr<DAQmx> &dmx,
+    const std::shared_ptr<task::Context> &ctx,
+    synnax::Task task,
+    std::shared_ptr<pipeline::Source> source,
+    std::shared_ptr<ni::Source> ni_source,
+    synnax::WriterConfig writer_config,
+    const breaker::Config breaker_config
+) : dmx(dmx),
+    ctx(ctx),
     task(task),
     daq_read_pipe(
         pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
-    source(ni_source) {
+    source(ni_source)
 
+{
     this->ok_state = ni_source->ok();
 
     // middleware chain
     std::vector<synnax::ChannelKey> channel_keys = ni_source->get_channel_keys();
     this->tare_mw = std::make_shared<pipeline::TareMiddleware>(channel_keys);
     daq_read_pipe.add_middleware(tare_mw);
-
 }
 
 
 std::unique_ptr<task::Task> ni::ReaderTask::configure(
+    const std::shared_ptr<DAQmx> &dmx,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task) {
+    const synnax::Task &task
+) {
     LOG(INFO) << "[ni.task] configuring task " << task.name;
 
     auto breaker_config = breaker::Config{
@@ -125,19 +131,21 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
-//    LOG(INFO) << "Task config: " << parser.get_json().dump(4);
+    //    LOG(INFO) << "Task config: " << parser.get_json().dump(4);
 
     TaskHandle task_handle;
-    ni::NiDAQmxInterface::CreateTask("", &task_handle);
+    dmx->CreateTask("", &task_handle);
 
     std::vector<synnax::ChannelKey> channel_keys;
     std::shared_ptr<pipeline::Source> source;
     std::shared_ptr<ni::Source> ni_source;
-    if (task.type != "ni_analog_read")
-        ni_source = std::make_shared<ni::DigitalReadSource>(task_handle, ctx, task);
-    else
-        ni_source = std::make_shared<ni::AnalogReadSource>(task_handle, ctx, task);
 
+    if (task.type != "ni_analog_read") {
+        ni_source = std::make_shared<ni::DigitalReadSource>(dmx, task_handle, ctx, task);
+    } else {
+        ni_source = std::make_shared<ni::AnalogReadSource>(dmx, task_handle, ctx, task);
+    }
+    
     source = ni_source;
     ni_source->init();
     channel_keys = ni_source->get_channel_keys();
@@ -155,13 +163,14 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     if (ni_source->ok()) ni_source->cycle();
 
     auto p = std::make_unique<ni::ReaderTask>(
-            ctx,
-            task,
-            source,
-            ni_source,
-            writer_config,
-            breaker_config
-        );
+        dmx,
+        ctx,
+        task,
+        source,
+        ni_source,
+        writer_config,
+        breaker_config
+    );
 
     if (!ni_source->ok()) {
         LOG(ERROR) << "[ni.task] failed to configure task " << task.name;
@@ -189,8 +198,8 @@ void ni::ReaderTask::exec(task::Command &cmd) {
     } else if (cmd.type == "stop") {
         this->stop(cmd.key);
         LOG(INFO) << "[ni.reader] stopped task " << this->task.name;
-    } else if (cmd.type == "tare"){
-        if(this->ok()){
+    } else if (cmd.type == "tare") {
+        if (this->ok()) {
             this->tare_mw->tare(cmd.args);
             LOG(INFO) << "[ni.reader] tared channels for " << this->task.name;
         }
@@ -200,7 +209,8 @@ void ni::ReaderTask::exec(task::Command &cmd) {
 void ni::ReaderTask::stop() { this->stop(""); }
 
 void ni::ReaderTask::stop(const std::string &cmd_key) {
-    if (!this->running.exchange(false)) { // TODO: if running false, return silenelty as task is already stopped
+    if (!this->running.exchange(false)) {
+        // TODO: if running false, return silenelty as task is already stopped
         LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
                 this->running << " ok: "
                 << this->ok();
@@ -260,9 +270,11 @@ ni::DigitalWriterTask::DigitalWriterTask(
 }
 
 
-std::unique_ptr<task::Task> ni::DigitalWriterTask::configure(
+std::unique_ptr<task::Task> ni::WriterTask::configure(
+    const std::shared_ptr<DAQmx> &dmx,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task) {
+    const synnax::Task &task
+    ) {
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
@@ -274,10 +286,10 @@ std::unique_ptr<task::Task> ni::DigitalWriterTask::configure(
     auto data_saving = parser.optional<bool>("data_saving", true);
 
     TaskHandle task_handle;
-    ni::NiDAQmxInterface::CreateTask("", &task_handle);
+    dmx->CreateTask("", &task_handle);
 
     LOG(INFO) << "[ni.writer] configuring task " << task.name;
-    auto daq_writer = std::make_shared<ni::DigitalWriteSink>(task_handle, ctx, task);
+    auto daq_writer = std::make_shared<ni::DigitalWriteSink>(dmx, task_handle, ctx, task);
 
     std::vector<synnax::ChannelKey> cmd_keys = daq_writer->get_cmd_channel_keys();
     std::vector<synnax::ChannelKey> state_keys = daq_writer->get_state_channel_keys();
@@ -299,16 +311,17 @@ std::unique_ptr<task::Task> ni::DigitalWriterTask::configure(
 
     auto state_writer = daq_writer->writer_state_source;
 
-    auto p = std::make_unique<ni::DigitalWriterTask>(
-            ctx,
-            task,
-            daq_writer,
-            daq_writer,
-            state_writer,
-            state_writer_config,
-            cmd_streamer_config,
-            breaker_config
-        );
+    VLOG(1) << "[ni.writer] constructed writer for " << task.name;
+    auto p = std::make_unique<ni::WriterTask>(
+        ctx,
+        task,
+        daq_writer,
+        daq_writer,
+        state_writer,
+        state_writer_config,
+        cmd_streamer_config,
+        breaker_config
+    );
 
     ctx->set_state({
         .task = task.key,
