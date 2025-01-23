@@ -78,7 +78,6 @@ ni::Scanner::~Scanner() {
 }
 
 void ni::Scanner::scan() {
-    LOG(INFO) << "SCAN";
     if (!this->ok_state) return;
     NISysCfgResourceHandle resource = NULL;
 
