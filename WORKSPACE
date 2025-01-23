@@ -153,7 +153,3 @@ http_archive(
     strip_prefix = "lua-5.4.6",
     build_file = "@//driver/vendor/lua:BUILD.bazel",
 )
-
-register_toolchains(
-    "//toolchain:gcc_suite",
-)
