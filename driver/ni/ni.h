@@ -638,11 +638,11 @@ private:
 }; // class ReaderTask
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    WriterTask                                 //
+//                                    DigitalWriterTask                           //
 ///////////////////////////////////////////////////////////////////////////////////
-class WriterTask final : public task::Task {
+class DigitalWriterTask final : public task::Task {
 public:
-    explicit WriterTask(const std::shared_ptr<task::Context> &ctx,
+    explicit DigitalWriterTask(const std::shared_ptr<task::Context> &ctx,
                         synnax::Task task,
                         std::shared_ptr<pipeline::Sink> sink,
                         std::shared_ptr<ni::DigitalWriteSink> ni_sink,
@@ -651,7 +651,8 @@ public:
                         synnax::StreamerConfig streamer_config,
                         const breaker::Config breaker_config);
 
-    explicit WriterTask() = default;
+
+    explicit DigitalWriterTask() = default;
 
     void exec(task::Command &cmd) override;
 
@@ -677,7 +678,50 @@ private:
     pipeline::Acquisition state_write_pipe;
     bool ok_state = true;
     std::shared_ptr<ni::DigitalWriteSink> sink;
-}; // class WriterTask
+}; // class DigitalWriterTask
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                    AnalogWriterTask                           //
+///////////////////////////////////////////////////////////////////////////////////
+class AnalogWriterTask final : public task::Task {
+public:
+    explicit AnalogWriterTask(const std::shared_ptr<task::Context> &ctx,
+                        synnax::Task task,
+                        std::shared_ptr<pipeline::Sink> sink,
+                        std::shared_ptr<ni::AnalogWriteSink> ni_sink,
+                        std::shared_ptr<pipeline::Source> writer_state_source,
+                        synnax::WriterConfig writer_config,
+                        synnax::StreamerConfig streamer_config,
+                        const breaker::Config breaker_config);
+
+
+    explicit AnalogWriterTask() = default;
+
+    void exec(task::Command &cmd) override;
+
+    void stop() override;
+
+    void stop(const std::string &cmd_key);
+
+    void start(const std::string &cmd_key);
+
+    static std::unique_ptr<task::Task> configure(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task);
+
+    bool ok();
+
+    std::string name() override { return task.name; }
+
+private:
+    std::atomic<bool> running = false;
+    std::shared_ptr<task::Context> ctx;
+    synnax::Task task;
+    pipeline::Control cmd_write_pipe;
+    pipeline::Acquisition state_write_pipe;
+    bool ok_state = true;
+    std::shared_ptr<ni::AnalogWriteSink> sink;
+}; // class AnalogWriterTask
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    Factory                                    //
