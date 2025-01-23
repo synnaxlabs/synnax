@@ -9,35 +9,19 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Channel,
-  Form,
-  Header,
-  Input,
-  List,
-  Menu,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Align, Channel, Form, Header, List, Menu, Text } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
 import { type FC, type ReactElement, useCallback, useState } from "react";
-import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { CopyButtons } from "@/hardware/ni/task/common";
 import {
   type DIChannel,
   DIGITAL_READ_TYPE,
-  type DigitalRead,
   type DigitalReadConfig,
   digitalReadConfigZ,
   type DigitalReadDetails,
-  type DigitalReadPayload,
   type DigitalReadType,
   ZERO_DI_CHANNEL,
   ZERO_DIGITAL_READ_PAYLOAD,
@@ -57,215 +41,6 @@ export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   title: "NI Digital Read Task",
   icon: <Icon.Logo.NI />,
   create: (key) => ({ ...DIGITAL_READ_LAYOUT, key }),
-};
-
-const Wrapped = ({
-  task,
-  initialValues,
-  layoutKey,
-}: Common.Task.WrappedLayoutProps<DigitalRead, DigitalReadPayload>): ReactElement => {
-  const client = Synnax.use();
-  const methods = Form.use({
-    values: initialValues,
-    schema: z.object({ name: z.string(), config: digitalReadConfigZ }),
-  });
-
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
-
-  const taskState = Common.Task.useObserveState<DigitalReadDetails>(
-    methods.setStatus,
-    methods.clearStatuses,
-    task?.key,
-    task?.state,
-  );
-  const running = taskState?.details?.running;
-  const initialState =
-    running === true ? "running" : running === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
-    initialState,
-    task?.key,
-  );
-
-  const createTask = Common.Task.useCreate<
-    DigitalReadConfig,
-    DigitalReadDetails,
-    DigitalReadType
-  >(layoutKey);
-
-  const handleException = Status.useExceptionHandler();
-
-  const configure = useMutation({
-    onError: (e) => handleException(e, "Failed to configure NI Digital Read Task"),
-    mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) return;
-      const { name, config } = methods.value();
-
-      const dev = await client.hardware.devices.retrieve<Device.Properties>(
-        config.device,
-      );
-      dev.properties = Device.enrich(dev.model, dev.properties);
-
-      let modified = false;
-      let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
-      if (!shouldCreateIndex)
-        try {
-          await client.channels.retrieve(dev.properties.digitalInput.index);
-        } catch (e) {
-          if (NotFoundError.matches(e)) shouldCreateIndex = true;
-          else throw e;
-        }
-
-      if (shouldCreateIndex) {
-        modified = true;
-        const aiIndex = await client.channels.create({
-          name: `${dev.properties.identifier}_di_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        dev.properties.digitalInput.index = aiIndex.key;
-        dev.properties.digitalInput.channels = {};
-      }
-
-      const toCreate: DIChannel[] = [];
-      for (const channel of config.channels) {
-        const key = `${channel.port}l${channel.line}`;
-        // check if the channel is in properties
-        const exKey = dev.properties.digitalInput.channels[key];
-        if (primitiveIsZero(exKey)) toCreate.push(channel);
-        else
-          try {
-            await client.channels.retrieve(exKey.toString());
-          } catch (e) {
-            if (NotFoundError.matches(e)) toCreate.push(channel);
-            else throw e;
-          }
-      }
-
-      if (toCreate.length > 0) {
-        modified = true;
-        const channels = await client.channels.create(
-          toCreate.map((c) => ({
-            name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
-            dataType: "uint8",
-            index: dev.properties.digitalInput.index,
-          })),
-        );
-        channels.forEach((c, i) => {
-          const key = `${toCreate[i].port}l${toCreate[i].line}`;
-          dev.properties.digitalInput.channels[key] = c.key;
-        });
-      }
-
-      if (modified)
-        await client.hardware.devices.create({
-          ...dev,
-          properties: dev.properties,
-        });
-
-      config.channels.forEach((c) => {
-        const key = `${c.port}l${c.line}`;
-        c.channel = dev.properties.digitalInput.channels[key];
-      });
-      await createTask({
-        key: task?.key,
-        name,
-        type: DIGITAL_READ_TYPE,
-        config,
-      });
-      setDesiredState("paused");
-    },
-  });
-
-  const start = useMutation({
-    mutationFn: async () => {
-      if (client == null) return;
-      const isRunning = running === true;
-      setDesiredState(isRunning ? "paused" : "running");
-      await task?.executeCommand(isRunning ? "stop" : "start");
-    },
-  });
-
-  return (
-    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
-      <Align.Space>
-        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
-          <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
-              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-            </Form.Field>
-            <CopyButtons
-              importClass="DigitalReadTask"
-              taskKey={task?.key}
-              getName={() => methods.get<string>("name").value}
-              getConfig={() => methods.get("config").value}
-            />
-          </Align.Space>
-          <Common.Task.ParentRangeButton key={task?.key} />
-          <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <Device.Select />
-            <Align.Space direction="x">
-              <Form.NumericField
-                label="Sample Rate"
-                path="config.sampleRate"
-                inputProps={{ endContent: "Hz" }}
-              />
-              <Form.NumericField
-                label="Stream Rate"
-                path="config.streamRate"
-                inputProps={{ endContent: "Hz" }}
-              />
-              <Form.SwitchField label="Data Saving" path="config.dataSaving" />
-            </Align.Space>
-          </Align.Space>
-          <Align.Space
-            direction="x"
-            className={CSS.B("channel-form-container")}
-            bordered
-            rounded
-            grow
-            empty
-          >
-            <ChannelList
-              path="config.channels"
-              snapshot={task?.snapshot}
-              selected={selectedChannels}
-              onSelect={useCallback(
-                (v, i) => {
-                  setSelectedChannels(v);
-                  setSelectedChannelIndex(i);
-                },
-                [setSelectedChannels, setSelectedChannelIndex],
-              )}
-            />
-            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-              <Header.Header level="h4">
-                <Header.Title weight={500}>Details</Header.Title>
-              </Header.Header>
-              <Align.Space className={CSS.B("details")}>
-                {selectedChannelIndex != null && (
-                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
-                )}
-              </Align.Space>
-            </Align.Space>
-          </Align.Space>
-        </Form.Form>
-        <Common.Task.Controls
-          layoutKey={layoutKey}
-          state={taskState}
-          snapshot={task?.snapshot}
-          startingOrStopping={
-            start.isPending ||
-            (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
-              taskState?.variant === "success")
-          }
-          configuring={configure.isPending}
-          onConfigure={configure.mutate}
-          onStartStop={start.mutate}
-        />
-      </Align.Space>
-    </Align.Space>
-  );
 };
 
 interface ChannelFormProps {
@@ -434,11 +209,127 @@ const ChannelListItem = ({
 
 const TaskForm: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadDetails, DigitalReadType>
-> = () => <></>;
+> = ({ task }) => {
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(
+    task.config.channels.length ? [task.config.channels[0].key] : [],
+  );
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
+    task.config.channels.length > 0 ? 0 : null,
+  );
+  return (
+    <>
+      <Align.Space direction="x" className={CSS.B("task-properties")}>
+        <Device.Select />
+        <Align.Space direction="x">
+          <Form.NumericField
+            label="Sample Rate"
+            path="config.sampleRate"
+            inputProps={{ endContent: "Hz" }}
+          />
+          <Form.NumericField
+            label="Stream Rate"
+            path="config.streamRate"
+            inputProps={{ endContent: "Hz" }}
+          />
+          <Form.SwitchField label="Data Saving" path="config.dataSaving" />
+        </Align.Space>
+      </Align.Space>
+      <Align.Space
+        direction="x"
+        className={CSS.B("channel-form-container")}
+        bordered
+        rounded
+        grow
+        empty
+      >
+        <ChannelList
+          path="config.channels"
+          snapshot={task?.snapshot}
+          selected={selectedChannels}
+          onSelect={useCallback(
+            (v, i) => {
+              setSelectedChannels(v);
+              setSelectedChannelIndex(i);
+            },
+            [setSelectedChannels, setSelectedChannelIndex],
+          )}
+        />
+        <Align.Space className={CSS.B("channel-form")} direction="y" grow>
+          <Header.Header level="h4">
+            <Header.Title weight={500}>Details</Header.Title>
+          </Header.Header>
+          <Align.Space className={CSS.B("details")}>
+            {selectedChannelIndex != null && (
+              <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+            )}
+          </Align.Space>
+        </Align.Space>
+      </Align.Space>
+    </>
+  );
+};
 
 export const DigitalReadTask = Common.Task.wrapForm(TaskForm, {
   configSchema: digitalReadConfigZ,
   type: DIGITAL_READ_TYPE,
   zeroPayload: ZERO_DIGITAL_READ_PAYLOAD,
-  onConfigure: async () => {},
+  onConfigure: async (client, config) => {
+    const dev = await client.hardware.devices.retrieve<Device.Properties>(
+      config.device,
+    );
+    dev.properties = Device.enrich(dev.model, dev.properties);
+    let modified = false;
+    let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
+    if (!shouldCreateIndex)
+      try {
+        await client.channels.retrieve(dev.properties.digitalInput.index);
+      } catch (e) {
+        if (NotFoundError.matches(e)) shouldCreateIndex = true;
+        else throw e;
+      }
+    if (shouldCreateIndex) {
+      modified = true;
+      const aiIndex = await client.channels.create({
+        name: `${dev.properties.identifier}_di_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.digitalInput.index = aiIndex.key;
+      dev.properties.digitalInput.channels = {};
+    }
+    const toCreate: DIChannel[] = [];
+    for (const channel of config.channels) {
+      const key = `${channel.port}l${channel.line}`;
+      // check if the channel is in properties
+      const exKey = dev.properties.digitalInput.channels[key];
+      if (primitiveIsZero(exKey)) toCreate.push(channel);
+      else
+        try {
+          await client.channels.retrieve(exKey.toString());
+        } catch (e) {
+          if (NotFoundError.matches(e)) toCreate.push(channel);
+          else throw e;
+        }
+    }
+    if (toCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
+          dataType: "uint8",
+          index: dev.properties.digitalInput.index,
+        })),
+      );
+      channels.forEach((c, i) => {
+        const key = `${toCreate[i].port}l${toCreate[i].line}`;
+        dev.properties.digitalInput.channels[key] = c.key;
+      });
+    }
+    if (modified) await client.hardware.devices.create(dev);
+    config.channels.forEach((c) => {
+      const key = `${c.port}l${c.line}`;
+      c.channel = dev.properties.digitalInput.channels[key];
+    });
+    return config;
+  },
 });

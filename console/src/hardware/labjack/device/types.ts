@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type device } from "@synnaxlabs/client";
-import { bounds, type UnknownRecord } from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x";
 
 import { type Common } from "@/hardware/common";
 
 // Makes
 
 export const MAKE = "LabJack";
-type Make = typeof MAKE;
+export type Make = typeof MAKE;
 
 // Model Keys
 
@@ -214,13 +214,6 @@ export const DEVICES: Devices = {
   [T8_MODEL_KEY]: T8,
 };
 
-interface Unconfigured extends device.Device {
-  model: ModelKey;
-  make: Make;
-  configured?: false;
-  properties: UnknownRecord;
-}
-
 export type Properties = {
   identifier: Common.Device.Identifier;
   readIndex: channel.Key;
@@ -243,9 +236,4 @@ export const ZERO_PROPERTIES: Properties = {
   [DO_PORT_TYPE]: { channels: {} },
 };
 
-export interface Configured extends Omit<Unconfigured, "configured" | "properties"> {
-  configured: true;
-  properties: Properties;
-}
-
-export type Device = Configured | Unconfigured;
+export type Device = device.Device<Properties, Make>;

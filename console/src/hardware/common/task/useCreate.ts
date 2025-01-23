@@ -26,7 +26,6 @@ export const useCreate = <
   const dispatch = useDispatch();
   return useCallback(
     async (pld: task.New<C, T>) => {
-      console.log("useCreate: pld", pld);
       if (client == null) throw new Error("Client not found");
       const rck = await client.hardware.racks.retrieve(rack.DEFAULT_CHANNEL_NAME);
       const ot = await rck.createTask<C, D, T>(pld);

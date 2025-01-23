@@ -26,24 +26,24 @@ export const deviceZ = z.object({
   properties: z
     .record(z.unknown())
     .or(
-      z
-        .string()
-        .transform(
-          (c) => (c === "" ? {} : binary.JSON_CODEC.decodeString(c)) as UnknownRecord,
-        ),
+      z.string().transform((c) => (c === "" ? {} : binary.JSON_CODEC.decodeString(c))),
     ) as z.ZodType<UnknownRecord>,
 });
-export interface Device<P extends UnknownRecord = UnknownRecord>
-  extends Omit<z.output<typeof deviceZ>, "properties"> {
+export interface Device<
+  P extends UnknownRecord = UnknownRecord,
+  M extends string = string,
+> extends Omit<z.output<typeof deviceZ>, "properties"> {
   properties: P;
+  make: M;
 }
 
 export const newZ = deviceZ.extend({
   properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
-export interface New<P extends UnknownRecord = UnknownRecord>
+export interface New<P extends UnknownRecord = UnknownRecord, M extends string = string>
   extends Omit<z.input<typeof newZ>, "properties"> {
   properties: P;
+  make: M;
 }
 
 export const ONTOLOGY_TYPE = "device";

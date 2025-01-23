@@ -9,32 +9,21 @@
 
 import "@/hardware/opc/task/Task.css";
 
-import {
-  type channel,
-  DataType,
-  type device,
-  NotFoundError,
-  task as clientTask,
-} from "@synnaxlabs/client";
+import { type channel, DataType, type device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  Button,
   Form,
   Haul,
   Header,
   Input,
   List,
   Menu,
-  Status,
-  Synnax,
   Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
 import { type FC, type ReactElement, useCallback, useState } from "react";
-import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
@@ -45,13 +34,11 @@ import {
   type ReadChannelConfig,
   type ReadConfig,
   readConfigZ,
-  type ReadPayload,
   type ReadStateDetails,
   type ReadType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
-import { Link } from "@/link";
 
 export const READ_LAYOUT: Common.Task.LayoutBaseState = {
   ...Common.Task.LAYOUT,
@@ -68,284 +55,8 @@ export const READ_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...READ_LAYOUT, key }),
 };
 
-const schema = z.object({ name: z.string(), config: readConfigZ });
-
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.read.channels[nodeId] ?? props.read.channels[caseconv.snakeToCamel(nodeId)];
-
-const Wrapped = ({
-  layoutKey,
-  initialValues,
-  task,
-}: Common.Task.WrappedLayoutProps<Read, ReadPayload>): ReactElement => {
-  const client = Synnax.use();
-  const handleException = Status.useExceptionHandler();
-  const methods = Form.use({ schema, values: initialValues });
-  const dev = Common.Device.use<Device.Properties>(methods);
-  const taskState = Common.Task.useObserveState<ReadStateDetails>(
-    methods.setStatus,
-    methods.clearStatuses,
-    task?.key,
-    task?.state,
-  );
-  const running = taskState?.details?.running;
-  const initialState =
-    running === true ? "running" : running === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
-    initialState,
-    task?.key,
-  );
-  const createTask = Common.Task.useCreate<ReadConfig, ReadStateDetails, ReadType>(
-    layoutKey,
-  );
-  const configure = useMutation<void>({
-    mutationFn: async () => {
-      if (client == null) throw new Error("Client not available");
-      if (!methods.validate()) return;
-      const { config, name } = methods.value();
-
-      // Retrieving the device and updating its properties if needed
-      const dev = await client.hardware.devices.retrieve<Device.Properties>(
-        config.device,
-      );
-      dev.properties = Device.migrateProperties(dev.properties);
-      await client.hardware.devices.create(dev);
-
-      // modified determines if we have to configure a device. indexChannel is the key
-      // that will be used as an index for the read task.
-      let modified = false;
-      let indexChannel: channel.Key = 0;
-
-      // getting exiting indexes on the opc device
-      let devIndexes: channel.Key[] = [];
-      if (!primitiveIsZero(dev.properties.read.indexes))
-        try {
-          devIndexes = (
-            await client.channels.retrieve(dev.properties.read.indexes)
-          ).map((c) => c.key);
-        } catch (e) {
-          if (NotFoundError.matches(e)) devIndexes = [];
-          else throw e;
-        }
-
-      // getting the index channels of all opc read tasks channels
-      const existingTasks = (await client.hardware.tasks.list()).filter(
-        (t) => t.type === READ_TYPE,
-      ) as Read[];
-      // check if this task already exists
-      const existingTask = existingTasks.find((t) => t.key === task?.key);
-      // if it does exist, grab the index channel of all of the keys in the task
-      if (existingTask) {
-        const existingTaskIndexes = (
-          await client.channels.retrieve(
-            existingTask.config.channels.map((c) => c.channel),
-          )
-        ).map((c) => c.index);
-        const uniqueIndexes = [...new Set(existingTaskIndexes)];
-        if (uniqueIndexes.length === 0)
-          throw new Error(`${name} already exists, but no index channel was found`);
-        indexChannel = uniqueIndexes[0];
-      } else {
-        const existingTasksChannels: channel.Key[] = existingTasks
-          .flatMap((t) => t.config.channels)
-          .flatMap((c) => c.channel);
-        const existingTaskIndexes = (
-          await client.channels.retrieve(existingTasksChannels)
-        ).flatMap((c) => c.index);
-        const unusedDeviceIndexes = devIndexes.filter(
-          (k) => !existingTaskIndexes.includes(k),
-        );
-
-        // if there is a useAsIndex in the config
-        const indexChannelConfig = config.channels.find((c) => c.useAsIndex);
-        if (indexChannelConfig) {
-          const existingIndex = getChannelByNodeID(
-            dev.properties,
-            indexChannelConfig.nodeId,
-          );
-          if (
-            devIndexes.includes(existingIndex) &&
-            !unusedDeviceIndexes.includes(existingIndex)
-          ) {
-            const task = existingTasks.find((t) =>
-              t.config.channels.some((c) => c.channel === existingIndex),
-            );
-            const taskName = task?.name ?? "an OPC UA read task";
-            // this channel is being used as an index on two different tasks
-            throw new Error(
-              `${indexChannelConfig.name} is already being used as an index for ${taskName}. Please add the channels from this read task to the existing read task`,
-            );
-          }
-          if (primitiveIsZero(existingIndex)) {
-            const idx = await client.channels.create({
-              name: indexChannelConfig.name,
-              dataType: "timestamp",
-              isIndex: true,
-            });
-            dev.properties.read.indexes.push(idx.key);
-            dev.properties.read.channels[indexChannelConfig.nodeId] = idx.key;
-            modified = true;
-            indexChannel = idx.key;
-          } else indexChannel = existingIndex;
-        } else if (unusedDeviceIndexes.length > 0)
-          indexChannel = unusedDeviceIndexes[0];
-        else {
-          const idx = await client.channels.create({
-            name: `${dev.name} time for ${name}`,
-            dataType: "timestamp",
-            isIndex: true,
-          });
-          dev.properties.read.indexes.push(idx.key);
-          modified = true;
-          indexChannel = idx.key;
-        }
-      }
-
-      const toCreate: ReadChannelConfig[] = [];
-      for (const ch of config.channels) {
-        const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
-        if (primitiveIsZero(exKey)) toCreate.push(ch);
-        else
-          try {
-            const rCh = await client.channels.retrieve(exKey);
-            if (rCh.index !== indexChannel)
-              throw new Error(
-                `Channel ${ch.name} already exists on an existing OPC UA read task with a different index channel`,
-              );
-
-            if (rCh.name !== ch.name)
-              await client.channels.rename(Number(exKey), ch.name);
-          } catch (e) {
-            if (NotFoundError.matches(e)) toCreate.push(ch);
-            else throw e;
-          }
-      }
-
-      if (toCreate.length > 0) {
-        modified = true;
-        const channels = await client.channels.create(
-          toCreate.map((c) => ({
-            name: c.name,
-            dataType: c.dataType,
-            index: indexChannel,
-          })),
-        );
-        channels.forEach(
-          (c, i) => (dev.properties.read.channels[toCreate[i].nodeId] = c.key),
-        );
-      }
-
-      config.channels = config.channels.map((c) => ({
-        ...c,
-        channel: getChannelByNodeID(dev.properties, c.nodeId),
-      }));
-
-      if (modified)
-        await client.hardware.devices.create({
-          ...dev,
-          properties: dev.properties,
-        });
-      createTask({ key: task?.key, name, type: READ_TYPE, config });
-      setDesiredState("paused");
-    },
-    onError: (e) => handleException(e, "Failed to configure task"),
-  });
-
-  const start = useMutation({
-    mutationFn: async () => {
-      if (task == null) return;
-      const isRunning = running === true;
-      setDesiredState(isRunning ? "paused" : "running");
-      await task.executeCommand(running ? "stop" : "start");
-    },
-  });
-
-  const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
-
-  const name = task?.name;
-  const key = task?.key;
-
-  const handleLink = Link.useCopyToClipboard();
-
-  return (
-    <Align.Space
-      className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
-      direction="y"
-      grow
-      empty
-    >
-      <Align.Space direction="y" grow>
-        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
-          <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name" label="Name" padHelpText={!task?.snapshot}>
-              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-            </Form.Field>
-            {key != null && (
-              <Button.Icon
-                tooltip={<Text.Text level="small">Copy Link</Text.Text>}
-                tooltipLocation="left"
-                variant="text"
-                onClick={() =>
-                  handleLink({ name, ontologyID: clientTask.ontologyID(key) })
-                }
-              >
-                <Icon.Link />
-              </Button.Icon>
-            )}
-          </Align.Space>
-          <Common.Task.ParentRangeButton key={task?.key} />
-          <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <Device.Select />
-            <Align.Space direction="x">
-              <Form.Field<boolean>
-                label="Data Saving"
-                path="config.dataSaving"
-                optional
-              >
-                {(p) => <Input.Switch {...p} />}
-              </Form.Field>
-              <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
-              <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
-              <Form.Field<number>
-                label={arrayMode ? "Array Size" : "Stream Rate"}
-                path={arrayMode ? "config.arraySize" : "config.streamRate"}
-              >
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
-            </Align.Space>
-          </Align.Space>
-          <Align.Space
-            direction="x"
-            grow
-            style={{ overflow: "hidden", height: "500px" }}
-          >
-            {task?.snapshot !== true && <Device.Browser device={dev} />}
-            <ChannelList
-              path="config.channels"
-              device={dev}
-              snapshot={task?.snapshot}
-            />
-          </Align.Space>
-        </Form.Form>
-        <Common.Task.Controls
-          layoutKey={layoutKey}
-          state={taskState}
-          startingOrStopping={
-            start.isPending ||
-            (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
-              taskState?.variant === "success")
-          }
-          configuring={configure.isPending}
-          onStartStop={start.mutate}
-          onConfigure={configure.mutate}
-          snapshot={task?.snapshot}
-        />
-      </Align.Space>
-    </Align.Space>
-  );
-};
 
 interface ChannelListProps {
   path: string;
@@ -600,13 +311,181 @@ const ChannelForm = ({
   );
 };
 
-const TaskForm: FC<
-  Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>
-> = () => <></>;
+const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
+  methods,
+  task,
+}) => {
+  const dev = Common.Device.use<Device.Properties>(methods);
+  const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
+  return (
+    <>
+      <Align.Space direction="x" className={CSS.B("task-properties")}>
+        <Device.Select />
+        <Align.Space direction="x">
+          <Form.Field<boolean> label="Data Saving" path="config.dataSaving" optional>
+            {(p) => <Input.Switch {...p} />}
+          </Form.Field>
+          <Form.Field<number> label="Sample Rate" path="config.sampleRate">
+            {(p) => <Input.Numeric {...p} />}
+          </Form.Field>
+          <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
+          <Form.Field<number>
+            label={arrayMode ? "Array Size" : "Stream Rate"}
+            path={arrayMode ? "config.arraySize" : "config.streamRate"}
+          >
+            {(p) => <Input.Numeric {...p} />}
+          </Form.Field>
+        </Align.Space>
+      </Align.Space>
+      <Align.Space direction="x" grow style={{ overflow: "hidden", height: "500px" }}>
+        {task?.snapshot !== true && <Device.Browser device={dev} />}
+        <ChannelList path="config.channels" device={dev} snapshot={task?.snapshot} />
+      </Align.Space>
+    </>
+  );
+};
 
 export const ReadTask = Common.Task.wrapForm(TaskForm, {
   configSchema: readConfigZ,
   type: READ_TYPE,
   zeroPayload: ZERO_READ_PAYLOAD,
-  onConfigure: async () => {},
+  onConfigure: async (client, config) => {
+    // Retrieving the device and updating its properties if needed
+    const dev = await client.hardware.devices.retrieve<Device.Properties>(
+      config.device,
+    );
+    dev.properties = Device.migrateProperties(dev.properties);
+    await client.hardware.devices.create(dev);
+
+    // modified determines if we have to configure a device. indexChannel is the key
+    // that will be used as an index for the read task.
+    let modified = false;
+    let indexChannel: channel.Key = 0;
+
+    // getting exiting indexes on the opc device
+    let devIndexes: channel.Key[] = [];
+    if (!primitiveIsZero(dev.properties.read.indexes))
+      try {
+        devIndexes = (await client.channels.retrieve(dev.properties.read.indexes)).map(
+          (c) => c.key,
+        );
+      } catch (e) {
+        if (NotFoundError.matches(e)) devIndexes = [];
+        else throw e;
+      }
+
+    // getting the index channels of all opc read tasks channels
+    const existingTasks = (await client.hardware.tasks.list()).filter(
+      (t) => t.type === READ_TYPE,
+    ) as Read[];
+    // check if this task already exists
+    const existingTask = existingTasks.find((t) => t.key === task?.key);
+    // if it does exist, grab the index channel of all of the keys in the task
+    if (existingTask) {
+      const existingTaskIndexes = (
+        await client.channels.retrieve(
+          existingTask.config.channels.map((c) => c.channel),
+        )
+      ).map((c) => c.index);
+      const uniqueIndexes = [...new Set(existingTaskIndexes)];
+      if (uniqueIndexes.length === 0)
+        throw new Error(`${name} already exists, but no index channel was found`);
+      indexChannel = uniqueIndexes[0];
+    } else {
+      const existingTasksChannels: channel.Key[] = existingTasks
+        .flatMap((t) => t.config.channels)
+        .flatMap((c) => c.channel);
+      const existingTaskIndexes = (
+        await client.channels.retrieve(existingTasksChannels)
+      ).flatMap((c) => c.index);
+      const unusedDeviceIndexes = devIndexes.filter(
+        (k) => !existingTaskIndexes.includes(k),
+      );
+
+      // if there is a useAsIndex in the config
+      const indexChannelConfig = config.channels.find((c) => c.useAsIndex);
+      if (indexChannelConfig) {
+        const existingIndex = getChannelByNodeID(
+          dev.properties,
+          indexChannelConfig.nodeId,
+        );
+        if (
+          devIndexes.includes(existingIndex) &&
+          !unusedDeviceIndexes.includes(existingIndex)
+        ) {
+          const task = existingTasks.find((t) =>
+            t.config.channels.some((c) => c.channel === existingIndex),
+          );
+          const taskName = task?.name ?? "an OPC UA read task";
+          // this channel is being used as an index on two different tasks
+          throw new Error(
+            `${indexChannelConfig.name} is already being used as an index for ${taskName}. Please add the channels from this read task to the existing read task`,
+          );
+        }
+        if (primitiveIsZero(existingIndex)) {
+          const idx = await client.channels.create({
+            name: indexChannelConfig.name,
+            dataType: "timestamp",
+            isIndex: true,
+          });
+          dev.properties.read.indexes.push(idx.key);
+          dev.properties.read.channels[indexChannelConfig.nodeId] = idx.key;
+          modified = true;
+          indexChannel = idx.key;
+        } else indexChannel = existingIndex;
+      } else if (unusedDeviceIndexes.length > 0) indexChannel = unusedDeviceIndexes[0];
+      else {
+        const idx = await client.channels.create({
+          name: `${dev.name} time for ${name}`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.read.indexes.push(idx.key);
+        modified = true;
+        indexChannel = idx.key;
+      }
+    }
+
+    const toCreate: ReadChannelConfig[] = [];
+    for (const ch of config.channels) {
+      const exKey = getChannelByNodeID(dev.properties, ch.nodeId);
+      if (primitiveIsZero(exKey)) toCreate.push(ch);
+      else
+        try {
+          const rCh = await client.channels.retrieve(exKey);
+          if (rCh.index !== indexChannel)
+            throw new Error(
+              `Channel ${ch.name} already exists on an existing OPC UA read task with a different index channel`,
+            );
+
+          if (rCh.name !== ch.name)
+            await client.channels.rename(Number(exKey), ch.name);
+        } catch (e) {
+          if (NotFoundError.matches(e)) toCreate.push(ch);
+          else throw e;
+        }
+    }
+
+    if (toCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: c.name,
+          dataType: c.dataType,
+          index: indexChannel,
+        })),
+      );
+      channels.forEach(
+        (c, i) => (dev.properties.read.channels[toCreate[i].nodeId] = c.key),
+      );
+    }
+
+    config.channels = config.channels.map((c) => ({
+      ...c,
+      channel: getChannelByNodeID(dev.properties, c.nodeId),
+    }));
+
+    if (modified) await client.hardware.devices.create(dev);
+    return config;
+  },
 });

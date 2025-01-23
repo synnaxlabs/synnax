@@ -116,7 +116,7 @@ export type ReadPayload = task.Payload<ReadConfig, ReadStateDetails, ReadType>;
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: READ_TYPE,
   type: READ_TYPE,
-  name: "OPC Read Task",
+  name: "OPC UA Read Task",
   config: {
     device: "",
     sampleRate: 50,
@@ -250,8 +250,9 @@ export type WriteConfig = z.infer<typeof writeConfigZ>;
 export type Write = task.Task<WriteConfig, WriteStateDetails, WriteType>;
 export type WritePayload = task.Payload<WriteConfig, WriteStateDetails, WriteType>;
 export const ZERO_WRITE_PAYLOAD: WritePayload = {
+  key: "",
   type: WRITE_TYPE,
-  name: "OPC Write Task",
+  name: "OPC UA Write Task",
   config: { device: "", channels: [], dataSaving: true },
 };
 

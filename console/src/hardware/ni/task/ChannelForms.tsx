@@ -332,7 +332,7 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
   },
 });
 
-export const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
+const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>({
   fieldKey: "units",
   fieldProps: { label: "Units", grow: true },
   inputProps: {
@@ -374,7 +374,7 @@ export const UnitsField = Form.buildSelectSingleField<Units, KeyedNamed<Units>>(
 
 const FILTERS: DialogFilter[] = [{ name: "CSV", extensions: ["csv"] }];
 
-export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
+const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   linear: ({ prefix }) => (
     <>
       <Align.Space direction="x" grow>
@@ -508,7 +508,7 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   none: () => <></>,
 };
 
-export const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
+const SelectCustomScaleTypeField = Form.buildDropdownButtonSelectField<
   ScaleType,
   KeyedNamed<ScaleType>
 >({
@@ -820,12 +820,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChannelType, FC<FormProps>> = {
       inputProps: {
         entryRenderKey: "name",
         columns: NAMED_KEY_COLS,
-        data: [
-          {
-            key: "Pascals",
-            name: "Pascals",
-          },
-        ],
+        data: [{ key: "Pascals", name: "Pascals" }],
       },
     });
     return (

@@ -40,7 +40,7 @@ export const taskZ = z.object({
   config: z
     .record(z.unknown())
     .or(
-      z.string().transform((c) => (c === "" ? {} : JSON.parse(c))),
+      z.string().transform((c) => (c === "" ? {} : binary.JSON_CODEC.decodeString(c))),
     ) as z.ZodType<UnknownRecord>,
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),

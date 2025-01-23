@@ -9,21 +9,9 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Channel,
-  Form,
-  Input,
-  List,
-  Menu,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Align, Channel, Form, List, Menu, Text } from "@synnaxlabs/pluto";
 import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
 import { type FC, type ReactElement, useCallback, useState } from "react";
-import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
@@ -31,18 +19,16 @@ import { Device } from "@/hardware/labjack/device";
 import { SelectOutputChannelType } from "@/hardware/labjack/task/SelectOutputChannelType";
 import {
   type OutputChannelType,
-  type Write,
   WRITE_TYPE,
   type WriteChannel,
   type WriteConfig,
   writeConfigZ,
-  type WritePayload,
   type WriteStateDetails,
   type WriteType,
   ZERO_WRITE_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export const WRITE_LAYOUT: Common.Task.LayoutBaseState = {
   ...Common.Task.LAYOUT,
@@ -59,251 +45,10 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...WRITE_LAYOUT, key }),
 };
 
-const formSchema = z.object({ name: z.string().min(1), config: writeConfigZ });
-
-const Wrapped = ({
-  task,
-  initialValues,
-  layoutKey,
-}: Common.Task.WrappedLayoutProps<Write, WritePayload>): ReactElement => {
-  const client = Synnax.use();
-  const methods = Form.use({ values: initialValues, schema: formSchema });
-  const taskState = Common.Task.useObserveState<WriteStateDetails>(
-    methods.setStatus,
-    methods.clearStatuses,
-    task?.key,
-    task?.state,
-  );
-  const isRunning = taskState?.details?.running;
-  const initialState =
-    isRunning === true ? "running" : isRunning === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
-    initialState,
-    task?.key,
-  );
-  const createTask = Common.Task.useCreate<WriteConfig, WriteStateDetails, WriteType>(
-    layoutKey,
-  );
-  const handleException = Status.useExceptionHandler();
-  const configure = useMutation({
-    onError: (e) => handleException(e, "Failed to configure write task"),
-    mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) return;
-      const { name, config } = methods.value();
-      const dev = (await client.hardware.devices.retrieve(
-        config.device,
-      )) as Device.Configured;
-      let modified = false;
-      let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
-      if (!shouldCreateStateIndex)
-        try {
-          await client.channels.retrieve(dev.properties.writeStateIndex);
-        } catch (e) {
-          if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
-          else throw e;
-        }
-      if (shouldCreateStateIndex) {
-        modified = true;
-        const stateIndex = await client.channels.create({
-          name: `${dev.properties.identifier}_o_state_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        dev.properties.writeStateIndex = stateIndex.key;
-        dev.properties.DO.channels = {};
-        dev.properties.AO.channels = {};
-      }
-      const commandChannelsToCreate: WriteChannel[] = [];
-      const stateChannelsToCreate: WriteChannel[] = [];
-      for (const channel of config.channels) {
-        const key = channel.port;
-        const existingPair = dev.properties[channel.type].channels[key];
-        if (existingPair == null) {
-          commandChannelsToCreate.push(channel);
-          stateChannelsToCreate.push(channel);
-        } else {
-          const { state, command } = existingPair;
-          try {
-            await client.channels.retrieve(state);
-          } catch (e) {
-            if (NotFoundError.matches(e)) stateChannelsToCreate.push(channel);
-            else throw e;
-          }
-          try {
-            await client.channels.retrieve(command);
-          } catch (e) {
-            if (NotFoundError.matches(e)) commandChannelsToCreate.push(channel);
-            else throw e;
-          }
-        }
-      }
-      if (stateChannelsToCreate.length > 0) {
-        modified = true;
-        const stateChannels = await client.channels.create(
-          stateChannelsToCreate.map((c) => ({
-            name: `${dev.properties.identifier}_${c.type}_${c.port}_state`,
-            index: dev.properties.writeStateIndex,
-            dataType: c.type === "AO" ? "float32" : "uint8",
-          })),
-        );
-        stateChannels.forEach((c, i) => {
-          const statesToCreateC = stateChannelsToCreate[i];
-          const port = statesToCreateC.port;
-          if (!(port in dev.properties[statesToCreateC.type].channels))
-            dev.properties[statesToCreateC.type].channels[port] = {
-              state: c.key,
-              command: 0,
-            };
-          else dev.properties[statesToCreateC.type].channels[port].state = c.key;
-        });
-      }
-      if (commandChannelsToCreate.length > 0) {
-        modified = true;
-        const commandIndexes = await client.channels.create(
-          commandChannelsToCreate.map((c) => ({
-            name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd_time`,
-            dataType: "timestamp",
-            isIndex: true,
-          })),
-        );
-        const commandChannels = await client.channels.create(
-          commandChannelsToCreate.map((c, i) => ({
-            name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd`,
-            index: commandIndexes[i].key,
-            dataType: c.type === "AO" ? "float32" : "uint8",
-          })),
-        );
-        commandChannels.forEach((c, i) => {
-          const cmdToCreate = commandChannelsToCreate[i];
-          const port = cmdToCreate.port;
-          if (!(port in dev.properties[cmdToCreate.type].channels))
-            dev.properties[cmdToCreate.type].channels[port] = {
-              state: 0,
-              command: c.key,
-            };
-          else dev.properties[cmdToCreate.type].channels[port].command = c.key;
-        });
-      }
-      if (modified) await client.hardware.devices.create(dev);
-      config.channels = config.channels.map((c) => {
-        const pair = dev.properties[c.type].channels[c.port];
-        return {
-          ...c,
-          cmdKey: pair.command,
-          stateKey: pair.state,
-        };
-      });
-      methods.set("config.channels", config.channels);
-      await createTask({
-        key: task?.key,
-        name,
-        type: WRITE_TYPE,
-        config,
-      });
-      setDesiredState("paused");
-    },
-  });
-  const toggleMutation = useMutation({
-    onError: (e) => {
-      const action =
-        isRunning === true ? "stop" : isRunning === false ? "start" : "toggle";
-      const name = methods.get<string>("name").value ?? "write task";
-      handleException(e, `Failed to ${action} ${name}`);
-    },
-    mutationFn: async () => {
-      if (client == null) throw new Error("Not connected to Synnax cluster");
-      if (task == null) throw new Error("Task is not defined");
-      if (isRunning == null) throw new Error("Task state is not defined");
-      setDesiredState(isRunning ? "paused" : "running");
-      await task.executeCommand(isRunning ? "stop" : "start");
-    },
-  });
-  return (
-    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
-      <Align.Space>
-        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
-          <Align.Space direction="y" empty>
-            <Align.Space direction="x" justify="spaceBetween">
-              <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
-                {(p) => <Input.Text variant="natural" level="h2" {...p} />}
-              </Form.Field>
-            </Align.Space>
-            <Common.Task.ParentRangeButton key={task?.key} />
-            <Align.Space direction="x" className={CSS.B("task-properties")}>
-              <Device.Select />
-              <Align.Space direction="x">
-                <Form.NumericField
-                  label="State Update Rate"
-                  path="config.stateRate"
-                  inputProps={{ endContent: "Hz" }}
-                  grow
-                />
-                <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
-              </Align.Space>
-            </Align.Space>
-          </Align.Space>
-          <Align.Space
-            direction="x"
-            className={CSS.B("channel-form-container")}
-            bordered
-            rounded
-            grow
-            empty
-          >
-            <MainContent snapshot={task?.snapshot} />
-          </Align.Space>
-        </Form.Form>
-        <Common.Task.Controls
-          state={taskState}
-          layoutKey={layoutKey}
-          snapshot={task?.snapshot}
-          startingOrStopping={
-            toggleMutation.isPending ||
-            (!Common.Task.checkDesiredStateMatch(desiredState, isRunning) &&
-              taskState?.variant === "success")
-          }
-          configuring={configure.isPending}
-          onConfigure={configure.mutate}
-          onStartStop={toggleMutation.mutate}
-        />
-      </Align.Space>
-    </Align.Space>
-  );
-};
-
-interface MainContentProps {
-  snapshot?: boolean;
-}
-
-const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
-  const formCtx = Form.useContext();
-  const device = Common.Device.use(formCtx) as Device.Device | undefined;
-  const place = Layout.usePlacer();
-  if (device == null)
-    return (
-      <Align.Space grow empty align="center" justify="center">
-        <Text.Text level="p">No device selected</Text.Text>
-      </Align.Space>
-    );
-  const handleConfigure = () => place({ ...Device.CONFIGURE_LAYOUT, key: device.key });
-  if (!device.configured)
-    return (
-      <Align.Space grow align="center" justify="center" direction="y">
-        <Text.Text level="p">{`${device.name} is not configured.`}</Text.Text>
-        {snapshot !== true && (
-          <Text.Link level="p" onClick={handleConfigure}>
-            {`Configure ${device.name}.`}
-          </Text.Link>
-        )}
-      </Align.Space>
-    );
-  return <ChannelList path="config.channels" snapshot={snapshot} device={device} />;
-};
-
 interface ChannelListProps {
   path: string;
   snapshot?: boolean;
-  device: Device.Configured;
+  device: Device.Device;
 }
 
 const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
@@ -382,7 +127,7 @@ const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement
 interface ChannelListItemProps extends List.ItemProps<string, WriteChannel> {
   path: string;
   snapshot?: boolean;
-  device: Device.Configured;
+  device: Device.Device;
 }
 
 const NO_COMMAND_CHANNEL_NAME = "No Command Channel";
@@ -431,7 +176,7 @@ const ChannelListItem = ({
           {(p) => (
             <Device.SelectPort
               {...p}
-              model={device.model}
+              model={device.model as Device.ModelKey}
               portType={entry.type}
               allowNone={false}
               onClick={(e: MouseEvent) => e.stopPropagation()}
@@ -446,7 +191,9 @@ const ChannelListItem = ({
                     const channelPath = path.slice(0, path.lastIndexOf("."));
                     const previousChannel = get<WriteChannel>(channelPath).value;
                     if (previousChannel.type === value) return;
-                    const port = Device.DEVICES[device.model].ports[value][0].key;
+                    const port =
+                      Device.DEVICES[device.model as Device.ModelKey].ports[value][0]
+                        .key;
                     const existingCommandStatePair =
                       device.properties[value].channels[port] ??
                       Common.Device.ZERO_COMMAND_STATE_PAIR;
@@ -509,11 +256,131 @@ const ChannelListItem = ({
 
 const TaskForm: FC<
   Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>
-> = () => <></>;
+> = ({ task }) => (
+  <>
+    <Align.Space direction="x" className={CSS.B("task-properties")}>
+      <Device.Select />
+      <Form.NumericField
+        label="State Update Rate"
+        path="config.stateRate"
+        inputProps={{ endContent: "Hz" }}
+        grow
+      />
+      <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
+    </Align.Space>
+    <Common.Device.Provider<Device.Properties, Device.Make>
+      configureLayout={Device.CONFIGURE_LAYOUT}
+      snapshot={task?.snapshot}
+    >
+      {(p) => <ChannelList path="config.channels" snapshot={task?.snapshot} {...p} />}
+    </Common.Device.Provider>
+  </>
+);
 
 export const WriteTask = Common.Task.wrapForm(TaskForm, {
   configSchema: writeConfigZ,
   type: WRITE_TYPE,
   zeroPayload: ZERO_WRITE_PAYLOAD,
-  onConfigure: async () => {},
+  onConfigure: async (client, config) => {
+    const dev = await client.hardware.devices.retrieve<Device.Properties>(
+      config.device,
+    );
+    let modified = false;
+    let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
+    if (!shouldCreateStateIndex)
+      try {
+        await client.channels.retrieve(dev.properties.writeStateIndex);
+      } catch (e) {
+        if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
+        else throw e;
+      }
+    if (shouldCreateStateIndex) {
+      modified = true;
+      const stateIndex = await client.channels.create({
+        name: `${dev.properties.identifier}_o_state_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.writeStateIndex = stateIndex.key;
+      dev.properties.DO.channels = {};
+      dev.properties.AO.channels = {};
+    }
+    const commandChannelsToCreate: WriteChannel[] = [];
+    const stateChannelsToCreate: WriteChannel[] = [];
+    for (const channel of config.channels) {
+      const key = channel.port;
+      const existingPair = dev.properties[channel.type].channels[key];
+      if (existingPair == null) {
+        commandChannelsToCreate.push(channel);
+        stateChannelsToCreate.push(channel);
+      } else {
+        const { state, command } = existingPair;
+        try {
+          await client.channels.retrieve(state);
+        } catch (e) {
+          if (NotFoundError.matches(e)) stateChannelsToCreate.push(channel);
+          else throw e;
+        }
+        try {
+          await client.channels.retrieve(command);
+        } catch (e) {
+          if (NotFoundError.matches(e)) commandChannelsToCreate.push(channel);
+          else throw e;
+        }
+      }
+    }
+    if (stateChannelsToCreate.length > 0) {
+      modified = true;
+      const stateChannels = await client.channels.create(
+        stateChannelsToCreate.map((c) => ({
+          name: `${dev.properties.identifier}_${c.type}_${c.port}_state`,
+          index: dev.properties.writeStateIndex,
+          dataType: c.type === "AO" ? "float32" : "uint8",
+        })),
+      );
+      stateChannels.forEach((c, i) => {
+        const statesToCreateC = stateChannelsToCreate[i];
+        const port = statesToCreateC.port;
+        if (!(port in dev.properties[statesToCreateC.type].channels))
+          dev.properties[statesToCreateC.type].channels[port] = {
+            state: c.key,
+            command: 0,
+          };
+        else dev.properties[statesToCreateC.type].channels[port].state = c.key;
+      });
+    }
+    if (commandChannelsToCreate.length > 0) {
+      modified = true;
+      const commandIndexes = await client.channels.create(
+        commandChannelsToCreate.map((c) => ({
+          name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        })),
+      );
+      const commandChannels = await client.channels.create(
+        commandChannelsToCreate.map((c, i) => ({
+          name: `${dev.properties.identifier}_${c.type}_${c.port}_cmd`,
+          index: commandIndexes[i].key,
+          dataType: c.type === "AO" ? "float32" : "uint8",
+        })),
+      );
+      commandChannels.forEach((c, i) => {
+        const cmdToCreate = commandChannelsToCreate[i];
+        const port = cmdToCreate.port;
+        if (!(port in dev.properties[cmdToCreate.type].channels))
+          dev.properties[cmdToCreate.type].channels[port] = {
+            state: 0,
+            command: c.key,
+          };
+        else dev.properties[cmdToCreate.type].channels[port].command = c.key;
+      });
+    }
+    if (modified) await client.hardware.devices.create(dev);
+    config.channels = config.channels.map((c) => {
+      const pair = dev.properties[c.type].channels[c.port];
+      return { ...c, cmdKey: pair.command, stateKey: pair.state };
+    });
+    return config;
+  },
 });

@@ -9,43 +9,34 @@
 
 import "@/hardware/opc/task/Task.css";
 
-import { type device, NotFoundError, task as clientTask } from "@synnaxlabs/client";
+import { type device, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
-  Button,
   Form as PForm,
   Haul,
   Header,
   Input,
   List,
-  Menu,
-  Status,
-  Synnax,
   Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
 import { type FC, type ReactElement, useCallback, useState } from "react";
-import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import {
-  type Write,
   WRITE_TYPE,
   type WriteChannelConfig,
   type WriteConfig,
   writeConfigZ,
-  type WritePayload,
   type WriteStateDetails,
   type WriteType,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
-import { Link } from "@/link";
 
 export const WRITE_LAYOUT: Common.Task.LayoutBaseState = {
   ...Common.Task.LAYOUT,
@@ -60,279 +51,6 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
   create: (key) => ({ ...WRITE_LAYOUT, key }),
-};
-
-const schema = z.object({
-  name: z.string(),
-  config: writeConfigZ,
-});
-
-const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
-  props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
-
-// const Wrapped = ({
-//   layoutKey,
-//   initialValues,
-//   task,
-// }: Common.Task.WrappedLayoutProps<Write, WritePayload>): ReactElement => {
-//   const client = Synnax.use();
-//   const handleException = Status.useExceptionHandler();
-
-//   const methods = Form.use({ schema, values: initialValues });
-//   const device = Common.Device.use<Device.Properties>(methods);
-
-//   const taskState = Common.Task.useObserveState<WriteStateDetails>(
-//     methods.setStatus,
-//     methods.clearStatuses,
-//     task?.key,
-//     task?.state,
-//   );
-//   const running = taskState?.details?.running;
-//   const initialState =
-//     running === true ? "running" : running === false ? "paused" : undefined;
-//   const [desiredState, setDesiredState] = Common.Task.useDesiredState(
-//     initialState,
-//     task?.key,
-//   );
-//   const createTask = Common.Task.useCreate<WriteConfig, WriteStateDetails, WriteType>(
-//     layoutKey,
-//   );
-
-//   const configure = useMutation<void>({
-//     mutationFn: async () => {
-//       if (!methods.validate() || client == null) return;
-//       const { config, name } = methods.value();
-//       await createTask({
-//         key: task?.key,
-//         name,
-//         type: WRITE_TYPE,
-//         config,
-//       });
-//       setDesiredState("paused");
-//     },
-//     onError: (e) => handleException(e, `Failed to configure task`),
-//   });
-
-//   const start = useMutation({
-//     mutationFn: async () => {
-//       if (task == null) return;
-//       const isRunning = running === true;
-//       setDesiredState(isRunning ? "paused" : "running");
-//       await task.executeCommand(isRunning ? "stop" : "start");
-//     },
-//   });
-
-//   const name = task?.name;
-//   const key = task?.key;
-//   const handleLink = Link.useCopyToClipboard();
-
-//   return (
-//     <Align.Space
-//       className={CSS(CSS.B("task-configure"), CSS.B("opcua"))}
-//       direction="y"
-//       grow
-//       empty
-//     >
-//       <Align.Space direction="y" grow>
-//         <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
-//           <Align.Space direction="x" justify="spaceBetween">
-//             <Form.Field<string> path="name" label="Name" padHelpText={!task?.snapshot}>
-//               {(p) => <Input.Text variant="natural" level="h1" {...p} />}
-//             </Form.Field>
-//             {key != null && (
-//               <Button.Icon
-//                 tooltip={<Text.Text level="small">Copy Link</Text.Text>}
-//                 tooltipLocation="left"
-//                 variant="text"
-//                 onClick={() =>
-//                   handleLink({ name, ontologyID: clientTask.ontologyID(key) })
-//                 }
-//               >
-//                 <Icon.Link />
-//               </Button.Icon>
-//             )}
-//           </Align.Space>
-//           <Common.Task.ParentRangeButton key={task?.key} />
-//           <Align.Space direction="x" className={CSS.B("task-properties")}>
-//             <Device.Select />
-//             <Align.Space direction="x">
-//               <Form.Field<boolean>
-//                 label="Data Saving"
-//                 path="config.dataSaving"
-//                 optional
-//               >
-//                 {(p) => <Input.Switch {...p} />}
-//               </Form.Field>
-//             </Align.Space>
-//           </Align.Space>
-//           <Align.Space
-//             direction="x"
-//             grow
-//             style={{ overflow: "hidden", height: "500px" }}
-//           >
-//             {task?.snapshot !== true && <Device.Browser device={device} />}
-//             <ChannelList
-//               path="config.channels"
-//               device={device}
-//               snapshot={task?.snapshot}
-//             />
-//           </Align.Space>
-//         </Form.Form>
-//         <Common.Task.Controls
-//           layoutKey={layoutKey}
-//           state={taskState}
-//           startingOrStopping={
-//             start.isPending ||
-//             (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
-//               taskState?.variant === "success")
-//           }
-//           configuring={configure.isPending}
-//           onStartStop={start.mutate}
-//           onConfigure={configure.mutate}
-//           snapshot={task?.snapshot}
-//         />
-//       </Align.Space>
-//     </Align.Space>
-//   );
-// };
-
-interface ChannelListProps {
-  path: string;
-  device?: device.Device<Device.Properties>;
-  snapshot?: boolean;
-}
-
-const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = PForm.useFieldArray<WriteChannelConfig>({ path });
-  const valueRef = useSyncedRef(value);
-
-  const menuProps = Menu.useContextMenu();
-
-  const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
-    const dropped = items.filter(
-      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
-    );
-    const toAdd = dropped
-      .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
-      .map((i) => {
-        const nodeId = i.data?.nodeId as string;
-        const name = i.data?.name as string;
-        return {
-          key: nodeId,
-          name,
-          nodeName: name,
-          cmdChannel: 0,
-          enabled: true,
-          nodeId,
-          dataType: (i.data?.dataType as string) ?? "float32",
-        };
-      });
-    push(toAdd);
-    return dropped;
-  }, []);
-
-  const canDrop = useCallback((state: Haul.DraggingState): boolean => {
-    const v = state.items.some(
-      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
-    );
-    return v;
-  }, []);
-
-  const props = Haul.useDrop({
-    type: "opc.WriteTask",
-    canDrop,
-    onDrop: handleDrop,
-  });
-
-  const dragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
-
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(
-    value.length > 0 ? [value[0].key] : [],
-  );
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
-    value.length > 0 ? 0 : null,
-  );
-
-  return (
-    <Align.Space
-      className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
-      grow
-      empty
-      bordered
-      rounded
-      {...props}
-    >
-      <Header.Header level="h4">
-        <Header.Title weight={500}>Channels</Header.Title>
-      </Header.Header>
-      <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
-          <Common.Task.ChannelListContextMenu
-            path={path}
-            keys={keys}
-            value={value}
-            remove={remove}
-            onSelect={(k, i) => {
-              setSelectedChannels(k);
-              setSelectedChannelIndex(i);
-            }}
-            snapshot={snapshot}
-          />
-        )}
-        {...menuProps}
-      >
-        <List.List<string, WriteChannelConfig>
-          data={value}
-          emptyContent={
-            <Align.Center>
-              <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
-                No channels added. Drag a variable{" "}
-                <Icon.Variable
-                  style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
-                />{" "}
-                from the browser to add a channel to the task.
-              </Text.Text>
-            </Align.Center>
-          }
-        >
-          <List.Selector<string, WriteChannelConfig>
-            value={selectedChannels}
-            allowNone={false}
-            autoSelectOnNone={false}
-            allowMultiple
-            onChange={(keys, { clickedIndex }) => {
-              if (clickedIndex == null) return;
-              setSelectedChannels(keys);
-              setSelectedChannelIndex(clickedIndex);
-            }}
-            replaceOnSingle
-          >
-            <List.Core<string, WriteChannelConfig> grow>
-              {({ key, ...props }) => (
-                <ChannelListItem
-                  key={key}
-                  {...props}
-                  path={path}
-                  remove={() => {
-                    const indices = selectedChannels
-                      .map((k) => value.findIndex((v) => v.key === k))
-                      .filter((i) => i >= 0);
-                    remove(indices);
-                    setSelectedChannels([]);
-                    setSelectedChannelIndex(null);
-                  }}
-                  snapshot={snapshot}
-                />
-              )}
-            </List.Core>
-          </List.Selector>
-        </List.List>
-      </Menu.ContextMenu>
-      {value.length > 0 && (
-        <ChannelForm selectedChannelIndex={selectedChannelIndex} snapshot={snapshot} />
-      )}
-    </Align.Space>
-  );
 };
 
 interface ChannelListItemProps extends List.ItemProps<string, WriteChannelConfig> {
@@ -432,10 +150,114 @@ const ChannelForm = ({
   );
 };
 
-// export const WriteTask: Layout.Renderer = Common.Task.wrapLayout(
-//   Wrapped,
-//   ZERO_WRITE_PAYLOAD,
-// );
+const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
+  props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
+
+interface ChannelListProps {
+  path: string;
+  device?: device.Device<Device.Properties>;
+  snapshot?: boolean;
+}
+
+const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
+  const { value, push, remove } = PForm.useFieldArray<WriteChannelConfig>({ path });
+  const valueRef = useSyncedRef(value);
+  const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
+    const dropped = items.filter(
+      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+    );
+    const toAdd = dropped
+      .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
+      .map((i) => {
+        const nodeId = i.data?.nodeId as string;
+        const name = i.data?.name as string;
+        return {
+          key: nodeId,
+          name,
+          nodeName: name,
+          cmdChannel: 0,
+          enabled: true,
+          nodeId,
+          dataType: (i.data?.dataType as string) ?? "float32",
+        };
+      });
+    push(toAdd);
+    return dropped;
+  }, []);
+
+  const canDrop = useCallback((state: Haul.DraggingState): boolean => {
+    const v = state.items.some(
+      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+    );
+    return v;
+  }, []);
+
+  const props = Haul.useDrop({ type: "opc.WriteTask", canDrop, onDrop: handleDrop });
+
+  const dragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
+
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(
+    value.length > 0 ? [value[0].key] : [],
+  );
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
+    value.length > 0 ? 0 : null,
+  );
+
+  return (
+    <>
+      <Common.Task.ChannelList<WriteChannelConfig>
+        path={path}
+        snapshot={snapshot}
+        className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
+        grow
+        empty
+        bordered
+        rounded
+        {...props}
+        header={() => (
+          <Header.Header level="h4">
+            <Header.Title weight={500}>Channels</Header.Title>
+          </Header.Header>
+        )}
+        emptyContent={() => (
+          <Align.Center>
+            <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+              No channels added. Drag a variable{" "}
+              <Icon.Variable
+                style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
+              />{" "}
+              from the browser to add a channel to the task.
+            </Text.Text>
+          </Align.Center>
+        )}
+        selected={selectedChannels}
+        onSelect={(keys, index) => {
+          setSelectedChannels(keys);
+          setSelectedChannelIndex(index);
+        }}
+      >
+        {(props) => (
+          <ChannelListItem
+            {...props}
+            path={path}
+            remove={() => {
+              const indices = selectedChannels
+                .map((k) => value.findIndex((v) => v.key === k))
+                .filter((i) => i >= 0);
+              remove(indices);
+              setSelectedChannels([]);
+              setSelectedChannelIndex(null);
+            }}
+            snapshot={snapshot}
+          />
+        )}
+      </Common.Task.ChannelList>
+      {value.length > 0 && (
+        <ChannelForm selectedChannelIndex={selectedChannelIndex} snapshot={snapshot} />
+      )}
+    </>
+  );
+};
 
 const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>> = ({
   methods,
@@ -516,10 +338,7 @@ export const WriteTask = Common.Task.wrapForm(Form, {
       channel: getChannelByNodeID(dev.properties, c.nodeId),
     }));
 
-    if (modified)
-      await client.hardware.devices.create({
-        ...dev,
-        properties: dev.properties,
-      });
+    if (modified) await client.hardware.devices.create(dev);
+    return config;
   },
 });

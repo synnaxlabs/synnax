@@ -12,12 +12,12 @@ import { Form, Observe, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
-export const use = <P extends UnknownRecord>(
+export const use = <P extends UnknownRecord = UnknownRecord, M extends string = string>(
   ctx: Form.ContextValue<any>,
-): device.Device<P> | undefined => {
+): device.Device<P, M> | undefined => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
-  const [device, setDevice] = useState<device.Device<P> | undefined>(undefined);
+  const [device, setDevice] = useState<device.Device<P, M> | undefined>(undefined);
   const handleExc = useCallback(
     (e: unknown) => {
       if (NotFoundError.matches(e)) {
@@ -34,7 +34,7 @@ export const use = <P extends UnknownRecord>(
     if (typeof deviceKey !== "string") return;
     if (deviceKey === "") return;
     try {
-      const d = await client.hardware.devices.retrieve<P>(deviceKey);
+      const d = await client.hardware.devices.retrieve<P, M>(deviceKey);
       setDevice(d);
     } catch (e) {
       handleExc(e);
@@ -47,7 +47,7 @@ export const use = <P extends UnknownRecord>(
       async (fs) => {
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         try {
-          const device = await client.hardware.devices.retrieve<P>(fs.value);
+          const device = await client.hardware.devices.retrieve<P, M>(fs.value);
           setDevice(device);
         } catch (e) {
           handleExc(e);
@@ -62,7 +62,7 @@ export const use = <P extends UnknownRecord>(
     onChange: (changes) => {
       for (const change of changes) {
         if (change.key !== device?.key) continue;
-        if (change.variant === "set") setDevice(change.value as device.Device<P>);
+        if (change.variant === "set") setDevice(change.value as device.Device<P, M>);
         else if (change.variant === "delete") setDevice(undefined);
       }
     },

@@ -7,24 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, QueryError, type task } from "@synnaxlabs/client";
+import { NotFoundError, QueryError, task as clientTask } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Form,
   Header,
-  Input,
   List,
   Menu,
   Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { binary, deep, id, type migrate, primitiveIsZero, unique } from "@synnaxlabs/x";
+import { binary, deep, id, primitiveIsZero, unique } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type FC, type ReactElement, useCallback, useState } from "react";
-import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
@@ -33,19 +31,15 @@ import {
   ANALOG_INPUT_FORMS,
   SelectChannelTypeField,
 } from "@/hardware/ni/task/ChannelForms";
-import { CopyButtons } from "@/hardware/ni/task/common";
 import {
   AI_CHANNEL_TYPE_NAMES,
   type AIChannel,
   type AIChannelType,
   ANALOG_READ_TYPE,
-  type AnalogRead,
   type AnalogReadConfig,
   analogReadConfigZ,
   type AnalogReadDetails,
-  type AnalogReadPayload,
   type AnalogReadType,
-  migrateAnalogReadConfig,
   ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -65,226 +59,6 @@ export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
   create: (key) => ({ ...ANALOG_READ_LAYOUT, key }),
-};
-
-const schema = z.object({ name: z.string(), config: analogReadConfigZ });
-
-const Wrapped = ({
-  task,
-  initialValues,
-  layoutKey,
-}: Common.Task.WrappedLayoutProps<AnalogRead, AnalogReadPayload>): ReactElement => {
-  const client = Synnax.use();
-  const methods = Form.use({ values: initialValues, schema });
-
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(
-    initialValues.config.channels.length ? [initialValues.config.channels[0].key] : [],
-  );
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
-    initialValues.config.channels.length > 0 ? 0 : null,
-  );
-
-  const taskState = Common.Task.useObserveState<AnalogReadDetails>(
-    methods.setStatus,
-    methods.clearStatuses,
-    task?.key,
-    task?.state,
-  );
-  const running = taskState?.details?.running;
-  const initialState =
-    running === true ? "running" : running === false ? "paused" : undefined;
-  const [desiredState, setDesiredState] = Common.Task.useDesiredState(
-    initialState,
-    task?.key,
-  );
-
-  const createTask = Common.Task.useCreate<
-    AnalogReadConfig,
-    AnalogReadDetails,
-    AnalogReadType
-  >(layoutKey);
-
-  const handleException = Status.useExceptionHandler();
-
-  const configure = useMutation<void, Error, void, unknown>({
-    onError: (e) => handleException(e, "Failed to configure NI Analog Read Task}"),
-    mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) return;
-      const { name, config } = methods.value();
-      const devices = unique.unique(config.channels.map((c) => c.device));
-
-      for (const devKey of devices) {
-        const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
-        dev.properties = Device.enrich(dev.model, dev.properties);
-
-        let modified = false;
-        let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
-        if (!shouldCreateIndex)
-          try {
-            await client.channels.retrieve(dev.properties.analogInput.index);
-          } catch (e) {
-            if (NotFoundError.matches(e)) shouldCreateIndex = true;
-            else throw e;
-          }
-
-        if (shouldCreateIndex) {
-          modified = true;
-          const aiIndex = await client.channels.create({
-            name: `${dev.properties.identifier}_ai_time`,
-            dataType: "timestamp",
-            isIndex: true,
-          });
-          dev.properties.analogInput.index = aiIndex.key;
-          dev.properties.analogInput.channels = {};
-        }
-
-        const toCreate: AIChannel[] = [];
-        for (const channel of config.channels) {
-          if (channel.device !== dev.key) continue;
-          // check if the channel is in properties
-          const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-          if (primitiveIsZero(exKey)) toCreate.push(channel);
-          else
-            try {
-              await client.channels.retrieve(exKey.toString());
-            } catch (e) {
-              if (QueryError.matches(e)) toCreate.push(channel);
-              else throw e;
-            }
-        }
-
-        if (toCreate.length > 0) {
-          modified = true;
-          const channels = await client.channels.create(
-            toCreate.map((c) => ({
-              name: `${dev.properties.identifier}_ai_${c.port}`,
-              dataType: "float32", // TODO: also support float64
-              index: dev.properties.analogInput.index,
-            })),
-          );
-          channels.forEach(
-            (c, i) =>
-              (dev.properties.analogInput.channels[toCreate[i].port.toString()] =
-                c.key),
-          );
-        }
-
-        if (modified)
-          await client.hardware.devices.create({
-            ...dev,
-            properties: dev.properties,
-          });
-
-        config.channels.forEach((c) => {
-          if (c.device !== dev.key) return;
-          c.channel = dev.properties.analogInput.channels[c.port.toString()];
-        });
-      }
-      await createTask({
-        key: task?.key,
-        name,
-        type: ANALOG_READ_TYPE,
-        config,
-      });
-      setDesiredState("paused");
-    },
-  });
-
-  const startOrStop = useMutation({
-    mutationFn: async () => {
-      if (client == null) return;
-      const isRunning = running === true;
-      setDesiredState(isRunning ? "paused" : "running");
-      await task?.executeCommand(isRunning ? "stop" : "start");
-    },
-  });
-
-  const handleTare = useMutation({
-    onError: (e) => handleException(e, "Failed to tare channels"),
-    mutationFn: async (keys: number[]) => {
-      if (client == null) return;
-      await task?.executeCommand("tare", { keys });
-    },
-  }).mutate;
-
-  return (
-    <Align.Space className={CSS.B("task-configure")} direction="y" grow empty>
-      <Align.Space grow>
-        <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
-          <Align.Space direction="x" justify="spaceBetween">
-            <Form.Field<string> path="name" padHelpText={!task?.snapshot}>
-              {(p) => (
-                <Input.Text
-                  variant={task?.snapshot ? "preview" : "natural"}
-                  level="h1"
-                  {...p}
-                />
-              )}
-            </Form.Field>
-            <CopyButtons
-              importClass="AnalogReadTask"
-              taskKey={task?.key}
-              getName={() => methods.get<string>("name").value}
-              getConfig={() => methods.get("config").value}
-            />
-          </Align.Space>
-          <Common.Task.ParentRangeButton key={task?.key} />
-          <Align.Space direction="x" className={CSS.B("task-properties")}>
-            <Align.Space direction="x">
-              <Form.NumericField
-                label="Sample Rate"
-                path="config.sampleRate"
-                inputProps={{ endContent: "Hz" }}
-              />
-              <Form.NumericField
-                label="Stream Rate"
-                path="config.streamRate"
-                inputProps={{ endContent: "Hz" }}
-              />
-              <Form.SwitchField path="config.dataSaving" label="Data Saving" />
-            </Align.Space>
-          </Align.Space>
-          <Align.Space
-            direction="x"
-            className={CSS.B("channel-form-container")}
-            bordered
-            rounded
-            grow
-            empty
-          >
-            <ChannelList
-              snapshot={task?.snapshot}
-              path="config.channels"
-              selected={selectedChannels}
-              onSelect={useCallback(
-                (v, i) => {
-                  setSelectedChannels(v);
-                  setSelectedChannelIndex(i);
-                },
-                [setSelectedChannels, setSelectedChannelIndex],
-              )}
-              onTare={handleTare}
-              state={taskState}
-            />
-            <ChannelDetails selectedChannelIndex={selectedChannelIndex} />
-          </Align.Space>
-        </Form.Form>
-        <Common.Task.Controls
-          layoutKey={layoutKey}
-          state={taskState}
-          startingOrStopping={
-            startOrStop.isPending ||
-            (!Common.Task.checkDesiredStateMatch(desiredState, running) &&
-              taskState?.variant === "success")
-          }
-          configuring={configure.isPending}
-          onStartStop={startOrStop.mutate}
-          onConfigure={configure.mutate}
-          snapshot={task?.snapshot}
-        />
-      </Align.Space>
-    </Align.Space>
-  );
 };
 
 interface ChannelDetailsProps {
@@ -358,7 +132,7 @@ interface ChannelListProps {
   selected: string[];
   snapshot?: boolean;
   onTare: (keys: number[]) => void;
-  state?: task.State<{ running?: boolean; message?: string }>;
+  state?: clientTask.State<{ running?: boolean; message?: string }>;
 }
 
 const availablePortFinder = (channels: AIChannel[]): (() => number) => {
@@ -466,7 +240,7 @@ const ChannelListItem = ({
   path: string;
   snapshot?: boolean;
   onTare?: (channelKey: number) => void;
-  state?: task.State<{ running?: boolean; message?: string }>;
+  state?: clientTask.State<{ running?: boolean; message?: string }>;
 }): ReactElement => {
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
@@ -524,11 +298,130 @@ const ChannelListItem = ({
 
 const TaskForm: FC<
   Common.Task.FormProps<AnalogReadConfig, AnalogReadDetails, AnalogReadType>
-> = () => <></>;
+> = ({ task, taskState }) => {
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(
+    task.config.channels.length ? [task.config.channels[0].key] : [],
+  );
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
+    task.config.channels.length > 0 ? 0 : null,
+  );
+  const client = Synnax.use();
+  const handleException = Status.useExceptionHandler();
+  const handleTare = useMutation({
+    onError: (e) => handleException(e, "Failed to tare channels"),
+    mutationFn: async (keys: number[]) => {
+      if (client == null) return;
+      if (!(task instanceof clientTask.Task)) return;
+      await task?.executeCommand("tare", { keys });
+    },
+  }).mutate;
+  return (
+    <>
+      <Align.Space direction="x" className={CSS.B("task-properties")}>
+        <Align.Space direction="x">
+          <Form.NumericField
+            label="Sample Rate"
+            path="config.sampleRate"
+            inputProps={{ endContent: "Hz" }}
+          />
+          <Form.NumericField
+            label="Stream Rate"
+            path="config.streamRate"
+            inputProps={{ endContent: "Hz" }}
+          />
+          <Form.SwitchField path="config.dataSaving" label="Data Saving" />
+        </Align.Space>
+      </Align.Space>
+      <Align.Space
+        direction="x"
+        className={CSS.B("channel-form-container")}
+        bordered
+        rounded
+        grow
+        empty
+      >
+        <ChannelList
+          snapshot={task?.snapshot}
+          path="config.channels"
+          selected={selectedChannels}
+          onSelect={useCallback(
+            (v, i) => {
+              setSelectedChannels(v);
+              setSelectedChannelIndex(i);
+            },
+            [setSelectedChannels, setSelectedChannelIndex],
+          )}
+          onTare={handleTare}
+          state={taskState}
+        />
+        <ChannelDetails selectedChannelIndex={selectedChannelIndex} />
+      </Align.Space>
+    </>
+  );
+};
 
 export const AnalogReadTask = Common.Task.wrapForm(TaskForm, {
   configSchema: analogReadConfigZ,
   type: ANALOG_READ_TYPE,
   zeroPayload: ZERO_ANALOG_READ_PAYLOAD,
-  onConfigure: async () => {},
+  onConfigure: async (client, config) => {
+    const devices = unique.unique(config.channels.map((c) => c.device));
+    for (const devKey of devices) {
+      const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
+      dev.properties = Device.enrich(dev.model, dev.properties);
+      let modified = false;
+      let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
+      if (!shouldCreateIndex)
+        try {
+          await client.channels.retrieve(dev.properties.analogInput.index);
+        } catch (e) {
+          if (NotFoundError.matches(e)) shouldCreateIndex = true;
+          else throw e;
+        }
+      if (shouldCreateIndex) {
+        modified = true;
+        const aiIndex = await client.channels.create({
+          name: `${dev.properties.identifier}_ai_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.analogInput.index = aiIndex.key;
+        dev.properties.analogInput.channels = {};
+      }
+      const toCreate: AIChannel[] = [];
+      for (const channel of config.channels) {
+        if (channel.device !== dev.key) continue;
+        // check if the channel is in properties
+        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
+        if (primitiveIsZero(exKey)) toCreate.push(channel);
+        else
+          try {
+            await client.channels.retrieve(exKey.toString());
+          } catch (e) {
+            if (QueryError.matches(e)) toCreate.push(channel);
+            else throw e;
+          }
+      }
+      if (toCreate.length > 0) {
+        modified = true;
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: `${dev.properties.identifier}_ai_${c.port}`,
+            dataType: "float32",
+            index: dev.properties.analogInput.index,
+          })),
+        );
+        channels.forEach(
+          (c, i) =>
+            (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
+        );
+      }
+      if (modified) await client.hardware.devices.create(dev);
+      config.channels.forEach((c) => {
+        if (c.device !== dev.key) return;
+        c.channel = dev.properties.analogInput.channels[c.port.toString()];
+      });
+    }
+    return config;
+  },
 });

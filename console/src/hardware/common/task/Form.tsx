@@ -45,6 +45,7 @@ export interface FormProps<
 > {
   methods: PForm.ContextValue<Schema<C>>;
   task: clientTask.Task<C, D, T> | clientTask.Payload<C, D, T>;
+  taskState?: clientTask.State<D>;
 }
 
 export interface WrapFormOptions<
@@ -55,8 +56,10 @@ export interface WrapFormOptions<
   configSchema: ConfigSchema<C>;
   type: T;
   zeroPayload: clientTask.Payload<C, D, T>;
-  onConfigure: (client: Synnax, config: C) => Promise<void>;
+  onConfigure: (client: Synnax, config: C) => Promise<C>;
 }
+
+const nameZ = z.string().min(1, "Name is required");
 
 export const wrapForm = <
   C extends UnknownRecord = UnknownRecord,
@@ -66,10 +69,10 @@ export const wrapForm = <
   Form: FC<FormProps<C, D, T>>,
   { configSchema, type, zeroPayload, onConfigure }: WrapFormOptions<C, D, T>,
 ): Layout.Renderer => {
-  const WrappedForm = ({ layoutKey, task }: TaskProps<C, D, T>) => {
+  const Wrapper = ({ layoutKey, task }: TaskProps<C, D, T>) => {
     const client = PSynnax.use();
     const handleException = Status.useExceptionHandler();
-    const schema = z.object({ name: z.string(), config: configSchema });
+    const schema = z.object({ name: nameZ, config: configSchema });
     const values = { name: task.name, config: task.config };
     const methods = PForm.use<Schema<C>>({ schema, values });
     const createTask = useCreate<C, D, T>(layoutKey);
@@ -86,11 +89,14 @@ export const wrapForm = <
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw new Error("Client not found");
-        if (!methods.validate()) return;
+        if (!(await methods.validateAsync())) return;
         const { config, name } = methods.value();
         if (config == null) throw new Error("Config is required");
-        await onConfigure(client, config);
-        createTask({ key: task?.key, name, type, config });
+        const newConfig = await onConfigure(client, config);
+        methods.set("config", newConfig);
+        // current work around for Pluto form issues
+        if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
+        createTask({ key: task?.key, name, type, config: newConfig });
         setDesiredState("paused");
       },
       onError: (e) => handleException(e, "Failed to configure task"),
@@ -117,7 +123,7 @@ export const wrapForm = <
               {/* TODO: Add copy buttons */}
             </Align.Space>
             <ParentRangeButton key={task.key} />
-            <Form methods={methods} task={task} />
+            <Form methods={methods} task={task} taskState={taskState} />
           </Align.Space>
         </PForm.Form>
         <Controls
@@ -136,6 +142,6 @@ export const wrapForm = <
       </Align.Space>
     );
   };
-  WrappedForm.displayName = `Form(${Form.displayName ?? Form.name})`;
-  return wrap(WrappedForm, { zeroPayload, configSchema });
+  Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
+  return wrap(Wrapper, { zeroPayload, configSchema });
 };
