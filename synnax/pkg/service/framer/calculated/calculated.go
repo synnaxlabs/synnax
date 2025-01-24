@@ -33,9 +33,6 @@ type Config struct {
 	// calculated samples.
 	// [REQUIRED]
 	Framer *framer.Service
-	// Computron is the computation service used to perform calculations.
-	// [REQUIRED]
-	Computron *computronx.Interpreter
 	// Channel is used to retrieve information about the channels being calculated.
 	// [REQUIRED]
 	Channel channel.Readable
@@ -52,7 +49,6 @@ var (
 func (c Config) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Computron", c.Computron)
 	validate.NotNil(v, "Channel", c.Channel)
 	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
 	return v.Error()
@@ -61,7 +57,6 @@ func (c Config) Validate() error {
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.Computron = override.Nil(c.Computron, other.Computron)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	return c
@@ -200,12 +195,7 @@ func (s *Service) startCalculation(
 	plumber.SetSegment(p, "streamer", streamer_)
 	plumber.SetSegment(p, "writer", writer_)
 
-	interpreter, err := computronx.New()
-	if err != nil {
-		return nil, err
-	}
-
-	calculation, err := interpreter.NewCalculation(ch.Expression)
+	calculation, err := computron.OpenExpression(ch.Expression)
 	if err != nil {
 		return nil, err
 	}
@@ -280,21 +270,14 @@ func (s *streamCalculator) transform(_ context.Context, i framer.StreamerRespons
 
 type calculator struct {
 	ch          channel.Channel
-	calculation *computronx.Calculation
+	calculation *computron.Expression
 	requires    map[channel.Key]channel.Channel
 }
 
-func (c *calculator) Close() {
-	if c.calculation != nil {
-		c.calculation.Close()
-	}
-}
+func (c calculator) Close() { c.calculation.Close() }
 
 func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string, err error) {
-	var vars = make(map[string]interface{})
 	var alignment telem.AlignmentPair
-
-	// Ensure all required variables are initialized
 	for _, k := range c.ch.Requires {
 		s := fr.Get(k)
 		if len(s) == 0 {
@@ -305,18 +288,13 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string,
 		if !found {
 			continue
 		}
-		vars[ch.Name] = s[0]
+		c.calculation.Set(ch.Name, computron.SeriesToLua(s[0]))
 	}
-
-	// Log the variables before running the calculation
-	// fmt.Printf("Running calculation with vars: %+v\n", vars)
-
-	// Run the calculation
-	os, err := c.calculation.Run(vars)
+	res, err := c.calculation.Run()
 	if err != nil {
 		return of, "", err
 	}
-
+	os := computron.LuaToSeries(res, c.ch.DataType)
 	os.Alignment = alignment
 	of.Keys = []channel.Key{c.ch.Key()}
 	of.Series = []telem.Series{os}

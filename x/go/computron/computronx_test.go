@@ -1,4 +1,4 @@
-package computronx_test
+package computron_test
 
 import (
 	"testing"

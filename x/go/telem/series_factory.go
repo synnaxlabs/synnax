@@ -140,7 +140,7 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	panic("unsupported data type")
 }
 
-func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) T {
+func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
 	switch dt {
 	case Float64T:
 		return func(b []byte) T {

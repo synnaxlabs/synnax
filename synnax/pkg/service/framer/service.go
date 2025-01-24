@@ -12,7 +12,6 @@ package framer
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/computronx"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculated"
@@ -166,13 +165,8 @@ func OpenService(cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	computer, err := computronx.New()
-	if err != nil {
-		return nil, err
-	}
 	calc, err := calculated.Open(calculated.Config{
 		Instrumentation:   cfg.Instrumentation.Child("calculated"),
-		Computron:         computer,
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
 		ChannelObservable: cfg.Channel.NewObservable(),

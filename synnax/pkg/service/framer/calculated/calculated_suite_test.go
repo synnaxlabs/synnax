@@ -10,13 +10,13 @@ import (
 )
 
 var (
-	interpreter *computronx.Interpreter
+	interpreter *computron.Interpreter
 	ctx         = context.Background()
 )
 
 var _ = BeforeSuite(func() {
 	var err error
-	interpreter, err = computronx.New()
+	interpreter, err = computron.New()
 	Expect(err).ToNot(HaveOccurred())
 })
 
