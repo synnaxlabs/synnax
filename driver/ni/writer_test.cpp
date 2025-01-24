@@ -96,8 +96,9 @@ TEST(NiTaskTests, test_NI_digital_writer_task) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10)
     );
 
-    std::unique_ptr<task::Factory> ni_factory = std::make_unique<ni::Factory>();
+    auto ni_factory = ni::Factory::create();
     auto [writerTask, ok] = ni_factory->configure_task(mockCtx, task);
+
     ASSERT_TRUE(ok) << "Failed to configure writer task";
 
     // create commands
@@ -190,7 +191,8 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10)
     );
 
-    std::unique_ptr<task::Factory> ni_factory = std::make_unique<ni::Factory>();
+    auto ni_factory = ni::Factory::create();
+
     auto [writerTask, ok] = ni_factory->configure_task(mockCtx, task);
     ASSERT_TRUE(ok) << "Failed to configure writer task";
 

@@ -205,7 +205,7 @@ struct TableConfig {
 
     explicit TableConfig(config::Parser &parser)
         : num_eletrical_vals(
-              parser.required<uint32_t>("num_electrical_vals")i
+              parser.required<uint32_t>("num_electrical_vals")
           ), num_physical_vals(
               parser.required<uint32_t>("num_physical_vals")
           ) {
