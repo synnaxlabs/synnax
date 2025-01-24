@@ -32,6 +32,7 @@ const ZERO_LAYOUT_STATES: Record<string, Common.Task.LayoutBaseState> = {
   [NI.Task.ANALOG_READ_TYPE]: NI.Task.ANALOG_READ_LAYOUT,
   [NI.Task.DIGITAL_WRITE_TYPE]: NI.Task.DIGITAL_WRITE_LAYOUT,
   [NI.Task.DIGITAL_READ_TYPE]: NI.Task.DIGITAL_READ_LAYOUT,
+  [NI.Task.ANALOG_WRITE_TYPE]: NI.Task.ANALOG_WRITE_LAYOUT,
 };
 
 export const createLayout = (task: task.Task): Layout.BaseState => {

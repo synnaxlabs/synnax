@@ -9,6 +9,10 @@
 
 import { ANALOG_READ_SELECTABLE, AnalogReadTask } from "@/hardware/ni/task/AnalogRead";
 import {
+  ANALOG_WRITE_SELECTABLE,
+  AnalogWriteTask,
+} from "@/hardware/ni/task/AnalogWrite";
+import {
   DIGITAL_READ_SELECTABLE,
   DigitalReadTask,
 } from "@/hardware/ni/task/DigitalRead";
@@ -18,12 +22,14 @@ import {
 } from "@/hardware/ni/task/DigitalWrite";
 import {
   ANALOG_READ_TYPE,
+  ANALOG_WRITE_TYPE,
   DIGITAL_READ_TYPE,
   DIGITAL_WRITE_TYPE,
 } from "@/hardware/ni/task/types";
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/ni/task/AnalogRead";
+export * from "@/hardware/ni/task/AnalogWrite";
 export * from "@/hardware/ni/task/DigitalRead";
 export * from "@/hardware/ni/task/DigitalWrite";
 export * from "@/hardware/ni/task/palette";
@@ -31,12 +37,14 @@ export * from "@/hardware/ni/task/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [ANALOG_READ_TYPE]: AnalogReadTask,
-  [DIGITAL_WRITE_TYPE]: DigitalWriteTask,
+  [ANALOG_WRITE_TYPE]: AnalogWriteTask,
   [DIGITAL_READ_TYPE]: DigitalReadTask,
+  [DIGITAL_WRITE_TYPE]: DigitalWriteTask,
 };
 
 export const SELECTABLES: Layout.Selectable[] = [
+  ANALOG_READ_SELECTABLE,
+  ANALOG_WRITE_SELECTABLE,
   DIGITAL_READ_SELECTABLE,
   DIGITAL_WRITE_SELECTABLE,
-  ANALOG_READ_SELECTABLE,
 ];

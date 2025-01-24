@@ -14,6 +14,7 @@ export const VERSION = "0.0.0";
 type Version = typeof VERSION;
 
 export const MAKE = "opc";
+export type Make = typeof MAKE;
 
 export const NO_SECURITY_MODE = "None";
 export const SIGN_SECURITY_MODE = "Sign";

@@ -9,7 +9,7 @@
 
 import { Icon as MediaIcon } from "@synnaxlabs/media";
 import clsx from "clsx";
-import { cloneElement, forwardRef, type ReactElement } from "react";
+import { cloneElement, forwardRef, type ReactElement, useCallback } from "react";
 
 import { type BaseProps } from "@/button/Button";
 import { color } from "@/button/color";
@@ -31,6 +31,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
   (
     {
       children,
+      stopPropagation,
       className,
       variant = "text",
       size = "medium",
@@ -45,6 +46,14 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
   ): ReactElement => {
     if (loading) children = <MediaIcon.Loading />;
     const isDisabled = disabled || loading;
+    const handleClick = useCallback(
+      (e: React.MouseEvent<HTMLButtonElement>) => {
+        if (stopPropagation) e.stopPropagation();
+        if (isDisabled) return;
+        onClick?.(e);
+      },
+      [stopPropagation, isDisabled, onClick],
+    );
     return (
       <button
         ref={ref}
@@ -57,7 +66,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
           CSS.BM("btn", variant),
           CSS.disabled(isDisabled),
         )}
-        onClick={isDisabled ? undefined : onClick}
+        onClick={handleClick}
         {...props}
       >
         {typeof children === "string"

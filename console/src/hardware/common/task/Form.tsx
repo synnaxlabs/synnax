@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/common/task/Form.css";
+
 import { type Synnax, task as clientTask } from "@synnaxlabs/client";
 import {
   Align,
@@ -17,9 +19,10 @@ import {
 } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type FC } from "react";
+import { type FC, type ReactNode } from "react";
 import { z } from "zod";
 
+import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
 import {
   checkDesiredStateMatch,
@@ -66,6 +69,7 @@ export const wrapForm = <
   D extends BaseStateDetails = BaseStateDetails,
   T extends string = string,
 >(
+  Properties: ReactNode,
   Form: FC<FormProps<C, D, T>>,
   { configSchema, type, zeroPayload, onConfigure }: WrapFormOptions<C, D, T>,
 ): Layout.Renderer => {
@@ -113,7 +117,7 @@ export const wrapForm = <
     });
     const snapshot = task.snapshot;
     return (
-      <Align.Space direction="y">
+      <Align.Space direction="y" className={CSS.B("task-form")} grow empty>
         <PForm.Form {...methods} mode={snapshot ? "preview" : "normal"}>
           <Align.Space direction="y">
             <Align.Space direction="x">
@@ -123,7 +127,12 @@ export const wrapForm = <
               {/* TODO: Add copy buttons */}
             </Align.Space>
             <ParentRangeButton key={task.key} />
-            <Form methods={methods} task={task} taskState={taskState} />
+            <Align.Space direction="x" className={CSS.B("task-properties")}>
+              {Properties}
+            </Align.Space>
+            <Align.Space direction="x" className={CSS.B("task-channel-form-container")}>
+              <Form methods={methods} task={task} taskState={taskState} />
+            </Align.Space>
           </Align.Space>
         </PForm.Form>
         <Controls

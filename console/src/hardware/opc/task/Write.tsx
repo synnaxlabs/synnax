@@ -110,7 +110,7 @@ const ChannelListItem = ({
         <Common.Task.EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
-          snapshot={snapshot}
+          isSnapshot={snapshot}
         />
       </Align.Space>
     </List.ItemFrame>
@@ -207,7 +207,7 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
     <>
       <Common.Task.ChannelList<WriteChannelConfig>
         path={path}
-        snapshot={snapshot}
+        isSnapshot={snapshot}
         className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
         grow
         empty
@@ -259,30 +259,28 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
   );
 };
 
+const Properties = (): ReactElement => (
+  <>
+    <Device.Select />
+    <PForm.Field<boolean> label="Data Saving" path="config.dataSaving">
+      {(p) => <Input.Switch {...p} />}
+    </PForm.Field>
+  </>
+);
 const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>> = ({
   methods,
   task,
 }) => {
   const device = Common.Device.use<Device.Properties>(methods);
   return (
-    <>
-      <Align.Space direction="x" className={CSS.B("task-properties")}>
-        <Device.Select />
-        <Align.Space direction="x">
-          <PForm.Field<boolean> label="Data Saving" path="config.dataSaving" optional>
-            {(p) => <Input.Switch {...p} />}
-          </PForm.Field>
-        </Align.Space>
-      </Align.Space>
-      <Align.Space direction="x" grow style={{ overflow: "hidden", height: "500px" }}>
-        {task.snapshot !== true && <Device.Browser device={device} />}
-        <ChannelList path="config.channels" device={device} snapshot={task.snapshot} />
-      </Align.Space>
-    </>
+    <Align.Space direction="x" grow style={{ overflow: "hidden", height: "500px" }}>
+      {task.snapshot !== true && <Device.Browser device={device} />}
+      <ChannelList path="config.channels" device={device} snapshot={task.snapshot} />
+    </Align.Space>
   );
 };
 
-export const WriteTask = Common.Task.wrapForm(Form, {
+export const WriteTask = Common.Task.wrapForm(<Properties />, Form, {
   configSchema: writeConfigZ,
   type: WRITE_TYPE,
   zeroPayload: ZERO_WRITE_PAYLOAD,

@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
+import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
 import { type ScanConfig } from "@/hardware/ni/task/types";
@@ -20,6 +21,13 @@ const createAnalogReadCommand: Palette.Command = {
   name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(ANALOG_READ_LAYOUT),
+};
+
+const createAnalogWriteCommand: Palette.Command = {
+  key: "ni-create-analog-write-task",
+  name: "Create an NI Analog Write Task",
+  icon: <Icon.Logo.NI />,
+  onSelect: ({ placeLayout }) => placeLayout(ANALOG_WRITE_LAYOUT),
 };
 
 const createDigitalWriteCommand: Palette.Command = {
@@ -61,6 +69,7 @@ const toggleScanner: Palette.Command = {
 
 export const COMMANDS = [
   createAnalogReadCommand,
+  createAnalogWriteCommand,
   createDigitalWriteCommand,
   createDigitalReadCommand,
   toggleScanner,

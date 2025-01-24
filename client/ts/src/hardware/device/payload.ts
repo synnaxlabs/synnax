@@ -31,10 +31,12 @@ export const deviceZ = z.object({
 });
 export interface Device<
   P extends UnknownRecord = UnknownRecord,
-  M extends string = string,
+  MK extends string = string,
+  MO extends string = string,
 > extends Omit<z.output<typeof deviceZ>, "properties"> {
   properties: P;
-  make: M;
+  make: MK;
+  model: MO;
 }
 
 export const newZ = deviceZ.extend({

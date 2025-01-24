@@ -9,32 +9,29 @@
 
 import { Button, Status, Text } from "@synnaxlabs/pluto";
 
-import { CSS } from "@/css";
-
 export interface EnableDisableButtonProps {
   value: boolean;
   onChange: (v: boolean) => void;
-  disabled?: boolean;
-  snapshot?: boolean;
+  isDisabled?: boolean;
+  isSnapshot: boolean;
 }
 
 export const EnableDisableButton = ({
   value,
   onChange,
-  disabled,
-  snapshot = false,
+  isDisabled = false,
+  isSnapshot,
 }: EnableDisableButtonProps) => (
   <Button.ToggleIcon
-    checkedVariant={snapshot ? "preview" : undefined}
-    uncheckedVariant={snapshot ? "preview" : "outlined"}
-    className={CSS.B("enable-disable-button")}
-    disabled={disabled}
+    checkedVariant={isSnapshot ? "preview" : undefined}
+    uncheckedVariant={isSnapshot ? "preview" : "outlined"}
+    disabled={isDisabled}
     value={value}
     size="small"
-    onClick={(e) => e.stopPropagation()}
+    stopPropagation
     onChange={onChange}
     tooltip={
-      snapshot ? undefined : (
+      isSnapshot ? undefined : (
         <Text.Text level="small" style={{ maxWidth: 300 }}>
           {value ? "Disable" : "Enable"} data acquisition
         </Text.Text>

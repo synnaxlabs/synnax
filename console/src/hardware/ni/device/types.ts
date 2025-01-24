@@ -12,6 +12,7 @@ import { type channel, type device } from "@synnaxlabs/client";
 import { type Common } from "@/hardware/common";
 
 export const MAKE = "NI";
+export type Make = typeof MAKE;
 
 export type PropertiesDigest = { key: string; enriched: boolean };
 
@@ -53,4 +54,4 @@ export const ZERO_PROPERTIES: Properties = {
   digitalOutput: { portCount: 0, lineCounts: [], stateIndex: 0, channels: {} },
 };
 
-export interface Device extends device.Device<Properties> {}
+export interface Device extends device.Device<Properties, Make> {}

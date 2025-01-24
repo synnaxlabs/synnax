@@ -7,18 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/ni/task/DigitalWrite.css";
-
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Channel, Form, List, Menu, Text } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/pluto";
 import { id, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useState } from "react";
 
-import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
-import { CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
+import { DigitalListItem } from "@/hardware/ni/task/DigitalListItem";
 import {
   DIGITAL_WRITE_TYPE,
   type DigitalWriteConfig,
@@ -29,7 +26,7 @@ import {
   ZERO_DIGITAL_WRITE_PAYLOAD,
   ZERO_DO_CHANNEL,
 } from "@/hardware/ni/task/types";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export const DIGITAL_WRITE_LAYOUT: Common.Task.LayoutBaseState = {
   ...Common.Task.LAYOUT,
@@ -46,259 +43,75 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...DIGITAL_WRITE_LAYOUT, key }),
 };
 
-const generateKey: (chan: DOChannel) => string = (chan) => `${chan.port}l${chan.line}`;
-
-interface MainContentProps {
-  snapshot?: boolean;
-}
-
-const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
-  const formCtx = Form.useContext();
-  const device = Common.Device.use(formCtx) as Device.Device | undefined;
-  const place = Layout.usePlacer();
-  if (device == null)
-    return (
-      <Align.Space grow empty align="center" justify="center">
-        <Text.Text level="p">No device selected</Text.Text>
-      </Align.Space>
-    );
-  const handleConfigure = () => place({ ...CONFIGURE_LAYOUT, key: device.key });
-  if (!device.configured)
-    return (
-      <Align.Space grow align="center" justify="center" direction="y">
-        <Text.Text level="p">{`${device.name} is not configured.`}</Text.Text>
-        {snapshot !== true && (
-          <Text.Link level="p" onClick={handleConfigure}>
-            {`Configure ${device.name}.`}
-          </Text.Link>
-        )}
-      </Align.Space>
-    );
-  return <ChannelList path="config.channels" snapshot={snapshot} device={device} />;
-};
-
 interface ChannelListProps {
-  path: string;
-  snapshot?: boolean;
-  device: Device.Device;
+  isSnapshot: boolean;
 }
 
-const ChannelList = ({ path, snapshot, device }: ChannelListProps): ReactElement => {
+const ChannelList = ({ isSnapshot }: ChannelListProps): ReactElement => {
   const [selected, setSelected] = useState<string[]>([]);
-  const { value, push, remove } = Form.useFieldArray<DOChannel>({
-    path,
-    updateOnChildren: true,
-  });
-  const handleAdd = useCallback((): void => {
-    const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
-    const zeroDigitalWriteChannel = {
-      ...ZERO_DO_CHANNEL,
-      key: id.id(),
-      line: availableLine,
-      port: 0,
-    };
-    setSelected([zeroDigitalWriteChannel.key]);
-    const existingCommandStatePair =
-      device.properties.digitalOutput.channels[generateKey(zeroDigitalWriteChannel)];
-    push({
-      ...zeroDigitalWriteChannel,
-      stateChannel: existingCommandStatePair?.state ?? 0,
-      cmdChannel: existingCommandStatePair?.command ?? 0,
-    });
-  }, [value, device, push]);
-  const menuProps = Menu.useContextMenu();
+  const generateChannel = useCallback((chan: DOChannel[]) => {
+    const line = Math.max(0, ...chan.map((v) => v.line)) + 1;
+    return { ...ZERO_DO_CHANNEL, key: id.id(), line };
+  }, []);
   return (
-    <Align.Space grow empty direction="y">
-      <Common.Task.ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
-      <Align.Space grow empty style={{ height: "100%" }}>
-        <Menu.ContextMenu
-          menu={({ keys }): ReactElement => (
-            <Common.Task.ChannelListContextMenu
-              path={path}
-              keys={keys}
-              value={value}
-              remove={remove}
-              onSelect={(keys) => setSelected(keys)}
-              snapshot={snapshot}
-            />
-          )}
-          {...menuProps}
-        >
-          <List.List<string, DOChannel>
-            data={value}
-            emptyContent={
-              <Common.Task.ChannelListEmptyContent
-                onAdd={handleAdd}
-                snapshot={snapshot}
-              />
-            }
-          >
-            <List.Selector<string, DOChannel>
-              value={selected}
-              allowMultiple
-              onChange={setSelected}
-              replaceOnSingle
-            >
-              <List.Core<string, DOChannel>
-                grow
-                style={{ height: "calc(100% - 6rem)" }}
-              >
-                {({ key, entry, ...props }) => (
-                  <ChannelListItem
-                    key={key}
-                    {...props}
-                    entry={{ ...entry }}
-                    path={`${path}.${props.index}`}
-                    snapshot={snapshot}
-                    device={device}
-                  />
-                )}
-              </List.Core>
-            </List.Selector>
-          </List.List>
-        </Menu.ContextMenu>
-      </Align.Space>
-    </Align.Space>
+    <Common.Task.DefaultChannelList<DOChannel>
+      isSnapshot={isSnapshot}
+      selected={selected}
+      onSelect={setSelected}
+      generateChannel={generateChannel}
+    >
+      {(p) => <ChannelListItem {...p} />}
+    </Common.Task.DefaultChannelList>
   );
 };
 
-interface ChannelListItemProps extends List.ItemProps<string, DOChannel> {
-  path: string;
-  snapshot?: boolean;
-  device: Device.Device;
-}
-
-const NO_COMMAND_CHANNEL_NAME = "No Command Channel";
-const NO_STATE_CHANNEL_NAME = "No State Channel";
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps<DOChannel> {}
 
 const ChannelListItem = ({
-  path,
   entry,
-  snapshot = false,
-  device,
+  entry: { cmdChannel, stateChannel },
   ...props
-}: ChannelListItemProps): ReactElement => {
-  const ctx = Form.useContext();
-  const cmdChannelName = Channel.useName(
-    entry?.cmdChannel ?? 0,
-    NO_COMMAND_CHANNEL_NAME,
-  );
-  const stateChannelName = Channel.useName(
-    entry?.stateChannel ?? 0,
-    NO_STATE_CHANNEL_NAME,
-  );
+}: ChannelListItemProps): ReactElement => (
+  <DigitalListItem {...props} entry={entry}>
+    <Common.Task.ChannelName channel={cmdChannel} defaultName="No Command Channel" />
+    <Common.Task.ChannelName channel={stateChannel} defaultName="No State Channel" />
+  </DigitalListItem>
+);
 
-  return (
-    <List.ItemFrame
-      {...props}
-      entry={entry}
-      style={{ width: "100%" }}
-      justify="spaceBetween"
-      align="center"
-      direction="x"
-    >
-      <Align.Space direction="x" align="center" justify="spaceEvenly">
-        <Align.Pack
-          className="port-line-input"
-          direction="x"
-          align="center"
-          style={{ maxWidth: "50rem" }}
-        >
-          <Form.NumericField
-            path={`${path}.port`}
-            showLabel={false}
-            showHelpText={false}
-            inputProps={{ showDragHandle: false }}
-            hideIfNull
-          />
-          <Text.Text level="p">/</Text.Text>
-          <Form.NumericField
-            path={`${path}.line`}
-            showHelpText={false}
-            showLabel={false}
-            inputProps={{ showDragHandle: false }}
-            hideIfNull
-          />
-        </Align.Pack>
-        <Text.Text
-          level="small"
-          className={CSS.BE("port-line-input", "label")}
-          shade={7}
-          weight={450}
-        >
-          Port/Line
-        </Text.Text>
-      </Align.Space>
-      <Align.Space direction="x" align="center" justify="spaceEvenly">
-        <Text.Text
-          level="p"
-          shade={9}
-          color={
-            cmdChannelName === NO_COMMAND_CHANNEL_NAME
-              ? "var(--pluto-warning-m1)"
-              : undefined
-          }
-        >
-          {cmdChannelName}
-        </Text.Text>
-        <Text.Text
-          level="p"
-          shade={9}
-          color={
-            stateChannelName === NO_STATE_CHANNEL_NAME
-              ? "var(--pluto-warning-m1)"
-              : undefined
-          }
-        >
-          {stateChannelName}
-        </Text.Text>
-        <Common.Task.EnableDisableButton
-          value={entry.enabled}
-          onChange={(v) => ctx.set(`${path}.enabled`, v)}
-          snapshot={snapshot}
-        />
-      </Align.Space>
-    </List.ItemFrame>
-  );
-};
-
-const TaskForm: FC<
-  Common.Task.FormProps<DigitalWriteConfig, DigitalWriteDetails, DigitalWriteType>
-> = ({ task }) => (
+const Properties = (): ReactElement => (
   <>
-    <Align.Space direction="y" empty>
-      <Align.Space direction="x" className={CSS.B("task-properties")}>
-        <Device.Select />
-        <Align.Space direction="x">
-          <Form.NumericField
-            label="State Update Rate"
-            path="config.stateRate"
-            inputProps={{ endContent: "Hz" }}
-            grow
-          />
-          <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
-        </Align.Space>
-      </Align.Space>
-    </Align.Space>
-    <Align.Space
-      direction="x"
-      className={CSS.B("channel-form-container")}
-      bordered
-      rounded
-      grow
-      empty
-    >
-      <MainContent snapshot={task?.snapshot} />
-    </Align.Space>
+    <Device.Select />
+    <Form.NumericField
+      label="State Update Rate"
+      path="config.stateRate"
+      inputProps={{ endContent: "Hz" }}
+    />
+    <Form.SwitchField label="State Data Saving" path="config.dataSaving" />
   </>
 );
 
-export const DigitalWriteTask = Common.Task.wrapForm(TaskForm, {
+const TaskForm: FC<
+  Common.Task.FormProps<DigitalWriteConfig, DigitalWriteDetails, DigitalWriteType>
+> = ({ task }) => {
+  const isSnapshot = task?.snapshot ?? false;
+  return (
+    <Common.Device.Provider<Device.Properties>
+      configureLayout={Device.CONFIGURE_LAYOUT}
+      isSnapshot={isSnapshot}
+    >
+      {() => <ChannelList isSnapshot={isSnapshot} />}
+    </Common.Device.Provider>
+  );
+};
+
+const getDeviceKey: (chan: DOChannel) => string = (chan) => `${chan.port}l${chan.line}`;
+
+export const DigitalWriteTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: digitalWriteConfigZ,
   type: DIGITAL_WRITE_TYPE,
   zeroPayload: ZERO_DIGITAL_WRITE_PAYLOAD,
   onConfigure: async (client, config) => {
-    const dev = await client.hardware.devices.retrieve<Device.Properties>(
+    const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
       config.device,
     );
     let modified = false;
@@ -325,7 +138,7 @@ export const DigitalWriteTask = Common.Task.wrapForm(TaskForm, {
     const commandsToCreate: DOChannel[] = [];
     const statesToCreate: DOChannel[] = [];
     for (const channel of config.channels) {
-      const key = generateKey(channel);
+      const key = getDeviceKey(channel);
       const exPair = dev.properties.digitalOutput.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);
@@ -356,7 +169,7 @@ export const DigitalWriteTask = Common.Task.wrapForm(TaskForm, {
         })),
       );
       states.forEach((s, i) => {
-        const key = generateKey(statesToCreate[i]);
+        const key = getDeviceKey(statesToCreate[i]);
         if (!(key in dev.properties.digitalOutput.channels))
           dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
         else dev.properties.digitalOutput.channels[key].state = s.key;
@@ -387,7 +200,7 @@ export const DigitalWriteTask = Common.Task.wrapForm(TaskForm, {
     }
     if (modified) await client.hardware.devices.create(dev);
     config.channels = config.channels.map((c) => {
-      const key = generateKey(c);
+      const key = getDeviceKey(c);
       const pair = dev.properties.digitalOutput.channels[key];
       return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
     });

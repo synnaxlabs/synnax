@@ -17,25 +17,27 @@ import { Layout } from "@/layout";
 
 export interface ProviderProps<
   P extends UnknownRecord = UnknownRecord,
-  M extends string = string,
+  MK extends string = string,
+  MO extends string = string,
 > {
   configureLayout: Omit<Layout.BaseState, "key">;
-  snapshot?: boolean;
+  isSnapshot: boolean;
   noDeviceSelectedMessage?: string;
-  children: (props: { device: device.Device<P, M> }) => ReactElement;
+  children: (props: { device: device.Device<P, MK, MO> }) => ReactElement;
 }
 
 export const Provider = <
   P extends UnknownRecord = UnknownRecord,
-  M extends string = string,
+  MK extends string = string,
+  MO extends string = string,
 >({
   configureLayout,
-  snapshot,
+  isSnapshot: snapshot,
   children,
   noDeviceSelectedMessage = "No device selected",
-}: ProviderProps<P, M>): ReactElement => {
+}: ProviderProps<P, MK, MO>): ReactElement => {
   const formCtx = Form.useContext();
-  const device = Device.use<P, M>(formCtx);
+  const device = Device.use<P, MK, MO>(formCtx);
   const placeLayout = Layout.usePlacer();
   if (device == null)
     return (
@@ -48,7 +50,7 @@ export const Provider = <
     return (
       <Align.Space grow align="center" justify="center" direction="y">
         <Text.Text level="p">{`${device.name} is not configured.`}</Text.Text>
-        {snapshot !== true && (
+        {!snapshot && (
           <Text.Link level="p" onClick={handleConfigure}>
             {`Configure ${device.name}.`}
           </Text.Link>

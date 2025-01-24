@@ -81,11 +81,9 @@ export const wrap = <
             : zeroPayload;
 
         if (client == null) throw new Error("Synnax server not connected");
-        console.log("useQuery: args.taskKey", args.taskKey);
         const task = await client.hardware.tasks.retrieve<C, D, T>(args.taskKey, {
           includeState: true,
         });
-        console.log("useQuery: task.config", task.config);
         if (configurationSchema) task.config = configurationSchema.parse(task.config);
         return task;
       },

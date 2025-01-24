@@ -52,7 +52,9 @@ export interface ButtonExtensionProps {
 /** The base props accepted by all button types in this directory. */
 export interface BaseProps
   extends Omit<ComponentPropsWithoutRef<"button">, "color">,
-    ButtonExtensionProps {}
+    ButtonExtensionProps {
+  stopPropagation?: boolean;
+}
 
 /** The props for the {@link Button} component. */
 export type ButtonProps = Omit<
@@ -113,6 +115,7 @@ export const Button = Tooltip.wrap(
     style,
     endContent,
     onMouseDown,
+    stopPropagation,
     ...props
   }: ButtonProps): ReactElement => {
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
@@ -124,6 +127,7 @@ export const Button = Tooltip.wrap(
     if (variant == "shadow") variant = "text";
 
     const handleClick: ButtonProps["onClick"] = (e) => {
+      if (stopPropagation) e.stopPropagation();
       if (isDisabled || variant === "preview") return;
       if (parsedDelay.isZero) return onClick?.(e);
     };

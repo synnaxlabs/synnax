@@ -7,100 +7,130 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Form, List, Menu } from "@synnaxlabs/pluto";
-import { type Keyed } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/media";
+import { Align, Form, List, Menu as PMenu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { ChannelListContextMenu } from "@/hardware/common/task/ChannelListContextMenu";
+import { Menu } from "@/components/menu";
 
-interface BaseChannel extends Keyed<string> {
+export interface Channel {
+  key: string;
   enabled: boolean;
 }
 
-export interface ChannelListItemProps<C extends BaseChannel>
+export interface ChannelListItemProps<C extends Channel>
   extends List.ItemProps<string, C> {
   path: string;
-  snapshot?: boolean;
+  isSnapshot: boolean;
 }
 
-interface Push<C extends BaseChannel> {
-  push: (value: C | C[]) => void;
-}
-
-interface OnDuplicate<C extends BaseChannel> extends Push<C> {
-  value: C[];
-}
-
-interface OnDupplicateFn {
-  (indices: number[]): void;
-}
-
-type OnDuplicateCreator<C extends BaseChannel> = (
-  props: OnDuplicate<C>,
-) => OnDupplicateFn;
-
-export interface ChannelListProps<C extends BaseChannel>
-  extends Omit<Align.SpaceProps, "children" | "onSelect"> {
-  path: string;
-  snapshot?: boolean;
+export type ChannelListProps<C extends Channel> = Omit<
+  Align.SpaceProps,
+  "children" | "onSelect"
+> & {
   children: (props: ChannelListItemProps<C>) => ReactElement;
-  header: (props: Push<C>) => ReactElement;
-  emptyContent: (props: Push<C>) => ReactElement;
-  selected: string[];
+  header: ReactElement;
+  isSnapshot: boolean;
+  emptyContent: ReactElement;
   onSelect: (keys: string[], index: number) => void;
-  allowTare?: (value: C[]) => boolean;
-  onTare?: (keys: number[]) => void;
-  onDuplicate?: OnDuplicateCreator<C>;
-}
+  selected: string[];
+  channels: C[];
+  onTare?: (keys: string[], channels: C[]) => void;
+  allowTare?: (keys: string[], channels: C[]) => boolean;
+  path: string;
+  remove: (index: number | number[]) => void;
+};
 
-export const ChannelList = <C extends BaseChannel>({
+export const ChannelList = <C extends Channel>({
   children,
-  path,
   header,
-  snapshot,
+  isSnapshot,
   emptyContent,
   onSelect,
-  selected,
-  allowTare,
   onTare,
-  onDuplicate,
+  allowTare,
+  selected,
+  channels,
+  path,
+  remove,
+  ...props
 }: ChannelListProps<C>): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<C>({ path });
-  const menuProps = Menu.useContextMenu();
-  return (
-    <Align.Space>
-      {header({ push })}
-      <Menu.ContextMenu
-        {...menuProps}
-        menu={({ keys }: Menu.ContextMenuMenuProps) => (
-          <ChannelListContextMenu
-            path={path}
-            keys={keys}
-            value={value}
-            remove={remove}
-            onSelect={onSelect}
-            snapshot={snapshot}
-            allowTare={allowTare?.(value)}
-            onTare={onTare}
-            onDuplicate={onDuplicate?.({ push, value })}
-          />
+  console.log(channels);
+  const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+    const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
+    const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
+    const handleRemove = () => {
+      remove(indices);
+      onSelect([], -1);
+    };
+    const { set } = Form.useContext();
+    const handleDisable = () =>
+      indices.forEach((index) => set(`${path}.${index}.enabled`, false));
+    const handleEnable = () =>
+      indices.forEach((index) => set(`${path}.${index}.enabled`, true));
+    const handleSelect: Record<string, () => void> = {
+      remove: handleRemove,
+      disable: handleDisable,
+      enable: handleEnable,
+      tare: () => onTare?.(keys, channels),
+    };
+    const canDisable = indices.some((i) => channels[i].enabled);
+    const canEnable = indices.some((i) => !channels[i].enabled);
+    const canTare = allowTare?.(keys, channels);
+    return (
+      <PMenu.Menu onChange={handleSelect} level="small">
+        {!isSnapshot && (
+          <>
+            <PMenu.Item itemKey="remove" startIcon={<Icon.Close />}>
+              Remove
+            </PMenu.Item>
+            <PMenu.Divider />
+            {canDisable && (
+              <PMenu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+                Disable
+              </PMenu.Item>
+            )}
+            {canEnable && (
+              <PMenu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+                Enable
+              </PMenu.Item>
+            )}
+            {(canEnable || canDisable) && <PMenu.Divider />}
+            {canTare === true && (
+              <>
+                <PMenu.Item itemKey="tare" startIcon={<Icon.Tare />}>
+                  Tare
+                </PMenu.Item>
+                <PMenu.Divider />
+              </>
+            )}
+          </>
         )}
-      >
-        <List.List<string, C> data={value} emptyContent={emptyContent({ push })}>
+        <Menu.HardReloadItem />
+      </PMenu.Menu>
+    );
+  };
+  const menuProps = PMenu.useContextMenu();
+  return (
+    <Align.Space grow {...props}>
+      {header}
+      <PMenu.ContextMenu {...menuProps} menu={(p) => <ContextMenu {...p} />}>
+        <List.List<string, C> data={channels} emptyContent={emptyContent}>
           <List.Selector<string, C>
             value={selected}
+            replaceOnSingle
             onChange={(keys, { clickedIndex }) =>
               clickedIndex != null && onSelect(keys, clickedIndex)
             }
           >
-            <List.Core<string, C>>
+            <List.Core<string, C> grow>
               {(props) =>
-                children({ ...props, path: `${path}.${props.index}`, snapshot })
+                children({ ...props, path: `${path}.${props.index}`, isSnapshot })
               }
             </List.Core>
           </List.Selector>
         </List.List>
-      </Menu.ContextMenu>
+      </PMenu.ContextMenu>
     </Align.Space>
   );
 };

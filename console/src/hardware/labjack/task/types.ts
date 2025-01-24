@@ -10,6 +10,8 @@
 import { channel, device, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { type Device } from "@/hardware/labjack/device";
+
 export const PREFIX = "labjack";
 
 // Channel Types
@@ -33,6 +35,27 @@ export type InputChannelType = DIChannelType | AIChannelType | TCChannelType;
 export const outputChannelTypeZ = z.enum([AO_CHANNEL_TYPE, DO_CHANNEL_TYPE]);
 export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
 export type ChannelType = InputChannelType | OutputChannelType;
+
+type ConvertChannelTypeToPortType = {
+  [DI_CHANNEL_TYPE]: Device.DIPortType;
+  [AI_CHANNEL_TYPE]: Device.AIPortType;
+  [TC_CHANNEL_TYPE]: Device.AIPortType;
+  [AO_CHANNEL_TYPE]: Device.AOPortType;
+  [DO_CHANNEL_TYPE]: Device.DOPortType;
+};
+
+export const getPortTypeFromChannelType = <
+  T extends keyof ConvertChannelTypeToPortType,
+>(
+  type: T,
+): ConvertChannelTypeToPortType[T] => {
+  if (type === DI_CHANNEL_TYPE) return "DI";
+  if (type === AI_CHANNEL_TYPE) return "AI";
+  if (type === TC_CHANNEL_TYPE) return "AI";
+  if (type === AO_CHANNEL_TYPE) return "AO";
+  if (type === DO_CHANNEL_TYPE) return "DO";
+  throw new Error(`Unknown channel type: ${type}`);
+};
 
 const LINEAR_SCALE_TYPE = "linear";
 

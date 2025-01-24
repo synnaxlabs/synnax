@@ -12,12 +12,16 @@ import { Form, Observe, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
-export const use = <P extends UnknownRecord = UnknownRecord, M extends string = string>(
+export const use = <
+  P extends UnknownRecord = UnknownRecord,
+  MK extends string = string,
+  MO extends string = string,
+>(
   ctx: Form.ContextValue<any>,
-): device.Device<P, M> | undefined => {
+): device.Device<P, MK, MO> | undefined => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
-  const [device, setDevice] = useState<device.Device<P, M> | undefined>(undefined);
+  const [device, setDevice] = useState<device.Device<P, MK, MO> | undefined>(undefined);
   const handleExc = useCallback(
     (e: unknown) => {
       if (NotFoundError.matches(e)) {
@@ -34,7 +38,7 @@ export const use = <P extends UnknownRecord = UnknownRecord, M extends string = 
     if (typeof deviceKey !== "string") return;
     if (deviceKey === "") return;
     try {
-      const d = await client.hardware.devices.retrieve<P, M>(deviceKey);
+      const d = await client.hardware.devices.retrieve<P, MK, MO>(deviceKey);
       setDevice(d);
     } catch (e) {
       handleExc(e);
@@ -47,7 +51,7 @@ export const use = <P extends UnknownRecord = UnknownRecord, M extends string = 
       async (fs) => {
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         try {
-          const device = await client.hardware.devices.retrieve<P, M>(fs.value);
+          const device = await client.hardware.devices.retrieve<P, MK, MO>(fs.value);
           setDevice(device);
         } catch (e) {
           handleExc(e);
@@ -62,7 +66,8 @@ export const use = <P extends UnknownRecord = UnknownRecord, M extends string = 
     onChange: (changes) => {
       for (const change of changes) {
         if (change.key !== device?.key) continue;
-        if (change.variant === "set") setDevice(change.value as device.Device<P, M>);
+        if (change.variant === "set")
+          setDevice(change.value as device.Device<P, MK, MO>);
         else if (change.variant === "delete") setDevice(undefined);
       }
     },

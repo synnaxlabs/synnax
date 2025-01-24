@@ -123,6 +123,10 @@ import {
   PiDownloadSimple,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiWaveSawtooth,
+  PiWaveSine,
+  PiWaveSquare,
+  PiWaveTriangle,
 } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import {
@@ -368,6 +372,12 @@ export const Icon: IconType = {
   Search: wrapIcon(PiMagnifyingGlassBold, "search"),
   Auto: wrapIcon(MdAutoAwesome, "auto"),
   Table: wrapIcon(FiTable, "table"),
+  Wave: {
+    Sawtooth: wrapIcon(PiWaveSawtooth, "wave-sawtooth"),
+    Sine: wrapIcon(PiWaveSine, "wave-sine"),
+    Triangle: wrapIcon(PiWaveTriangle, "wave-triangle"),
+    Square: wrapIcon(PiWaveSquare, "wave-square"),
+  },
   Align: {
     Right: wrapIcon(MdAlignHorizontalRight, "align-right"),
     Left: wrapIcon(MdAlignHorizontalLeft, "align-left"),
@@ -476,6 +486,12 @@ export interface IconType {
   Range: IconFC;
   Node: IconFC;
   Channel: IconFC;
+  Wave: {
+    Sawtooth: IconFC;
+    Sine: IconFC;
+    Triangle: IconFC;
+    Square: IconFC;
+  };
   Resources: IconFC;
   Group: IconFC;
   Workspace: IconFC;

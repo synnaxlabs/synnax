@@ -912,6 +912,7 @@ const SINE = "Sine";
 const TRIANGLE = "Triangle";
 const SQUARE = "Square";
 const SAWTOOTH = "Sawtooth";
+export type WaveType = typeof SINE | typeof TRIANGLE | typeof SQUARE | typeof SAWTOOTH;
 
 const aoFuncGenChanZ = baseAOChanZ.extend({
   type: z.literal(AO_FUNC_GEN_CHAN_TYPE),
@@ -946,22 +947,22 @@ const ZERO_AO_VOLTAGE_CHAN: AOVoltageChan = {
 };
 
 const aoChannelZ = z.union([aoCurrentChanZ, aoFuncGenChanZ, aoVoltageChanZ]);
-type AOChannel = z.infer<typeof aoChannelZ>;
-type AOChannelType = AOChannel["type"];
+export type AOChannel = z.infer<typeof aoChannelZ>;
+export type AOChannelType = AOChannel["type"];
 
-const AO_CHANNEL_SCHEMAS: Record<AOChannelType, z.ZodType<AOChannel>> = {
+export const AO_CHANNEL_SCHEMAS: Record<AOChannelType, z.ZodType<AOChannel>> = {
   [AO_CURRENT_CHAN_TYPE]: aoCurrentChanZ,
   [AO_FUNC_GEN_CHAN_TYPE]: aoFuncGenChanZ,
   [AO_VOLTAGE_CHAN_TYPE]: aoVoltageChanZ,
 };
 
-const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
+export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   [AO_CURRENT_CHAN_TYPE]: "Current",
   [AO_FUNC_GEN_CHAN_TYPE]: "Function Generator",
   [AO_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
-const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
+export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
   [AO_CURRENT_CHAN_TYPE]: ZERO_AO_CURRENT_CHAN,
   [AO_FUNC_GEN_CHAN_TYPE]: ZERO_AO_FUNC_GEN_CHAN,
   [AO_VOLTAGE_CHAN_TYPE]: ZERO_AO_VOLTAGE_CHAN,
@@ -1048,27 +1049,27 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 
 // Analog Write Task
 
-const analogWriteConfigZ = baseConfigZ.extend({
+export const analogWriteConfigZ = baseConfigZ.extend({
   stateRate: z.number().min(0).max(50000),
   channels: z.array(aoChannelZ),
 });
-interface AnalogWriteConfig extends z.infer<typeof analogWriteConfigZ> {}
+export interface AnalogWriteConfig extends z.infer<typeof analogWriteConfigZ> {}
 const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
   ...ZERO_BASE_CONFIG,
   stateRate: 10,
   channels: [],
 };
 
-interface AnalogWriteDetails extends BaseDetails {}
+export interface AnalogWriteDetails extends BaseDetails {}
 
-const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
-type AnalogWriteType = typeof ANALOG_WRITE_TYPE;
+export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
+export type AnalogWriteType = typeof ANALOG_WRITE_TYPE;
 
-interface AnalogWrite
+export interface AnalogWrite
   extends task.Task<AnalogWriteConfig, AnalogWriteDetails, AnalogWriteType> {}
-interface AnalogWritePayload
+export interface AnalogWritePayload
   extends task.Payload<AnalogWriteConfig, AnalogWriteDetails, AnalogWriteType> {}
-const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
+export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
   key: "",
   name: "NI Analog Write Task",
   config: ZERO_ANALOG_WRITE_CONFIG,

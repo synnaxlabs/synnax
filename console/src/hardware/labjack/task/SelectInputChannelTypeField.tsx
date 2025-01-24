@@ -27,6 +27,7 @@ export const SelectInputChannelTypeField = Form.buildDropdownButtonSelectField<
   fieldKey: "type",
   fieldProps: { label: "Channel Type" },
   inputProps: {
+    allowNone: false,
     entryRenderKey: "name",
     columns: [{ key: "name", name: "Name" }],
     data: INPUT_CHANNEL_TYPES,

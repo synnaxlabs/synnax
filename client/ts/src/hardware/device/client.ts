@@ -70,20 +70,26 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     this.frameClient = frameClient;
   }
 
-  async retrieve<P extends UnknownRecord = UnknownRecord, M extends string = string>(
-    key: string,
-    options?: RetrieveOptions,
-  ): Promise<Device<P, M>>;
+  async retrieve<
+    P extends UnknownRecord = UnknownRecord,
+    MK extends string = string,
+    MO extends string = string,
+  >(key: string, options?: RetrieveOptions): Promise<Device<P, MK, MO>>;
 
-  async retrieve<P extends UnknownRecord = UnknownRecord, M extends string = string>(
-    keys: string[],
-    options?: RetrieveOptions,
-  ): Promise<Array<Device<P, M>>>;
+  async retrieve<
+    P extends UnknownRecord = UnknownRecord,
+    MK extends string = string,
+    MO extends string = string,
+  >(keys: string[], options?: RetrieveOptions): Promise<Array<Device<P, MK, MO>>>;
 
-  async retrieve<P extends UnknownRecord = UnknownRecord, M extends string = string>(
+  async retrieve<
+    P extends UnknownRecord = UnknownRecord,
+    MK extends string = string,
+    MO extends string = string,
+  >(
     keys: string | string[],
     options?: RetrieveOptions,
-  ): Promise<Device<P, M> | Array<Device<P, M>>> {
+  ): Promise<Device<P, MK, MO> | Array<Device<P, MK, MO>>> {
     const isSingle = !Array.isArray(keys);
     const res = await sendRequired(
       this.client,
@@ -94,8 +100,8 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     );
     checkForMultipleOrNoResults("Device", keys, res.devices, isSingle);
     return isSingle
-      ? (res.devices[0] as Device<P, M>)
-      : (res.devices as Array<Device<P, M>>);
+      ? (res.devices[0] as Device<P, MK, MO>)
+      : (res.devices as Array<Device<P, MK, MO>>);
   }
 
   async search(term: string, options?: RetrieveOptions): Promise<Device[]> {
@@ -122,15 +128,23 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     ).devices;
   }
 
-  async create<P extends UnknownRecord = UnknownRecord, M extends string = string>(
-    device: New<P, M>,
-  ): Promise<Device<P, M>>;
-  async create<P extends UnknownRecord = UnknownRecord, M extends string = string>(
-    devices: New<P, M>[],
-  ): Promise<Device<P, M>[]>;
-  async create<P extends UnknownRecord = UnknownRecord, M extends string = string>(
-    devices: New<P, M> | New<P, M>[],
-  ): Promise<Device<P, M> | Device<P, M>[]> {
+  async create<
+    P extends UnknownRecord = UnknownRecord,
+    MK extends string = string,
+    MO extends string = string,
+  >(device: New<P, MK>): Promise<Device<P, MK, MO>>;
+  async create<
+    P extends UnknownRecord = UnknownRecord,
+    MK extends string = string,
+    MO extends string = string,
+  >(devices: New<P, MK>[]): Promise<Device<P, MK, MO>[]>;
+  async create<
+    P extends UnknownRecord = UnknownRecord,
+    MK extends string = string,
+    MO extends string = string,
+  >(
+    devices: New<P, MK> | New<P, MK>[],
+  ): Promise<Device<P, MK, MO> | Device<P, MK, MO>[]> {
     const isSingle = !Array.isArray(devices);
     const res = await sendRequired(
       this.client,
@@ -140,8 +154,8 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
       createResZ,
     );
     return isSingle
-      ? (res.devices[0] as Device<P, M>)
-      : (res.devices as Device<P, M>[]);
+      ? (res.devices[0] as Device<P, MK, MO>)
+      : (res.devices as Device<P, MK, MO>[]);
   }
 
   async delete(keys: string | string[]): Promise<void> {

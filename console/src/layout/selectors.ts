@@ -50,12 +50,12 @@ export const selectType = (state: StoreState, key: string): string | undefined =
 export const useSelectType = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectType(state, key), [key]);
 
-export const selectArgs = <A>(state: StoreState, key: string): A | undefined => {
+export const selectArgs = <A>(state: StoreState, key: string): A => {
   const layout = select(state, key);
   return layout?.args as A;
 };
 
-export const useSelectArgs = <A>(key: string): A | undefined =>
+export const useSelectArgs = <A>(key: string): A =>
   useMemoSelect((state: StoreState) => selectArgs(state, key), [key]);
 
 export const selectAltKey = (state: StoreState, key: string): string | undefined =>

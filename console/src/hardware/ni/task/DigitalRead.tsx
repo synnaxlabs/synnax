@@ -9,13 +9,12 @@
 
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Channel, Form, Header, List, Menu, Text } from "@synnaxlabs/pluto";
-import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { id, primitiveIsZero } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useState } from "react";
 
-import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
+import { DigitalListItem } from "@/hardware/ni/task/DigitalListItem";
 import {
   type DIChannel,
   DIGITAL_READ_TYPE,
@@ -43,233 +42,64 @@ export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...DIGITAL_READ_LAYOUT, key }),
 };
 
-interface ChannelFormProps {
-  selectedChannelIndex: number;
-}
-
-const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  if (selectedChannelIndex == -1) return <></>;
-  const prefix = `config.channels.${selectedChannelIndex}`;
-  return (
-    <Align.Space direction="x" grow>
-      <Form.NumericField path={`${prefix}.port`} label="Port" grow />
-      <Form.NumericField path={`${prefix}.line`} label="Line" grow />
-    </Align.Space>
-  );
-};
-
-interface ChannelListProps {
-  path: string;
-  onSelect: (keys: string[], index: number) => void;
-  selected: string[];
-  snapshot?: boolean;
-}
-
-const ChannelList = ({
-  path,
-  selected,
-  onSelect,
-  snapshot,
-}: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<DIChannel>({ path });
-  const handleAdd = (): void => {
-    const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
-    push({
-      ...deep.copy(ZERO_DI_CHANNEL),
-      port: 0,
-      line: availableLine,
-      key: id.id(),
-    });
-  };
-  const menuProps = Menu.useContextMenu();
-  return (
-    <Align.Space className={CSS.B("channels")} grow empty>
-      <Common.Task.ChannelListHeader onAdd={handleAdd} snapshot={snapshot} />
-      <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps) => (
-          <Common.Task.ChannelListContextMenu
-            path={path}
-            keys={keys}
-            value={value}
-            remove={remove}
-            snapshot={snapshot}
-            onSelect={onSelect}
-            onDuplicate={(indices) => {
-              const newChannels = indices.map((i) => ({
-                ...value[i],
-                key: id.id(),
-              }));
-              push(newChannels);
-            }}
-          />
-        )}
-        {...menuProps}
-      >
-        <List.List<string, DIChannel>
-          data={value}
-          emptyContent={
-            <Common.Task.ChannelListEmptyContent
-              onAdd={handleAdd}
-              snapshot={snapshot}
-            />
-          }
-        >
-          <List.Selector<string, DIChannel>
-            value={selected}
-            allowNone={false}
-            allowMultiple
-            onChange={(keys, { clickedIndex }) =>
-              clickedIndex != null && onSelect(keys, clickedIndex)
-            }
-            replaceOnSingle
-          >
-            <List.Core<string, DIChannel> grow>
-              {({ key, ...props }) => (
-                <ChannelListItem key={key} {...props} snapshot={snapshot} path={path} />
-              )}
-            </List.Core>
-          </List.Selector>
-        </List.List>
-      </Menu.ContextMenu>
-    </Align.Space>
-  );
-};
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps<DIChannel> {}
 
 const ChannelListItem = ({
-  path,
-  snapshot = false,
+  entry,
+  entry: { channel },
   ...props
-}: List.ItemProps<string, DIChannel> & {
-  path: string;
-  snapshot?: boolean;
-}): ReactElement => {
-  const { entry } = props;
-  const hasLine = "line" in entry;
-  const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<DIChannel>({
-    path: `${path}.${props.index}`,
-    optional: true,
-  });
-  const channelName = Channel.useName(childValues?.channel ?? 0, "No Channel");
+}: ChannelListItemProps): ReactElement => (
+  <DigitalListItem {...props} entry={entry}>
+    <Common.Task.ChannelName channel={channel} defaultName="No Channel" />
+  </DigitalListItem>
+);
 
-  const channelValid =
-    Form.useField<number>({
-      path: `${path}.${props.index}.channel`,
-      optional: true,
-    })?.status?.variant === "success";
+interface ChannelListProps {
+  isSnapshot: boolean;
+}
 
-  const portValid =
-    Form.useField<number>({
-      path: `${path}.${props.index}.port`,
-      optional: true,
-    })?.status?.variant === "success";
-  if (childValues == null) return <></>;
-
+const ChannelList = ({ isSnapshot }: ChannelListProps): ReactElement => {
+  const [selected, setSelected] = useState<string[]>([]);
+  const generateChannel = useCallback((chan: DIChannel[]) => {
+    const line = Math.max(0, ...chan.map((v) => v.line)) + 1;
+    return { ...ZERO_DI_CHANNEL, key: id.id(), line };
+  }, []);
   return (
-    <List.ItemFrame
-      {...props}
-      entry={childValues}
-      justify="spaceBetween"
-      align="center"
+    <Common.Task.DefaultChannelList<DIChannel>
+      isSnapshot={isSnapshot}
+      selected={selected}
+      onSelect={setSelected}
+      generateChannel={generateChannel}
     >
-      <Align.Space direction="x" size="small">
-        <Text.Text
-          level="p"
-          weight={500}
-          shade={6}
-          style={{ width: "4rem" }}
-          color={portValid ? undefined : "var(--pluto-error-z)"}
-        >
-          {childValues.port}
-          {hasLine && `/${entry.line}`}
-        </Text.Text>
-        <Align.Space direction="y">
-          <Text.Text
-            level="p"
-            weight={500}
-            shade={9}
-            color={(() => {
-              if (channelName === "No Channel") return "var(--pluto-warning-m1)";
-              if (channelValid) return undefined;
-              return "var(--pluto-error-z)";
-            })()}
-          >
-            {channelName}
-          </Text.Text>
-        </Align.Space>
-      </Align.Space>
-      <Common.Task.EnableDisableButton
-        value={childValues.enabled}
-        onChange={(v) => ctx?.set(`${path}.${props.index}.enabled`, v)}
-        snapshot={snapshot}
-      />
-    </List.ItemFrame>
+      {(p) => <ChannelListItem {...p} />}
+    </Common.Task.DefaultChannelList>
   );
 };
+
+const Properties = (): ReactElement => (
+  <>
+    <Device.Select />
+    <Common.Task.SampleRateField />
+    <Common.Task.StreamRateField />
+    <Common.Task.DataSavingField />
+  </>
+);
 
 const TaskForm: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadDetails, DigitalReadType>
 > = ({ task }) => {
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(
-    task.config.channels.length ? [task.config.channels[0].key] : [],
-  );
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
-    task.config.channels.length > 0 ? 0 : null,
-  );
+  const isSnapshot = task?.snapshot ?? false;
   return (
-    <>
-      <Align.Space direction="x" className={CSS.B("task-properties")}>
-        <Device.Select />
-        <Align.Space direction="x">
-          <Form.NumericField
-            label="Sample Rate"
-            path="config.sampleRate"
-            inputProps={{ endContent: "Hz" }}
-          />
-          <Form.NumericField
-            label="Stream Rate"
-            path="config.streamRate"
-            inputProps={{ endContent: "Hz" }}
-          />
-          <Form.SwitchField label="Data Saving" path="config.dataSaving" />
-        </Align.Space>
-      </Align.Space>
-      <Align.Space
-        direction="x"
-        className={CSS.B("channel-form-container")}
-        bordered
-        rounded
-        grow
-        empty
-      >
-        <ChannelList
-          path="config.channels"
-          snapshot={task?.snapshot}
-          selected={selectedChannels}
-          onSelect={useCallback(
-            (v, i) => {
-              setSelectedChannels(v);
-              setSelectedChannelIndex(i);
-            },
-            [setSelectedChannels, setSelectedChannelIndex],
-          )}
-        />
-        <Align.Space className={CSS.B("channel-form")} direction="y" grow>
-          <Header.Header level="h4">
-            <Header.Title weight={500}>Details</Header.Title>
-          </Header.Header>
-          <Align.Space className={CSS.B("details")}>
-            {selectedChannelIndex != null && (
-              <ChannelForm selectedChannelIndex={selectedChannelIndex} />
-            )}
-          </Align.Space>
-        </Align.Space>
-      </Align.Space>
-    </>
+    <Common.Device.Provider<Device.Properties>
+      configureLayout={Device.CONFIGURE_LAYOUT}
+      isSnapshot={isSnapshot}
+    >
+      {() => <ChannelList isSnapshot={isSnapshot} />}
+    </Common.Device.Provider>
   );
 };
 
-export const DigitalReadTask = Common.Task.wrapForm(TaskForm, {
+export const DigitalReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: digitalReadConfigZ,
   type: DIGITAL_READ_TYPE,
   zeroPayload: ZERO_DIGITAL_READ_PAYLOAD,

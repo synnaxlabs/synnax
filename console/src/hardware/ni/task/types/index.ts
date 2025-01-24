@@ -35,6 +35,10 @@ export type ScaleType = v0.ScaleType;
 export const ZERO_SCALES = v0.ZERO_SCALES;
 export const SCALE_SCHEMAS = v0.SCALE_SCHEMAS;
 
+// Wave Types
+
+export type WaveType = v0.WaveType;
+
 // Channels
 
 export type AIChannel = v1.AIChannel;
@@ -42,6 +46,11 @@ export type AIChannelType = v0.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = v1.AI_CHANNEL_SCHEMAS;
 export const ZERO_AI_CHANNELS = v1.ZERO_AI_CHANNELS;
 export const AI_CHANNEL_TYPE_NAMES = v0.AI_CHANNEL_TYPE_NAMES;
+export type AOChannel = v0.AOChannel;
+export type AOChannelType = v0.AOChannelType;
+export const AO_CHANNEL_SCHEMAS = v0.AO_CHANNEL_SCHEMAS;
+export const ZERO_AO_CHANNELS = v0.ZERO_AO_CHANNELS;
+export const AO_CHANNEL_TYPE_NAMES = v0.AO_CHANNEL_TYPE_NAMES;
 export const ZERO_DO_CHANNEL = v0.ZERO_DO_CHANNEL;
 export interface DOChannel extends v0.DOChannel {}
 export const ZERO_DI_CHANNEL = v0.ZERO_DI_CHANNEL;
@@ -57,6 +66,15 @@ export type AnalogReadType = v0.AnalogReadType;
 export interface AnalogRead extends v1.AnalogRead {}
 export interface AnalogReadPayload extends v1.AnalogReadPayload {}
 export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
+
+export const analogWriteConfigZ = v0.analogWriteConfigZ;
+export interface AnalogWriteConfig extends v0.AnalogWriteConfig {}
+export interface AnalogWriteDetails extends v0.AnalogWriteDetails {}
+export const ANALOG_WRITE_TYPE = v0.ANALOG_WRITE_TYPE;
+export type AnalogWriteType = v0.AnalogWriteType;
+export interface AnalogWrite extends v0.AnalogWrite {}
+export interface AnalogWritePayload extends v0.AnalogWritePayload {}
+export const ZERO_ANALOG_WRITE_PAYLOAD = v0.ZERO_ANALOG_WRITE_PAYLOAD;
 
 export const digitalWriteConfigZ = v0.digitalWriteConfigZ;
 export interface DigitalWriteConfig extends v0.DigitalWriteConfig {}

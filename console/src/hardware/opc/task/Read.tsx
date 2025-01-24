@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/Task.css";
 
-import { type channel, DataType, type device, NotFoundError } from "@synnaxlabs/client";
+import { type channel, DataType, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -60,8 +60,8 @@ const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
 
 interface ChannelListProps {
   path: string;
-  device?: device.Device<Device.Properties>;
-  snapshot?: boolean;
+  device: Device.Device;
+  snapshot: boolean;
 }
 
 const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
@@ -71,6 +71,7 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
 
   const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
+    console.log(items);
     const dropped = items.filter(
       (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
     );
@@ -117,6 +118,40 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
   );
 
   return (
+    <Common.Task.ChannelList
+      grow
+      className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
+      header={
+        <Header.Header level="h4">
+          <Header.Title weight={500}>Channels</Header.Title>
+        </Header.Header>
+      }
+      emptyContent={
+        <Align.Center>
+          <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+            No channels added. Drag a variable{" "}
+            <Icon.Variable
+              style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
+            />{" "}
+            from the browser to add a channel to the task.
+          </Text.Text>
+        </Align.Center>
+      }
+      isSnapshot={snapshot}
+      onSelect={(keys, index) => {
+        setSelectedChannels(keys);
+        setSelectedChannelIndex(index);
+      }}
+      selected={selectedChannels}
+      channels={value}
+      path={path}
+      remove={remove}
+    >
+      {() => <></>}
+    </Common.Task.ChannelList>
+  );
+
+  return (
     <Align.Space
       className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
       grow
@@ -141,7 +176,7 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
               setSelectedChannels(k);
               setSelectedChannelIndex(i);
             }}
-            snapshot={snapshot}
+            isSnapshot={snapshot}
           />
         )}
         {...menuProps}
@@ -262,7 +297,7 @@ export const ChannelListItem = ({
         <Common.Task.EnableDisableButton
           value={childValues.enabled}
           onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
-          snapshot={snapshot}
+          isSnapshot={snapshot}
         />
       </Align.Space>
     </List.ItemFrame>
@@ -311,41 +346,44 @@ const ChannelForm = ({
   );
 };
 
-const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
-  methods,
-  task,
-}) => {
-  const dev = Common.Device.use<Device.Properties>(methods);
-  const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
+const Properties = (): ReactElement => {
+  const arrayMode = Form.useFieldValue<boolean>("config.arrayMode");
   return (
     <>
-      <Align.Space direction="x" className={CSS.B("task-properties")}>
-        <Device.Select />
-        <Align.Space direction="x">
-          <Form.Field<boolean> label="Data Saving" path="config.dataSaving" optional>
-            {(p) => <Input.Switch {...p} />}
-          </Form.Field>
-          <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-            {(p) => <Input.Numeric {...p} />}
-          </Form.Field>
-          <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
-          <Form.Field<number>
-            label={arrayMode ? "Array Size" : "Stream Rate"}
-            path={arrayMode ? "config.arraySize" : "config.streamRate"}
-          >
-            {(p) => <Input.Numeric {...p} />}
-          </Form.Field>
-        </Align.Space>
-      </Align.Space>
-      <Align.Space direction="x" grow style={{ overflow: "hidden", height: "500px" }}>
-        {task?.snapshot !== true && <Device.Browser device={dev} />}
-        <ChannelList path="config.channels" device={dev} snapshot={task?.snapshot} />
-      </Align.Space>
+      <Device.Select />
+      <Common.Task.SampleRateField />
+      <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
+      <Form.Field<number>
+        label={arrayMode ? "Array Size" : "Stream Rate"}
+        path={arrayMode ? "config.arraySize" : "config.streamRate"}
+      >
+        {(p) => <Input.Numeric {...p} />}
+      </Form.Field>
+      <Common.Task.DataSavingField />
     </>
   );
 };
 
-export const ReadTask = Common.Task.wrapForm(TaskForm, {
+const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
+  task,
+}) => {
+  const isSnapshot = task?.snapshot ?? false;
+  return (
+    <Common.Device.Provider<Device.Properties, Device.Make>
+      configureLayout={Device.CONFIGURE_LAYOUT}
+      isSnapshot={isSnapshot}
+    >
+      {({ device }) => (
+        <Align.Space direction="x">
+          {!isSnapshot && <Device.Browser device={device} />}
+          <ChannelList path="config.channels" device={device} snapshot={isSnapshot} />
+        </Align.Space>
+      )}
+    </Common.Device.Provider>
+  );
+};
+
+export const ReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: readConfigZ,
   type: READ_TYPE,
   zeroPayload: ZERO_READ_PAYLOAD,
