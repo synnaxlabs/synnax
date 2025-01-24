@@ -117,10 +117,10 @@ export const wrapForm = <
     });
     const snapshot = task.snapshot;
     return (
-      <Align.Space direction="y" className={CSS.B("task-form")} grow empty>
-        <PForm.Form {...methods} mode={snapshot ? "preview" : "normal"}>
-          <Align.Space direction="y">
-            <Align.Space direction="x">
+      <Align.Space direction="y" className={CSS.B("task-configure")} grow empty>
+        <Align.Space grow>
+          <PForm.Form {...methods} mode={snapshot ? "preview" : "normal"}>
+            <Align.Space direction="x" justify="spaceBetween">
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>
@@ -128,26 +128,33 @@ export const wrapForm = <
             </Align.Space>
             <ParentRangeButton key={task.key} />
             <Align.Space direction="x" className={CSS.B("task-properties")}>
-              {Properties}
+              <Align.Space direction="x">{Properties}</Align.Space>
             </Align.Space>
-            <Align.Space direction="x" className={CSS.B("task-channel-form-container")}>
+            <Align.Space
+              direction="x"
+              className={CSS.B("task-channel-form-container")}
+              bordered
+              rounded
+              grow
+              empty
+            >
               <Form methods={methods} task={task} taskState={taskState} />
             </Align.Space>
-          </Align.Space>
-        </PForm.Form>
-        <Controls
-          layoutKey={layoutKey}
-          state={taskState}
-          startingOrStopping={
-            startOrStopMutation.isPending ||
-            (!checkDesiredStateMatch(desiredState, running) &&
-              taskState?.variant === "success")
-          }
-          configuring={configureMutation.isPending}
-          onStartStop={startOrStopMutation.mutate}
-          onConfigure={configureMutation.mutate}
-          snapshot={snapshot}
-        />
+          </PForm.Form>
+          <Controls
+            layoutKey={layoutKey}
+            state={taskState}
+            startingOrStopping={
+              startOrStopMutation.isPending ||
+              (!checkDesiredStateMatch(desiredState, running) &&
+                taskState?.variant === "success")
+            }
+            configuring={configureMutation.isPending}
+            onStartStop={startOrStopMutation.mutate}
+            onConfigure={configureMutation.mutate}
+            snapshot={snapshot}
+          />
+        </Align.Space>
       </Align.Space>
     );
   };

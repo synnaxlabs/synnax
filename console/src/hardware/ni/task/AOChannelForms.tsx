@@ -66,9 +66,10 @@ const WAVE_TYPE_DATA: WaveTypeEntry[] = [
 
 const SelectWaveType = (props: Select.ButtonProps<WaveType, WaveTypeEntry>) => (
   <Select.Button<WaveType, WaveTypeEntry>
-    data={WAVE_TYPE_DATA}
-    entryRenderKey="key"
     {...props}
+    size="large"
+    data={WAVE_TYPE_DATA}
+    entryRenderKey="icon"
   />
 );
 
@@ -326,10 +327,10 @@ export const AO_CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
     <>
       <PortField path={prefix} />
       <Divider.Divider direction="x" padded="bottom" />
+      <Form.Field<WaveType> path={`${prefix}.waveType`} showLabel={false}>
+        {(p) => <SelectWaveType {...p} />}
+      </Form.Field>
       <Align.Space direction="x" grow>
-        <Form.Field<WaveType> path={`${prefix}.waveType`} label="Shape">
-          {(p) => <SelectWaveType {...p} />}
-        </Form.Field>
         <Form.NumericField path={`${prefix}.frequency`} label="Frequency" grow />
         <Form.NumericField path={`${prefix}.amplitude`} label="Amplitude" grow />
         <Form.NumericField path={`${prefix}.offset`} label="Offset" grow />

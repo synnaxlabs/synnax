@@ -12,6 +12,7 @@ import { Align, Form, List, Menu as PMenu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
+import { CSS } from "@/css";
 
 export interface Channel {
   key: string;
@@ -55,7 +56,6 @@ export const ChannelList = <C extends Channel>({
   remove,
   ...props
 }: ChannelListProps<C>): ReactElement => {
-  console.log(channels);
   const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
     const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
     const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
@@ -112,7 +112,7 @@ export const ChannelList = <C extends Channel>({
   };
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space grow {...props}>
+    <Align.Space grow className={CSS.B("channels")} {...props} empty>
       {header}
       <PMenu.ContextMenu {...menuProps} menu={(p) => <ContextMenu {...p} />}>
         <List.List<string, C> data={channels} emptyContent={emptyContent}>

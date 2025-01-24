@@ -42,3 +42,19 @@
 .synnax-icon-decimal {
     transform: scale(1.25);
 }
+
+.synnax-icon-wave-triangle {
+    transform: scale(2);
+}
+
+.synnax-icon-wave-square {
+    transform: scale(2);
+}
+
+.synnax-icon-wave-sine {
+    transform: scale(2);
+}
+
+.synnax-icon-wave-sawtooth {
+    transform: scale(2);
+}
