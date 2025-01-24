@@ -13,6 +13,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <variant>
 
 #include "client/cpp/telem/telem.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
@@ -46,6 +47,22 @@ output_partial_vector_byte(std::ostream &os, const std::vector<uint8_t> &v) {
         os << static_cast<uint64_t>(v[i]) << " ";
 }
 
+
+/// @brief all the possible types for a sample within the series. 
+/// THE ORDER OF THESE TYPES IS VERY IMPORTANT. DO NOT CHANGE IT.
+using SampleValue = std::variant<
+    double, // FLOAT64
+    float, // FLOAT32
+    int64_t, // INT64
+    int32_t, // INT32
+    int16_t, // INT16
+    int8_t, // INT8
+    uint64_t, // UINT64
+    uint32_t, // UINT32
+    uint16_t, // UINT16
+    uint8_t, // UINT8
+    std::string // STRING
+>;
 
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
 class Series {
@@ -428,8 +445,9 @@ public:
     }
 
     template<typename NumericType>
-    void transform_inplace(const std::function<NumericType(NumericType)>& func){
-        static_assert(std::is_arithmetic_v<NumericType>, "NumericType must be a numeric type");
+    void transform_inplace(const std::function<NumericType(NumericType)> &func) {
+        static_assert(std::is_arithmetic_v<NumericType>,
+                      "NumericType must be a numeric type");
         if (size == 0) return;
         auto vals = values<NumericType>();
         std::transform(vals.begin(), vals.end(), vals.begin(), func);
@@ -449,35 +467,36 @@ public:
     synnax::TimeRange time_range = synnax::TimeRange();
 
     /// @brief Copy constructor that performs a deep copy of the series data
-    Series(const Series& other) : 
-        size(other.size),
-        cap(other.cap),
-        data_type(other.data_type),
-        time_range(other.time_range),
-        cached_byte_size(other.cached_byte_size) {
+    Series(const Series &other) : size(other.size),
+                                  cap(other.cap),
+                                  data_type(other.data_type),
+                                  time_range(other.time_range),
+                                  cached_byte_size(other.cached_byte_size) {
         if (other.data) {
             data = std::make_unique<std::byte[]>(other.byteCap());
             memcpy(data.get(), other.data.get(), other.byteCap());
         }
     }
 
-    // /// @brief Copy assignment operator that performs a deep copy of the series data
-    // Series& operator=(const Series& other) {
-    //     if (this != &other) {
-    //         size = other.size;
-    //         cap = other.cap;
-    //         data_type = other.data_type;
-    //         time_range = other.time_range;
-    //         cached_byte_size = other.cached_byte_size;
-    //         if (other.data) {
-    //             data = std::make_unique<std::byte[]>(other.byteCap());
-    //             memcpy(data.get(), other.data.get(), other.byteCap());
-    //         } else {
-    //             data.reset();
-    //         }
-    //     }
-    //     return *this;
-    // }
+    [[nodiscard]] SampleValue at(const int index) const {
+        const auto adjusted = validateBounds(index);
+        if (data_type == FLOAT64) return at<double>(adjusted);
+        if (data_type == FLOAT32) return at<float>(adjusted);
+        if (data_type == INT64) return at<int64_t>(adjusted);
+        if (data_type == INT32) return at<int32_t>(adjusted);
+        if (data_type == INT16) return at<int16_t>(adjusted);
+        if (data_type == INT8) return at<int8_t>(adjusted);
+        if (data_type == UINT64) return at<uint64_t>(adjusted);
+        if (data_type == UINT32) return at<uint32_t>(adjusted);
+        if (data_type == SY_UINT16) return at<uint16_t>(adjusted);
+        if (data_type == SY_UINT8) return at<uint8_t>(adjusted);
+        if (data_type == STRING || data_type == JSON) {
+            std::string value;
+            at(adjusted, value);
+            return value;
+        }
+        throw std::runtime_error("unsupported data type for value_at: " + data_type.name());
+    }
 
 private:
     size_t cached_byte_size = 0;

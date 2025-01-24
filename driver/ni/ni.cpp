@@ -505,12 +505,15 @@ void ni::Source::get_index_keys() {
     }
 }
 
+std::pair<synnax::Frame, freighter::Error> ni::Source::read(breaker::Breaker &breaker) {
+}
+
 
 ni::Source::Source(
     const std::shared_ptr<DAQmx> &dmx,
-    TaskHandle task_handle,
+    const TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task
+    const synnax::Task &task
 ) : dmx(dmx),
     task_handle(task_handle),
     ctx(ctx),
@@ -698,14 +701,14 @@ bool ni::Source::ok() {
     return this->ok_state;
 }
 
-std::vector<synnax::ChannelKey> ni::Source::get_channel_keys() {
+std::vector<synnax::ChannelKey> ni::Source::get_channel_keys() const {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->reader_config.channels)
         if (channel.enabled) keys.push_back(channel.channel_key);
     return keys;
 }
 
-void ni::Source::log_error(std::string err_msg) {
+void ni::Source::log_error(const std::string &err_msg) {
     LOG(ERROR) << "[ni.reader] " << err_msg;
     this->ok_state = false;
     return;

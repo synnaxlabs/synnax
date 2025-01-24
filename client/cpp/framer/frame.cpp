@@ -62,6 +62,13 @@ void Frame::emplace(const ChannelKey &chan, synnax::Series &&ser) const {
     series->push_back(std::move(ser));
 }
 
+SampleValue Frame::at(const ChannelKey &key, const int &index) const {
+    for (size_t i = 0; i < channels->size(); i++)
+        if (channels->at(i) == key)
+            return series->at(i).at(index);
+    throw std::runtime_error("channel not found");
+}
+
 template<typename NumericType>
 NumericType Frame::at(const ChannelKey &key, const int &index) const {
     for (size_t i = 0; i < channels->size(); i++)
@@ -69,6 +76,7 @@ NumericType Frame::at(const ChannelKey &key, const int &index) const {
             return series->at(i).at<NumericType>(index);
     throw std::runtime_error("channel not found");
 }
+
 
 
 std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {

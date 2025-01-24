@@ -80,7 +80,7 @@ public:
     /// @param is_index whether the channel is an index channel.
     Channel(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         ChannelKey index,
         bool is_index = false
     );
@@ -91,13 +91,13 @@ public:
     /// @param rate the rate of the channel.
     Channel(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         synnax::Rate rate
     );
 
     Channel(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         bool is_virtual = true
     );
 
@@ -146,7 +146,7 @@ public:
     /// to get the error type.
     [[nodiscard]] std::pair<Channel, freighter::Error> create(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         ChannelKey index,
         bool is_index = false
     ) const;
@@ -162,7 +162,7 @@ public:
     /// to get the error type.
     [[nodiscard]] std::pair<Channel, freighter::Error> create(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         synnax::Rate rate
     ) const;
 

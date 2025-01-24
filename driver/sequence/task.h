@@ -87,9 +87,6 @@ public:
         std::unordered_map<synnax::ChannelKey, synnax::Channel> read_channel_map;
         for (const auto &ch: read_channels) read_channel_map[ch.key] = ch;
 
-        std::unordered_map<std::string, synnax::Channel> write_channel_map;
-        for (const auto &ch: write_channels) write_channel_map[ch.name] = ch;
-
         // Step 1 - instantiate the JSON source
         auto json_source = std::make_shared<JSONSource>(cfg.globals);
 
@@ -126,20 +123,11 @@ public:
             .subject = subject,
         };
 
-        auto [writer, err] = ctx->client->telem.openWriter(writer_cfg);
-        if (err) {
-            LOG(ERROR) << "[sequence] failed to open writer: " << err;
-            return;
-        }
-
-        auto writer_ptr = std::make_unique<synnax::Writer>(std::move(writer));
-        // auto sink = std::make_shared<SynnaxSink>(std::move(writer_ptr));
-
-        // auto ops = std::make_shared<ChannelSetOperator>(sink, write_channel_map);
-
+        auto sink = std::make_shared<SynnaxSink>(this->ctx->client, writer_cfg);
+        auto ops = std::make_shared<ChannelSetOperator>(sink, write_channels);
 
         auto [seq , seq_err] = sequence::Sequence::create(
-            nullptr,
+            ops,
             ch_source,
             cfg.script
         );
@@ -165,16 +153,16 @@ public:
             timer.wait(breaker);
         }
         pipe.stop();
-        // if (auto next_err =  sink->close(); next_err) {
-        //     ctx->set_state({
-        //         .task = task.key,
-        //         .variant = "error",
-        //         .details = {
-        //             {"running", false},
-        //             {"message", next_err.message()}
-        //         }
-        //     });
-        // }
+        if (auto sink_close_err =  sink->close(); sink_close_err) {
+            ctx->set_state({
+                .task = task.key,
+                .variant = "error",
+                .details = {
+                    {"running", false},
+                    {"message", sink_close_err.message()}
+                }
+            });
+        }
     }
 
     void stop() override { this->stop(""); };

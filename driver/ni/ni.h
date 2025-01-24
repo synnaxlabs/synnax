@@ -138,12 +138,12 @@ public:
         const std::shared_ptr<DAQmx> &dmx,
         TaskHandle task_handle,
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task task
+        const synnax::Task &task
     );
 
     int init();
 
-    ~Source();
+    ~Source() override;
 
 
     /// @brief performs type checking for synnax channels
@@ -161,9 +161,9 @@ public:
     void jsonify_error(std::string);
 
 
-    void log_error(std::string err_msg);
+    void log_error(const std::string &err_msg);
 
-    std::vector<synnax::ChannelKey> get_channel_keys();
+    std::vector<synnax::ChannelKey> get_channel_keys() const;
 
     virtual void parse_config(config::Parser &parser);
 
@@ -184,7 +184,7 @@ public:
     virtual void get_index_keys();
 
     virtual std::pair<synnax::Frame, freighter::Error>
-    read(breaker::Breaker &breaker) = 0;
+    read(breaker::Breaker &breaker);
 
     virtual void parse_channels(config::Parser &parser) = 0;
 

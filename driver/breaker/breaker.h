@@ -11,7 +11,6 @@
 
 #include <thread>
 #include <mutex>
-#include <condition_variable>
 
 #include "glog/logging.h"
 #include "client/cpp/synnax.h"
@@ -127,7 +126,7 @@ public:
                 "Error: " << message << "."; {
             std::unique_lock lock(shutdown_mutex);
             breaker_shutdown->wait_for(lock, interval.chrono());
-            if (!running()) {
+            if (!this->running()) {
                 LOG(INFO) << "[" << config.name << "] is shutting down. Exiting.";
                 reset();
                 return false;
