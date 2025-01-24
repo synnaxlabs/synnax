@@ -43,10 +43,11 @@ public:
 };
 
 class SynnaxSink final : public Sink {
+    const synnax::WriterConfig &cfg;
     std::unique_ptr<synnax::Writer> writer;
 public:
-    explicit SynnaxSink(std::unique_ptr<synnax::Writer> writer)
-        : writer(std::move(writer)) {
+    explicit SynnaxSink(const synnax::WriterConfig &cfg)
+        : cfg(cfg) {
     }
 
     freighter::Error write(synnax::Frame &frame) override {
@@ -56,7 +57,7 @@ public:
         return freighter::NIL;
     }
 
-    freighter::Error close() const {
+    [[nodiscard]] freighter::Error close() const {
         return this->writer->close();
     }
 };
@@ -71,7 +72,6 @@ class ChannelSetOperator final : public sequence::Operator {
     std::shared_ptr<Sink> sink;
     /// @brief a map of channel names to info on the channel.
     std::unordered_map<std::string, synnax::Channel> channels;
-
 public:
     ChannelSetOperator(
         std::shared_ptr<Sink> sink,
@@ -95,7 +95,7 @@ public:
             }
             const synnax::Channel &channel = it->second;
             auto value = luaToSeries(L, 2, channel);
-            op->frame.add(channel.key, std::move(value));
+            op->frame.emplace(channel.key, std::move(value));
             return 0;
         }, 1);
         lua_setglobal(L, "set");

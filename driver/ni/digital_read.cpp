@@ -147,8 +147,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
             auto t = synnax::Series(synnax::TIMESTAMP, this->num_samples_per_channel);
             for (uint64_t j = 0; j < d.samples_read_per_channel; ++j)
                 t.write(d.t0 + j * incr);
-
-            f.add(this->reader_config.channels[i].channel_key, std::move(t));
+            f.emplace(this->reader_config.channels[i].channel_key, std::move(t));
             continue;
         }
         auto series = synnax::Series(synnax::SY_UINT8, d.samples_read_per_channel);
@@ -156,7 +155,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
         for (int j = 0; j < d.samples_read_per_channel; j++)
             series.write((uint8_t) d.digital_data[data_index + j]);
 
-        f.add(this->reader_config.channels[i].channel_key, std::move(series));
+        f.emplace(this->reader_config.channels[i].channel_key, std::move(series));
         data_index++;
     }
     return std::make_pair(std::move(f), freighter::NIL);

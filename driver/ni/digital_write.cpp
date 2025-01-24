@@ -218,7 +218,7 @@ freighter::Error ni::DigitalWriteSink::stop(const std::string &cmd_key) {
     return freighter::NIL;
 }
 
-freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
+freighter::Error ni::DigitalWriteSink::write(const synnax::Frame &frame) {
     int32 samplesWritten = 0;
     format_data(std::move(frame));
 
@@ -446,15 +446,12 @@ std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(
 synnax::Frame ni::StateSource::get_state() {
     // frame size = # monitored states + 1 state index channel
     auto state_frame = synnax::Frame(this->state_map.size() + 1);
-    state_frame.add(
-        this->state_index_key,
-        synnax::Series(
-            synnax::TimeStamp::now().value,
-            synnax::TIMESTAMP
-        )
-    );
-    for (auto &[key, value]: this->state_map)
-        state_frame.add(key, synnax::Series(value));
+    auto ser = synnax::Series(synnax::SY_UINT8, this->state_map.size());
+    state_frame.emplace(this->state_index_key, std::move(ser));
+    for (auto &[key, value]: this->state_map) {
+        auto ser = synnax::Series(value);
+        state_frame.emplace(key, std::move(ser));
+    }
     return state_frame;
 }
 

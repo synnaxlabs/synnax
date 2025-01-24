@@ -405,11 +405,14 @@ std::pair<Frame, freighter::Error> opc::ReaderSource::read(breaker::Breaker &bre
     std::size_t en_count = 0; // enabled channels
     for (const auto &ch: cfg.channels)
         if (ch.enabled) {
-            fr.add(ch.channel, Series(ch.ch.data_type, series_size));
+            auto ser = Series(ch.ch.data_type, series_size);
+            fr.emplace(ch.channel, std::move(ser));
             en_count++;
         }
-    for (const auto &idx: indexes)
-        fr.add(idx, Series(synnax::TIMESTAMP, series_size));
+    for (const auto &idx: indexes) {
+        auto ser = Series(synnax::TIMESTAMP, series_size);
+        fr.emplace(idx, std::move(ser));
+    }
 
     for (std::size_t i = 0; i < read_calls_per_cycle; i++) {
         UA_ReadResponse res = UA_Client_Service_read(client.get(), req);

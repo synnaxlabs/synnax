@@ -461,23 +461,23 @@ public:
         }
     }
 
-    /// @brief Copy assignment operator that performs a deep copy of the series data
-    Series& operator=(const Series& other) {
-        if (this != &other) {
-            size = other.size;
-            cap = other.cap;
-            data_type = other.data_type;
-            time_range = other.time_range;
-            cached_byte_size = other.cached_byte_size;
-            if (other.data) {
-                data = std::make_unique<std::byte[]>(other.byteCap());
-                memcpy(data.get(), other.data.get(), other.byteCap());
-            } else {
-                data.reset();
-            }
-        }
-        return *this;
-    }
+    // /// @brief Copy assignment operator that performs a deep copy of the series data
+    // Series& operator=(const Series& other) {
+    //     if (this != &other) {
+    //         size = other.size;
+    //         cap = other.cap;
+    //         data_type = other.data_type;
+    //         time_range = other.time_range;
+    //         cached_byte_size = other.cached_byte_size;
+    //         if (other.data) {
+    //             data = std::make_unique<std::byte[]>(other.byteCap());
+    //             memcpy(data.get(), other.data.get(), other.byteCap());
+    //         } else {
+    //             data.reset();
+    //         }
+    //     }
+    //     return *this;
+    // }
 
 private:
     size_t cached_byte_size = 0;

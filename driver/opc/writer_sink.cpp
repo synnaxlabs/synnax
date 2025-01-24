@@ -106,7 +106,7 @@ void opc::WriterSink::stopped_with_err(const freighter::Error &err) {
 
 
 /// @brief sends out write request to the OPC server.
-freighter::Error opc::WriterSink::write(synnax::Frame frame) {
+freighter::Error opc::WriterSink::write(const synnax::Frame &frame) {
     auto client = this->ua_client.get();
     auto frame_index = 0;
     for (const auto key: *(frame.channels)) {

@@ -197,7 +197,6 @@ public:
 
     /// @brief shared resources between daq sampling thread and acquisition thread
     struct DataPacket {
-        // void *data; // actual data
         std::vector<double> analog_data;
         std::vector<std::uint8_t> digital_data;
         uint64_t t0; // initial timestamp
@@ -259,9 +258,6 @@ public:
     void parse_channels(config::Parser &parser) override;
 
     int validate_channels() override;
-
-    void write_to_series(synnax::Series &series, double &data,
-                         synnax::DataType data_type);
 
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
@@ -358,7 +354,7 @@ public:
 
     int init();
 
-    freighter::Error write(synnax::Frame frame) override;
+    freighter::Error write(const synnax::Frame &frame) override;
 
     freighter::Error stop(const std::string &cmd_key);
 
@@ -431,15 +427,15 @@ public:
 
     void scan();
 
-    bool ok();
+    bool ok() const;
 
     json get_devices();
 
     void create_devices();
 
-    void set_scan_thread(std::shared_ptr<std::thread> scan_thread);
+    void set_scan_thread(const std::shared_ptr<std::thread> &scan_thread);
 
-    void join_scan_thread();
+    void join_scan_thread() const;
 
     void log_err(std::string err_msg);
 
@@ -490,7 +486,7 @@ public:
 
     std::string name() override { return task.name; }
 
-    bool ok();
+    bool ok() const;
 
 private:
     std::shared_ptr<SysCfg> syscfg;
@@ -514,7 +510,7 @@ public:
         std::shared_ptr<pipeline::Source> source,
         std::shared_ptr<ni::Source> ni_source,
         synnax::WriterConfig writer_config,
-        const breaker::Config breaker_config
+        const breaker::Config &breaker_config
     );
 
     void exec(task::Command &cmd) override;
@@ -525,7 +521,7 @@ public:
 
     void start(const std::string &cmd_key);
 
-    bool ok();
+    bool ok() const;
 
     std::string name() override { return task.name; }
 
@@ -558,7 +554,7 @@ public:
                         std::shared_ptr<pipeline::Source> writer_state_source,
                         synnax::WriterConfig writer_config,
                         synnax::StreamerConfig streamer_config,
-                        const breaker::Config breaker_config);
+                        const breaker::Config &breaker_config);
 
     explicit WriterTask() = default;
 
@@ -576,7 +572,7 @@ public:
         const synnax::Task &task
     );
 
-    bool ok();
+    bool ok() const;
 
     std::string name() override { return task.name; }
 
@@ -603,7 +599,7 @@ public:
     bool check_health(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
-    );
+    ) const;
 
     static std::shared_ptr<ni::Factory> create();
 

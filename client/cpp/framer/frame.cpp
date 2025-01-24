@@ -28,11 +28,12 @@ Frame::Frame(const size_t size) {
     channels->reserve(size);
 }
 
-Frame::Frame(const ChannelKey &chan, synnax::Series ser) {
-    channels = std::make_unique<std::vector<ChannelKey> >();
-    series = std::make_unique<std::vector<synnax::Series> >();
+Frame::Frame(const ChannelKey &chan, const synnax::Series &ser):
+    // keeps the formatter happy
+    channels(std::make_unique<std::vector<ChannelKey> >()),
+    series(std::make_unique<std::vector<synnax::Series> >()) {
     channels->push_back(chan);
-    series->push_back(std::move(ser));
+    series->push_back(ser);
 }
 
 Frame::Frame(const api::v1::Frame &f) {
@@ -50,16 +51,25 @@ void Frame::add(const ChannelKey &chan, synnax::Series &ser) const {
     series->push_back(std::move(ser));
 }
 
-void Frame::add(const ChannelKey &chan, synnax::Series ser) const {
-    channels->push_back(chan);
-    series->push_back(std::move(ser));
-}
-
 void Frame::toProto(api::v1::Frame *f) const {
     f->mutable_keys()->Add(channels->begin(), channels->end());
     f->mutable_series()->Reserve(series->size());
     for (auto &ser: *series) ser.to_proto(f->add_series());
 }
+
+void Frame::emplace(const ChannelKey &chan, synnax::Series &&ser) const {
+    channels->push_back(chan);
+    series->push_back(std::move(ser));
+}
+
+template<typename NumericType>
+NumericType Frame::at(const ChannelKey &key, const int &index) const {
+    for (size_t i = 0; i < channels->size(); i++)
+        if (channels->at(i) == key)
+            return series->at(i).at<NumericType>(index);
+    throw std::runtime_error("channel not found");
+}
+
 
 std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {
     os << "Frame{" << std::endl;

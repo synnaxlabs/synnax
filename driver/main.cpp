@@ -87,6 +87,7 @@ void configure_opc(
     std::vector<std::shared_ptr<task::Factory> > &factories) {
     if (!config.integration_enabled(opc::INTEGRATION_NAME)) {
         LOG(INFO) << "[driver] OPC integration disabled";
+        return;
     }
     factories.push_back(std::make_shared<opc::Factory>());
 }

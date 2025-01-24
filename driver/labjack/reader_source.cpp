@@ -279,7 +279,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(brea
                 auto key = this->reader_config.channel_map[channel.location];
                 auto s = synnax::Series(channel.data_type, 1);
                 write_to_series(s, values[index], channel.data_type);
-                f.add(key, std::move(s));
+                f.emplace(key, std::move(s));
             }
         }
         for (const auto &channel: this->reader_config.channels) {
@@ -287,7 +287,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(brea
                 auto key = this->reader_config.channel_map[channel.location];
                 auto s = synnax::Series(channel.data_type, 1);
                 write_to_series(s, values[index], channel.data_type);
-                f.add(key, std::move(s));
+                f.emplace(key, std::move(s));
             }
         }
         index++;
@@ -296,7 +296,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_cmd_response(brea
     for (auto index_key: this->reader_config.index_keys) {
         auto t = synnax::Series(synnax::TIMESTAMP, 1);
         t.write(synnax::TimeStamp::now().value);
-        f.add(index_key, std::move(t));
+        f.emplace(index_key, std::move(t));
     }
 
     return std::make_pair(std::move(f), freighter::NIL);
@@ -333,7 +333,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::B
                     write_to_series(s, d.data[sample * this->reader_config.phys_channels.size() + channel_count],
                                     channel.data_type);
                 }
-                f.add(key, std::move(s));
+                f.emplace(key, std::move(s));
             }
         }
         channel_count++;
@@ -344,7 +344,7 @@ std::pair<Frame, freighter::Error> labjack::ReaderSource::read_stream(breaker::B
         for (uint64_t i = 0; i < SCANS_PER_READ; i++) {
             t.write(d.t0 + incr * i);
         }
-        f.add(index_key, std::move(t));
+        f.emplace(index_key, std::move(t));
     }
 
     return std::make_pair(std::move(f), freighter::NIL);

@@ -82,9 +82,7 @@ void ni::ScannerTask::run() {
 }
 
 
-bool ni::ScannerTask::ok() {
-    return this->ok_state;
-}
+bool ni::ScannerTask::ok() const { return this->ok_state; }
 
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -97,15 +95,13 @@ ni::ReaderTask::ReaderTask(
     std::shared_ptr<pipeline::Source> source,
     std::shared_ptr<ni::Source> ni_source,
     synnax::WriterConfig writer_config,
-    const breaker::Config breaker_config
+    const breaker::Config &breaker_config
 ) : dmx(dmx),
     ctx(ctx),
     task(task),
     daq_read_pipe(
         pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
-    source(ni_source)
-
-{
+    source(ni_source) {
     this->ok_state = ni_source->ok();
 
     // middleware chain
@@ -140,7 +136,8 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     std::shared_ptr<pipeline::Source> source;
     std::shared_ptr<ni::Source> ni_source;
     if (task.type != "ni_analog_read") {
-        ni_source = std::make_shared<ni::DigitalReadSource>(dmx, task_handle, ctx, task);
+        ni_source = std::make_shared<
+            ni::DigitalReadSource>(dmx, task_handle, ctx, task);
     } else {
         ni_source = std::make_shared<ni::AnalogReadSource>(dmx, task_handle, ctx, task);
     }
@@ -230,27 +227,26 @@ void ni::ReaderTask::start(const std::string &cmd_key) {
     LOG(INFO) << "[ni.task] successfully started task " << this->task.name;
 }
 
-bool ni::ReaderTask::ok() {
-    return this->ok_state;
-}
+bool ni::ReaderTask::ok() const { return this->ok_state; }
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriterTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-ni::WriterTask::WriterTask(const std::shared_ptr<task::Context> &ctx,
-                           synnax::Task task,
-                           std::shared_ptr<pipeline::Sink> sink,
-                           std::shared_ptr<ni::DigitalWriteSink> ni_sink,
-                           std::shared_ptr<pipeline::Source> state_source,
-                           synnax::WriterConfig state_writer_config,
-                           synnax::StreamerConfig cmd_streamer_config,
-                           const breaker::Config breaker_config
+ni::WriterTask::WriterTask(
+    const std::shared_ptr<task::Context> &ctx,
+    synnax::Task task,
+    std::shared_ptr<pipeline::Sink> sink,
+    std::shared_ptr<ni::DigitalWriteSink> ni_sink,
+    std::shared_ptr<pipeline::Source> writer_state_source,
+    synnax::WriterConfig writer_config,
+    synnax::StreamerConfig streamer_config,
+    const breaker::Config &breaker_config
 ) : ctx(ctx),
     task(task),
     cmd_write_pipe(
         pipeline::Control(
             ctx->client,
-            cmd_streamer_config,
+            streamer_config,
             std::move(sink),
             breaker_config
         )
@@ -258,8 +254,8 @@ ni::WriterTask::WriterTask(const std::shared_ptr<task::Context> &ctx,
     state_write_pipe(
         pipeline::Acquisition(
             ctx->client,
-            state_writer_config,
-            state_source,
+            writer_config,
+            writer_state_source,
             breaker_config
         )
     ),
@@ -271,7 +267,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     const std::shared_ptr<DAQmx> &dmx,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
-    ) {
+) {
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
@@ -286,7 +282,8 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     dmx->CreateTask("", &task_handle);
 
     LOG(INFO) << "[ni.writer] configuring task " << task.name;
-    auto daq_writer = std::make_shared<ni::DigitalWriteSink>(dmx, task_handle, ctx, task);
+    auto daq_writer = std::make_shared<ni::DigitalWriteSink>(
+        dmx, task_handle, ctx, task);
 
     std::vector<synnax::ChannelKey> cmd_keys = daq_writer->get_cmd_channel_keys();
     std::vector<synnax::ChannelKey> state_keys = daq_writer->get_state_channel_keys();
@@ -351,8 +348,8 @@ void ni::WriterTask::start(const std::string &key) {
     this->state_write_pipe.start();
 }
 
-
 void ni::WriterTask::stop() { this->stop(""); }
+
 
 void ni::WriterTask::stop(const std::string &cmd_key) {
     if (!this->running.exchange(false)) {
@@ -366,6 +363,4 @@ void ni::WriterTask::stop(const std::string &cmd_key) {
 }
 
 
-bool ni::WriterTask::ok() {
-    return this->ok_state;
-}
+bool ni::WriterTask::ok() const { return this->ok_state; }

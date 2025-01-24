@@ -133,13 +133,13 @@ public:
         }
 
         auto writer_ptr = std::make_unique<synnax::Writer>(std::move(writer));
-        auto sink = std::make_shared<SynnaxSink>(std::move(writer_ptr));
+        // auto sink = std::make_shared<SynnaxSink>(std::move(writer_ptr));
 
-        auto ops = std::make_shared<ChannelSetOperator>(sink, write_channel_map);
+        // auto ops = std::make_shared<ChannelSetOperator>(sink, write_channel_map);
 
 
         auto [seq , seq_err] = sequence::Sequence::create(
-            ops,
+            nullptr,
             ch_source,
             cfg.script
         );
@@ -165,16 +165,16 @@ public:
             timer.wait(breaker);
         }
         pipe.stop();
-        if (auto next_err =  sink->close(); next_err) {
-            ctx->set_state({
-                .task = task.key,
-                .variant = "error",
-                .details = {
-                    {"running", false},
-                    {"message", next_err.message()}
-                }
-            });
-        }
+        // if (auto next_err =  sink->close(); next_err) {
+        //     ctx->set_state({
+        //         .task = task.key,
+        //         .variant = "error",
+        //         .details = {
+        //             {"running", false},
+        //             {"message", next_err.message()}
+        //         }
+        //     });
+        // }
     }
 
     void stop() override { this->stop(""); };

@@ -33,7 +33,7 @@ struct LinearScale {
 
     LinearScale() = default;
 
-    LinearScale(config::Parser &parser)
+    explicit LinearScale(config::Parser &parser)
         : slope(parser.required<double>("slope")),
           offset(parser.required<double>("y_intercept")) {
         if (!parser.ok())
@@ -53,7 +53,7 @@ struct MapScale {
 
     MapScale() = default;
 
-    MapScale(config::Parser &parser)
+    explicit MapScale(config::Parser &parser)
         : prescaled_min(parser.required<double>("pre_scaled_min")),
           prescaled_max(parser.required<double>("pre_scaled_max")),
           scaled_min(parser.required<double>("scaled_min")),
@@ -78,7 +78,7 @@ struct PolynomialScale {
 
     PolynomialScale() = default;
 
-    PolynomialScale(
+    explicit PolynomialScale(
         config::Parser &parser
     )
         : num_coeffs(parser.required<int>("num_coeffs")),
@@ -105,18 +105,19 @@ struct PolynomialScale {
         }
 
         for (int i = 0; i < num_coeffs; i++) forward_coeffs[i] = j["coeffs"][i];
+    }
 
-        // get reverse coeffs (scale -> prescale conversions)
+    void calculate_coeffs(const std::shared_ptr<DAQmx> &dmx) {
         // TODO: reverse coeffs might be smaller than forward_coeffs
-        // dmx->CalculateReversePolyCoeff(
-        //     forward_coeffs.data(),
-        //     num_coeffs,
-        //     min_x,
-        //     max_x,
-        //     num_coeffs,
-        //     -1,
-        //     reverse_coeffs.data()
-        // ); // FIXME: reversePoly order should be user inputted?
+        dmx->CalculateReversePolyCoeff(
+            this->forward_coeffs.data(),
+            this->num_coeffs,
+            this->min_x,
+            this->max_x,
+            this->num_coeffs,
+            -1,
+            this->reverse_coeffs.data()
+        );
     }
 };
 
@@ -130,7 +131,7 @@ struct TableScale {
 
     TableScale() = default;
 
-    TableScale(config::Parser &parser) {
+    explicit TableScale(config::Parser &parser) {
         if (!parser.ok()) {
             LOG(ERROR) << "[ni.analog] failed to parse custom table configuration";
             return;
@@ -167,7 +168,7 @@ struct ScaleConfig {
 
     ScaleConfig() = default;
 
-    ScaleConfig(config::Parser &parser, std::string &name)
+    ScaleConfig(config::Parser &parser, const std::string &name)
         : name(name),
           type(parser.required<std::string>("type")),
           prescaled_units(
@@ -233,41 +234,43 @@ struct ScaleConfig {
     int32 create_ni_scale(const std::shared_ptr<DAQmx> &dmx) {
         if (type == "linear")
             return dmx->CreateLinScale(
-                name.c_str(),
-                linear.slope,
-                linear.offset,
+                this->name.c_str(),
+                this->linear.slope,
+                this->linear.offset,
                 ni::UNITS_MAP.at(prescaled_units),
-                scaled_units.c_str()
+                this->scaled_units.c_str()
             );
-        else if (type == "map")
+        if (type == "map")
             return dmx->CreateMapScale(
-                name.c_str(),
-                map.prescaled_min,
-                map.prescaled_max,
-                map.scaled_min,
-                map.scaled_max,
-                ni::UNITS_MAP.at(prescaled_units),
-                scaled_units.c_str()
+                this->name.c_str(),
+                this->map.prescaled_min,
+                this->map.prescaled_max,
+                this->map.scaled_min,
+                this->map.scaled_max,
+                ni::UNITS_MAP.at(this->prescaled_units),
+                this->scaled_units.c_str()
             );
-        else if (type == "polynomial")
+        if (type == "polynomial") {
+            polynomial.calculate_coeffs(dmx);
             return dmx->CreatePolynomialScale(
                 name.c_str(),
-                polynomial.forward_coeffs.data(),
-                polynomial.num_coeffs,
-               polynomial.reverse_coeffs.data(),
-                polynomial.num_coeffs,
-                ni::UNITS_MAP.at(prescaled_units),
-                scaled_units.c_str()
+                this->polynomial.forward_coeffs.data(),
+                this->polynomial.num_coeffs,
+                this->polynomial.reverse_coeffs.data(),
+                this->polynomial.num_coeffs,
+                ni::UNITS_MAP.at(this->prescaled_units),
+                this->scaled_units.c_str()
             );
-        else if (type == "table")
+        }
+        if (type == "table")
             return dmx->CreateTableScale(
-                name.c_str(),
-                table.prescaled.data(),
-                table.num_points,
-                table.scaled.data(),
-                table.num_points,
-                ni::UNITS_MAP.at(prescaled_units),
-                scaled_units.c_str()
+                this->name.c_str(),
+                this->table.prescaled.data(),
+                this->table.num_points,
+                this->table.scaled.data(),
+                this->table.num_points,
+                ni::UNITS_MAP.at(this->prescaled_units),
+                this->scaled_units.c_str()
             );
         return 0;
     }
