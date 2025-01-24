@@ -13,74 +13,96 @@
 #include "freighter/cpp/freighter.h"
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN // optional but often recommended
+#include <windows.h>
 typedef HMODULE LibraryHandle;
 #else
 #include <dlfcn.h>
 typedef void *LibraryHandle;
 #endif
 
-namespace libutil {
-const freighter::Error BASE_ERROR = synnax::BASE_ERROR.sub("shared");
-const freighter::Error LOAD_ERROR = BASE_ERROR.sub("load");
+namespace libutil
+{
+    const freighter::Error BASE_ERROR = synnax::BASE_ERROR.sub("shared");
+    const freighter::Error LOAD_ERROR = BASE_ERROR.sub("load");
 
 #ifdef _WIN32
-/// SharedLib is a shared library loader and lifecycle manager implemented for Windows.
-class SharedLIb {
-    const std::string name;
-    LibraryHandle handle = nullptr;
-public:
-    explicit Lib(const std::string &name): name(name) {}
+    /// SharedLib is a shared library loader and lifecycle manager implemented for Windows.
+    class SharedLib
+    {
+        const std::string name;
+        LibraryHandle handle = nullptr;
 
-    ~Lib() {
-        this->unload();
-    }
+    public:
+        explicit SharedLib(const std::string &name) : name(name) {}
 
-    void load() {
-        if (this->handle != nullptr || name.empty()) return;
-        this->handle = ::LoadLibraryA(name.c_str());
-    }
+        ~SharedLib()
+        {
+            this->unload();
+        }
 
-    void unload() {
-        if (this->handle == nullptr) return;
-        ::FreeLibrary(this->handle);
-    }
+        bool load()
+        {
+            if (this->handle != nullptr || name.empty())
+                return false;
+            this->handle = ::LoadLibraryA(name.c_str());
+            return this->handle != nullptr;
+        }
 
-    const void *get_func_ptr(const std::string &name) const {
-        if (this->handle == nullptr) return nullptr;
-        return ::GetProcAddress(this->handle, name.c_str());
-    }
-};
+        void unload()
+        {
+            if (this->handle == nullptr)
+                return;
+            ::FreeLibrary(this->handle);
+        }
+
+        const void *get_func_ptr(const std::string &name) const
+        {
+            if (this->handle == nullptr)
+                return nullptr;
+            return ::GetProcAddress(this->handle, name.c_str());
+        }
+    };
 #else
 
-/// Lib is a shared library loader and lifecycle manager implemented for POSIX compliant
-/// systems.
-class SharedLib {
-    const std::string name;
-    LibraryHandle handle = nullptr;
-public:
-    explicit SharedLib(const std::string &name): name(name) {}
+    /// Lib is a shared library loader and lifecycle manager implemented for POSIX compliant
+    /// systems.
+    class SharedLib
+    {
+        const std::string name;
+        LibraryHandle handle = nullptr;
 
-    ~SharedLib() {
-        this->unload();
-    }
+    public:
+        explicit SharedLib(const std::string &name) : name(name) {}
 
-    bool load() {
-        if (this->handle != nullptr || name.empty()) return false;
-        this->handle = ::dlopen(name.c_str(), RTLD_NOW | RTLD_GLOBAL);
-        return this->handle != nullptr;
-    }
+        ~SharedLib()
+        {
+            this->unload();
+        }
 
-    void unload() {
-        if (this->handle == nullptr) return;
-        ::dlclose(this->handle);
-        this->handle = nullptr;
-    }
+        bool load()
+        {
+            if (this->handle != nullptr || name.empty())
+                return false;
+            this->handle = ::dlopen(name.c_str(), RTLD_NOW | RTLD_GLOBAL);
+            return this->handle != nullptr;
+        }
 
-    const void *get_func_ptr(const std::string &name) const {
-        if (this->handle == nullptr) return nullptr;
-        return ::dlsym(this->handle, name.c_str());
-    }
-};
+        void unload()
+        {
+            if (this->handle == nullptr)
+                return;
+            ::dlclose(this->handle);
+            this->handle = nullptr;
+        }
+
+        const void *get_func_ptr(const std::string &name) const
+        {
+            if (this->handle == nullptr)
+                return nullptr;
+            return ::dlsym(this->handle, name.c_str());
+        }
+    };
 #endif
 
 }

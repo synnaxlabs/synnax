@@ -58,8 +58,6 @@ cc_binary(
         #     "-std:c++20",
         # ],
         "//conditions:default": [
-            "-std=c++17",
-            "-Wno-gnu-offsetof-extensions",
         ],
     }),
     linkopts = select({
@@ -71,8 +69,8 @@ cc_binary(
             # "/DEBUG",
             # "/INCREMENTAL:NO",    # Required for AddressSanitizer
             # "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
-            "/DELAYLOAD:LabJackM.dll",
-            "/DELAYLOAD:LabJackWUSB.dll",  # so that link to dll is only attempted once a function is called
+            # "/DELAYLOAD:LabJackM.dll",
+            # "/DELAYLOAD:LabJackWUSB.dll",  # so that link to dll is only attempted once a function is called
         ],
         "//conditions:default": [
             "-lm",
