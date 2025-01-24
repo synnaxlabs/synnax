@@ -3,14 +3,14 @@ cc_library(
     srcs = [
         "analog_read.cpp",
         "digital_read.cpp",
-        "digital_write.cpp",
+        "writer.cpp",
         "factory.cpp",
         "ni.cpp",
         "scanner.cpp",
         "task.cpp",
     ],
     hdrs = [
-        "ai_channels.h",
+        "channels.h",
         "error.h",
         "ni.h",
         "scale.h",
