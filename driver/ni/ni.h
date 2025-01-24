@@ -711,14 +711,16 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AnalogWriterTask final : public task::Task {
 public:
-    explicit AnalogWriterTask(const std::shared_ptr<task::Context> &ctx,
-                              synnax::Task task,
-                              std::shared_ptr<pipeline::Sink> sink,
-                              std::shared_ptr<ni::AnalogWriteSink> ni_sink,
-                              std::shared_ptr<pipeline::Source> writer_state_source,
-                              synnax::WriterConfig writer_config,
-                              synnax::StreamerConfig streamer_config,
-                              const breaker::Config breaker_config);
+    explicit AnalogWriterTask(
+        const std::shared_ptr<task::Context> &ctx,
+        synnax::Task task,
+        std::shared_ptr<pipeline::Sink> sink,
+        std::shared_ptr<ni::AnalogWriteSink> ni_sink,
+        std::shared_ptr<pipeline::Source> writer_state_source,
+        synnax::WriterConfig writer_config,
+        synnax::StreamerConfig streamer_config,
+        const breaker::Config breaker_config
+    );
 
 
     explicit AnalogWriterTask() = default;
