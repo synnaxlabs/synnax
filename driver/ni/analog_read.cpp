@@ -278,7 +278,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
             f.add(this->reader_config.channels[ch].channel_key, std::move(t));
             continue;
         }
-        synnax::Series series = synnax::Series(synnax::FLOAT32, s);
+        synnax::Series series;
         if (this->reader_config.channels[ch].data_type == synnax::FLOAT32)
             series = synnax::Series(synnax::FLOAT32, s);
         else if (this->reader_config.channels[ch].data_type == synnax::FLOAT64)
