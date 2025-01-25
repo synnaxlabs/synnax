@@ -18,12 +18,12 @@ import {
 } from "@synnaxlabs/x";
 import React, {
   createContext,
-  memo,
   type DragEvent,
   type DragEventHandler,
-  type MutableRefObject,
+  memo,
   type PropsWithChildren,
   type ReactElement,
+  type RefObject,
   useCallback,
   useContext as reactUseContext,
   useId,
@@ -114,7 +114,7 @@ const HAUL_REF: ProviderRef = {
 
 export const useContext = (): ContextValue | null => reactUseContext(Context);
 
-export const Provider = React.memo(
+export const Provider = memo(
   ({
     children,
     useState = React.useState,
@@ -170,10 +170,11 @@ export const Provider = React.memo(
     return <Context.Provider value={oCtx}>{children}</Context.Provider>;
   },
 );
+Provider.displayName = "HaulProvider";
 
 // |||||| DRAGGING ||||||
 
-export const useDraggingRef = (): MutableRefObject<DraggingState> => {
+export const useDraggingRef = (): RefObject<DraggingState> => {
   const ref = useRef<DraggingState>(ZERO_DRAGGING_STATE);
   const ctx = useContext();
   if (ctx == null) return ref;

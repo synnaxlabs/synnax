@@ -12,7 +12,7 @@ import "@/table/Table.css";
 import { box, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
-  forwardRef,
+  type ComponentPropsWithRef,
   type ReactElement,
   useCallback,
   useEffect,
@@ -106,25 +106,25 @@ export const Row = ({
   </tr>
 );
 
-export interface CellProps extends ComponentPropsWithoutRef<"td"> {
+export interface CellProps extends ComponentPropsWithRef<"td"> {
   selected?: boolean;
 }
 
-export const Cell = forwardRef<HTMLTableCellElement, CellProps>(
-  (
-    { children, className, selected = false, ...props }: CellProps,
-    ref,
-  ): ReactElement => (
-    <td
-      ref={ref}
-      {...props}
-      className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
-    >
-      {children}
-    </td>
-  ),
+export const Cell = ({
+  ref,
+  children,
+  className,
+  selected = false,
+  ...props
+}: CellProps): ReactElement => (
+  <td
+    ref={ref}
+    {...props}
+    className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
+  >
+    {children}
+  </td>
 );
-Cell.displayName = "Cell";
 
 interface ResizerCellProps {
   direction: direction.Direction;

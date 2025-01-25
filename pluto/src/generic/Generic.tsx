@@ -10,22 +10,11 @@
 import {
   type ComponentPropsWithRef,
   createElement,
-  type ForwardedRef,
-  forwardRef,
   type JSX,
   type ReactElement,
 } from "react";
 
 export type JSXElementType = keyof JSX.IntrinsicElements;
-
-const CoreElement = <E extends JSXElementType>(
-  { el, children, ...props }: ElementProps<E>,
-  ref: ForwardedRef<JSX.IntrinsicElements[E]>,
-): ReactElement => createElement(el, { ...props, ref }, children);
-
-export type ElementProps<E extends JSXElementType> = ComponentPropsWithRef<E> & {
-  el: E;
-};
 
 /**
  * Generic renders a component with the given element type .
@@ -34,6 +23,12 @@ export type ElementProps<E extends JSXElementType> = ComponentPropsWithRef<E> & 
  * the underlying element.
  * @param props.el - The element type to render.
  */
-export const Element = forwardRef(CoreElement) as <E extends JSXElementType>(
-  props: ElementProps<E>,
-) => ReactElement;
+export const Element = <E extends JSXElementType>({
+  el,
+  children,
+  ...props
+}: ElementProps<E>): ReactElement => createElement(el, props, children);
+
+export type ElementProps<E extends JSXElementType> = ComponentPropsWithRef<E> & {
+  el: E;
+};

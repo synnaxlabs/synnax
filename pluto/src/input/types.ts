@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef, type ReactNode } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  type ComponentPropsWithRef,
+  type ReactNode,
+} from "react";
 
 import { type Align } from "@/align";
 import { type Text } from "@/text";
@@ -24,7 +28,7 @@ export interface OptionalControl<I extends Value = Value, O extends Value = I>
   extends Partial<Control<I, O>> {}
 
 type HTMLInputProps = Omit<
-  ComponentPropsWithoutRef<"input">,
+  ComponentPropsWithRef<"input">,
   "size" | "onChange" | "value" | "children" | "placeholder"
 >;
 

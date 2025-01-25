@@ -12,8 +12,6 @@ import "@/resize/Multiple.css";
 import { box, direction, math, type xy } from "@synnaxlabs/x";
 import {
   Children,
-  type ForwardedRef,
-  forwardRef,
   type RefObject,
   useCallback,
   useEffect,
@@ -145,56 +143,51 @@ export const useMultiple = ({
  * The only exceptions to this are stylistic props (e.g. className, style, etc.) as well
  * as the `children` prop.
  */
-export const Multiple = forwardRef(
-  (
-    {
-      direction: direction_ = "x",
-      children: _children,
-      sizeDistribution,
-      onDragHandle: onDrag,
-      className,
-      ...props
-    }: MultipleProps,
-    ref: ForwardedRef<HTMLDivElement>,
-  ) => {
-    const dir = direction.construct(direction_);
-    const children = Children.toArray(_children);
+export const Multiple = ({
+  ref,
+  direction: direction_ = "x",
+  children: _children,
+  sizeDistribution,
+  onDragHandle: onDrag,
+  className,
+  ...props
+}: MultipleProps) => {
+  const dir = direction.construct(direction_);
+  const children = Children.toArray(_children);
 
-    /**
-     * You may be wondering, why on earth are we doing this? Well, the answer is that
-     * if you're moving elements within the resize multiple, and the sizes are all the
-     * same, any resize observers will not trigger. The slight offset ensures that if
-     * a re-ordering occurs, the resize observers will trigger and everything will
-     * be in sync.
-     */
-    sizeDistribution = slightlyOffsetEvenDistribution(sizeDistribution);
+  /**
+   * You may be wondering, why on earth are we doing this? Well, the answer is that
+   * if you're moving elements within the resize multiple, and the sizes are all the
+   * same, any resize observers will not trigger. The slight offset ensures that if
+   * a re-ordering occurs, the resize observers will trigger and everything will
+   * be in sync.
+   */
+  sizeDistribution = slightlyOffsetEvenDistribution(sizeDistribution);
 
-    return (
-      <Align.Space
-        {...props}
-        ref={ref}
-        direction={dir}
-        className={CSS(CSS.B("resize-multiple"), className)}
-        empty
-        grow
-      >
-        {children.map((child, i) => (
-          <Core
-            onDragStart={(e) => onDrag(e, i)}
-            key={i}
-            location={direction.location(dir)}
-            size={sizeDistribution[i] * 100}
-            sizeUnits="%"
-            showHandle={i !== children.length - 1}
-          >
-            {child}
-          </Core>
-        ))}
-      </Align.Space>
-    );
-  },
-);
-Multiple.displayName = "Resize.Multiple";
+  return (
+    <Align.Space
+      {...props}
+      ref={ref}
+      direction={dir}
+      className={CSS(CSS.B("resize-multiple"), className)}
+      empty
+      grow
+    >
+      {children.map((child, i) => (
+        <Core
+          onDragStart={(e) => onDrag(e, i)}
+          key={i}
+          location={direction.location(dir)}
+          size={sizeDistribution[i] * 100}
+          sizeUnits="%"
+          showHandle={i !== children.length - 1}
+        >
+          {child}
+        </Core>
+      ))}
+    </Align.Space>
+  );
+};
 
 const calculateInitialSizeDistribution = (
   initial: number[],

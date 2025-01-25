@@ -13,7 +13,7 @@ import { type box, type location } from "@synnaxlabs/x";
 import {
   type DragEvent,
   memo,
-  type MutableRefObject,
+  type RefObject,
   type ReactElement,
   useCallback,
   useRef,
@@ -285,10 +285,7 @@ const insertLocation = ({ px, py }: { px: number; py: number }): location.Locati
 export interface UsePortalProps
   extends Pick<MosaicProps, "root" | "onSelect" | "children"> {}
 
-export type UsePortalReturn = [
-  MutableRefObject<Map<string, Portal.Node>>,
-  ReactElement[],
-];
+export type UsePortalReturn = [RefObject<Map<string, Portal.Node>>, ReactElement[]];
 
 export const usePortal = ({
   root,

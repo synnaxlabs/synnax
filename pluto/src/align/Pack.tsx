@@ -9,13 +9,28 @@
 
 import "@/align/Pack.css";
 
-import { type ForwardedRef, forwardRef, type JSX, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
 import { type text } from "@/text/core";
 
-/** Props for the {@link Pack} component. */
+/**
+ * Packs elements together, setting their size and styling the borders between them so
+ * that they appear as a single element. This is useful for buttons that represent a
+ * selection state, for example.
+ *
+ * @param props - The props for the pack. Any extra props will be passed to the
+ * underlying Space component.
+ * @param props.children - The children to pack together. These must satisfy the
+ * {@link PackChildProps} interface.
+ * @param props.direction - The direction to pack the children in. Defaults to
+ * "x".
+ * @param props.size - The size to set on the children. Any sizes already set on the
+ * children will be overridden. Defaults to "medium".
+ * @param props.el  - The element type to use as the root element for the Pack.
+ * Defaults to "div".
+ */
 export type PackProps<E extends SpaceElementType = "div"> = Omit<
   SpaceProps<E>,
   "empty"
@@ -24,23 +39,19 @@ export type PackProps<E extends SpaceElementType = "div"> = Omit<
   borderWidth?: number;
 };
 
-const CorePack = <E extends SpaceElementType = "div">(
-  {
-    className,
-    size = "medium",
-    reverse = false,
-    direction = "x",
-    bordered = true,
-    borderShade = 3 as text.Shade,
-    rounded = true,
-    shadow = false,
-    borderWidth,
-    style,
-    ...props
-  }: PackProps<E>,
-  // select the correct type for the ref
-  ref: ForwardedRef<JSX.IntrinsicElements[E]>,
-): ReactElement => {
+export const Pack = <E extends SpaceElementType = "div">({
+  className,
+  size = "medium",
+  reverse = false,
+  direction = "x",
+  bordered = true,
+  borderShade = 3 as text.Shade,
+  rounded = true,
+  shadow = false,
+  borderWidth,
+  style,
+  ...props
+}: PackProps<E>): ReactElement => {
   const pStyle = {
     [CSS.var("pack-border-shade")]: CSS.shadeVar(borderShade),
     ...style,
@@ -52,7 +63,6 @@ const CorePack = <E extends SpaceElementType = "div">(
   return (
     // @ts-expect-error - generic element issues
     <Space<E>
-      ref={ref}
       direction={direction}
       reverse={reverse}
       className={CSS(
@@ -71,23 +81,3 @@ const CorePack = <E extends SpaceElementType = "div">(
     />
   );
 };
-
-/**
- * Packs elements together, setting their size and styling the borders between them so
- * that they appear as a single element. This is useful for buttons that represent a
- * selection state, for example.
- *
- * @param props - The props for the pack. Any extra props will be passed to the
- * underlying Space component.
- * @param props.children - The children to pack together. These must satisfy the
- * {@link PackChildProps} interface.
- * @param props.direction - The direction to pack the children in. Defaults to
- * "x".
- * @param props.size - The size to set on the children. Any sizes already set on the
- * children will be overridden. Defaults to "medium".
- * @param props.el  - The element type to use as the root element for the Pack.
- * Defaults to "div".
- */
-export const Pack = forwardRef<HTMLElement>(
-  CorePack as React.ForwardRefRenderFunction<HTMLElement>,
-) as <E extends SpaceElementType = "div">(props: PackProps<E>) => ReactElement;
