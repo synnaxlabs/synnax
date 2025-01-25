@@ -27,7 +27,7 @@ import { type ReactElement, useRef, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { identifierZ } from "@/hardware/common/device/types";
+import { identifierZ, nameZ } from "@/hardware/common/device/types";
 import { type Layout } from "@/layout";
 
 export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type" | "key"> = {
@@ -85,10 +85,7 @@ interface InternalProps<P extends UnknownRecord>
   zeroProperties: P;
 }
 
-const configurablePropertiesZ = z.object({
-  name: z.string().min(1, "Name must be at least 1 character long"),
-  identifier: identifierZ,
-});
+const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
@@ -160,7 +157,7 @@ const Internal = <P extends UnknownRecord>({
               />
             </>
           )}
-          {step == "identifier" && (
+          {step === "identifier" && (
             <>
               <Text.Text level="h4" shade={7}>
                 Next, we'll need a short identifier for{" "}
@@ -202,7 +199,7 @@ const Internal = <P extends UnknownRecord>({
         <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
           <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
           <Text.Text shade={7} level="small">
-            {step === "identifier" ? "To Save" : "To Next"}
+            {step === "identifier" ? "Save" : "Next"}
           </Text.Text>
         </Nav.Bar.Start>
         <Nav.Bar.End style={{ padding: "1rem" }}>

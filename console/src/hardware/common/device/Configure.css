@@ -9,41 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-.vendor-logo {
-    width: 2rem;
-    height: 2rem;
-    margin-right: 1rem;
-}
-
 .console-configure {
     position: relative;
+    overflow: hidden;
     height: 100%;
     width: 100%;
-    overflow: hidden;
-
-    & .console-description {
-        width: 100%;
-        max-width: 450px;
-        padding: 4rem;
-        & *:not(button) > p {
-            font-size: 2.4rem;
-            line-height: 150%;
-        }
-    }
-
-    .console-content {
-        width: 100%;
-        flex-grow: 1;
-        padding: 3rem;
-        overflow: hidden;
-    }
-
-    .console-form {
-        border: var(--pluto-border);
-        border-radius: 1.5rem;
-        height: 100%;
-        overflow-y: auto;
-    }
 
     .pluto-navbar {
         .pluto--end {

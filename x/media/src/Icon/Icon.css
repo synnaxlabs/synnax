@@ -44,17 +44,17 @@
 }
 
 .synnax-icon-wave-triangle {
-    transform: scale(2);
+    transform: scale(1.75);
 }
 
 .synnax-icon-wave-square {
-    transform: scale(2);
+    transform: scale(1.75);
 }
 
 .synnax-icon-wave-sine {
-    transform: scale(2);
+    transform: scale(1.75);
 }
 
 .synnax-icon-wave-sawtooth {
-    transform: scale(2);
+    transform: scale(1.75);
 }

@@ -10,41 +10,26 @@
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
 import { Task } from "@/hardware/labjack/task";
-import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
-export const ContextMenuItems = ({
-  selection: { resources },
-}: Ontology.TreeContextMenuProps) => {
-  const placeLayout = Layout.usePlacer();
-  if (resources.length !== 1) return null;
-  const maybeConfigure = () => {
-    const first = resources[0];
-    if (first.data?.configured === false)
-      placeLayout({ ...Device.CONFIGURE_LAYOUT, key: first.id.key });
-  };
-  const handleCreateReadTask = () => {
-    maybeConfigure();
-    placeLayout(Task.READ_LAYOUT);
-  };
-  const handleCreateWriteTask = () => {
-    maybeConfigure();
-    placeLayout(Task.WRITE_LAYOUT);
-  };
-  return (
-    <>
-      <Common.Task.CreateMenuItem
-        itemKey="labjack.readTask"
-        onClick={handleCreateReadTask}
-      >
-        Create Read Task
-      </Common.Task.CreateMenuItem>
-      <Common.Task.CreateMenuItem
-        itemKey="labjack.writeTask"
-        onClick={handleCreateWriteTask}
-      >
-        Create Write Task
-      </Common.Task.CreateMenuItem>
-    </>
-  );
-};
+const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemConfig[] =
+  [
+    {
+      itemKey: "labjack.readTask",
+      label: "Create Read Task",
+      layout: Task.READ_LAYOUT,
+    },
+    {
+      itemKey: "labjack.writeTask",
+      label: "Create Write Task",
+      layout: Task.WRITE_LAYOUT,
+    },
+  ];
+
+export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
+  <Common.DeviceServices.ContextMenuItems
+    {...props}
+    deviceConfigLayout={Device.CONFIGURE_LAYOUT}
+    taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+  />
+);

@@ -11,17 +11,22 @@ import { type device, NotFoundError } from "@synnaxlabs/client";
 import { Form, Observe, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
+import { type z } from "zod";
+
+export type UseContextValue = z.ZodObject<{
+  config: z.ZodObject<{ device: z.ZodString }>;
+}>;
 
 export const use = <
   P extends UnknownRecord = UnknownRecord,
   MK extends string = string,
   MO extends string = string,
 >(
-  ctx: Form.ContextValue<any>,
+  ctx: Form.ContextValue<UseContextValue>,
 ): device.Device<P, MK, MO> | undefined => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
-  const [device, setDevice] = useState<device.Device<P, MK, MO> | undefined>(undefined);
+  const [device, setDevice] = useState<device.Device<P, MK, MO>>();
   const handleExc = useCallback(
     (e: unknown) => {
       if (NotFoundError.matches(e)) {
@@ -35,16 +40,18 @@ export const use = <
   useAsyncEffect(async () => {
     if (client == null) return;
     const deviceKey = ctx.value().config.device;
-    if (typeof deviceKey !== "string") return;
-    if (deviceKey === "") return;
+    if (deviceKey === "") {
+      setDevice(undefined);
+      return;
+    }
     try {
-      const d = await client.hardware.devices.retrieve<P, MK, MO>(deviceKey);
-      setDevice(d);
+      const device = await client.hardware.devices.retrieve<P, MK, MO>(deviceKey);
+      setDevice(device);
     } catch (e) {
       handleExc(e);
     }
-  }, [ctx, client]);
-  Form.useFieldListener<string>({
+  }, [ctx, client?.key]);
+  Form.useFieldListener<string, UseContextValue>({
     ctx,
     path: "config.device",
     onChange: useCallback(
@@ -57,18 +64,18 @@ export const use = <
           handleExc(e);
         }
       },
-      [client, setDevice, handleExc],
+      [client?.key, setDevice, handleExc],
     ),
   });
   Observe.useListener({
-    key: [client, setDevice, device?.key],
+    key: [client?.key, setDevice, device?.key],
     open: async () => await client?.hardware.devices.openDeviceTracker(),
     onChange: (changes) => {
       for (const change of changes) {
         if (change.key !== device?.key) continue;
         if (change.variant === "set")
           setDevice(change.value as device.Device<P, MK, MO>);
-        else if (change.variant === "delete") setDevice(undefined);
+        else setDevice(undefined);
       }
     },
   });

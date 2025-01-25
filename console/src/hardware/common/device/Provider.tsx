@@ -12,7 +12,7 @@ import { Align, Form, Text } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Device } from "@/hardware/common/device";
+import { use, type UseContextValue } from "@/hardware/common/device/use";
 import { Layout } from "@/layout";
 
 export interface ProviderProps<
@@ -36,8 +36,8 @@ export const Provider = <
   children,
   noDeviceSelectedMessage = "No device selected",
 }: ProviderProps<P, MK, MO>): ReactElement => {
-  const formCtx = Form.useContext();
-  const device = Device.use<P, MK, MO>(formCtx);
+  const formCtx = Form.useContext<UseContextValue>();
+  const device = use<P, MK, MO>(formCtx);
   const placeLayout = Layout.usePlacer();
   if (device == null)
     return (

@@ -17,34 +17,38 @@ import { Task } from "@/hardware/opc/task";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
-export const ContextMenuItems = ({
-  selection: { resources },
-}: Ontology.TreeContextMenuProps): ReactElement | null => {
+const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemConfig[] =
+  [
+    { itemKey: "opc.readTask", label: "Create Read Task", layout: Task.READ_LAYOUT },
+    { itemKey: "opc.writeTask", label: "Create Write Task", layout: Task.WRITE_LAYOUT },
+  ];
+
+export const ContextMenuItems = (
+  props: Ontology.TreeContextMenuProps,
+): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
+  const {
+    selection: { resources },
+  } = props;
   if (resources.length !== 1) return null;
   const handleEditConnection = () =>
     placeLayout({ ...Device.CONFIGURE_LAYOUT, key: resources[0].id.key });
-  const handleCreateReadTask = () => placeLayout(Task.READ_LAYOUT);
-  const handleCreateWriteTask = () => placeLayout(Task.WRITE_LAYOUT);
   return (
-    <>
-      <Menu.Item
-        itemKey="opc.connect"
-        startIcon={<Icon.Connect />}
-        onClick={handleEditConnection}
-      >
-        Edit Connection
-      </Menu.Item>
-      <Menu.Divider />
-      <Common.Task.CreateMenuItem itemKey="opc.readTask" onClick={handleCreateReadTask}>
-        Create a Read Task
-      </Common.Task.CreateMenuItem>
-      <Common.Task.CreateMenuItem
-        itemKey="opc.writeTask"
-        onClick={handleCreateWriteTask}
-      >
-        Create a Write Task
-      </Common.Task.CreateMenuItem>
-    </>
+    <Common.DeviceServices.ContextMenuItems
+      {...props}
+      deviceConfigLayout={Device.CONFIGURE_LAYOUT}
+      taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+    >
+      <>
+        <Menu.Item
+          itemKey="opc.connect"
+          startIcon={<Icon.Connect />}
+          onClick={handleEditConnection}
+        >
+          Edit Connection
+        </Menu.Item>
+        <Menu.Divider />
+      </>
+    </Common.DeviceServices.ContextMenuItems>
   );
 };

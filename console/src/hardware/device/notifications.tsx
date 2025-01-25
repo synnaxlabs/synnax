@@ -15,7 +15,7 @@ import { CONFIGURE_LAYOUTS, getIcon, getMake } from "@/hardware/device/make";
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
-export const notificationAdapter: Notifications.Adapter = (status) => {
+const notificationAdapter: Notifications.Adapter = (status) => {
   const key = Device.getKeyFromStatus(status);
   if (key == null) return null;
   const sugared: Notifications.Sugared = { ...status };
@@ -43,3 +43,5 @@ const ConfigureButton = ({ layout }: ConfigureButtonProps): ReactElement => {
     </Button.Button>
   );
 };
+
+export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];

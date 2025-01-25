@@ -39,8 +39,7 @@ const handleConfigure = ({
   const resource = resources[0];
   try {
     const make = makeZ.parse(resource.data?.make);
-    const baseLayout = CONFIGURE_LAYOUTS[make];
-    placeLayout({ ...baseLayout, key: resource.id.key });
+    placeLayout({ ...CONFIGURE_LAYOUTS[make], key: resource.id.key });
   } catch (e) {
     handleException(e, `Failed to configure ${resource.name}`);
   }
@@ -86,7 +85,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     rename: () => Tree.startRenaming(nodes[0].key),
     group: () => group(props),
   };
-  const C = getContextMenuItems(resources[0].data?.make);
+  const C = singleResource ? getContextMenuItems(resources[0].data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
@@ -108,8 +107,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      {customMenuItems != null && <PMenu.Divider />}
-      {customMenuItems}
+      {customMenuItems != null && (
+        <>
+          <PMenu.Divider />
+          {customMenuItems}
+        </>
+      )}
       <PMenu.Divider />
       <Menu.HardReloadItem />
     </PMenu.Menu>

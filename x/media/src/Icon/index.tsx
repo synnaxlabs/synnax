@@ -123,10 +123,10 @@ import {
   PiDownloadSimple,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
-  PiWaveSawtooth,
-  PiWaveSine,
-  PiWaveSquare,
-  PiWaveTriangle,
+  PiWaveSawtoothBold,
+  PiWaveSineBold,
+  PiWaveSquareBold,
+  PiWaveTriangleBold,
 } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import {
@@ -168,7 +168,7 @@ const NI: IconFC = (props) => (
       <path
         d="M17.3026 17.0048V51.0427H0V17.0048H17.3026ZM34.6051 -0.0140575C36.8587 -0.0327593 39.0939 0.392621 41.1831 1.23779C43.2723 2.08297 45.1746 3.33138 46.7813 4.91175C48.388 6.49211 49.6677 8.37348 50.5473 10.4484C51.4269 12.5234 51.8891 14.7512 51.9077 17.0048V51.0427H34.6051V17.0048H17.3026V-0.0140575H34.6051ZM77.8615 -0.0140575V51.0427C75.6074 51.0632 73.3714 50.6391 71.2813 49.7946C69.1913 48.9501 67.2883 47.7018 65.6812 46.1211C64.0741 44.5403 62.7945 42.6582 61.9156 40.5824C61.0366 38.5066 60.5756 36.2779 60.559 34.0238V-0.0140575H77.8615Z"
         fill="#03B584"
-      ></path>
+      />
     </g>
     <defs>
       <clipPath id="clip0_327_656">
@@ -373,10 +373,10 @@ export const Icon: IconType = {
   Auto: wrapIcon(MdAutoAwesome, "auto"),
   Table: wrapIcon(FiTable, "table"),
   Wave: {
-    Sawtooth: wrapIcon(PiWaveSawtooth, "wave-sawtooth"),
-    Sine: wrapIcon(PiWaveSine, "wave-sine"),
-    Triangle: wrapIcon(PiWaveTriangle, "wave-triangle"),
-    Square: wrapIcon(PiWaveSquare, "wave-square"),
+    Sawtooth: wrapIcon(PiWaveSawtoothBold, "wave-sawtooth"),
+    Sine: wrapIcon(PiWaveSineBold, "wave-sine"),
+    Triangle: wrapIcon(PiWaveTriangleBold, "wave-triangle"),
+    Square: wrapIcon(PiWaveSquareBold, "wave-square"),
   },
   Align: {
     Right: wrapIcon(MdAlignHorizontalRight, "align-right"),
@@ -486,12 +486,7 @@ export interface IconType {
   Range: IconFC;
   Node: IconFC;
   Channel: IconFC;
-  Wave: {
-    Sawtooth: IconFC;
-    Sine: IconFC;
-    Triangle: IconFC;
-    Square: IconFC;
-  };
+  Wave: { Sawtooth: IconFC; Sine: IconFC; Triangle: IconFC; Square: IconFC };
   Resources: IconFC;
   Group: IconFC;
   Workspace: IconFC;
@@ -504,13 +499,7 @@ export interface IconType {
   Yarn: IconFC;
   QuestionMark: IconFC;
   Menu: IconFC;
-  Logo: {
-    Github: IconFC;
-    LinkedIn: IconFC;
-    NI: IconFC;
-    OPC: IconFC;
-    LabJack: IconFC;
-  };
+  Logo: { Github: IconFC; LinkedIn: IconFC; NI: IconFC; OPC: IconFC; LabJack: IconFC };
   Keyboard: {
     Command: IconFC;
     Windows: IconFC;
@@ -520,12 +509,7 @@ export interface IconType {
     Capslock: IconFC;
     Hide: IconFC;
     Control: IconFC;
-    Arrow: {
-      Up: IconFC;
-      Down: IconFC;
-      Left: IconFC;
-      Right: IconFC;
-    };
+    Arrow: { Up: IconFC; Down: IconFC; Left: IconFC; Right: IconFC };
     Alt: IconFC;
     Option: IconFC;
     Shift: IconFC;
@@ -552,11 +536,7 @@ export interface IconType {
     Top: IconFC;
     Bottom: IconFC;
   };
-  TextAlign: {
-    Left: IconFC;
-    Center: IconFC;
-    Right: IconFC;
-  };
+  TextAlign: { Left: IconFC; Center: IconFC; Right: IconFC };
   Hardware: IconFC;
   Device: IconFC;
   Task: IconFC;

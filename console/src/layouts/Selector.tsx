@@ -31,21 +31,13 @@ export const createSelector = (
   props: Omit<Partial<Layout.State>, "type">,
 ): Omit<Layout.State, "windowKey"> => {
   const { location = "mosaic", name = "New Layout", key = uuid(), window, tab } = props;
-  return {
-    type: SELECTOR_TYPE,
-    location,
-    name,
-    key,
-    window,
-    tab,
-  };
+  return { type: SELECTOR_TYPE, location, name, key, window, tab };
 };
 
 export const Selector = (props: Layout.SelectorProps): ReactElement => {
   const canCreateSchematic = Schematic.useSelectHasPermission();
-  const selectables = SELECTABLES.filter((s) => {
-    if (s.key === Schematic.SELECTABLE.key) return canCreateSchematic;
-    return true;
-  });
+  const selectables = SELECTABLES.filter((s) =>
+    s.key === Schematic.SELECTABLE.key ? canCreateSchematic : true,
+  );
   return Layout.createSelectorComponent(selectables)(props);
 };

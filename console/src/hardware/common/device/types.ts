@@ -12,6 +12,8 @@ import { z } from "zod";
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
 
+export const nameZ = z.string().min(1, "Name must be at least 1 character long");
+
 export const identifierZ = z
   .string()
   .min(2, IDENTIFIER_MESSAGE)

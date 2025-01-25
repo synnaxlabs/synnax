@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { notificationAdapter } from "@/hardware/device/notification";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { type Layout } from "@/layout";
-import { type Notifications } from "@/notifications";
 import { type Palette } from "@/palette";
 
+export * from "@/hardware/device/notifications";
 export * from "@/hardware/device/ontology";
 export * from "@/hardware/device/useListenForChanges";
 
@@ -25,5 +24,3 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...NI.Device.LAYOUTS,
   ...OPC.Device.LAYOUTS,
 };
-
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];
