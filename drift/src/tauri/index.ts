@@ -73,6 +73,7 @@ const capWindowDimensions = (
   return { ...props, maxSize: clampDims(maxSize), size: clampDims(size) };
 };
 
+/** @returns the bounding boxes for all available monitors. */
 const monitorBoxes = async (): Promise<box.Box[]> => {
   const monitors = await availableMonitors();
   return monitors.map((monitor) => {
@@ -82,6 +83,10 @@ const monitorBoxes = async (): Promise<box.Box[]> => {
   });
 };
 
+/**
+ * @returns true whether the top-left corner of the window is visible on the user's
+ * monitors. If not, shifts the window to the top-left corner of the primary monitor.
+ */
 const isPositionVisible = async (position?: xy.XY): Promise<boolean> => {
   const boxes = await monitorBoxes();
   return boxes.some((b) => box.contains(b, position));
