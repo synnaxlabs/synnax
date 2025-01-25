@@ -12,7 +12,7 @@ package aspen
 import (
 	"time"
 
-	"github.com/cockroachdb/pebble/vfs"
+	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"

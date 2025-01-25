@@ -13,9 +13,10 @@ package pebblekv
 
 import (
 	"context"
+	"github.com/cockroachdb/pebble/v2/batchrepr"
 	"io"
 
-	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
@@ -170,8 +171,8 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 }
 
 type txReader struct {
-	count int
-	pebble.BatchReader
+	count       int
+	BatchReader batchrepr.Reader
 }
 
 var _ kv.TxReader = (*txReader)(nil)

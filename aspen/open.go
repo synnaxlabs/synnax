@@ -13,7 +13,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/freighter/falamos"
