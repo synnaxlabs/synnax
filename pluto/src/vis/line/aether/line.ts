@@ -105,9 +105,18 @@ export class GLProgram extends render.GLProgram {
     TranslationBufferCacheEntry
   >();
 
+  // Add cached attribute locations
+  private readonly attrLocations: Record<string, number> = {};
+
   constructor(ctx: render.Context, vertShader: string, fragShader: string) {
     super(ctx, vertShader, fragShader);
     this.translationBufferCache = new Map();
+    // Cache commonly used attribute locations
+    this.attrLocations = {
+      x: this.ctx.gl.getAttribLocation(this.prog, "a_x"),
+      y: this.ctx.gl.getAttribLocation(this.prog, "a_y"),
+      translate: this.ctx.gl.getAttribLocation(this.prog, "a_translate"),
+    };
   }
 
   bindState({ strokeWidth, color }: ParsedState): number {

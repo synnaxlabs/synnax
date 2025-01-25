@@ -203,9 +203,7 @@ export const ContextMenu = ({
   cursor: _,
   ...props
 }: ContextMenuProps): ReactElement => {
-  console.log(ref);
   const menuC = visible ? menu?.({ keys }) : null;
-
   return (
     <div
       className={CSS(CONTEXT_MENU_CONTAINER, className, CSS.inheritDims())}
