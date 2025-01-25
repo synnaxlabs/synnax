@@ -11,9 +11,7 @@ import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { type SenderHandler } from "@synnaxlabs/x";
 import { compare } from "@synnaxlabs/x/compare";
 import {
-  type ComponentType,
   createContext,
-  type FC,
   memo,
   type PropsWithChildren,
   type ReactElement,
@@ -129,7 +127,7 @@ export interface UseLifecycleReturn<S extends z.ZodTypeAny> {
 export interface UseLifecycleProps<S extends z.ZodTypeAny> {
   type: string;
   schema: S;
-  aetherKey: string;
+  aetherKey?: string;
   initialState: z.input<S>;
   initialTransfer?: Transferable[];
   onReceive?: StateHandler;
@@ -143,6 +141,8 @@ const useLifecycle = <S extends z.ZodTypeAny>({
   initialTransfer = [],
   onReceive,
 }: UseLifecycleProps<S>): UseLifecycleReturn<S> => {
+  const iKey = useUniqueKey(key);
+  key ??= iKey;
   const comms = useRef<CreateReturn | null>(null);
   const ctx = useAetherContext();
   const path = useMemoCompare(
@@ -196,6 +196,10 @@ const useLifecycle = <S extends z.ZodTypeAny>({
 
   return useMemo(() => ({ setState, path }), [setState, key, path]);
 };
+
+export interface CProps {
+  aetherKey?: string;
+}
 
 export interface UseProps<S extends z.ZodTypeAny>
   extends Omit<UseLifecycleProps<S>, "onReceive"> {
@@ -307,27 +311,3 @@ export const Composite = memo(({ children, path }: CompositeProps): ReactElement
   return <Context.Provider value={value}>{children}</Context.Provider>;
 });
 Composite.displayName = "AetherComposite";
-
-/**
- * Wrap wraps a component to generate a unique key that persists across re-renders. This
- * hook is necessary to create an aether enhanced component when using React.StrictMode.
- *
- * @param displayName - The display name of the component. Used or react devtools.
- * @param Component - The component to wrap. This component receives an additional
- * aetherKey prop along with its normal props.
- * @returns A wrapped component that is behaviorally identical to the original component.
- */
-export const wrap = <P extends {}>(
-  displayName: string,
-  Component: ComponentType<P & { aetherKey: string }>,
-): FC<P & { aetherKey?: string }> => {
-  Component.displayName = `Aether.wrap(${displayName})`;
-  const Wrapped = memo<P & { aetherKey?: string }>(
-    ({ aetherKey, ...props }: P & { aetherKey?: string }): ReactElement => {
-      const key = useUniqueKey(aetherKey);
-      return <Component {...(props as P)} aetherKey={key} />;
-    },
-  );
-  Wrapped.displayName = displayName;
-  return Wrapped;
-};

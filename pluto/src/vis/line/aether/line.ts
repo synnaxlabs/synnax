@@ -29,10 +29,9 @@ import { alamos } from "@/alamos/aether";
 import { color } from "@/color/core";
 import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
-import VERT_SHADER from "@/vis/line/aether/vert.glsl?raw";
+import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
+import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
 import { render } from "@/vis/render";
-
-const FLOAT_32_DENSITY = DataType.FLOAT32.density.valueOf();
 
 export const stateZ = z.object({
   x: telem.seriesSourceSpecZ,
@@ -92,16 +91,22 @@ interface TranslationBufferCacheEntry {
   jsBuffer: Float32Array;
 }
 
-export class Context extends render.GLProgram {
+const dataTypeToGLProgram = (
+  gl: WebGL2RenderingContext,
+  dataType: DataType,
+): number => {
+  if (dataType.equals(DataType.UINT8)) return gl.UNSIGNED_BYTE;
+  return gl.FLOAT;
+};
+
+export class GLProgram extends render.GLProgram {
   private readonly translationBufferCache = new Map<
     string,
     TranslationBufferCacheEntry
   >();
 
-  private static readonly CONTEXT_KEY = "pluto-line-gl-program";
-
-  private constructor(ctx: render.Context) {
-    super(ctx, VERT_SHADER, FRAG_SHADER);
+  constructor(ctx: render.Context, vertShader: string, fragShader: string) {
+    super(ctx, vertShader, fragShader);
     this.translationBufferCache = new Map();
   }
 
@@ -126,22 +131,13 @@ export class Context extends render.GLProgram {
   draw(
     { x, y, count, downsample, xOffset, yOffset }: DrawOperation,
     instances: number,
+    xDataType: DataType,
+    yDataType: DataType,
   ): void {
     const { gl } = this.ctx;
-    this.bindAttrBuffer("x", x.glBuffer, downsample, xOffset);
-    this.bindAttrBuffer("y", y.glBuffer, downsample, yOffset);
+    this.bindAttrBuffer("x", x.glBuffer, downsample, xOffset, xDataType);
+    this.bindAttrBuffer("y", y.glBuffer, downsample, yOffset, yDataType);
     gl.drawArraysInstanced(gl.LINE_STRIP, 0, count / downsample, instances);
-  }
-
-  static create(ctx: aether.Context): Context {
-    const renderCtx = render.Context.use(ctx);
-    const line = new Context(renderCtx);
-    ctx.set(Context.CONTEXT_KEY, line);
-    return line;
-  }
-
-  static use(ctx: aether.Context): Context {
-    return ctx.get<Context>(Context.CONTEXT_KEY);
   }
 
   private bindAttrBuffer(
@@ -149,21 +145,36 @@ export class Context extends render.GLProgram {
     buffer: WebGLBuffer,
     downsample: number,
     alignment: number = 0,
+    dataType: DataType,
   ): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const aLoc = gl.getAttribLocation(this.prog, `a_${dir}`);
-    gl.vertexAttribPointer(
-      aLoc,
-      1,
-      gl.FLOAT,
-      false,
-      FLOAT_32_DENSITY * downsample,
-      FLOAT_32_DENSITY * alignment,
-    );
+    const glDataType = dataTypeToGLProgram(gl, dataType);
+    const density = dataType.density.valueOf();
+
+    if (dataType.equals(DataType.UINT8))
+      // Use gl.vertexAttribIPointer for integer attributes
+      gl.vertexAttribIPointer(
+        aLoc,
+        1,
+        glDataType, // e.g., gl.UNSIGNED_BYTE
+        density * downsample,
+        density * alignment,
+      );
+    else
+      // Use gl.vertexAttribPointer for float attributes
+      gl.vertexAttribPointer(
+        aLoc,
+        1,
+        glDataType,
+        false,
+        density * downsample,
+        density * alignment,
+      );
+
     gl.enableVertexAttribArray(aLoc);
   }
-
   private getAndBindTranslationBuffer(
     strokeWidth: number,
   ): TranslationBufferCacheEntry {
@@ -204,9 +215,47 @@ export class Context extends render.GLProgram {
   }
 }
 
+export class Context {
+  private static readonly CONTEXT_KEY = "pluto-line-gl-program";
+  // Uint8 hybrid program is used for high performance rendering of uint8 data along
+  // with float32 timestamp data. It's used as a hot path optimization for common
+  // channel such as actuator states.
+  private readonly uint8HybridProgram: GLProgram;
+  // Float32 program is used for rendering float32 data. It's used for all other
+  // channel types.
+  private readonly float32Program: GLProgram;
+
+  private constructor(ctx: render.Context) {
+    this.uint8HybridProgram = new GLProgram(ctx, HYBRID_VERT_SHADER, FRAG_SHADER);
+    this.float32Program = new GLProgram(ctx, F32_VERT_SHADER, FRAG_SHADER);
+  }
+
+  get gl(): WebGL2RenderingContext {
+    return this.uint8HybridProgram.ctx.gl;
+  }
+
+  getProgram(dataType: DataType): GLProgram {
+    if (dataType.equals(DataType.UINT8)) return this.uint8HybridProgram;
+    return this.float32Program;
+  }
+
+  static create(ctx: aether.Context): Context {
+    const renderCtx = render.Context.use(ctx);
+    const line = new Context(renderCtx);
+    ctx.set(Context.CONTEXT_KEY, line);
+    return line;
+  }
+
+  static use(ctx: aether.Context): Context {
+    const glProgram = ctx.get<Context>(Context.CONTEXT_KEY);
+    if (glProgram == null) throw new UnexpectedError("GLProgram not found");
+    return glProgram;
+  }
+}
+
 interface InternalState {
   instrumentation: Instrumentation;
-  prog: Context;
+  ctx: Context;
   xTelem: telem.SeriesSource;
   stopListeningXTelem?: Destructor;
   yTelem: telem.SeriesSource;
@@ -224,7 +273,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.xTelem = await telem.useSource(this.ctx, this.state.x, i.xTelem);
     i.yTelem = await telem.useSource(this.ctx, this.state.y, i.yTelem);
     i.instrumentation = alamos.useInstrumentation(this.ctx, "line");
-    i.prog = Context.use(this.ctx);
+    i.ctx = Context.use(this.ctx);
     i.requestRender = render.Controller.useRequest(this.ctx);
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
@@ -298,11 +347,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   async render(props: LineProps): Promise<void> {
     if (this.deleted) return;
     const { downsample } = this.state;
-    const { xTelem, yTelem, prog } = this.internal;
+    const { xTelem, yTelem, ctx } = this.internal;
+
     const { dataToDecimalScale, exposure } = props;
     const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
-    xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
-    yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
+    xData.forEach((x) => x.updateGLBuffer(ctx.gl));
+    yData.forEach((y) => y.updateGLBuffer(ctx.gl));
+    if (xData.length === 0 || yData.length === 0) return;
+    const prog = ctx.getProgram(yData[0].dataType);
     const ops = buildDrawOperations(
       xData,
       yData,
@@ -323,7 +375,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     ops.forEach((op) => {
       const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
       prog.bindScale(scaleTransform, regionTransform);
-      prog.draw(op, instances);
+      prog.draw(op, instances, xData[0].dataType, yData[0].dataType);
     });
     clearProg();
   }

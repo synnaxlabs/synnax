@@ -33,21 +33,17 @@ export interface ProviderProps extends PropsWithChildren, alamos.ProviderState {
 export const useInstrumentation = (): Instrumentation =>
   useContext(Context).instrumentation;
 
-export const Provider = Aether.wrap<ProviderProps>(
-  alamos.Provider.TYPE,
-  ({ aetherKey, children, ...props }): ReactElement => {
-    const memoProps = useMemoDeepEqualProps(props);
-    const [{ path }, , setState] = Aether.use({
-      aetherKey,
-      type: alamos.Provider.TYPE,
-      schema: alamos.providerStateZ,
-      initialState: memoProps,
-    });
+export const Provider = ({ children, ...props }: ProviderProps): ReactElement => {
+  const memoProps = useMemoDeepEqualProps(props);
+  const [{ path }, , setState] = Aether.use({
+    type: alamos.Provider.TYPE,
+    schema: alamos.providerStateZ,
+    initialState: memoProps,
+  });
 
-    useEffect(() => {
-      setState(memoProps);
-    }, [memoProps, setState]);
+  useEffect(() => {
+    setState(memoProps);
+  }, [memoProps, setState]);
 
-    return <Aether.Composite path={path}>{children}</Aether.Composite>;
-  },
-);
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
+};

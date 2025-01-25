@@ -75,15 +75,14 @@ describe("Aether Main", () => {
   describe("leaf", () => {
     it("should set the initial state correctly", async () => {
       const [Provider, root] = newProvider();
-      const ExampleLeafC = Aether.wrap(ExampleLeaf.TYPE, ({ aetherKey }) => {
+      const ExampleLeafC = () => {
         Aether.use({
-          aetherKey,
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
         });
         return null;
-      });
+      };
       render(
         <Provider>
           <ExampleLeafC />
@@ -97,9 +96,8 @@ describe("Aether Main", () => {
     });
     it("should update the state on a call to setState", async () => {
       const [Provider, root] = newProvider();
-      const ExampleLeafC = Aether.wrap(ExampleLeaf.TYPE, ({ aetherKey }) => {
+      const ExampleLeafC = () => {
         const [, , setState] = Aether.use({
-          aetherKey,
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -110,7 +108,7 @@ describe("Aether Main", () => {
           set.current = true;
         }
         return null;
-      });
+      };
       render(
         <Provider>
           <ExampleLeafC />

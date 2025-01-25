@@ -28,7 +28,8 @@ import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps
   extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
-    Omit<Align.SpaceProps, "color"> {
+    Omit<Align.SpaceProps, "color">,
+    Aether.CProps {
   label?: string;
   onLabelChange?: (label: string) => void;
   units?: string;
@@ -37,151 +38,148 @@ export interface RuleProps
   onSelect?: () => void;
 }
 
-export const Rule = Aether.wrap<RuleProps>(
-  "Rule",
-  ({
+export const Rule = ({
+  aetherKey,
+  label,
+  position: propsPosition,
+  onLabelChange,
+  onPositionChange,
+  onUnitsChange,
+  units = "",
+  color,
+  lineWidth,
+  lineDash,
+  className,
+  onSelect,
+  style,
+  ...props
+}: RuleProps): ReactElement | null => {
+  const [internalLabel, setInternalLabel] = state.usePurePassthrough({
+    value: label,
+    onChange: onLabelChange,
+    initial: "",
+  });
+
+  const onPositionChangeRef = useSyncedRef(onPositionChange);
+
+  const [, { pixelPosition }, setState] = Aether.use({
     aetherKey,
-    label,
-    position: propsPosition,
-    onLabelChange,
-    onPositionChange,
-    onUnitsChange,
-    units = "",
-    color,
-    lineWidth,
-    lineDash,
-    className,
-    onSelect,
-    style,
-    ...props
-  }): ReactElement | null => {
-    const [internalLabel, setInternalLabel] = state.usePurePassthrough({
-      value: label,
-      onChange: onLabelChange,
-      initial: "",
-    });
-
-    const onPositionChangeRef = useSyncedRef(onPositionChange);
-
-    const [, { pixelPosition }, setState] = Aether.use({
-      aetherKey,
-      type: rule.Rule.TYPE,
-      schema: rule.ruleStateZ,
-      initialState: {
-        color,
-        dragging: false,
-        position: propsPosition,
-        lineWidth,
-        lineDash,
+    type: rule.Rule.TYPE,
+    schema: rule.ruleStateZ,
+    initialState: {
+      color,
+      dragging: false,
+      position: propsPosition,
+      lineWidth,
+      lineDash,
+    },
+    onAetherChange: useCallback(
+      ({ position }: z.infer<typeof rule.ruleStateZ>) => {
+        if (position == null) return;
+        onPositionChangeRef.current?.(position);
       },
-      onAetherChange: useCallback(
-        ({ position }: z.infer<typeof rule.ruleStateZ>) => {
-          if (position == null) return;
-          onPositionChangeRef.current?.(position);
-        },
-        [onPositionChangeRef],
-      ),
-    });
+      [onPositionChangeRef],
+    ),
+  });
 
-    const pixelPosRef = useRef(pixelPosition);
-    if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
+  const pixelPosRef = useRef(pixelPosition);
+  if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
 
-    const { id } = LinePlot.useContext("Rule");
+  const { id } = LinePlot.useContext("Rule");
 
-    const plotEl = document.getElementById(id);
-    const viewportEl = plotEl?.querySelector(".pluto-line-plot__viewport");
+  const plotEl = document.getElementById(id);
+  const viewportEl = plotEl?.querySelector(".pluto-line-plot__viewport");
 
-    const dragStartRef = useRef(pixelPosition);
+  const dragStartRef = useRef(pixelPosition);
 
-    useEffect(() => {
-      setState((p) => ({ ...p, position: propsPosition, color, lineWidth, lineDash }));
-    }, [propsPosition, color, lineWidth, lineDash]);
+  useEffect(() => {
+    setState((p) => ({ ...p, position: propsPosition, color, lineWidth, lineDash }));
+  }, [propsPosition, color, lineWidth, lineDash]);
 
-    const handleDragStart = useCursorDrag({
-      onStart: useCallback(() => {
-        onSelect?.();
-        setState((p) => ({ ...p, dragging: true }));
-        dragStartRef.current = pixelPosRef.current;
-      }, []),
-      onMove: (b: box.Box) => {
-        setState((p) => ({
-          ...p,
-          pixelPosition: (dragStartRef.current ?? 0) + box.signedHeight(b),
-        }));
-      },
-      onEnd: useCallback(() => {
-        setState((p) => ({ ...p, dragging: false }));
-        dragStartRef.current = pixelPosition;
-      }, []),
-    });
+  const handleDragStart = useCursorDrag({
+    onStart: useCallback(() => {
+      onSelect?.();
+      setState((p) => ({ ...p, dragging: true }));
+      dragStartRef.current = pixelPosRef.current;
+    }, []),
+    onMove: (b: box.Box) => {
+      setState((p) => ({
+        ...p,
+        pixelPosition: (dragStartRef.current ?? 0) + box.signedHeight(b),
+      }));
+    },
+    onEnd: useCallback(() => {
+      setState((p) => ({ ...p, dragging: false }));
+      dragStartRef.current = pixelPosition;
+    }, []),
+  });
 
-    const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
-    if (propsPosition == null || pixelPosition == null) return null;
+  if (propsPosition == null || pixelPosition == null) return null;
 
-    const pColor = new Color.Color(color);
-    const textColor = pColor.pickByContrast("#000000", "#ffffff");
+  const pColor = new Color.Color(color);
+  const textColor = pColor.pickByContrast("#000000", "#ffffff");
 
-    const content = (
+  const content = (
+    <div
+      ref={ref}
+      className={CSS.B("rule")}
+      style={{ top: `calc(${pixelPosition}px - 0.5rem)` }}
+    >
       <div
-        ref={ref}
-        className={CSS.B("rule")}
-        style={{ top: `calc(${pixelPosition}px - 0.5rem)` }}
+        className={CSS.BE("rule", "drag-handle")}
+        onDragStart={handleDragStart}
+        draggable
+      />
+      <Align.Space
+        direction="x"
+        align="center"
+        className={CSS(className, CSS.BE("rule", "tag"))}
+        bordered
+        onClick={onSelect}
+        size={1}
+        rounded
+        style={{
+          borderColor: Color.cssString(color),
+          backgroundColor: new Color.Color(color).setAlpha(0.7).hex,
+          ...style,
+        }}
+        {...props}
       >
-        <div
-          className={CSS.BE("rule", "drag-handle")}
-          onDragStart={handleDragStart}
-          draggable
+        <Text.Editable
+          className={CSS.B("label")}
+          level="small"
+          value={internalLabel}
+          onChange={setInternalLabel}
+          color={textColor}
         />
-        <Align.Space
-          direction="x"
-          align="center"
-          className={CSS(className, CSS.BE("rule", "tag"))}
-          bordered
-          onClick={onSelect}
-          size={1}
-          rounded
-          style={{
-            borderColor: Color.cssString(color),
-            backgroundColor: new Color.Color(color).setAlpha(0.7).hex,
-            ...style,
-          }}
-          {...props}
-        >
+        <Divider.Divider
+          direction="y"
+          style={{ borderColor: Color.cssString(color) }}
+        />
+        <Align.Space size="small" direction="x" align="center">
           <Text.Editable
-            className={CSS.B("label")}
+            value={propsPosition.toFixed(2)}
+            onChange={(v) => {
+              const num = Number(v);
+              if (!isFinite(num)) return;
+              onPositionChange?.(num);
+            }}
             level="small"
-            value={internalLabel}
-            onChange={setInternalLabel}
             color={textColor}
           />
-          <Divider.Divider
-            direction="y"
-            style={{ borderColor: Color.cssString(color) }}
+          <Text.MaybeEditable
+            level="small"
+            color={textColor}
+            value={units}
+            onChange={onUnitsChange}
           />
-          <Align.Space size="small" direction="x" align="center">
-            <Text.Editable
-              value={propsPosition.toFixed(2)}
-              onChange={(v) => {
-                const num = Number(v);
-                if (!isFinite(num)) return;
-                onPositionChange?.(num);
-              }}
-              level="small"
-              color={textColor}
-            />
-            <Text.MaybeEditable
-              level="small"
-              color={textColor}
-              value={units}
-              onChange={onUnitsChange}
-            />
-          </Align.Space>
         </Align.Space>
-      </div>
-    );
+      </Align.Space>
+    </div>
+  );
 
-    if (viewportEl == null) return content;
-    return createPortal(content, viewportEl);
-  },
-);
+  if (viewportEl == null) return content;
+  return createPortal(content, viewportEl);
+};

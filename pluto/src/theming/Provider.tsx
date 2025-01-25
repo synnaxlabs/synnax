@@ -129,44 +129,44 @@ const setThemeClass = (el: HTMLElement, theme: theming.Theme): void => {
   el.classList.add(`${CLASS_PREFIX}${caseconv.toKebab(theme.key)}`);
 };
 
-export const Provider = Aether.wrap<ProviderProps>(
-  theming.Provider.TYPE,
-  ({ children, aetherKey, applyCSSVars = true, ...props }): ReactElement => {
-    const ret = useProvider(props);
-    const [{ path }, , setAetherTheme] = Aether.use({
-      aetherKey,
-      type: theming.Provider.TYPE,
-      schema: theming.Provider.z,
-      initialState: {
-        theme: ret.theme,
-        fontURLs: [
-          {
-            name: "Inter Variable",
-            url: interWoff,
-          },
-          {
-            name: "Geist Mono",
-            url: geistMono,
-          },
-        ],
-      },
-    });
+export const Provider = ({
+  children,
+  applyCSSVars = true,
+  ...props
+}: ProviderProps): ReactElement => {
+  const ret = useProvider(props);
+  const [{ path }, , setAetherTheme] = Aether.use({
+    type: theming.Provider.TYPE,
+    schema: theming.Provider.z,
+    initialState: {
+      theme: ret.theme,
+      fontURLs: [
+        {
+          name: "Inter Variable",
+          url: interWoff,
+        },
+        {
+          name: "Geist Mono",
+          url: geistMono,
+        },
+      ],
+    },
+  });
 
-    useEffect(() => setAetherTheme((p) => ({ ...p, theme: ret.theme })), [ret.theme]);
+  useEffect(() => setAetherTheme((p) => ({ ...p, theme: ret.theme })), [ret.theme]);
 
-    useLayoutEffect(() => {
-      const el = document.documentElement;
-      setThemeClass(el, ret.theme);
-      if (applyCSSVars) CSS.applyVars(el, toCSSVars(ret.theme));
-      else CSS.removeVars(el, "--pluto");
-    }, [ret.theme]);
-    return (
-      <Context.Provider value={ret}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>
-      </Context.Provider>
-    );
-  },
-);
+  useLayoutEffect(() => {
+    const el = document.documentElement;
+    setThemeClass(el, ret.theme);
+    if (applyCSSVars) CSS.applyVars(el, toCSSVars(ret.theme));
+    else CSS.removeVars(el, "--pluto");
+  }, [ret.theme]);
+  return (
+    <Context.Provider value={ret}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>
+    </Context.Provider>
+  );
+};
 
 export const Switch = ({
   ...props
