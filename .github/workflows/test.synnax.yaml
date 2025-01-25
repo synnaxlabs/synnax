@@ -52,17 +52,20 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
-          
+
       - name: Check Formatting
         if: matrix.format
         run: scripts/gofmt-check.sh synnax
-        
+
+      - name: Install Ginkgo
+        run: go install github.com/onsi/ginkgo/v2/ginkgo
+
       - name: Test
-        run: go test -v -shuffle=on ./...
+        run: ginkgo --randomize-all ./...
         working-directory: synnax

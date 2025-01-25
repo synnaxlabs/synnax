@@ -61,6 +61,9 @@ jobs:
         if: matrix.format
         run: scripts/gofmt-check.sh cesium
 
+      - name: Install Ginkgo
+        run: go install github.com/onsi/ginkgo/v2/ginkgo
+
       - name: Test
-        run: go test -v -shuffle=on ./...
+        run: ginkgo --randomize-all ./...
         working-directory: cesium
