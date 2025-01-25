@@ -11,6 +11,7 @@ package telem
 
 import (
 	"bytes"
+
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -72,4 +73,10 @@ func ValueAt[T types.Numeric](s Series, i int64) T {
 	}
 	b := s.Data[i*int64(s.DataType.Density()) : (i+1)*int64(s.DataType.Density())]
 	return UnmarshalF[T](s.DataType)(b)
+}
+
+// SetValueAt sets the value at the given index in the series.
+func SetValueAt[T types.Numeric](s Series, i int64, v T) {
+	f := MarshalF[T](s.DataType)
+	f(s.Data[i*int64(s.DataType.Density()):], v)
 }

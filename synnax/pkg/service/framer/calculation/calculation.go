@@ -2,7 +2,6 @@ package calculated
 
 import (
 	"context"
-	// "fmt"
 	"io"
 	"sync"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/computronx"
+	"github.com/synnaxlabs/x/computron"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -27,6 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Config is the configuration for opening the calculation service.
 type Config struct {
 	alamos.Instrumentation
 	// Framer is the underlying frame service to stream required channel values and write
@@ -42,8 +42,9 @@ type Config struct {
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening the calculation service.
+	DefaultConfig = Config{}
 )
 
 func (c Config) Validate() error {
@@ -206,10 +207,7 @@ func (s *Service) startCalculation(
 			return item.Key(), item
 		}),
 	}
-	sc := &streamCalculator{
-		internal: c,
-		cfg:      s.cfg,
-	}
+	sc := &streamCalculator{internal: c, cfg: s.cfg}
 	sc.Transform = sc.transform
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](p, "calculator", sc)
 
@@ -246,23 +244,13 @@ type streamCalculator struct {
 }
 
 func (s *streamCalculator) transform(_ context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
-	frame, warning, err := s.internal.calculate(i.Frame)
+	frame, err := s.internal.calculate(i.Frame)
 	if err != nil {
-		if !errors.Is(err, s.lastErr) {
-			s.cfg.L.Error("calculation error",
-				zap.Error(err),
-				zap.String("channel_name", s.internal.ch.Name),
-				zap.String("expression", s.internal.ch.Expression))
-			s.lastErr = err
-		}
-		return framer.WriterRequest{}, false, nil
-	}
-
-	if warning != "" {
-		s.cfg.L.Warn("calculation warning",
-			zap.String("warning", warning),
+		s.cfg.L.Error("calculation error",
+			zap.Error(err),
 			zap.String("channel_name", s.internal.ch.Name),
 			zap.String("expression", s.internal.ch.Expression))
+		return framer.WriterRequest{}, false, nil
 	}
 
 	return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
@@ -276,7 +264,7 @@ type calculator struct {
 
 func (c calculator) Close() { c.calculation.Close() }
 
-func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string, err error) {
+func (c calculator) calculate(fr framer.Frame) (of framer.Frame, err error) {
 	var alignment telem.AlignmentPair
 	for _, k := range c.ch.Requires {
 		s := fr.Get(k)
@@ -284,19 +272,17 @@ func (c calculator) calculate(fr framer.Frame) (of framer.Frame, warning string,
 			continue
 		}
 		alignment = s[0].Alignment
-		ch, found := c.requires[k]
-		if !found {
-			continue
+		if ch, found := c.requires[k]; found {
+			c.calculation.Set(ch.Name, computron.LValueFromSeries(s[0]))
 		}
-		c.calculation.Set(ch.Name, computron.SeriesToLua(s[0]))
 	}
 	res, err := c.calculation.Run()
 	if err != nil {
-		return of, "", err
+		return of, err
 	}
-	os := computron.LuaToSeries(res, c.ch.DataType)
+	os := computron.SeriesToLValue(res, c.ch.DataType)
 	os.Alignment = alignment
 	of.Keys = []channel.Key{c.ch.Key()}
 	of.Series = []telem.Series{os}
-	return of, "", nil
+	return of, nil
 }

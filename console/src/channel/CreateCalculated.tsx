@@ -118,7 +118,11 @@ interface InternalProps extends Pick<RendererProps, "onClose"> {
 const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const client = Synnax.use();
 
-  const methods = Form.use<typeof schema>({ schema, values: initialValues });
+  const methods = Form.use<typeof schema>({
+    schema,
+    values: initialValues,
+    sync: true,
+  });
 
   const addStatus = Status.useAggregator();
 
@@ -126,11 +130,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
       if (client == null) throw new Error("Client not available");
-
-      const isValid = await methods.validate();
-      if (!isValid)
-        throw new Error(`Validation failed: ${JSON.stringify(methods.value().name)}`);
-
+      if (!methods.validate()) return;
       const d = methods.value();
       await client.channels.create(d);
       if (!createMore) onClose();
@@ -299,7 +299,7 @@ const Editor = (props: Code.EditorProps): ReactElement => {
     );
 
     disposables.push(
-      monaco.languages.registerCompletionItemProvider("python", {
+      monaco.languages.registerCompletionItemProvider("lua", {
         triggerCharacters: ["."],
         provideCompletionItems: async (
           model: monaco.editor.ITextModel,

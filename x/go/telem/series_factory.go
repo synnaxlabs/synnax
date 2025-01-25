@@ -33,6 +33,12 @@ func NewSeriesV[T Value](data ...T) (series Series) {
 	return NewSeries[T](data)
 }
 
+func AllocSeries(dt DataType, size int64) (series Series) {
+	series.DataType = dt
+	series.Data = make([]byte, size*int64(dt.Density()))
+	return series
+}
+
 func NewSecondsTSV(data ...TimeStamp) (series Series) {
 	for i := range data {
 		data[i] *= SecondTS
