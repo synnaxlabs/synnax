@@ -1,24 +1,14 @@
-package calculated_test
+package calculation_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/computronx"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var (
-	interpreter *computron.Interpreter
-	ctx         = context.Background()
-)
-
-var _ = BeforeSuite(func() {
-	var err error
-	interpreter, err = computron.New()
-	Expect(err).ToNot(HaveOccurred())
-})
+var ctx = context.Background()
 
 func TestCalculated(t *testing.T) {
 	RegisterFailHandler(Fail)

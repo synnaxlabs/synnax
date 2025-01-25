@@ -14,7 +14,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculated"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/downsampler"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -57,7 +57,7 @@ func (c Config) Override(other Config) Config {
 
 type Service struct {
 	Config
-	Calculated *calculated.Service
+	Calculated *calculation.Service
 }
 
 func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*framer.Iterator, error) {
@@ -116,7 +116,7 @@ func (s *Service) Close() error {
 
 type updaterTransform struct {
 	alamos.Instrumentation
-	c        *calculated.Service
+	c        *calculation.Service
 	readable channel.Readable
 	closer   xio.MultiCloser
 	confluence.LinearTransform[framer.StreamerRequest, framer.StreamerRequest]
@@ -165,7 +165,7 @@ func OpenService(cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	calc, err := calculated.Open(calculated.Config{
+	calc, err := calculation.Open(calculation.Config{
 		Instrumentation:   cfg.Instrumentation.Child("calculated"),
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
