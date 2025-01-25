@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-var _ = Describe("storage", func() {
+var _ = Describe("Storage", Ordered, func() {
 	Describe("Open", func() {
 		var (
 			tempDir string

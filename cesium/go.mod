@@ -35,7 +35,7 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
-	github.com/uptrace/uptrace-go v1.32.0 // indirect
+	github.com/uptrace/uptrace-go v1.34.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

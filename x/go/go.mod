@@ -12,6 +12,7 @@ require (
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
 	github.com/uptrace/uptrace-go v1.34.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
+	github.com/yuin/gopher-lua v1.1.1
 	go.opentelemetry.io/otel v1.34.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
@@ -56,7 +57,6 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.59.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.10.0 // indirect
