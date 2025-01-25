@@ -68,7 +68,7 @@ linear_500_channels = create_multiple_channels(
 calc_avg_sum_div_50_sine = client.channels.create(
     name="calc_avg_sum_div_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression="result=("
+    expression="return ("
     + " + ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + ") / 50.0",
     requires=[ch.key for ch in sine_50_channels],
@@ -81,7 +81,7 @@ count = "50.0"
 calc_avg_explicit_50_sine = client.channels.create(
     name="calc_avg_explicit_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result=({running_sum}) / {count}",
+    expression=f"return ({running_sum}) / {count}",
     requires=[ch.key for ch in sine_50_channels],
     retrieve_if_name_exists=True,
 )
@@ -95,7 +95,7 @@ pairwise_avg = "(" + " + ".join(pairs) + ") / 25.0"
 calc_avg_pairwise_50_sine = client.channels.create(
     name="calc_avg_pairwise_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result={pairwise_avg}",
+    expression=f"return {pairwise_avg}",
     requires=[ch.key for ch in sine_50_channels],
     retrieve_if_name_exists=True,
 )
@@ -104,7 +104,7 @@ calc_avg_pairwise_50_sine = client.channels.create(
 calc_npmean_50_sine = client.channels.create(
     name="calc_npmean_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result=np.array([np.mean(["
+    expression=f"return np.array([np.mean(["
     + ", ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + "])])",
     requires=[ch.key for ch in sine_50_channels],
@@ -114,7 +114,7 @@ calc_npmean_50_sine = client.channels.create(
 calc_npmedian = client.channels.create(
     name="calc_npmedian_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result=np.array([np.median(["
+    expression=f"return np.array([np.median(["
     + ", ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + "])])",
     requires=[ch.key for ch in sine_50_channels],
@@ -124,7 +124,7 @@ calc_npmedian = client.channels.create(
 calc_npstd = client.channels.create(
     name="calc_npstd_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result=np.array([np.std(["
+    expression=f"return np.array([np.std(["
     + ", ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + "])])",
     requires=[ch.key for ch in sine_50_channels],
@@ -134,7 +134,7 @@ calc_npstd = client.channels.create(
 calc_npvar = client.channels.create(
     name="calc_npvar_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result=np.array([np.var(["
+    expression=f"return np.array([np.var(["
     + ", ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + "])])",
     requires=[ch.key for ch in sine_50_channels],
@@ -145,7 +145,7 @@ calc_npvar = client.channels.create(
 calc_npmin = client.channels.create(
     name="calc_npmin_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result=np.array([np.min(["
+    expression=f"return np.array([np.min(["
     + ", ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + "])])",
     requires=[ch.key for ch in sine_50_channels],
@@ -155,7 +155,7 @@ calc_npmin = client.channels.create(
 calc_npmax = client.channels.create(
     name="calc_npmax_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result=np.array([np.max(["
+    expression=f"return np.array([np.max(["
     + ", ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + "])])",
     requires=[ch.key for ch in sine_50_channels],
@@ -165,7 +165,7 @@ calc_npmax = client.channels.create(
 calc_npptp = client.channels.create(
     name="calc_npptp_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result=np.array([np.ptp(["
+    expression=f"return np.array([np.ptp(["
     + ", ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + "])])",
     requires=[ch.key for ch in sine_50_channels],
@@ -176,7 +176,7 @@ calc_npptp = client.channels.create(
 calc_npsquare = client.channels.create(
     name="calc_npsquare_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.square(sine_wave_channel_1)",
+    expression="return np.square(sine_wave_channel_1)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )
@@ -184,7 +184,7 @@ calc_npsquare = client.channels.create(
 calc_npsqrt = client.channels.create(
     name="calc_npsqrt_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.sqrt(np.abs(sine_wave_channel_1))",
+    expression="return np.sqrt(np.abs(sine_wave_channel_1))",
     # abs to handle negative values
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
@@ -193,7 +193,7 @@ calc_npsqrt = client.channels.create(
 calc_npabs = client.channels.create(
     name="calc_npabs_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.abs(sine_wave_channel_1)",
+    expression="return np.abs(sine_wave_channel_1)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )
@@ -201,7 +201,7 @@ calc_npabs = client.channels.create(
 calc_npexp = client.channels.create(
     name="calc_npexp_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.exp(sine_wave_channel_1)",
+    expression="return np.exp(sine_wave_channel_1)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )
@@ -209,7 +209,7 @@ calc_npexp = client.channels.create(
 calc_nplog = client.channels.create(
     name="calc_nplog_abs_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.log(np.abs(sine_wave_channel_1) + 1)",
+    expression="return np.log(np.abs(sine_wave_channel_1) + 1)",
     # +1 to avoid log(0), abs for negative values
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
@@ -219,7 +219,7 @@ calc_nplog = client.channels.create(
 calc_npround = client.channels.create(
     name="calc_npround_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.round(sine_wave_channel_1)",
+    expression="return np.round(sine_wave_channel_1)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )
@@ -227,7 +227,7 @@ calc_npround = client.channels.create(
 calc_npfloor = client.channels.create(
     name="calc_npfloor_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.floor(sine_wave_channel_1)",
+    expression="return np.floor(sine_wave_channel_1)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )
@@ -235,7 +235,7 @@ calc_npfloor = client.channels.create(
 calc_npceil = client.channels.create(
     name="calc_npceil_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.ceil(sine_wave_channel_1)",
+    expression="return np.ceil(sine_wave_channel_1)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )
@@ -244,7 +244,7 @@ calc_npceil = client.channels.create(
 calc_npgreater = client.channels.create(
     name="calc_npgreater_sine1_vs_0",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.greater(sine_wave_channel_1, 0).astype(np.float32)",
+    expression="return np.greater(sine_wave_channel_1, 0).astype(np.float32)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )
@@ -252,7 +252,7 @@ calc_npgreater = client.channels.create(
 calc_npless = client.channels.create(
     name="calc_npless_sine1_vs_0",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.less(sine_wave_channel_1, 0).astype(np.float32)",
+    expression="return np.less(sine_wave_channel_1, 0).astype(np.float32)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )
@@ -261,7 +261,7 @@ calc_npless = client.channels.create(
 calc_nppercentile_75 = client.channels.create(
     name="calc_nppercentile75_50_sine",
     data_type=sy.DataType.FLOAT32,
-    expression=f"result=np.array([np.percentile(["
+    expression=f"return np.array([np.percentile(["
     + ", ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + "], 75)])",
     requires=[ch.key for ch in sine_50_channels],
@@ -272,7 +272,7 @@ calc_nppercentile_75 = client.channels.create(
 calc_npcumsum = client.channels.create(
     name="calc_npcumsum_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.cumsum(sine_wave_channel_1)",
+    expression="return np.cumsum(sine_wave_channel_1)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )
@@ -280,7 +280,7 @@ calc_npcumsum = client.channels.create(
 calc_npcumprod = client.channels.create(
     name="calc_npcumprod_sine1",
     data_type=sy.DataType.FLOAT32,
-    expression="result=np.cumprod(sine_wave_channel_1)",
+    expression="return np.cumprod(sine_wave_channel_1)",
     requires=[sine_channels[0].key],
     retrieve_if_name_exists=True,
 )

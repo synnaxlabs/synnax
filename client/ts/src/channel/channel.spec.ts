@@ -11,7 +11,7 @@ import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { NotFoundError, QueryError  } from "@/errors";
+import { NotFoundError, QueryError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -306,7 +306,7 @@ describe("Channel", () => {
         name: "virtual-calc",
         dataType: DataType.FLOAT32,
         virtual: true,
-        expression: "result = np.array([])"
+        expression: "return np.array([])",
       });
 
       const updated = await client.channels.create({
@@ -314,24 +314,24 @@ describe("Channel", () => {
         name: channel.name,
         dataType: channel.dataType,
         virtual: true,
-        expression: "result = np.array([1, 2, 3])"
+        expression: "return np.array([1, 2, 3])",
       });
 
       const channelsWithName = await client.channels.retrieve(["virtual-calc"]);
       expect(channelsWithName.length).toEqual(1);
 
-      expect(updated.expression).toEqual("result = np.array([1, 2, 3])");
+      expect(updated.expression).toEqual("return np.array([1, 2, 3])");
 
       const retrieved = await client.channels.retrieve(channel.key);
-      expect(retrieved.expression).toEqual("result = np.array([1, 2, 3])");
+      expect(retrieved.expression).toEqual("return np.array([1, 2, 3])");
     });
 
-  test("update virtual channel name", async () => {
+    test("update virtual channel name", async () => {
       const channel = await client.channels.create({
         name: "virtual-calc",
         dataType: DataType.FLOAT32,
         virtual: true,
-        expression: "result = np.array([])"
+        expression: "return np.array([])",
       });
 
       const updated = await client.channels.create({
@@ -339,7 +339,7 @@ describe("Channel", () => {
         name: "new-name",
         dataType: channel.dataType,
         virtual: true,
-        expression: channel.expression
+        expression: channel.expression,
       });
       expect(updated.name).toEqual("new-name");
 
@@ -352,7 +352,7 @@ describe("Channel", () => {
         name: "regular-channel",
         leaseholder: 1,
         rate: Rate.hz(1),
-        dataType: DataType.FLOAT32
+        dataType: DataType.FLOAT32,
       });
 
       const _updated = await client.channels.create({
@@ -360,9 +360,8 @@ describe("Channel", () => {
         name: "new-name",
         leaseholder: channel.leaseholder,
         rate: channel.rate,
-        dataType: channel.dataType
+        dataType: channel.dataType,
       });
-
 
       const retrieved = await client.channels.retrieve(channel.key);
       expect(retrieved.name).toEqual("regular-channel");
