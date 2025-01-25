@@ -49,7 +49,7 @@ require (
 	github.com/samber/lo v1.47.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000 // indirect
-	github.com/uptrace/uptrace-go v1.32.0 // indirect
+	github.com/uptrace/uptrace-go v1.34.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.58.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
