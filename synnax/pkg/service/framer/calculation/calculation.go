@@ -2,8 +2,10 @@ package calculation
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/control"
 	"io"
-	"slices"
 	"sync"
 
 	"github.com/samber/lo"
@@ -36,7 +38,7 @@ type Config struct {
 	Framer *framer.Service
 	// Channel is used to retrieve information about the channels being calculated.
 	// [REQUIRED]
-	Channel channel.Readable
+	Channel channel.Service
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
@@ -78,6 +80,12 @@ type entry struct {
 	shutdown io.Closer
 }
 
+type State struct {
+	Key     channel.Key `json:"key"`
+	Variant string      `json:"variant"`
+	Message string      `json:"message"`
+}
+
 // Service creates and operates calculations on channels.
 type Service struct {
 	cfg Config
@@ -86,18 +94,69 @@ type Service struct {
 		entries map[channel.Key]*entry
 	}
 	disconnectFromChannelChanges observe.Disconnect
+	stateKey                     channel.Key
+	w                            *framer.Writer
+}
+
+func (s *Service) SetState(ctx context.Context, key channel.Key, variant string, message string) error {
+	state := State{
+		Key:     key,
+		Variant: variant,
+		Message: message,
+	}
+	b, err := (&binary.JSONCodec{}).Encode(ctx, state)
+	if err != nil {
+		return err
+	}
+	ser := telem.Series{
+		DataType: telem.JSONT,
+		Data:     append(b, []byte("\n")...),
+	}
+	fr := framer.Frame{
+		Keys:   []channel.Key{s.stateKey},
+		Series: []telem.Series{ser},
+	}
+	s.w.Write(fr)
+	return nil
 }
 
 // Open opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
-func Open(cfgs ...Config) (*Service, error) {
+func Open(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+
+	calculationStateCh := channel.Channel{
+		Name:        "sy_calculation_state",
+		DataType:    telem.JSONT,
+		Virtual:     true,
+		Leaseholder: core.Free,
+		Internal:    true,
+	}
+
+	if err = cfg.Channel.Create(
+		ctx,
+		&calculationStateCh,
+		channel.RetrieveIfNameExists(true),
+	); err != nil {
+		return nil, err
+	}
+
+	w, err := cfg.Framer.OpenWriter(ctx, framer.WriterConfig{
+		Keys:        []channel.Key{calculationStateCh.Key()},
+		Start:       telem.Now(),
+		Authorities: []control.Authority{255},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s := &Service{cfg: cfg, w: w, stateKey: calculationStateCh.Key()}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.entries = make(map[channel.Key]*entry)
+
 	return s, nil
 }
 
@@ -109,34 +168,27 @@ func (s *Service) handleChange(
 	if !ok {
 		return
 	}
-	// Don't stop calculating if the channel is deleted.
+	// Don't stop calculating if the channel is deleted. The calculation will be
+	// automatically shut down when it is no longer needed.
 	if c.Variant != change.Set || !c.Value.IsCalculated() {
 		return
 	}
 	existing, found := s.mu.entries[c.Key]
 	if !found {
-		s.update(ctx, c.Key)
+		s.update(ctx, c.Value)
 		return
 
 	}
-	expressionsEqual := existing.ch.Expression == c.Value.Expression
-	if !expressionsEqual {
-		s.update(ctx, c.Key)
+	if existing.ch.Equals(c.Value, "Name") {
 		return
 	}
-	slices.Sort(existing.ch.Requires)
-	slices.Sort(c.Value.Requires)
-	requiresEqual := slices.Equal(existing.ch.Requires, c.Value.Requires)
-	if requiresEqual {
-		return
-	}
-	s.update(ctx, c.Key)
+	s.update(ctx, c.Value)
 }
 
-func (s *Service) update(ctx context.Context, ch channel.Key) {
+func (s *Service) update(ctx context.Context, ch channel.Channel) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	e, found := s.mu.entries[ch]
+	e, found := s.mu.entries[ch.Key()]
 	if !found {
 		return
 	}
@@ -144,9 +196,12 @@ func (s *Service) update(ctx context.Context, ch channel.Key) {
 	if err := e.shutdown.Close(); err != nil {
 		s.cfg.L.Error("failed to close calculated channel", zap.Error(err), zap.Stringer("key", ch))
 	}
-	delete(s.mu.entries, ch)
-	if _, err := s.startCalculation(ctx, ch, e.count); err != nil {
+	delete(s.mu.entries, ch.Key())
+	if _, err := s.startCalculation(ctx, ch.Key(), e.count); err != nil {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
+		e.ch.Requires = ch.Requires
+		e.ch.Expression = ch.Expression
+		s.mu.entries[ch.Key()] = e
 	}
 }
 
@@ -182,6 +237,7 @@ func (s *Service) Close() error {
 	for _, e := range s.mu.entries {
 		c.Exec(e.shutdown.Close)
 	}
+	c.Exec(s.w.Close)
 	return c.Error()
 }
 
@@ -202,9 +258,15 @@ func (s *Service) startCalculation(
 	ctx context.Context,
 	key channel.Key,
 	initialCount int,
-) (io.Closer, error) {
+) (closer io.Closer, err error) {
 	var ch channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
+	defer func() {
+		if err == nil {
+			return
+		}
+		err = errors.Combine(err, s.SetState(ctx, key, "error", err.Error()))
+	}()
+	if err = s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 	if !ch.IsCalculated() {
@@ -250,7 +312,7 @@ func (s *Service) startCalculation(
 			return item.Key(), item
 		}),
 	}
-	sc := &streamCalculator{internal: c, cfg: s.cfg}
+	sc := &streamCalculator{internal: c, cfg: s.cfg, setState: s.SetState}
 	sc.Transform = sc.transform
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](
 		p,
@@ -290,15 +352,17 @@ type streamCalculator struct {
 	cfg      Config
 	lastErr  error
 	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]
+	setState func(ctx context.Context, key channel.Key, variant string, message string) error
 }
 
-func (s *streamCalculator) transform(_ context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
+func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
 	frame, err := s.internal.Calculate(i.Frame)
 	if err != nil {
 		s.cfg.L.Error("calculation error",
 			zap.Error(err),
 			zap.String("channel_name", s.internal.ch.Name),
 			zap.String("expression", s.internal.ch.Expression))
+		s.setState(ctx, s.internal.ch.Key(), "error", err.Error())
 		return framer.WriterRequest{}, false, nil
 	}
 	return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil

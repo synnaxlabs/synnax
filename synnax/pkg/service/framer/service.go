@@ -31,7 +31,7 @@ type Config struct {
 	alamos.Instrumentation
 	// Distribution layer framer service.
 	Framer  *framer.Service
-	Channel channel.Readable
+	Channel channel.Service
 }
 
 var (
@@ -159,13 +159,13 @@ func (t *updaterTransform) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}))...)
 }
 
-func OpenService(cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	calc, err := calculation.Open(calculation.Config{
+	calc, err := calculation.Open(ctx, calculation.Config{
 		Instrumentation:   cfg.Instrumentation.Child("calculated"),
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,

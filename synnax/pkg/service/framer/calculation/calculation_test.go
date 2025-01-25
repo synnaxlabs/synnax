@@ -29,7 +29,7 @@ var _ = Describe("Calculated", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewBuilder()
 		dist = distB.New(ctx)
-		c = MustSucceed(calculation.Open(calculation.Config{
+		c = MustSucceed(calculation.Open(ctx, calculation.Config{
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),

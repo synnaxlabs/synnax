@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType } from "@synnaxlabs/client";
+import { type channel, DataType, framer } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
   Align,
@@ -16,11 +16,13 @@ import {
   Form,
   Input,
   Nav,
+  Observe,
   Select,
   Status,
   Synnax,
   Text,
   Triggers,
+  useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { deep, unique } from "@synnaxlabs/x";
@@ -87,6 +89,39 @@ const ZERO_FORM_VALUES: FormValues = {
   expression: "",
 };
 
+interface CalculationState {
+  key: channel.Key;
+  variant: "error" | "success" | "info";
+  message: string;
+}
+
+export const useListenForCalculationState = (): void => {
+  const client = Synnax.use();
+  const addStatus = Status.useAggregator();
+  Observe.useListener({
+    key: ["sy_calculation_state", client?.key],
+    open: async () => {
+      if (client == null) return;
+      const s = await client.openStreamer({
+        channels: ["sy_calculation_state"],
+      });
+      return new framer.ObservableStreamer(s);
+    },
+    onChange: (state) => {
+      const s = Array.from(
+        state.get("sy_calculation_state"),
+      )[0] as unknown as CalculationState;
+      client?.channels.retrieve(s.key).then((ch) => {
+        addStatus({
+          variant: s.variant,
+          message: `Calculation failed for ${ch.name}`,
+          description: s.message,
+        });
+      });
+    },
+  });
+};
+
 export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) => {
   const client = Synnax.use();
   const args = Layout.useSelectArgs<CalculatedChannelArgs>(layoutKey) ?? DEFAULT_ARGS;
@@ -108,6 +143,7 @@ export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) =
         <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
       </Align.Space>
     );
+
   return <Internal onClose={onClose} initialValues={res.data} />;
 };
 
@@ -166,18 +202,6 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               />
             )}
           </Form.Field>
-          <Align.Space direction="x" size="large">
-            <Form.Field<DataType> path="dataType" label="Output Data Type" grow>
-              {(p) => (
-                <Select.DataType
-                  {...p}
-                  disabled={isIndex}
-                  maxHeight="small"
-                  zIndex={100}
-                />
-              )}
-            </Form.Field>
-          </Align.Space>
 
           <Form.Field<string> path="expression" grow>
             {({ value, onChange }) => (
@@ -191,9 +215,31 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               />
             )}
           </Form.Field>
-          <Form.Field<channel.Key[]> path="requires" label="Required Channels" grow>
-            {(p) => <Channel.SelectMultiple zIndex={100} {...p} />}
-          </Form.Field>
+          <Align.Space direction="x">
+            <Form.Field<DataType>
+              path="dataType"
+              label="Output Data Type"
+              style={{ width: 150 }}
+            >
+              {(p) => (
+                <Select.DataType
+                  {...p}
+                  disabled={isIndex}
+                  maxHeight="small"
+                  zIndex={100}
+                  style={{ width: 150 }}
+                />
+              )}
+            </Form.Field>
+            <Form.Field<channel.Key[]>
+              path="requires"
+              required
+              label="Required Channels"
+              grow
+            >
+              {(p) => <Channel.SelectMultiple zIndex={100} {...p} />}
+            </Form.Field>
+          </Align.Space>
         </Form.Form>
       </Align.Space>
       <Layout.BottomNavBar>

@@ -107,13 +107,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     this.values = new MultiSeries(series);
     this.checkEmpty();
     i.stopListeningTelem?.();
-    i.stopListeningTelem = i.telem.onChange(() =>
+    i.stopListeningTelem = i.telem.onChange(() => {
       this.internal.telem.value().then(([_, series]) => {
         this.checkEmpty();
         this.values = new MultiSeries(series);
         this.requestRender();
-      }),
-    );
+      });
+    });
     this.requestRender();
   }
 
@@ -180,6 +180,10 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const reg = this.state.region;
     const canvas = renderCtx[CANVAS];
     const draw2d = new Draw2D(canvas, this.internal.theme);
+    draw2d.container({
+      region: reg,
+      backgroundColor: "#FF0000",
+    });
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderElements(draw2d, range);
     this.renderScrollbar(draw2d);

@@ -1,10 +1,10 @@
 package computron
 
 import (
-	"github.com/synnaxlabs/x/telem"
-
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	lua "github.com/yuin/gopher-lua"
+	"github.com/yuin/gopher-lua/parse"
 )
 
 type Calculator struct {
@@ -80,13 +80,34 @@ var luaOptions = lua.Options{
 	MinimizeStackMemory: false,
 }
 
+var _ error = &lua.ApiError{}
+
+func parseSyntaxError(err error) error {
+	if err == nil {
+		return nil
+	}
+	apiErr, ok := err.(*lua.ApiError)
+	if !ok {
+		return err
+	}
+	pErr, ok := apiErr.Cause.(*parse.Error)
+	if !ok {
+		return err
+	}
+	// Return a wrapped error with the parse error message, position information, and token
+	return errors.Wrapf(err,
+		"syntax error at line %d column %d (token '%s'): %s",
+		pErr.Pos.Line,
+		pErr.Pos.Column,
+		pErr.Token,
+		pErr.Message,
+	)
+}
+
 func Open(script string) (expr *Calculator, err error) {
 	expr = &Calculator{l: lua.NewState(luaOptions)}
 	expr.f, err = expr.l.LoadString(script)
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid Lua syntax")
-	}
-	return
+	return expr, parseSyntaxError(err)
 }
 
 func (c *Calculator) Set(name string, value lua.LValue) { c.l.SetGlobal(name, value) }

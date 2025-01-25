@@ -195,6 +195,7 @@ class Series(Payload):
             yield from [self[i] for i in range(len(self))]
         elif self.data_type == DataType.JSON:
             for v in self.__iter__newline():
+                print(v)
                 yield json.loads(v)
         elif self.data_type == DataType.STRING:
             for v in self.__iter__newline():

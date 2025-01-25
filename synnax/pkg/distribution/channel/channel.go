@@ -11,6 +11,7 @@ package channel
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -210,6 +211,77 @@ type Channel struct {
 
 func (c Channel) IsCalculated() bool {
 	return c.Virtual && c.Expression != ""
+}
+
+// Equals returns true if the two channels are meaningfully equal to each other. This
+// function should be used instead of a direct comparison, as it takes into account
+// the contents of the Requires field, ignoring the order of the keys.
+// If the exclude parameter is provided, the function will ignore the fields specified
+// in the exclude parameter.
+func (c Channel) Equals(other Channel, exclude ...string) bool {
+	if c.Name != other.Name {
+		if !lo.Contains(exclude, "Name") {
+			return false
+		}
+	}
+	if c.Leaseholder != other.Leaseholder {
+		if !lo.Contains(exclude, "Leaseholder") {
+			return false
+		}
+	}
+	if c.DataType != other.DataType {
+		if !lo.Contains(exclude, "DataType") {
+			return false
+		}
+	}
+	if c.IsIndex != other.IsIndex {
+		if !lo.Contains(exclude, "IsIndex") {
+			return false
+		}
+	}
+	if c.Rate != other.Rate {
+		if !lo.Contains(exclude, "Rate") {
+			return false
+		}
+	}
+	if c.LocalKey != other.LocalKey {
+		if !lo.Contains(exclude, "LocalKey") {
+			return false
+		}
+	}
+	if c.LocalIndex != other.LocalIndex {
+		if !lo.Contains(exclude, "LocalIndex") {
+			return false
+		}
+	}
+	if c.Virtual != other.Virtual {
+		if !lo.Contains(exclude, "Virtual") {
+			return false
+		}
+	}
+	if c.Concurrency != other.Concurrency {
+		if !lo.Contains(exclude, "Concurrency") {
+			return false
+		}
+	}
+	if c.Internal != other.Internal {
+		if !lo.Contains(exclude, "Internal") {
+			return false
+		}
+	}
+	if c.Expression != other.Expression {
+		if !lo.Contains(exclude, "Expression") {
+			return false
+		}
+	}
+	slices.Sort(c.Requires)
+	slices.Sort(other.Requires)
+	if !slices.Equal(c.Requires, other.Requires) {
+		if !lo.Contains(exclude, "Requires") {
+			return false
+		}
+	}
+	return true
 }
 
 // String implements stringer, returning a nicely formatted string representation of the

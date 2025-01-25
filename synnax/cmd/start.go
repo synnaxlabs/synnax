@@ -224,7 +224,7 @@ func start(cmd *cobra.Command) {
 		defer func() {
 			err = errors.Combine(err, hardwareSvc.Close())
 		}()
-		frameSvc, err := framer.OpenService(framer.Config{
+		frameSvc, err := framer.OpenService(ctx, framer.Config{
 			Instrumentation: ins.Child("framer"),
 			Framer:          dist.Framer,
 			Channel:         dist.Channel,
