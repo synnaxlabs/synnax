@@ -106,10 +106,22 @@ const TaskForm: FC<
 
 const getDeviceKey: (chan: DOChannel) => string = (chan) => `${chan.port}l${chan.line}`;
 
+const zeroPayload: Common.Task.ZeroPayloadFunction<
+  DigitalWriteConfig,
+  DigitalWriteDetails,
+  DigitalWriteType
+> = (deviceKey) => ({
+  ...ZERO_DIGITAL_WRITE_PAYLOAD,
+  config: {
+    ...ZERO_DIGITAL_WRITE_PAYLOAD.config,
+    device: deviceKey ?? ZERO_DIGITAL_WRITE_PAYLOAD.config.device,
+  },
+});
+
 export const DigitalWriteTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: digitalWriteConfigZ,
   type: DIGITAL_WRITE_TYPE,
-  zeroPayload: ZERO_DIGITAL_WRITE_PAYLOAD,
+  zeroPayload,
   onConfigure: async (client, config) => {
     const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
       config.device,

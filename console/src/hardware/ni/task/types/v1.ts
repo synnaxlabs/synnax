@@ -118,26 +118,14 @@ const ZERO_AI_TEMP_BUILT_IN_CHAN: AITempBuiltInChan = {
 
 const aiThrmcplChanZ = v0.aiThrmcplChanZ
   .merge(aiChanExtensionZ)
-  .refine(
-    (v) => {
-      if (v.cjcSource === v0.CONST_VAL) return v.cjcVal !== undefined;
-      return true;
-    },
-    {
-      path: ["cjcVal"],
-      message: `CJC Value must be defined when CJC Source is ${v0.CONST_VAL}`,
-    },
-  )
-  .refine(
-    (v) => {
-      if (v.cjcSource === v0.CHAN) return v.cjcPort !== undefined;
-      return true;
-    },
-    {
-      path: ["cjcPort"],
-      message: `CJC Port must be defined when CJC Source is ${v0.CHAN}`,
-    },
-  );
+  .refine((v) => (v.cjcSource === v0.CONST_VAL ? v.cjcVal !== undefined : true), {
+    path: ["cjcVal"],
+    message: `CJC Value must be defined when CJC Source is ${v0.CONST_VAL}`,
+  })
+  .refine((v) => (v.cjcSource === v0.CHAN ? v.cjcPort !== undefined : true), {
+    path: ["cjcPort"],
+    message: `CJC Port must be defined when CJC Source is ${v0.CHAN}`,
+  });
 interface AIThrmcplChan extends z.infer<typeof aiThrmcplChanZ> {}
 const ZERO_AI_THRMCPL_CHAN: AIThrmcplChan = {
   ...v0.ZERO_AI_THRMCPL_CHAN,
@@ -240,6 +228,8 @@ export const ZERO_AI_CHANNELS: Record<v0.AIChannelType, AIChannel> = {
   [v0.AI_VELOCITY_IEPE_CHAN_TYPE]: ZERO_AI_VELOCITY_IEPE_CHAN,
   [v0.AI_VOLTAGE_CHAN_TYPE]: ZERO_AI_VOLTAGE_CHAN,
 };
+
+export const ZERO_AI_CHANNEL: AIChannel = ZERO_AI_CHANNELS[v0.AI_VOLTAGE_CHAN_TYPE];
 
 export const analogReadConfigZ = v0.analogReadConfigZ
   .omit({ version: true, device: true, channels: true })

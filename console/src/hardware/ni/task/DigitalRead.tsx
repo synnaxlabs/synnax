@@ -99,10 +99,22 @@ const TaskForm: FC<
   );
 };
 
+const zeroPayload: Common.Task.ZeroPayloadFunction<
+  DigitalReadConfig,
+  DigitalReadDetails,
+  DigitalReadType
+> = (deviceKey) => ({
+  ...ZERO_DIGITAL_READ_PAYLOAD,
+  config: {
+    ...ZERO_DIGITAL_READ_PAYLOAD.config,
+    device: deviceKey ?? ZERO_DIGITAL_READ_PAYLOAD.config.device,
+  },
+});
+
 export const DigitalReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: digitalReadConfigZ,
   type: DIGITAL_READ_TYPE,
-  zeroPayload: ZERO_DIGITAL_READ_PAYLOAD,
+  zeroPayload,
   onConfigure: async (client, config) => {
     const dev = await client.hardware.devices.retrieve<Device.Properties>(
       config.device,

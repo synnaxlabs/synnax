@@ -187,10 +187,22 @@ const TaskForm: FC<
   </Common.Device.Provider>
 );
 
+const zeroPayload: Common.Task.ZeroPayloadFunction<
+  AnalogWriteConfig,
+  AnalogWriteDetails,
+  AnalogWriteType
+> = (deviceKey) => ({
+  ...ZERO_ANALOG_WRITE_PAYLOAD,
+  config: {
+    ...ZERO_ANALOG_WRITE_PAYLOAD.config,
+    device: deviceKey ?? ZERO_ANALOG_WRITE_PAYLOAD.config.device,
+  },
+});
+
 export const AnalogWriteTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: analogWriteConfigZ,
   type: ANALOG_WRITE_TYPE,
-  zeroPayload: ZERO_ANALOG_WRITE_PAYLOAD,
+  zeroPayload,
   onConfigure: async (client, config) => {
     const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
       config.device,

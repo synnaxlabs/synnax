@@ -27,6 +27,7 @@ import {
   analogReadConfigZ,
   type AnalogReadDetails,
   type AnalogReadType,
+  ZERO_AI_CHANNEL,
   ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -212,10 +213,25 @@ const TaskForm: FC<
   );
 };
 
+const zeroPayload: Common.Task.ZeroPayloadFunction<
+  AnalogReadConfig,
+  AnalogReadDetails,
+  AnalogReadType
+> = (deviceKey) => ({
+  ...ZERO_ANALOG_READ_PAYLOAD,
+  config: {
+    ...ZERO_ANALOG_READ_PAYLOAD.config,
+    channels:
+      deviceKey == null
+        ? ZERO_ANALOG_READ_PAYLOAD.config.channels
+        : [{ ...ZERO_AI_CHANNEL, device: deviceKey }],
+  },
+});
+
 export const AnalogReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: analogReadConfigZ,
   type: ANALOG_READ_TYPE,
-  zeroPayload: ZERO_ANALOG_READ_PAYLOAD,
+  zeroPayload,
   onConfigure: async (client, config) => {
     const devices = unique.unique(config.channels.map((c) => c.device));
     for (const devKey of devices) {

@@ -195,10 +195,22 @@ const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>>
   </Common.Device.Provider>
 );
 
+const zeroPayload: Common.Task.ZeroPayloadFunction<
+  WriteConfig,
+  WriteStateDetails,
+  WriteType
+> = (deviceKey) => ({
+  ...ZERO_WRITE_PAYLOAD,
+  config: {
+    ...ZERO_WRITE_PAYLOAD.config,
+    device: deviceKey ?? ZERO_WRITE_PAYLOAD.config.device,
+  },
+});
+
 export const WriteTask = Common.Task.wrapForm(<Properties />, Form, {
   configSchema: writeConfigZ,
   type: WRITE_TYPE,
-  zeroPayload: ZERO_WRITE_PAYLOAD,
+  zeroPayload,
   onConfigure: async (client, config) => {
     const dev = await client.hardware.devices.retrieve<Device.Properties>(
       config.device,

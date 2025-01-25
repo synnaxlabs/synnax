@@ -45,6 +45,7 @@ export type AIChannel = v1.AIChannel;
 export type AIChannelType = v0.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = v1.AI_CHANNEL_SCHEMAS;
 export const ZERO_AI_CHANNELS = v1.ZERO_AI_CHANNELS;
+export const ZERO_AI_CHANNEL = v1.ZERO_AI_CHANNEL;
 export const AI_CHANNEL_TYPE_NAMES = v0.AI_CHANNEL_TYPE_NAMES;
 export type AOChannel = v0.AOChannel;
 export type AOChannelType = v0.AOChannelType;

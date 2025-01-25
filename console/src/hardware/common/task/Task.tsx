@@ -44,14 +44,20 @@ export type ConfigSchema<C extends UnknownRecord = UnknownRecord> = z.ZodType<
   unknown
 >;
 
+export interface ZeroPayloadFunction<
+  C extends UnknownRecord = UnknownRecord,
+  D extends {} = UnknownRecord,
+  T extends string = string,
+> {
+  (deviceKey?: device.Key): task.Payload<C, D, T>;
+}
+
 export interface WrapOptions<
   C extends UnknownRecord = UnknownRecord,
   D extends {} = UnknownRecord,
   T extends string = string,
 > {
-  zeroPayload:
-    | task.Payload<C, D, T>
-    | ((deviceKey?: device.Key) => task.Payload<C, D, T>);
+  zeroPayload: task.Payload<C, D, T> | ZeroPayloadFunction<C, D, T>;
   configSchema?: ConfigSchema<C>;
 }
 

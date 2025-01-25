@@ -233,10 +233,22 @@ const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>
   </Common.Device.Provider>
 );
 
+const zeroPayload: Common.Task.ZeroPayloadFunction<
+  ReadConfig,
+  ReadStateDetails,
+  ReadType
+> = (deviceKey) => ({
+  ...ZERO_READ_PAYLOAD,
+  config: {
+    ...ZERO_READ_PAYLOAD.config,
+    device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
+  },
+});
+
 export const ReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: readConfigZ,
   type: READ_TYPE,
-  zeroPayload: ZERO_READ_PAYLOAD,
+  zeroPayload,
   onConfigure: async (client, config) => {
     const dev = await client.hardware.devices.retrieve<Device.Properties>(
       config.device,

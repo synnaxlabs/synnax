@@ -29,7 +29,12 @@ import {
   useDesiredState,
 } from "@/hardware/common/task/desiredState";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
-import { type ConfigSchema, type TaskProps, wrap } from "@/hardware/common/task/Task";
+import {
+  type ConfigSchema,
+  type TaskProps,
+  wrap,
+  type WrapOptions,
+} from "@/hardware/common/task/Task";
 import { useCreate } from "@/hardware/common/task/useCreate";
 import { useObserveState } from "@/hardware/common/task/useObserveState";
 import { type Layout } from "@/layout";
@@ -58,7 +63,7 @@ export interface WrapFormOptions<
 > {
   configSchema: ConfigSchema<C>;
   type: T;
-  zeroPayload: clientTask.Payload<C, D, T>;
+  zeroPayload: WrapOptions<C, D, T>["zeroPayload"];
   onConfigure: (client: Synnax, config: C) => Promise<C>;
 }
 
