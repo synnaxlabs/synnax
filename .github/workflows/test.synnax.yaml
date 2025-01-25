@@ -31,7 +31,6 @@ jobs:
               - alamos/go/**
               - aspen/**
               - cesium/**
-              - computron/**
               - freighter/go/**
               - synnax/**
               - x/go/**
@@ -54,29 +53,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         
-      - name: Build Python On Windows
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        working-directory: computron
-        run: |
-          ./build-windows.ps1
-      
-      - name: Build Python On Mac
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        working-directory: computron
-        run: |
-          chmod +x build-macos.sh
-          ./build-macos.sh
-      
-      - name: Build Python On Ubuntu
-        if: matrix.os == 'ubuntu-latest'
-        shell: bash
-        working-directory: computron
-        run: |
-          chmod +x build-linux.sh
-          ./build-linux.sh
-          
       - name: Set up Go
         uses: actions/setup-go@v5
         with:

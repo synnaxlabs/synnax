@@ -1,6 +1,7 @@
-package calculated_test
+package calculation_test
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -11,7 +12,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculated"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -22,15 +22,14 @@ var sleepInterval = 25 * time.Millisecond
 
 var _ = Describe("Calculated", Ordered, func() {
 	var (
-		c    *calculated.Service
+		c    *calculation.Service
 		dist distribution.Distribution
 	)
 
 	BeforeAll(func() {
 		distB := mock.NewBuilder()
 		dist = distB.New(ctx)
-		c = MustSucceed(calculated.Open(calculated.Config{
-			Computron:         interpreter,
+		c = MustSucceed(calculation.Open(calculation.Config{
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
@@ -50,7 +49,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "result = base * 2",
+			Expression:  "return base * 2",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
@@ -89,7 +88,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "result = base * fake",
+			Expression:  "return base * fake",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
@@ -130,7 +129,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "result = base / 0",
+			Expression:  "return base / 0",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
@@ -171,7 +170,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "result = base * 2",
+			Expression:  "return base * 2",
 		}
 		Expect(dist.Channel.Create(ctx, &calc1CH)).To(Succeed())
 
@@ -182,7 +181,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{calc1CH.Key()},
-			Expression:  "result = calc1 + 1",
+			Expression:  "return calc1 + 1",
 		}
 		Expect(dist.Channel.Create(ctx, &calc2CH)).To(Succeed())
 
