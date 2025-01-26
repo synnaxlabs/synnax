@@ -23,11 +23,19 @@ interface HeaderProps {
 }
 
 const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
-  <PHeader.Header level="h4">
+  <PHeader.Header level="h4" style={{ width: "100%" }}>
     <PHeader.Title weight={500}>Channels</PHeader.Title>
     {!isSnapshot && (
       <PHeader.Actions>
-        {[{ key: "add", onClick: onAdd, children: <Icon.Add />, size: "large" }]}
+        {[
+          {
+            key: "add",
+            onClick: onAdd,
+            children: <Icon.Add />,
+            size: "large",
+            tooltip: "Add Channel",
+          },
+        ]}
       </PHeader.Actions>
     )}
   </PHeader.Header>
@@ -36,7 +44,7 @@ const Header = ({ isSnapshot, onAdd }: HeaderProps) => (
 interface EmptyContentProps extends HeaderProps {}
 
 const EmptyContent = ({ isSnapshot, onAdd }: EmptyContentProps) => (
-  <Align.Center direction="y" justify="center">
+  <Align.Center grow>
     <Text.Text level="p">No channels in task.</Text.Text>
     {!isSnapshot && (
       <Text.Link level="p" onClick={onAdd}>
@@ -50,7 +58,7 @@ export type DefaultChannelListProps<C extends Channel> = Omit<
   ChannelListProps<C>,
   "channels" | "header" | "emptyContent" | "path" | "remove"
 > & {
-  generateChannel: (channels: C[]) => C;
+  generateChannel: (channels: C[]) => C | null;
   path?: string;
 };
 
@@ -69,6 +77,7 @@ export const DefaultChannelList = <C extends Channel>({
   } = Form.useFieldArray<C>({ path, updateOnChildren: true });
   const handleAdd = useCallback(() => {
     const channel = generateChannel(channels);
+    if (channel == null) return;
     push(channel);
     onSelect([channel.key], channels.length);
   }, [push, channels, generateChannel, onSelect]);

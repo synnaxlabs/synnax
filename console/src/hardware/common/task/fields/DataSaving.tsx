@@ -10,10 +10,6 @@
 import { Form } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export const SampleRateField = (): ReactElement => (
-  <Form.NumericField
-    label="Sample Rate"
-    path="config.sampleRate"
-    inputProps={{ endContent: "Hz" }}
-  />
+export const DataSaving = (): ReactElement => (
+  <Form.SwitchField label={"Data Saving"} path="config.dataSaving" />
 );

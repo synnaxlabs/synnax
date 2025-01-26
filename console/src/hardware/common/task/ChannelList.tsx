@@ -40,6 +40,7 @@ export type ChannelListProps<C extends Channel> = Omit<
   allowTare?: (keys: string[], channels: C[]) => boolean;
   path: string;
   remove: (index: number | number[]) => void;
+  isDragging?: boolean;
 };
 
 export const ChannelList = <C extends Channel>({
@@ -52,6 +53,7 @@ export const ChannelList = <C extends Channel>({
   allowTare,
   selected,
   channels,
+  isDragging,
   path,
   remove,
   ...props
@@ -74,6 +76,7 @@ export const ChannelList = <C extends Channel>({
       enable: handleEnable,
       tare: () => onTare?.(keys, channels),
     };
+    const canRemove = indices.length > 0;
     const canDisable = indices.some((i) => channels[i].enabled);
     const canEnable = indices.some((i) => !channels[i].enabled);
     const canTare = allowTare?.(keys, channels);
@@ -81,10 +84,14 @@ export const ChannelList = <C extends Channel>({
       <PMenu.Menu onChange={handleSelect} level="small">
         {!isSnapshot && (
           <>
-            <PMenu.Item itemKey="remove" startIcon={<Icon.Close />}>
-              Remove
-            </PMenu.Item>
-            <PMenu.Divider />
+            {canRemove && (
+              <>
+                <PMenu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                  Remove
+                </PMenu.Item>
+                <PMenu.Divider />
+              </>
+            )}
             {canDisable && (
               <PMenu.Item itemKey="disable" startIcon={<Icon.Disable />}>
                 Disable
@@ -112,7 +119,7 @@ export const ChannelList = <C extends Channel>({
   };
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space grow className={CSS.B("channels")} {...props} empty>
+    <Align.Space direction="y" {...props} empty grow>
       {header}
       <PMenu.ContextMenu {...menuProps} menu={(p) => <ContextMenu {...p} />}>
         <List.List<string, C> data={channels} emptyContent={emptyContent}>
@@ -123,7 +130,10 @@ export const ChannelList = <C extends Channel>({
               clickedIndex != null && onSelect(keys, clickedIndex)
             }
           >
-            <List.Core<string, C> grow>
+            <List.Core<string, C>
+              style={{ height: "100%" }}
+              className={isDragging ? CSS.B("dragging") : undefined}
+            >
               {(props) =>
                 children({ ...props, path: `${path}.${props.index}`, isSnapshot })
               }

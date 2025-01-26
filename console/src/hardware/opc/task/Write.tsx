@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/Task.css";
 
-import { type device, NotFoundError } from "@synnaxlabs/client";
+import { type device, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -52,6 +52,13 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   icon: <Icon.Logo.OPC />,
   create: (key) => ({ ...WRITE_LAYOUT, key }),
 };
+
+const Properties = (): ReactElement => (
+  <>
+    <Device.Select />
+    <Common.Task.Fields.DataSaving />
+  </>
+);
 
 interface ChannelListItemProps extends List.ItemProps<string, WriteChannelConfig> {
   path: string;
@@ -159,69 +166,65 @@ interface ChannelListProps {
   snapshot?: boolean;
 }
 
+const canDrop = (state: Haul.DraggingState): boolean =>
+  state.items.some((i) => i.type === "opc" && i.data?.nodeClass === "Variable");
+
 const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
   const { value, push, remove } = PForm.useFieldArray<WriteChannelConfig>({ path });
   const valueRef = useSyncedRef(value);
-  const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
-    const dropped = items.filter(
-      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
-    );
-    const toAdd = dropped
-      .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
-      .map((i) => {
-        const nodeId = i.data?.nodeId as string;
-        const name = i.data?.name as string;
-        return {
-          key: nodeId,
-          name,
-          nodeName: name,
-          cmdChannel: 0,
-          enabled: true,
-          nodeId,
-          dataType: (i.data?.dataType as string) ?? "float32",
-        };
-      });
-    push(toAdd);
-    return dropped;
-  }, []);
-
-  const canDrop = useCallback((state: Haul.DraggingState): boolean => {
-    const v = state.items.some(
-      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
-    );
-    return v;
-  }, []);
+  const handleDrop = useCallback(
+    ({ items }: Haul.OnDropProps): Haul.Item[] => {
+      const dropped = items.filter(
+        (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
+      );
+      const toAdd = dropped
+        .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
+        .map((i) => {
+          const nodeId = i.data?.nodeId as string;
+          const name = i.data?.name as string;
+          return {
+            key: nodeId,
+            name,
+            nodeName: name,
+            cmdChannel: 0,
+            enabled: true,
+            nodeId,
+            dataType: (i.data?.dataType as string) ?? "float32",
+          };
+        });
+      push(toAdd);
+      return dropped;
+    },
+    [push],
+  );
 
   const props = Haul.useDrop({ type: "opc.WriteTask", canDrop, onDrop: handleDrop });
-
   const dragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
-
   const [selectedChannels, setSelectedChannels] = useState<string[]>(
     value.length > 0 ? [value[0].key] : [],
   );
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
     value.length > 0 ? 0 : null,
   );
-
   return (
     <>
       <Common.Task.ChannelList<WriteChannelConfig>
         path={path}
-        isSnapshot={snapshot}
+        isSnapshot={snapshot ?? false}
         className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
         grow
         empty
         bordered
         rounded
         {...props}
-        header={() => (
+        header={
           <Header.Header level="h4">
             <Header.Title weight={500}>Channels</Header.Title>
           </Header.Header>
-        )}
-        emptyContent={() => (
+        }
+        emptyContent={
           <Align.Center>
-            <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+            <Text.Text shade={6} level="p" style={{ maxWidth: 300, padding: "2rem" }}>
               No channels added. Drag a variable{" "}
               <Icon.Variable
                 style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
@@ -229,7 +232,7 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
               from the browser to add a channel to the task.
             </Text.Text>
           </Align.Center>
-        )}
+        }
         selected={selectedChannels}
         onSelect={(keys, index) => {
           setSelectedChannels(keys);
@@ -259,14 +262,6 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
   );
 };
 
-const Properties = (): ReactElement => (
-  <>
-    <Device.Select />
-    <PForm.Field<boolean> label="Data Saving" path="config.dataSaving">
-      {(p) => <Input.Switch {...p} />}
-    </PForm.Field>
-  </>
-);
 const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>> = ({
   methods,
   task,
@@ -292,63 +287,61 @@ const zeroPayload: Common.Task.ZeroPayloadFunction<
   },
 });
 
+const onConfigure = async (
+  client: Synnax,
+  config: WriteConfig,
+): Promise<WriteConfig> => {
+  const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  let modified = false;
+  const commandsToCreate: WriteChannelConfig[] = [];
+  for (const channel of config.channels) {
+    const key = getChannelByNodeID(dev.properties, channel.nodeId);
+    if (primitiveIsZero(key)) commandsToCreate.push(channel);
+    else
+      try {
+        await client.channels.retrieve(key);
+      } catch (e) {
+        if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+        else throw e;
+      }
+  }
+  if (commandsToCreate.length > 0) {
+    modified = true;
+    if (
+      dev.properties.write.channels == null ||
+      Array.isArray(dev.properties.write.channels)
+    )
+      dev.properties.write.channels = {};
+    const commandIndexes = await client.channels.create(
+      commandsToCreate.map((c) => ({
+        name: `${c.name}_cmd_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      })),
+    );
+    const commands = await client.channels.create(
+      commandsToCreate.map((c, i) => ({
+        name: `${c.name}_cmd`,
+        dataType: c.dataType,
+        index: commandIndexes[i].key,
+      })),
+    );
+    commands.forEach((c, i) => {
+      const key = commandsToCreate[i].nodeId;
+      dev.properties.write.channels[key] = c.key;
+    });
+  }
+  config.channels = config.channels.map((c) => ({
+    ...c,
+    channel: getChannelByNodeID(dev.properties, c.nodeId),
+  }));
+  if (modified) await client.hardware.devices.create(dev);
+  return config;
+};
+
 export const WriteTask = Common.Task.wrapForm(<Properties />, Form, {
   configSchema: writeConfigZ,
   type: WRITE_TYPE,
   zeroPayload,
-  onConfigure: async (client, config) => {
-    const dev = await client.hardware.devices.retrieve<Device.Properties>(
-      config.device,
-    );
-
-    let modified = false;
-
-    const commandsToCreate: WriteChannelConfig[] = [];
-    for (const channel of config.channels) {
-      const key = getChannelByNodeID(dev.properties, channel.nodeId);
-      if (primitiveIsZero(key)) commandsToCreate.push(channel);
-      else
-        try {
-          await client.channels.retrieve(key);
-        } catch (e) {
-          if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-          else throw e;
-        }
-    }
-
-    if (commandsToCreate.length > 0) {
-      modified = true;
-      if (
-        dev.properties.write.channels == null ||
-        Array.isArray(dev.properties.write.channels)
-      )
-        dev.properties.write.channels = {};
-      const commandIndexes = await client.channels.create(
-        commandsToCreate.map((c) => ({
-          name: `${c.name}_cmd_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        })),
-      );
-      const commands = await client.channels.create(
-        commandsToCreate.map((c, i) => ({
-          name: `${c.name}_cmd`,
-          dataType: c.dataType,
-          index: commandIndexes[i].key,
-        })),
-      );
-      commands.forEach((c, i) => {
-        const key = commandsToCreate[i].nodeId;
-        dev.properties.write.channels[key] = c.key;
-      });
-    }
-
-    config.channels = config.channels.map((c) => ({
-      ...c,
-      channel: getChannelByNodeID(dev.properties, c.nodeId),
-    }));
-
-    if (modified) await client.hardware.devices.create(dev);
-    return config;
-  },
+  onConfigure,
 });

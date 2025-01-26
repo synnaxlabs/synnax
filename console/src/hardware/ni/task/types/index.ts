@@ -51,11 +51,13 @@ export type AOChannel = v0.AOChannel;
 export type AOChannelType = v0.AOChannelType;
 export const AO_CHANNEL_SCHEMAS = v0.AO_CHANNEL_SCHEMAS;
 export const ZERO_AO_CHANNELS = v0.ZERO_AO_CHANNELS;
+export const ZERO_AO_CHANNEL = v0.ZERO_AO_CHANNEL;
 export const AO_CHANNEL_TYPE_NAMES = v0.AO_CHANNEL_TYPE_NAMES;
 export const ZERO_DO_CHANNEL = v0.ZERO_DO_CHANNEL;
 export interface DOChannel extends v0.DOChannel {}
 export const ZERO_DI_CHANNEL = v0.ZERO_DI_CHANNEL;
 export interface DIChannel extends v0.DIChannel {}
+export type Channel = v1.Channel;
 
 // Tasks
 

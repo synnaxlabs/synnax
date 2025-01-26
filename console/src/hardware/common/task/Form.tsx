@@ -53,7 +53,8 @@ export interface FormProps<
 > {
   methods: PForm.ContextValue<Schema<C>>;
   task: clientTask.Task<C, D, T> | clientTask.Payload<C, D, T>;
-  taskState?: clientTask.State<D>;
+  isSnapshot: boolean;
+  isRunning: boolean;
 }
 
 export interface WrapFormOptions<
@@ -64,7 +65,7 @@ export interface WrapFormOptions<
   configSchema: ConfigSchema<C>;
   type: T;
   zeroPayload: WrapOptions<C, D, T>["zeroPayload"];
-  onConfigure: (client: Synnax, config: C) => Promise<C>;
+  onConfigure: (client: Synnax, config: C, taskKey: clientTask.Key) => Promise<C>;
 }
 
 const nameZ = z.string().min(1, "Name is required");
@@ -88,8 +89,8 @@ export const wrapForm = <
     const taskState = useObserveState<D>(
       methods.setStatus,
       methods.clearStatuses,
-      task?.key,
-      task?.state ?? undefined,
+      task.key,
+      task.state ?? undefined,
     );
     const running = taskState?.details?.running;
     const initialState =
@@ -101,7 +102,7 @@ export const wrapForm = <
         if (!(await methods.validateAsync())) return;
         const { config, name } = methods.value();
         if (config == null) throw new Error("Config is required");
-        const newConfig = await onConfigure(client, config);
+        const newConfig = await onConfigure(client, config, task.key);
         methods.set("config", newConfig);
         // current work around for Pluto form issues
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
@@ -112,7 +113,8 @@ export const wrapForm = <
     });
     const startOrStopMutation = useMutation({
       mutationFn: async () => {
-        if (!(task instanceof clientTask.Task)) return;
+        if (!(task instanceof clientTask.Task))
+          throw new Error("Task has not been configured");
         const isRunning = running === true;
         setDesiredState(isRunning ? "paused" : "running");
         await task.executeCommand(isRunning ? "stop" : "start");
@@ -133,7 +135,9 @@ export const wrapForm = <
             </Align.Space>
             <ParentRangeButton key={task.key} />
             <Align.Space direction="x" className={CSS.B("task-properties")}>
-              <Align.Space direction="x">{Properties}</Align.Space>
+              <Align.Space direction="x" grow>
+                {Properties}
+              </Align.Space>
             </Align.Space>
             <Align.Space
               direction="x"
@@ -143,7 +147,12 @@ export const wrapForm = <
               grow
               empty
             >
-              <Form methods={methods} task={task} taskState={taskState} />
+              <Form
+                methods={methods}
+                task={task}
+                isRunning={taskState?.details?.running ?? false}
+                isSnapshot={task?.snapshot ?? false}
+              />
             </Align.Space>
           </PForm.Form>
           <Controls

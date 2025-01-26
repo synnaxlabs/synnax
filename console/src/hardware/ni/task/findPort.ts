@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type Channel } from "@/hardware/ni/task/types";
 
-export const DataSavingField = (): ReactElement => (
-  <Form.SwitchField label="Data Saving" path="config.dataSaving" />
-);
+export const findPort = (channels: Channel[]) => {
+  const exclude = new Set(channels.map((v) => v.port));
+  let i = 0;
+  while (exclude.has(i)) i++;
+  return i;
+};

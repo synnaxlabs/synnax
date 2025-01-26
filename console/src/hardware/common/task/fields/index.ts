@@ -7,13 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
-
-export const StreamRateField = (): ReactElement => (
-  <Form.NumericField
-    label="Stream Rate"
-    path="config.streamRate"
-    inputProps={{ endContent: "Hz" }}
-  />
-);
+export * as Fields from "@/hardware/common/task/fields/external";

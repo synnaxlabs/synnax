@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { id, primitiveIsZero } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback, useState } from "react";
+import { type FC, type ReactElement } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -42,6 +42,15 @@ export const DIGITAL_READ_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...DIGITAL_READ_LAYOUT, key }),
 };
 
+const Properties = (): ReactElement => (
+  <>
+    <Device.Select />
+    <Common.Task.Fields.SampleRate />
+    <Common.Task.Fields.StreamRate />
+    <Common.Task.Fields.DataSaving />
+  </>
+);
+
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<DIChannel> {}
 
 const ChannelListItem = ({
@@ -54,50 +63,21 @@ const ChannelListItem = ({
   </DigitalListItem>
 );
 
-interface ChannelListProps {
-  isSnapshot: boolean;
-}
-
-const ChannelList = ({ isSnapshot }: ChannelListProps): ReactElement => {
-  const [selected, setSelected] = useState<string[]>([]);
-  const generateChannel = useCallback((chan: DIChannel[]) => {
-    const line = Math.max(0, ...chan.map((v) => v.line)) + 1;
-    return { ...ZERO_DI_CHANNEL, key: id.id(), line };
-  }, []);
-  return (
-    <Common.Task.DefaultChannelList<DIChannel>
-      isSnapshot={isSnapshot}
-      selected={selected}
-      onSelect={setSelected}
-      generateChannel={generateChannel}
-    >
-      {(p) => <ChannelListItem {...p} />}
-    </Common.Task.DefaultChannelList>
-  );
+const generateChannel = (channels: DIChannel[]): DIChannel => {
+  const line = Math.max(0, ...channels.map((v) => v.line)) + 1;
+  return { ...ZERO_DI_CHANNEL, key: id.id(), line };
 };
-
-const Properties = (): ReactElement => (
-  <>
-    <Device.Select />
-    <Common.Task.SampleRateField />
-    <Common.Task.StreamRateField />
-    <Common.Task.DataSavingField />
-  </>
-);
 
 const TaskForm: FC<
   Common.Task.FormProps<DigitalReadConfig, DigitalReadDetails, DigitalReadType>
-> = ({ task }) => {
-  const isSnapshot = task?.snapshot ?? false;
-  return (
-    <Common.Device.Provider<Device.Properties>
-      configureLayout={Device.CONFIGURE_LAYOUT}
-      isSnapshot={isSnapshot}
-    >
-      {() => <ChannelList isSnapshot={isSnapshot} />}
-    </Common.Device.Provider>
-  );
-};
+> = ({ isSnapshot }) => (
+  <Common.Task.Layouts.List<DIChannel>
+    isSnapshot={isSnapshot}
+    generateChannel={generateChannel}
+  >
+    {(p) => <ChannelListItem {...p} />}
+  </Common.Task.Layouts.List>
+);
 
 const zeroPayload: Common.Task.ZeroPayloadFunction<
   DigitalReadConfig,
@@ -111,67 +91,70 @@ const zeroPayload: Common.Task.ZeroPayloadFunction<
   },
 });
 
+const onConfigure = async (
+  client: Synnax,
+  config: DigitalReadConfig,
+): Promise<DigitalReadConfig> => {
+  const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  dev.properties = Device.enrich(dev.model, dev.properties);
+  let modified = false;
+  let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
+  if (!shouldCreateIndex)
+    try {
+      await client.channels.retrieve(dev.properties.digitalInput.index);
+    } catch (e) {
+      if (NotFoundError.matches(e)) shouldCreateIndex = true;
+      else throw e;
+    }
+  if (shouldCreateIndex) {
+    modified = true;
+    const aiIndex = await client.channels.create({
+      name: `${dev.properties.identifier}_di_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    dev.properties.digitalInput.index = aiIndex.key;
+    dev.properties.digitalInput.channels = {};
+  }
+  const toCreate: DIChannel[] = [];
+  for (const channel of config.channels) {
+    const key = `${channel.port}l${channel.line}`;
+    // check if the channel is in properties
+    const exKey = dev.properties.digitalInput.channels[key];
+    if (primitiveIsZero(exKey)) toCreate.push(channel);
+    else
+      try {
+        await client.channels.retrieve(exKey.toString());
+      } catch (e) {
+        if (NotFoundError.matches(e)) toCreate.push(channel);
+        else throw e;
+      }
+  }
+  if (toCreate.length > 0) {
+    modified = true;
+    const channels = await client.channels.create(
+      toCreate.map((c) => ({
+        name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
+        dataType: "uint8",
+        index: dev.properties.digitalInput.index,
+      })),
+    );
+    channels.forEach((c, i) => {
+      const key = `${toCreate[i].port}l${toCreate[i].line}`;
+      dev.properties.digitalInput.channels[key] = c.key;
+    });
+  }
+  if (modified) await client.hardware.devices.create(dev);
+  config.channels.forEach((c) => {
+    const key = `${c.port}l${c.line}`;
+    c.channel = dev.properties.digitalInput.channels[key];
+  });
+  return config;
+};
+
 export const DigitalReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: digitalReadConfigZ,
   type: DIGITAL_READ_TYPE,
   zeroPayload,
-  onConfigure: async (client, config) => {
-    const dev = await client.hardware.devices.retrieve<Device.Properties>(
-      config.device,
-    );
-    dev.properties = Device.enrich(dev.model, dev.properties);
-    let modified = false;
-    let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
-    if (!shouldCreateIndex)
-      try {
-        await client.channels.retrieve(dev.properties.digitalInput.index);
-      } catch (e) {
-        if (NotFoundError.matches(e)) shouldCreateIndex = true;
-        else throw e;
-      }
-    if (shouldCreateIndex) {
-      modified = true;
-      const aiIndex = await client.channels.create({
-        name: `${dev.properties.identifier}_di_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      dev.properties.digitalInput.index = aiIndex.key;
-      dev.properties.digitalInput.channels = {};
-    }
-    const toCreate: DIChannel[] = [];
-    for (const channel of config.channels) {
-      const key = `${channel.port}l${channel.line}`;
-      // check if the channel is in properties
-      const exKey = dev.properties.digitalInput.channels[key];
-      if (primitiveIsZero(exKey)) toCreate.push(channel);
-      else
-        try {
-          await client.channels.retrieve(exKey.toString());
-        } catch (e) {
-          if (NotFoundError.matches(e)) toCreate.push(channel);
-          else throw e;
-        }
-    }
-    if (toCreate.length > 0) {
-      modified = true;
-      const channels = await client.channels.create(
-        toCreate.map((c) => ({
-          name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
-          dataType: "uint8",
-          index: dev.properties.digitalInput.index,
-        })),
-      );
-      channels.forEach((c, i) => {
-        const key = `${toCreate[i].port}l${toCreate[i].line}`;
-        dev.properties.digitalInput.channels[key] = c.key;
-      });
-    }
-    if (modified) await client.hardware.devices.create(dev);
-    config.channels.forEach((c) => {
-      const key = `${c.port}l${c.line}`;
-      c.channel = dev.properties.digitalInput.channels[key];
-    });
-    return config;
-  },
+  onConfigure,
 });

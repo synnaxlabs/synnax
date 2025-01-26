@@ -91,14 +91,17 @@ export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
   [LINEAR_SCALE_TYPE]: linearScaleZ,
 };
 
-export const inputChannelZ = z.object({
+const baseInputChannelZ = z.object({
   port: z.string(),
   enabled: z.boolean(),
   key: z.string(),
   range: z.number().optional(),
   channel: channel.keyZ,
-  type: z.literal(AI_CHANNEL_TYPE).or(z.literal(DI_CHANNEL_TYPE)),
   scale: scaleZ,
+});
+
+export const inputChannelZ = baseInputChannelZ.extend({
+  type: z.literal(AI_CHANNEL_TYPE).or(z.literal(DI_CHANNEL_TYPE)),
 });
 
 const CELSIUS_UNIT = "C";
@@ -109,11 +112,7 @@ export type TemperatureUnits = z.infer<typeof temperatureUnitsZ>;
 
 const thermocoupleTypeZ = z.enum(["J", "K", "N", "R", "S", "T", "B", "E", "C"]);
 
-export const thermocoupleChannelZ = z.object({
-  key: z.string(),
-  port: z.string(),
-  enabled: z.boolean(),
-  channel: channel.keyZ,
+export const thermocoupleChannelZ = baseInputChannelZ.extend({
   range: z.number(),
   type: z.literal(TC_CHANNEL_TYPE),
   thermocoupleType: thermocoupleTypeZ,
@@ -123,7 +122,6 @@ export const thermocoupleChannelZ = z.object({
   cjcSlope: z.number(),
   cjcOffset: z.number(),
   units: temperatureUnitsZ,
-  scale: scaleZ,
 });
 interface ThermocoupleChannel extends z.infer<typeof thermocoupleChannelZ> {}
 export const ZERO_THERMOCOUPLE_CHANNEL: ThermocoupleChannel = {
@@ -212,6 +210,8 @@ type BaseReadStateDetails = {
 type ErrorReadStateDetails = BaseReadStateDetails & {
   errors: { message: string; path: string }[];
 };
+
+export type Channel = ReadChannel | WriteChannel;
 
 export type ReadStateDetails = BaseReadStateDetails | ErrorReadStateDetails;
 

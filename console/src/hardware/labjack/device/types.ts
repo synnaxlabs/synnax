@@ -38,7 +38,7 @@ interface BasePort {
 export const AI_PORT_TYPE = "AI";
 export type AIPortType = typeof AI_PORT_TYPE;
 
-interface AIPort extends BasePort {
+export interface AIPort extends BasePort {
   type: AIPortType;
   voltageRange: bounds.Bounds;
 }
@@ -46,21 +46,21 @@ interface AIPort extends BasePort {
 export const AO_PORT_TYPE = "AO";
 export type AOPortType = typeof AO_PORT_TYPE;
 
-interface AOPort extends BasePort {
+export interface AOPort extends BasePort {
   type: AOPortType;
 }
 
 export const DI_PORT_TYPE = "DI";
 export type DIPortType = typeof DI_PORT_TYPE;
 
-interface DIPort extends BasePort {
+export interface DIPort extends BasePort {
   type: DIPortType;
 }
 
 export const DO_PORT_TYPE = "DO";
 export type DOPortType = typeof DO_PORT_TYPE;
 
-interface DOPort extends BasePort {
+export interface DOPort extends BasePort {
   type: DOPortType;
 }
 

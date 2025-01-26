@@ -968,6 +968,8 @@ export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
   [AO_VOLTAGE_CHAN_TYPE]: ZERO_AO_VOLTAGE_CHAN,
 };
 
+export const ZERO_AO_CHANNEL = ZERO_AO_CHANNELS[AO_VOLTAGE_CHAN_TYPE];
+
 // Digital Output Channels
 
 const DO_CHANNEL_TYPE = "digital_output";

@@ -179,7 +179,7 @@ const SensitivityField = Form.buildNumericField({
   fieldProps: { label: "Sensitivity" },
 });
 
-const MinMaxValueFields = ({ path }: { path: string }): ReactElement => (
+export const MinMaxValueFields = ({ path }: { path: string }): ReactElement => (
   <Align.Space direction="x" grow>
     <MinValueField path={path} grow />
     <MaxValueField path={path} grow />
@@ -509,7 +509,7 @@ const DevicePortCombo = ({ prefix }: FormProps): ReactElement => (
   </Align.Space>
 );
 
-const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
+export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
   const path = `${prefix}.customScale`;
   const type = Form.useFieldValue<ScaleType>(`${path}.type`);
   const FormComponent = SCALE_FORMS[type];

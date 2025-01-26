@@ -29,17 +29,21 @@ export const useTare = <C extends TareableChannel>({
   const tare = useMutation({
     onError: (e) => handleException(e, "Failed to tare channels"),
     mutationFn: async (key: channel.Key[]) => {
-      if (client == null) return;
-      if (!(task instanceof clientTask.Task)) return;
+      if (client == null) throw new Error("Client not connected");
+      if (!(task instanceof clientTask.Task))
+        throw new Error("Task has not been configured");
       await task.executeCommand("tare", { keys: [key] });
     },
   }).mutate;
-  const getTareableChannels = useCallback((keys: string[], channels: C[]) => {
-    const keySet = new Set(keys);
-    return channels.filter(
-      (channel) => keySet.has(channel.key) && isChannelTareable?.(channel) !== false,
-    );
-  }, []);
+  const getTareableChannels = useCallback(
+    (keys: string[], channels: C[]) => {
+      const keySet = new Set(keys);
+      return channels.filter(
+        (channel) => keySet.has(channel.key) && isChannelTareable?.(channel) !== false,
+      );
+    },
+    [isChannelTareable],
+  );
   const tareSingle = useCallback((key: channel.Key) => tare([key]), [tare]);
   const allowTare = useCallback(
     (keys: string[], channels: C[]) =>

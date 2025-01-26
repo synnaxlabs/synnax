@@ -22,9 +22,15 @@ export interface ProviderProps<
 > {
   configureLayout: Omit<Layout.BaseState, "key">;
   isSnapshot: boolean;
-  noDeviceSelectedMessage?: string;
+  noneSelectedElement?: ReactElement;
   children: (props: { device: device.Device<P, MK, MO> }) => ReactElement;
 }
+
+const DEFAULT_NONE_SELECTED_ELEMENT = (
+  <Align.Space grow empty align="center" justify="center">
+    <Text.Text level="p">No device selected.</Text.Text>
+  </Align.Space>
+);
 
 export const Provider = <
   P extends UnknownRecord = UnknownRecord,
@@ -34,17 +40,12 @@ export const Provider = <
   configureLayout,
   isSnapshot: snapshot,
   children,
-  noDeviceSelectedMessage = "No device selected",
+  noneSelectedElement = DEFAULT_NONE_SELECTED_ELEMENT,
 }: ProviderProps<P, MK, MO>): ReactElement => {
   const formCtx = Form.useContext<UseContextValue>();
   const device = use<P, MK, MO>(formCtx);
   const placeLayout = Layout.usePlacer();
-  if (device == null)
-    return (
-      <Align.Space grow empty align="center" justify="center">
-        <Text.Text level="p">{noDeviceSelectedMessage}</Text.Text>
-      </Align.Space>
-    );
+  if (device == null) return noneSelectedElement;
   const handleConfigure = () => placeLayout({ ...configureLayout, key: device.key });
   if (!device.configured)
     return (

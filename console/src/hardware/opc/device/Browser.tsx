@@ -147,7 +147,13 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       grow
       bordered
       rounded
-      style={{ overflow: "hidden", height: "100%" }}
+      style={{
+        overflow: "hidden",
+        height: "100%",
+        maxWidth: "30%",
+        width: "100%",
+        flexBasis: "200px",
+      }}
       empty
       background={1}
     >

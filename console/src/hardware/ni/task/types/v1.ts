@@ -231,6 +231,8 @@ export const ZERO_AI_CHANNELS: Record<v0.AIChannelType, AIChannel> = {
 
 export const ZERO_AI_CHANNEL: AIChannel = ZERO_AI_CHANNELS[v0.AI_VOLTAGE_CHAN_TYPE];
 
+export type Channel = AIChannel | v0.AOChannel | v0.DIChannel | v0.DOChannel;
+
 export const analogReadConfigZ = v0.analogReadConfigZ
   .omit({ version: true, device: true, channels: true })
   .extend({ version: z.literal(VERSION), channels: z.array(aiChannelZ) })

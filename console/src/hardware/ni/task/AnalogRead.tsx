@@ -7,16 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError, QueryError } from "@synnaxlabs/client";
+import {
+  type channel,
+  NotFoundError,
+  QueryError,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Form, List, Text } from "@synnaxlabs/pluto";
-import { binary, deep, id, primitiveIsZero, unique } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback, useState } from "react";
+import { Align, Form as PForm, List, Text } from "@synnaxlabs/pluto";
+import { deep, id, primitiveIsZero, unique } from "@synnaxlabs/x";
+import { type FC, type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
 import { AI_CHANNEL_FORMS } from "@/hardware/ni/task/AIChannelForms";
+import { findPort } from "@/hardware/ni/task/findPort";
 import { SelectAIChannelTypeField } from "@/hardware/ni/task/SelectAIChannelTypeField";
 import {
   AI_CHANNEL_TYPE_NAMES,
@@ -28,10 +33,8 @@ import {
   type AnalogReadDetails,
   type AnalogReadType,
   ZERO_AI_CHANNEL,
-  ZERO_AI_CHANNELS,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { type Layout } from "@/layout";
 
 export const ANALOG_READ_LAYOUT: Common.Task.LayoutBaseState = {
@@ -49,6 +52,14 @@ export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   create: (key) => ({ ...ANALOG_READ_LAYOUT, key }),
 };
 
+const Properties = (): ReactElement => (
+  <>
+    <Common.Task.Fields.SampleRate />
+    <Common.Task.Fields.StreamRate />
+    <Common.Task.Fields.DataSaving />
+  </>
+);
+
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AIChannel> {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
@@ -64,7 +75,7 @@ const ChannelListItem = ({
   const {
     entry: { channel, enabled, type, port },
   } = props;
-  const { set } = Form.useContext();
+  const { set } = PForm.useContext();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   return (
@@ -91,125 +102,39 @@ const ChannelListItem = ({
   );
 };
 
-interface ChannelFormProps {
-  path: string;
-}
-
-const ChannelForm = ({ path }: ChannelFormProps): ReactElement => {
-  const type = Form.useFieldValue<AIChannelType>(`${path}.type`, true);
-  if (type == null) return <></>;
+const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps): ReactElement => {
+  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
   const TypeForm = AI_CHANNEL_FORMS[type];
   return (
     <>
-      <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
-        <SelectAIChannelTypeField path={path} inputProps={{ allowNone: false }} />
-        <TypeForm prefix={path} />
-      </Align.Space>
+      <SelectAIChannelTypeField path={path} inputProps={{ allowNone: false }} />
+      <TypeForm prefix={path} />
     </>
   );
 };
 
-interface ChannelDetailsProps {
-  selectedChannelIndex: number;
-}
+const getNewChannel = (channels: AIChannel[], index: number): AIChannel =>
+  index === -1
+    ? { ...deep.copy(ZERO_AI_CHANNEL), key: id.id() }
+    : { ...deep.copy(channels[index]), port: findPort(channels), key: id.id() };
 
-const ChannelDetails = ({
-  selectedChannelIndex,
-}: ChannelDetailsProps): ReactElement => {
-  const { get } = Form.useContext();
-  const copy = useCopyToClipboard();
-  const handleCopyChannelDetails = () => {
-    if (selectedChannelIndex == -1) return;
-    copy(
-      binary.JSON_CODEC.encodeString(
-        get(`config.channels.${selectedChannelIndex}`).value,
-      ),
-      "Channel details",
-    );
-  };
-  return (
-    <Common.Task.ChannelDetails
-      headerActions={
-        <Button.Icon
-          tooltip="Copy channel details as JSON"
-          tooltipLocation="left"
-          variant="text"
-          onClick={handleCopyChannelDetails}
-        >
-          <Icon.JSON style={{ color: "var(--pluto-gray-l7)" }} />
-        </Button.Icon>
-      }
-    >
-      {selectedChannelIndex !== -1 && (
-        <ChannelForm path={`config.channels.${selectedChannelIndex}`} />
-      )}
-    </Common.Task.ChannelDetails>
-  );
-};
-
-const availablePortFinder = (channels: AIChannel[]): (() => number) => {
-  const exclude = new Set(channels.map((v) => v.port));
-  return () => {
-    let i = 0;
-    while (exclude.has(i)) i++;
-    exclude.add(i);
-    return i;
-  };
-};
-
-const Properties = (): ReactElement => (
-  <>
-    <Common.Task.SampleRateField />
-    <Common.Task.StreamRateField />
-    <Common.Task.DataSavingField />
-  </>
-);
-
-const TaskForm: FC<
+const Form: FC<
   Common.Task.FormProps<AnalogReadConfig, AnalogReadDetails, AnalogReadType>
-> = ({ task, taskState }) => {
-  const initialChannels = task.config.channels;
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(
-    initialChannels.length ? [initialChannels[0].key] : [],
-  );
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number>(
-    initialChannels.length ? 0 : -1,
-  );
-  const isRunning = taskState?.details?.running ?? false;
+> = ({ task, isRunning, isSnapshot }) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>({
     task,
     isRunning,
   });
-  const handleSelect = useCallback(
-    (v: string[], i: number) => {
-      setSelectedChannels(v);
-      setSelectedChannelIndex(i);
-    },
-    [setSelectedChannels, setSelectedChannelIndex],
-  );
-  const generateChannel = useCallback(
-    (channels: AIChannel[]) => ({
-      ...deep.copy(ZERO_AI_CHANNELS.ai_voltage),
-      port: availablePortFinder(channels)(),
-      key: id.id(),
-    }),
-    [],
-  );
   return (
-    <>
-      <Common.Task.DefaultChannelList<AIChannel>
-        path="config.channels"
-        isSnapshot={task.snapshot ?? false}
-        selected={selectedChannels}
-        onSelect={handleSelect}
-        onTare={handleTare}
-        allowTare={allowTare}
-        generateChannel={generateChannel}
-      >
-        {(props) => <ChannelListItem {...props} onTare={tare} isRunning={isRunning} />}
-      </Common.Task.DefaultChannelList>
-      <ChannelDetails selectedChannelIndex={selectedChannelIndex} />
-    </>
+    <Common.Task.Layouts.ListAndDetails
+      listItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
+      details={(p) => <ChannelDetails {...p} />}
+      generateChannel={getNewChannel}
+      isSnapshot={isSnapshot}
+      initalChannels={task.config.channels}
+      onTare={handleTare}
+      allowTare={allowTare}
+    />
   );
 };
 
@@ -224,72 +149,77 @@ const zeroPayload: Common.Task.ZeroPayloadFunction<
     channels:
       deviceKey == null
         ? ZERO_ANALOG_READ_PAYLOAD.config.channels
-        : [{ ...ZERO_AI_CHANNEL, device: deviceKey }],
+        : [{ ...ZERO_AI_CHANNEL, device: deviceKey, key: id.id() }],
   },
 });
 
-export const AnalogReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
+const onConfigure = async (
+  client: Synnax,
+  config: AnalogReadConfig,
+): Promise<AnalogReadConfig> => {
+  const devices = unique.unique(config.channels.map((c) => c.device));
+  for (const devKey of devices) {
+    const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
+    dev.properties = Device.enrich(dev.model, dev.properties);
+    let modified = false;
+    let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
+    if (!shouldCreateIndex)
+      try {
+        await client.channels.retrieve(dev.properties.analogInput.index);
+      } catch (e) {
+        if (NotFoundError.matches(e)) shouldCreateIndex = true;
+        else throw e;
+      }
+    if (shouldCreateIndex) {
+      modified = true;
+      const aiIndex = await client.channels.create({
+        name: `${dev.properties.identifier}_ai_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.analogInput.index = aiIndex.key;
+      dev.properties.analogInput.channels = {};
+    }
+    const toCreate: AIChannel[] = [];
+    for (const channel of config.channels) {
+      if (channel.device !== dev.key) continue;
+      // check if the channel is in properties
+      const exKey = dev.properties.analogInput.channels[channel.port.toString()];
+      if (primitiveIsZero(exKey)) toCreate.push(channel);
+      else
+        try {
+          await client.channels.retrieve(exKey.toString());
+        } catch (e) {
+          if (QueryError.matches(e)) toCreate.push(channel);
+          else throw e;
+        }
+    }
+    if (toCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: `${dev.properties.identifier}_ai_${c.port}`,
+          dataType: "float32",
+          index: dev.properties.analogInput.index,
+        })),
+      );
+      channels.forEach(
+        (c, i) =>
+          (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
+      );
+    }
+    if (modified) await client.hardware.devices.create(dev);
+    config.channels.forEach((c) => {
+      if (c.device !== dev.key) return;
+      c.channel = dev.properties.analogInput.channels[c.port.toString()];
+    });
+  }
+  return config;
+};
+
+export const AnalogReadTask = Common.Task.wrapForm(<Properties />, Form, {
   configSchema: analogReadConfigZ,
   type: ANALOG_READ_TYPE,
   zeroPayload,
-  onConfigure: async (client, config) => {
-    const devices = unique.unique(config.channels.map((c) => c.device));
-    for (const devKey of devices) {
-      const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
-      dev.properties = Device.enrich(dev.model, dev.properties);
-      let modified = false;
-      let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
-      if (!shouldCreateIndex)
-        try {
-          await client.channels.retrieve(dev.properties.analogInput.index);
-        } catch (e) {
-          if (NotFoundError.matches(e)) shouldCreateIndex = true;
-          else throw e;
-        }
-      if (shouldCreateIndex) {
-        modified = true;
-        const aiIndex = await client.channels.create({
-          name: `${dev.properties.identifier}_ai_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        dev.properties.analogInput.index = aiIndex.key;
-        dev.properties.analogInput.channels = {};
-      }
-      const toCreate: AIChannel[] = [];
-      for (const channel of config.channels) {
-        if (channel.device !== dev.key) continue;
-        // check if the channel is in properties
-        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-        if (primitiveIsZero(exKey)) toCreate.push(channel);
-        else
-          try {
-            await client.channels.retrieve(exKey.toString());
-          } catch (e) {
-            if (QueryError.matches(e)) toCreate.push(channel);
-            else throw e;
-          }
-      }
-      if (toCreate.length > 0) {
-        modified = true;
-        const channels = await client.channels.create(
-          toCreate.map((c) => ({
-            name: `${dev.properties.identifier}_ai_${c.port}`,
-            dataType: "float32",
-            index: dev.properties.analogInput.index,
-          })),
-        );
-        channels.forEach(
-          (c, i) =>
-            (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
-        );
-      }
-      if (modified) await client.hardware.devices.create(dev);
-      config.channels.forEach((c) => {
-        if (c.device !== dev.key) return;
-        c.channel = dev.properties.analogInput.channels[c.port.toString()];
-      });
-    }
-    return config;
-  },
+  onConfigure,
 });
