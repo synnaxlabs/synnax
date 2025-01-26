@@ -141,7 +141,7 @@ freighter::Error opc::WriterSink::write(const synnax::Frame &frame) {
 
 void opc::WriterSink::maintain_connection() {
     while (this->breaker.running()) {
-        this->breaker.waitFor(this->ping_rate.period().chrono());
+        this->breaker.wait_for(this->ping_rate.period().chrono());
         UA_Variant value;
         UA_Variant_init(&value); {
             std::lock_guard<std::mutex> lock(this->client_mutex);

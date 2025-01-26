@@ -9,7 +9,7 @@
 
 #include <utility>
 #include <chrono>
-#include <stdio.h>
+#include <cstdio>
 #include <cassert>
 #include <regex>
 
@@ -81,7 +81,7 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
     this->writer_config.state_rate = parser.required<float>("state_rate");
     this->writer_config.device_key = parser.required<std::string>("device");
 
-    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+    auto [dev, err] = this->ctx->client->hardware.retrieve_device(
         this->writer_config.device_key);
 
     if (err != freighter::NIL)
@@ -93,45 +93,32 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
     parser.iter(
         "channels",
         [&](config::Parser &channel_builder) {
-            ni::ChannelConfig config;
-            // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-            auto port = "port" + std::to_string(
-                            channel_builder.required<std::uint64_t>(
-                                "port"));
-            auto line = "line" + std::to_string(
-                            channel_builder.required<std::uint64_t>(
-                                "line"));
+            const auto enabled = channel_builder.optional<bool>("enabled", true);
+            if (!enabled) return;
 
-            config.name = (this->writer_config.device_name + "/" + port + "/" +
-                           line);
+            const auto cmd_key = channel_builder.required<uint32_t>("cmd_channel");
+            this->writer_config.drive_cmd_channel_keys.push_back(cmd_key);
+            const auto state_key = channel_builder.required<uint32_t>("state_channel");
+            this->writer_config.state_channel_keys.push_back(state_key);
 
+            const auto name = parse_digital_loc(channel_builder, this->writer_config.device_name);
+            this->channel_map[name] = "channels." + std::to_string(c_count);
 
-            config.enabled = channel_builder.optional<bool>("enabled", true);
-
-            if (config.enabled) {
-                config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
-                this->writer_config.drive_cmd_channel_keys.
-                        push_back(config.channel_key);
-
-                auto state_key = channel_builder.required<uint32_t>("state_channel");
-                this->writer_config.state_channel_keys.push_back(state_key);
-
-                config.state_channel_key = state_key;
-
-                this->channel_map[config.name] = "channels." + std::to_string(c_count);
-
-                this->writer_config.channels.push_back(config);
-                c_count++;
-            }
+            this->writer_config.channels.emplace_back(ni::ChannelConfig{
+                .name = name,
+                .channel_key = cmd_key,
+                .state_channel_key = state_key,
+                .channel_type = "digital",
+                .enabled = enabled
+            });
+            c_count++;
         });
 }
 
 
 int ni::DigitalWriteSink::init() {
     int err = 0;
-    auto channels = this->writer_config.channels;
-
-    for (auto &channel: channels) {
+    for (auto &channel: this->writer_config.channels) {
         if (channel.channel_type != "index" && channel.enabled) {
             err = this->check_ni_error(this->dmx->CreateDOChan(
                 this->task_handle, channel.name.c_str(), "",
@@ -319,11 +306,11 @@ int ni::DigitalWriteSink::check_ni_error(int32 error) {
 }
 
 
-bool ni::DigitalWriteSink::ok() {
+bool ni::DigitalWriteSink::ok() const {
     return this->ok_state;
 }
 
-void ni::DigitalWriteSink::log_error(std::string err_msg) {
+void ni::DigitalWriteSink::log_error(const std::string &err_msg) {
     // TODO get rid of the fields outside of the errors array
     LOG(ERROR) << "[ni.writer] " << err_msg;
     this->ok_state = false;
@@ -378,12 +365,12 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
 
     bool is_port_error = (sc == "-200170");
 
-    std::string device = "";
+    std::string device;
     std::smatch device_match;
     if (std::regex_search(s, device_match, device_regex))
         device = device_match[1].str();
 
-    std::string cn = "";
+    std::string cn;
     std::smatch physical_channel_match;
     std::smatch channel_match;
     if (std::regex_search(s, physical_channel_match, physical_channel_regex)) {
@@ -420,17 +407,13 @@ void ni::DigitalWriteSink::jsonify_error(std::string s) {
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 ni::StateSource::StateSource(
-    float state_rate,
-    synnax::ChannelKey &state_index_key,
+    const float state_rate,
+    const synnax::ChannelKey &state_index_key,
     std::vector<synnax::ChannelKey> &state_channel_keys
 ) {
     this->state_rate.value = state_rate;
-    // start the periodic thread
     this->state_index_key = state_index_key;
-
-    // initialize all states to 0 (logic low)
-    for (auto &key: state_channel_keys)
-        this->state_map[key] = 0;
+    for (auto &key: state_channel_keys)this->state_map[key] = 0;
     this->timer = loop::Timer(this->state_rate);
 }
 
@@ -448,10 +431,8 @@ synnax::Frame ni::StateSource::get_state() {
     auto state_frame = synnax::Frame(this->state_map.size() + 1);
     auto ser = synnax::Series(synnax::SY_UINT8, this->state_map.size());
     state_frame.emplace(this->state_index_key, std::move(ser));
-    for (auto &[key, value]: this->state_map) {
-        auto ser = synnax::Series(value);
-        state_frame.emplace(key, std::move(ser));
-    }
+    for (auto &[key, value]: this->state_map)
+        state_frame.emplace(key, synnax::Series(value));
     return state_frame;
 }
 
@@ -459,7 +440,7 @@ void ni::StateSource::update_state(
     std::queue<synnax::ChannelKey> &modified_state_keys,
     std::queue<std::uint8_t> &modified_state_values
 ) {
-    std::unique_lock<std::mutex> lock(this->state_mutex);
+    std::unique_lock lock(this->state_mutex);
     while (!modified_state_keys.empty()) {
         this->state_map[modified_state_keys.front()] = modified_state_values.front();
         modified_state_keys.pop();

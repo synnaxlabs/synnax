@@ -158,7 +158,7 @@ labjack::WriteSink::~WriteSink() {
 
 void labjack::WriteSink::init() {
     if (this->writer_config.device_type == "") {
-        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+        auto [dev, err] = this->ctx->client->hardware.retrieve_device(
             this->writer_config.device_key
         );
         if (err != freighter::NIL) {

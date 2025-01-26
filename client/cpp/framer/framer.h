@@ -82,7 +82,7 @@ struct Frame {
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
-    void toProto(api::v1::Frame *f) const;
+    void to_proto(api::v1::Frame *f) const;
 
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.
@@ -112,10 +112,12 @@ class StreamerConfig {
 public:
     /// @brief the channels to stream.
     std::vector<ChannelKey> channels;
+    /// @brief the downsample factor for the streamer.
     int downsample_factor = 1;
 
 private:
-    void toProto(api::v1::FrameStreamerRequest &f) const;
+    /// @brief binds the configuration fields to it's protobuf representation.
+    void to_proto(api::v1::FrameStreamerRequest &f) const;
 
     friend class FrameClient;
 };
@@ -149,7 +151,7 @@ public:
     /// @note setChannels is not safe to call concurrently with itself or with close(),
     /// but it is safe to call concurrently with read().
     [[nodiscard]] freighter::Error
-    setChannels(std::vector<ChannelKey> channels) const;
+    set_channels(std::vector<ChannelKey> channels) const;
 
     /// @brief closes the streamer and releases any resources associated with it. If any
     /// errors occurred during the stream, they will be returned. A streamer MUST be
@@ -165,14 +167,14 @@ public:
     /// will exhaust the stream and eventually return an EOF.
     /// @note closeSend() is safe to call concurrently with read(), but not with any
     /// other DB methods.
-    void closeSend() const;
+    void close_send() const;
 
 private:
     /// @brief true if the streamer has been closed.
     bool closed = false;
 
     /// @brief true if an error has occurred in the streamer.
-    void assertOpen() const;
+    void assert_open() const;
 
     /// @brief constructs the streamer from a configured stream and moves ownership.
     explicit Streamer(std::unique_ptr<StreamerStream> stream);
@@ -241,7 +243,7 @@ struct WriterConfig {
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void toProto(api::v1::FrameWriterConfig *f) const;
+    void to_proto(api::v1::FrameWriterConfig *f) const;
 
     friend class FrameClient;
 
@@ -307,7 +309,7 @@ private:
     explicit Writer(std::unique_ptr<WriterStream> s);
 
     /// @brief throws a runtime error if the writer is closed.
-    void assertOpen() const;
+    void assert_open() const;
 
     friend class FrameClient;
 };
@@ -317,7 +319,8 @@ public:
     FrameClient(
         std::unique_ptr<StreamerClient> streamer_client,
         std::unique_ptr<WriterClient> writer_client
-    ) : streamer_client(std::move(streamer_client)),
+    ) :
+        streamer_client(std::move(streamer_client)),
         writer_client(std::move(writer_client)) {
     }
 
@@ -329,7 +332,7 @@ public:
     /// will be in an invalid state and does not need to be closed. If ok() is true,
     /// The writer must be closed after use to avoid leaking resources.
     [[nodiscard]] std::pair<Writer, freighter::Error>
-    openWriter(const WriterConfig &config) const;
+    open_writer(const WriterConfig &config) const;
 
     /// @brief opens a new frame streamer using the given configuration. For information
     /// on configuration parameters, see StreamerConfig.
@@ -338,7 +341,7 @@ public:
     /// streamer will be in an invalid state and does not need to be closed. If ok()
     /// is true, the streamer must be closed after use to avoid leaking resources.
     [[nodiscard]] std::pair<Streamer, freighter::Error>
-    openStreamer(const StreamerConfig &config) const;
+    open_streamer(const StreamerConfig &config) const;
 
 private:
     std::unique_ptr<StreamerClient> streamer_client;

@@ -59,7 +59,7 @@ public:
 
     freighter::Error write(synnax::Frame &frame) override {
         if (this->writer == nullptr) {
-            auto [w, err] = this->client->telem.openWriter(this->cfg);
+            auto [w, err] = this->client->telem.open_writer(this->cfg);
             if (err) return err;
             this->writer = std::make_unique<Writer>(std::move(w));
         }

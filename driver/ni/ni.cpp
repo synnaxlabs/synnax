@@ -498,10 +498,11 @@ void ni::Source::get_index_keys() {
             return this->log_error(
                 "failed to retrieve channel " + std::to_string(index_key));
         ni::ChannelConfig index_channel;
-        index_channel.channel_key = channel_info.key;
-        index_channel.channel_type = "index";
-        index_channel.name = channel_info.name;
-        this->reader_config.channels.push_back(index_channel);
+        this->reader_config.channels.emplace_back(ni::ChannelConfig{
+            .channel_key = channel_info.key,
+            .channel_type = "index",
+            .name = channel_info.name
+        });
     }
 }
 
@@ -531,7 +532,7 @@ void ni::Source::parse_config(config::Parser &parser) {
     this->reader_config.timing_source = "none";
     // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
     if (this->reader_config.device_key != "cross-device") {
-        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+        auto [dev, err] = this->ctx->client->hardware.retrieve_device(
             this->reader_config.device_key);
         if (err)
             return this->log_error(

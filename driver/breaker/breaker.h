@@ -140,12 +140,12 @@ public:
     /// @brief waits for the given time duration. If the breaker stopped before the specified time,
     /// the method will return immediately to ensure graceful exit of objects using the breaker.
     /// @param time the time to wait (supports multiple time units).
-    void waitFor(const TimeSpan &time) { this->waitFor(time.chrono()); }
+    void wait_for(const TimeSpan &time) { this->wait_for(time.chrono()); }
 
     /// @brief waits for the given time duration. If the breaker stopped before the specified time,
     /// the method will return immediately to ensure graceful exit of objects using the breaker.
     /// @param time the time to wait for in nanoseconds.
-    void waitFor(const std::chrono::nanoseconds &time) {
+    void wait_for(const std::chrono::nanoseconds &time) {
         if (!running()) return;
         std::unique_lock lock(shutdown_mutex);
         breaker_shutdown->wait_for(lock, time);

@@ -9,17 +9,18 @@
 
 #pragma once
 
+/// std
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "freighter/cpp/freighter.h"
+/// external
 #include "google/protobuf/empty.pb.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 
 /// internal
+#include "freighter/cpp/freighter.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 #include "client/cpp/telem/telem.h"
-
 
 typedef std::string Key;
 
@@ -60,7 +61,6 @@ typedef freighter::UnaryClient<
 /// @brief a range-scoped key-value store for storing meta-data and configuration
 /// about a range.
 class RangeKV {
-private:
     std::string range_key;
     std::shared_ptr<RangeKVGetClient> kv_get_client;
     std::shared_ptr<RangeKVSetClient> kv_set_client;
@@ -72,8 +72,10 @@ public:
         std::shared_ptr<RangeKVGetClient> kv_get_client,
         std::shared_ptr<RangeKVSetClient> kv_set_client,
         std::shared_ptr<RangeKVDeleteClient> kv_delete_client
-    ) : range_key(range_key), kv_get_client(kv_get_client),
-        kv_set_client(kv_set_client), kv_delete_client(kv_delete_client) {
+    ) : range_key(std::move(range_key)),
+        kv_get_client(std::move(kv_get_client)),
+        kv_set_client(std::move(kv_set_client)),
+        kv_delete_client(std::move(kv_delete_client)) {
     }
 
 
@@ -82,8 +84,8 @@ public:
     /// @returns a pair containing the value and an error where ok() is false if the
     /// value could not be retrieved. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<std::string, freighter::Error> get(
-        const std::string &key) const;
+    [[nodiscard]] std::pair<std::string, freighter::Error>
+    get(const std::string &key) const;
 
     /// @brief sets the value of the given key.
     /// @param key - the key to set the value of.
@@ -91,8 +93,8 @@ public:
     /// @returns an error where ok() is false if the value could not be set.
     /// Use err.message() to get the error message or err.type to get the error type.
     /// @note this will overwrite any existing value for the given key.
-    [[nodiscard]] freighter::Error set(const std::string &key,
-                                       const std::string &value) const;
+    [[nodiscard]] freighter::Error
+    set(const std::string &key, const std::string &value) const;
 
     /// @brief deletes the value of the given key.
     /// @param key - the key to delete the value of.
@@ -146,9 +148,9 @@ public:
         std::shared_ptr<RangeKVDeleteClient> kv_delete_client
     ) : retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)),
-        kv_get_client(kv_get_client),
-        kv_set_client(kv_set_client),
-        kv_delete_client(kv_delete_client) {
+        kv_get_client(std::move(kv_get_client)),
+        kv_set_client(std::move(kv_set_client)),
+        kv_delete_client(std::move(kv_delete_client)) {
     }
 
     /// @brief retrieves the range with the given key.
@@ -157,7 +159,7 @@ public:
     /// if the range could not be retrieved. Use err.message() to get the error
     /// message or err.type to get the error type.
     [[nodiscard]] std::pair<Range, freighter::Error>
-    retrieveByKey(const std::string &key) const;
+    retrieve_by_key(const std::string &key) const;
 
     /// @brief retrieves the range with the given name.
     /// @param name - the name of the range to retrieve.
@@ -165,7 +167,7 @@ public:
     /// if the range could not be retrieved. Use err.message() to get the error
     /// message or err.type to get the error type.
     [[nodiscard]] std::pair<Range, freighter::Error>
-    retrieveByName(const std::string &name) const;
+    retrieve_by_name(const std::string &name) const;
 
     /// @brief retrieves the ranges with the given keys.
     /// @param keys - the keys of the ranges to retrieve.
@@ -173,7 +175,7 @@ public:
     /// if the ranges could not be retrieved. Use err.message() to get the error
     /// message or err.type to get the error type.
     [[nodiscard]] std::pair<std::vector<Range>, freighter::Error>
-    retrieveByKey(std::vector<std::string> keys) const;
+    retrieve_by_key(std::vector<std::string> keys) const;
 
     /// @brief retrieves the ranges with the given names.
     /// @param names - the names of the ranges to retrieve.
@@ -181,7 +183,7 @@ public:
     /// if the ranges could not be retrieved. Use err.message() to get the error
     /// message or err.type to get the error type.
     [[nodiscard]] std::pair<std::vector<Range>, freighter::Error>
-    retrieveByName(std::vector<std::string> names) const;
+    retrieve_by_name(std::vector<std::string> names) const;
 
     /// @brief creates the given ranges.
     /// @param ranges - the ranges to create.
@@ -202,8 +204,8 @@ public:
     /// @returns a pair containing the created range and an error where ok() is false
     /// if the range could not be created. Use err.message() to get the error
     /// message or err.type to get the error type.
-    [[nodiscard]] std::pair<Range, freighter::Error> create(
-        std::string name, synnax::TimeRange time_range) const;
+    [[nodiscard]] std::pair<Range, freighter::Error>
+    create(std::string name, synnax::TimeRange time_range) const;
 
 private:
     /// @brief range retrieval transport.
@@ -218,7 +220,7 @@ private:
     std::shared_ptr<RangeKVDeleteClient> kv_delete_client;
 
     /// @brief retrieves multiple ranges.
-    std::pair<std::vector<Range>, freighter::Error> retrieveMany(
-        api::v1::RangeRetrieveRequest &req) const;
+    std::pair<std::vector<Range>, freighter::Error
+    > retrieve_many(api::v1::RangeRetrieveRequest &req) const;
 };
 }

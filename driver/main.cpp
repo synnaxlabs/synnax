@@ -57,9 +57,9 @@ std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
     const std::shared_ptr<synnax::Synnax> &client) {
     std::pair<synnax::Rack, freighter::Error> res;
     if (config.rack_key != 0)
-        res = client->hardware.retrieveRack(config.rack_key);
+        res = client->hardware.retrieve_rack(config.rack_key);
     else
-        res = client->hardware.retrieveRack(config.rack_name);
+        res = client->hardware.retrieve_rack(config.rack_name);
     if (const auto err = res.second;
         err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
         return retrieve_driver_rack(config, breaker, client);

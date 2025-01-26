@@ -87,7 +87,7 @@ void labjack::ScannerTask::create_devices() {
     for (auto &device: devices["devices"]) {
         if (device["failed_to_create"] == true) continue;
         std::string key = std::to_string(device["key"].get<int>());
-        auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(key);
+        auto [retrieved_device, err] = this->ctx->client->hardware.retrieve_device(key);
 
         if (!err) {
             VLOG(1) << "[labjack.scanner] device with key: " << device["key"] << " found";
@@ -110,7 +110,7 @@ void labjack::ScannerTask::create_devices() {
             device.dump()
         );
 
-        if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) {
+        if (this->ctx->client->hardware.create_device(new_device) != freighter::NIL) {
             LOG(ERROR) << "[labjack.scanner] failed to create device with key: " << device["key"];
             device["failed_to_create"] = true;
         } else {
@@ -132,7 +132,7 @@ void labjack::ScannerTask::run() {
     int i = 0;
     while (this->breaker.running()) {
         i += 1;
-        this->breaker.waitFor(this->scan_rate.period().chrono());
+        this->breaker.wait_for(this->scan_rate.period().chrono());
         if (i % this->tcp_scan_multiplier == 0)
             this->scan_for(LJM_dtANY, LJM_ctTCP);
         this->scan_for(LJM_dtANY, LJM_ctUSB);

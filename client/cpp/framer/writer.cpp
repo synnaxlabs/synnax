@@ -27,13 +27,13 @@ enum WriterCommand : uint32_t {
 };
 
 
-std::pair<Writer, freighter::Error> FrameClient::openWriter(
+std::pair<Writer, freighter::Error> FrameClient::open_writer(
     const WriterConfig &config) const {
     auto [s, err] = writer_client->stream(WRITE_ENDPOINT);
     if (err) return {Writer(), err};
     api::v1::FrameWriterRequest req;
     req.set_command(OPEN);
-    config.toProto(req.mutable_config());
+    config.to_proto(req.mutable_config());
     err = s->send(req);
     if (err) return {Writer(), err};
     auto [_, recExc] = s->receive();
@@ -44,7 +44,7 @@ Writer::Writer(std::unique_ptr<WriterStream> s) : stream(std::move(s)) {
 }
 
 
-void WriterConfig::toProto(api::v1::FrameWriterConfig *f) const {
+void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     subject.to_proto(f->mutable_control_subject());
     f->set_start(start.value);
     for (auto &auth: authorities) f->add_authorities(auth);
@@ -56,17 +56,17 @@ void WriterConfig::toProto(api::v1::FrameWriterConfig *f) const {
 }
 
 bool Writer::write(const Frame &fr) {
-    assertOpen();
+    assert_open();
     if (err_accumulated) return false;
     api::v1::FrameWriterRequest req;
     req.set_command(WRITE);
-    fr.toProto(req.mutable_frame());
+    fr.to_proto(req.mutable_frame());
     if (const auto err = stream->send(req); err) err_accumulated = true;
     return !err_accumulated;
 }
 
 std::pair<synnax::TimeStamp, bool> Writer::commit() {
-    assertOpen();
+    assert_open();
     if (err_accumulated) return {synnax::TimeStamp(), false};
 
     api::v1::FrameWriterRequest req;
@@ -88,7 +88,7 @@ std::pair<synnax::TimeStamp, bool> Writer::commit() {
 }
 
 freighter::Error Writer::error() const {
-    assertOpen();
+    assert_open();
     api::v1::FrameWriterRequest req;
     req.set_command(ERROR_MODE);
     if (const auto err = stream->send(req); err) return err;
@@ -100,7 +100,7 @@ freighter::Error Writer::error() const {
 }
 
 freighter::Error Writer::close() const {
-    stream->closeSend();
+    stream->close_send();
     while (true) {
         if (const auto rec_exc = stream->receive().second; rec_exc) {
             if (rec_exc.matches(freighter::EOF_)) return freighter::NIL;
@@ -110,7 +110,7 @@ freighter::Error Writer::close() const {
 }
 
 
-void Writer::assertOpen() const {
+void Writer::assert_open() const {
     if (closed)
         throw std::runtime_error("cannot call method on closed writer");
 }

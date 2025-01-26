@@ -40,7 +40,7 @@ public:
     }
 
     /// @brief constructs the error from a particular string freighter:Error and data.
-    Error(const freighter::Error err, std::string data) : type(err.type),
+    Error(const freighter::Error& err, std::string data) : type(err.type),
                                                           data(std::move(data)) {
     }
 
@@ -106,6 +106,20 @@ public:
         });
     }
 
+    /// @brief if the error matches the provided error, 'skips' the error by returning
+    /// nil, otherwise returns the error.
+    [[nodiscard]] Error skip(const Error &other) const {
+        if (matches(other)) return {TYPE_NIL, ""};
+        return *this;
+    }
+
+    /// @brief if the error matches the provided type, 'skips' the error by returning
+    /// nil, otherwise returns the error.
+    [[nodiscard]] Error skip(const std::string &other) const {
+        if (matches(other)) return {TYPE_NIL, ""};
+        return *this;
+    }
+
     bool operator==(const Error &other) const { return type == other.type; };
 
     bool operator!=(const Error &other) const { return type != other.type; };
@@ -115,8 +129,8 @@ public:
     bool operator!=(const std::string &other) const { return type != other; };
 };
 
-const Error UNKNOWN = {"unknown", ""};
-const Error NIL = {"nil", ""};
+const Error UNKNOWN = {TYPE_UNKNOWN, ""};
+const Error NIL = {TYPE_NIL, ""};
 const Error STREAM_CLOSED = {TYPE_UNREACHABLE + ".stream_closed", "Stream closed"};
 const Error EOF_ = {"freighter.eof", "EOF"};
 const Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
@@ -147,7 +161,7 @@ struct URL {
 
     /// @brief Converts the URL to a string.
     /// @returns the URL as a string.
-    [[nodiscard]] std::string toString() const;
+    [[nodiscard]] std::string to_string() const;
 };
 
 enum TransportVariant {
@@ -387,7 +401,7 @@ public:
     /// @brief Closes the sending end of the stream, signaling to the server that no
     /// more requests will be send, and (if desired) allowing the server to close the
     /// receiving end of the stream.
-    virtual void closeSend() = 0;
+    virtual void close_send() = 0;
 
     virtual ~Stream() = default;
 };

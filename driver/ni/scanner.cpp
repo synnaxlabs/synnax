@@ -178,7 +178,7 @@ void ni::Scanner::create_devices() {
         if (device["model"] == "" || device["failed_to_create"] == true) continue;
         // first try to retrieve the device and if found, do not create a new device,
         // simply continue
-        auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(
+        auto [retrieved_device, err] = this->ctx->client->hardware.retrieve_device(
             device["key"]);
         if (!err) {
             VLOG(1) << "[ni.scanner] device " << device["model"] << " and key " <<
@@ -196,7 +196,7 @@ void ni::Scanner::create_devices() {
             device["model"].get<std::string>(), // model
             device.dump() // device properties
         );
-        if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) {
+        if (this->ctx->client->hardware.create_device(new_device) != freighter::NIL) {
             LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] <<
                     " with key " << device["key"] << " for task " << this->task.name;
             device["failed_to_create"] = true;

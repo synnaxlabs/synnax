@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cassert>
+#include <utility>
 #include <stdio.h>
 
 #include "driver/ni/ni.h"
@@ -75,7 +76,7 @@ void ni::ScannerTask::run() {
     auto scan_cmd = task::Command{task.key, "scan", {}};
     // perform a scan
     while (this->breaker.running()) {
-        this->breaker.waitFor(this->scan_rate.period().chrono());
+        this->breaker.wait_for(this->scan_rate.period().chrono());
         this->exec(scan_cmd);
     }
     LOG(INFO) << "[ni.scanner] stopped scanning " << this->task.name;
@@ -98,9 +99,14 @@ ni::ReaderTask::ReaderTask(
     const breaker::Config &breaker_config
 ) : dmx(dmx),
     ctx(ctx),
-    task(task),
+    task(std::move(task)),
     daq_read_pipe(
-        pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
+        pipeline::Acquisition(
+            ctx->client,
+            std::move(writer_config),
+            std::move(source),
+            breaker_config
+        )),
     source(ni_source) {
     this->ok_state = ni_source->ok();
 

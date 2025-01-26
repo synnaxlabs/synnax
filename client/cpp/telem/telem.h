@@ -19,20 +19,20 @@
 namespace synnax {
 // private namespace for internal constants
 namespace _priv {
-const uint64_t NANOSECOND = 1;
-const uint64_t MICROSECOND = NANOSECOND * 1e3;
-const uint64_t MILLISECOND = MICROSECOND * 1e3;
-const uint64_t SECOND = MILLISECOND * 1e3;
-const uint64_t MINUTE = SECOND * 60;
-const uint64_t HOUR = MINUTE * 60;
-const uint64_t DAY = HOUR * 24;
+constexpr uint64_t NANOSECOND = 1;
+constexpr uint64_t MICROSECOND = NANOSECOND * 1e3;
+constexpr uint64_t MILLISECOND = MICROSECOND * 1e3;
+constexpr uint64_t SECOND = MILLISECOND * 1e3;
+constexpr uint64_t MINUTE = SECOND * 60;
+constexpr uint64_t HOUR = MINUTE * 60;
+constexpr uint64_t DAY = HOUR * 24;
 } // namespace _priv
 
 
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
-    DataType() : value("") {
+    DataType() {
     }
 
     /// @brief Holds the id of the data type
@@ -51,8 +51,7 @@ public:
     /// @returns the data type corresponding to the given type.
     template<typename T>
     DataType static infer() {
-        if (!TYPE_INDEXES.count(std::type_index(typeid(T))))
-            return DataType("");
+        if (!TYPE_INDEXES.count(std::type_index(typeid(T)))) return DataType("");
         return DataType(TYPE_INDEXES[std::type_index(typeid(T))]);
     }
 
@@ -480,7 +479,7 @@ public:
     }
 
     TimeRange(const std::uint64_t start, const std::uint64_t end) : start(start),
-                                                                    end(end) {
+        end(end) {
     }
 
     /// @brief returns true if the given timestamp is within the range, start inclusive,

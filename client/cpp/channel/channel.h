@@ -9,12 +9,18 @@
 
 #pragma once
 
+/// std
 #include <string>
 
+/// external
+#include "grpcpp/grpcpp.h"
+
+/// protos
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
+
+/// internal
 #include "client/cpp/telem/telem.h"
 #include "freighter/cpp/freighter.h"
-#include "grpcpp/grpcpp.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
 
 using namespace synnax;
 

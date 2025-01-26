@@ -9,7 +9,7 @@
 
 #include <cassert>
 #include <chrono>
-#include <stdio.h>
+#include <cstdio>
 #include <utility>
 
 #include "client/cpp/telem/telem.h"
@@ -21,127 +21,101 @@ using json = nlohmann::json;
 
 void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     std::uint64_t c_count = 0;
-    //    LOG(INFO) << "channel config:" << parser.get_json().dump(4);
     parser.iter("channels",
-                [&](config::Parser &channel_builder) {
-                    ni::ChannelConfig config;
+                [&](config::Parser &ch_parser) {
                     // analog channel names are formatted: <device_name>/ai<port>
-                    std::string port = std::to_string(
-                        channel_builder.required<std::uint64_t>("port"));
+                    const auto port = ch_parser.required<std::uint64_t>(
+                        "port");
 
                     std::string name;
-                    if (this->reader_config.device_key != "cross-device") {
+                    if (this->reader_config.device_key != "cross-device")
                         name = this->reader_config.device_name;
-                    } else {
-                        auto device_key = channel_builder.required<std::string>(
-                            "device");
-                        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
-                            device_key
-                        );
+                    else {
+                        const auto dev_key = ch_parser.required<std::string>("device");
+                        auto [dev, err] = this->ctx->client->hardware.
+                                retrieve_device(dev_key);
                         if (err) {
                             this->log_error(
-                                "failed to retrieve device with key " + device_key);
+                                "failed to retrieve device with key " + dev_key);
                             return;
                         }
                         name = dev.location;
                     }
-                    config.name = name + "/ai" + port;
+                    name = name + "/ai" + std::to_string(port);
 
-                    config.channel_key = channel_builder.required<uint32_t>("channel");
-                    config.channel_type = channel_builder.required<std::string>("type");
+                    const auto type = ch_parser.required<std::string>(
+                        "type");
 
-                    config.ni_channel = this->parse_channel(
-                        channel_builder, config.channel_type, config.name);
+                    this->channel_map[name] = "channels." + std::to_string(c_count);
+                    this->port_to_channel[port] = name;
 
-                    this->channel_map[config.name] =
-                            "channels." + std::to_string(c_count);
-
-                    this->port_to_channel[channel_builder.required<std::uint64_t>(
-                        "port")] = config.name;
-
-                    config.enabled = channel_builder.optional<bool>("enabled", true);
-
-                    this->reader_config.channels.push_back(config);
+                    this->reader_config.channels.emplace_back(ChannelConfig{
+                        .channel_key = ch_parser.required<uint32_t>("channel"),
+                        .name = name,
+                        .channel_type = type,
+                        .ni_channel = this->parse_channel(ch_parser, type, name),
+                        .enabled = ch_parser.optional<bool>("enabled", true)
+                    });
 
                     c_count++;
                 });
 }
 
-std::shared_ptr<ni::AIChan> ni::AnalogReadSource::parse_channel(
-    config::Parser &parser, const std::string &channel_type,
-    const std::string &channel_name) {
-    if (channel_type == "ai_accel")
-        return std::make_shared<AIAccelChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_accel_4_wire_dc_voltage")
-        return std::make_shared<
-            AIAccel4WireDCVoltageChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_bridge")
-        return std::make_shared<AIBridgeChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_charge")
-        return std::make_shared<AIChargeChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_current")
-        return std::make_shared<AICurrentChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_force_bridge_polynomial")
-        return std::make_shared<
-            AIForceBridgePolynomialChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_force_bridge_table")
-        return std::make_shared<
-            AIForceBridgeTableChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_force_bridge_two_point_lin")
-        return std::make_shared<
-            AIForceBridgeTwoPointLinChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_force_iepe")
-        return std::make_shared<AIForceIEPEChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_microphone")
-        return std::make_shared<AIMicrophoneChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_pressure_bridge_polynomial")
-        return std::make_shared<
-            AIPressureBridgePolynomialChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_pressure_bridge_table")
-        return std::make_shared<
-            AIPressureBridgeTableChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_pressure_bridge_two_point_lin")
-        return std::make_shared<
-            AIPressureBridgeTwoPointLinChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_resistance")
-        return std::make_shared<AIResistanceChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_rtd")
-        return std::make_shared<AIRTDChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_strain_gauge")
-        return std::make_shared<AIStrainGaugeChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_temp_builtin")
-        return std::make_shared<
-            AITempBuiltInChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_thermocouple")
-        return std::make_shared<AIThermocoupleChan>(
-            parser, this->task_handle, channel_name, this->port_to_channel);
-    if (channel_type == "ai_torque_bridge_polynomial")
-        return std::make_shared<
-            AITorqueBridgePolynomialChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_torque_bridge_table")
-        return std::make_shared<
-            AITorqueBridgeTableChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_torque_bridge_two_point_lin")
-        return std::make_shared<
-            AITorqueBridgeTwoPointLinChan>(parser, this->task_handle, channel_name);
-    if (channel_type == "ai_velocity_iepe")
-        return std::make_shared<AIVelocityIEPEChan>(
-            parser, this->task_handle, channel_name);
-    if (channel_type == "ai_voltage")
-        return std::make_shared<AIVoltageChan>(
-            parser, this->task_handle, channel_name);
+std::unique_ptr<ni::AIChan> ni::AnalogReadSource::parse_channel(
+    config::Parser &parser,
+    const std::string &type,
+    const std::string &name
+) {
+    if (type == "ai_accel")
+        return std::make_unique<AIAccelChan>(parser, name);
+    if (type == "ai_accel_4_wire_dc_voltage")
+        return std::make_unique<AIAccel4WireDCVoltageChan>(parser, name);
+    if (type == "ai_bridge")
+        return std::make_unique<AIBridgeChan>(parser, name);
+    if (type == "ai_charge")
+        return std::make_unique<AIChargeChan>(parser, name);
+    if (type == "ai_current")
+        return std::make_unique<AICurrentChan>(parser, name);
+    if (type == "ai_force_bridge_polynomial")
+        return std::make_unique<AIForceBridgePolynomialChan>(parser, name);
+    if (type == "ai_force_bridge_table")
+        return std::make_unique<AIForceBridgeTableChan>(parser, name);
+    if (type == "ai_force_bridge_two_point_lin")
+        return std::make_unique<AIForceBridgeTwoPointLinChan>(parser, name);
+    if (type == "ai_force_iepe")
+        return std::make_unique<AIForceIEPEChan>(parser, name);
+    if (type == "ai_microphone")
+        return std::make_unique<AIMicrophoneChan>(parser, name);
+    if (type == "ai_pressure_bridge_polynomial")
+        return std::make_unique<AIPressureBridgePolynomialChan>(parser, name);
+    if (type == "ai_pressure_bridge_table")
+        return std::make_unique<AIPressureBridgeTableChan>(parser, name);
+    if (type == "ai_pressure_bridge_two_point_lin")
+        return std::make_unique<AIPressureBridgeTwoPointLinChan>(parser, name);
+    if (type == "ai_resistance")
+        return std::make_unique<AIResistanceChan>(parser, name);
+    if (type == "ai_rtd")
+        return std::make_unique<AIRTDChan>(parser, name);
+    if (type == "ai_strain_gauge")
+        return std::make_unique<AIStrainGaugeChan>(parser, name);
+    if (type == "ai_temp_builtin")
+        return std::make_unique<AITempBuiltInChan>(parser, name);
+    if (type == "ai_thermocouple")
+        return std::make_unique<AIThermocoupleChan>(parser, name,
+                                                    this->port_to_channel);
+    if (type == "ai_torque_bridge_polynomial")
+        return std::make_unique<AITorqueBridgePolynomialChan>(parser, name);
+    if (type == "ai_torque_bridge_table")
+        return std::make_unique<AITorqueBridgeTableChan>(parser, name);
+    if (type == "ai_torque_bridge_two_point_lin")
+        return std::make_unique<AITorqueBridgeTwoPointLinChan>(parser, name);
+    if (type == "ai_velocity_iepe")
+        return std::make_unique<AIVelocityIEPEChan>(parser, name);
+    if (type == "ai_voltage")
+        return std::make_unique<AIVoltageChan>(parser, name);
 
     // If channel type not recognized update task state
-    std::string msg = "unknown channel type " + channel_type;
+    std::string msg = "unknown channel type " + type;
     this->ctx->set_state({
         .task = task.key,
         .variant = "error",
@@ -210,7 +184,7 @@ void ni::AnalogReadSource::acquire_data() {
             data_packet.analog_data.data(),
             data_packet.analog_data.size(),
             &data_packet.samples_read_per_channel,
-            NULL))) {
+            nullptr))) {
             this->log_error(
                 "failed while reading analog data for task " + this->reader_config.
                 task_name);
@@ -257,15 +231,14 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
 }
 
 int ni::AnalogReadSource::create_channels() {
-    auto channels = this->reader_config.channels;
-    for (auto &channel: channels) {
+    for (auto &channel: this->reader_config.channels) {
         this->num_channels++;
         if (channel.channel_type == "index" || !channel.enabled ||
             !channel.ni_channel)
             continue;
         this->num_ai_channels++;
         this->check_ni_error(channel.ni_channel->create_ni_scale(this->dmx));
-        this->check_ni_error(channel.ni_channel->create_ni_channel(this->dmx));
+        this->check_ni_error(channel.ni_channel->bind(this->dmx, this->task_handle));
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);
             return -1;

@@ -154,7 +154,7 @@ public:
                 return;
             }
             chan = ch;
-            auto [su, su_err] = client->telem.openWriter(WriterConfig{
+            auto [su, su_err] = client->telem.open_writer(WriterConfig{
                 .channels = {ch.key}
             });
             if (err) {

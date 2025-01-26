@@ -98,12 +98,18 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     // TODO: verify this is an option in the console for sensitivity units
 };
 
+static std::string parse_digital_loc(config::Parser &p, const std::string &dev) {
+    const auto port = std::to_string(p.required<std::uint64_t>("port"));
+    const auto line = std::to_string(p.required<std::uint64_t>("line"));
+    return dev + "/port" + port + "/line" + line;
+}
+
 struct ChannelConfig {
     uint32_t channel_key;
     uint32_t state_channel_key;
     std::string name;
     std::string channel_type;
-    std::shared_ptr<ni::AIChan> ni_channel;
+    std::unique_ptr<ni::AIChan> ni_channel;
     bool enabled = true;
     synnax::DataType data_type;
 };
@@ -236,7 +242,7 @@ class AnalogReadSource final : public Source {
 public:
     explicit AnalogReadSource(
         const std::shared_ptr<DAQmx> &dmx,
-        TaskHandle task_handle,
+        const TaskHandle task_handle,
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) : Source(dmx, task_handle, ctx, task) {
@@ -251,9 +257,11 @@ public:
 
     int create_channels() override;
 
-    std::shared_ptr<ni::AIChan> parse_channel(config::Parser &parser,
-                                              const std::string &channel_type,
-                                              const std::string &channel_name);
+    std::unique_ptr<ni::AIChan> parse_channel(
+        config::Parser &parser,
+        const std::string &type,
+        const std::string &name
+    );
 
     void parse_channels(config::Parser &parser) override;
 
@@ -300,7 +308,7 @@ public:
 
     explicit StateSource(
         float state_rate, // TODO: should this be a float?
-        synnax::ChannelKey &state_index_key,
+        const synnax::ChannelKey &state_index_key,
         std::vector<synnax::ChannelKey> &state_channel_keys
     );
 
@@ -372,13 +380,13 @@ public:
 
     void get_index_keys();
 
-    bool ok();
+    bool ok() const;
 
     void jsonify_error(std::string);
 
     void stopped_with_err(const freighter::Error &err) override;
 
-    void log_error(std::string err_msg);
+    void log_error(const std::string &err_msg);
 
     void clear_task();
 

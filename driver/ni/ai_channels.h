@@ -11,11 +11,13 @@
 
 #include <string>
 #include <map>
+#include <utility>
 
 #include "nidaqmx/nidaqmx.h"
 #include "nidaqmx/nidaqmx_api.h"
 #include "driver/config/config.h"
 #include "driver/ni/scale.h"
+#include "driver/task/task.h"
 
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
@@ -123,27 +125,21 @@ struct PolynomialConfig {
 
     PolynomialConfig() = default;
 
-    explicit PolynomialConfig(
-        config::Parser &parser
-    )
+    explicit PolynomialConfig(config::Parser &parser)
         : num_forward_coeffs(parser.required<uint32_t>("num_forward_coeffs")),
           num_reverse_coeffs(parser.required<uint32_t>("num_reverse_coeffs")) {
-        auto eu = parser.required<std::string>("electrical_units");
-        auto pu = parser.required<std::string>("physical_units");
+        const auto eu = parser.required<std::string>("electrical_units");
+        const auto pu = parser.required<std::string>("physical_units");
 
         if (ni::UNITS_MAP.find(eu) == ni::UNITS_MAP.end()) {
             LOG(WARNING) << "Invalid units: " << eu << ". Defaulting to Volts.";
             electrical_units = DAQmx_Val_Volts;
-        } else {
-            electrical_units = ni::UNITS_MAP.at(eu);
-        }
+        } else electrical_units = ni::UNITS_MAP.at(eu);
 
         if (ni::UNITS_MAP.find(pu) == ni::UNITS_MAP.end()) {
             LOG(WARNING) << "Invalid units: " << pu << ". Defaulting to Volts.";
             physical_units = DAQmx_Val_Volts;
-        } else {
-            physical_units = ni::UNITS_MAP.at(pu);
-        }
+        } else physical_units = ni::UNITS_MAP.at(pu);
 
         json j = parser.get_json();
 
@@ -168,8 +164,8 @@ struct PolynomialConfig {
     }
 
     ~PolynomialConfig() {
-        if (forward_coeffs != nullptr) delete[] forward_coeffs;
-        if (reverse_coeffs != nullptr) delete[] reverse_coeffs;
+        delete[] forward_coeffs;
+        delete[] reverse_coeffs;
     }
 };
 
@@ -206,8 +202,8 @@ struct TableConfig {
     }
 
     ~TableConfig() {
-        if (electrical_vals != nullptr) delete[] electrical_vals;
-        if (physical_vals != nullptr) delete[] physical_vals;
+        delete[] electrical_vals;
+        delete[] physical_vals;
     }
 };
 
@@ -240,14 +236,15 @@ struct TwoPointLinConfig {
 /// @brief an object that represents and is responsible for the configuration of
 /// a single analog channel on National Instruments hardware.
 /// base class for all special analog channel types.
-class AIChan {
-public:
+struct AIChan {
     AIChan() = default;
 
     virtual ~AIChan() = default;
 
-    virtual int32
-    create_ni_channel(const std::shared_ptr<DAQmx> &dmx) {
+    virtual int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) {
         return 0;
     }
 
@@ -261,44 +258,37 @@ public:
         return std::make_unique<ScaleConfig>(scale_parser, this->scale_name);
     }
 
-    int32 create_ni_scale(const std::shared_ptr<DAQmx> &dmx) const {
-        if (this->scale_name == "") return 0;
+    [[nodiscard]] int32 create_ni_scale(const std::shared_ptr<DAQmx> &dmx) const {
+        if (this->scale_name.empty()) return 0;
         return this->scale_config->create_ni_scale(dmx);
     }
 
-    int32 get_units(const std::string &s) {
+    static int32_t get_units(const std::string &s) {
         if (ni::UNITS_MAP.find(s) == ni::UNITS_MAP.end()) {
             LOG(WARNING) << "Invalid units: " << s << ". Defaulting to Volts.";
             return DAQmx_Val_Volts;
         }
-
         return ni::UNITS_MAP.at(s);
     }
 
-    explicit AIChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    )
-        : task_handle(task_handle),
-          min_val(parser.optional<float_t>("min_val", 0)),
-          max_val(parser.optional<float_t>("max_val", 0)),
-          units(get_units(parser.optional<std::string>("units", "Volts"))),
-          sy_key(parser.required<uint32_t>("channel")),
-          name(name),
-          type(parser.required<std::string>("type")),
-          scale_config(getScaleConfig(parser)) {
+    explicit AIChan(config::Parser &parser, std::string name):
+        min_val(parser.optional<float_t>("min_val", 0)),
+        max_val(parser.optional<float_t>("max_val", 0)),
+        units(get_units(parser.optional<std::string>("units", "Volts"))),
+        sy_key(parser.required<uint32_t>("channel")),
+        name(std::move(name)),
+        type(parser.required<std::string>("type")),
+        scale_config(getScaleConfig(parser)) {
         if (this->scale_name != "") this->units = DAQmx_Val_FromCustomScale;
     }
 
-    TaskHandle task_handle = nullptr;
     double min_val = 0;
     double max_val = 0;
     int32_t units = DAQmx_Val_Volts;
     uint32_t sy_key = 0;
-    std::string name = "";
-    std::string type = "";
-    std::string scale_name = "";
+    std::string name;
+    std::string type;
+    std::string scale_name;
 
     std::unique_ptr<ScaleConfig> scale_config;
 };
@@ -311,10 +301,9 @@ class AIVoltageChan : public AIChan {
 public:
     explicit AIVoltageChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name
     )
-        : AIChan(parser, task_handle, name),
+        : AIChan(parser, name),
           terminal_config(
               ni::get_terminal_config(
                   parser.required<std::string>("terminal_config"))) {
@@ -322,10 +311,12 @@ public:
 
     ~AIVoltageChan() override = default;
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIVoltageChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "", // name to assign channel
             this->terminal_config,
@@ -344,18 +335,18 @@ class AIVoltageRMSChan final : public AIVoltageChan {
 public:
     explicit AIVoltageRMSChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name
-    )
-        : AIVoltageChan(parser, task_handle, name) {
+    ): AIVoltageChan(parser, name) {
     }
 
     ~AIVoltageRMSChan() override;
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIVoltageRMSChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -368,17 +359,12 @@ public:
 };
 
 /// @brief voltage Channel with excitation reference
-class AIVoltageWithExcitChan final : public AIVoltageChan {
-public:
+struct AIVoltageWithExcitChan final : public AIVoltageChan {
     int32_t bridge_config = 0;
     VoltageExcitationConfig excitation_config;
 
-    explicit AIVoltageWithExcitChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    )
-        : AIVoltageChan(parser, task_handle, name),
+    explicit AIVoltageWithExcitChan(config::Parser &parser, const std::string &name)
+        : AIVoltageChan(parser, name),
           bridge_config(
               get_bridge_config(
                   parser.required<std::string>("bridge_config"))),
@@ -387,10 +373,12 @@ public:
 
     ~AIVoltageWithExcitChan() override = default;
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIVoltageChanWithExcit(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -419,10 +407,9 @@ public:
 
     explicit AICurrentChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name
     )
-        : AIChan(parser, task_handle, name),
+        : AIChan(parser, name),
           shunt_resistor_loc(
               getShuntResistorLocation(
                   parser.required<std::string>("shunt_resistor_loc"))),
@@ -433,10 +420,12 @@ public:
                   parser.required<std::string>("terminal_config"))) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAICurrentChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -458,15 +447,16 @@ class AICurrentRMSChan final : public AICurrentChan {
 public:
     explicit AICurrentRMSChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name
-    ): AICurrentChan(parser, task_handle, name) {
+    ): AICurrentChan(parser, name) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAICurrentRMSChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -498,10 +488,9 @@ public:
 
     explicit AIRTDChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name
     )
-        : AIChan(parser, task_handle, name),
+        : AIChan(parser, name),
           rtd_type(get_rtd_type(parser.required<std::string>("rtd_type"))),
           resistance_config(
               get_resistance_config(
@@ -510,11 +499,12 @@ public:
           r0(parser.required<double>("r0")) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
     ) override {
         return dmx->CreateAIRTDChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -540,7 +530,10 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIThermocoupleChan final : public AIChan {
 public:
-    int32_t get_type(const std::string &type, const config::Parser &parser) const {
+    [[nodiscard]] int32_t get_type(
+        const std::string &type,
+        const config::Parser &parser
+    ) const {
         if (type == "J") return DAQmx_Val_J_Type_TC;
         if (type == "K") return DAQmx_Val_K_Type_TC;
         if (type == "N") return DAQmx_Val_N_Type_TC;
@@ -555,8 +548,10 @@ public:
         return DAQmx_Val_J_Type_TC;
     }
 
-    int32_t get_cjc_source(const std::string &source,
-                           const config::Parser &parser) const {
+    [[nodiscard]] int32_t get_cjc_source(
+        const std::string &source,
+        const config::Parser &parser
+    ) const {
         if (source == "BuiltIn") return DAQmx_Val_BuiltIn;
         if (source == "ConstVal") return DAQmx_Val_ConstVal;
         if (source == "Chan") return DAQmx_Val_Chan;
@@ -568,11 +563,10 @@ public:
 
     explicit AIThermocoupleChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name,
         const std::map<std::int32_t, std::string> &cjc_sources
     )
-        : AIChan(parser, task_handle, name),
+        : AIChan(parser, name),
           thermocouple_type(
               get_type(parser.required<std::string>("thermocouple_type"),
                        parser)),
@@ -584,11 +578,12 @@ public:
         else this->cjcPort = cjc_sources.at(source);
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
     ) override {
         return dmx->CreateAIThrmcplChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -608,23 +603,22 @@ private:
     double cjc_val;
 };
 
-class AITempBuiltInChan final : public AIChan {
-public:
+struct AITempBuiltInChan final : AIChan {
     explicit AITempBuiltInChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name
-    ) {
+    ): AIChan(parser, name) {
         this->units = ni::UNITS_MAP.at(parser.required<std::string>("units"));
-        this->task_handle = task_handle;
-        const size_t pos = name.find("/");
+        const size_t pos = name.find('/');
         this->name = name.substr(0, pos) + "/_boardTempSensor_vs_aignd";
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAITempBuiltInSensorChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->units
@@ -632,26 +626,24 @@ public:
     }
 };
 
-class AIThermistorIEXChan final : public AIChan {
-public:
-    explicit AIThermistorIEXChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    ): AIChan(parser, task_handle, name),
-       resistance_config(
-           get_resistance_config(
-               parser.required<std::string>("resistance_config"))),
-       excitation_config(parser),
-       a(parser.required<double>("a")),
-       b(parser.required<double>("b")),
-       c(parser.required<double>("c")) {
+struct AIThermistorIEXChan final : AIChan {
+    explicit AIThermistorIEXChan(config::Parser &parser, const std::string &name):
+        AIChan(parser, name),
+        resistance_config(
+            get_resistance_config(
+                parser.required<std::string>("resistance_config"))),
+        excitation_config(parser),
+        a(parser.required<double>("a")),
+        b(parser.required<double>("b")),
+        c(parser.required<double>("c")) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIThrmstrChanIex(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -678,10 +670,9 @@ class AIThermistorVexChan final : public AIChan {
 public:
     explicit AIThermistorVexChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name
     )
-        : AIChan(parser, task_handle, name),
+        : AIChan(parser, name),
           resistance_config(
               get_resistance_config(
                   parser.required<std::string>("resistance_config"))),
@@ -692,10 +683,12 @@ public:
           r1(parser.required<double>("r1")) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIThrmstrChanVex(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -728,10 +721,9 @@ class AIAccelChan : public AIChan {
 public:
     explicit AIAccelChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name
     )
-        : AIChan(parser, task_handle, name),
+        : AIChan(parser, name),
           sensitivity(parser.required<double>("sensitivity")),
           excitation_config(parser),
           terminal_config(
@@ -742,11 +734,12 @@ public:
         this->sensitivity_units = ni::UNITS_MAP.at(su);
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
     ) override {
         return dmx->CreateAIAccelChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -770,17 +763,16 @@ public:
 /// @brief acceleration channel with 4 wire DC voltage
 class AIAccel4WireDCVoltageChan final : public AIAccelChan {
 public:
-    explicit AIAccel4WireDCVoltageChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    ): AIAccelChan(parser, task_handle, name) {
+    explicit AIAccel4WireDCVoltageChan(config::Parser &parser, const std::string &name):
+        AIAccelChan(parser, name) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIAccel4WireDCVoltageChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -800,21 +792,20 @@ public:
 /// @brief acceleration channel with charge
 class AIAccelChargeChan final : public AIChan {
 public:
-    explicit AIAccelChargeChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    ): AIChan(parser, task_handle, name),
-       sensitivity(parser.required<double>("sensitivity")),
-       terminal_config(
-           ni::get_terminal_config(
-               parser.required<std::string>("terminal_config"))) {
+    explicit AIAccelChargeChan(config::Parser &parser, const std::string &name):
+        AIChan(parser, name),
+        sensitivity(parser.required<double>("sensitivity")),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config"))) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIAccelChargeChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -838,21 +829,20 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIResistanceChan final : public AIChan {
 public:
-    explicit AIResistanceChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    ) : AIChan(parser, task_handle, name),
+    explicit AIResistanceChan(config::Parser &parser, const std::string &name):
+        AIChan(parser, name),
         resistance_config(
             get_resistance_config(
                 parser.required<std::string>("resistance_config"))),
         excitation_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIResistanceChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -877,16 +867,17 @@ class AIBridgeChan final : public AIChan {
 public:
     explicit AIBridgeChan(
         config::Parser &parser,
-        const TaskHandle task_handle,
         const std::string &name
-    ): AIChan(parser, task_handle, name),
+    ): AIChan(parser, name),
        bridge_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIBridgeChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -920,9 +911,8 @@ public:
         return DAQmx_Val_FullBridgeI;
     }
 
-    explicit AIStrainGaugeChan(config::Parser &parser, TaskHandle task_handle,
-                               const std::string &name)
-        : AIChan(parser, task_handle, name),
+    explicit AIStrainGaugeChan(config::Parser &parser, const std::string &name)
+        : AIChan(parser, name),
           strain_config(
               get_strain_config(
                   parser.required<std::string>("strain_config"))),
@@ -937,10 +927,12 @@ public:
               parser.required<double>("lead_wire_resistance")) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIStrainGageChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1003,12 +995,8 @@ public:
         return DAQmx_Val_PrincipalStrain1;
     }
 
-    explicit AIRosetteStrainGaugeChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    )
-        : AIChan(parser, task_handle, name),
+    explicit AIRosetteStrainGaugeChan(config::Parser &parser, const std::string &name)
+        : AIChan(parser, name),
           rosette_type(get_rosette_type(
               parser.required<std::string>("rosette_type"))),
           gage_orientation(parser.required<double>("gage_orientation")),
@@ -1027,10 +1015,12 @@ public:
               parser.required<double>("lead_wire_resistance")) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIRosetteStrainGageChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1066,24 +1056,22 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIMicrophoneChan final : public AIChan {
 public:
-    explicit AIMicrophoneChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    )
-        : AIChan(parser, task_handle, name),
-          mic_sensitivity(parser.required<double>("mic_sensitivity")),
-          max_snd_press_level(parser.required<double>("max_snd_press_level")),
-          excitation_config(parser),
-          terminal_config(
-              ni::get_terminal_config(
-                  parser.required<std::string>("terminal_config"))) {
+    explicit AIMicrophoneChan(config::Parser &parser, const std::string &name):
+        AIChan(parser, name),
+        mic_sensitivity(parser.required<double>("mic_sensitivity")),
+        max_snd_press_level(parser.required<double>("max_snd_press_level")),
+        excitation_config(parser),
+        terminal_config(
+            ni::get_terminal_config(
+                parser.required<std::string>("terminal_config"))) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIMicrophoneChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -1108,23 +1096,22 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIFrequencyVoltageChan final : public AIChan {
 public:
-    explicit AIFrequencyVoltageChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    ): AIChan(parser, task_handle, name),
-       threshold_level(parser.required<double>("threshold_level")),
-       hysteresis(parser.required<double>("hysteresis")) {
+    explicit AIFrequencyVoltageChan(config::Parser &parser, const std::string &name):
+        AIChan(parser, name),
+        threshold_level(parser.required<double>("threshold_level")),
+        hysteresis(parser.required<double>("hysteresis")) {
         // get the device name by reading up to delimiter
-        const size_t pos = name.find("/");
+        const size_t pos = name.find('/');
         this->name = name.substr(0, pos) + "/ctr" + std::to_string(
                          parser.required<std::uint64_t>("port"));
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIFreqVoltageChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1146,20 +1133,19 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIPressureBridgeTwoPointLinChan final : public AIChan {
 public:
-    explicit AIPressureBridgeTwoPointLinChan(
-        config::Parser &parser,
-        const TaskHandle task_handle,
-        const std::string &name
-    )
-        : AIChan(parser, task_handle, name),
+    explicit AIPressureBridgeTwoPointLinChan(config::Parser &parser,
+                                             const std::string &name)
+        : AIChan(parser, name),
           bridge_config(parser),
           two_point_lin_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIPressureBridgeTwoPointLinChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1186,17 +1172,18 @@ private:
 
 class AIPressureBridgeTableChan final : public AIChan {
 public:
-    explicit AIPressureBridgeTableChan(config::Parser &parser, TaskHandle task_handle,
-                                       const std::string &name)
-        : AIChan(parser, task_handle, name),
-          bridge_config(parser),
-          table_config(parser) {
+    explicit AIPressureBridgeTableChan(config::Parser &parser, const std::string &name):
+        AIChan(parser, name),
+        bridge_config(parser),
+        table_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIPressureBridgeTableChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1223,18 +1210,20 @@ private:
 
 class AIPressureBridgePolynomialChan final : public AIChan {
 public:
-    explicit AIPressureBridgePolynomialChan(config::Parser &parser,
-                                            TaskHandle task_handle,
-                                            const std::string &name)
-        : AIChan(parser, task_handle, name),
-          bridge_config(parser),
-          polynomial_config(parser) {
+    explicit AIPressureBridgePolynomialChan(
+        config::Parser &parser,
+        const std::string &name
+    ): AIChan(parser, name),
+       bridge_config(parser),
+       polynomial_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIPressureBridgePolynomialChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1264,17 +1253,21 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIForceBridgePolynomialChan final : public AIChan {
 public:
-    explicit AIForceBridgePolynomialChan(config::Parser &parser, TaskHandle task_handle,
-                                         const std::string &name)
-        : AIChan(parser, task_handle, name),
+    explicit AIForceBridgePolynomialChan(
+        config::Parser &parser,
+        const std::string &name
+    )
+        : AIChan(parser, name),
           bridge_config(parser),
           polynomial_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIForceBridgePolynomialChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1303,18 +1296,18 @@ class AIForceBridgeTableChan final : public AIChan {
 public:
     explicit AIForceBridgeTableChan(
         config::Parser &parser,
-        TaskHandle task_handle,
         const std::string &name
-    )
-        : AIChan(parser, task_handle, name),
-          bridge_config(parser),
-          table_config(parser) {
+    ): AIChan(parser, name),
+       bridge_config(parser),
+       table_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIForceBridgeTableChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1341,18 +1334,20 @@ private:
 
 class AIForceBridgeTwoPointLinChan final : public AIChan {
 public:
-    explicit AIForceBridgeTwoPointLinChan(config::Parser &parser,
-                                          TaskHandle task_handle,
-                                          const std::string &name)
-        : AIChan(parser, task_handle, name),
-          bridge_config(parser),
-          two_point_lin_config(parser) {
+    explicit AIForceBridgeTwoPointLinChan(
+        config::Parser &parser,
+        const std::string &name
+    ): AIChan(parser, name),
+       bridge_config(parser),
+       two_point_lin_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIForceBridgeTwoPointLinChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1382,10 +1377,13 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIVelocityIEPEChan final : public AIChan {
 public:
-    explicit AIVelocityIEPEChan(config::Parser &parser, TaskHandle task_handle,
-                                const std::string &name)
-        : AIChan(parser, task_handle, name),
-          sensitivity_units(get_units(parser.required<std::string>("sensitivity_units"))),
+    explicit AIVelocityIEPEChan(
+        config::Parser &parser,
+        const std::string &name
+    )
+        : AIChan(parser, name),
+          sensitivity_units(
+              get_units(parser.required<std::string>("sensitivity_units"))),
           sensitivity(parser.required<double>("sensitivity")),
           excitation_config(parser),
           terminal_config(
@@ -1393,10 +1391,12 @@ public:
                   parser.required<std::string>("terminal_config"))) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIVelocityIEPEChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -1423,18 +1423,20 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AITorqueBridgeTwoPointLinChan final : public AIChan {
 public:
-    explicit AITorqueBridgeTwoPointLinChan(config::Parser &parser,
-                                           TaskHandle task_handle,
-                                           const std::string &name)
-        : AIChan(parser, task_handle, name),
-          bridge_config(parser),
-          two_point_lin_config(parser) {
+    explicit AITorqueBridgeTwoPointLinChan(
+        config::Parser &parser,
+        const std::string &name
+    ): AIChan(parser, name),
+       bridge_config(parser),
+       two_point_lin_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAITorqueBridgeTwoPointLinChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1461,18 +1463,20 @@ private:
 
 class AITorqueBridgePolynomialChan final : public AIChan {
 public:
-    explicit AITorqueBridgePolynomialChan(config::Parser &parser,
-                                          TaskHandle task_handle,
-                                          const std::string &name)
-        : AIChan(parser, task_handle, name),
-          bridge_config(parser),
-          polynomial_config(parser) {
+    explicit AITorqueBridgePolynomialChan(
+        config::Parser &parser,
+        const std::string &name
+    ): AIChan(parser, name),
+       bridge_config(parser),
+       polynomial_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAITorqueBridgePolynomialChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1499,17 +1503,20 @@ private:
 
 class AITorqueBridgeTableChan final : public AIChan {
 public:
-    explicit AITorqueBridgeTableChan(config::Parser &parser, TaskHandle task_handle,
-                                     const std::string &name)
-        : AIChan(parser, task_handle, name),
-          bridge_config(parser),
-          table_config(parser) {
+    explicit AITorqueBridgeTableChan(
+        config::Parser &parser,
+        const std::string &name
+    ): AIChan(parser, name),
+       bridge_config(parser),
+       table_config(parser) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAITorqueBridgeTableChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->min_val,
@@ -1536,9 +1543,11 @@ private:
 
 class AIForceIEPEChan final : public AIChan {
 public:
-    explicit AIForceIEPEChan(config::Parser &parser, TaskHandle task_handle,
-                       const std::string &name)
-        : AIChan(parser, task_handle, name),
+    explicit AIForceIEPEChan(
+        config::Parser &parser,
+        const std::string &name
+    )
+        : AIChan(parser, name),
           sensitivity_units(
               get_units(parser.required<std::string>("sensitivity_units"))),
           sensitivity(parser.required<double>("sensitivity")),
@@ -1548,10 +1557,12 @@ public:
                   parser.required<std::string>("terminal_config"))) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIForceIEPEChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,
@@ -1578,18 +1589,19 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////
 class AIChargeChan final : public AIChan {
 public:
-    explicit AIChargeChan(config::Parser &parser, TaskHandle task_handle,
-                    const std::string &name)
-        : AIChan(parser, task_handle, name),
+    explicit AIChargeChan(config::Parser &parser, const std::string &name)
+        : AIChan(parser, name),
           terminal_config(
               ni::get_terminal_config(
                   parser.required<std::string>("terminal_config"))) {
     }
 
-    int32 create_ni_channel(
-        const std::shared_ptr<DAQmx> &dmx) override {
+    int32 bind(
+        const std::shared_ptr<DAQmx> &dmx,
+        const TaskHandle task_handle
+    ) override {
         return dmx->CreateAIChargeChan(
-            this->task_handle,
+            task_handle,
             this->name.c_str(),
             "",
             this->terminal_config,

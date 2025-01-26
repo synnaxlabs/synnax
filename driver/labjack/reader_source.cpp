@@ -77,7 +77,7 @@ void labjack::ReaderSource::init() {
         this->init_tcs();
         return;
     }
-    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+    auto [dev, err] = this->ctx->client->hardware.retrieve_device(
         this->reader_config.device_key
     );
 

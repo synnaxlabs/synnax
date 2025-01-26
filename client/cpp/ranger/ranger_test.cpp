@@ -45,7 +45,7 @@ TEST(RangerTests, testRetrieveByKey) {
         )
     );
     ASSERT_FALSE(err);
-    auto [got, err2] = client.ranges.retrieveByKey(range.key);
+    auto [got, err2] = client.ranges.retrieve_by_key(range.key);
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(got.name, "test");
     ASSERT_FALSE(got.key.length() == 0);
@@ -65,7 +65,7 @@ TEST(RangerTests, testRetrieveByName) {
         )
     );
     ASSERT_FALSE(err);
-    auto [got, err2] = client.ranges.retrieveByName(rand_name);
+    auto [got, err2] = client.ranges.retrieve_by_name(rand_name);
     ASSERT_FALSE(err2);
     ASSERT_EQ(got.name, rand_name);
     ASSERT_FALSE(got.key.length() == 0);
@@ -76,7 +76,7 @@ TEST(RangerTests, testRetrieveByName) {
 /// @brief test retrieve by name not found
 TEST(RangerTests, testRetrieveByNameNotFound) {
     auto client = new_test_client();
-    auto [got, err] = client.ranges.retrieveByName("not_found");
+    auto [got, err] = client.ranges.retrieve_by_name("not_found");
     ASSERT_TRUE(err);
     ASSERT_EQ(err, synnax::NOT_FOUND);
 }
@@ -101,7 +101,7 @@ TEST(RangerTests, testRetrieveMultipleByName) {
         )
     );
     ASSERT_FALSE(err2);
-    auto [got, err3] = client.ranges.retrieveByName(
+    auto [got, err3] = client.ranges.retrieve_by_name(
         std::vector<std::string>{rand_name});
     ASSERT_FALSE(err3);
     ASSERT_EQ(got.size(), 2);
@@ -126,7 +126,7 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     ASSERT_FALSE(err) << err.message();
     auto [range2, err2] = client.ranges.create("test2", tr);
     ASSERT_FALSE(err2) << err2.message();
-    auto [got, err3] = client.ranges.retrieveByKey(
+    auto [got, err3] = client.ranges.retrieve_by_key(
         std::vector<std::string>{range.key, range2.key});
     ASSERT_FALSE(err3) << err3.message();
     ASSERT_EQ(got.size(), 2);
@@ -187,7 +187,7 @@ TEST(RangerTests, testGetFromRetrieved) {
     ASSERT_FALSE(err) << err.message();
     err = range.kv.set("test", "test");
     ASSERT_FALSE(err) << err.message();
-    auto [got, err2] = client.ranges.retrieveByKey(range.key);
+    auto [got, err2] = client.ranges.retrieve_by_key(range.key);
     ASSERT_FALSE(err2) << err2.message();
     auto [val, err3] = got.kv.get("test");
     ASSERT_FALSE(err3) << err3.message();
