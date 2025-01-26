@@ -177,6 +177,9 @@ class Channel(ChannelPayload):
             key=self.key,
             index=self.index,
             is_index=self.is_index,
+            virtual=self.virtual,
+            expression=self.expression,
+            requires=self.requires,
         )
 
 

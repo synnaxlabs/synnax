@@ -24,9 +24,9 @@ client = sy.Synnax()
 # We can just specify the names of the channels we'd like to stream from. These channels
 # were created by running the `stream_write.py`` script.
 # channels = ["stream_write_time", "stream_write_data_1", "stream_write_data_2"]
-channels = ["sy_calculation_state"]
+channels = ["stream_write_time", "stream_write_data_1", "stream_write_data_2"]
 
-count = 1000
+count = 1000 
 
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
@@ -35,5 +35,5 @@ with client.open_streamer(channels) as streamer:
     # frame is available, then we'll print out the frame of data.
     i = 0
     while i < count:
-        print(list(streamer.read().get("sy_calculation_state")))
+        print(streamer.read())
         i += 1

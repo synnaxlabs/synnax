@@ -77,6 +77,35 @@ class TestChannel:
         res = client.channels.retrieve(channel.key)
         assert res.virtual is True
 
+    def test_create_virtual_from_class(self, client: sy.Synnax):
+        """Should create a virtual channel from the class"""
+        channel = sy.Channel(
+            name="test", 
+            data_type=sy.DataType.JSON, 
+            virtual=True
+        )
+        channel = client.channels.create(channel)
+        res = client.channels.retrieve(channel.key)
+        assert res.virtual is True
+
+    def test_create_calculation_from_class(self, client: sy.Synnax):
+        """Should create a calculation channel from the class"""
+        base_v_channel = client.channels.create(
+            name="test",
+            data_type=sy.DataType.FLOAT32,
+            virtual=True
+        )
+        channel = sy.Channel(
+            name="test",
+            data_type=sy.DataType.FLOAT32,
+            expression="return 1 + 1",
+            requires=[base_v_channel.key],
+            virtual=True
+        )
+        channel = client.channels.create(channel)
+        res = client.channels.retrieve(channel.key)
+        assert res.expression == "return 1 + 1"
+
     @pytest.mark.multi_node
     def test_create_with_leaseholder(self, client: sy.Synnax):
         """Should create a channel with a leaseholder"""
