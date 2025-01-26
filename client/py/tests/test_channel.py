@@ -79,11 +79,7 @@ class TestChannel:
 
     def test_create_virtual_from_class(self, client: sy.Synnax):
         """Should create a virtual channel from the class"""
-        channel = sy.Channel(
-            name="test", 
-            data_type=sy.DataType.JSON, 
-            virtual=True
-        )
+        channel = sy.Channel(name="test", data_type=sy.DataType.JSON, virtual=True)
         channel = client.channels.create(channel)
         res = client.channels.retrieve(channel.key)
         assert res.virtual is True
@@ -91,20 +87,33 @@ class TestChannel:
     def test_create_calculation_from_class(self, client: sy.Synnax):
         """Should create a calculation channel from the class"""
         base_v_channel = client.channels.create(
-            name="test",
-            data_type=sy.DataType.FLOAT32,
-            virtual=True
+            name="test", data_type=sy.DataType.FLOAT32, virtual=True
         )
         channel = sy.Channel(
             name="test",
             data_type=sy.DataType.FLOAT32,
             expression="return 1 + 1",
             requires=[base_v_channel.key],
-            virtual=True
+            virtual=True,
         )
         channel = client.channels.create(channel)
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"
+
+    def test_create_calculation_from_kwargs(self, client: sy.Synnax):
+        """Should create a calculated channel from kwargs and auto-set virtual to True"""
+        base_v_channel = client.channels.create(
+            name="test", data_type=sy.DataType.FLOAT32, virtual=True
+        )
+        channel = client.channels.create(
+            name="test",
+            data_type=sy.DataType.FLOAT32,
+            expression="return 1 + 1",
+            requires=[base_v_channel.key],
+        )
+        res = client.channels.retrieve(channel.key)
+        assert res.expression == "return 1 + 1"
+        assert res.requires == [base_v_channel.key]
 
     @pytest.mark.multi_node
     def test_create_with_leaseholder(self, client: sy.Synnax):

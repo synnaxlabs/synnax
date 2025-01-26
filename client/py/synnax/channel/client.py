@@ -64,7 +64,7 @@ class Channel(ChannelPayload):
         index: ChannelKey = 0,
         leaseholder: int = 0,
         key: ChannelKey = 0,
-        virtual: bool = False,
+        virtual: bool | None = None,
         internal: bool = False,
         expression: str = "",
         requires: ChannelKeys = [],
@@ -91,6 +91,8 @@ class Channel(ChannelPayload):
         from the channel. This is provided by the Synnax py during calls to
         .channels.create() and .channels.retrieve() and should not be set by the caller.
         """
+        if virtual is None:
+            virtual = len(expression) > 0
         super().__init__(
             data_type=DataType(data_type),
             rate=Rate(rate),

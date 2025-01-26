@@ -26,7 +26,7 @@ client = sy.Synnax()
 # channels = ["stream_write_time", "stream_write_data_1", "stream_write_data_2"]
 channels = ["stream_write_time", "stream_write_data_1", "stream_write_data_2"]
 
-count = 1000 
+count = 1000
 
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
