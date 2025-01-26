@@ -75,7 +75,7 @@ func SetLValueOnSeries(v lua.LValue, dataType telem.DataType, series telem.Serie
 
 var luaOptions = lua.Options{
 	// A callstack size of 20 is more than enough for all calculations.
-	CallStackSize: 20,
+	CallStackSize: 5,
 	// Keep a fixed size stack to keep CPU overhead low.
 	MinimizeStackMemory: false,
 }
