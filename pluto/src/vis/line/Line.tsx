@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Optional } from "@synnaxlabs/x";
-import { type ReactElement, useLayoutEffect } from "react";
+import { type ReactElement } from "react";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqualProps } from "@/memo";
 import { line } from "@/vis/line/aether";
 
 export interface LineProps
@@ -19,13 +18,11 @@ export interface LineProps
     Aether.CProps {}
 
 export const Line = ({ aetherKey, ...props }: LineProps): ReactElement | null => {
-  const [, , setState] = Aether.use({
+  Aether.useProps({
     aetherKey,
     type: line.Line.TYPE,
     schema: line.stateZ,
-    initialState: props,
+    state: props,
   });
-  const memoProps = useMemoDeepEqualProps(props);
-  useLayoutEffect(() => setState(memoProps), [memoProps]);
   return null;
 };

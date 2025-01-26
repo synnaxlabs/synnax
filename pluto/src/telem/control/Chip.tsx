@@ -99,11 +99,7 @@ export const Chip = ({
   }, [memoProps, setState]);
 
   const handleToggle = useCallback(
-    () =>
-      setState((state) => ({
-        ...state,
-        triggered: !state.triggered,
-      })),
+    () => setState((state) => ({ ...state, triggered: !state.triggered })),
     [setState],
   );
 

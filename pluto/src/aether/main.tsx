@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type SenderHandler } from "@synnaxlabs/x";
+import { deep, type SenderHandler } from "@synnaxlabs/x";
 import { compare } from "@synnaxlabs/x/compare";
 import {
   createContext,
@@ -206,13 +206,44 @@ export interface UseProps<S extends z.ZodTypeAny>
   onAetherChange?: (state: z.output<S>) => void;
 }
 
+interface ComponentContext {
+  path: string[];
+}
+
 export type UseReturn<S extends z.ZodTypeAny> = [
-  {
-    path: string[];
-  },
+  ComponentContext,
   z.output<S>,
   (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void,
 ];
+
+export interface UsePropsProps<S extends z.ZodTypeAny>
+  extends Pick<UseLifecycleProps<S>, "schema" | "aetherKey"> {
+  type: string;
+  state: z.input<S>;
+  onChange?: (state: z.output<S>) => void;
+}
+
+export const useProps = <S extends z.ZodTypeAny>({
+  aetherKey,
+  type,
+  schema,
+  state,
+  onChange,
+}: UsePropsProps<S>): ComponentContext => {
+  const { path, setState } = useLifecycle({
+    aetherKey,
+    type,
+    schema,
+    initialState: state,
+    onReceive: onChange,
+  });
+  const ref = useRef(null);
+  if (!deep.equal(ref.current, state)) {
+    ref.current = state;
+    setState(state);
+  }
+  return { path };
+};
 
 /**
  * Use creates a new aether component with a unique key and type.

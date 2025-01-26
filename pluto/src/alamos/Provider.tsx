@@ -13,12 +13,10 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useContext,
-  useEffect,
 } from "react";
 
 import { Aether } from "@/aether";
 import { alamos } from "@/alamos/aether";
-import { useMemoDeepEqualProps } from "@/memo";
 
 export interface ContextValue {
   instrumentation: Instrumentation;
@@ -34,16 +32,10 @@ export const useInstrumentation = (): Instrumentation =>
   useContext(Context).instrumentation;
 
 export const Provider = ({ children, ...props }: ProviderProps): ReactElement => {
-  const memoProps = useMemoDeepEqualProps(props);
-  const [{ path }, , setState] = Aether.use({
+  const { path } = Aether.useProps({
     type: alamos.Provider.TYPE,
     schema: alamos.providerStateZ,
-    initialState: memoProps,
+    state: props,
   });
-
-  useEffect(() => {
-    setState(memoProps);
-  }, [memoProps, setState]);
-
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
