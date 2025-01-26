@@ -25,11 +25,7 @@ export const Line = ({
   const cKey = useUniqueKey(aetherKey);
   const { setLine, removeLine } = useContext("Line");
   useEffect(() => {
-    setLine({
-      key: cKey,
-      color,
-      label,
-    });
+    setLine({ key: cKey, color, label });
     return () => removeLine(cKey);
   }, [label, color]);
   return <Core.Line aetherKey={cKey} color={color} label={label} {...props} />;

@@ -135,14 +135,13 @@ export interface UseLifecycleProps<S extends z.ZodTypeAny> {
 
 const useLifecycle = <S extends z.ZodTypeAny>({
   type,
-  aetherKey: key,
+  aetherKey,
   initialState,
   schema,
   initialTransfer = [],
   onReceive,
 }: UseLifecycleProps<S>): UseLifecycleReturn<S> => {
-  const iKey = useUniqueKey(key);
-  key ??= iKey;
+  const key = useUniqueKey(aetherKey);
   const comms = useRef<CreateReturn | null>(null);
   const ctx = useAetherContext();
   const path = useMemoCompare(
@@ -220,23 +219,17 @@ export interface UsePropsProps<S extends z.ZodTypeAny>
   extends Pick<UseLifecycleProps<S>, "schema" | "aetherKey"> {
   type: string;
   state: z.input<S>;
-  onChange?: (state: z.output<S>) => void;
 }
 
-export const useProps = <S extends z.ZodTypeAny>({
-  aetherKey,
-  type,
-  schema,
+/***
+ * A simpler version of {@link use} that assumes the caller only wants to propagate
+ * state to the aether component, and not receive state from the aether component.
+ */
+export const useUnidirectional = <S extends z.ZodTypeAny>({
   state,
-  onChange,
+  ...props
 }: UsePropsProps<S>): ComponentContext => {
-  const { path, setState } = useLifecycle({
-    aetherKey,
-    type,
-    schema,
-    initialState: state,
-    onReceive: onChange,
-  });
+  const { path, setState } = useLifecycle({ ...props, initialState: state });
   const ref = useRef(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;

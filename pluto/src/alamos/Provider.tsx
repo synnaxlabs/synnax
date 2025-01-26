@@ -32,7 +32,7 @@ export const useInstrumentation = (): Instrumentation =>
   useContext(Context).instrumentation;
 
 export const Provider = ({ children, ...props }: ProviderProps): ReactElement => {
-  const { path } = Aether.useProps({
+  const { path } = Aether.useUnidirectional({
     type: alamos.Provider.TYPE,
     schema: alamos.providerStateZ,
     state: props,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Optional } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { memo, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { line } from "@/vis/line/aether";
@@ -17,12 +17,14 @@ export interface LineProps
   extends Optional<Omit<line.State, "key">, "strokeWidth">,
     Aether.CProps {}
 
-export const Line = ({ aetherKey, ...props }: LineProps): ReactElement | null => {
-  Aether.useProps({
+export const Line = memo(({ aetherKey, ...props }: LineProps): ReactElement | null => {
+  console.log("RUN", props);
+  Aether.useUnidirectional({
     aetherKey,
     type: line.Line.TYPE,
     schema: line.stateZ,
     state: props,
   });
   return null;
-};
+});
+Line.displayName = "Line";
