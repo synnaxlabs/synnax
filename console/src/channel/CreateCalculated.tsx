@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, framer } from "@synnaxlabs/client";
+import { channel, DataType, framer } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
   Align,
@@ -88,33 +88,33 @@ const ZERO_FORM_VALUES: FormValues = {
   expression: "",
 };
 
-interface CalculationState {
-  key: channel.Key;
-  variant: "error" | "success" | "info";
-  message: string;
-}
+const calculationStateZ = z.object({
+  key: channel.keyZ,
+  variant: z.enum(["error", "success", "info"]),
+  message: z.string(),
+});
+
+const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
 
 export const useListenForCalculationState = (): void => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
   Observe.useListener({
-    key: ["sy_calculation_state", client?.key],
+    key: [CALCULATION_STATE_CHANNEL, client?.key],
     open: async () => {
       if (client == null) return;
-      const s = await client.openStreamer({
-        channels: ["sy_calculation_state"],
-      });
+      const s = await client.openStreamer({ channels: [CALCULATION_STATE_CHANNEL] });
       return new framer.ObservableStreamer(s);
     },
-    onChange: (state) => {
-      const s = Array.from(
-        state.get("sy_calculation_state"),
-      )[0] as unknown as CalculationState;
-      client?.channels.retrieve(s.key).then((ch) => {
-        addStatus({
-          variant: s.variant,
-          message: `Calculation failed for ${ch.name}`,
-          description: s.message,
+    onChange: (frame) => {
+      const state = frame.get(CALCULATION_STATE_CHANNEL).parseJSON(calculationStateZ);
+      state.forEach(({ key, variant, message }) => {
+        client?.channels.retrieve(key).then((ch) => {
+          addStatus({
+            variant,
+            message: `Calculation for ${ch.name} failed`,
+            description: message,
+          });
         });
       });
     },

@@ -11,15 +11,19 @@ package telem
 
 import (
 	"encoding/binary"
+	"math"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/types"
-	"math"
 )
 
-type Value interface {
-	types.Numeric
-}
+// Value represents any numeric value that can be stored in a Series.
+// It must satisfy the types.Numeric interface.
+type Value interface{ types.Numeric }
 
+// NewSeries creates a new Series from a slice of numeric values.
+// It automatically determines the data type from the first element.
+// Panics if the input slice is empty.
 func NewSeries[T Value](data []T) (series Series) {
 	if len(data) == 0 {
 		panic("cannot infer data type from empty array")
@@ -29,16 +33,23 @@ func NewSeries[T Value](data []T) (series Series) {
 	return series
 }
 
+// NewSeriesV is a variadic version of NewSeries that creates a new Series
+// from individual numeric values.
 func NewSeriesV[T Value](data ...T) (series Series) {
 	return NewSeries[T](data)
 }
 
+// AllocSeries allocates a new Series with the specified DataType and length. Note that
+// this function allocates a length and not a capacity.
 func AllocSeries(dt DataType, size int64) (series Series) {
 	series.DataType = dt
 	series.Data = make([]byte, size*int64(dt.Density()))
 	return series
 }
 
+// NewSecondsTSV creates a new Series containing TimeStamp values.
+// All input timestamps are multiplied by SecondTS to convert them to the standard
+// time unit used in the system.
 func NewSecondsTSV(data ...TimeStamp) (series Series) {
 	for i := range data {
 		data[i] *= SecondTS
@@ -48,18 +59,23 @@ func NewSecondsTSV(data ...TimeStamp) (series Series) {
 	return series
 }
 
+// NewStrings creates a new Series from a slice of strings.
+// The strings are stored with newline characters as delimiters.
 func NewStrings(data []string) (series Series) {
 	series.DataType = StringT
 	series.Data = MarshalStrings(data, series.DataType)
 	return series
 }
 
-func NewStringsV(data ...string) (series Series) {
-	return NewStrings(data)
-}
+// NewStringsV is a variadic version of NewStrings that creates a new Series
+// from individual string values.
+func NewStringsV(data ...string) (series Series) { return NewStrings(data) }
 
 const newLine = '\n'
 
+// MarshalStrings converts a slice of strings into a byte slice.
+// Each string is terminated with a newline character.
+// Panics if the DataType is not variable length.
 func MarshalStrings(data []string, dt DataType) []byte {
 	if !dt.IsVariable() {
 		panic("data type must be variable length")
@@ -75,6 +91,8 @@ func MarshalStrings(data []string, dt DataType) []byte {
 	return b
 }
 
+// UnmarshalStrings converts a byte slice back into a slice of strings.
+// It assumes strings are separated by newline characters.
 func UnmarshalStrings(b []byte) (data []string) {
 	offset := 0
 	for offset < len(b) {
@@ -88,6 +106,8 @@ func UnmarshalStrings(b []byte) (data []string) {
 	return data
 }
 
+// MarshalSlice converts a slice of numeric values into a byte slice according
+// to the specified DataType.
 func MarshalSlice[T Value](data []T, dt DataType) []byte {
 	b := make([]byte, dt.Density().Size(int64(len(data))))
 	m := MarshalF[T](dt)
@@ -98,6 +118,8 @@ func MarshalSlice[T Value](data []T, dt DataType) []byte {
 	return b
 }
 
+// UnmarshalSlice converts a byte slice back into a slice of numeric values
+// according to the specified DataType.
 func UnmarshalSlice[T Value](b []byte, dt DataType) (data []T) {
 	data = make([]T, len(b)/int(dt.Density()))
 	um := UnmarshalF[T](dt)
@@ -108,10 +130,18 @@ func UnmarshalSlice[T Value](b []byte, dt DataType) (data []T) {
 	return data
 }
 
+// Unmarshal converts a Series' data back into a slice of the original type.
 func Unmarshal[T Value](series Series) []T {
 	return UnmarshalSlice[T](series.Data, series.DataType)
 }
 
+// ByteOrder specifies the byte order used for encoding numeric values.
+// The package uses little-endian byte order by default.
+var ByteOrder = binary.LittleEndian
+
+// MarshalF returns a function that can marshal a single value of type T
+// into a byte slice according to the specified DataType.
+// Panics if the DataType is not supported.
 func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	switch dt {
 	case Float64T:
@@ -146,6 +176,9 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	panic("unsupported data type")
 }
 
+// UnmarshalF returns a function that can unmarshal a byte slice into
+// a single value of type T according to the specified DataType.
+// Panics if the DataType is not supported.
 func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
 	switch dt {
 	case Float64T:
@@ -179,5 +212,3 @@ func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
 	}
 	panic("unsupported data type")
 }
-
-var ByteOrder = binary.LittleEndian

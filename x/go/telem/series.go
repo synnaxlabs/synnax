@@ -66,7 +66,9 @@ func (s Series) Split() [][]byte {
 	return o
 }
 
-// ValueAt returns the value at the given index in the series.
+// ValueAt returns the numeric value at the given index in the series. ValueAt supports
+// negative indices, which will be wrapped around the end of the series. This function
+// cannot be used for variable density series.
 func ValueAt[T types.Numeric](s Series, i int64) T {
 	if i < 0 {
 		i += s.Len()
@@ -75,8 +77,13 @@ func ValueAt[T types.Numeric](s Series, i int64) T {
 	return UnmarshalF[T](s.DataType)(b)
 }
 
-// SetValueAt sets the value at the given index in the series.
+// SetValueAt sets the value at the given index in the series. SetValueAt supports
+// negative indices, which will be wrapped around the end of the series. This function
+// cannot be used for variable density series.
 func SetValueAt[T types.Numeric](s Series, i int64, v T) {
+	if i < 0 {
+		i += s.Len()
+	}
 	f := MarshalF[T](s.DataType)
 	f(s.Data[i*int64(s.DataType.Density()):], v)
 }

@@ -180,10 +180,6 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const reg = this.state.region;
     const canvas = renderCtx[CANVAS];
     const draw2d = new Draw2D(canvas, this.internal.theme);
-    draw2d.container({
-      region: reg,
-      backgroundColor: "#FF0000",
-    });
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderElements(draw2d, range);
     this.renderScrollbar(draw2d);
