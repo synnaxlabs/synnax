@@ -122,5 +122,5 @@ func (c *Calculator) Run() (result lua.LValue, err error) {
 }
 
 // Close clears all calculation resources. Once Close is called, no other methods
-// should be called on teh calculator.
+// should be called on the calculator.
 func (c *Calculator) Close() { c.l.Close() }

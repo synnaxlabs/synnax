@@ -48,7 +48,12 @@ const schema = createFormValidator(
     .extend({
       name: z.string().min(1, "Name must not be empty"),
       dataType: DataType.z.transform((v) => v.toString()),
-      expression: z.string().min(1, "Expression must not be empty"),
+      expression: z
+        .string()
+        .min(1, "Expression must not be empty")
+        .refine((v) => v.includes("return"), {
+          message: "Expression must contain a return statement",
+        }),
     })
     .refine((v) => v.requires?.length > 0, {
       message: "Expression must use at least one synnax channel",
@@ -85,7 +90,7 @@ export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.Stat
 const ZERO_FORM_VALUES: FormValues = {
   ...ZERO_CHANNEL,
   virtual: true, // Set to true by default
-  expression: "",
+  expression: "return 0",
 };
 
 const calculationStateZ = z.object({
@@ -304,34 +309,38 @@ const Editor = (props: Code.EditorProps): ReactElement => {
   // Specifically to handle generating requires list when reopening existing calc channel
   useEffect(() => {
     if (!client || !props.value) return;
-    const initializeRequiredChannels = async () => {
+    const updateRequiredChannels = async () => {
       try {
-        // Find all channel dictionary accesses with either single or double quotes
-        const channelRegex = /channels\[(['"])(.*?)\1\]/g;
+        const channelRegex = /\b([a-zA-Z][a-zA-Z0-9_-]*)\b/g;
         const channelNames: string[] = [];
         let match;
 
         // Extract all matches
-        while ((match = channelRegex.exec(props.value)) !== null)
-          channelNames.push(match[2]); // match[2] contains the channel name without quotes
+        while ((match = channelRegex.exec(props.value)) !== null) {
+          const channelName = match[1];
+          if (channelName) channelNames.push(channelName);
+        }
 
         const channels = await Promise.all(
-          channelNames.map((name) =>
-            client.channels
-              .search(name, { internal: false })
-              .then((results) => results.find((ch) => ch.name === name)),
-          ),
+          channelNames.map(async (name) => {
+            const results = await client.channels.search(name, { internal: false });
+            const exactMatch = results.find((ch) => ch.name === name);
+            return exactMatch;
+          }),
         );
         const channelKeys = channels
           .filter((ch): ch is NonNullable<typeof ch> => ch != null)
           .map((ch) => ch.key);
-        if (channelKeys.length > 0)
-          requires.onChange(unique.unique([...valueRef.current, ...channelKeys]));
+
+        if (channelKeys.length > 0) {
+          const newRequires = unique.unique([...valueRef.current, ...channelKeys]);
+          requires.onChange(newRequires);
+        }
       } catch (error) {
-        console.error("Error initializing required channels:", error);
+        console.error("Error updating required channels:", error);
       }
     };
-    initializeRequiredChannels();
+    updateRequiredChannels();
   }, [client, props.value]);
 
   // Register Monaco editor commands and completion provider
