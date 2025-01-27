@@ -15,6 +15,7 @@
 #include "client/cpp/synnax.h"
 #include "driver/ni/ni.h"
 #include "driver/testutil/testutil.h"
+#include "nidaqmx/nidaqmx_prod.h"
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
@@ -649,7 +650,9 @@ TEST(read_test, taring){
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    auto reader_task = ni::ReaderTask::configure(mockCtx, task);
+    auto [dmx, dmx_err] = DAQmxProd::load();
+
+    auto reader_task = ni::ReaderTask::configure(dmx, mockCtx, task);
     auto start_cmd = task::Command{task.key, "start", {}};
     auto stop_cmd = task::Command{task.key, "stop", {}};
 //    auto tare_cmd = task::Command{task.key, "tare", j};

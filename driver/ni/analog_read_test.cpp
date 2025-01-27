@@ -14,8 +14,9 @@
 #include "driver/ni/ni.h"
 #include "driver/testutil/testutil.h"
 
-#include <include/gtest/gtest.h>
+#include <gtest/gtest.h>
 #include "glog/logging.h"
+#include "nidaqmx/nidaqmx_prod.h"
 
 #include "nlohmann/json.hpp"
 
@@ -51,13 +52,16 @@ TEST(read_tests, multiple_analog_channels) {
     auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-    auto [data1, dErr2] = client->channels.create("ai2", synnax::FLOAT32, time.key, false);
+    auto [data1, dErr2] = client->channels.create("ai2", synnax::FLOAT32, time.key,
+                                                  false);
     ASSERT_FALSE(dErr2) << dErr.message();
 
-    auto [data2, dErr3] = client->channels.create("ai3", synnax::FLOAT32, time.key, false);
+    auto [data2, dErr3] = client->channels.create("ai3", synnax::FLOAT32, time.key,
+                                                  false);
     ASSERT_FALSE(dErr3) << dErr.message();
 
-    auto [data3, dErr4] = client->channels.create("ai4", synnax::FLOAT32, time.key, false);
+    auto [data3, dErr4] = client->channels.create("ai4", synnax::FLOAT32, time.key,
+                                                  false);
     ASSERT_FALSE(dErr4) << dErr.message();
 
     auto config = json{
@@ -85,14 +89,17 @@ TEST(read_tests, multiple_analog_channels) {
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    TaskHandle taskHandle;
-    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
+    auto [dmx, dmx_err] = DAQmxProd::load();
+    ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
+    TaskHandle taskHandle;
+    dmx->CreateTask("", &taskHandle);
+
+    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
-    reader.start();
+    reader.start("");
 
     for (int i = 0; i < 2; i++) {
         std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -101,7 +108,7 @@ TEST(read_tests, multiple_analog_channels) {
 
         VLOG(1) << frame << "\n";
     }
-    reader.stop();
+    reader.stop("");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -143,22 +150,24 @@ TEST(read_tests, analog_linear_scaling) {
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    TaskHandle taskHandle;
-    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
+    auto [dmx, dmx_err] = DAQmxProd::load();
+    ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
+    TaskHandle taskHandle;
+    dmx->CreateTask("", &taskHandle);
+
+    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
 
-
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
-    reader.start();
+    reader.start("");
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read(b);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
     VLOG(1) << frame;
-    reader.stop();
+    reader.stop("");
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -198,20 +207,23 @@ TEST(read_tests, analog_map_scaling) {
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    TaskHandle taskHandle;
-    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
+    auto [dmx, dmx_err] = DAQmxProd::load();
+    ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    auto reader = ni::AnalogReadSource(taskHandle, mockCtx, task);
+    TaskHandle taskHandle;
+    dmx->CreateTask("", &taskHandle);
+
+    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1 * SECOND, 1, 1});
 
     if (reader.init() != 0) std::cout << "Failed to initialize reader" << std::endl;
-    reader.start();
+    reader.start("");
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read(b);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
     VLOG(1) << frame;
-    reader.stop();
+    reader.stop("");
 }
 
 
@@ -223,7 +235,8 @@ TEST(read_tests, analog_map_scaling) {
 ///////////////////////////////////////////////////////////////////
 //                          Helper                               //
 ///////////////////////////////////////////////////////////////////
-void analog_channel_helper(json config, json scale_config, json channel_config, float lower_bound = -1000,
+void analog_channel_helper(json config, json scale_config, json channel_config,
+                           float lower_bound = -1000,
                            float upper_bound = 1000) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
@@ -258,13 +271,13 @@ void analog_channel_helper(json config, json scale_config, json channel_config, 
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    TaskHandle taskHandle;
-    ni::NiDAQmxInterface::CreateTask("", &taskHandle);
+    auto [dmx, dmx_err] = DAQmxProd::load();
+    ASSERT_FALSE(dmx_err) << dmx_err.message();
 
-    auto reader = ni::AnalogReadSource(
-        taskHandle,
-        mockCtx,
-        task);
+    TaskHandle taskHandle;
+    dmx->CreateTask("", &taskHandle);
+
+    auto reader = ni::AnalogReadSource(dmx, taskHandle, mockCtx, task);
 
     auto b = breaker::Breaker(
         breaker::Config{
@@ -276,7 +289,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config, 
 
     if (reader.init() != 0)
         LOG(ERROR) << "Failed to initialize reader" << std::endl;
-    reader.start();
+    reader.start("");
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read(b);
@@ -293,7 +306,7 @@ void analog_channel_helper(json config, json scale_config, json channel_config, 
         ASSERT_LE(val, upper_bound);
     }
 
-    reader.stop();
+    reader.stop("");
 }
 
 ///////////////////////////////////////////////////////////////////
