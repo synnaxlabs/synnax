@@ -500,12 +500,12 @@ int digital_out() {
         err = LJM_eWriteName(handle, name, value);
         ErrorCheck(err, "LJM_eWriteName");
         printf("\nSet %s state : %f\n", name, value);
-        Sleep(100);
+        sleep(100);
         value = 0;
         err = LJM_eWriteName(handle, name, value);
         ErrorCheck(err, "LJM_eWriteName");
         printf("\nSet %s state : %f\n", name, value);
-        Sleep(100);
+        sleep(100);
     }
 
 

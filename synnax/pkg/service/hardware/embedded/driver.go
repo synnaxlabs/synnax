@@ -63,9 +63,10 @@ func (c Config) format() map[string]interface{} {
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{
-		Integrations: make([]string, 0),
+	_               config.Config[Config] = Config{}
+	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence"}
+	DefaultConfig                         = Config{
+		Integrations: []string{},
 		Enabled:      config.Bool(true),
 		Debug:        config.False(),
 	}

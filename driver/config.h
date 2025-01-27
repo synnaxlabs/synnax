@@ -9,24 +9,25 @@
 
 #pragma once
 
-#include "nlohmann/json.hpp"
-#include "client/cpp/synnax.h"
-#include "driver/breaker/breaker.h"
-#include "task/task.h"
-
-#include <iostream>
+/// std
 #include <fstream>
 
+/// external
+#include "nlohmann/json.hpp"
+
+/// internal
 #include "driver/config.h"
 #include "driver/opc/opc.h"
 #include "driver/ni/ni.h"
+#include "client/cpp/synnax.h"
+#include "driver/breaker/breaker.h"
 
 #ifdef _WIN32
 #include "driver/labjack/labjack.h"
 #endif
 
-#include "nlohmann/json.hpp"
 #include "glog/logging.h"
+#include "sequence/task.h"
 
 
 using json = nlohmann::json;
@@ -39,6 +40,14 @@ struct Config {
     breaker::Config breaker_config;
     std::vector<std::string> integrations;
     bool debug;
+
+    bool integration_enabled(const std::string &integration) const {
+        return std::find(
+                   integrations.begin(),
+                   integrations.end(),
+                   integration
+               ) != integrations.end();
+    }
 };
 
 inline std::pair<configd::Config, freighter::Error> parse(
@@ -68,13 +77,16 @@ inline std::pair<configd::Config, freighter::Error> parse(
     auto rack_key = rack.optional<synnax::RackKey>("key", 0);
     auto rack_name = rack.optional<std::string>("name", "sy_node_1_rack");
 
+    auto default_integrations = std::vector<std::string>{
+        opc::INTEGRATION_NAME, ni::INTEGRATION_NAME, sequence::INTEGRATION_NAME
+    };
 #ifdef _WIN32
-    auto integrations = p.optional<std::vector<std::string> >(
-        "integrations", {opc::INTEGRATION_NAME, ni::INTEGRATION_NAME, labjack::INTEGRATION_NAME});
-#else
-    auto integrations = p.optional<std::vector<std::string> >(
-        "integrations", {opc::INTEGRATION_NAME, ni::INTEGRATION_NAME});
+        default_integrations.push_back(labjack::INTEGRATION_NAME);
 #endif
+    auto integrations = p.optional<std::vector<std::string> >(
+        "integrations", default_integrations
+    );
+
     auto debug = p.optional<bool>("debug", false);
     if (!p.ok()) return {Config{}, p.error()};
     return {

@@ -136,7 +136,7 @@ public:
     ) override {
         freighter::Context ctx(
             priv::PROTOCOL,
-            base_target.child(target).toString(),
+            base_target.child(target).to_string(),
             freighter::UNARY
         );
         return mw.exec(ctx, this, request);
@@ -220,7 +220,7 @@ public:
     }
 
     /// @brief Closing streamer.
-    void closeSend() override {
+    void close_send() override {
         if (writes_done_called) return;
         stream->WritesDone();
         writes_done_called = true;
@@ -286,7 +286,7 @@ public:
     stream(const std::string &target) override {
         auto ctx = freighter::Context(
             "grpc",
-            base_target.child(target).toString(),
+            base_target.child(target).to_string(),
             freighter::STREAM
         );
         auto v = nullptr;

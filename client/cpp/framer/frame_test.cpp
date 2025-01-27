@@ -12,17 +12,19 @@
 
 /// @brief it should construct a frame with a pre-allocated size.
 TEST(FramerTests, testConstruction) {
-    auto f = synnax::Frame(2);
-    f.add(65537, synnax::Series(std::vector<float>{1, 2, 3}));
+    const auto f = synnax::Frame(2);
+    auto s = synnax::Series(std::vector<float>{1, 2, 3});
+    f.emplace(65537, std::move(s));
     ASSERT_EQ(f.size(), 1);
 }
 
 /// @brief it should construct a frame from a proto.
 TEST(FramerTests, toProto) {
     const auto f = synnax::Frame(2);
-    f.add(65537, synnax::Series(std::vector<float>{1, 2, 3}));
+    auto s = synnax::Series(std::vector<float>{1, 2, 3});
+    f.emplace(65537, std::move(s));
     const auto p = new api::v1::Frame();
-    f.toProto(p);
+    f.to_proto(p);
     ASSERT_EQ(p->keys_size(), 1);
     ASSERT_EQ(p->series_size(), 1);
     const auto f2 = synnax::Frame(*p);
@@ -34,7 +36,8 @@ TEST(FramerTests, toProto) {
 /// @brief test ostream operator.
 TEST(FramerTests, ostream) {
     auto f = synnax::Frame(2);
-    f.add(65537, synnax::Series(std::vector<float>{1, 2, 3}));
+    auto s = synnax::Series(std::vector<float>{1, 2, 3});
+    f.emplace(65537, std::move(s));
     std::stringstream ss;
     ss << f;
     ASSERT_EQ(ss.str(),

@@ -32,7 +32,7 @@ TEST(FramerTests, testWriteBasic) {
     ASSERT_FALSE(dErr) << dErr.message();
 
     auto now = synnax::TimeStamp::now();
-    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
+    auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         std::vector<synnax::ChannelKey>{time.key, data.key},
         now,
         std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
@@ -78,7 +78,7 @@ TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
     );
     ASSERT_FALSE(t_err) << t_err.message();
     auto now = synnax::TimeStamp::now();
-    auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
+    auto [writer, w_err] = client.telem.open_writer(synnax::WriterConfig{
         std::vector<synnax::ChannelKey>{time.key, 1000},
         now,
         std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
@@ -97,7 +97,7 @@ TEST(FramerTests, testWriteToUnspecifiedChannel) {
         true
     );
     ASSERT_FALSE(t_err) << t_err.message();
-    auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
+    auto [writer, w_err] = client.telem.open_writer(synnax::WriterConfig{
         std::vector<synnax::ChannelKey>{time.key},
         synnax::TimeStamp::now(),
         std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
@@ -132,7 +132,7 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
         time.key,
         false
     );
-    auto [w1, w_err] = client.telem.openWriter(synnax::WriterConfig{
+    auto [w1, w_err] = client.telem.open_writer(synnax::WriterConfig{
         .channels = std::vector{time.key, data.key},
         .start = synnax::TimeStamp::now(),
         .authorities = std::vector{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},
@@ -140,7 +140,7 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
         .err_on_unauthorized = true
     });
     ASSERT_FALSE(w_err) << w_err.message();
-    auto [w2, w2_err] = client.telem.openWriter(synnax::WriterConfig{
+    auto [w2, w2_err] = client.telem.open_writer(synnax::WriterConfig{
         .channels = std::vector{time.key, data.key},
         .start = synnax::TimeStamp::now(),
         .authorities = std::vector{synnax::AUTH_ABSOLUTE, synnax::AUTH_ABSOLUTE},

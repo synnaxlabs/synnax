@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "freighter/cpp/freighter.h"
 
 template<typename RQ, typename RS>
@@ -24,12 +26,12 @@ public:
     MockUnaryClient(
         std::vector<RS> responses,
         std::vector<freighter::Error> response_errors
-    ) : responses(responses), response_errors(response_errors) {
+    ) : responses(responses), response_errors(std::move(response_errors)) {
     }
 
     MockUnaryClient(
         RS response,
-        freighter::Error response_error
+        const freighter::Error& response_error
     ) : responses({response}), response_errors({response_error}) {
     }
 

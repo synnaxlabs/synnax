@@ -125,9 +125,8 @@ class Factory final : public task::Factory {
             }
             auto [task, ok] = configure_task(ctx, sy_task);
             if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
-        } else if (err) {
+        } else if (err)
             LOG(ERROR) << "failed to retrieve heartbeat task: " << err;
-        }
         return tasks;
     }
 };

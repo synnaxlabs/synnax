@@ -50,7 +50,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "result = base * 2",
+			Expression:  "base * 2",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
@@ -89,7 +89,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "result = base * fake",
+			Expression:  "base * fake",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
@@ -130,7 +130,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "result = base / 0",
+			Expression:  "base / 0",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
@@ -171,7 +171,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "result = base * 2",
+			Expression:  "base * 2",
 		}
 		Expect(dist.Channel.Create(ctx, &calc1CH)).To(Succeed())
 
@@ -182,7 +182,7 @@ var _ = Describe("Calculated", Ordered, func() {
 			Virtual:     true,
 			Leaseholder: core.Free,
 			Requires:    []channel.Key{calc1CH.Key()},
-			Expression:  "result = calc1 + 1",
+			Expression:  "calc1 + 1",
 		}
 		Expect(dist.Channel.Create(ctx, &calc2CH)).To(Succeed())
 

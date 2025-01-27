@@ -97,7 +97,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         return nullptr;
     }
     VLOG(2) << "[opc.reader] successfully parsed configuration for " << task.name;
-    auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
+    auto [device, dev_err] = ctx->client->hardware.retrieve_device(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();

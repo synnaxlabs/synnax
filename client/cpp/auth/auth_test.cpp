@@ -23,7 +23,7 @@ TEST(TestAuth, testLoginHappyPath) {
         api::v1::LoginRequest,
         api::v1::LoginResponse
     > >(res, freighter::NIL);
-    auto mw = std::make_shared<AuthMiddleware>(
+    const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
         "seldon",

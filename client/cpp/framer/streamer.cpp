@@ -7,59 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <string>
 
+/// internal
 #include "client/cpp/framer/framer.h"
 
-std::string STREAM_ENDPOINT = "/frame/stream";
+const std::string STREAM_ENDPOINT = "/frame/stream";
 
 using namespace synnax;
 
-void StreamerConfig::toProto(api::v1::FrameStreamerRequest &f) const {
+void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
     f.set_downsample_factor(downsample_factor);
 }
 
-std::pair<Streamer, freighter::Error> FrameClient::openStreamer(
-    const StreamerConfig &config
-) const {
+std::pair<Streamer, freighter::Error>
+FrameClient::open_streamer(const StreamerConfig &config) const {
     auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
-    if (exc)
-        return {Streamer(), exc};
-    auto req = api::v1::FrameStreamerRequest();
-    config.toProto(req);
-    auto exc2 = s->send(req);
-    if (exc2) return {Streamer(std::move(s)), exc2};
+    if (exc) return {Streamer(), exc};
+    api::v1::FrameStreamerRequest req;
+    config.to_proto(req);
+    if (auto exc2 = s->send(req)) return {Streamer(std::move(s)), exc2};
     auto [_, resExc] = s->receive();
     return {Streamer(std::move(s)), resExc};
 }
 
-Streamer::Streamer(std::unique_ptr<StreamerStream> s) : stream(std::move(s)) {
+Streamer::Streamer(std::unique_ptr<StreamerStream> stream) :
+    stream(std::move(stream)) {
 }
 
 std::pair<Frame, freighter::Error> Streamer::read() const {
-    assertOpen();
-    auto [fr, exc] = stream->receive();
+    this->assert_open();
+    auto [fr, exc] = this->stream->receive();
     return {Frame(fr.frame()), exc};
 }
 
-void Streamer::closeSend() const { stream->closeSend(); }
+void Streamer::close_send() const { this->stream->close_send(); }
 
 freighter::Error Streamer::close() const {
-    closeSend();
-    auto [res, err] = stream->receive();
-    if (err.matches(freighter::EOF_)) return freighter::NIL;
-    return err;
+    this->close_send();
+    auto [_, err] = this->stream->receive();
+    return err.skip(freighter::EOF_);
 }
 
-freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels) const {
-    assertOpen();
-    auto req = api::v1::FrameStreamerRequest();
+freighter::Error Streamer::set_channels(std::vector<ChannelKey> channels) const {
+    this->assert_open();
+    api::v1::FrameStreamerRequest req;
     req.mutable_keys()->Add(channels.begin(), channels.end());
-    return stream->send(req);
+    return this->stream->send(req);
 }
 
-void Streamer::assertOpen() const {
-    if (closed)
-        throw std::runtime_error("streamer is closed");
+void Streamer::assert_open() const {
+    if (closed) throw std::runtime_error("streamer is closed");
 }

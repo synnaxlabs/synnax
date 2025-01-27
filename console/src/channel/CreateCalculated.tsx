@@ -47,12 +47,7 @@ const schema = createFormValidator(
     .extend({
       name: z.string().min(1, "Name must not be empty"),
       dataType: DataType.z.transform((v) => v.toString()),
-      expression: z
-        .string()
-        .refine((v) => v.includes("result =") || v.includes("result="), {
-          message:
-            'Expression must assign calculation to result (i.e. must include a "result =" expression)',
-        }),
+      expression: z.string().min(1, "Expression must not be empty"),
     })
     .refine((v) => v.requires?.length > 0, {
       message: "Expression must use at least one synnax channel",
@@ -89,7 +84,7 @@ export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.Stat
 const ZERO_FORM_VALUES: FormValues = {
   ...ZERO_CHANNEL,
   virtual: true, // Set to true by default
-  expression: "result =",
+  expression: "",
 };
 
 export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) => {
