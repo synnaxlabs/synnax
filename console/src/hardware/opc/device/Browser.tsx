@@ -150,7 +150,6 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
       style={{
         overflow: "hidden",
         height: "100%",
-        maxWidth: "30%",
         width: "100%",
         flexBasis: "200px",
       }}

@@ -41,9 +41,9 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 
 const EmptyContent = (): ReactElement => {
-  const place = Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const handleClick: React.MouseEventHandler<HTMLParagraphElement> = () => {
-    place(ZERO_SELECTOR_LAYOUT);
+    placeLayout(ZERO_SELECTOR_LAYOUT);
   };
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>

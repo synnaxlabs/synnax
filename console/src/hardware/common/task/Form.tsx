@@ -24,10 +24,6 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
-import {
-  checkDesiredStateMatch,
-  useDesiredState,
-} from "@/hardware/common/task/desiredState";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import {
   type ConfigSchema,
@@ -36,7 +32,7 @@ import {
   type WrapOptions,
 } from "@/hardware/common/task/Task";
 import { useCreate } from "@/hardware/common/task/useCreate";
-import { useObserveState } from "@/hardware/common/task/useObserveState";
+import { useDesiredState } from "@/hardware/common/task/useDesiredState";
 import { type Layout } from "@/layout";
 
 type BaseStateDetails = { running: boolean };
@@ -86,16 +82,7 @@ export const wrapForm = <
     const values = { name: task.name, config: task.config };
     const methods = PForm.use<Schema<C>>({ schema, values });
     const createTask = useCreate<C, D, T>(layoutKey);
-    const taskState = useObserveState<D>(
-      methods.setStatus,
-      methods.clearStatuses,
-      task.key,
-      task.state ?? undefined,
-    );
-    const running = taskState?.details?.running;
-    const initialState =
-      running === true ? "running" : running === false ? "paused" : undefined;
-    const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
+    const [state, setState] = useDesiredState(task?.key, task?.state ?? undefined);
     const configureMutation = useMutation({
       mutationFn: async () => {
         if (client == null) throw new Error("Client not found");
@@ -106,8 +93,8 @@ export const wrapForm = <
         methods.set("config", newConfig);
         // current work around for Pluto form issues
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
-        createTask({ key: task?.key, name, type, config: newConfig });
-        setDesiredState("paused");
+        await createTask({ key: task?.key, name, type, config: newConfig });
+        setState("paused");
       },
       onError: (e) => handleException(e, "Failed to configure task"),
     });
@@ -115,18 +102,21 @@ export const wrapForm = <
       mutationFn: async () => {
         if (!(task instanceof clientTask.Task))
           throw new Error("Task has not been configured");
-        const isRunning = running === true;
-        setDesiredState(isRunning ? "paused" : "running");
-        await task.executeCommand(isRunning ? "stop" : "start");
+        if (state.state === "loading")
+          throw new Error("State is loading, should not be able to start or stop task");
+        await task.executeCommand(state.state === "running" ? "stop" : "start");
       },
       onError: (e) =>
-        handleException(e, `Failed to ${running ? "stop" : "start"} task`),
+        handleException(
+          e,
+          `Failed to ${state.state === "running" ? "stop" : state.state === "paused" ? "start" : "start or stop"} task`,
+        ),
     });
-    const snapshot = task.snapshot;
+    const isSnapshot = task.snapshot ?? false;
     return (
       <Align.Space direction="y" className={CSS.B("task-configure")} grow empty>
         <Align.Space grow>
-          <PForm.Form {...methods} mode={snapshot ? "preview" : "normal"}>
+          <PForm.Form {...methods} mode={isSnapshot ? "preview" : "normal"}>
             <Align.Space direction="x" justify="spaceBetween">
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
@@ -150,23 +140,18 @@ export const wrapForm = <
               <Form
                 methods={methods}
                 task={task}
-                isRunning={taskState?.details?.running ?? false}
-                isSnapshot={task?.snapshot ?? false}
+                isRunning={state.state === "running"}
+                isSnapshot={isSnapshot}
               />
             </Align.Space>
           </PForm.Form>
           <Controls
             layoutKey={layoutKey}
-            state={taskState}
-            startingOrStopping={
-              startOrStopMutation.isPending ||
-              (!checkDesiredStateMatch(desiredState, running) &&
-                taskState?.variant === "success")
-            }
-            configuring={configureMutation.isPending}
+            state={state}
+            isConfiguring={configureMutation.isPending}
             onStartStop={startOrStopMutation.mutate}
             onConfigure={configureMutation.mutate}
-            snapshot={snapshot}
+            isSnapshot={isSnapshot}
           />
         </Align.Space>
       </Align.Space>

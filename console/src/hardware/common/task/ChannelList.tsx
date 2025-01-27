@@ -12,7 +12,6 @@ import { Align, Form, List, Menu as PMenu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
-import { CSS } from "@/css";
 
 export interface Channel {
   key: string;
@@ -130,10 +129,7 @@ export const ChannelList = <C extends Channel>({
               clickedIndex != null && onSelect(keys, clickedIndex)
             }
           >
-            <List.Core<string, C>
-              style={{ height: "100%" }}
-              className={isDragging ? CSS.B("dragging") : undefined}
-            >
+            <List.Core<string, C>>
               {(props) =>
                 children({ ...props, path: `${path}.${props.index}`, isSnapshot })
               }

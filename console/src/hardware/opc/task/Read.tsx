@@ -137,7 +137,7 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
       }
       emptyContent={
         <Align.Center>
-          <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
+          <Text.Text shade={6} level="p">
             No channels added. Drag a variable{" "}
             <Icon.Variable
               style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
@@ -381,10 +381,10 @@ const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>
     isSnapshot={isSnapshot}
   >
     {({ device }) => (
-      <Align.Space direction="x">
+      <>
         {!isSnapshot && <Device.Browser device={device} />}
         <ChannelList path="config.channels" device={device} snapshot={isSnapshot} />
-      </Align.Space>
+      </>
     )}
   </Common.Device.Provider>
 );

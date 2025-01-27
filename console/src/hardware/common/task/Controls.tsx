@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Status, Text, Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { type ReturnState } from "@/hardware/common/task/useDesiredState";
 import { Layout } from "@/layout";
 
 export interface ControlsProps {
   layoutKey: string;
+  state: ReturnState;
   onStartStop: () => void;
-  startingOrStopping: boolean;
   onConfigure: () => void;
-  configuring: boolean;
-  snapshot?: boolean;
-  state?: task.State<{ running?: boolean; message?: string }>;
+  isConfiguring: boolean;
+  isSnapshot: boolean;
 }
 
 const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
@@ -31,17 +30,14 @@ export const Controls = ({
   state,
   onStartStop,
   layoutKey,
-  startingOrStopping,
   onConfigure,
-  configuring,
-  snapshot = false,
+  isConfiguring: configuring,
+  isSnapshot: snapshot = false,
 }: ControlsProps) => {
   let content: ReactElement | null = null;
-  if (state?.details?.message != null)
+  if (state?.message != null)
     content = (
-      <Status.Text variant={state?.variant as Status.Variant}>
-        {state?.details?.message}
-      </Status.Text>
+      <Status.Text variant={state?.variant ?? "info"}>{state?.message}</Status.Text>
     );
   if (snapshot)
     content = (
@@ -76,12 +72,12 @@ export const Controls = ({
         justify="end"
       >
         <Button.Icon
-          loading={startingOrStopping}
-          disabled={startingOrStopping || state == null || snapshot}
+          loading={state.state === "loading"}
+          disabled={state.state === "loading" || snapshot}
           onClick={onStartStop}
           variant="outlined"
         >
-          {state?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
+          {state.state === "running" ? <Icon.Pause /> : <Icon.Play />}
         </Button.Icon>
         <Button.Button
           loading={configuring}

@@ -9,9 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-task-configure.console-opcua {
+.console-task-configure {
     .console-browser {
-        max-width: 30%;
         width: 100%;
         flex-basis: 200px;
     }
