@@ -1,13 +1,13 @@
 module github.com/synnaxlabs/aspen
 
-go 1.23.4
+go 1.23.5
 
 require (
 	github.com/cockroachdb/pebble/v2 v2.0.2
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	github.com/samber/lo v1.47.0
+	github.com/samber/lo v1.49.0
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
 	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
@@ -82,7 +82,7 @@ require (
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.29.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250124145028-65684f501c47 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250127172529-29210b9bc287 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250127172529-29210b9bc287 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

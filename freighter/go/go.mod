@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/freighter
 
-go 1.23.4
+go 1.23.5
 
 require (
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292
@@ -9,7 +9,7 @@ require (
 	github.com/gofiber/websocket/v2 v2.2.1
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	github.com/samber/lo v1.47.0
+	github.com/samber/lo v1.49.0
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	go.uber.org/zap v1.27.0
@@ -74,8 +74,8 @@ require (
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.29.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250124145028-65684f501c47 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250127172529-29210b9bc287 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250127172529-29210b9bc287 // indirect
 	google.golang.org/grpc/examples v0.0.0-20230113182548-78ddc05d9b33 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
