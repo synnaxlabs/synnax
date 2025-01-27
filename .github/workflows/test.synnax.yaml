@@ -1,5 +1,4 @@
 name: Test - Synnax
-
 on:
   push:
     branches:
