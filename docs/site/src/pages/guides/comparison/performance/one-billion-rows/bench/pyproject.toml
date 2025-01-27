@@ -4,17 +4,15 @@ version = "0.1.0"
 description = ""
 authors = ["Emiliano Bonilla <56323762+emilbon99@users.noreply.github.com>"]
 readme = "README.md"
-packages = [
-	{ include = "bench/**/*.py" }
-]
+packages = [{ include = "bench/**/*.py" }]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 pandas = "^2.2.3"
-influxdb-client = "^1.46.0"
-synnax = "^0.32.0"
+influxdb-client = "^1.48.0"
+synnax = "^0.37.0"
 docker = "^7.1.0"
-psycopg2-binary = "^2.9.9"
+psycopg2-binary = "^2.9.10"
 
 
 [build-system]

@@ -6,11 +6,11 @@ authors = ["emiliano bonilla <emilbon99@gmail.com>"]
 packages = [{ include = "freighter/**/*.py" }]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.2.2"
-pytest-asyncio = "^0.25.0"
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.2"
 black = "^24.10.0"
-mypy = "^1.3.0"
-isort = "^5.10.1"
+mypy = "^1.14.1"
+isort = "^5.13.2"
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -23,8 +23,8 @@ profile = "black"
 python = "^3.11"
 websockets = "^13.1"
 msgpack = "^1.1.0"
-urllib3 = "^2.2.1"
-pydantic = "^1.10.0"
+urllib3 = "^2.3.0"
+pydantic = "^1.10.21"
 alamos = { path = "../../alamos/py", develop = true }
 [build-system]
 requires = ["poetry-core>=1.0.0"]
