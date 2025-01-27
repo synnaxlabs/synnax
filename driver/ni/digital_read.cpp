@@ -31,9 +31,8 @@ void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
             const auto enabled = channel_builder.optional<
                 bool>("enabled", true);
             this->reader_config.channels.emplace_back(ni::ChannelConfig{
-                .name = parse_digital_loc(channel_builder, dev_name),
                 .channel_key = channel_key,
-                .channel_type = "digital",
+                .name = parse_digital_loc(channel_builder, dev_name),
                 .enabled = enabled
             });
         });

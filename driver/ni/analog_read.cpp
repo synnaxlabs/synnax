@@ -7,15 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <cassert>
 #include <chrono>
 #include <cstdio>
 #include <utility>
 
-#include "client/cpp/telem/telem.h"
-#include "driver/ni/ni.h"
+/// external
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
+
+/// internal
+#include "client/cpp/telem/telem.h"
+#include "driver/ni/ni.h"
 
 using json = nlohmann::json;
 
@@ -24,9 +28,7 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     parser.iter("channels",
                 [&](config::Parser &ch_parser) {
                     // analog channel names are formatted: <device_name>/ai<port>
-                    const auto port = ch_parser.required<std::uint64_t>(
-                        "port");
-
+                    const auto port = ch_parser.required<std::uint64_t>("port");
                     std::string name;
                     if (this->reader_config.device_key != "cross-device")
                         name = this->reader_config.device_name;
@@ -43,9 +45,7 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
                     }
                     name = name + "/ai" + std::to_string(port);
 
-                    const auto type = ch_parser.required<std::string>(
-                        "type");
-
+                    const auto type = ch_parser.required<std::string>("type");
                     this->channel_map[name] = "channels." + std::to_string(c_count);
                     this->port_to_channel[port] = name;
 

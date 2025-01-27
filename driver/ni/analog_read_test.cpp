@@ -42,7 +42,7 @@ PXI1Slot3 : NI PXIe-4357 (simulated device)
 //                                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 TEST(read_tests, multiple_analog_channels) {
-    // setup synnax test infrustructure
+    // Setup synnax test infrastructure
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [time, tErr] = client->channels.create("idx", synnax::TIMESTAMP, 0, true);
@@ -51,16 +51,13 @@ TEST(read_tests, multiple_analog_channels) {
     auto [data, dErr] = client->channels.create("ai", synnax::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr) << dErr.message();
 
-    auto [data1, dErr2] = client->channels.create("ai2", synnax::FLOAT32, time.key,
-                                                  false);
+    auto [data1, dErr2] = client->channels.create("ai2", synnax::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr2) << dErr.message();
 
-    auto [data2, dErr3] = client->channels.create("ai3", synnax::FLOAT32, time.key,
-                                                  false);
+    auto [data2, dErr3] = client->channels.create("ai3", synnax::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr3) << dErr.message();
 
-    auto [data3, dErr4] = client->channels.create("ai4", synnax::FLOAT32, time.key,
-                                                  false);
+    auto [data3, dErr4] = client->channels.create("ai4", synnax::FLOAT32, time.key, false);
     ASSERT_FALSE(dErr4) << dErr.message();
 
     auto config = json{
@@ -277,7 +274,8 @@ void analog_channel_helper(json config, json scale_config, json channel_config, 
             1
         });
 
-    if (reader.init() != 0) LOG(ERROR) << "Failed to initialize reader" << std::endl;
+    if (reader.init() != 0)
+        LOG(ERROR) << "Failed to initialize reader" << std::endl;
     reader.start();
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;

@@ -500,8 +500,8 @@ void ni::Source::get_index_keys() {
         ni::ChannelConfig index_channel;
         this->reader_config.channels.emplace_back(ni::ChannelConfig{
             .channel_key = channel_info.key,
-            .channel_type = "index",
-            .name = channel_info.name
+            .name = channel_info.name,
+            .channel_type = "index"
         });
     }
 }

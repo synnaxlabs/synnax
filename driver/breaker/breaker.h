@@ -11,6 +11,7 @@
 
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 #include "glog/logging.h"
 #include "client/cpp/synnax.h"

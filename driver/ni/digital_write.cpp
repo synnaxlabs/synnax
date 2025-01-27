@@ -105,9 +105,9 @@ void ni::DigitalWriteSink::parse_config(config::Parser &parser) {
             this->channel_map[name] = "channels." + std::to_string(c_count);
 
             this->writer_config.channels.emplace_back(ni::ChannelConfig{
-                .name = name,
                 .channel_key = cmd_key,
                 .state_channel_key = state_key,
+                .name = name,
                 .channel_type = "digital",
                 .enabled = enabled
             });

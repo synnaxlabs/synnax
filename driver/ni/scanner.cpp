@@ -150,12 +150,12 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     device["resource_name"] = rsrc_name;
 
     double temp = 0;
-    status = this->syscfg->GetResourceProperty(
-        resource,
-        NISysCfgResourcePropertyCurrentTemp,
-        &temp
-    );
-    if (status != NISysCfg_OK) log_err("failed to get isSimulated");
+    // status = this->syscfg->GetResourceProperty(
+    //     resource,
+    //     NISysCfgResourcePropertyCurrentTemp,
+    //     &temp
+    // );
+    // if (status != NISysCfg_OK) log_err("failed to get currentTemp");
     device["temperature"] = temp;
 
     NISysCfgBool isSimulated;
