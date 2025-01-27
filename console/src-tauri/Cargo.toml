@@ -23,18 +23,18 @@ rand = "0.8.5"
 tauri-plugin-single-instance = { version = "2.0.0", features = ["deep-link"] }
 
 [dependencies]
-tauri = { version = "2.1.1", features = ["devtools"] }
+tauri = { version = "2.2.5", features = ["devtools"] }
 tauri-plugin-store = "2.2.0"
 tauri-plugin-deep-link = "2.2.0"
 tauri-plugin-fs = "2.2.0"
 tauri-plugin-shell = "2.2.0"
-tauri-plugin-updater = "2.3.0"
+tauri-plugin-updater = "2.4.0"
 tauri-plugin-dialog = "2.2.0"
 tauri-plugin-process = "2.2.0"
 window-shadows = "0.2.2"
 serde = "1.0.217"
-serde_json = "1.0.134"
-device_query = "2.1.0"
+serde_json = "1.0.137"
+device_query = "3.0.0"
 
 [features]
 # by default Tauri runs in production mode
