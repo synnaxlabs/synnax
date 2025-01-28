@@ -190,7 +190,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
         return;
       }
       const split = path.split(".").slice(0, -1).join(".");
-      const pair = deep.get<kv.Pair>(values, split, { optional: true });
+      const pair = deep.get<kv.Pair<string>>(values, split, { optional: true });
       if (pair == null || pair.key === "") return;
       if (path.includes("key")) await kv.delete(prev as string);
       await kv.set(pair.key, pair.value);
