@@ -18,7 +18,6 @@ export interface LineProps
     Aether.CProps {}
 
 export const Line = memo(({ aetherKey, ...props }: LineProps): ReactElement | null => {
-  console.log("RUN", props);
   Aether.useUnidirectional({
     aetherKey,
     type: line.Line.TYPE,

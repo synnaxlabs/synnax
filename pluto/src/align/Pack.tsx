@@ -15,6 +15,14 @@ import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
 import { type text } from "@/text/core";
 
+export type PackProps<E extends SpaceElementType = "div"> = Omit<
+  SpaceProps<E>,
+  "empty"
+> & {
+  shadow?: boolean;
+  borderWidth?: number;
+};
+
 /**
  * Packs elements together, setting their size and styling the borders between them so
  * that they appear as a single element. This is useful for buttons that represent a
@@ -31,14 +39,6 @@ import { type text } from "@/text/core";
  * @param props.el  - The element type to use as the root element for the Pack.
  * Defaults to "div".
  */
-export type PackProps<E extends SpaceElementType = "div"> = Omit<
-  SpaceProps<E>,
-  "empty"
-> & {
-  shadow?: boolean;
-  borderWidth?: number;
-};
-
 export const Pack = <E extends SpaceElementType = "div">({
   className,
   size = "medium",

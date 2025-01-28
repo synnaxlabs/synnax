@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 
 import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
+
 /**
  * An element whose width and height is 100% and whose alignment and justification
  * is centered. Props are the same as {@link Space}.

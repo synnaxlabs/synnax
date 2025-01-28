@@ -76,9 +76,7 @@ export const Provider = ({
         );
       if (type.length === 0)
         console.warn(
-          `[Aether.Provider] - received zero length type when registering component at ${path.join(
-            ".",
-          )} This is probably a bad idea.`,
+          `[Aether.Provider] - received zero length type when registering component at ${path.join(".")} This is probably a bad idea.`,
         );
       registry.current.set(key, { path, handler });
       return {

@@ -12,15 +12,16 @@ import { DataType, type math, type Series } from "@synnaxlabs/x";
 /**
  * Converts the given serie
  *
- * @param s
+ * @param series
  * @param offset
  * @returns
  */
-export const convertSeries = (s: Series, offset?: math.Numeric): Series => {
-  if (s.dataType.isVariable || s.dataType.equals(DataType.UINT8)) return s;
-  if (offset == null && s.dataType.equals(DataType.TIMESTAMP))
-    offset = BigInt(s.data[0]);
-  return s.convert(DataType.FLOAT32, offset);
+export const convertSeries = (series: Series, offset?: math.Numeric): Series => {
+  if (series.dataType.isVariable || series.dataType.equals(DataType.UINT8))
+    return series;
+  if (offset == null && series.dataType.equals(DataType.TIMESTAMP))
+    offset = BigInt(series.data[0]);
+  return series.convert(DataType.FLOAT32, offset);
 };
 
 export const resolveDataType = (dt: DataType): DataType => {
