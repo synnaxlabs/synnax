@@ -207,22 +207,28 @@ var _ = Describe("Create", Ordered, func() {
 				Message: "calculated channels must require at least one channel",
 			}))
 		})
-		It("Should return an error if the calculated channel depends on a virtual channel", func() {
+		It("Should return an error if the calculated channel depends on both a virtual and index channel", func() {
 			vCH := channel.Channel{
 				Name:     "SG0001",
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
 			Expect(services[1].Create(ctx, &vCH)).To(Succeed())
+			idxCH := channel.Channel{
+				Name:     "time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(services[1].Create(ctx, &idxCH)).To(Succeed())
 			ch := channel.Channel{
 				Name:       "SG0002",
 				DataType:   telem.Float64T,
 				Expression: "return 1",
-				Requires:   []channel.Key{vCH.Key()},
+				Requires:   []channel.Key{vCH.Key(), idxCH.Key()},
 			}
 			Expect(services[1].Create(ctx, &ch)).To(MatchError(validate.FieldError{
 				Field:   "requires",
-				Message: "calculated channels cannot require virtual channels",
+				Message: "cannot use a mix of virtual and non-virtual channels in calculations",
 			}))
 		})
 		It("Should return an error if the calculated channel depends on a channel that does not exist", func() {
@@ -270,9 +276,9 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Internal = false
 			ch.Leaseholder = core.Free
 
-			ch2.Rate = 5 * telem.Hz
+			ch2.IsIndex = true
 			ch2.Name = "SG0003"
-			ch2.DataType = telem.Float64T
+			ch2.DataType = telem.TimeStampT
 			ch2.Leaseholder = 1
 
 			Expect(services[1].Create(ctx, &ch)).To(Succeed())

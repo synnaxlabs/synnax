@@ -223,10 +223,10 @@ func (lp *leaseProxy) validateFreeVirtual(
 			}
 			idx := required[0].LocalIndex
 			for _, r := range required {
-				if r.Virtual {
+				if (r.Virtual && idx != 0) || (!r.Virtual && idx == 0) {
 					return validate.FieldError{
 						Field:   "requires",
-						Message: "calculated channels cannot require virtual channels",
+						Message: "cannot use a mix of virtual and non-virtual channels in calculations",
 					}
 				}
 				if r.LocalIndex != idx {
