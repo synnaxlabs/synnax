@@ -1,0 +1,12 @@
+go 1.23.5
+
+use (
+	./alamos/go
+	./aspen
+	./cesium
+	./freighter/go
+	./freighter/integration
+	./integration
+	./synnax
+	./x/go
+)

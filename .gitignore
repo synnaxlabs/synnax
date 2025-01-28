@@ -30,8 +30,6 @@ nyc_output
 
 # |||| GO ||||
 *.test
-go.work
-go.work.sum
 
 # |||| RUST ||||
 
