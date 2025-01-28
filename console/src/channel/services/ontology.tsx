@@ -298,11 +298,7 @@ export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: channel.ONTOLOGY_TYPE,
-  icon: (p) => (
-    <PIcon.Icon topRight={Channel.resolveIcon(p.data as channel.Payload)}>
-      <Icon.Channel />
-    </PIcon.Icon>
-  ),
+  icon: <Icon.Channel />,
   hasChildren: false,
   allowRename,
   onRename: undefined,
