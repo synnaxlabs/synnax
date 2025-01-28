@@ -41,11 +41,9 @@ const openAndMigrateKV = async (openKV: KVOpener = openTauriKV): Promise<Sugared
   if ((await v1Store.length()) === 0) return v2Store;
   // Otherwise, we need to migrate the V1 store to V2. Get the DB version key and use it
   // to get the state.
-  const v1Version = await v1Store.get<StateVersionValue>(DB_VERSION_KEY);
+  const v1Version = (await v1Store.get(DB_VERSION_KEY)) as StateVersionValue;
   if (v1Version == null) return v2Store;
-  const v1State = await v1Store.get<RequiredState>(
-    persistedStateKey(v1Version.version),
-  );
+  const v1State = await v1Store.get(persistedStateKey(v1Version.version));
   // We no longer need the V1 store, so we can clear it out.
   await v1Store.clear();
   if (v1State == null) return v2Store;
@@ -112,7 +110,7 @@ export const open = async <S extends RequiredState>({
   openKV,
 }: Config<S>): Promise<Engine<S>> => {
   const db = await openAndMigrateKV(openKV);
-  const kvVersion = await db.get<StateVersionValue>(DB_VERSION_KEY);
+  const kvVersion = (await db.get(DB_VERSION_KEY)) as StateVersionValue;
   let version: number = kvVersion?.version ?? 0;
   if (kvVersion == null) await db.set(DB_VERSION_KEY, { version });
 
@@ -139,7 +137,7 @@ export const open = async <S extends RequiredState>({
     await db.set(DB_VERSION_KEY, { version }).catch(console.error);
   };
 
-  let state = await db.get<S>(persistedStateKey(version));
+  let state = (await db.get(persistedStateKey(version))) as S;
   // If we have migrations, apply them.
   if (state != null && migrator != null)
     try {
@@ -149,7 +147,7 @@ export const open = async <S extends RequiredState>({
     } catch (e) {
       console.error("unable to apply migrations. continuing with initial state.");
       console.error(e);
-      state = null;
+      state = initial;
     }
   state ??= initial;
 

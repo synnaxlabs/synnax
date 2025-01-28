@@ -9,16 +9,14 @@
 
 import { z } from "zod";
 
-export interface KV extends Reader, Writer, Deleter {}
-
-export interface Reader {
+export interface Reader<V = unknown> {
   /** @returns the value for a given key, or null if the key is not present. */
-  get: <IV>(key: string) => IV | null;
+  get: (key: string) => V | null;
 }
 
-export interface Writer {
+export interface Writer<V = unknown> {
   /** Sets a key-value pair in the store. */
-  set: <IV>(key: string, value: IV) => void;
+  set: (key: string, value: V) => void;
 }
 
 export interface Deleter {
@@ -26,19 +24,18 @@ export interface Deleter {
   delete: (key: string) => void;
 }
 
-/** A read-writable key-value store. */
-export interface Async extends AsyncReader, AsyncWriter, AsyncDeleter {}
+export interface KV<R = unknown, W = R> extends Reader<R>, Writer<W>, Deleter {}
 
 /** A readable key-value store. */
-export interface AsyncReader {
+export interface AsyncReader<V = unknown> {
   /** Get the value for a given key. */
-  get: <IV>(key: string) => Promise<IV | null>;
+  get: (key: string) => Promise<V | null>;
 }
 
 /** A writable key-value store. */
-export interface AsyncWriter {
+export interface AsyncWriter<V = unknown> {
   /** Sets a key-value pair in the store. The value must be serializable. */
-  set: <IV>(key: string, value: IV) => Promise<void>;
+  set: (key: string, value: V) => Promise<void>;
 }
 
 /** A key-value store that can delete key-value pairs. */
@@ -47,13 +44,16 @@ export interface AsyncDeleter {
   delete: (key: string) => Promise<void>;
 }
 
-export const stringPairZ = z.object({
-  key: z.string(),
-  value: z.string(),
-});
+/** A read-writable key-value store. */
+export interface Async<R = unknown, W = R>
+  extends AsyncReader<R>,
+    AsyncWriter<W>,
+    AsyncDeleter {}
+
+export const stringPairZ = z.object({ key: z.string(), value: z.string() });
 
 /** A general purpose key-value pair. */
-export interface Pair<V = string> {
+export interface Pair<V = unknown> {
   key: string;
   value: V;
 }
