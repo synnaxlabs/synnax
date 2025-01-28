@@ -3,7 +3,7 @@ module github.com/synnaxlabs/synnax
 go 1.23.5
 
 require (
-	github.com/blevesearch/bleve/v2 v2.3.10
+	github.com/blevesearch/bleve/v2 v2.4.4
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292
 	github.com/cockroachdb/pebble/v2 v2.0.2
 	github.com/gofiber/fiber/v2 v2.52.6
@@ -45,8 +45,9 @@ require (
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
-	github.com/blevesearch/bleve_index_api v1.2.1 // indirect
+	github.com/blevesearch/bleve_index_api v1.2.0 // indirect
 	github.com/blevesearch/geo v0.1.20 // indirect
+	github.com/blevesearch/go-faiss v1.0.24 // indirect
 	github.com/blevesearch/go-porterstemmer v1.0.3 // indirect
 	github.com/blevesearch/gtreap v0.1.1 // indirect
 	github.com/blevesearch/mmap-go v1.0.4 // indirect
@@ -60,6 +61,7 @@ require (
 	github.com/blevesearch/zapx/v13 v13.3.11 // indirect
 	github.com/blevesearch/zapx/v14 v14.3.11 // indirect
 	github.com/blevesearch/zapx/v15 v15.3.18 // indirect
+	github.com/blevesearch/zapx/v16 v16.1.9-0.20241217210638-a0519e7caf3b // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cockroachdb/crlib v0.0.0-20250110162118-b7c9be99e911 // indirect
