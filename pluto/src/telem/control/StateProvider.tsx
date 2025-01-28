@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -17,15 +17,11 @@ export interface StateProviderProps
   extends z.input<typeof control.stateProviderStateZ>,
     PropsWithChildren {}
 
-export const StateProvider = Aether.wrap<StateProviderProps>(
-  control.StateProvider.TYPE,
-  ({ aetherKey, children }) => {
-    const [{ path }] = Aether.use({
-      aetherKey,
-      type: control.StateProvider.TYPE,
-      schema: control.stateProviderStateZ,
-      initialState: {},
-    });
-    return <Aether.Composite path={path}>{children}</Aether.Composite>;
-  },
-);
+export const StateProvider = ({ children }: StateProviderProps): ReactElement => {
+  const [{ path }] = Aether.use({
+    type: control.StateProvider.TYPE,
+    schema: control.stateProviderStateZ,
+    initialState: {},
+  });
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
+};

@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { xy } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { Aether } from "@/aether";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
 import { LinePlot } from "@/vis/lineplot";
@@ -28,11 +29,12 @@ const MEASURE_TRIGGERS: Triggers.ModeConfig<ClickMode> = {
 
 const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
 
-export interface MeasureProps {}
+export interface MeasureProps extends Aether.CProps {}
 
-export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
+export const Measure = ({ aetherKey }: MeasureProps): ReactElement => {
+  const cKey = useUniqueKey(aetherKey);
   const [, , setState] = Aether.use({
-    aetherKey,
+    aetherKey: cKey,
     type: measure.Measure.TYPE,
     schema: measure.measureStateZ,
     initialState: {
@@ -100,4 +102,4 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
   }, [handleClick]);
 
   return <span ref={ref} />;
-});
+};

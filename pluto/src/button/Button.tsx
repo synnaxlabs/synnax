@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import {
-  type ComponentPropsWithoutRef,
+  type ComponentPropsWithRef,
   type ReactElement,
   type ReactNode,
   useCallback,
@@ -51,7 +51,7 @@ export interface ButtonExtensionProps {
 
 /** The base props accepted by all button types in this directory. */
 export interface BaseProps
-  extends Omit<ComponentPropsWithoutRef<"button">, "color">,
+  extends Omit<ComponentPropsWithRef<"button">, "color">,
     ButtonExtensionProps {}
 
 /** The props for the {@link Button} component. */

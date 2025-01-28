@@ -9,7 +9,7 @@
 
 import "@/input/Switch.css";
 
-import { forwardRef } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
@@ -28,43 +28,34 @@ const CLS = "input-switch";
  * @param props.size - The size of the input: "small" | "medium" | "large".
  * @default "medium"
  */
-export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
-  (
-    {
-      className,
-      value,
-      disabled,
-      onChange,
-      size = "medium",
-      variant,
-      ...props
-    }: SwitchProps,
-    ref,
-  ) => {
-    if (variant === "preview") disabled = true;
-    return (
-      <div
-        className={CSS(
-          CSS.BE(CLS, "container"),
-          CSS.disabled(disabled),
-          CSS.size(size),
-        )}
-      >
-        <label className={CSS(CSS.BE(CLS, "track"), className)}>
-          <input
-            className={CSS.BE(CLS, "input")}
-            type="checkbox"
-            ref={ref}
-            checked={value}
-            onChange={(e) => onChange(e.target.checked)}
-            value=""
-            disabled={disabled}
-            {...props}
-          />
-          <span className="pluto-input-switch__slider" />
-        </label>
-      </div>
-    );
-  },
-);
-Switch.displayName = "InputSwitch";
+export const Switch = ({
+  ref,
+  className,
+  value,
+  disabled,
+  onChange,
+  size = "medium",
+  variant,
+  ...props
+}: SwitchProps): ReactElement => {
+  if (variant === "preview") disabled = true;
+  return (
+    <div
+      className={CSS(CSS.BE(CLS, "container"), CSS.disabled(disabled), CSS.size(size))}
+    >
+      <label className={CSS(CSS.BE(CLS, "track"), className)}>
+        <input
+          className={CSS.BE(CLS, "input")}
+          type="checkbox"
+          ref={ref}
+          checked={value}
+          onChange={(e) => onChange(e.target.checked)}
+          value=""
+          disabled={disabled}
+          {...props}
+        />
+        <span className="pluto-input-switch__slider" />
+      </label>
+    </div>
+  );
+};

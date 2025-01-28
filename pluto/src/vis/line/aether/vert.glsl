@@ -1,6 +1,9 @@
-attribute float a_x;
-attribute float a_y;
-attribute lowp vec2 a_translate;
+#version 300 es
+in float a_x;
+in float a_y;
+in vec2 a_translate;
+
+out vec4 v_color;
 
 uniform lowp vec2 u_scale_aggregate;
 uniform lowp vec2 u_offset_aggregate;

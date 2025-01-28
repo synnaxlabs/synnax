@@ -647,8 +647,11 @@ export class Series<T extends TelemValue = TelemValue> {
 
   updateGLBuffer(gl: GLBufferController): void {
     this.gl.control = gl;
-    if (!this.dataType.equals(DataType.FLOAT32))
-      throw new Error("Only FLOAT32 arrays can be used in WebGL");
+    if (
+      !this.dataType.equals(DataType.FLOAT32) &&
+      !this.dataType.equals(DataType.UINT8)
+    )
+      throw new Error("Only FLOAT32 and UINT8 arrays can be used in WebGL");
     const { buffer, bufferUsage, prevBuffer } = this.gl;
 
     // If no buffer has been created yet, create one.

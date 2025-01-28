@@ -10,7 +10,7 @@
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
 import {
   type ForwardedRef,
-  type MutableRefObject,
+  type RefObject,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -45,15 +45,13 @@ export interface UseProps {
   resetOnDoubleClick?: boolean;
   threshold?: dimensions.Dimensions;
   initial?: box.Box;
-  ref?:
-    | MutableRefObject<UseRefValue | undefined>
-    | ForwardedRef<UseRefValue | undefined>;
+  ref?: RefObject<UseRefValue | undefined> | ForwardedRef<UseRefValue | undefined>;
 }
 
 export interface UseReturn {
   mode: Mode;
   maskBox: box.Box;
-  ref: React.MutableRefObject<HTMLDivElement | null>;
+  ref: React.RefObject<HTMLDivElement | null>;
 }
 
 // We truncate the viewport box at this precision to simplify diffing logs, reduce

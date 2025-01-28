@@ -46,41 +46,40 @@ export interface AggregatorProps extends PropsWithChildren {
   maxHistory?: number;
 }
 
-export const Aggregator = Aether.wrap<AggregatorProps>(
-  status.Aggregator.TYPE,
-  ({ aetherKey, children, maxHistory = 500 }): ReactElement => {
-    const [{ path }, { statuses }, setState] = Aether.use({
-      aetherKey,
-      type: status.Aggregator.TYPE,
-      schema: status.aggregatorStateZ,
-      initialState: { statuses: [] },
-    });
+export const Aggregator = ({
+  children,
+  maxHistory = 500,
+}: AggregatorProps): ReactElement => {
+  const [{ path }, { statuses }, setState] = Aether.use({
+    type: status.Aggregator.TYPE,
+    schema: status.aggregatorStateZ,
+    initialState: { statuses: [] },
+  });
 
-    if (maxHistory != null && statuses.length > maxHistory) {
-      const slice = Math.floor(maxHistory * 0.9);
-      setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
-    }
+  if (maxHistory != null && statuses.length > maxHistory) {
+    const slice = Math.floor(maxHistory * 0.9);
+    setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
+  }
 
-    const handleAdd: ContextValue["add"] = useCallback(
-      (status) => {
-        const spec: status.Spec = { time: TimeStamp.now(), key: id.id(), ...status };
-        setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
-      },
-      [setState],
-    );
+  const handleAdd: ContextValue["add"] = useCallback(
+    (status) => {
+      const spec: status.Spec = { time: TimeStamp.now(), key: id.id(), ...status };
+      setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
+    },
+    [setState],
+  );
 
-    const value = useMemo<ContextValue>(
-      () => ({ statuses, add: handleAdd }),
-      [statuses, handleAdd],
-    );
+  const value = useMemo<ContextValue>(
+    () => ({ statuses, add: handleAdd }),
+    [statuses, handleAdd],
+  );
 
-    return (
-      <Context.Provider value={value}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>
-      </Context.Provider>
-    );
-  },
-);
+  return (
+    <Context.Provider value={value}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>
+    </Context.Provider>
+  );
+};
 
 export const useAggregator = (): AddStatusFn => useContext(Context).add;
 

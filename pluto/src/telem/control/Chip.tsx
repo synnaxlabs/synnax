@@ -72,53 +72,50 @@ const tooltipMessage = (status: Status.Spec): ChipStyle => {
   }
 };
 
-export const Chip = Aether.wrap<ChipProps>(
-  "Chip",
-  ({ aetherKey, source, sink, className, ...props }): ReactElement => {
-    const memoProps = useMemoDeepEqualProps({ source, sink });
-    const [, { status }, setState] = Aether.use({
-      aetherKey,
-      type: control.Chip.TYPE,
-      schema: control.chipStateZ,
-      initialState: {
-        triggered: false,
-        ...memoProps,
-        status: {
-          key: "no_chip",
-          variant: "disabled",
-          message: "No chip connected.",
-          time: TimeStamp.now(),
-        },
+export const Chip = ({
+  source,
+  sink,
+  className,
+  ...props
+}: ChipProps): ReactElement => {
+  const memoProps = useMemoDeepEqualProps({ source, sink });
+  const [, { status }, setState] = Aether.use({
+    type: control.Chip.TYPE,
+    schema: control.chipStateZ,
+    initialState: {
+      triggered: false,
+      ...memoProps,
+      status: {
+        key: "no_chip",
+        variant: "disabled",
+        message: "No chip connected.",
+        time: TimeStamp.now(),
       },
-    });
+    },
+  });
 
-    useEffect(() => {
-      setState((state) => ({ ...state, ...memoProps }));
-    }, [memoProps, setState]);
+  useEffect(() => {
+    setState((state) => ({ ...state, ...memoProps }));
+  }, [memoProps, setState]);
 
-    const handleToggle = useCallback(
-      () =>
-        setState((state) => ({
-          ...state,
-          triggered: !state.triggered,
-        })),
-      [setState],
-    );
+  const handleToggle = useCallback(
+    () => setState((state) => ({ ...state, triggered: !state.triggered })),
+    [setState],
+  );
 
-    const { message, chipColor, buttonStyle, disabled } = tooltipMessage(status);
+  const { message, chipColor, buttonStyle, disabled } = tooltipMessage(status);
 
-    return (
-      <Button.Icon
-        variant="text"
-        className={CSS(CSS.B("control-chip"), className)}
-        disabled={disabled}
-        onClick={handleToggle}
-        tooltip={<Text.Text level="small">{message}</Text.Text>}
-        style={buttonStyle}
-        {...props}
-      >
-        <Icon.Circle color={chipColor} />
-      </Button.Icon>
-    );
-  },
-);
+  return (
+    <Button.Icon
+      variant="text"
+      className={CSS(CSS.B("control-chip"), className)}
+      disabled={disabled}
+      onClick={handleToggle}
+      tooltip={<Text.Text level="small">{message}</Text.Text>}
+      style={buttonStyle}
+      {...props}
+    >
+      <Icon.Circle color={chipColor} />
+    </Button.Icon>
+  );
+};

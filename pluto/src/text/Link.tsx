@@ -9,23 +9,28 @@
 
 import "@/text/Link.css";
 
-import { type ForwardedRef, forwardRef, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
 
-export type LinkProps<L extends text.Level = "h1"> = Omit<TextProps<L>, "ref"> & {
+export type LinkProps<L extends text.Level = "h1"> = TextProps<L> & {
   href?: string;
   download?: string;
   target?: string;
   rel?: string;
 };
 
-const CoreLink = <L extends text.Level = "h1">(
-  { href, download, target, rel, className, ...props }: LinkProps<L>,
-  ref: ForwardedRef<HTMLAnchorElement>,
-): ReactElement => (
+export const Link = <L extends text.Level = "h1">({
+  ref,
+  href,
+  download,
+  target,
+  rel,
+  className,
+  ...props
+}: LinkProps<L>): ReactElement => (
   // @ts-expect-error - generic component errors
   <Text<L>
     el="a"
@@ -38,8 +43,3 @@ const CoreLink = <L extends text.Level = "h1">(
     {...props}
   />
 );
-
-// @ts-expect-error - generic component errors
-export const Link = forwardRef(CoreLink) as <L extends text.Level = "h1">(
-  props: LinkProps<L> & { ref?: ForwardedRef<HTMLAnchorElement> },
-) => ReactElement;
