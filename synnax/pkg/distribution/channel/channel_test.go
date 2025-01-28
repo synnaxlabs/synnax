@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Task Tests", func() {
-	Describe("Task", func() {
+var _ = Describe("Channel Tests", func() {
+	Describe("Key Tests", func() {
 		Describe("Construction", func() {
 			It("Should return the correct leaseholder for the key", func() {
 				k := channel.NewKey(core.NodeKey(1), 1)
@@ -81,7 +81,7 @@ var _ = Describe("Task Tests", func() {
 			})
 		})
 	})
-	Describe("Keys", func() {
+	Describe("Keys Tests", func() {
 		Describe("KeysFromChannels", func() {
 			It("Should return a list of keys from a list of channels", func() {
 				channels := []channel.Channel{
@@ -184,5 +184,38 @@ var _ = Describe("Task Tests", func() {
 				Expect(removed).To(Equal(channel.Keys{4}))
 			})
 		})
+	})
+	Describe("Equal", func() {
+		It("Should return true if the two channels are equal", func() {
+			c1 := channel.Channel{Leaseholder: 1, LocalKey: 1}
+			c2 := channel.Channel{Leaseholder: 1, LocalKey: 1}
+			Expect(c1.Equals(c2)).To(BeTrue())
+		})
+		DescribeTable("Exclusion", func(c1, c2 channel.Channel, exclude ...string) {
+			Expect(c1.Equals(c2, exclude...)).To(BeTrue())
+		},
+			Entry("Names", channel.Channel{Name: "name1", LocalKey: 1}, channel.Channel{Name: "name2", LocalKey: 1}, "Name"),
+			Entry("Leaseholders", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 2, LocalKey: 1}, "Leaseholder"),
+			Entry("LocalKeys", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 1, LocalKey: 2}, "LocalKey"),
+			Entry("Virtual", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 1, LocalKey: 1, Virtual: true}, "Virtual"),
+			Entry("DataType", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 1, LocalKey: 1, DataType: "int"}, "DataType"),
+			Entry("LocalIndex", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 1}, "LocalIndex"),
+		)
+		It("Should return true even if the list of keys in requires are out of order", func() {
+			c1 := channel.Channel{Leaseholder: 1, LocalKey: 1, Requires: channel.Keys{1, 2, 3}}
+			c2 := channel.Channel{Leaseholder: 1, LocalKey: 1, Requires: channel.Keys{3, 2, 1}}
+			Expect(c1.Equals(c2)).To(BeTrue())
+		})
+		DescribeTable("Not Equal", func(c1, c2 channel.Channel, exclude ...string) {
+			Expect(c1.Equals(c2, exclude...)).To(BeFalse())
+		},
+			Entry("By LocalIndex", channel.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 1}, channel.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 2}),
+			Entry("By Requires", channel.Channel{Leaseholder: 1, LocalKey: 1, Requires: channel.Keys{1, 2, 3}}, channel.Channel{Leaseholder: 1, LocalKey: 1, Requires: channel.Keys{1, 2, 4}}),
+			Entry("By Name", channel.Channel{Name: "name1", LocalKey: 1}, channel.Channel{Name: "name2", LocalKey: 1}),
+			Entry("By Leaseholder", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 2, LocalKey: 1}),
+			Entry("By LocalKey", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 1, LocalKey: 2}),
+			Entry("By Data Type", channel.Channel{Leaseholder: 1, LocalKey: 1, DataType: "int"}, channel.Channel{Leaseholder: 1, LocalKey: 1, DataType: "float"}),
+			Entry("By Virtual", channel.Channel{Leaseholder: 1, LocalKey: 1, Virtual: true}, channel.Channel{Leaseholder: 1, LocalKey: 1}),
+		)
 	})
 })

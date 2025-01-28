@@ -48,7 +48,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Channel.SelectSingle
             value={state.channels[0]}
             onChange={handleChannelChange}
-            searchOptions={{ internal: isDev() }}
+            searchOptions={{ internal: isDev() ? undefined : false }}
           />
         </Input.Item>
       </Align.Space>
