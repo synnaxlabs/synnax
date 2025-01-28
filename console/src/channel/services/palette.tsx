@@ -28,7 +28,7 @@ const CREATE_CALCULATED_CMD: Command = {
   name: "Create Calculated Channel",
   key: "create-calculated-channel",
   onSelect: ({ placeLayout }: CommandSelectionContext) => {
-    placeLayout(createCalculatedLayout);
+    placeLayout(createCalculatedLayout({}));
   },
   actions: [<Version.BetaTag key="beta-tag" />],
 };

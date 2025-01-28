@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@synnaxlabs/x": "workspace:*",
-    "@types/react": "^19.0.6",
+    "@types/react": "^19.0.8",
     "clsx": "^2.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -29,11 +29,11 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^22.10.6",
+    "@types/node": "^22.10.10",
     "@vitejs/plugin-react": "^4.3.4",
-    "eslint": "^9.18.0",
+    "eslint": "^9.19.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "vite": "^6.0.7"
+    "vite": "^6.0.11"
   },
   "files": [
     "dist"

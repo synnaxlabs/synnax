@@ -153,7 +153,7 @@ export const NavControls = (): ReactElement => {
             <Text.Text level="small">
               {control.hold ? "Resume live plotting" : "Pause live plotting"}
             </Text.Text>
-            <Triggers.Text level="small" trigger={["H"]}></Triggers.Text>
+            <Triggers.Text level="small" trigger={["Control", "H"]}></Triggers.Text>
           </Align.Space>
         }
       >

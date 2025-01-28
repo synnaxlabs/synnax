@@ -37,12 +37,13 @@ var _ = Describe("Stream", func() {
 
 		})
 		Describe("Communication", func() {
-			var stream = NewStream[int](1)
 			It("Should return the correct channel when calling Inlet", func() {
+				stream := NewStream[int](1)
 				stream.Inlet() <- 1
 				Expect(<-stream.Outlet()).To(Equal(1))
 			})
 			It("Should close the internal channel", func() {
+				stream := NewStream[int](1)
 				stream.Close()
 				Expect(<-stream.Outlet()).To(Equal(0))
 			})

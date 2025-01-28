@@ -198,9 +198,8 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 
   LinePlot.useTriggerHold({
-    defaultMode: "hold",
-    hold: [["H"]],
-    toggle: [["H", "H"]],
+    defaultMode: "toggle",
+    toggle: [["H"]],
   });
 
   const handleClose = useCallback(

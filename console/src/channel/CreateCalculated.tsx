@@ -47,12 +47,7 @@ const schema = createFormValidator(
     .extend({
       name: z.string().min(1, "Name must not be empty"),
       dataType: DataType.z.transform((v) => v.toString()),
-      expression: z
-        .string()
-        .refine((v) => v.includes("result =") || v.includes("result="), {
-          message:
-            'Expression must assign calculation to result (i.e. must include a "result =" expression)',
-        }),
+      expression: z.string().min(1, "Expression must not be empty"),
     })
     .refine((v) => v.requires?.length > 0, {
       message: "Expression must use at least one synnax channel",
@@ -89,7 +84,7 @@ export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.Stat
 const ZERO_FORM_VALUES: FormValues = {
   ...ZERO_CHANNEL,
   virtual: true, // Set to true by default
-  expression: "result =",
+  expression: "",
 };
 
 export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) => {
@@ -123,7 +118,11 @@ interface InternalProps extends Pick<RendererProps, "onClose"> {
 const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const client = Synnax.use();
 
-  const methods = Form.use<typeof schema>({ schema, values: initialValues });
+  const methods = Form.use<typeof schema>({
+    schema,
+    values: initialValues,
+    sync: true,
+  });
 
   const addStatus = Status.useAggregator();
 
@@ -131,11 +130,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
       if (client == null) throw new Error("Client not available");
-
-      const isValid = await methods.validate();
-      if (!isValid)
-        throw new Error(`Validation failed: ${JSON.stringify(methods.value().name)}`);
-
+      if (!methods.validate()) return;
       const d = methods.value();
       await client.channels.create(d);
       if (!createMore) onClose();
@@ -304,7 +299,7 @@ const Editor = (props: Code.EditorProps): ReactElement => {
     );
 
     disposables.push(
-      monaco.languages.registerCompletionItemProvider("python", {
+      monaco.languages.registerCompletionItemProvider("lua", {
         triggerCharacters: ["."],
         provideCompletionItems: async (
           model: monaco.editor.ITextModel,

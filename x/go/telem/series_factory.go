@@ -11,9 +11,10 @@ package telem
 
 import (
 	"encoding/binary"
+	"math"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/types"
-	"math"
 )
 
 type Value interface {
@@ -31,6 +32,12 @@ func NewSeries[T Value](data []T) (series Series) {
 
 func NewSeriesV[T Value](data ...T) (series Series) {
 	return NewSeries[T](data)
+}
+
+func AllocSeries(dt DataType, size int64) (series Series) {
+	series.DataType = dt
+	series.Data = make([]byte, size*int64(dt.Density()))
+	return series
 }
 
 func NewSecondsTSV(data ...TimeStamp) (series Series) {
@@ -140,7 +147,7 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	panic("unsupported data type")
 }
 
-func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) T {
+func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
 	switch dt {
 	case Float64T:
 		return func(b []byte) T {

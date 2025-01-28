@@ -10,18 +10,19 @@
 package storage_test
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 )
 
-var _ = Describe("storage", func() {
+var _ = Describe("Storage", Ordered, func() {
 	Describe("Open", func() {
 		var (
 			tempDir string

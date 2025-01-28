@@ -47,9 +47,9 @@ data_channel_2 = client.channels.create(
 # just before the first timestamp we write.
 start = sy.TimeStamp.now()
 
-# Set a data rate of 20 Hz. This won't be an exact loop and could drift over long
+# Set a data rate of 500 Hz. This won't be an exact loop and could drift over long
 # periods of time, but it works well for a demonstration.
-loop = sy.Loop(sy.Rate.HZ * 20)
+loop = sy.Loop(sy.Rate.HZ * 500)
 
 # Open the writer as a context manager. Using a context manager is recommended as the
 # context manager will automatically close the writer when we are done writing. We will
