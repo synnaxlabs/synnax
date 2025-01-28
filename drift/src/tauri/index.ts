@@ -85,7 +85,7 @@ const monitorBoxes = async (): Promise<box.Box[]> => {
 
 /**
  * @returns true whether the top-left corner of the window is visible on the user's
- * monitors. If not, shifts the window to the top-left corner of the primary monitor.
+ * monitors.
  */
 const isPositionVisible = async (position?: xy.XY): Promise<boolean> => {
   const boxes = await monitorBoxes();
@@ -201,7 +201,6 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     props = deep.copy(props);
     const { size, minSize, maxSize, position, ...rest } = capWindowDimensions(props);
-
     if (size?.width != null) size.width = Math.max(size.width, MIN_DIM);
     if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);
     if (maxSize?.width != null) maxSize.width = Math.max(maxSize.width, MIN_DIM);
