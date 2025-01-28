@@ -252,7 +252,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <PMenu.Divider />
           <PMenu.Item itemKey="openCalculated" startIcon={<Icon.Edit />}>
-            Edit Calcuation
+            Edit Calculation
           </PMenu.Item>
         </>
       )}
