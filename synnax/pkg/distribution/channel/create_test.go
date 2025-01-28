@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Create", Ordered, func() {
@@ -109,7 +110,23 @@ var _ = Describe("Create", Ordered, func() {
 					g.Expect(channels[0].DataType).To(Equal(telem.JSONT))
 					g.Expect(channels[0].Virtual).To(BeTrue())
 				})
-
+			})
+			It("Should create an index channel", func() {
+				ch4 := &channel.Channel{
+					Name:        "SG01",
+					DataType:    telem.TimeStampT,
+					Leaseholder: 2,
+					IsIndex:     true,
+				}
+				err := services[1].Create(ctx, ch4)
+				Expect(err).To(BeNil())
+				Expect(ch4.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
+				Expect(ch4.Key().LocalKey()).To(Equal(channel.LocalKey(8)))
+				Expect(ch4.LocalIndex).To(Equal(channel.LocalKey(8)))
+				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch4.Key().StorageKey())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(channels).To(HaveLen(1))
+				Expect(channels[0].IsIndex).To(BeTrue())
 			})
 		})
 		Context("Free", func() {
@@ -162,6 +179,93 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
 		})
 	})
+	Context("Calculated Channels", func() {
+		It("Should create a calculated channel without error", func() {
+			baseCh := channel.Channel{
+				Name:     "time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(services[1].Create(ctx, &baseCh)).To(Succeed())
+
+			ch := channel.Channel{
+				Name:       "SG0001",
+				DataType:   telem.Float64T,
+				Expression: "return 1",
+				Requires:   []channel.Key{baseCh.Key()},
+			}
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+		})
+		It("Should return an error if the requires field is empty", func() {
+			ch := channel.Channel{
+				Name:       "SG0001",
+				DataType:   telem.Float64T,
+				Expression: "return 1",
+			}
+			Expect(services[1].Create(ctx, &ch)).To(MatchError(validate.FieldError{
+				Field:   "requires",
+				Message: "calculated channels must require at least one channel",
+			}))
+		})
+		It("Should return an error if the calculated channel depends on both a virtual and index channel", func() {
+			vCH := channel.Channel{
+				Name:     "SG0001",
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(services[1].Create(ctx, &vCH)).To(Succeed())
+			idxCH := channel.Channel{
+				Name:     "time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(services[1].Create(ctx, &idxCH)).To(Succeed())
+			ch := channel.Channel{
+				Name:       "SG0002",
+				DataType:   telem.Float64T,
+				Expression: "return 1",
+				Requires:   []channel.Key{vCH.Key(), idxCH.Key()},
+			}
+			Expect(services[1].Create(ctx, &ch)).To(MatchError(validate.FieldError{
+				Field:   "requires",
+				Message: "cannot use a mix of virtual and non-virtual channels in calculations",
+			}))
+		})
+		It("Should return an error if the calculated channel depends on a channel that does not exist", func() {
+			ch := channel.Channel{
+				Name:       "SG0001",
+				DataType:   telem.Float64T,
+				Expression: "return 1",
+				Requires:   []channel.Key{111111111},
+			}
+			Expect(services[1].Create(ctx, &ch)).To(MatchError(query.NotFound))
+		})
+		It("Should return an error if all required channels do not share the same index", func() {
+			idxCH1 := channel.Channel{
+				Name:     "time1",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			idxCH2 := channel.Channel{
+				Name:     "time2",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(services[1].Create(ctx, &idxCH1)).To(Succeed())
+			Expect(services[1].Create(ctx, &idxCH2)).To(Succeed())
+			ch := channel.Channel{
+				Name:       "SG0001",
+				DataType:   telem.Float64T,
+				Expression: "return 1",
+				Requires:   []channel.Key{idxCH1.Key(), idxCH2.Key()},
+			}
+			Expect(services[1].Create(ctx, &ch)).To(MatchError(validate.FieldError{
+				Field:   "requires",
+				Message: "all required channels must share the same index",
+			}))
+		})
+
+	})
 	Context("Updating a channel", func() {
 		var ch channel.Channel
 		var ch2 channel.Channel
@@ -172,12 +276,13 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Internal = false
 			ch.Leaseholder = core.Free
 
-			ch2.Rate = 5 * telem.Hz
+			ch2.IsIndex = true
 			ch2.Name = "SG0003"
-			ch2.DataType = telem.Float64T
+			ch2.DataType = telem.TimeStampT
 			ch2.Leaseholder = 1
 
 			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch2)).To(Succeed())
 		})
 		It("Should update the channel name without error", func() {
 			ch.Name = "SG0002"
@@ -191,6 +296,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(resChannels[0].Name).To(Equal("SG0002"))
 		})
 		It("Should update the channel expression without error", func() {
+			ch.Requires = []channel.Key{ch2.Key()}
 			ch.Expression = "sin(x)"
 			Expect(services[1].Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Expression).To(Equal("sin(x)"))

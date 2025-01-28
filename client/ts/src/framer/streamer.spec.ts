@@ -138,7 +138,7 @@ describe("Streamer - Calculated Channels", () => {
       dataType: DataType.FLOAT64,
       index: timeChannel.key,
       virtual: true,
-      expression: "result = test_a + test_b",
+      expression: "return test_a + test_b",
       requires: [channelA.key, channelB.key],
     });
 
@@ -195,7 +195,7 @@ describe("Streamer - Calculated Channels", () => {
       dataType: DataType.FLOAT64,
       index: timeChannel.key,
       virtual: true,
-      expression: `result = ${baseChannel.name} + 5`,
+      expression: `return ${baseChannel.name} + 5`,
       requires: [baseChannel.key],
     });
 
@@ -257,7 +257,7 @@ describe("Streamer - Calculated Channels", () => {
       dataType: DataType.FLOAT64,
       index: timeChannel.key,
       virtual: true,
-      expression: "result = (multi_test_a * 2) + (multi_test_b / 2)",
+      expression: "return (multi_test_a * 2) + (multi_test_b / 2)",
       requires: [channelA.key, channelB.key],
     });
 
