@@ -96,9 +96,12 @@ export const resolveIcon = (ch?: channel.Payload): ReactElement<PIcon.BaseProps>
   return <Icon.Channel />;
 };
 
-const renderTag = (
-  p: Select.MultipleTagProps<channel.Key, channel.Payload>,
-): ReactElement => <Select.MultipleTag icon={resolveIcon(p.entry)} {...p} />;
+const renderTag = ({
+  key,
+  ...props
+}: Select.MultipleTagProps<channel.Key, channel.Payload>): ReactElement => (
+  <Select.MultipleTag key={key} icon={resolveIcon(props.entry)} {...props} />
+);
 
 export const SelectMultiple = ({
   columns: filter = DEFAULT_FILTER,

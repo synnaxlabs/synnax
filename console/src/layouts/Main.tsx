@@ -101,11 +101,7 @@ export const Main = (): ReactElement => (
       >
         <Align.Space className="console-main--driven" direction="x" empty>
           <NavDrawer location="left" />
-          <main
-            id="one-two"
-            className="console-main--driven"
-            style={{ position: "relative" }}
-          >
+          <main className="console-main--driven" style={{ position: "relative" }}>
             <Mosaic />
           </main>
           <NavDrawer location="right" />

@@ -22,12 +22,11 @@ import {
   Synnax,
   Text,
   Triggers,
-  useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as monaco from "monaco-editor";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
@@ -120,6 +119,10 @@ export const useListenForCalculationState = (): void => {
       const state = frame.get(CALCULATION_STATE_CHANNEL).parseJSON(calculationStateZ);
       state.forEach(({ key, variant, message }) => {
         client?.channels.retrieve(key).then((ch) => {
+          if (variant !== "error") {
+            addStatus({ variant, message });
+            return;
+          }
           addStatus({
             variant,
             message: `Calculation for ${ch.name} failed`,
@@ -190,6 +193,60 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     },
   });
 
+  const checkRequires = useMutation({
+    mutationFn: async (fld: Form.FieldState<channel.Key[]>) => {
+      const v = fld.value;
+      if (client == null || v.length == 0) return;
+      console.log(v);
+      const channels = await client.channels.retrieve(v);
+      const hyphenated = channels.filter((ch) => ch.name.includes("-"));
+      if (!hyphenated.length) return;
+      let base = "Channel ";
+      if (hyphenated.length > 1) base = "Channels ";
+      base += hyphenated.map((ch) => ch.name).join(", ");
+      base += " with hyphens must be accessed using ";
+      base += hyphenated.map((ch) => `get("${ch.name}")`).join(", ");
+      if (hyphenated.length > 1) base += " as they are not valid variable names.";
+      else base += " as it is not a valid variable name.";
+      methods.setStatus("expression", {
+        variant: "warning",
+        message: base,
+      });
+    },
+  });
+  Form.useFieldListener<channel.Key[], typeof schema>({
+    path: "requires",
+    onChange: useCallback((v) => checkRequires.mutate(v), [checkRequires]),
+    ctx: methods,
+  });
+
+  const autoFillRequires = useMutation({
+    mutationFn: async ({
+      value,
+      extra,
+    }: {
+      value: string;
+      extra: Form.ContextValue;
+    }) => {
+      if (client == null) return;
+      const channelRegex = /\b([a-zA-Z][a-zA-Z0-9_-]*)\b/g;
+      const requires = extra.get<channel.Key[]>("requires").value;
+      const channelNames: string[] = [];
+      let match: RegExpExecArray | null;
+      while ((match = channelRegex.exec(value)) !== null) {
+        const channelName = match[1];
+        if (channelName) channelNames.push(channelName);
+      }
+      const channels = unique.by(
+        await client.channels.retrieve(channelNames),
+        ({ name }) => name,
+      );
+      if (channels.length == 0) return;
+      const channelKeys = channels.map(({ key }) => key);
+      extra.set("requires", unique.unique([...requires, ...channelKeys]));
+    },
+  });
+
   const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
     "isIndex",
     false,
@@ -212,7 +269,11 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
             )}
           </Form.Field>
 
-          <Form.Field<string> path="expression" grow>
+          <Form.Field<string>
+            path="expression"
+            grow
+            onChange={(v, extra) => autoFillRequires.mutate({ value: v, extra })}
+          >
             {({ value, onChange }) => (
               <Editor
                 value={value}
@@ -285,77 +346,19 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
 
 const Editor = (props: Code.EditorProps): ReactElement => {
   const client = Synnax.use();
-  const requires = Form.useField<channel.Key[]>({ path: "requires" });
-  const valueRef = useSyncedRef(requires.value);
-  const [hyphenWarning, setHyphenWarning] = useState<string | null>(null);
-
-  const hasHyphenatedName = async () => {
-    if (!client || !requires.value?.length) return false;
-    const channels = await Promise.all(
-      requires.value.map((key) => client.channels.retrieve(key)),
-    );
-    return channels.some((ch) => ch.name.includes("-"));
-  };
-
-  useEffect(() => {
-    const checkHyphens = async () => {
-      const hasHyphen = await hasHyphenatedName();
-      if (hasHyphen)
-        setHyphenWarning(
-          "Note: Channels with hyphens must be accessed using" +
-            ' channels["channel-name"]',
-        );
-      else setHyphenWarning(null);
-    };
-    checkHyphens();
-  }, [requires.value]);
-
-  // Specifically to handle generating requires list when reopening existing calc channel
-  useEffect(() => {
-    if (!client || !props.value) return;
-    const updateRequiredChannels = async () => {
-      try {
-        const channelRegex = /\b([a-zA-Z][a-zA-Z0-9_-]*)\b/g;
-        const channelNames: string[] = [];
-        let match;
-
-        // Extract all matches
-        while ((match = channelRegex.exec(props.value)) !== null) {
-          const channelName = match[1];
-          if (channelName) channelNames.push(channelName);
-        }
-
-        const channels = await Promise.all(
-          channelNames.map(async (name) => {
-            const results = await client.channels.search(name, { internal: false });
-            const exactMatch = results.find((ch) => ch.name === name);
-            return exactMatch;
-          }),
-        );
-        const channelKeys = channels
-          .filter((ch): ch is NonNullable<typeof ch> => ch != null)
-          .map((ch) => ch.key);
-
-        if (channelKeys.length > 0) {
-          const newRequires = unique.unique([...valueRef.current, ...channelKeys]);
-          requires.onChange(newRequires);
-        }
-      } catch (error) {
-        console.error("Error updating required channels:", error);
-      }
-    };
-    updateRequiredChannels();
-  }, [client, props.value]);
+  const ctx = Form.useContext();
 
   // Register Monaco editor commands and completion provider
   useEffect(() => {
     const disposables: monaco.IDisposable[] = [];
     disposables.push(
       monaco.editor.registerCommand("onSuggestionAccepted", (_, channelKey) =>
-        requires.onChange(unique.unique([...valueRef.current, channelKey])),
+        ctx.set(
+          "requires",
+          unique.unique([...ctx.get<channel.Key[]>("requires").value, channelKey]),
+        ),
       ),
     );
-
     disposables.push(
       monaco.languages.registerCompletionItemProvider("lua", {
         triggerCharacters: ["."],
@@ -371,15 +374,13 @@ const Editor = (props: Code.EditorProps): ReactElement => {
             startColumn: word.startColumn,
             endColumn: word.endColumn,
           };
-          const channels = await client?.channels.search(word.word, {
-            internal: false,
-          });
+          const channels = await client.channels.search(word.word, { internal: false });
           return {
             suggestions: channels.map((channel) => ({
               label: channel.name,
               kind: monaco.languages.CompletionItemKind.Variable,
               insertText: channel.name.includes("-")
-                ? `channels["${channel.name}"]`
+                ? `get("${channel.name}")`
                 : channel.name,
               range,
               command: {
@@ -395,14 +396,5 @@ const Editor = (props: Code.EditorProps): ReactElement => {
     return () => disposables.forEach((d) => d.dispose());
   }, []);
 
-  return (
-    <>
-      <Code.Editor {...props} />
-      {hyphenWarning && (
-        <Text.Text level="small" shade={7}>
-          {hyphenWarning}
-        </Text.Text>
-      )}
-    </>
-  );
+  return <Code.Editor {...props} />;
 };

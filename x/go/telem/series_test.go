@@ -88,6 +88,7 @@ var _ = Describe("Series", func() {
 			Expect(s.Len()).To(Equal(int64(3)))
 			Expect(telem.Unmarshal[uint8](s)).To(Equal(d))
 		})
+
 	})
 	Describe("ValueAt", func() {
 		Describe("Happy Path", func() {
