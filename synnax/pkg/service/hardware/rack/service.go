@@ -110,7 +110,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return
 	}
 
-	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T))
+	cdcS, err := signals.PublishFromGorp[Key](ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T))
 	s.shutdownSignals = cdcS
 
 	return s, nil

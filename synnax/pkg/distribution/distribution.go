@@ -12,6 +12,8 @@ package distribution
 import (
 	"context"
 	"fmt"
+	"io"
+
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
@@ -26,7 +28,6 @@ import (
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"io"
 )
 
 type (

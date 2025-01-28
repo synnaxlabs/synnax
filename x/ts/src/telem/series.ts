@@ -389,7 +389,7 @@ export class Series<T extends TelemValue = TelemValue> {
   /** @returns a native typed array with the proper data type. */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    // @ts-expect-error - ABC
+    // @ts-expect-error - issues with union types in array constructors.
     return new this.dataType.Array(this._data, 0, this.writePos);
   }
 
@@ -419,7 +419,7 @@ export class Series<T extends TelemValue = TelemValue> {
 
   parseJSON<Z extends z.ZodTypeAny>(schema: Z): Array<z.output<Z>> {
     if (!this.dataType.equals(DataType.JSON))
-      throw new Error("cannot convert non-string series to strings");
+      throw new Error("cannot parse non-JSON series as JSON");
     return new TextDecoder()
       .decode(this.underlyingData)
       .split("\n")
@@ -1087,6 +1087,12 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   distance(start: bigint, end: bigint): bigint {
     const b = this.series.map((s) => s.alignmentBounds);
     return bounds.distance(b, start, end);
+  }
+
+  parseJSON<Z extends z.ZodTypeAny>(schema: Z): Array<z.output<Z>> {
+    if (!this.dataType.equals(DataType.JSON))
+      throw new Error("cannot parse non-JSON series as JSON");
+    return this.series.flatMap((s) => s.parseJSON(schema));
   }
 
   [Symbol.iterator](): Iterator<T> {

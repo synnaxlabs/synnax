@@ -72,7 +72,7 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
     });
     monacoRef.current = monaco.editor.create(editorRef.current, {
       value,
-      language: "python",
+      language: "lua",
       theme: "vs-dark-custom",
       automaticLayout: true,
       minimap: { enabled: false },

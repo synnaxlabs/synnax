@@ -17,7 +17,7 @@ import (
 )
 
 func (s *Service) newFree(mode Mode) StreamWriter {
-	w := &freeWriter{freeWrites: s.FreeWrites}
+	w := &freeWriter{freeWrites: s.FreeWrites, mode: mode}
 	w.Transform = w.transform
 	return w
 }

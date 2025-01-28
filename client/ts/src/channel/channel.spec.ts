@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
-import { describe, expect, it, test } from "vitest";
+import { beforeAll, describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { NotFoundError, QueryError  } from "@/errors";
+import { NotFoundError, QueryError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -32,12 +32,12 @@ describe("Channel", () => {
     });
 
     test("create calculated", async () => {
-      const chOne = new Channel({
+      let chOne = new Channel({
         name: "test",
-        virtual: true,
-        dataType: DataType.FLOAT32,
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
       });
-      client.channels.create(chOne);
+      chOne = await client.channels.create(chOne);
       let calculatedCH = new Channel({
         name: "test2",
         virtual: true,
@@ -49,6 +49,7 @@ describe("Channel", () => {
       expect(calculatedCH.key).not.toEqual(0);
       expect(calculatedCH.virtual).toEqual(true);
       expect(calculatedCH.expression).toEqual("test * 2");
+      expect(calculatedCH.requires).toEqual([chOne.key]);
     });
 
     test("create index and indexed pair", async () => {
@@ -301,12 +302,21 @@ describe("Channel", () => {
   });
 
   describe("update", () => {
+    let idxCH: Channel;
+    beforeAll(async () => {
+      idxCH = await client.channels.create({
+        name: "idx",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+    });
     test("update virtual channel expression", async () => {
       const channel = await client.channels.create({
         name: "virtual-calc",
         dataType: DataType.FLOAT32,
         virtual: true,
-        expression: "result = np.array([])"
+        expression: "return 1",
+        requires: [idxCH.key],
       });
 
       const updated = await client.channels.create({
@@ -314,24 +324,26 @@ describe("Channel", () => {
         name: channel.name,
         dataType: channel.dataType,
         virtual: true,
-        expression: "result = np.array([1, 2, 3])"
+        expression: "return 2",
+        requires: [idxCH.key],
       });
 
       const channelsWithName = await client.channels.retrieve(["virtual-calc"]);
       expect(channelsWithName.length).toEqual(1);
 
-      expect(updated.expression).toEqual("result = np.array([1, 2, 3])");
+      expect(updated.expression).toEqual("return 2");
 
       const retrieved = await client.channels.retrieve(channel.key);
-      expect(retrieved.expression).toEqual("result = np.array([1, 2, 3])");
+      expect(retrieved.expression).toEqual("return 2");
     });
 
-  test("update virtual channel name", async () => {
+    test("update calculated channel name", async () => {
       const channel = await client.channels.create({
         name: "virtual-calc",
         dataType: DataType.FLOAT32,
         virtual: true,
-        expression: "result = np.array([])"
+        expression: "return 1",
+        requires: [idxCH.key],
       });
 
       const updated = await client.channels.create({
@@ -339,7 +351,8 @@ describe("Channel", () => {
         name: "new-name",
         dataType: channel.dataType,
         virtual: true,
-        expression: channel.expression
+        expression: channel.expression,
+        requires: [idxCH.key],
       });
       expect(updated.name).toEqual("new-name");
 
@@ -352,7 +365,7 @@ describe("Channel", () => {
         name: "regular-channel",
         leaseholder: 1,
         rate: Rate.hz(1),
-        dataType: DataType.FLOAT32
+        dataType: DataType.FLOAT32,
       });
 
       const _updated = await client.channels.create({
@@ -360,9 +373,8 @@ describe("Channel", () => {
         name: "new-name",
         leaseholder: channel.leaseholder,
         rate: channel.rate,
-        dataType: channel.dataType
+        dataType: channel.dataType,
       });
-
 
       const retrieved = await client.channels.retrieve(channel.key);
       expect(retrieved.name).toEqual("regular-channel");

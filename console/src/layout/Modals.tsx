@@ -21,7 +21,9 @@ export const Modals = () => {
   const remove = useRemover();
   return (
     <>
-      {layouts.map((l) => l.window && <Modal key={l.key} state={l} remove={remove} />)}
+      {layouts.map((l) => (
+        <Modal key={l.key} state={l} remove={remove} />
+      ))}
     </>
   );
 };

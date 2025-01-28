@@ -164,6 +164,9 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	if lp.freeCounter == nil {
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
+	if err := lp.validateFreeVirtual(ctx, channels, tx); err != nil {
+		return err
+	}
 
 	// If existing channels are passed in, update the name, required channels and calc expression
 	keys := KeysFromChannels(*channels)
@@ -199,6 +202,43 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		return err
 	}
 	return lp.maybeSetResources(ctx, tx, toCreate)
+}
+
+func (lp *leaseProxy) validateFreeVirtual(
+	ctx context.Context,
+	channels *[]Channel,
+	tx gorp.Tx,
+) error {
+	for _, ch := range *channels {
+		if ch.IsCalculated() {
+			if len(ch.Requires) == 0 {
+				return validate.FieldError{
+					Field:   "requires",
+					Message: "calculated channels must require at least one channel",
+				}
+			}
+			var required []Channel
+			if err := gorp.NewRetrieve[Key, Channel]().WhereKeys(ch.Requires...).Entries(&required).Exec(ctx, tx); err != nil {
+				return err
+			}
+			idx := required[0].LocalIndex
+			for _, r := range required {
+				if (r.Virtual && idx != 0) || (!r.Virtual && idx == 0) {
+					return validate.FieldError{
+						Field:   "requires",
+						Message: "cannot use a mix of virtual and non-virtual channels in calculations",
+					}
+				}
+				if r.LocalIndex != idx {
+					return validate.FieldError{
+						Field:   "requires",
+						Message: "all required channels must share the same index",
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (lp *leaseProxy) retrieveExistingAndAssignKeys(
@@ -239,9 +279,12 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 	for i, ch := range *channels {
 		if ch.LocalKey == 0 {
 			ch.LocalKey = originalCounterValue + LocalKey(len(toCreate)) + 1
+			if ch.IsIndex {
+				ch.LocalIndex = ch.LocalKey
+			}
 			toCreate = append(toCreate, ch)
 		} else if ch.IsIndex {
-			ch.LocalIndex = ch.LocalKey // remove and run tests
+			ch.LocalIndex = ch.LocalKey
 		}
 		(*channels)[i] = ch
 	}
