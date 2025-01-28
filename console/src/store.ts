@@ -144,7 +144,7 @@ const createStore = async (): Promise<RootStore> => {
       ),
     reducer,
     enablePrerender: true,
-    debug: true,
+    debug: isDev(),
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };

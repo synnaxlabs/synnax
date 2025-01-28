@@ -9,16 +9,16 @@
 
 import { z } from "zod";
 
-export interface KV<V = string> extends Reader<V>, Writer<V>, Deleter {}
+export interface KV extends Reader, Writer, Deleter {}
 
-export interface Reader<V = string> {
+export interface Reader {
   /** @returns the value for a given key, or null if the key is not present. */
-  get: <IV = V>(key: string) => IV | null;
+  get: <IV>(key: string) => IV | null;
 }
 
-export interface Writer<V = string> {
+export interface Writer {
   /** Sets a key-value pair in the store. */
-  set: <IV = V>(key: string, value: IV) => void;
+  set: <IV>(key: string, value: IV) => void;
 }
 
 export interface Deleter {
@@ -27,21 +27,18 @@ export interface Deleter {
 }
 
 /** A read-writable key-value store. */
-export interface Async<V = string>
-  extends AsyncReader<V>,
-    AsyncWriter<V>,
-    AsyncDeleter {}
+export interface Async extends AsyncReader, AsyncWriter, AsyncDeleter {}
 
 /** A readable key-value store. */
-export interface AsyncReader<V = string> {
+export interface AsyncReader {
   /** Get the value for a given key. */
-  get: <IV = V>(key: string) => Promise<IV | null>;
+  get: <IV>(key: string) => Promise<IV | null>;
 }
 
 /** A writable key-value store. */
-export interface AsyncWriter<V = string> {
+export interface AsyncWriter {
   /** Sets a key-value pair in the store. The value must be serializable. */
-  set: <IV = V>(key: string, value: IV) => Promise<void>;
+  set: <IV>(key: string, value: IV) => Promise<void>;
 }
 
 /** A key-value store that can delete key-value pairs. */
