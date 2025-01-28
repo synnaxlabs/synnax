@@ -403,7 +403,7 @@ func (c Calculator) Calculate(fr framer.Frame) (of framer.Frame, err error) {
 		if err != nil {
 			return of, err
 		}
-		computron.SetLValueOnSeries(res, c.ch.DataType, os, i)
+		computron.SetLValueOnSeries(res, os, i)
 	}
 	return of, nil
 }

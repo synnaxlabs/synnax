@@ -1,3 +1,4 @@
+// Package computron provides a lua based calculation system for transforming data.
 package computron
 
 import (
@@ -7,11 +8,15 @@ import (
 	"github.com/yuin/gopher-lua/parse"
 )
 
+// Calculator is a lua function used to perform calculations on data.
 type Calculator struct {
-	l *lua.LState
-	f *lua.LFunction
+	// luaState is the lua state used to run the calculation.
+	luaState *lua.LState
+	// compiledExpr is the compiled lua function that performs the calculation.
+	compiledExpr *lua.LFunction
 }
 
+// LValueFromSeries converts a numeric series value at an index to a lua value.
 func LValueFromSeries(series telem.Series, index int64) lua.LValue {
 	switch series.DataType {
 	case telem.Int8T:
@@ -41,11 +46,18 @@ func LValueFromSeries(series telem.Series, index int64) lua.LValue {
 	}
 }
 
-func SetLValueOnSeries(v lua.LValue, dataType telem.DataType, series telem.Series, index int64) telem.Series {
+// SetLValueOnSeries sets the value of a series at an index to the given lua value. v must
+// be a valid numeric lua value, series must have sufficient capacity to store the value,
+// and index must be within the bounds of the series.
+func SetLValueOnSeries(
+	v lua.LValue,
+	series telem.Series,
+	index int64,
+) telem.Series {
 	switch v.Type() {
 	case lua.LTNumber:
 		num := float64(v.(lua.LNumber))
-		switch dataType {
+		switch series.DataType {
 		case telem.Int8T:
 			telem.SetValueAt[int8](series, index, int8(num))
 		case telem.Int16T:
@@ -104,23 +116,29 @@ func parseSyntaxError(err error) error {
 	)
 }
 
-func Open(script string) (expr *Calculator, err error) {
-	expr = &Calculator{l: lua.NewState(luaOptions)}
-	expr.f, err = expr.l.LoadString(script)
-	return expr, parseSyntaxError(err)
+// Open creates a new calculator with the given expression as the calculation.
+func Open(expr string) (calc *Calculator, err error) {
+	calc = &Calculator{luaState: lua.NewState(luaOptions)}
+	calc.compiledExpr, err = calc.luaState.LoadString(expr)
+	return calc, parseSyntaxError(err)
 }
 
-func (c *Calculator) Set(name string, value lua.LValue) { c.l.SetGlobal(name, value) }
+// Set sets a variable in the calculator's lua state. This variable will be available
+// the next time the expression is evaluated, and will override any previous variables
+// set in the state.
+func (c *Calculator) Set(name string, value lua.LValue) { c.luaState.SetGlobal(name, value) }
 
+// Run evaluates the calculator's expression and returns the result. If an error occurs
+// during evaluation, the error is returned.
 func (c *Calculator) Run() (result lua.LValue, err error) {
-	if err = c.l.CallByParam(lua.P{Fn: c.f, NRet: 1, Protect: true}); err != nil {
+	if err = c.luaState.CallByParam(lua.P{Fn: c.compiledExpr, NRet: 1, Protect: true}); err != nil {
 		return
 	}
-	result = c.l.Get(-1)
-	c.l.Pop(1)
+	result = c.luaState.Get(-1)
+	c.luaState.Pop(1)
 	return result, nil
 }
 
 // Close clears all calculation resources. Once Close is called, no other methods
 // should be called on the calculator.
-func (c *Calculator) Close() { c.l.Close() }
+func (c *Calculator) Close() { c.luaState.Close() }
