@@ -1,0 +1,179 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Ranges"
+description: "Organize and analyze temporal data with precision using hierarchical ranges."
+next: "Write Data"
+nextURL: "/reference/typescript-client/write-data"
+prev: "Channels"
+prevURL: "/reference/typescript-client/channels"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Code } from "@/components/code/Code";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide demonstrates how to work with temporal ranges in Synnax, including creating hierarchical relationships, managing metadata, and real-time data access.
+
+<Divider.Divider direction="x" />
+
+## Creating Ranges
+
+### Basic Creation
+```typescript
+import { TimeRange, TimeStamp } from "@synnaxlabs/client";
+
+const experimentRange = await client.ranges.create({
+  name: "Engine Test 42",
+  timeRange: new TimeRange(
+    TimeStamp.now().sub("2h"),
+    TimeStamp.now()
+  ),
+  color: "#3EA2FF"
+});
+```
+
+### Parent-Child Relationships
+```typescript
+const parentRange = await client.ranges.create({
+  name: "Test Campaign",
+  timeRange: TimeStamp.now().spanRange("8h")
+});
+
+const childRange = await client.ranges.create(
+  {
+    name: "Cold Start",
+    timeRange: TimeStamp.now().spanRange("15m")
+  },
+  { parent: parentRange.ontologyID }
+);
+```
+
+<Note.Note variant="info">
+Use <code>TimeStamp</code> for nanosecond-precision time operations. Ranges maintain their own copy of time bounds.
+</Note.Note>
+
+<Divider.Divider direction="x" />
+
+## Retrieving Ranges
+
+### By Identifier
+```typescript
+// Single range by key
+const exactRange = await client.ranges.retrieve("engine-test-42");
+
+// Multiple ranges by name
+const similarRanges = await client.ranges.retrieve(["Engine Test 42", "Engine Test 43"]);
+```
+
+### By Time Window
+```typescript
+const yesterdayRanges = await client.ranges.search(
+  new TimeRange(TimeStamp.now().sub("24h"), TimeStamp.now())
+);
+```
+
+### Pagination
+```typescript
+const firstPage = await client.ranges.page(0, 10); // Offset 0, limit 10
+const nextPage = await client.ranges.page(1, 10);   // Offset 10, limit 10
+```
+
+<Note.Note variant="warning">
+Retrieving by name returns all matching ranges. Use keys for precise access.
+</Note.Note>
+
+<Divider.Divider direction="x" />
+
+## Channel Aliasing
+
+### Setting Aliases
+```typescript
+// Permanent alias for sensor channel
+await experimentRange.setAlias("sensor_4859", "exhaust_temp");
+
+// Temporary alias within range context
+const tempReadings = await experimentRange.read("exhaust_temp");
+```
+
+### Resolving Aliases
+```typescript
+const originalName = await experimentRange.resolveAlias("exhaust_temp");
+// Returns "sensor_4859"
+```
+
+<Note.Note variant="warning">
+Aliases are range-specific. They won't affect channel names outside the range context.
+</Note.Note>
+
+<Divider.Divider direction="x" />
+
+## Metadata Management
+
+### Key-Value Storage
+```typescript
+// Set test parameters
+await experimentRange.kv.set("test_config", {
+  fuelMix: "95% LOX",
+  chamberPressure: "300 psi"
+});
+
+// Retrieve configuration
+const config = await experimentRange.kv.get("test_config");
+```
+
+### Real-time Metadata Tracking
+```typescript
+const kvTracker = await experimentRange.kv.openTracker();
+kvTracker.onChange((update) => {
+  console.log("Config updated:", update);
+});
+```
+
+<Divider.Divider direction="x" />
+
+## Advanced Features
+
+### Ontology Relationships
+```typescript
+// Attach schematic to range
+const testSchematic = await client.workspaces.schematic.retrieve("test_setup");
+await experimentRange.ontologyClient.addChildren(
+  experimentRange.ontologyID,
+  testSchematic.ontologyID
+);
+```
+
+### Real-time Monitoring
+```typescript
+const rangeTracker = await client.ranges.openTracker();
+rangeTracker.onChange(({ variant, key, value }) => {
+  console.log(`Range ${key} ${variant}:`, value?.name);
+});
+```
+
+<Divider.Divider direction="x" />
+
+## Maintenance
+
+### Updating Ranges
+```typescript
+await client.ranges.update({
+  key: "engine-test-42",
+  name: "Engine Test 42 (Revised)",
+  timeRange: new TimeRange(/* updated bounds */)
+});
+```
+
+### Deletion
+```typescript
+// Single range
+await client.ranges.delete("engine-test-42");
+
+// Multiple ranges
+await client.ranges.delete(["campaign-2024", "cold-start-1"]);
+```
+
+<Note.Note variant="warning">
+Deleted ranges preserve collected data. Use <code>purge</code> for complete removal (enterprise feature).
+</Note.Note>
