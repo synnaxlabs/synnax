@@ -9,24 +9,24 @@
 
 import { type ReactElement, useEffect } from "react";
 
-import { Aether } from "@/aether";
+import { type Aether } from "@/aether";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Line as Core } from "@/vis/line";
 import { useContext } from "@/vis/lineplot/LinePlot";
 
-export interface LineProps extends Core.LineProps {}
+export interface LineProps extends Core.LineProps, Aether.CProps {}
 
-export const Line = Aether.wrap<LineProps>(
-  "Line",
-  ({ aetherKey, color, label = "", ...props }): ReactElement => {
-    const { setLine, removeLine } = useContext("Line");
-    useEffect(() => {
-      setLine({
-        key: aetherKey,
-        color,
-        label,
-      });
-      return () => removeLine(aetherKey);
-    }, [label, color]);
-    return <Core.Line aetherKey={aetherKey} color={color} label={label} {...props} />;
-  },
-);
+export const Line = ({
+  aetherKey,
+  color,
+  label = "",
+  ...props
+}: LineProps): ReactElement => {
+  const cKey = useUniqueKey(aetherKey);
+  const { setLine, removeLine } = useContext("Line");
+  useEffect(() => {
+    setLine({ key: cKey, color, label });
+    return () => removeLine(cKey);
+  }, [label, color]);
+  return <Core.Line aetherKey={cKey} color={color} label={label} {...props} />;
+};
