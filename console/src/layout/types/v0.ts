@@ -79,6 +79,10 @@ const stateZ = z.object({
   tab: layoutTabPropsZ.partial().optional(),
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
+  betaFeature: z.object({
+    name: z.string(),
+    plural: z.boolean().optional(),
+  }).optional(),
 });
 
 /**
@@ -131,6 +135,13 @@ export interface State<A = unknown> {
    * from the workspace. This is typically used for modal layouts.
    */
   excludeFromWorkspace?: boolean;
+  /**
+   * The beta feature associated with the layout.
+   */
+  betaFeature?: {
+    name: string;
+    plural?: boolean;
+  };
 }
 
 const themeZ = Theming.themeZ.transform(

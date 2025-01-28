@@ -16,6 +16,7 @@ import { type CSSProperties } from "react";
 import { Content } from "@/layout/Content";
 import { type State, type WindowProps } from "@/layout/slice";
 import { DefaultContextMenu } from "@/layout/Window";
+import { Version } from "@/version";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({
   width: "100%",
@@ -56,6 +57,12 @@ export const Modal = ({ state, remove, centered, root }: ModalProps) => {
               </Nav.Bar.Start>
             )}
             <Nav.Bar.End style={{ paddingRight: "1rem" }}>
+              {state.betaFeature != null && (
+                <Version.BetaTag
+                  feature={state.betaFeature.name}
+                  plural={state.betaFeature.plural}
+                />
+              )}
               <Button.Icon onClick={() => remove(key)} size="small">
                 <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
               </Button.Icon>

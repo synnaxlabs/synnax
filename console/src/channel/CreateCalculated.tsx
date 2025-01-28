@@ -34,6 +34,7 @@ import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Cre
 import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { Modal } from "@/layout/Modal";
 import type { RendererProps } from "@/layout/slice";
 import { Version } from "@/version";
 
@@ -68,6 +69,10 @@ export const CREATE_CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.State => ({
+  betaFeature: {
+    name: "Calculated channels",
+    plural: true,
+  },
   name: "Channel.Create.Calculated",
   icon: "Channel",
   location: "modal",
@@ -263,7 +268,6 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
             </Align.Space>
           )}
           <Align.Space direction="x" align="center">
-            <Version.BetaTag feature="Calculated channels" plural />
             <Button.Button
               disabled={isPending}
               loading={isPending}
