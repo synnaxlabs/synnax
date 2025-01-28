@@ -114,6 +114,10 @@ export const useListenForCalculationState = (): void => {
       const state = frame.get(CALCULATION_STATE_CHANNEL).parseJSON(calculationStateZ);
       state.forEach(({ key, variant, message }) => {
         client?.channels.retrieve(key).then((ch) => {
+          if (variant !== "error") {
+            addStatus({ variant, message });
+            return;
+          }
           addStatus({
             variant,
             message: `Calculation for ${ch.name} failed`,

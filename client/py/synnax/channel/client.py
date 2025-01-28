@@ -32,7 +32,8 @@ from synnax.telem import (
     CrudeRate,
     CrudeTimeStamp,
     DataType,
-    MultiSeries, Rate,
+    MultiSeries,
+    Rate,
     Series,
     TimeRange,
 )
@@ -75,11 +76,11 @@ class Channel(ChannelPayload):
         that this does not create the Channel in the cluster. To create the channel,
         call client.channels.create(channel).
 
+        :param name: A name for the channel.
         :param data_type: The data type of the samples in the channel. For example, `"float32"`.
         :param rate: Rate sets the rate at which the channels values are written. If this
         parameter is non-zero, is_index must be false and index must be an empty string or
         unspecified.
-        :param name: A name for the channel.
         :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have a data type of synnax.TIMESTAMP.
         :param index: The key of the channel that indexes this channel.
@@ -94,6 +95,8 @@ class Channel(ChannelPayload):
         calculated channel depends on in order to be evaluated. This should only be
         set if expression is not an empty string. If expression is not an empty string,
         this should have at least one channel.
+        :param internal: Boolean indicating whether the channel is internal. Internal
+        channels are not visible to the user and are used for internal purposes only.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to

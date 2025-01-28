@@ -315,7 +315,7 @@ describe("Channel", () => {
         name: "virtual-calc",
         dataType: DataType.FLOAT32,
         virtual: true,
-        expression: "return np.array([])",
+        expression: "return 1",
         requires: [idxCH.key],
       });
 
@@ -324,17 +324,17 @@ describe("Channel", () => {
         name: channel.name,
         dataType: channel.dataType,
         virtual: true,
-        expression: "return np.array([1, 2, 3])",
+        expression: "return 2",
         requires: [idxCH.key],
       });
 
       const channelsWithName = await client.channels.retrieve(["virtual-calc"]);
       expect(channelsWithName.length).toEqual(1);
 
-      expect(updated.expression).toEqual("return np.array([1, 2, 3])");
+      expect(updated.expression).toEqual("return 2");
 
       const retrieved = await client.channels.retrieve(channel.key);
-      expect(retrieved.expression).toEqual("return np.array([1, 2, 3])");
+      expect(retrieved.expression).toEqual("return 2");
     });
 
     test("update calculated channel name", async () => {
@@ -342,7 +342,7 @@ describe("Channel", () => {
         name: "virtual-calc",
         dataType: DataType.FLOAT32,
         virtual: true,
-        expression: "return np.array([])",
+        expression: "return 1",
         requires: [idxCH.key],
       });
 

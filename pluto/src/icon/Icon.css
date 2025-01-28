@@ -23,7 +23,7 @@
         }
     }
 
-    --pluto-scale: scale(0.7);
+    --pluto-scale: scale(0.8);
 
     .pluto--bottomLeft {
         transform: translate(-55%, 35%) var(--pluto-scale);
