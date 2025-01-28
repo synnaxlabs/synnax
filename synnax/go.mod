@@ -14,6 +14,7 @@ require (
 	github.com/samber/lo v1.49.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
+	github.com/stretchr/testify v1.10.0
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e
 	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0

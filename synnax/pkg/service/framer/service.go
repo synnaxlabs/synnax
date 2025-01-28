@@ -32,7 +32,7 @@ type Config struct {
 	alamos.Instrumentation
 	// Distribution layer framer service.
 	Framer  *framer.Service
-	Channel channel.Readable
+	Channel channel.Service
 }
 
 var (
@@ -58,7 +58,7 @@ func (c Config) Override(other Config) Config {
 
 type Service struct {
 	Config
-	Calculated *calculation.Service
+	Calculation *calculation.Service
 }
 
 func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*framer.Iterator, error) {
@@ -80,7 +80,7 @@ func (s *Service) NewDeleter() framer.Deleter {
 func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (framer.Streamer, error) {
 	ut := &updaterTransform{
 		Instrumentation: s.Instrumentation,
-		c:               s.Calculated,
+		c:               s.Calculation,
 		readable:        s.Channel,
 	}
 	ut.Transform = ut.transform
@@ -112,7 +112,7 @@ func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (f
 }
 
 func (s *Service) Close() error {
-	return s.Calculated.Close()
+	return s.Calculation.Close()
 }
 
 type updaterTransform struct {
@@ -160,18 +160,18 @@ func (t *updaterTransform) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}))...)
 }
 
-func OpenService(cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
-	calc, err := calculation.Open(calculation.Config{
+	calc, err := calculation.Open(ctx, calculation.Config{
 		Instrumentation:   cfg.Instrumentation.Child("calculated"),
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
 		ChannelObservable: cfg.Channel.NewObservable(),
 	})
-	s.Calculated = calc
+	s.Calculation = calc
 	return s, err
 }
