@@ -24,7 +24,7 @@ const layoutCSS = (window?: WindowProps): CSSProperties => ({
   maxWidth: window?.size?.width,
   maxHeight: window?.size?.height,
   minWidth: window?.minSize?.width,
-  minHeight: window?.minSize?.height,
+  minHeight: window?.minSize?.height
 });
 
 interface ModalProps {

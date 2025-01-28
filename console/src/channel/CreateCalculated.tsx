@@ -21,7 +21,7 @@ import {
   Status,
   Synnax,
   Text,
-  Triggers,
+  Triggers
 } from "@synnaxlabs/pluto";
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -33,9 +33,7 @@ import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Cre
 import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Modal } from "@/layout/Modal";
 import type { RendererProps } from "@/layout/slice";
-import { Version } from "@/version";
 
 export interface CalculatedChannelArgs {
   channelKey?: number;
@@ -52,13 +50,13 @@ const schema = createFormValidator(
         .string()
         .min(1, "Expression must not be empty")
         .refine((v) => v.includes("return"), {
-          message: "Expression must contain a return statement",
-        }),
+          message: "Expression must contain a return statement"
+        })
     })
     .refine((v) => v.requires?.length > 0, {
       message: "Expression must use at least one synnax channel",
-      path: ["requires"],
-    }),
+      path: ["requires"]
+    })
 );
 
 type FormValues = z.infer<typeof schema>;
@@ -70,37 +68,37 @@ const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.State => ({
   betaFeature: {
     name: "Calculated channels",
-    plural: true,
+    plural: true
   },
   name: "Channel.Create.Calculated",
   icon: "Channel",
   location: "modal",
   tab: {
     closable: true,
-    editable: false,
+    editable: false
   },
   window: {
     resizable: false,
     size: { height: 600, width: 1000 },
     navTop: true,
-    showTitle: true,
+    showTitle: true
   },
   ...base,
   key: CREATE_CALCULATED_LAYOUT_TYPE,
   type: CREATE_CALCULATED_LAYOUT_TYPE,
-  windowKey: MAIN_WINDOW,
+  windowKey: MAIN_WINDOW
 });
 
 const ZERO_FORM_VALUES: FormValues = {
   ...ZERO_CHANNEL,
   virtual: true, // Set to true by default
-  expression: "return 0",
+  expression: "return 0"
 };
 
 const calculationStateZ = z.object({
   key: channel.keyZ,
   variant: z.enum(["error", "success", "info"]),
-  message: z.string(),
+  message: z.string()
 });
 
 const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
@@ -126,11 +124,11 @@ export const useListenForCalculationState = (): void => {
           addStatus({
             variant,
             message: `Calculation for ${ch.name} failed`,
-            description: message,
+            description: message
           });
         });
       });
-    },
+    }
   });
 };
 
@@ -145,7 +143,7 @@ export const CreateCalculatedModal: Layout.Renderer = ({ layoutKey, onClose }) =
       if (client == null) throw new Error("Client not available");
       const ch = await client.channels.retrieve(args.channelKey);
       return { ...ch, dataType: ch.dataType.toString() };
-    },
+    }
   });
 
   if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
@@ -169,7 +167,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const methods = Form.use<typeof schema>({
     schema,
     values: initialValues,
-    sync: true,
+    sync: true
   });
 
   const addStatus = Status.useAggregator();
@@ -188,9 +186,9 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
       addStatus({
         variant: "error",
         message: "Error creating calculated channel: ".concat(methods.value().name),
-        description: error.message,
+        description: error.message
       });
-    },
+    }
   });
 
   const checkRequires = useMutation({
@@ -210,21 +208,21 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
       else base += " as it is not a valid variable name.";
       methods.setStatus("expression", {
         variant: "warning",
-        message: base,
+        message: base
       });
-    },
+    }
   });
   Form.useFieldListener<channel.Key[], typeof schema>({
     path: "requires",
     onChange: useCallback((v) => checkRequires.mutate(v), [checkRequires]),
-    ctx: methods,
+    ctx: methods
   });
 
   const autoFillRequires = useMutation({
     mutationFn: async ({
-      value,
-      extra,
-    }: {
+                         value,
+                         extra
+                       }: {
       value: string;
       extra: Form.ContextValue;
     }) => {
@@ -239,18 +237,18 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
       }
       const channels = unique.by(
         await client.channels.retrieve(channelNames),
-        ({ name }) => name,
+        ({ name }) => name
       );
       if (channels.length == 0) return;
       const channelKeys = channels.map(({ key }) => key);
       extra.set("requires", unique.unique([...requires, ...channelKeys]));
-    },
+    }
   });
 
   const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
     "isIndex",
     false,
-    methods,
+    methods
   );
 
   return (
@@ -355,16 +353,16 @@ const Editor = (props: Code.EditorProps): ReactElement => {
       monaco.editor.registerCommand("onSuggestionAccepted", (_, channelKey) =>
         ctx.set(
           "requires",
-          unique.unique([...ctx.get<channel.Key[]>("requires").value, channelKey]),
-        ),
-      ),
+          unique.unique([...ctx.get<channel.Key[]>("requires").value, channelKey])
+        )
+      )
     );
     disposables.push(
       monaco.languages.registerCompletionItemProvider("lua", {
         triggerCharacters: ["."],
         provideCompletionItems: async (
           model: monaco.editor.ITextModel,
-          position: monaco.Position,
+          position: monaco.Position
         ): Promise<monaco.languages.CompletionList> => {
           if (client == null) return { suggestions: [] };
           const word = model.getWordUntilPosition(position);
@@ -372,7 +370,7 @@ const Editor = (props: Code.EditorProps): ReactElement => {
             startLineNumber: position.lineNumber,
             endLineNumber: position.lineNumber,
             startColumn: word.startColumn,
-            endColumn: word.endColumn,
+            endColumn: word.endColumn
           };
           const channels = await client.channels.search(word.word, { internal: false });
           return {
@@ -386,12 +384,12 @@ const Editor = (props: Code.EditorProps): ReactElement => {
               command: {
                 id: "onSuggestionAccepted",
                 title: "Suggestion Accepted",
-                arguments: [channel.key],
-              },
-            })),
+                arguments: [channel.key]
+              }
+            }))
           };
-        },
-      }),
+        }
+      })
     );
     return () => disposables.forEach((d) => d.dispose());
   }, []);
