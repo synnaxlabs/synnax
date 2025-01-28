@@ -15,6 +15,7 @@
     position: relative;
 
     .pluto-sub {
+        --pluto-scale: scale(calc(var(--pluto-base-scale, 1) * 0.8));
         z-index: 1;
         background-color: var(--pluto-bg, var(--pluto-gray-l0));
         border-radius: 1rem;
@@ -22,8 +23,6 @@
             stroke-width: 4px;
         }
     }
-
-    --pluto-scale: scale(0.7);
 
     .pluto--bottomLeft {
         transform: translate(-55%, 35%) var(--pluto-scale);
