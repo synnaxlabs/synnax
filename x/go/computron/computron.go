@@ -119,6 +119,15 @@ func parseSyntaxError(err error) error {
 // Open creates a new calculator with the given expression as the calculation.
 func Open(expr string) (calc *Calculator, err error) {
 	calc = &Calculator{luaState: lua.NewState(luaOptions)}
+
+	// Register the get function to access hyphenated variable names
+	calc.luaState.SetGlobal("get", calc.luaState.NewFunction(func(L *lua.LState) int {
+		name := L.ToString(1)
+		value := L.GetGlobal(name)
+		L.Push(value)
+		return 1
+	}))
+
 	calc.compiledExpr, err = calc.luaState.LoadString(expr)
 	return calc, parseSyntaxError(err)
 }

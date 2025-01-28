@@ -49,6 +49,7 @@ describe("Channel", () => {
       expect(calculatedCH.key).not.toEqual(0);
       expect(calculatedCH.virtual).toEqual(true);
       expect(calculatedCH.expression).toEqual("test * 2");
+      expect(calculatedCH.requires).toEqual([chOne.key]);
     });
 
     test("create index and indexed pair", async () => {

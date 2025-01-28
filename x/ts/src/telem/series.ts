@@ -419,7 +419,7 @@ export class Series<T extends TelemValue = TelemValue> {
 
   parseJSON<Z extends z.ZodTypeAny>(schema: Z): Array<z.output<Z>> {
     if (!this.dataType.equals(DataType.JSON))
-      throw new Error("cannot convert non-string series to strings");
+      throw new Error("cannot parse non-JSON series as JSON");
     return new TextDecoder()
       .decode(this.underlyingData)
       .split("\n")
@@ -1091,7 +1091,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
 
   parseJSON<Z extends z.ZodTypeAny>(schema: Z): Array<z.output<Z>> {
     if (!this.dataType.equals(DataType.JSON))
-      throw new Error("cannot convert non-string series to strings");
+      throw new Error("cannot parse non-JSON series as JSON");
     return this.series.flatMap((s) => s.parseJSON(schema));
   }
 
