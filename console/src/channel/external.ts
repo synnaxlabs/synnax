@@ -15,6 +15,7 @@ import {
 import { type Layout } from "@/layout";
 
 export * from "@/channel/Create";
+export * from "@/channel/CreateCalculated";
 export * from "@/channel/services/ontology";
 export * from "@/channel/services/palette";
 

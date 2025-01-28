@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -100,8 +101,9 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	}
 	keys := channel.KeysFromChannels(channels)
 	w, err := s.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-		Keys:  keys,
-		Start: telem.Now(),
+		Keys:        keys,
+		Start:       telem.Now(),
+		Authorities: []control.Authority{255},
 	})
 	if err != nil {
 		return nil, err

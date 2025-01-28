@@ -93,7 +93,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if cfg.Signals == nil {
 		return
 	}
-	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
+	cdcS, err := signals.PublishFromGorp[Key](ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
 	if err != nil {
 		return
 	}
