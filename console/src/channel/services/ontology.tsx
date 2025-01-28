@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   type Haul,
-  Icon as PIcon,
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,
