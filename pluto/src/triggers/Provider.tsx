@@ -71,11 +71,10 @@ const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
 };
 
 const shouldTriggerOnKeyDown = (key: string, e: KeyboardEvent): boolean => {
-  console.log(key, e);
   if (EXCLUDE_TRIGGERS.includes(key)) return false;
   if (isInputOrContentEditable(e)) {
-    // If there is an alphanumeric key and the user is not holding down ctrl or meta,
-    // we don't want to trigger the key.
+    // If there is an alphanumeric key and the user is not holding down ctrl or meta, we
+    // don't want to trigger the key.
     if (ALPHANUMERIC_KEYS_SET.has(key) && !e.ctrlKey && !e.metaKey) return false;
     return true;
   }
