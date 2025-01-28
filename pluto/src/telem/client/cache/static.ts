@@ -18,7 +18,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { convertSeries } from "@/telem/aether/convertSeries";
+import { convertSeriesToSupportedGL } from "@/telem/aether/convertSeries";
 
 export interface DirtyReadResult {
   series: Series[];
@@ -73,7 +73,7 @@ export class Static {
    */
   write(series: Series[]): void {
     if (series.length === 0) return;
-    series.forEach((s) => this.writeOne(convertSeries(s)));
+    series.forEach((s) => this.writeOne(convertSeriesToSupportedGL(s)));
     this.checkIntegrity(series);
   }
 

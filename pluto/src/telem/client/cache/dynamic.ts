@@ -9,7 +9,10 @@
 
 import { DataType, math, Series, type TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
-import { convertSeries, resolveDataType } from "@/telem/aether/convertSeries";
+import {
+  convertSeriesToSupportedGL,
+  resolveGLDataType,
+} from "@/telem/aether/convertSeries";
 
 /** Response from a write to the @link Dynamic cache. */
 export interface DynamicWriteResponse {
@@ -113,7 +116,7 @@ export class Dynamic {
     const isTimestamp = this.props.dataType.equals(DataType.TIMESTAMP);
     return Series.alloc({
       capacity: isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
-      dataType: resolveDataType(this.props.dataType),
+      dataType: resolveGLDataType(this.props.dataType),
       timeRange: start.range(TimeStamp.MAX),
       sampleOffset: isTimestamp ? BigInt(start.valueOf()) : 0,
       glBufferUsage: "dynamic",
@@ -143,7 +146,7 @@ export class Dynamic {
       this.curr = this.allocate(cap, series.alignment, now);
       res.allocated.push(this.curr);
     }
-    const converted = convertSeries(series, this.curr.sampleOffset);
+    const converted = convertSeriesToSupportedGL(series, this.curr.sampleOffset);
     const amountWritten = this.curr.write(converted);
     // This means that the current buffer is large enough to fit the entire incoming
     // series. We're done in this caseconv.
