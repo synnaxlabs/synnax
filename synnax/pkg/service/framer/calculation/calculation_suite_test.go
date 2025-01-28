@@ -12,5 +12,5 @@ var ctx = context.Background()
 
 func TestCalculated(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Calculated Suite")
+	RunSpecs(t, "Calculation Suite")
 }

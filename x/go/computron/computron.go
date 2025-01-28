@@ -86,8 +86,8 @@ func SetLValueOnSeries(
 }
 
 var luaOptions = lua.Options{
-	// A callstack size of 20 is more than enough for all calculations.
-	CallStackSize: 5,
+	// A callstack size of 10 is more than enough for all calculations.
+	CallStackSize: 10,
 	// Keep a fixed size stack to keep CPU overhead low.
 	MinimizeStackMemory: false,
 }

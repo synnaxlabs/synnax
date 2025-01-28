@@ -381,6 +381,8 @@ func (c Calculator) Calculate(fr framer.Frame) (of framer.Frame, err error) {
 		return
 	}
 	os := telem.AllocSeries(c.ch.DataType, fr.Series[0].Len())
+	// Mark the alignment of the output series as the same as the input series. Right now, we assume that all the
+	// input channels share the same index.
 	os.Alignment = fr.Series[0].Alignment
 	of.Keys = []channel.Key{c.ch.Key()}
 	of.Series = []telem.Series{os}

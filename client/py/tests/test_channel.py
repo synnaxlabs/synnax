@@ -86,8 +86,13 @@ class TestChannel:
 
     def test_create_calculation_from_class(self, client: sy.Synnax):
         """Should create a calculation channel from the class"""
+        idx_ch = client.channels.create(
+            name="test",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True
+        )
         base_v_channel = client.channels.create(
-            name="test", data_type=sy.DataType.FLOAT32, virtual=True
+            name="test", data_type=sy.DataType.FLOAT32, index=idx_ch.key,
         )
         channel = sy.Channel(
             name="test",
@@ -102,8 +107,15 @@ class TestChannel:
 
     def test_create_calculation_from_kwargs(self, client: sy.Synnax):
         """Should create a calculated channel from kwargs and auto-set virtual to True"""
+        idx_ch = client.channels.create(
+            name="test",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True
+        )
         base_v_channel = client.channels.create(
-            name="test", data_type=sy.DataType.FLOAT32, virtual=True
+            name="test",
+            data_type=sy.DataType.FLOAT32,
+            index=idx_ch.key,
         )
         channel = client.channels.create(
             name="test",

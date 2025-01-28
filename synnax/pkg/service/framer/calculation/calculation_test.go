@@ -23,7 +23,7 @@ import (
 
 var sleepInterval = 25 * time.Millisecond
 
-var _ = Describe("Calculated", Ordered, func() {
+var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c    *calculation.Service
 		dist distribution.Distribution
