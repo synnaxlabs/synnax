@@ -75,7 +75,6 @@ export const Field = <
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
   if (field.variant != null) childrenProps.variant = field.variant;
-  console.log(field.status.variant, helpText);
   return (
     <Input.Item
       padHelpText={padHelpText}

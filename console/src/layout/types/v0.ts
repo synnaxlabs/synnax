@@ -17,7 +17,7 @@ export const VERSION = "0.0.0";
 const placementLocationZ = z.union([
   z.literal("window"),
   z.literal("mosaic"),
-  z.literal("modal")
+  z.literal("modal"),
 ]);
 
 /**
@@ -55,7 +55,7 @@ export type WindowProps = Omit<Drift.WindowProps, "key" | "url"> & {
 const layoutTabPropsZ = Tabs.tabZ.pick({ closable: true, editable: true }).extend({
   tab: Tabs.tabZ,
   location: location.location.optional(),
-  mosaicKey: z.number().optional()
+  mosaicKey: z.number().optional(),
 });
 
 /**
@@ -68,7 +68,7 @@ interface LayoutTabProps extends Pick<Tabs.Tab, "closable" | "editable"> {
   mosaicKey?: number;
 }
 
-const stateZ = z.object({
+export const stateZ = z.object({
   windowKey: z.string(),
   key: z.string(),
   type: z.string(),
@@ -79,10 +79,7 @@ const stateZ = z.object({
   tab: layoutTabPropsZ.partial().optional(),
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
-  betaFeature: z.object({
-    name: z.string(),
-    plural: z.boolean().optional()
-  }).optional()
+  beta: z.boolean().default(false).optional(),
 });
 
 /**
@@ -136,23 +133,20 @@ export interface State<A = unknown> {
    */
   excludeFromWorkspace?: boolean;
   /**
-   * The beta feature associated with the layout.
+   * beta is a flag that indicates whether the layout should be marked with a beta tag.
    */
-  betaFeature?: {
-    name: string;
-    plural?: boolean;
-  };
+  beta?: boolean;
 }
 
 const themeZ = Theming.themeZ.transform(
   // Need to remove the Color classes from the theme so that we can store it in Redux properly
-  Color.transformColorsToHex
+  Color.transformColorsToHex,
 );
 
 const mosaicStateZ = z.object({
   activeTab: z.string().nullable(),
   root: Mosaic.nodeZ,
-  focused: z.string().nullable().default(null)
+  focused: z.string().nullable().default(null),
 });
 
 type MosaicState = z.infer<typeof mosaicStateZ>;
@@ -160,13 +154,13 @@ type MosaicState = z.infer<typeof mosaicStateZ>;
 export const ZERO_MOSAIC_STATE: MosaicState = {
   activeTab: null,
   focused: null,
-  root: { key: 1, tabs: [] }
+  root: { key: 1, tabs: [] },
 };
 
 const navDrawerEntryStateZ = z.object({
   activeItem: z.string().nullable(),
   menuItems: z.string().array(),
-  size: z.number().optional()
+  size: z.number().optional(),
 });
 
 export type NavDrawerEntryState = z.infer<typeof navDrawerEntryStateZ>;
@@ -176,7 +170,7 @@ export type NavDrawerLocation = "left" | "right" | "bottom";
 const navDrawerStateZ = z.object({
   left: navDrawerEntryStateZ,
   right: navDrawerEntryStateZ,
-  bottom: navDrawerEntryStateZ
+  bottom: navDrawerEntryStateZ,
 });
 
 const mainNavStateZ = z.object({ drawers: navDrawerStateZ });
@@ -195,7 +189,7 @@ export const MAIN_LAYOUT: State = {
   type: MAIN_LAYOUT_KEY,
   location: "window",
   windowKey: Drift.MAIN_WINDOW,
-  window: { navTop: false }
+  window: { navTop: false },
 };
 
 export const sliceStateZ = z.object({
@@ -206,7 +200,7 @@ export const sliceStateZ = z.object({
   hauling: Haul.draggingStateZ,
   mosaics: z.record(z.string(), mosaicStateZ),
   nav: navStateZ,
-  alreadyCheckedGetStarted: z.boolean()
+  alreadyCheckedGetStarted: z.boolean(),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;
@@ -216,7 +210,7 @@ export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   activeTheme: Theming.SYNNAX_DARK.key,
   themes: {
     [Theming.SYNNAX_DARK.key]: Theming.SYNNAX_THEMES.synnaxDark,
-    [Theming.SYNNAX_LIGHT.key]: Theming.SYNNAX_THEMES.synnaxLight
+    [Theming.SYNNAX_LIGHT.key]: Theming.SYNNAX_THEMES.synnaxLight,
   },
   alreadyCheckedGetStarted: false,
   layouts: { main: MAIN_LAYOUT },
@@ -227,8 +221,8 @@ export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
       drawers: {
         left: { activeItem: null, menuItems: ["resources"] },
         right: { activeItem: null, menuItems: ["range", "task"] },
-        bottom: { activeItem: null, menuItems: ["visualization"] }
-      }
-    }
-  }
+        bottom: { activeItem: null, menuItems: ["visualization"] },
+      },
+    },
+  },
 });

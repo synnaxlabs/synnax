@@ -24,7 +24,7 @@ const layoutCSS = (window?: WindowProps): CSSProperties => ({
   maxWidth: window?.size?.width,
   maxHeight: window?.size?.height,
   minWidth: window?.minSize?.width,
-  minHeight: window?.minSize?.height
+  minHeight: window?.minSize?.height,
 });
 
 interface ModalProps {
@@ -57,12 +57,7 @@ export const Modal = ({ state, remove, centered, root }: ModalProps) => {
               </Nav.Bar.Start>
             )}
             <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-              {state.betaFeature != null && (
-                <Version.BetaTag
-                  feature={state.betaFeature.name}
-                  plural={state.betaFeature.plural}
-                />
-              )}
+              {state.beta != null && <Version.BetaTag />}
               <Button.Icon onClick={() => remove(key)} size="small">
                 <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
               </Button.Icon>
