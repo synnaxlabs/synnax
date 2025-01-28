@@ -22,8 +22,8 @@ export interface SugaredKV extends kv.Async {
 }
 
 /**
- * TauriKV an implementation of SugaredKV that communicates with a rust key-value
- * store running on the backend.
+ * TauriKV an implementation of SugaredKV that communicates with a rust key-value store
+ * running on the backend.
  */
 export class TauriKV implements SugaredKV {
   store: LazyStore;

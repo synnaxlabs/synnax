@@ -24,10 +24,7 @@ export const defineCommand: Command = {
         description:
           "This will remove all saved console data that is not persisted within a Synnax cluster.",
       },
-      {
-        icon: "Close",
-        name: "Clear Local Storage.Confirm",
-      },
+      { icon: "Close", name: "Clear Local Storage.Confirm" },
     ).then((result) => {
       if (!result) return;
       store.dispatch(CLEAR_STATE as PayloadAction<any>);

@@ -27,18 +27,20 @@ interface StateVersionValue {
 
 export interface RequiredState extends Version.StoreState {}
 
-export type KVOpener = (base: string) => Promise<SugaredKV>;
+export interface KVOpener {
+  (base: string): Promise<SugaredKV>;
+}
 
 const openAndMigrateKV = async (openKV: KVOpener = openTauriKV): Promise<SugaredKV> => {
-  // Open V2 store and check its length. If it's greater than 0, return it.
-  // Otherwise, open V1 store and return it.
+  // Open V2 store and check its length. If it's greater than 0, return it. Otherwise,
+  // open V1 store and return it.
   const v2Store = await openKV(V2_STORE_PATH);
   if ((await v2Store.length()) > 0) return v2Store;
   const v1Store = await openKV(V1_STORE_PATH);
   // If it's empty, we can just return the V2 store.
   if ((await v1Store.length()) === 0) return v2Store;
-  // Otherwise, we need to migrate the V1 store to V2. Get the DB version
-  // key and use it to get the state.
+  // Otherwise, we need to migrate the V1 store to V2. Get the DB version key and use it
+  // to get the state.
   const v1Version = await v1Store.get<StateVersionValue>(DB_VERSION_KEY);
   if (v1Version == null) return v2Store;
   const v1State = await v1Store.get<RequiredState>(
@@ -91,14 +93,15 @@ interface Engine<S extends RequiredState> {
   clear(): Promise<void>;
   /** Persist the provided state to disk. */
   persist(state: S): Promise<void>;
-  /** The initial state that is persisted to disk. Loaded from disk on engine creation. */
+  /** The initial state that is persisted to disk. Loaded from disk on engine creation.
+   * */
   initialState?: S;
 }
 
 /**
  * Open a new persistence engine instance with the provided configuration. This is used
- * to persist redux state to disk. It is kept independently of the middleware implementation
- * for easy testing.
+ * to persist the Redux store state to disk. It's kept independently of the middleware
+ * implementation for easy testing.
  * @param config - The configuration for the engine.
  * @returns A new engine instance.
  */
