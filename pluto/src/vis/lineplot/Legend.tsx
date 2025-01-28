@@ -9,7 +9,7 @@
 
 import "@/vis/legend/Container.css";
 
-import { type ReactElement, memo } from "react";
+import { memo, type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -29,6 +29,7 @@ export const Floating = memo(
     return <Core.Simple data={lines} onEntryChange={onLineChange} {...props} />;
   },
 );
+Floating.displayName = "FloatingLegend";
 
 const Fixed = ({ onLineChange }: LegendProps) => {
   const { lines } = useContext("Legend");

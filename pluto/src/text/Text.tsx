@@ -9,7 +9,7 @@
 
 import "@/text/Text.css";
 
-import { type ForwardedRef, type JSX, type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";

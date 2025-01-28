@@ -13,8 +13,8 @@ import { type box, type location } from "@synnaxlabs/x";
 import {
   type DragEvent,
   memo,
-  type RefObject,
   type ReactElement,
+  type RefObject,
   useCallback,
   useRef,
   useState,
