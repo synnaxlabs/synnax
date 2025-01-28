@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package calculation
 
 import (
@@ -30,15 +39,14 @@ import (
 // Config is the configuration for opening the calculation service.
 type Config struct {
 	alamos.Instrumentation
-	// Framer is the underlying frame service to stream required channel values and write
-	// calculated samples.
-	// [REQUIRED]
+	// Framer is the underlying frame service to stream required channel values and
+	// write calculated samples. [REQUIRED]
 	Framer *framer.Service
 	// Channel is used to retrieve information about the channels being calculated.
 	// [REQUIRED]
 	Channel channel.Readable
 	// ChannelObservable is used to listen to real-time changes in calculated channels
-	// so the calculation routines can be updated accordingly.
+	// so the calculation routines can be updated accordingly. [REQUIRED]
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 }
 
@@ -68,7 +76,7 @@ func (c Config) Override(other Config) Config {
 
 // entry is used to manage the lifecycle of a calculation.
 type entry struct {
-	// channel is the calculated channel.
+	// ch is the calculated channel.
 	ch channel.Channel
 	// count is the number of active requests for the calculation.
 	count int
@@ -117,7 +125,6 @@ func (s *Service) handleChange(
 	if !found {
 		s.update(ctx, c.Key)
 		return
-
 	}
 	expressionsEqual := existing.ch.Expression == c.Value.Expression
 	if !expressionsEqual {

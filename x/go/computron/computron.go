@@ -1,9 +1,17 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package computron
 
 import (
-	"github.com/synnaxlabs/x/telem"
-
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -100,6 +108,6 @@ func (c *Calculator) Run() (result lua.LValue, err error) {
 	return result, nil
 }
 
-// Close clears all calculation resources. Once Close is called, no other methods
-// should be called on teh calculator.
+// Close clears all calculation resources. Once Close is called, no other methods should
+// be called on the calculator.
 func (c *Calculator) Close() { c.l.Close() }

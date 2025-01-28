@@ -11,9 +11,10 @@ package telem
 
 import (
 	"encoding/binary"
+	"math"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/types"
-	"math"
 )
 
 type Value interface {

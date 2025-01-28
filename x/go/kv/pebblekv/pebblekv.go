@@ -13,10 +13,10 @@ package pebblekv
 
 import (
 	"context"
-	"github.com/cockroachdb/pebble/v2/batchrepr"
 	"io"
 
 	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/batchrepr"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
