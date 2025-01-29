@@ -9,19 +9,19 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { create } from "@/lineplot/LinePlot";
+import { LinePlot } from "@/lineplot";
 import { ImportIcon } from "@/lineplot/services/Icon";
 import { import_ } from "@/lineplot/services/import";
-import { type Command } from "@/palette/Palette";
+import { type Palette } from "@/palette";
 
-const CREATE_COMMAND: Command = {
+const CREATE_COMMAND: Palette.Command = {
   key: "create-line-plot",
   name: "Create Line Plot",
   icon: <Icon.Visualize />,
-  onSelect: ({ placeLayout }) => placeLayout(create({})),
+  onSelect: ({ placeLayout }) => placeLayout(LinePlot.create({})),
 };
 
-const IMPORT_COMMAND: Command = {
+const IMPORT_COMMAND: Palette.Command = {
   key: "import-line-plot",
   name: "Import Line Plot(s)",
   icon: <ImportIcon />,

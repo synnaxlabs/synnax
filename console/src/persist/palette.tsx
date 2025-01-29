@@ -10,10 +10,10 @@
 import { type PayloadAction } from "@reduxjs/toolkit";
 import { Icon } from "@synnaxlabs/media";
 
-import { type Command } from "@/palette/Palette";
+import { type Palette } from "@/palette";
 import { CLEAR_STATE } from "@/persist/state";
 
-export const defineCommand: Command = {
+const CLEAR_LOCAL_STORAGE_COMMAND: Palette.Command = {
   key: "clear-local-storage",
   name: "Clear Local Storage",
   icon: <Icon.Close />,
@@ -32,4 +32,4 @@ export const defineCommand: Command = {
   },
 };
 
-export const COMMANDS = [defineCommand];
+export const COMMANDS = [CLEAR_LOCAL_STORAGE_COMMAND];

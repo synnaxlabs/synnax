@@ -10,13 +10,13 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { createLayout } from "@/docs/Docs";
-import { type Command } from "@/palette/Palette";
+import { type Palette } from "@/palette";
 
-export const readCommand: Command = {
+const READ_COMMAND: Palette.Command = {
   key: "read-the-docs",
   name: "Read the docs",
   icon: <Icon.QuestionMark />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createLayout()),
+  onSelect: ({ placeLayout }) => placeLayout(createLayout()),
 };
 
-export const COMMANDS = [readCommand];
+export const COMMANDS = [READ_COMMAND];
