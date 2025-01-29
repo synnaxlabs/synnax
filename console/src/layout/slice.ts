@@ -22,6 +22,7 @@ import * as latest from "@/layout/types";
 import { type RootState } from "@/store";
 
 export type State<A = unknown> = latest.State<A>;
+export interface BaseState<A = unknown> extends Omit<latest.State<A>, "windowKey"> {}
 export type SliceState = latest.SliceState;
 export type NavDrawerLocation = latest.NavDrawerLocation;
 export type NavDrawerEntryState = latest.NavDrawerEntryState;

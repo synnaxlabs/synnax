@@ -37,7 +37,6 @@ import {
 import { useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
-import { type CreateConfirmModal } from "@/confirm/Confirm";
 import { CSS } from "@/css";
 import { type FileIngestor } from "@/import/ingestor";
 import { INGESTORS } from "@/ingestors";
@@ -384,7 +383,7 @@ export interface CommandSelectionContext {
   store: RootStore;
   client: Synnax | null;
   placeLayout: Layout.Placer;
-  confirm: CreateConfirmModal;
+  confirm: Confirm.CreateModal;
   addStatus: Status.AddStatusFn;
   handleException: Status.HandleExcFn;
   ingestors: Record<string, FileIngestor>;
