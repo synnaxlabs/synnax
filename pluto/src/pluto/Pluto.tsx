@@ -64,13 +64,13 @@ export const Provider = ({
               <Status.Aggregator>
                 <Synnax.Provider connParams={connParams}>
                   <Channel.AliasProvider {...channelAlias}>
-                    <CanDisableTelem {...telem}>
-                      <Color.Provider {...color}>
-                        <Theming.Provider {...theming}>
+                    <Color.Provider {...color}>
+                      <Theming.Provider {...theming}>
+                        <CanDisableTelem {...telem}>
                           <Control.StateProvider>{children}</Control.StateProvider>
-                        </Theming.Provider>
-                      </Color.Provider>
-                    </CanDisableTelem>
+                        </CanDisableTelem>
+                      </Theming.Provider>
+                    </Color.Provider>
                   </Channel.AliasProvider>
                 </Synnax.Provider>
               </Status.Aggregator>

@@ -28,7 +28,7 @@ export interface ChannelClient {
    * @returns the channel with the given key.
    * @throws QueryError if the channel does not exist.
    */
-  retrieveChannel: (key: channel.KeyOrName) => Promise<channel.Payload>;
+  retrieveChannel: (key: channel.KeyOrName) => Promise<channel.Payload | null>;
 }
 
 /** A client that can be used to read telemetry from the Synnax cluster. */
@@ -71,43 +71,26 @@ export interface Client extends ChannelClient, ReadClient, StreamClient {
  * allowing the underlying Client to be swapped out at runtime. If no Client is
  * set, all operations will throw an error.
  */
-export class Proxy implements Client {
-  key: string = id.id();
-  _client: Client | null = null;
-
-  async swap(client: Client | null): Promise<void> {
-    this.key = id.id();
-    await this._client?.close();
-    this._client = client;
-  }
+export class NoopClient implements Client {
+  readonly key: string = id.id();
 
   /** Implements ChannelClient. */
-  async retrieveChannel(key: channel.KeyOrName): Promise<channel.Payload> {
-    return await this.client.retrieveChannel(key);
+  async retrieveChannel(): Promise<channel.Payload | null> {
+    return null;
   }
 
   /** Implements ReadClient. */
-  async read(
-    tr: TimeRange,
-    channels: channel.Keys,
-  ): Promise<Record<channel.Key, ReadResponse>> {
-    return await this.client.read(tr, channels);
+  async read(): Promise<Record<channel.Key, ReadResponse>> {
+    return {};
   }
 
   /** Stream implements StreamClient. */
-  async stream(handler: StreamHandler, keys: channel.Keys): Promise<AsyncDestructor> {
-    return await this.client.stream(handler, keys);
+  async stream(): Promise<AsyncDestructor> {
+    return async () => {};
   }
 
   /** Close implements CLient. */
-  async close(): Promise<void> {
-    await this.client.close();
-  }
-
-  private get client(): Client {
-    if (this._client == null) throw new QueryError("No cluster has been connected");
-    return this._client;
-  }
+  async close(): Promise<void> {}
 }
 
 interface CoreProps {

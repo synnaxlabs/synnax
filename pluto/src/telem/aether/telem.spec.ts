@@ -32,7 +32,7 @@ describe("telem", () => {
           bool,
         },
       },
-      telem.factory(),
+      telem.newFactory(),
     );
     expect(await p.value()).toBeTruthy();
   });

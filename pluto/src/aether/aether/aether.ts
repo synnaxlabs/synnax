@@ -388,8 +388,8 @@ export class Composite<
     }
 
     const [key, subPath] = this.getRequiredKey(path);
-    // In this case, we can safely assume the context hasn't changed, so we can just use
-    // the internal, cached context.
+    // In this case, we can safely assume the parent context hasn't changed, so we can
+    // just use the internal, cached context.
     const uCached = { ...u, ctx: this.ctx };
     return subPath.length === 0
       ? await this.updateThis(key, uCached)
@@ -541,7 +541,23 @@ export class Root extends Composite<typeof aetherRootState> {
         instrumentation: this.instrumentation,
       };
       await this.internalUpdate(u);
+      this.instrumentation.L.debug("update", () => ({ tree: this.getStrTree() }));
     }
+  }
+
+  getStrTree(): string {
+    const formatNode = (component: Component, depth: number = 0): string => {
+      const indent = "  ".repeat(depth);
+      const children = component instanceof Composite ? component.children : [];
+      const childrenStr =
+        children.length > 0
+          ? `\n${children.map((child) => formatNode(child, depth + 1)).join("\n")}`
+          : "";
+
+      return `${indent}${component.type}:${component.key}${childrenStr}`;
+    };
+
+    return formatNode(this);
   }
 }
 

@@ -153,7 +153,7 @@ export const Provider = ({
     },
   });
 
-  useEffect(() => setAetherTheme((p) => ({ ...p, theme: ret.theme })), [ret.theme]);
+  useEffect(() => setAetherTheme((p) => ({ ...p, theme: ret.theme })), [ret.theme.key]);
 
   useLayoutEffect(() => {
     const el = document.documentElement;

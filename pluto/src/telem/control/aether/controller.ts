@@ -53,6 +53,7 @@ interface InternalState {
   addStatus: status.Aggregate;
   theme: theming.Theme;
   prevTrigger: number;
+  telemCtx: telem.ContextValue;
 }
 
 interface AetherControllerTelem extends telem.Telem {
@@ -88,7 +89,11 @@ export class Controller
     if (this.internal.client == null) await this.release();
     this.internal.stateProv = nextStateProv;
 
-    telem.registerFactory(this.ctx, this);
+    this.internal.telemCtx = telem.useChildContext(
+      this.ctx,
+      this,
+      this.internal.telemCtx,
+    );
 
     this.internal.addStatus = status.useAggregate(this.ctx);
 

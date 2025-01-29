@@ -58,7 +58,7 @@ class ExampleComposite extends aether.Composite<
 class ContextSetterComposite extends aether.Composite<
   typeof exampleProps,
   {},
-  ExampleLeaf
+  ExampleLeaf | SecondaryContextSetter
 > {
   updatef = vi.fn();
   deletef = vi.fn();
@@ -74,11 +74,27 @@ class ContextSetterComposite extends aether.Composite<
     this.deletef();
   }
 }
+class SecondaryContextSetter extends aether.Composite<
+  typeof exampleProps,
+  {},
+  ExampleLeaf
+> {
+  updatef = vi.fn();
+  deletef = vi.fn();
 
+  schema = exampleProps;
+
+  async afterUpdate(): Promise<void> {
+    this.updatef(this.ctx);
+    const v = this.ctx.getOptional<number>("key");
+    if (v != null) this.ctx.set("key2", v + 1);
+  }
+}
 const REGISTRY: aether.ComponentRegistry = {
   leaf: ExampleLeaf,
   composite: ExampleComposite,
   context: ContextSetterComposite,
+  secondary: SecondaryContextSetter,
 };
 
 const MockSender = {
@@ -234,6 +250,7 @@ describe("Aether Worker", () => {
           expect(c.updatef).toHaveBeenCalledTimes(2);
         });
       });
+
       it("should propagate a new context change to its children", async () => {
         const c = new ContextSetterComposite({ ...compositeUpdate });
         c.internalUpdate({ ...compositeUpdate });
@@ -248,6 +265,7 @@ describe("Aether Worker", () => {
           expect(c.ctx.get("key")).toEqual(2);
         });
       });
+
       it("should correctly separate individual contexts", async () => {
         // Create two new context composites at "dog" and "cat". These will store
         // individual contexts.
@@ -307,6 +325,64 @@ describe("Aether Worker", () => {
           instrumentation: alamos.NOOP,
         });
         expect(firstCtxSetter.children[0].ctx.get("key")).toEqual(5);
+      });
+
+      it.only("should correctly propagate a secondary context change as a result of a primary context change", async () => {
+        // Create a primary context setter
+        await composite.internalUpdate({
+          ctx,
+          variant: "state",
+          type: "context",
+          path: ["test", "primary"],
+          state: { x: 2 },
+          instrumentation: alamos.NOOP,
+        });
+
+        // Create a secondary context setter as a child of primary. This will set a new
+        // context as a result of the primary context change.
+        await composite.internalUpdate({
+          ctx,
+          variant: "state",
+          type: "secondary",
+          path: ["test", "primary", "secondary"],
+          state: { x: 0 },
+          instrumentation: alamos.NOOP,
+        });
+
+        // Create a leaf under the secondary context setter. This will set a new context as a
+        // result of the secondary context change.
+        await composite.internalUpdate({
+          ctx,
+          variant: "state",
+          type: "leaf",
+          path: ["test", "primary", "secondary", "leaf"],
+          state: { x: 0 },
+          instrumentation: alamos.NOOP,
+        });
+
+        const primarySetter = composite.children[0] as ContextSetterComposite;
+        const secondarySetter = primarySetter.children[0] as SecondaryContextSetter;
+        const leaf = secondarySetter.children[0] as ExampleLeaf;
+
+        // Verify initial context values
+        expect(primarySetter.ctx.get("key")).toEqual(2);
+        expect(secondarySetter.ctx.get("key2")).toEqual(3);
+        expect(leaf.ctx.get("key2")).toEqual(3);
+
+        // Update the primary context setter
+        await composite.internalUpdate({
+          ctx,
+          variant: "state",
+          type: "state",
+          path: ["test", "primary"],
+          state: { x: 5 },
+          instrumentation: alamos.NOOP,
+        });
+
+        // Verify that both the primary and secondary context values were updated
+        expect(primarySetter.ctx.get("key")).toEqual(5);
+        expect(secondarySetter.ctx.get("key2")).toEqual(6);
+        expect(leaf.ctx.get("key2")).toEqual(6);
       });
     });
   });
