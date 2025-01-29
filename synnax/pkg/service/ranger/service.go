@@ -11,10 +11,10 @@ package ranger
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"io"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -65,8 +65,8 @@ func (c Config) Override(other Config) Config {
 
 // Service is the main entrypoint for managing ranges within Synnax. It provides
 // mechanisms for creating, deleting, and listening to changes in ranges. It also
-// provides mechanisms for setting channel aliases for a specific range, and for
-// setting meta-data on a range.
+// provides mechanisms for setting channel aliases for a specific range, and for setting
+// metadata on a range.
 type Service struct {
 	Config
 	group           group.Group

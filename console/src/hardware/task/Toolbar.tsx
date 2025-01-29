@@ -404,7 +404,7 @@ const TaskListItem = ({
         direction="y"
         size="small"
         grow
-        className={CSS.BE("task", "meta-data")}
+        className={CSS.BE("task", "metadata")}
       >
         <Align.Space direction="x" align="center" size="small">
           <Status.Circle

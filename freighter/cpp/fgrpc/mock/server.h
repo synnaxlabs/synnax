@@ -32,7 +32,7 @@ public:
     /// @brief The implementation on the server side of unary communication.
     grpc::Status Exec(grpc::ServerContext *context, const test::Message *request,
                       test::Message *reply) override {
-        // get the key 'test' from meta data
+        // get the key 'test' from metadata
         auto test = context->client_metadata().find("test");
         std::string rep("Read request: ");
         // if the test value exists, set the reply key back to the same value.
@@ -51,7 +51,7 @@ class myStreamServiceImpl final : public test::StreamMessageService::Service {
     grpc::Status
     Exec(grpc::ServerContext *context,
          grpc::ServerReaderWriter<test::Message, test::Message> *stream) override {
-        // Send initial meta data
+        // Send initial metadata
         context->AddInitialMetadata("test", "dog");
         stream->SendInitialMetadata();
         test::Message request;
