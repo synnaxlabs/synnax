@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -107,14 +106,22 @@ type streamWriter struct {
 func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(ctx context.Context) (err error) {
+		defer func() {
+			// Call close in a deferral to make sure writer resources get released even
+			// if the context is canceled or the function panics. We need to pass in
+			// a new context here because the original context may have been canceled.
+			// Using context.TODO() is not ideal, but it is the best we can do here.
+			err = errors.Combine(err, w.close(context.TODO()))
+		}()
 		for {
 			select {
 			case <-ctx.Done():
-				return errors.Combine(w.close(context.TODO()), ctx.Err())
+				err = ctx.Err()
+				return
 			case req, ok := <-w.In.Outlet():
 				if !ok {
-					return w.close(ctx)
+					return
 				}
 				w.process(ctx, req)
 			}
@@ -149,7 +156,6 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 		end, w.err = w.commit(ctx)
 		w.sendRes(req, w.err == nil, nil, end)
 	} else {
-		// req.Command == WriterWrite
 		if w.err = w.write(ctx, req); w.err != nil {
 			w.seqNum++
 			w.sendRes(req, false, nil, 0)
@@ -297,6 +303,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 			return err
 		}
 	}
+
 	return errors.Combine(w.err, c.Error())
 }
 
