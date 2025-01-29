@@ -31,7 +31,7 @@
       "entitlements": null,
       "frameworks": [],
       "providerShortName": null,
-      "signingIdentity": null
+      "signingIdentity": "Developer ID Application"
     },
     "resources": [],
     "shortDescription": "",

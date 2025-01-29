@@ -190,14 +190,12 @@ jobs:
         run: pnpm install
 
       - name: Build (TypeScript)
-        if: needs.setup.outputs.changed == 'true'
         run: pnpm build:console-vite
 
       # We need to build the console separately WITHOUT turbo repo because of strange
       # incompatibility issues with rust builds.
 
       - name: Build
-        if: needs.setup.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
