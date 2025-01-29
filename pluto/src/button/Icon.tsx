@@ -14,31 +14,19 @@ import { cloneElement, type ReactElement } from "react";
 import { type BaseProps } from "@/button/Button";
 import { color } from "@/button/color";
 import { CSS } from "@/css";
-import { type Tooltip } from "@/tooltip";
+import { Tooltip } from "@/tooltip";
 
 interface ChildProps {
   color?: string;
   fill?: string;
 }
 
-/** The props for the {@link Icon} */
-export interface IconProps extends BaseProps, Tooltip.WrapProps {
+interface CoreIconProps extends BaseProps {
   children: ReactElement<ChildProps> | string;
   loading?: boolean;
 }
-/**
- * Use.Icon a button that only renders an icon without any text.
- *
- * @param props - Props for the component, which are passed down to the underlying
- * element.
- * @param props.size - The size of button to render.
- * @param props.variant - The variant of button to render. Options are "filled" (default),
- * "outlined", and "text".
- * @param props.children - A ReactElement representing the icon to render.
- * @param props.loading - Whether the button is in a loading state. This will cause the
- * button to render a loading spinner.
- */
-export const Icon = ({
+
+const CoreIcon = ({
   ref,
   children,
   className,
@@ -50,7 +38,7 @@ export const Icon = ({
   onClick,
   color: propColor,
   ...props
-}: IconProps): ReactElement => {
+}: CoreIconProps): ReactElement => {
   if (loading) children = <MediaIcon.Loading />;
   const isDisabled = disabled || loading;
   return (
@@ -78,3 +66,20 @@ export const Icon = ({
     </button>
   );
 };
+
+/** The props for the {@link Icon} component */
+export interface IconProps extends CoreIconProps, Tooltip.WrapProps {}
+
+/**
+ * Use.Icon a button that only renders an icon without any text.
+ *
+ * @param props - Props for the component, which are passed down to the underlying
+ * element.
+ * @param props.size - The size of button to render.
+ * @param props.variant - The variant of button to render. Options are "filled" (default),
+ * "outlined", and "text".
+ * @param props.children - A ReactElement representing the icon to render.
+ * @param props.loading - Whether the button is in a loading state. This will cause the
+ * button to render a loading spinner.
+ */
+export const Icon = Tooltip.wrap(CoreIcon);
