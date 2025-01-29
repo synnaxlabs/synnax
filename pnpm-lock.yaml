@@ -369,6 +369,9 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
         version: link:../../configs/ts
+      '@types/html-escaper':
+        specifier: ^3.0.3
+        version: 3.0.3
       '@types/react':
         specifier: ^19.0.6
         version: 19.0.6
@@ -2369,6 +2372,9 @@ packages:
 
   '@types/hast@3.0.4':
     resolution: {integrity: sha512-WPs+bbQw5aCj+x6laNGWLH3wviHtoCv/P3+otBhbOhJgG8qtpdAMlTCxLtsTWA7LH1Oh/bFCHsBn0TPS5m30EQ==}
+
+  '@types/html-escaper@3.0.3':
+    resolution: {integrity: sha512-nGFINiojbz41NZRuL1dHww4T7ZNFC+Vk46R/wsBmbfUitsovLDqJ8HwCrwCyiWud2GDgH22deYokbkktLYEaeQ==}
 
   '@types/http-cache-semantics@4.0.4':
     resolution: {integrity: sha512-1m0bIFVc7eJWyve9S0RnuRgcQqF/Xd5QsUZAZeQFr1Q3/p9JWoQQEqmVy+DPTNpGXwhgIetAoYF8JSc33q29QA==}
@@ -7429,14 +7435,14 @@ snapshots:
     dependencies:
       '@remotion/studio': 4.0.248(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@remotion/studio-shared': 4.0.248(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      css-loader: 5.2.7(webpack@5.96.1(esbuild@0.24.0))
+      css-loader: 5.2.7(webpack@5.96.1)
       esbuild: 0.24.0
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
       react-refresh: 0.9.0
       remotion: 4.0.248(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       source-map: 0.7.3
-      style-loader: 2.0.0(webpack@5.96.1(esbuild@0.24.0))
+      style-loader: 2.0.0(webpack@5.96.1)
       webpack: 5.96.1(esbuild@0.24.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -7914,6 +7920,8 @@ snapshots:
   '@types/hast@3.0.4':
     dependencies:
       '@types/unist': 3.0.3
+
+  '@types/html-escaper@3.0.3': {}
 
   '@types/http-cache-semantics@4.0.4': {}
 
@@ -8896,7 +8904,7 @@ snapshots:
 
   css-functions-list@3.2.3: {}
 
-  css-loader@5.2.7(webpack@5.96.1(esbuild@0.24.0)):
+  css-loader@5.2.7(webpack@5.96.1):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.0)
       loader-utils: 2.0.4
@@ -11956,7 +11964,7 @@ snapshots:
 
   strip-json-comments@3.1.1: {}
 
-  style-loader@2.0.0(webpack@5.96.1(esbuild@0.24.0)):
+  style-loader@2.0.0(webpack@5.96.1):
     dependencies:
       loader-utils: 2.0.4
       schema-utils: 3.3.0
