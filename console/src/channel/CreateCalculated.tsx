@@ -70,10 +70,7 @@ export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.Stat
   name: "Channel.Create.Calculated",
   icon: "Channel",
   location: "modal",
-  tab: {
-    closable: true,
-    editable: false,
-  },
+  tab: { closable: true, editable: false },
   window: {
     resizable: false,
     size: { height: 600, width: 1000 },
