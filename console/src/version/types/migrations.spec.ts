@@ -35,7 +35,6 @@ describe("migrations", () => {
     };
     it(`should migrate slice from ${V0_STATE.version} to latest`, () => {
       const migrated = migrateSlice(V0_STATE);
-      console.log(migrated);
       expect(migrated).toEqual(migrateSlice(V1_STATE));
     });
   });

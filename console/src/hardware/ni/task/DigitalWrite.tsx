@@ -289,7 +289,6 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
   const formCtx = Form.useContext();
   const device = useDevice(formCtx) as Device | undefined;
   const place = Layout.usePlacer();
-  console.log(device);
   if (device == null)
     return (
       <Align.Space grow empty align="center" justify="center">
