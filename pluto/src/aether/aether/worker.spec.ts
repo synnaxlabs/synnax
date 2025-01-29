@@ -181,11 +181,13 @@ describe("Aether Worker", () => {
         expect(c.state).toEqual({ x: 2 });
       });
       it("should set the state of the composite's leaf if the path has more than one element and the leaf exists", async () => {
+        // Create a child at the path.
         await composite.internalUpdate({
           ...leafUpdate,
           path: ["test", "dog"],
           state: { x: 2 },
         });
+        // Update the state of the child.
         await composite.internalUpdate({
           ...leafUpdate,
           path: ["test", "dog"],
@@ -219,27 +221,42 @@ describe("Aether Worker", () => {
 
     describe("context propagation", () => {
       it("should properly propagate an existing context change to its children", async () => {
+        // Create two new leafs at separate paths.
         await composite.internalUpdate({ ...leafUpdate, path: ["test", "dog"] });
         await composite.internalUpdate({ ...leafUpdate, path: ["test", "cat"] });
         expect(composite.children).toHaveLength(2);
+        composite.children.forEach((c) => {
+          expect(c.updatef).toHaveBeenCalledTimes(1);
+        });
         await composite.internalUpdate({ ...contextUpdate });
         expect(composite.updatef).toHaveBeenCalledTimes(2);
-        composite.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(2));
+        composite.children.forEach((c) => {
+          expect(c.updatef).toHaveBeenCalledTimes(2);
+        });
       });
-      it("should progate a new context change to its children", async () => {
+      it("should propagate a new context change to its children", async () => {
         const c = new ContextSetterComposite({ ...compositeUpdate });
+        c.internalUpdate({ ...compositeUpdate });
+        expect(c.ctx.get("key")).toEqual(1);
         await c.internalUpdate({ ...leafUpdate, path: ["test", "dog"] });
-        await c.internalUpdate({ ...compositeUpdate });
         expect(c.children).toHaveLength(1);
-        c.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(2));
+        c.children.forEach((c) => expect(c.ctx.get("key")).toEqual(1));
+        await c.internalUpdate({ ...compositeUpdate, state: { x: 2 } });
+        expect(c.children).toHaveLength(1);
+        c.children.forEach((c) => {
+          expect(c.updatef).toHaveBeenCalledTimes(2);
+          expect(c.ctx.get("key")).toEqual(2);
+        });
       });
       it("should correctly separate individual contexts", async () => {
+        // Create two new context composites at "dog" and "cat". These will store
+        // individual contexts.
         await composite.internalUpdate({
           ctx,
           variant: "state",
           type: "context",
           path: ["test", "dog"],
-          state: { x: 1 },
+          state: { x: 2 },
           instrumentation: alamos.NOOP,
         });
         await composite.internalUpdate({
@@ -247,10 +264,16 @@ describe("Aether Worker", () => {
           variant: "state",
           type: "context",
           path: ["test", "cat"],
-          state: { x: 2 },
+          state: { x: 3 },
           instrumentation: alamos.NOOP,
         });
         expect(composite.children).toHaveLength(2);
+        // Assert that the two context setters have the correct, independent context values.
+        const firstCtxSetter = composite.children[0] as ContextSetterComposite;
+        const secondCtxSetter = composite.children[1] as ContextSetterComposite;
+        expect(firstCtxSetter.ctx.get("key")).toEqual(2);
+        expect(secondCtxSetter.ctx.get("key")).toEqual(3);
+        // Create a new leaf for the "dog" context setter.
         await composite.internalUpdate({
           ctx,
           variant: "state",
@@ -259,6 +282,10 @@ describe("Aether Worker", () => {
           state: { x: 3 },
           instrumentation: alamos.NOOP,
         });
+        // Assert that the "dog" context setter has a child.
+        expect(firstCtxSetter.children).toHaveLength(1);
+        // Assert that the child has the correct context value.
+        expect(firstCtxSetter.children[0].ctx.get("key")).toEqual(2);
         await composite.internalUpdate({
           ctx,
           variant: "state",
@@ -267,6 +294,10 @@ describe("Aether Worker", () => {
           state: { x: 4 },
           instrumentation: alamos.NOOP,
         });
+        // Assert that the "cat" context setter has a child.
+        expect(secondCtxSetter.children).toHaveLength(1);
+        // Assert that the child has the correct context value.
+        expect(secondCtxSetter.children[0].ctx.get("key")).toEqual(3);
         await composite.internalUpdate({
           ctx,
           variant: "state",
@@ -275,6 +306,7 @@ describe("Aether Worker", () => {
           state: { x: 5 },
           instrumentation: alamos.NOOP,
         });
+        expect(firstCtxSetter.children[0].ctx.get("key")).toEqual(5);
       });
     });
   });
