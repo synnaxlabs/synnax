@@ -102,7 +102,7 @@ export const SynnaxServerDownloadButton = (): ReactElement | null => {
   if (updateFile == null) return null;
   return (
     <Button.Link
-      href={`https://github.com/synnaxlabs/synnax/releases/download/synnax-${updateFile.version}/synnax-windows-${updateFile.version.slice(1)}.exe`}
+      href={`https://github.com/synnaxlabs/synnax/releases/download/synnax-${updateFile.version}/synnaxs-setup-${updateFile.version.slice(1)}.exe`}
       startIcon={<Icon.Download />}
     >
       Download Synnax Server for Windows
