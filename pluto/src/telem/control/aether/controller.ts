@@ -53,7 +53,7 @@ interface InternalState {
   addStatus: status.Aggregate;
   theme: theming.Theme;
   prevTrigger: number;
-  telemCtx: telem.ContextValue;
+  telemCtx: telem.Context;
 }
 
 interface AetherControllerTelem extends telem.Telem {

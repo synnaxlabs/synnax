@@ -125,10 +125,10 @@ export class Context {
    * @param merge - The context to merge into the copy.
    * @returns The copied context.
    */
-  copyAndMerge(merge?: Context): Context {
+  copyAndOverride(override?: Context): Context {
     const cpy = new Context(this.sender, this.registry, new Map());
-    merge?.providers.forEach((value, key) => cpy.providers.set(key, value));
     this.providers.forEach((value, key) => cpy.providers.set(key, value));
+    override?.providers.forEach((value, key) => cpy.providers.set(key, value));
     cpy.changedKeys = [];
     return cpy;
   }
@@ -170,7 +170,7 @@ export class Context {
 
   /**
    * Gets a value from the context, returning null if the value does not exist. It's
-   * imporant to note that the context provides no validation of the type of the
+   * important to note that the context provides no validation of the type of the
    * value, so it is up to the caller to ensure that the value is of the correct type.
    *
    * @param key - The key to get.
@@ -379,24 +379,25 @@ export class Composite<
    */
   async internalUpdate(u: Update): Promise<void> {
     const { variant, path } = u;
+    this._ctx = u.ctx.copyAndOverride(this._ctx);
 
-    if (variant === "context") {
-      // We need to assume the context has changed, so we need to copy and merge the
-      // context before updating the component.
-      this._ctx = u.ctx.copyAndMerge(this._ctx);
-      return await this.updateContext({ ...u, ctx: this.ctx });
-    }
+    // Path where the parent context has changed, but component state remains the same.
+    if (variant === "context") return await this.updateContext(u);
 
     const [key, subPath] = this.getRequiredKey(path);
     // In this case, we can safely assume the parent context hasn't changed, so we can
     // just use the internal, cached context.
     const uCached = { ...u, ctx: this.ctx };
-    return subPath.length === 0
-      ? await this.updateThis(key, uCached)
-      : await this.updateChild(subPath, uCached);
+    const isChildUpdate = subPath.length > 0;
+    // Case where the state update is for a child component, so we should just pass
+    // down the update instead of updating internal component state.
+    if (isChildUpdate) return await this.updateChild(subPath, uCached);
+    return await this.updateThis(key, uCached);
   }
 
   private async updateContext(u: Update): Promise<void> {
+    // this._ctx = u.ctx.copyAndOverride(this._ctx);
+    // Call the Leaf's internalUpdate to update the component state.
     await super.internalUpdate(u);
     for (const c of this.children)
       await c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" });
@@ -414,16 +415,15 @@ export class Composite<
   }
 
   private async updateThis(key: string, u: Update): Promise<void> {
-    const ctx = u.ctx.copyAndMerge(this._ctx);
-    // Check if super altered the context. If so, we need to re-render children.
+    // this._ctx = u.ctx.copyAndOverride(this.ctx);
     if (key !== this.key)
       throw new UnexpectedError(
         `[Composite.update] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
       );
-    await super.internalUpdate({ ...u, ctx });
-    if (!ctx.changed) return;
+    await super.internalUpdate({ ...u, ctx: this.ctx });
+    if (!this._ctx.changed) return;
     this.instrumentation.L.debug("context changed", {
-      changedKeys: ctx.changedKeys,
+      changedKeys: this.ctx.changedKeys,
     });
     for (const c of this.children)
       await c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" });
@@ -431,7 +431,8 @@ export class Composite<
 
   async internalDelete(path: string[]): Promise<void> {
     const [key, subPath] = this.getRequiredKey(path);
-    if (subPath.length === 0) {
+    const isChildDelete = subPath.length > 0;
+    if (!isChildDelete) {
       if (key !== this.key)
         throw new Error(
           `[Composite.delete] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,

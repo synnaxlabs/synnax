@@ -189,7 +189,6 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     mutationFn: async (fld: Form.FieldState<channel.Key[]>) => {
       const v = fld.value;
       if (client == null || v.length == 0) return;
-      console.log(v);
       const channels = await client.channels.retrieve(v);
       const hyphenated = channels.filter((ch) => ch.name.includes("-"));
       if (!hyphenated.length) return;

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { alamos as baseAlamos } from "@synnaxlabs/alamos";
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
@@ -64,14 +63,5 @@ export const render = (): void => {
     ...table.REGISTRY,
   };
 
-  aether.render({
-    worker: w.route("vis"),
-    registry: REGISTRY,
-    // instrumentation: new baseAlamos.Instrumentation({
-    //   key: "aether",
-    //   logger: new baseAlamos.Logger({
-    //     filters: [baseAlamos.logLevelKeyFiler({ include: ["aether"] })],
-    //   }),
-    // }),
-  });
+  aether.render({ worker: w.route("vis"), registry: REGISTRY });
 };

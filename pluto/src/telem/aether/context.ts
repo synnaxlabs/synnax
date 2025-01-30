@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { id, toArray } from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
 import { type Destructor } from "@synnaxlabs/x/destructor";
 import { type observe } from "@synnaxlabs/x/observe";
@@ -18,32 +18,31 @@ import { CompoundTelemFactory, type Factory } from "@/telem/aether/factory";
 import { PipelineFactory } from "@/telem/aether/pipeline";
 import { type Sink, type Source, type Spec } from "@/telem/aether/telem";
 
-export class ContextValue {
-  private wrappedFactory: CompoundTelemFactory;
-  private readonly key: string;
-  private readonly parent?: ContextValue;
+/**
+ * Provides utilities for creating and managing telemetry sources and sinks.
+ */
+export class Context {
+  private factory: CompoundTelemFactory;
+  readonly key: string;
+  readonly parent?: Context;
 
-  constructor(factory: CompoundTelemFactory, parent?: ContextValue) {
-    this.wrappedFactory = factory;
+  constructor(factory: CompoundTelemFactory, parent?: Context) {
+    this.factory = factory;
     this.key = id.id();
     this.parent = parent;
   }
 
-  child(f: Factory, parent?: ContextValue): ContextValue {
-    const next = new CompoundTelemFactory([...this.wrappedFactory.factories, f]);
+  child(factories: Factory | Factory[], parent?: Context): Context {
+    const next = new CompoundTelemFactory([
+      ...this.factory.factories,
+      ...toArray(factories),
+    ]);
     next.add(new PipelineFactory(next));
-    return new ContextValue(next, parent);
-  }
-
-  equals(other: ContextValue): boolean {
-    if (this.key !== other.key) return false;
-    if (this.parent == null && other.parent == null) return true;
-    if (this.parent == null || other.parent == null) return false;
-    return this.parent.equals(other.parent);
+    return new Context(next, parent);
   }
 
   create<T>(spec: Spec): T {
-    const telem = this.wrappedFactory.create(spec);
+    const telem = this.factory.create(spec);
     if (telem == null)
       throw new UnexpectedError(
         `Telemetry service could not find a source for type ${spec.type}`,
@@ -54,35 +53,41 @@ export class ContextValue {
 
 const CONTEXT_KEY = "pluto-telem-context";
 
-export const useContext = (ctx: aether.Context): ContextValue =>
-  ctx.get<ContextValue>(CONTEXT_KEY);
+export const useContext = (ctx: aether.Context): Context =>
+  ctx.get<Context>(CONTEXT_KEY);
 
-export const setContext = (ctx: aether.Context, prov: ContextValue): void =>
+export const setContext = (ctx: aether.Context, prov: Context): void =>
   ctx.set(CONTEXT_KEY, prov);
 
 export const useChildContext = (
   ctx: aether.Context,
-  f: Factory,
-  prev: ContextValue,
-): ContextValue => {
+  factories: Factory | Factory[],
+  prev: Context,
+): Context => {
   const tCtx = useContext(ctx);
-  if (prev != null && prev.equals(tCtx)) return prev;
-  const next = tCtx.child(f, tCtx);
+  if (tCtx != null && prev != null && tCtx.key === prev?.parent?.key) return prev;
+  const next = tCtx.child(factories, tCtx);
   ctx.set(CONTEXT_KEY, next);
   return next;
 };
 
-class MemoizedSource<V> implements Source<V> {
+class Memoized<V> {
   private readonly spec: Spec;
-  private readonly wrapped: Source<V>;
-  private readonly prevProv: ContextValue;
+  readonly wrapped: V;
+  private readonly prevProv: Context;
 
-  constructor(wrapped: Source<V>, prevProv: ContextValue, prevSpec: Spec) {
+  constructor(wrapped: V, prevProv: Context, prevSpec: Spec) {
     this.wrapped = wrapped;
     this.spec = prevSpec;
     this.prevProv = prevProv;
   }
 
+  shouldUpdate(prov: Context, spec: Spec): boolean {
+    return this.prevProv.key !== prov.key || !deep.equal(this.spec, spec);
+  }
+}
+
+class MemoizedSource<V> extends Memoized<Source<V>> {
   async value(): Promise<V> {
     return await this.wrapped.value();
   }
@@ -94,37 +99,15 @@ class MemoizedSource<V> implements Source<V> {
   onChange(handler: observe.Handler<void>): Destructor {
     return this.wrapped.onChange(handler);
   }
-
-  shouldUpdate(prov: ContextValue, spec: Spec): boolean {
-    if (!this.prevProv.equals(prov)) return true;
-    if (!deep.equal(this.spec, spec)) return true;
-    return false;
-  }
 }
 
-class MemoizedSink<V> implements Sink<V> {
-  private readonly spec: Spec;
-  private readonly prov: ContextValue;
-  private readonly wrapped: Sink<V>;
-
-  constructor(wrapped: Sink<V>, prevProv: ContextValue, prevSpec: Spec) {
-    this.wrapped = wrapped;
-    this.spec = prevSpec;
-    this.prov = prevProv;
-  }
-
+class MemoizedSink<V> extends Memoized<Sink<V>> {
   async set(value: V): Promise<void> {
     return await this.wrapped.set(value);
   }
 
   async cleanup(): Promise<void> {
     await this.wrapped.cleanup?.();
-  }
-
-  shouldUpdate(prov: ContextValue, spec: Spec): boolean {
-    if (!this.prov.equals(prov)) return true;
-    if (!deep.equal(this.spec, spec)) return true;
-    return false;
   }
 }
 
@@ -135,9 +118,7 @@ export const useSource = async <V>(
 ): Promise<MemoizedSource<V>> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSource) {
-    const shouldUpdate = prev.shouldUpdate(prov, spec);
-    // console.log("shouldUpdate", shouldUpdate);
-    if (!shouldUpdate) return prev;
+    if (!prev.shouldUpdate(prov, spec)) return prev;
     await prev.cleanup?.();
   }
   return new MemoizedSource<V>(prov.create(spec), prov, spec);

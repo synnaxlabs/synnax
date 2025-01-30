@@ -14,7 +14,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { synnax } from "@/synnax/aether";
-import { ContextValue, setContext } from "@/telem/aether/context";
+import { Context, setContext } from "@/telem/aether/context";
 import { newFactory } from "@/telem/aether/factory";
 import { client } from "@/telem/client";
 
@@ -38,18 +38,16 @@ export class BaseProvider extends aether.Composite<
     const core = synnax.use(this.ctx);
     const I = alamos.useInstrumentation(this.ctx, "telem");
     this.internal.instrumentation = I.child("provider");
-    // console.log(core, this.prevClient);
     const shouldSwap = core !== this.prevClient;
     if (!shouldSwap) return;
     this.prevClient = core;
     I.L.info("swapping client", { client: core });
-    // console.log("swapping client", { core });
     const c =
       core == null
         ? new client.NoopClient()
         : new client.Core({ core, instrumentation: I });
     const f = newFactory(c);
-    const value = new ContextValue(f);
+    const value = new Context(f);
     setContext(this.ctx, value);
   }
 }

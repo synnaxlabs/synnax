@@ -90,11 +90,40 @@ class SecondaryContextSetter extends aether.Composite<
     if (v != null) this.ctx.set("key2", v + 1);
   }
 }
+
+class OverrideContextSetter extends aether.Composite<
+  typeof exampleProps,
+  SameContextState,
+  ExampleLeaf
+> {
+  updatef = vi.fn();
+  deletef = vi.fn();
+
+  schema = exampleProps;
+  setCount = 0;
+
+  async afterUpdate(): Promise<void> {
+    const v = this.ctx.getOptional<number | SameContextState>("key");
+    console.log(v);
+    if (v != null && typeof v === "number") {
+      this.setCount++;
+      this.ctx.set("key", { key: v, setInternally: true });
+    } else if (v != null && typeof v === "object")
+      this.ctx.set("key", { key: v.key, setInternally: true });
+  }
+}
+
+interface SameContextState {
+  key: number;
+  setInternally: boolean;
+}
+
 const REGISTRY: aether.ComponentRegistry = {
   leaf: ExampleLeaf,
   composite: ExampleComposite,
   context: ContextSetterComposite,
   secondary: SecondaryContextSetter,
+  overrideContext: OverrideContextSetter,
 };
 
 const MockSender = {
@@ -327,7 +356,7 @@ describe("Aether Worker", () => {
         expect(firstCtxSetter.children[0].ctx.get("key")).toEqual(5);
       });
 
-      it.only("should correctly propagate a secondary context change as a result of a primary context change", async () => {
+      it("should correctly propagate a secondary context change as a result of a primary context change", async () => {
         // Create a primary context setter
         await composite.internalUpdate({
           ctx,
