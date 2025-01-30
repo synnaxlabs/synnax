@@ -88,3 +88,24 @@ export const SynnaxConsoleDownloadButton = (): ReactElement | null => {
     />
   );
 };
+
+export const SynnaxServerDownloadButton = (): ReactElement | null => {
+  const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
+
+  useEffect(() => {
+    fetch(JSON_URL)
+      .then(async (response) => await response.json())
+      .then((f) => setUpdateFile(f as UpdateFile))
+      .catch(() => setUpdateFile(null));
+  }, []);
+
+  if (updateFile == null) return null;
+  return (
+    <Button.Link
+      href={`https://github.com/synnaxlabs/synnax/releases/download/synnax-${updateFile.version}/synnax-windows-${updateFile.version.slice(1)}.exe`}
+      startIcon={<Icon.Download />}
+    >
+      Download Synnax Server for Windows
+    </Button.Link>
+  );
+};
