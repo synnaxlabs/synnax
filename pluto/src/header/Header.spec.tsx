@@ -32,12 +32,7 @@ describe("Header", () => {
         <Header.Header>
           <Header.Title>Header</Header.Title>
           <Header.Actions>
-            {[
-              {
-                onClick,
-                children: <Icon.Add aria-label="add" />,
-              },
-            ]}
+            {[{ onClick, children: <Icon.Add aria-label="add" /> }]}
           </Header.Actions>
         </Header.Header>,
       );

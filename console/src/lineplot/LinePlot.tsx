@@ -178,7 +178,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   );
 
   const handleAxisChange = useCallback(
-    (axis: Channel.AxisProps) => {
+    (axis: Partial<Channel.AxisProps> & { key: string }) => {
       syncDispatch(
         setAxis({
           key: layoutKey,
@@ -191,7 +191,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     [syncDispatch, layoutKey],
   );
 
-  const xAxisChannelChange = useMutation<void, Error, Channel.AxisProps>({
+  const xAxisChannelChange = useMutation<
+    void,
+    Error,
+    Omit<Channel.AxisProps, "location">
+  >({
     mutationFn: async (axis) => {
       const key = vis.channels[axis.key as XAxisKey];
       const prevKey = prevVis?.channels[axis.key as XAxisKey];
@@ -241,12 +245,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
         );
       if (propsLines.length === 0 && rng != null)
         syncDispatch(
-          setRanges({
-            mode: "add",
-            key: layoutKey,
-            axisKey: "x1",
-            ranges: [rng.key],
-          }),
+          setRanges({ mode: "add", key: layoutKey, axisKey: "x1", ranges: [rng.key] }),
         );
     },
     [syncDispatch, layoutKey, propsLines.length, rng],
@@ -477,14 +476,8 @@ const buildLines = (
           const xChannel = vis.channels[xAxis as XAxisKey];
           const variantArg =
             range.variant === "dynamic"
-              ? {
-                  variant: "dynamic",
-                  timeSpan: range.span,
-                }
-              : {
-                  variant: "static",
-                  timeRange: range.timeRange,
-                };
+              ? { variant: "dynamic", timeSpan: range.span }
+              : { variant: "static", timeRange: range.timeRange };
 
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({

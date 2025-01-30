@@ -173,7 +173,7 @@ const IndividualProperties = ({
   element: NodeElementInfo;
   onChange: (key: string, props: any) => void;
 }): ReactElement => {
-  const C = Schematic.SYMBOLS[selected.props.key as Schematic.Variant];
+  const C = Schematic.SYMBOLS[selected.props.key];
 
   const formMethods = Form.use({
     values: deep.copy(selected.props),
@@ -209,7 +209,7 @@ const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement =
       </Input.Item>
       <Input.Item label="Type" align="start">
         <Diagram.SelectPathType
-          value={edge.edge.variant}
+          value={edge.edge.variant as Diagram.PathType}
           onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
         />
       </Input.Item>
