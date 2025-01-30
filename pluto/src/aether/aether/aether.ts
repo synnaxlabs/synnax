@@ -122,7 +122,7 @@ export class Context {
    * Copies the context, setting it's 'changed' flag to false, and optionally merging
    * another set of context values into it.
    *
-   * @param merge - The context to merge into the copy.
+   * @param override - The context to merge into the copy.
    * @returns The copied context.
    */
   copyAndOverride(override?: Context): Context {
@@ -207,7 +207,7 @@ export class Context {
 }
 
 /**
- * Implements an AtherComponent that does not have any children, and servers as the base
+ * Implements an AetherComponent that does not have any children, and servers as the base
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
  */
@@ -379,60 +379,51 @@ export class Composite<
    */
   async internalUpdate(u: Update): Promise<void> {
     const { variant, path } = u;
-    this._ctx = u.ctx.copyAndOverride(this._ctx);
-
-    // Path where the parent context has changed, but component state remains the same.
-    if (variant === "context") return await this.updateContext(u);
-
-    const [key, subPath] = this.getRequiredKey(path);
-    // In this case, we can safely assume the parent context hasn't changed, so we can
-    // just use the internal, cached context.
+    const isChildUpdate = path.length > 1;
+    // If we're updating the state of a child, we can safely assume the parent context
+    // hasn't changed, so we can avoid the expensive context copy.
+    if (!isChildUpdate) this._ctx = u.ctx.copyAndOverride(this._ctx);
     const uCached = { ...u, ctx: this.ctx };
-    const isChildUpdate = subPath.length > 0;
-    // Case where the state update is for a child component, so we should just pass
-    // down the update instead of updating internal component state.
+    if (variant === "context") return await this.updateContext(uCached);
+    const [key, subPath] = this.getRequiredKey(path);
     if (isChildUpdate) return await this.updateChild(subPath, uCached);
     return await this.updateThis(key, uCached);
   }
 
   private async updateContext(u: Update): Promise<void> {
-    // this._ctx = u.ctx.copyAndOverride(this._ctx);
-    // Call the Leaf's internalUpdate to update the component state.
     await super.internalUpdate(u);
-    for (const c of this.children)
-      await c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" });
+    for (const c of this.children) await c.internalUpdate(u);
   }
 
   private async updateChild(subPath: string[], u: Update): Promise<void> {
     const childKey = subPath[0];
     const child = this.getChild(childKey);
-    if (child != null) return await child.internalUpdate({ ...u, path: subPath });
+    const nextU = { ...u, path: subPath };
+    if (child != null) return await child.internalUpdate(nextU);
     if (subPath.length > 1)
       throw new Error(
         `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${childKey} while updating `,
       );
-    this._children.set(childKey, await u.ctx.create({ ...u, path: subPath }));
+    this._children.set(childKey, await u.ctx.create(nextU));
   }
 
   private async updateThis(key: string, u: Update): Promise<void> {
-    // this._ctx = u.ctx.copyAndOverride(this.ctx);
+    // Check if super altered the context. If so, we need to re-render children.
     if (key !== this.key)
       throw new UnexpectedError(
         `[Composite.update] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
       );
-    await super.internalUpdate({ ...u, ctx: this.ctx });
-    if (!this._ctx.changed) return;
+    await super.internalUpdate(u);
+    if (!this.ctx.changed) return;
     this.instrumentation.L.debug("context changed", {
       changedKeys: this.ctx.changedKeys,
     });
-    for (const c of this.children)
-      await c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" });
+    for (const c of this.children) await c.internalUpdate({ ...u, variant: "context" });
   }
 
   async internalDelete(path: string[]): Promise<void> {
     const [key, subPath] = this.getRequiredKey(path);
-    const isChildDelete = subPath.length > 0;
-    if (!isChildDelete) {
+    if (subPath.length === 0) {
       if (key !== this.key)
         throw new Error(
           `[Composite.delete] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,

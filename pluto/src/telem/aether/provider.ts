@@ -41,13 +41,14 @@ export class BaseProvider extends aether.Composite<
     const shouldSwap = core !== this.prevClient;
     if (!shouldSwap) return;
     this.prevClient = core;
-    I.L.info("swapping client", { client: core });
+    console.log("swapping client", { client: core });
     const c =
       core == null
         ? new client.NoopClient()
         : new client.Core({ core, instrumentation: I });
     const f = newFactory(c);
     const value = new Context(f);
+    console.log(value.key);
     setContext(this.ctx, value);
   }
 }

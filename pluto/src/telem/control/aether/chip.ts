@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Authority } from "@synnaxlabs/client";
-import { type Destructor } from "@synnaxlabs/x";
+import { deep, type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -47,6 +47,7 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
         .set(this.state.status.data?.authority !== Authority.Absolute.valueOf())
         .catch(console.error);
 
+    console.log("RENDER");
     await this.updateEnabledState();
     this.internal.stopListening?.();
     this.internal.stopListening = this.internal.source.onChange(() => {
@@ -56,7 +57,7 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
 
   private async updateEnabledState(): Promise<void> {
     const nextStatus = await this.internal.source.value();
-    if (!nextStatus.time.equals(this.state.status.time))
+    if (!deep.equal(nextStatus, this.state.status))
       this.setState((p) => ({ ...p, status: nextStatus, triggered: false }));
   }
 
