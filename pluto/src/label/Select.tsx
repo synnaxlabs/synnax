@@ -42,10 +42,7 @@ const rangeCols: Array<List.ColumnSpec<label.Key, label.Label>> = [
       />
     ),
   },
-  {
-    key: "name",
-    name: "Name",
-  },
+  { key: "name", name: "Name" },
 ];
 
 const canDrop = (
@@ -118,11 +115,7 @@ export const SelectMultiple = ({
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
         toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-        {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        },
+        { clickedIndex: null, clicked: null, entries: [] },
       );
     },
     [onChange, value],

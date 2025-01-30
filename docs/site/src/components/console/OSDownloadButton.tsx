@@ -41,15 +41,9 @@ export const OSDownloadButton = ({
 export interface UpdateFile {
   version: string;
   platforms: {
-    "darwin-x86_64": {
-      url: string;
-    };
-    "linux-x86_64": {
-      url: string;
-    };
-    "windows-x86_64": {
-      url: string;
-    };
+    "darwin-x86_64": { url: string };
+    "linux-x86_64": { url: string };
+    "windows-x86_64": { url: string };
   };
 }
 

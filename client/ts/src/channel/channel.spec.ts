@@ -69,18 +69,8 @@ describe("Channel", () => {
 
     test("create many", async () => {
       const channels = await client.channels.create([
-        {
-          name: "test1",
-          leaseholder: 1,
-          rate: Rate.hz(1),
-          dataType: DataType.FLOAT32,
-        },
-        {
-          name: "test2",
-          leaseholder: 1,
-          rate: Rate.hz(1),
-          dataType: DataType.FLOAT32,
-        },
+        { name: "test1", leaseholder: 1, rate: Rate.hz(1), dataType: DataType.FLOAT32 },
+        { name: "test2", leaseholder: 1, rate: Rate.hz(1), dataType: DataType.FLOAT32 },
       ]);
       expect(channels.length).toEqual(2);
       expect(channels[0].name).toEqual("test1");
@@ -137,12 +127,7 @@ describe("Channel", () => {
           dataType: DataType.FLOAT32,
         });
         const channelTwo = await client.channels.create(
-          {
-            name,
-            leaseholder: 1,
-            rate: Rate.hz(1),
-            dataType: DataType.FLOAT32,
-          },
+          { name, leaseholder: 1, rate: Rate.hz(1), dataType: DataType.FLOAT32 },
           { retrieveIfNameExists: true },
         );
         expect(channelTwo.key).toEqual(channel.key);
@@ -176,12 +161,7 @@ describe("Channel", () => {
         });
         const channelTwo = await client.channels.create(
           [
-            {
-              name,
-              leaseholder: 1,
-              rate: Rate.hz(1),
-              dataType: DataType.FLOAT32,
-            },
+            { name, leaseholder: 1, rate: Rate.hz(1), dataType: DataType.FLOAT32 },
             {
               name: `${name}-2`,
               leaseholder: 1,
@@ -274,18 +254,8 @@ describe("Channel", () => {
     });
     test("multiple rename", async () => {
       const channels = await client.channels.create([
-        {
-          name: "test1",
-          leaseholder: 1,
-          rate: Rate.hz(1),
-          dataType: DataType.FLOAT32,
-        },
-        {
-          name: "test2",
-          leaseholder: 1,
-          rate: Rate.hz(1),
-          dataType: DataType.FLOAT32,
-        },
+        { name: "test1", leaseholder: 1, rate: Rate.hz(1), dataType: DataType.FLOAT32 },
+        { name: "test2", leaseholder: 1, rate: Rate.hz(1), dataType: DataType.FLOAT32 },
       ]);
       // Retrieve channels here to ensure we check for cache invalidation
       const initial = await client.channels.retrieve(channels.map((c) => c.key));
