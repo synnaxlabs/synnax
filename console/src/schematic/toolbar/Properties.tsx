@@ -90,7 +90,7 @@ export const PropertiesControls = memo(
             });
             return new Diagram.NodeLayout(el.key, nodeBox, handles);
           } catch (e) {
-            console.log(e);
+            console.error(e);
           }
           return null;
         })

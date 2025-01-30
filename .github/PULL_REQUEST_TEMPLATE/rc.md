@@ -219,9 +219,9 @@ I can successfully:
   - [ ] Split a mosaic vertically.
   - [ ] Focus on a leaf.
   - [ ] Open a leaf in a new window.
-- [ ] Rename a tab with `Cmd + R`.
+- [ ] Rename a tab with `Cmd + E`.
 - [ ] Close layout tabs with `Cmd + W`.
-- [ ] Focus using `Cmd + F`.
+- [ ] Focus using `Cmd + L`.
 - [ ] Open in a new window with `Cmd + O`.
 - **Search and Command Palette**
   - [ ] Toggle the color theme.

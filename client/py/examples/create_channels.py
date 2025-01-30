@@ -18,7 +18,7 @@ import synnax as sy
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
-CHANNEL_COUNT = 1000
+CHANNEL_COUNT = 100
 
 # Create an index channel that will be used to store our timestamps.
 time_channel = client.channels.create(

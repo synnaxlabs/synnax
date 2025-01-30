@@ -17,7 +17,6 @@ Section "MainSection" SEC01
     DetailPrint "Installing to: $INSTDIR"
     Delete "$INSTDIR\synnax.exe"
     Delete "$INSTDIR\synnax-server.bat"
-    Delete "$INSTDIR\python311.dll"
     
     SetOutPath "$INSTDIR"
     File /oname=synnax.exe "synnax.exe"
@@ -27,8 +26,6 @@ Section "MainSection" SEC01
     FileWrite $0 "@echo off$\r$\n"
     FileWrite $0 'synnax.exe %*'
     FileClose $0
-    
-    File "python311.dll"
     
     CreateDirectory "$SMPROGRAMS\Synnax"
     CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax.exe"
@@ -55,7 +52,6 @@ Section "Uninstall"
     
     Delete "$INSTDIR\synnax.exe"
     Delete "$INSTDIR\synnax-server.bat"
-    Delete "$INSTDIR\python311.dll"
     Delete "$INSTDIR\uninstall.exe"
     Delete "$DESKTOP\Synnax.lnk"
     Delete "$SMPROGRAMS\Synnax\Synnax.lnk"

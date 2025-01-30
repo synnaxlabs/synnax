@@ -424,7 +424,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                     if (client == null) return;
                     download({ client, lines, timeRange, name });
                     break;
-                  case "meta-data":
+                  case "metadata":
                     place({ ...Range.overviewLayout, name, key });
                     break;
                   case "line-plot":
@@ -442,7 +442,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                   <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
                     Open in New Plot
                   </PMenu.Item>
-                  <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
+                  <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
                     View Details
                   </PMenu.Item>
                 </PMenu.Menu>
