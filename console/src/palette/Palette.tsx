@@ -240,11 +240,10 @@ const PaletteDialog = ({
 
   const handleChange = useCallback(
     (value: string) => {
-      const mode = value.startsWith(commandSymbol) ? "command" : "resource";
       if (mode === "command") onFilterChange(value);
       else onSearchChange(value);
     },
-    [commandSymbol, searchValue, onFilterChange, onChange],
+    [mode, onFilterChange, onSearchChange],
   );
 
   const actualValue = mode === "command" ? filterValue : searchValue;
