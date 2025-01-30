@@ -88,7 +88,7 @@ export const SynnaxConsoleDownloadButton = (): ReactElement | null => {
         },
         {
           os: "Windows",
-          href: updateFile.platforms[OSToUpdateFilePlatform.Windows].url,
+          href: `https://github.com/synnaxlabs/synnax/releases/download/console-${updateFile.version}/Synnax_${updateFile.version.slice(1)}_x64-setup.exe`,
         },
       ]}
     />
