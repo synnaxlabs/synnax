@@ -14,18 +14,19 @@ import { cloneElement, type ReactElement } from "react";
 import { type BaseProps } from "@/button/Button";
 import { color } from "@/button/color";
 import { CSS } from "@/css";
-import { type Tooltip } from "@/tooltip";
+import { Tooltip } from "@/tooltip";
 
 interface ChildProps {
   color?: string;
   fill?: string;
 }
 
-/** The props for the {@link Icon} */
+/** The props for the {@link Icon} component */
 export interface IconProps extends BaseProps, Tooltip.WrapProps {
   children: ReactElement<ChildProps> | string;
   loading?: boolean;
 }
+
 /**
  * Use.Icon a button that only renders an icon without any text.
  *
@@ -38,43 +39,45 @@ export interface IconProps extends BaseProps, Tooltip.WrapProps {
  * @param props.loading - Whether the button is in a loading state. This will cause the
  * button to render a loading spinner.
  */
-export const Icon = ({
-  ref,
-  children,
-  className,
-  variant = "text",
-  size = "medium",
-  sharp = false,
-  disabled = false,
-  loading = false,
-  onClick,
-  color: propColor,
-  ...props
-}: IconProps): ReactElement => {
-  if (loading) children = <MediaIcon.Loading />;
-  const isDisabled = disabled || loading;
-  return (
-    <button
-      ref={ref}
-      className={clsx(
-        className,
-        CSS.B("btn"),
-        CSS.B("btn-icon"),
-        CSS.size(size),
-        CSS.sharp(sharp),
-        CSS.BM("btn", variant),
-        CSS.disabled(isDisabled),
-      )}
-      onClick={isDisabled ? undefined : onClick}
-      {...props}
-    >
-      {typeof children === "string"
-        ? children
-        : cloneElement(children, {
-            color: color(variant, isDisabled, propColor),
-            fill: "currentColor",
-            ...children.props,
-          })}
-    </button>
-  );
-};
+export const Icon = Tooltip.wrap(
+  ({
+    ref,
+    children,
+    className,
+    variant = "text",
+    size = "medium",
+    sharp = false,
+    disabled = false,
+    loading = false,
+    onClick,
+    color: propColor,
+    ...props
+  }: IconProps): ReactElement => {
+    if (loading) children = <MediaIcon.Loading />;
+    const isDisabled = disabled || loading;
+    return (
+      <button
+        ref={ref}
+        className={clsx(
+          className,
+          CSS.B("btn"),
+          CSS.B("btn-icon"),
+          CSS.size(size),
+          CSS.sharp(sharp),
+          CSS.BM("btn", variant),
+          CSS.disabled(isDisabled),
+        )}
+        onClick={isDisabled ? undefined : onClick}
+        {...props}
+      >
+        {typeof children === "string"
+          ? children
+          : cloneElement(children, {
+              color: color(variant, isDisabled, propColor),
+              fill: "currentColor",
+              ...children.props,
+            })}
+      </button>
+    );
+  },
+);
