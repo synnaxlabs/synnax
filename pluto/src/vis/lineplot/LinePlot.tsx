@@ -172,10 +172,7 @@ export const LinePlot = ({
 
   const setGridEntry: LinePlotContextValue["setGridEntry"] = useCallback(
     (meta: grid.Region) =>
-      setState((prev) => ({
-        ...prev,
-        grid: { ...prev.grid, [meta.key]: meta },
-      })),
+      setState((prev) => ({ ...prev, grid: { ...prev.grid, [meta.key]: meta } })),
     [setState],
   );
 

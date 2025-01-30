@@ -66,10 +66,7 @@ export const Provider = ({
 
   return (
     <Menu.ContextMenu
-      style={{
-        ...gridStyle,
-        cursor: hovered != null ? "pointer" : "default",
-      }}
+      style={{ ...gridStyle, cursor: hovered != null ? "pointer" : "default" }}
       {...menuProps}
       menu={() => {
         if (menu == null || hovered == null) return null;

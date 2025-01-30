@@ -105,12 +105,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     }, [state.autoBounds, state.bounds]);
 
     const gridStyle = useGridEntry(
-      {
-        loc: location,
-        key: `${aetherType}-${cKey}`,
-        size: size + labelSize,
-        order: 1,
-      },
+      { loc: location, key: `${aetherType}-${cKey}`, size: size + labelSize, order: 1 },
       `${dir.toUpperCase()}Axis`,
     );
 

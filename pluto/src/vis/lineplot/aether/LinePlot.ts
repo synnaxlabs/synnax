@@ -107,12 +107,7 @@ export class LinePlot extends aether.Composite<
     plot: box.Box,
     canvases: render.CanvasVariant[],
   ): Promise<void> {
-    const p = {
-      ...this.state,
-      plot,
-      canvases,
-      exposure: this.exposure,
-    };
+    const p = { ...this.state, plot, canvases, exposure: this.exposure };
     await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
   }
 
