@@ -99,11 +99,7 @@ export const SelectMultiple = ({
           ...toArray(value),
           ...(dropped.map((c) => c.key) as label.Key[]),
         ]);
-        onChange(v, {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        });
+        onChange(v, { clickedIndex: null, clicked: null, entries: [] });
         return dropped;
       },
       [onChange, value],

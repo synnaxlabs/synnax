@@ -28,10 +28,11 @@ export interface LayoutOverrides extends Omit<Partial<Layout.State>, "key" | "ty
 export const configureLayout = (
   args: LayoutArgs,
   layoutOverrides?: LayoutOverrides,
-): Layout.BaseState<LayoutArgs> => ({
+): Layout.State<LayoutArgs> => ({
   name: "Confirm",
   type: LAYOUT_TYPE,
   key: LAYOUT_TYPE,
+  windowKey: LAYOUT_TYPE,
   location: "modal",
   window: { resizable: false, size: { height: 250, width: 700 }, navTop: true },
   ...layoutOverrides,
