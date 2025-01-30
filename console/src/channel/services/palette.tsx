@@ -25,7 +25,7 @@ const CREATE_CALCULATED_COMMAND: Palette.Command = {
   name: "Create Calculated Channel",
   key: "create-calculated-channel",
   onSelect: ({ placeLayout }) => placeLayout(Channel.createCalculatedLayout({})),
-  actions: [<Version.BetaTag key="beta-tag" />],
+  endContent: [<Version.BetaTag key="beta-tag" />],
 };
 
 export const COMMANDS = [CREATE_COMMAND, CREATE_CALCULATED_COMMAND];
