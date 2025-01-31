@@ -109,6 +109,14 @@ interface Engine<S extends RequiredState> {
 export const open = async <S extends RequiredState>(
   config: Config<S>,
 ): Promise<Engine<S>> => {
+  const label = getCurrentWindow()?.label;
+  if (label !== MAIN_WINDOW)
+    return {
+      revert: async () => {},
+      clear: async () => {},
+      persist: async () => {},
+      initialState: undefined,
+    };
   const { exclude = [], initial, migrator, openKV } = config;
   // We need to make sure we copy the initial state because we're going to mutate it,
   // and we don't want to accidentally mutate the initial state, or run into errors
