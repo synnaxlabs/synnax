@@ -22,7 +22,7 @@ import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 interface Entry {
   key: Mode;
-  icon: ReactElement<PIcon.BaseProps>;
+  icon: PIcon.Element;
   tooltip: ReactNode;
 }
 

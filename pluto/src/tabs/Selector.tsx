@@ -169,7 +169,7 @@ const SelectorButton = ({
       bordered={false}
       rounded={false}
     >
-      {PIcon.resolve(icon as ReactElement<PIcon.BaseProps>, {
+      {PIcon.resolve(icon as PIcon.Element, {
         className: CSS.BE(CLS, "icon"),
         style: {
           color: CSS.shadeVar(7),

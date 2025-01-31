@@ -17,7 +17,7 @@ import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Butto
 
 interface Entry {
   key: direction.Direction;
-  icon: ReactElement<PIcon.BaseProps>;
+  icon: PIcon.Element;
 }
 
 export interface DirectionProps
