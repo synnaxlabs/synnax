@@ -217,7 +217,7 @@ jobs:
           Pop-Location
           # Move the built binary to scripts directory
           Write-Host "Moving synnax binary to scripts directory..."
-          Move-Item -Force .\synnax\synnax.exe .\scripts\
+          Move-Item -Force .\synnax\synnax-server.exe .\scripts\
           # Build the NSIS installer
           Write-Host "Building Windows installer..."
           & makensis /DVERSION=$version .\scripts\windows-installer.nsi
