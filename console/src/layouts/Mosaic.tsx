@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layouts/Mosaic.css";
-
 import { ontology } from "@synnaxlabs/client";
 import { selectWindowKey } from "@synnaxlabs/drift";
 import { Icon, Logo } from "@synnaxlabs/media";
@@ -36,26 +34,15 @@ import { useDispatch, useStore } from "react-redux";
 import { Controls } from "@/components";
 import { Menu } from "@/components/menu";
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
-import { Confirm } from "@/confirm";
+import { Import } from "@/import";
+import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
-import { Content } from "@/layout/Content";
-import { usePlacer } from "@/layout/hooks";
-import { useMoveIntoMainWindow } from "@/layout/Menu";
-import { useSelectActiveMosaicTabKey, useSelectMosaic } from "@/layout/selectors";
-import {
-  moveMosaicTab,
-  remove,
-  rename,
-  resizeMosaicTab,
-  selectMosaicTab,
-  setNavDrawer,
-} from "@/layout/slice";
 import { createSelector } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { type RootState, type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
+import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
@@ -66,8 +53,6 @@ const EmptyContent = (): ReactElement => (
 const emptyContent = <EmptyContent />;
 
 export const MOSAIC_TYPE = "mosaic";
-
-const FILE_HANDLERS = [Schematic.fileHandler, LinePlot.fileHandler];
 
 export const ContextMenu = ({
   keys,
@@ -144,19 +129,32 @@ const ModalContent = ({ node, tabKey }: ContentCProps) => {
 
 const contextMenu = componentRenderProp(ContextMenu);
 
+interface MosaicProps {
+  windowKey: string;
+  mosaic: Core.Node;
+}
+
+export const Mosaic = memo((): ReactElement | null => {
+  const [windowKey, mosaic] = Layout.useSelectMosaic();
+  if (windowKey == null || mosaic == null) return null;
+  return <Internal windowKey={windowKey} mosaic={mosaic} />;
+});
+Mosaic.displayName = "Mosaic";
+
 /** LayoutMosaic renders the central layout mosaic of the application. */
-export const Mosaic = memo((): ReactElement => {
-  const [windowKey, mosaic] = useSelectMosaic();
+const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = useStore();
-  const activeTab = useSelectActiveMosaicTabKey();
+  const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
-  const placer = usePlacer();
+  const place = Layout.usePlacer();
   const dispatch = useDispatch();
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
-      dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
+      if (windowKey == null) return;
+      dispatch(Layout.moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
     [dispatch, windowKey],
   );
@@ -164,7 +162,7 @@ export const Mosaic = memo((): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        placer(
+        place(
           createSelector({
             tab: { mosaicKey, location },
             location: "mosaic",
@@ -183,11 +181,12 @@ export const Mosaic = memo((): ReactElement => {
             id,
             nodeKey: mosaicKey,
             location,
-            placeLayout: placer,
+            placeLayout: place,
             addStatus,
+            handleException,
           });
         } else
-          placer(
+          place(
             createSelector({
               tab: { mosaicKey, location },
               location: "mosaic",
@@ -195,91 +194,63 @@ export const Mosaic = memo((): ReactElement => {
           );
       });
     },
-    [placer, store, client, addStatus],
+    [place, store, client, addStatus],
   );
 
   LinePlot.useTriggerHold({
-    defaultMode: "hold",
-    hold: [["H"]],
-    toggle: [["H", "H"]],
+    defaultMode: "toggle",
+    toggle: [["H"]],
   });
 
   const handleClose = useCallback(
     (tabKey: string): void => {
-      dispatch(remove({ keys: [tabKey] }));
+      dispatch(Layout.remove({ keys: [tabKey] }));
     },
     [dispatch],
   );
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
-      dispatch(selectMosaicTab({ tabKey }));
+      dispatch(Layout.selectMosaicTab({ tabKey }));
     },
     [dispatch],
   );
 
   const handleRename = useCallback(
     (tabKey: string, name: string): void => {
-      dispatch(rename({ key: tabKey, name }));
+      dispatch(Layout.rename({ key: tabKey, name }));
     },
     [dispatch],
   );
 
   const handleResize = useDebouncedCallback(
     (key, size) => {
-      dispatch(resizeMosaicTab({ key, size, windowKey }));
+      dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
     100,
     [dispatch, windowKey],
   );
-
-  const workspaceKey = Workspace.useSelectActiveKey();
-  const confirm = Confirm.useModal();
-
   const handleFileDrop = useCallback(
-    (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
-      void (async () => {
-        const files = Array.from(event.dataTransfer.files);
-        for (const file of files) {
-          const name = file.name;
+    async (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
+      const items = Array.from(event.dataTransfer.items);
+      await Promise.all(
+        items.map(async (item) => {
           try {
-            if (file.type !== "application/json")
-              throw Error(`${name} is not a JSON file`);
-            const buffer = await file.arrayBuffer();
-            const fileAsJSON = JSON.parse(new TextDecoder().decode(buffer));
-
-            let handlerFound = false;
-            for (const fileHandler of FILE_HANDLERS)
-              if (
-                await fileHandler({
-                  file: fileAsJSON,
-                  placer,
-                  name,
-                  store,
-                  confirm,
-                  client,
-                  workspaceKey: workspaceKey ?? undefined,
-                  dispatch,
-                  tab: { mosaicKey: nodeKey, location: loc },
-                })
-              ) {
-                handlerFound = true;
-                break;
-              }
-            if (!handlerFound)
-              throw Error(`${name} is not recognized as a Synnax object`);
+            await Import.dataTransferItem(item, {
+              client,
+              fileIngestors: INGESTORS,
+              ingestDirectory: WorkspaceServices.ingest,
+              layout: { tab: { mosaicKey: nodeKey, location: loc } },
+              placeLayout: place,
+              store,
+            });
           } catch (e) {
-            if (e instanceof Error)
-              addStatus({
-                variant: "error",
-                message: `Failed to read ${name}`,
-                description: e.message,
-              });
+            handleException(e, `Failed to read ${item.getAsFile()?.name ?? "file"}`);
           }
-        }
-      })();
+        }),
+      );
     },
-    [dispatch],
+    [client, place, store],
   );
 
   // Creates a wrapper around the general purpose layout content to create a set of
@@ -291,7 +262,7 @@ export const Mosaic = memo((): ReactElement => {
     root: mosaic,
     onSelect: handleSelect,
     children: ({ tabKey, visible }) => (
-      <Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
+      <Layout.Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
     ),
   });
 
@@ -326,15 +297,14 @@ export const Mosaic = memo((): ReactElement => {
       </Core.Mosaic>
     </>
   );
-});
-Mosaic.displayName = "Mosaic";
+};
 
 export const NavTop = (): ReactElement | null => {
   const os = OS.use();
   const active = Layout.useSelectActiveMosaicLayout();
   const ws = Workspace.useSelectActive();
   const store = useStore<RootState>();
-  const moveToMain = useMoveIntoMainWindow();
+  const moveToMain = Layout.useMoveIntoMainWindow();
   const collapseButton = (
     <Button.Icon
       onClick={() => {
@@ -391,12 +361,13 @@ export const NavTop = (): ReactElement | null => {
 };
 
 export const MosaicWindow = memo(
-  ({ layoutKey }: Layout.RendererProps): ReactElement => {
+  ({ layoutKey }: Layout.RendererProps): ReactElement | null => {
     const { menuItems, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
     const dispatch = useDispatch();
+    const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
       dispatch(
-        setNavDrawer({
+        Layout.setNavDrawer({
           windowKey: layoutKey,
           location: "bottom",
           menuItems: ["visualization"],
@@ -404,10 +375,11 @@ export const MosaicWindow = memo(
         }),
       );
     }, [layoutKey]);
+    if (windowKey == null || mosaic == null) return null;
     return (
       <>
         <NavTop />
-        <Mosaic />
+        <Internal windowKey={windowKey} mosaic={mosaic} />
         <NavDrawer location="bottom" />
         <Nav.Bar
           className="console-main-nav"

@@ -10,12 +10,7 @@
 import "@/resize/Core.css";
 
 import { direction, location } from "@synnaxlabs/x";
-import {
-  type DetailedHTMLProps,
-  forwardRef,
-  type HTMLAttributes,
-  type ReactElement,
-} from "react";
+import { type DetailedHTMLProps, type HTMLAttributes, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { preventDefault } from "@/util/event";
@@ -29,47 +24,38 @@ export interface CoreProps
   showHandle?: boolean;
 }
 
-export const Core = forwardRef<HTMLDivElement, CoreProps>(
-  (
-    {
-      location: cloc,
-      style,
-      size,
-      className,
-      children,
-      onDragStart,
-      sizeUnits = "px",
-      showHandle = true,
-      ...props
-    }: CoreProps,
-    ref,
-  ): ReactElement => {
-    const loc_ = location.construct(cloc);
-    const dir = location.direction(loc_);
-    const dim = direction.dimension(dir);
-    return (
-      <div
-        className={CSS(CSS.B("resize"), CSS.loc(loc_), CSS.dir(dir), className)}
-        style={{ [dim]: `${size}${sizeUnits}`, ...style }}
-        ref={ref}
-        {...props}
-      >
-        {children}
-        {showHandle && (
-          <div
-            draggable
-            className={CSS(
-              CSS.BE("resize", "handle"),
-              CSS.bordered(location.swap(loc_)),
-            )}
-            onDragStart={onDragStart}
-            onDrag={preventDefault}
-            onDragEnd={preventDefault}
-          />
-        )}
-      </div>
-    );
-  },
-);
-
-Core.displayName = "Resize.Core";
+export const Core = ({
+  ref,
+  location: cloc,
+  style,
+  size,
+  className,
+  children,
+  onDragStart,
+  sizeUnits = "px",
+  showHandle = true,
+  ...props
+}: CoreProps): ReactElement => {
+  const loc_ = location.construct(cloc);
+  const dir = location.direction(loc_);
+  const dim = direction.dimension(dir);
+  return (
+    <div
+      className={CSS(CSS.B("resize"), CSS.loc(loc_), CSS.dir(dir), className)}
+      style={{ [dim]: `${size}${sizeUnits}`, ...style }}
+      ref={ref}
+      {...props}
+    >
+      {children}
+      {showHandle && (
+        <div
+          draggable
+          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.swap(loc_)))}
+          onDragStart={onDragStart}
+          onDrag={preventDefault}
+          onDragEnd={preventDefault}
+        />
+      )}
+    </div>
+  );
+};

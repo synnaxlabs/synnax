@@ -59,7 +59,6 @@ export const Browser = ({ device }: BrowserProps): ReactElement => {
   const [loading, setLoading] = useState<string | undefined>(undefined);
 
   const expand = useMutation({
-    mutationKey: [client?.key, scanTask?.key, device?.key],
     mutationFn: async (
       props: Optional<Tree.HandleExpandProps, "clicked"> & { delay?: number },
     ) => {

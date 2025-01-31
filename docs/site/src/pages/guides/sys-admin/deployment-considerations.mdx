@@ -4,7 +4,7 @@ title: "Deployment Considerations"
 description: "Essential concepts for deploying Synnax in production."
 ---
 
-import { Note } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -15,12 +15,14 @@ the topology of a Synnax deployment (clusters, nodes), and the considerations th
 should be taken into account when deploying Synnax (workload, networking, security, etc.).
 This page will also link to more detailed guides on deployment workflows.
 
+<Divider.Divider direction="x" />
+
 ## Key Terms
 
 ### Node
 
 A node is a running instance of the Synnax database. It is a single executable
-that can run on Windows, Linux, MacOS, or inside of a container. A node's primary
+that can run on Windows, Linux, macOS, or inside of a container. A node's primary
 responsibility is to permanently store and serve sensor data to users. It's useful
 to think of a node as the heart of a Synnax deployment. All traffic related to data
 recording, control sequences, and other tasks is routed through and processed by a node.
@@ -47,6 +49,8 @@ needs grow, you can add additional nodes in order to balance the workload.
 <Note.Note variant="info">
   Multi-node clusters are experimental and not yet recommended for production use.
 </Note.Note>
+
+<Divider.Divider direction="x" />
 
 ## Deployment Considerations
 

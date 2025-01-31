@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box } from "@synnaxlabs/x";
-import { type PropsWithChildren, useCallback } from "react";
+import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -16,7 +16,7 @@ import { useResize, useSyncedRef } from "@/hooks";
 import { eraser } from "@/vis/eraser/aether";
 
 export interface UseProps {
-  aetherKey: string;
+  aetherKey?: string;
 }
 
 export interface UseReturn {
@@ -47,17 +47,14 @@ export const use = ({ aetherKey }: UseProps): UseReturn => {
   return { setEnabled, erase };
 };
 
-export interface EraserProps extends PropsWithChildren {}
+export interface EraserProps extends PropsWithChildren, Aether.CProps {}
 
-export const Eraser = Aether.wrap<EraserProps>(
-  eraser.Eraser.TYPE,
-  ({ aetherKey, children }) => {
-    const { erase } = use({ aetherKey });
-    const ref = useResize(erase);
-    return (
-      <div ref={ref} className={CSS(CSS.inheritDims())}>
-        {children}
-      </div>
-    );
-  },
-);
+export const Eraser = ({ aetherKey, children }: EraserProps): ReactElement => {
+  const { erase } = use({ aetherKey });
+  const ref = useResize(erase);
+  return (
+    <div ref={ref} className={CSS(CSS.inheritDims())}>
+      {children}
+    </div>
+  );
+};

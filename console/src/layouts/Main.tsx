@@ -9,11 +9,22 @@
 
 import "@/layouts/Main.css";
 
+import {
+  channel,
+  linePlot,
+  log,
+  ranger,
+  schematic,
+  table,
+  task,
+  workspace,
+} from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Align } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Channel } from "@/channel";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
@@ -33,6 +44,7 @@ import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
+import { WorkspaceServices } from "@/workspace/services";
 
 const NOTIFICATION_ADAPTERS = [
   ...DeviceServices.NOTIFICATION_ADAPTERS,
@@ -40,16 +52,16 @@ const NOTIFICATION_ADAPTERS = [
   ...Cluster.NOTIFICATION_ADAPTERS,
 ];
 
-const LINK_HANDLERS: Link.Handler[] = [
-  ChannelServices.linkHandler,
-  LinePlotServices.linkHandler,
-  RangeServices.linkHandler,
-  SchematicServices.linkHandler,
-  Task.linkHandler,
-  Workspace.linkHandler,
-  LogServices.linkHandler,
-  TableServices.linkHandler,
-];
+const LINK_HANDLERS: Record<string, Link.Handler> = {
+  [channel.ONTOLOGY_TYPE]: ChannelServices.linkHandler,
+  [linePlot.ONTOLOGY_TYPE]: LinePlotServices.linkHandler,
+  [log.ONTOLOGY_TYPE]: LogServices.linkHandler,
+  [ranger.ONTOLOGY_TYPE]: RangeServices.linkHandler,
+  [schematic.ONTOLOGY_TYPE]: SchematicServices.linkHandler,
+  [table.ONTOLOGY_TYPE]: TableServices.linkHandler,
+  [task.ONTOLOGY_TYPE]: Task.linkHandler,
+  [workspace.ONTOLOGY_TYPE]: WorkspaceServices.linkHandler,
+};
 
 const SideEffect = (): null => {
   const dispatch = useDispatch();
@@ -59,8 +71,9 @@ const SideEffect = (): null => {
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();
   Device.useListenForChanges();
+  Channel.useListenForCalculationState();
   Workspace.useSyncLayout();
-  Link.useDeep({ handlers: LINK_HANDLERS });
+  Link.useDeep(LINK_HANDLERS);
   Layout.useTriggers();
   Permissions.useFetchPermissions();
   Layout.useDropOutside();
@@ -71,7 +84,7 @@ export const MAIN_TYPE = Drift.MAIN_WINDOW;
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
- * component as simple, presentational, and navigatable as possible.
+ * component as simple, presentational, and navigable as possible.
  */
 export const Main = (): ReactElement => (
   <>

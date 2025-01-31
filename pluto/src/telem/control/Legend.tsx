@@ -18,32 +18,28 @@ import { Legend as Core } from "@/vis/legend";
 
 export interface LegendProps extends Core.SimpleProps {}
 
-export const Legend = Aether.wrap<LegendProps>(
-  control.Legend.TYPE,
-  ({ aetherKey, ...props }): ReactElement => {
-    const { needsControlOf } = useContext();
-    const [, { states }, setState] = Aether.use({
-      aetherKey,
-      type: control.Legend.TYPE,
-      schema: control.legendStateZ,
-      initialState: {
-        states: [],
-        needsControlOf,
-      },
-    });
+export const Legend = ({ ...props }: LegendProps): ReactElement => {
+  const { needsControlOf } = useContext();
+  const [, { states }, setState] = Aether.use({
+    type: control.Legend.TYPE,
+    schema: control.legendStateZ,
+    initialState: {
+      states: [],
+      needsControlOf,
+    },
+  });
 
-    useEffect(() => {
-      setState((state) => ({ ...state, needsControlOf }));
-    }, [needsControlOf]);
+  useEffect(() => {
+    setState((state) => ({ ...state, needsControlOf }));
+  }, [needsControlOf]);
 
-    // Filter out the unique subjects
-    const subjects = unique(states.map((s) => s.subject.key));
-    const data = subjects.map((s) => {
-      const d = states.find((s2) => s2.subject.key === s);
-      if (d == null) throw new UnexpectedError("Legend subject not found");
-      return { key: d.subject.key, label: d.subject.name, color: d.subjectColor };
-    });
+  // Filter out the unique subjects
+  const subjects = unique.unique(states.map((s) => s.subject.key));
+  const data = subjects.map((s) => {
+    const d = states.find((s2) => s2.subject.key === s);
+    if (d == null) throw new UnexpectedError("Legend subject not found");
+    return { key: d.subject.key, label: d.subject.name, color: d.subjectColor };
+  });
 
-    return <Core.Simple data={data} {...props} />;
-  },
-);
+  return <Core.Simple data={data} {...props} />;
+};

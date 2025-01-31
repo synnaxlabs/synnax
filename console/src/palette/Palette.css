@@ -30,17 +30,6 @@
     min-height: 400px;
     max-width: 1200px;
     overflow: hidden;
-
-    .pluto-list__item {
-        .console-palette__actions {
-            opacity: 0;
-        }
-        &:is(:hover, .pluto--hovered) {
-            .console-palette__actions {
-                opacity: 1;
-            }
-        }
-    }
 }
 
 .console-palette__list {

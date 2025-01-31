@@ -97,7 +97,7 @@ export class Provider implements telem.Provider {
 
   create<T>(spec: telem.Spec): T {
     const t = FACTORY.create(spec) as T;
-    this.created[spec.type] = t as unknown as telem.Telem;
+    this.created[spec.type] = t as telem.Telem;
     return t;
   }
 }

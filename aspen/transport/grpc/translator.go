@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
-	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
+	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/v1"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
@@ -26,10 +26,12 @@ import (
 )
 
 var (
-	_ fgrpc.Translator[pledge.Request, *aspenv1.ClusterPledge]       = pledgeTranslator{}
-	_ fgrpc.Translator[gossip.Message, *aspenv1.ClusterGossip]       = clusterGossipTranslator{}
-	_ fgrpc.Translator[kv.TxRequest, *aspenv1.BatchRequest]          = batchTranslator{}
-	_ fgrpc.Translator[kv.FeedbackMessage, *aspenv1.FeedbackMessage] = feedbackTranslator{}
+	_ fgrpc.Translator[pledge.Request, *aspenv1.ClusterPledge]         = pledgeTranslator{}
+	_ fgrpc.Translator[gossip.Message, *aspenv1.ClusterGossip]         = clusterGossipTranslator{}
+	_ fgrpc.Translator[kv.TxRequest, *aspenv1.TxRequest]               = batchTranslator{}
+	_ fgrpc.Translator[kv.FeedbackMessage, *aspenv1.FeedbackMessage]   = feedbackTranslator{}
+	_ fgrpc.Translator[kv.RecoveryRequest, *aspenv1.RecoveryRequest]   = recoveryRequestTranslator{}
+	_ fgrpc.Translator[kv.RecoveryResponse, *aspenv1.RecoveryResponse] = recoveryResponseTranslator{}
 )
 
 type pledgeTranslator struct{}
@@ -94,15 +96,15 @@ func (c clusterGossipTranslator) Backward(_ context.Context, tMsg *aspenv1.Clust
 
 type batchTranslator struct{}
 
-func (bt batchTranslator) Forward(_ context.Context, msg kv.TxRequest) (*aspenv1.BatchRequest, error) {
-	tMsg := &aspenv1.BatchRequest{Sender: uint32(msg.Sender), Leaseholder: uint32(msg.Leaseholder)}
+func (bt batchTranslator) Forward(_ context.Context, msg kv.TxRequest) (*aspenv1.TxRequest, error) {
+	tMsg := &aspenv1.TxRequest{Sender: uint32(msg.Sender), Leaseholder: uint32(msg.Leaseholder)}
 	for _, o := range msg.Operations {
 		tMsg.Operations = append(tMsg.Operations, translateOpForward(o))
 	}
 	return tMsg, nil
 }
 
-func (bt batchTranslator) Backward(ctx context.Context, tMsg *aspenv1.BatchRequest) (kv.TxRequest, error) {
+func (bt batchTranslator) Backward(ctx context.Context, tMsg *aspenv1.TxRequest) (kv.TxRequest, error) {
 	msg := kv.TxRequest{
 		Context:     ctx,
 		Sender:      node.Key(tMsg.Sender),
@@ -162,6 +164,34 @@ func (ft feedbackTranslator) Backward(_ context.Context, tMsg *aspenv1.FeedbackM
 			Version:     version.Counter(f.Version),
 			Leaseholder: node.Key(f.Leaseholder),
 		}
+	}
+	return msg, nil
+}
+
+type recoveryRequestTranslator struct{}
+
+func (r recoveryRequestTranslator) Forward(_ context.Context, msg kv.RecoveryRequest) (*aspenv1.RecoveryRequest, error) {
+	return &aspenv1.RecoveryRequest{HighWater: int64(msg.HighWater)}, nil
+}
+
+func (r recoveryRequestTranslator) Backward(_ context.Context, tMsg *aspenv1.RecoveryRequest) (kv.RecoveryRequest, error) {
+	return kv.RecoveryRequest{HighWater: version.Counter(tMsg.HighWater)}, nil
+}
+
+type recoveryResponseTranslator struct{}
+
+func (r recoveryResponseTranslator) Forward(_ context.Context, msg kv.RecoveryResponse) (*aspenv1.RecoveryResponse, error) {
+	tMsg := &aspenv1.RecoveryResponse{Operations: make([]*aspenv1.Operation, len(msg.Operations))}
+	for i, o := range msg.Operations {
+		tMsg.Operations[i] = translateOpForward(o)
+	}
+	return tMsg, nil
+}
+
+func (r recoveryResponseTranslator) Backward(ctx context.Context, tMsg *aspenv1.RecoveryResponse) (kv.RecoveryResponse, error) {
+	msg := kv.RecoveryResponse{Operations: make([]kv.Operation, len(tMsg.Operations))}
+	for i, o := range tMsg.Operations {
+		msg.Operations[i] = translateOpBackward(o)
 	}
 	return msg, nil
 }

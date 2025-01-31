@@ -27,7 +27,7 @@ type PickedEnrichedProperties = Pick<
 
 export const enrich = (model: string, info: PropertiesDigest): Properties => {
   if (info.enriched === true) return info as Properties;
-  const enriched = (data as unknown as UnknownRecord)[model] as {
+  const enriched = (data as UnknownRecord)[model] as {
     estimatedPinout: PickedEnrichedProperties;
   };
   if (enriched == null)

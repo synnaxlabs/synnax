@@ -48,15 +48,11 @@ export const consoleNav: PageNavNode = {
       href: "/reference/console/line-plots",
       name: "Line Plots",
     },
+    { key: "/reference/console/logs", href: "/reference/console/logs", name: "Logs" },
     {
       key: "/reference/console/schematics",
       href: "/reference/console/schematics",
       name: "Schematics",
-    },
-    {
-      key: "/reference/console/logs",
-      href: "/reference/console/logs",
-      name: "Logs",
     },
     {
       key: "/reference/console/tables",

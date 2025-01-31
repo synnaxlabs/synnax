@@ -1,16 +1,14 @@
-name: "Test - Synnax"
-
+name: Test - Synnax
 on:
-  pull_request:
-    branches:
-      - rc
-      - main
   push:
     branches:
-      - rc
       - main
+      - rc
+  pull_request:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
-
 jobs:
   changes:
     name: Changes
@@ -25,6 +23,7 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.ref }}
           filters: |
             changed:
               - .github/workflows/test.synnax.yaml
@@ -40,26 +39,29 @@ jobs:
     needs: changes
     if: needs.changes.outputs.changed == 'true'
     strategy:
-      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
+        
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
-          cache-dependency-path: |
-            alamos/go/go.sum
-            aspen/go.sum
-            cesium/go.sum
-            freighter/go/go.sum
-            synnax/go.sum
-            x/go/go.sum
-
+          cache-dependency-path: go.work.sum
+          
+      - name: Check Formatting
+        if: matrix.format
+        run: scripts/gofmt-check.sh synnax
+        
       - name: Test
         run: go test -v -shuffle=on ./...
         working-directory: synnax

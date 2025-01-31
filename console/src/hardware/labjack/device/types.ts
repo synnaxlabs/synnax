@@ -7,107 +7,83 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type channel, type device } from "@synnaxlabs/client";
 import { bounds, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { identifierZ } from "@/hardware/device/Configure";
+import { type Identifier } from "@/hardware/device/Configure";
 
-export const MODEL_KEYS = ["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"] as const;
-export const modelKeyZ = z.enum(MODEL_KEYS);
-export type ModelKey = z.infer<typeof modelKeyZ>;
+// Makes
 
-export const commandStatePairZ = z.object({ command: z.number(), state: z.number() });
-export type CommandStatePair = z.infer<typeof commandStatePairZ>;
-export const ZERO_COMMAND_STATE_PAIR: CommandStatePair = { command: 0, state: 0 };
+export const MAKE = "LabJack";
+export type Make = typeof MAKE;
 
-export const propertiesZ = z.object({
-  identifier: identifierZ,
-  readIndex: z.number(),
-  thermocoupleIndex: z.number(),
-  writeStateIndex: z.number(),
-  AI: z.object({ channels: z.record(z.string(), z.number()) }),
-  DI: z.object({ channels: z.record(z.string(), z.number()) }),
-  AO: z.object({ channels: z.record(commandStatePairZ) }),
-  DO: z.object({ channels: z.record(z.string(), commandStatePairZ) }),
-});
-export type Properties = z.infer<typeof propertiesZ>;
+// Model Keys
 
-export const ZERO_PROPERTIES: Properties = {
-  readIndex: 0,
-  thermocoupleIndex: 0,
-  writeStateIndex: 0,
-  identifier: "",
-  AI: { channels: {} },
-  AO: { channels: {} },
-  DI: { channels: {} },
-  DO: { channels: {} },
-};
+const T4_MODEL_KEY = "LJM_dtT4";
+type T4ModelKey = typeof T4_MODEL_KEY;
+
+const T7_MODEL_KEY = "LJM_dtT7";
+type T7ModelKey = typeof T7_MODEL_KEY;
+
+const T8_MODEL_KEY = "LJM_dtT8";
+type T8ModelKey = typeof T8_MODEL_KEY;
+
+export type ModelKey = T4ModelKey | T7ModelKey | T8ModelKey;
+
+// Channel Types
 
 export const DI_CHANNEL_TYPE = "DI";
-export const diChannelTypeZ = z.literal(DI_CHANNEL_TYPE);
-export type DIChannelType = z.infer<typeof diChannelTypeZ>;
+type DIChannelType = typeof DI_CHANNEL_TYPE;
+
 export const TC_CHANNEL_TYPE = "TC";
-export const tcChannelTypeZ = z.literal(TC_CHANNEL_TYPE);
-export type TCChannelType = z.infer<typeof tcChannelTypeZ>;
-export const AO_CHANNEL_TYPE = "AO";
-export const aoChannelTypeZ = z.literal(AO_CHANNEL_TYPE);
-export type AOChannelType = z.infer<typeof aoChannelTypeZ>;
+type TCChannelType = typeof TC_CHANNEL_TYPE;
+
+const AO_CHANNEL_TYPE = "AO";
+type AOChannelType = typeof AO_CHANNEL_TYPE;
+
 export const AI_CHANNEL_TYPE = "AI";
-export const aiChannelTypeZ = z.literal(AI_CHANNEL_TYPE);
-export type AIChannelType = z.infer<typeof aiChannelTypeZ>;
+type AIChannelType = typeof AI_CHANNEL_TYPE;
+
 export const DO_CHANNEL_TYPE = "DO";
-export const doChannelTypeZ = z.literal(DO_CHANNEL_TYPE);
-export type DOChannelType = z.infer<typeof doChannelTypeZ>;
+type DOChannelType = typeof DO_CHANNEL_TYPE;
 
-export const inputChannelTypeZ = z.union([
-  diChannelTypeZ,
-  aiChannelTypeZ,
-  tcChannelTypeZ,
-]);
-export type InputChannelType = z.infer<typeof inputChannelTypeZ>;
-export const outputChannelTypeZ = z.union([aoChannelTypeZ, doChannelTypeZ]);
+export type InputChannelType = DIChannelType | AIChannelType | TCChannelType;
+export const outputChannelTypeZ = z.enum([AO_CHANNEL_TYPE, DO_CHANNEL_TYPE]);
 export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
-export const channelTypeZ = z.union([inputChannelTypeZ, outputChannelTypeZ]);
-export type ChannelType = z.infer<typeof channelTypeZ>;
+export type ChannelType = InputChannelType | OutputChannelType;
 
-export const aiPortZ = z.object({
-  key: z.string(),
-  type: aiChannelTypeZ,
-  voltageRange: bounds.bounds,
-  aliases: z.array(z.string()),
-});
-export type AIPort = z.infer<typeof aiPortZ>;
+interface BasePort {
+  key: string;
+  aliases: string[];
+}
 
-export const diPortZ = z.object({
-  key: z.string(),
-  type: diChannelTypeZ,
-  aliases: z.array(z.string()),
-});
-export type DIPort = z.infer<typeof diPortZ>;
+interface AIPort extends BasePort {
+  type: AIChannelType;
+  voltageRange: bounds.Bounds;
+}
 
-export const doPortZ = z.object({
-  key: z.string(),
-  type: doChannelTypeZ,
-  aliases: z.array(z.string()),
-});
-export type DOPort = z.infer<typeof doPortZ>;
+interface DIPort extends BasePort {
+  type: DIChannelType;
+}
 
-export const aoPortZ = z.object({
-  key: z.string(),
-  type: aoChannelTypeZ,
-  aliases: z.array(z.string()),
-});
-export type AOPort = z.infer<typeof aoPortZ>;
+interface DOPort extends BasePort {
+  type: DOChannelType;
+}
 
-export const portZ = z.union([aoPortZ, aiPortZ, doPortZ, diPortZ]);
+interface AOPort extends BasePort {
+  type: AOChannelType;
+}
 
-export type Port = z.infer<typeof portZ>;
+export type Port = AOPort | AIPort | DOPort | DIPort;
 
 interface AltConfig {
   prefix: string;
   offset: number;
 }
+
+const mapAltConfigsToAliases = (altConfigs: AltConfig[], port: number): string[] =>
+  altConfigs.map((config) => `${config.prefix}${port - config.offset}`);
 
 const aiFactory = (
   b: bounds.Bounds,
@@ -118,9 +94,9 @@ const aiFactory = (
     const port = i + b.lower;
     return {
       key: `AIN${port}`,
-      type: "AI",
+      type: AI_CHANNEL_TYPE,
       voltageRange,
-      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+      aliases: mapAltConfigsToAliases(altConfigs, port),
     };
   });
 
@@ -129,8 +105,8 @@ const diFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DIPort[] =>
     const port = i + b.lower;
     return {
       key: `DIO${port}`,
-      type: "DI",
-      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+      type: DI_CHANNEL_TYPE,
+      aliases: mapAltConfigsToAliases(altConfigs, port),
     };
   });
 
@@ -139,8 +115,8 @@ const doFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): DOPort[] =>
     const port = i + b.lower;
     return {
       key: `DIO${i + b.lower}`,
-      type: "DO",
-      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+      type: DO_CHANNEL_TYPE,
+      aliases: mapAltConfigsToAliases(altConfigs, port),
     };
   });
 
@@ -149,39 +125,38 @@ const aoFactory = (b: bounds.Bounds, altConfigs: AltConfig[] = []): AOPort[] =>
     const port = i + b.lower;
     return {
       key: `DAC${port}`,
-      type: "AO",
-      aliases: altConfigs.map((config) => `${config.prefix}${port - config.offset}`),
+      type: AO_CHANNEL_TYPE,
+      aliases: mapAltConfigsToAliases(altConfigs, port),
     };
   });
 
 const AIN_HIGH_VOLTAGE = bounds.construct(-10, 10);
 const AIN_LOW_VOLTAGE = bounds.construct(0, 2.5);
 
-export const portsZ = z.object({
-  AO: aoPortZ.array(),
-  DO: doPortZ.array(),
-  AI: aiPortZ.array(),
-  DI: diPortZ.array(),
-});
-export type Ports = z.infer<typeof portsZ>;
+interface Ports {
+  AO: AOPort[];
+  DO: DOPort[];
+  AI: AIPort[];
+  DI: DIPort[];
+}
 
 // T4
 
-export const T4_AI_PORTS: AIPort[] = [
+const T4_AI_PORTS: AIPort[] = [
   ...aiFactory({ lower: 0, upper: 4 }, AIN_HIGH_VOLTAGE),
   ...aiFactory({ lower: 5, upper: 11 }, AIN_LOW_VOLTAGE),
 ];
-export const T4_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
-export const T4_DI_PORTS: DIPort[] = [
+const T4_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
+const T4_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 4, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
   ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
 ];
-export const T4_DO_PORTS: DOPort[] = [
+const T4_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 4, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
   ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
 ];
 
-export const T4_PORTS: Ports = {
+const T4_PORTS: Ports = {
   AI: T4_AI_PORTS,
   AO: T4_AO_PORTS,
   DO: T4_DO_PORTS,
@@ -190,24 +165,21 @@ export const T4_PORTS: Ports = {
 
 // T7
 
-export const T7_AI_PORTS: AIPort[] = aiFactory(
-  { lower: 0, upper: 13 },
-  AIN_HIGH_VOLTAGE,
-);
-export const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
-export const T7_DI_PORTS: DIPort[] = [
+const T7_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 13 }, AIN_HIGH_VOLTAGE);
+const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
+const T7_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
   ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
   ...diFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
   ...diFactory({ lower: 20, upper: 22 }, [{ prefix: "MIO", offset: 20 }]),
 ];
-export const T7_DO_PORTS: DOPort[] = [
+const T7_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
   ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
   ...doFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
   ...doFactory({ lower: 20, upper: 22 }, [{ prefix: "MIO", offset: 20 }]),
 ];
-export const T7_PORTS: Ports = {
+const T7_PORTS: Ports = {
   AI: T7_AI_PORTS,
   AO: T7_AO_PORTS,
   DI: T7_DI_PORTS,
@@ -216,55 +188,83 @@ export const T7_PORTS: Ports = {
 
 // T8
 
-export const T8_AI_PORTS: AIPort[] = aiFactory(
-  { lower: 0, upper: 7 },
-  AIN_HIGH_VOLTAGE,
-);
-export const T8_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
-export const T8_DI_PORTS: DIPort[] = [
+const T8_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 7 }, AIN_HIGH_VOLTAGE);
+const T8_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
+const T8_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
   ...diFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
   ...diFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
 ];
-export const T8_DO_PORTS: DOPort[] = [
+const T8_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 0, upper: 7 }, [{ prefix: "FIO", offset: 0 }]),
   ...doFactory({ lower: 8, upper: 15 }, [{ prefix: "EIO", offset: 8 }]),
   ...doFactory({ lower: 16, upper: 19 }, [{ prefix: "CIO", offset: 16 }]),
 ];
-export const T8_PORTS: Ports = {
+const T8_PORTS: Ports = {
   AI: T8_AI_PORTS,
   AO: T8_AO_PORTS,
   DI: T8_DI_PORTS,
   DO: T8_DO_PORTS,
 };
 
-export const modelInfoZ = z.object({ key: modelKeyZ, name: z.string(), ports: portsZ });
-export interface ModelInfo extends z.infer<typeof modelInfoZ> {}
+interface ModelInfo {
+  key: ModelKey;
+  name: string;
+  ports: Ports;
+}
 
-export const T4: ModelInfo = { key: "LJM_dtT4", name: "T4", ports: T4_PORTS };
-export const T7: ModelInfo = { key: "LJM_dtT7", name: "T7", ports: T7_PORTS };
-export const T8: ModelInfo = { key: "LJM_dtT8", name: "T8", ports: T8_PORTS };
+const T4: ModelInfo = { key: T4_MODEL_KEY, name: "T4", ports: T4_PORTS };
+const T7: ModelInfo = { key: T7_MODEL_KEY, name: "T7", ports: T7_PORTS };
+const T8: ModelInfo = { key: T8_MODEL_KEY, name: "T8", ports: T8_PORTS };
 
-export const devicesZ = z.object({
-  LJM_dtT4: modelInfoZ,
-  LJM_dtT7: modelInfoZ,
-  LJM_dtT8: modelInfoZ,
-});
+interface Devices extends Record<ModelKey, ModelInfo> {}
 
-export type Devices = z.output<typeof devicesZ>;
+export const DEVICES: Devices = {
+  [T4_MODEL_KEY]: T4,
+  [T7_MODEL_KEY]: T7,
+  [T8_MODEL_KEY]: T8,
+};
 
-export const DEVICES: Devices = { LJM_dtT4: T4, LJM_dtT7: T7, LJM_dtT8: T8 };
-
-type UnconfiguredDevice = device.Device & {
+interface UnconfiguredDevice extends device.Device {
   model: ModelKey;
-  make: "LabJack";
+  make: Make;
   configured: false | undefined;
   properties: UnknownRecord;
+}
+
+interface CommandStatePair {
+  command: channel.Key;
+  state: channel.Key;
+}
+
+export const ZERO_COMMAND_STATE_PAIR: CommandStatePair = { command: 0, state: 0 };
+
+export type Properties = {
+  identifier: Identifier;
+  readIndex: channel.Key;
+  thermocoupleIndex: channel.Key;
+  writeStateIndex: channel.Key;
+  [AI_CHANNEL_TYPE]: { channels: Record<string, channel.Key> };
+  [DI_CHANNEL_TYPE]: { channels: Record<string, channel.Key> };
+  [AO_CHANNEL_TYPE]: { channels: Record<string, CommandStatePair> };
+  [DO_CHANNEL_TYPE]: { channels: Record<string, CommandStatePair> };
 };
 
-export type ConfiguredDevice = Omit<UnconfiguredDevice, "configured" | "properties"> & {
+export const ZERO_PROPERTIES: Properties = {
+  readIndex: 0,
+  thermocoupleIndex: 0,
+  writeStateIndex: 0,
+  identifier: "",
+  [AI_CHANNEL_TYPE]: { channels: {} },
+  [AO_CHANNEL_TYPE]: { channels: {} },
+  [DI_CHANNEL_TYPE]: { channels: {} },
+  [DO_CHANNEL_TYPE]: { channels: {} },
+};
+
+export interface ConfiguredDevice
+  extends Omit<UnconfiguredDevice, "configured" | "properties"> {
   configured: true;
   properties: Properties;
-};
+}
 
 export type Device = ConfiguredDevice | UnconfiguredDevice;

@@ -28,10 +28,7 @@ const ListItem = ({ name, timeRange }: ListItemProps) => (
 const start = TimeStamp.now();
 
 const TIME_RANGES = [
-  {
-    name: "Setup",
-    timeRange: start.spanRange(TimeSpan.hours(1)),
-  },
+  { name: "Setup", timeRange: start.spanRange(TimeSpan.hours(1)) },
   {
     name: "Test Run",
     timeRange: start.add(TimeSpan.hours(1)).spanRange(TimeSpan.minutes(5)),

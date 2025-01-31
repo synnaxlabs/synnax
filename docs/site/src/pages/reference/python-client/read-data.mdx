@@ -123,9 +123,8 @@ plt.plot(rng.time, rng.my_precise_tc)
 
 ## Reading with Iterators
 
-Single, multi, and named reads will cover most use cases, but there are
-situations where it's necessary to process large volumes of data. Sometimes
-these reads may be too large to fit in memory.
+Single, multiple, and named reads will cover most use cases, but there are situations
+where it's necessary to process more data than can be stored in memory.
 
 Synnax supports server side iterators that allow us to process large queries in
 consistently sized chunks. By default, Synnax uses a chunk size of 100,000. To configure

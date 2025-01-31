@@ -11,12 +11,13 @@ package channel
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1"
-	"go/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -86,7 +87,11 @@ func (t Transport) RenameClient() channel.RenameTransportClient { return t.renam
 func (t Transport) RenameServer() channel.RenameTransportServer { return t.renameServer }
 
 // BindTo implements the fgrpc.BindableTransport interface.
-func (t Transport) BindTo(reg grpc.ServiceRegistrar) { t.createServer.BindTo(reg) }
+func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
+	t.createServer.BindTo(reg)
+	t.deleteServer.BindTo(reg)
+	t.renameServer.BindTo(reg)
+}
 
 var (
 	_ channel.CreateTransportClient        = (*createClient)(nil)
@@ -146,6 +151,7 @@ func New(pool *fgrpc.Pool) Transport {
 		) (*emptypb.Empty, error) {
 			return channelv1.NewChannelRenameServiceClient(conn).Exec(ctx, req)
 		},
+		ServiceDesc: &channelv1.ChannelRenameService_ServiceDesc,
 	}
 	renameServer := &renameServer{
 		RequestTranslator:  renameMessageTranslator{},
@@ -166,4 +172,6 @@ func New(pool *fgrpc.Pool) Transport {
 func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.createClient.Use(middleware...)
 	t.createServer.Use(middleware...)
+	t.deleteClient.Use(middleware...)
+	t.deleteServer.Use(middleware...)
 }

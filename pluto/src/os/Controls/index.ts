@@ -7,6 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type { ControlsProps } from "@/os/Controls/Controls";
-export { Controls } from "@/os/Controls/Controls";
-export type { ControlsAction } from "@/os/Controls/types";
+export { Controls, type ControlsProps } from "@/os/Controls/Controls";
+export { type ControlsAction } from "@/os/Controls/types";

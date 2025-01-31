@@ -1717,6 +1717,7 @@ export const Setpoint = ({
         endContent={units}
         outlineColor={color}
         borderWidth={1}
+        disabled={disabled}
       >
         <CoreButton.Button
           size={size}
@@ -2909,19 +2910,19 @@ export const FlowmeterElectromagnetic = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Path d="M47.5 17.5H55.5" stroke-linecap="round" />
-      <Path d="M15.5 17.5H23.5" stroke-linecap="round" />
+      <Path d="M47.5 17.5H55.5" strokeLinecap="round" />
+      <Path d="M15.5 17.5H23.5" strokeLinecap="round" />
       <Path
         d="M23.5 17.5C23.5 16.9747 23.6035 16.4546 23.8045 15.9693C24.0055 15.484 24.3001 15.043 24.6716 14.6716C25.043 14.3001 25.484 14.0055 25.9693 13.8045C26.4546 13.6035 26.9747 13.5 27.5 13.5C28.0253 13.5 28.5454 13.6035 29.0307 13.8045C29.516 14.0055 29.957 14.3001 30.3284 14.6716C30.6999 15.043 30.9945 15.484 31.1955 15.9693C31.3965 16.4546 31.5 16.9747 31.5 17.5"
-        stroke-width="2"
+        strokeWidth="2"
       />
       <Path
         d="M31.5 17.5C31.5 16.9747 31.6035 16.4546 31.8045 15.9693C32.0055 15.484 32.3001 15.043 32.6716 14.6716C33.043 14.3001 33.484 14.0055 33.9693 13.8045C34.4546 13.6035 34.9747 13.5 35.5 13.5C36.0253 13.5 36.5454 13.6035 37.0307 13.8045C37.516 14.0055 37.957 14.3001 38.3284 14.6716C38.6999 15.043 38.9945 15.484 39.1955 15.9693C39.3965 16.4546 39.5 16.9747 39.5 17.5"
-        stroke-width="2"
+        strokeWidth="2"
       />
       <Path
         d="M39.5 17.5C39.5 16.9747 39.6035 16.4546 39.8045 15.9693C40.0055 15.484 40.3001 15.043 40.6716 14.6716C41.043 14.3001 41.484 14.0055 41.9693 13.8045C42.4546 13.6035 42.9747 13.5 43.5 13.5C44.0253 13.5 44.5454 13.6035 45.0307 13.8045C45.516 14.0055 45.957 14.3001 46.3284 14.6716C46.6999 15.043 46.9945 15.484 47.1955 15.9693C47.3965 16.4546 47.5 16.9747 47.5 17.5"
-        stroke-width="2"
+        strokeWidth="2"
       />
       <FlowmeterLabel position={{ x: 58, y: 29 }} color={color} />
     </InternalSVG>
@@ -3009,14 +3010,14 @@ export const FlowmeterCoriolis = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Path d="M2 17.6024H28.5" stroke-linecap="round" />
-      <Path d="M28.5 17.6024L34.6834 14.0324" stroke-linecap="round" />
-      <Path d="M34.8 14L45.9058 20.9666" stroke-linecap="round" />
-      <Path d="M51.5 17.6024L46.0141 20.8987" stroke-linecap="round" />
-      <Path d="M20.5 17.6024L26.6574 14.0474" stroke-linecap="round" />
-      <Path d="M26.75 14.1024L37.788 21.0265" stroke-linecap="round" />
-      <Path d="M43.5 17.6024L37.8427 21.0017" stroke-linecap="round" />
-      <Path d="M43.5 17.6024H69" stroke-linecap="round" />
+      <Path d="M2 17.6024H28.5" strokeLinecap="round" />
+      <Path d="M28.5 17.6024L34.6834 14.0324" strokeLinecap="round" />
+      <Path d="M34.8 14L45.9058 20.9666" strokeLinecap="round" />
+      <Path d="M51.5 17.6024L46.0141 20.8987" strokeLinecap="round" />
+      <Path d="M20.5 17.6024L26.6574 14.0474" strokeLinecap="round" />
+      <Path d="M26.75 14.1024L37.788 21.0265" strokeLinecap="round" />
+      <Path d="M43.5 17.6024L37.8427 21.0017" strokeLinecap="round" />
+      <Path d="M43.5 17.6024H69" strokeLinecap="round" />
       <FlowmeterLabel position={{ x: 58, y: 29 }} color={color} />
     </InternalSVG>
   </Div>
@@ -3058,10 +3059,10 @@ export const FlowmeterNozzle = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Path d="M24 2V7V12" stroke-linecap="round" />
-      <Path d="M24 12H34" stroke-linecap="round" />
-      <Path d="M24 23H29H34" stroke-linecap="round" />
-      <Path d="M24 33V23" stroke-linecap="round" />
+      <Path d="M24 2V7V12" strokeLinecap="round" />
+      <Path d="M24 12H34" strokeLinecap="round" />
+      <Path d="M24 23H29H34" strokeLinecap="round" />
+      <Path d="M24 33V23" strokeLinecap="round" />
       <FlowmeterLabel color={color} />
     </InternalSVG>
   </Div>
@@ -3103,10 +3104,10 @@ export const FlowmeterVenturi = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Path d="M8 33L26.5329 22.3" stroke-linecap="round" />
-      <Path d="M8 2L26.5329 12.7" stroke-linecap="round" />
-      <Path d="M56 33L26.5876 22.2948" stroke-linecap="round" />
-      <Path d="M56 2L26.5876 12.7052" stroke-linecap="round" />
+      <Path d="M8 33L26.5329 22.3" strokeLinecap="round" />
+      <Path d="M8 2L26.5329 12.7" strokeLinecap="round" />
+      <Path d="M56 33L26.5876 22.2948" strokeLinecap="round" />
+      <Path d="M56 2L26.5876 12.7052" strokeLinecap="round" />
       <FlowmeterLabel position={{ x: 56, y: 29 }} color={color} />
     </InternalSVG>
   </Div>
@@ -3148,8 +3149,8 @@ export const FlowmeterRingPiston = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Circle cx="36.5" cy="17.5" r="10.5" stroke-width="2" />
-      <Circle cx="36.5" cy="21.5" r="6.5" stroke-width="2" />
+      <Circle cx="36.5" cy="17.5" r="10.5" strokeWidth="2" />
+      <Circle cx="36.5" cy="21.5" r="6.5" strokeWidth="2" />
       <FlowmeterLabel position={{ x: 56, y: 29 }} color={color} />
     </InternalSVG>
   </Div>
@@ -3195,11 +3196,11 @@ export const FlowmeterPositiveDisplacement = ({
       <Rect x="2" y="2" width="67" height="31" rx="2" />
       <Path
         d="M41 13C41 15.4853 38.9853 17.5 36.5 17.5C34.0147 17.5 32 15.4853 32 13C32 10.5147 34.0147 8.5 36.5 8.5C38.9853 8.5 41 10.5147 41 13Z"
-        stroke-width="2"
+        strokeWidth="2"
       />
       <Path
         d="M41 22C41 24.4853 38.9853 26.5 36.5 26.5C34.0147 26.5 32 24.4853 32 22C32 19.5147 34.0147 17.5 36.5 17.5C38.9853 17.5 41 19.5147 41 22Z"
-        stroke-width="2"
+        strokeWidth="2"
       />
       <FlowmeterLabel color={color} />
     </InternalSVG>
@@ -3242,18 +3243,18 @@ export const FlowmeterTurbine = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Path d="M16.5 17.5H54.5" stroke-linecap="round" />
-      <Path d="M32.5 9L35.4756 17.1753" stroke-linecap="round" />
-      <Path d="M38.5 26L35.5244 17.8247" stroke-linecap="round" />
-      <Path d="M32.5 26L35.4756 17.8247" stroke-linecap="round" />
-      <Path d="M38.5 9L35.5244 17.1753" stroke-linecap="round" />
+      <Path d="M16.5 17.5H54.5" strokeLinecap="round" />
+      <Path d="M32.5 9L35.4756 17.1753" strokeLinecap="round" />
+      <Path d="M38.5 26L35.5244 17.8247" strokeLinecap="round" />
+      <Path d="M32.5 26L35.4756 17.8247" strokeLinecap="round" />
+      <Path d="M38.5 9L35.5244 17.1753" strokeLinecap="round" />
       <Path
         d="M32.5 9C32.5 8.20435 32.8161 7.44129 33.3787 6.87868C33.9413 6.31607 34.7044 6 35.5 6C36.2956 6 37.0587 6.31607 37.6213 6.87868C38.1839 7.44129 38.5 8.20435 38.5 9"
-        stroke-width="2"
+        strokeWidth="2"
       />
       <Path
         d="M38.5 26C38.5 26.7956 38.1839 27.5587 37.6213 28.1213C37.0587 28.6839 36.2956 29 35.5 29C34.7044 29 33.9413 28.6839 33.3787 28.1213C32.8161 27.5587 32.5 26.7956 32.5 26"
-        stroke-width="2"
+        strokeWidth="2"
       />
       <FlowmeterLabel color={color} />
     </InternalSVG>
@@ -3296,11 +3297,11 @@ export const FlowmeterPulse = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Path d="M31 13.5H39" stroke-linecap="round" />
-      <Path d="M23 21.5H31" stroke-linecap="round" />
-      <Path d="M39 21.5H47" stroke-linecap="round" />
-      <Path d="M39 13.5V21.5" stroke-linecap="round" />
-      <Path d="M31 13.5V21.5" stroke-linecap="round" />
+      <Path d="M31 13.5H39" strokeLinecap="round" />
+      <Path d="M23 21.5H31" strokeLinecap="round" />
+      <Path d="M39 21.5H47" strokeLinecap="round" />
+      <Path d="M39 13.5V21.5" strokeLinecap="round" />
+      <Path d="M31 13.5V21.5" strokeLinecap="round" />
       <FlowmeterLabel color={color} />
     </InternalSVG>
   </Div>
@@ -3334,10 +3335,10 @@ export const FlowmeterFloatSensor = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Path d="M25 8H46" stroke-linecap="round" />
-      <Path d="M31 27H40" stroke-linecap="round" />
-      <Path d="M31 27L25.046 8.11641" stroke-linecap="round" />
-      <Path d="M40 27L45.954 8.11641" stroke-linecap="round" />
+      <Path d="M25 8H46" strokeLinecap="round" />
+      <Path d="M31 27H40" strokeLinecap="round" />
+      <Path d="M31 27L25.046 8.11641" strokeLinecap="round" />
+      <Path d="M40 27L45.954 8.11641" strokeLinecap="round" />
       <FlowmeterLabel color={color} />
     </InternalSVG>
   </Div>
@@ -3465,10 +3466,10 @@ export const HeatExchangerStraightTube = ({
       orientation={orientation}
       scale={scale}
     >
-      <Rect x="3" y="3" width="193" height="42" rx="1" stroke-width="2" />
-      <Rect x="32.397" y="3" width="134.206" height="42" rx="1" stroke-width="2" />
-      <Rect x="32.397" y="13.5" width="134.206" height="21" rx="1" stroke-width="2" />
-      <Line x1="32.3769" y1="24" x2="166.623" y2="24" stroke-width="2" />
+      <Rect x="3" y="3" width="193" height="42" rx="1" strokeWidth="2" />
+      <Rect x="32.397" y="3" width="134.206" height="42" rx="1" strokeWidth="2" />
+      <Rect x="32.397" y="13.5" width="134.206" height="21" rx="1" strokeWidth="2" />
+      <Line x1="32.3769" y1="24" x2="166.623" y2="24" strokeWidth="2" />
     </InternalSVG>
   </Div>
 );
@@ -3513,11 +3514,11 @@ export const DiaphragmPump = ({
     >
       <Path
         d="M62 32C62 48.5685 48.5685 62 32 62M62 32C62 15.4315 48.5685 2 32 2C15.4315 2 2 15.4315 2 32C2 48.5685 15.4315 62 32 62M62 32L32 62M32 2.00269L62.0025 32.0052"
-        stroke-linecap="round"
+        strokeLinecap="round"
       />
       <Path
         d="M31 62C29.2204 62 27.3855 61.332 25.5927 59.9086C23.791 58.4782 22.0952 56.3316 20.6377 53.5381C19.1829 50.7496 18.0147 47.4106 17.214 43.7054C16.4137 40.0021 16 36.0237 16 32C16 27.9763 16.4137 23.9979 17.214 20.2946C18.0147 16.5895 19.1829 13.2504 20.6377 10.4619C22.0952 7.66841 23.791 5.52179 25.5927 4.09136C27.3855 2.66801 29.2204 2 31 2"
-        stroke-width="2"
+        strokeWidth="2"
       />
     </InternalSVG>
   </Toggle>
@@ -3563,11 +3564,11 @@ export const EjectionPump = ({
     >
       <Path
         d="M62 32C62 48.5685 48.5685 62 32 62M62 32C62 15.4315 48.5685 2 32 2C15.4315 2 2 15.4315 2 32C2 48.5685 15.4315 62 32 62M62 32L32 62M32 2.00269L62.0025 32.0052"
-        stroke-linecap="round"
+        strokeLinecap="round"
       />
       <Path
         d="M50.3827 20.3601C47.1902 21.7605 43.4002 22.8046 39.2752 23.4077C35.1519 24.0105 30.8103 24.1557 26.5584 23.8319C22.3057 23.508 18.2597 22.7238 14.7044 21.5418C11.1449 20.3584 8.19358 18.8149 6.03181 17.0454M6.02374 46.9613C8.18198 45.1925 11.129 43.6491 14.6841 42.465C18.2349 41.2824 22.2765 40.4968 26.5256 40.1707C30.774 39.8447 35.113 39.9871 39.2353 40.5866C43.3592 41.1864 47.15 42.2268 50.3455 43.6237"
-        stroke-linecap="round"
+        strokeLinecap="round"
       />
     </InternalSVG>
   </Toggle>
@@ -3607,7 +3608,7 @@ export const Compressor = ({
     >
       <Path
         d="M17 7.59998L59.5394 18.9984M17 58.3984L59.5394 47M63 33C63 36.9397 62.224 40.8407 60.7164 44.4805C59.2087 48.1203 56.999 51.4274 54.2132 54.2132C51.4274 56.999 48.1203 59.2087 44.4805 60.7164C40.8407 62.224 36.9397 63 33 63C29.0603 63 25.1593 62.224 21.5195 60.7164C17.8797 59.2087 14.5726 56.999 11.7868 54.2132C9.00104 51.4274 6.79125 48.1203 5.28361 44.4805C3.77597 40.8407 3 36.9397 3 33C3 29.0603 3.77597 25.1593 5.28362 21.5195C6.79126 17.8797 9.00104 14.5726 11.7868 11.7868C14.5726 9.00104 17.8797 6.79125 21.5195 5.28361C25.1593 3.77597 29.0603 3 33 3C36.9397 3 40.8407 3.77597 44.4805 5.28362C48.1203 6.79126 51.4274 9.00104 54.2132 11.7868C56.999 14.5726 59.2087 17.8797 60.7164 21.5195C62.224 25.1593 63 29.0603 63 33Z"
-        stroke-linecap="round"
+        strokeLinecap="round"
       />
     </InternalSVG>
   </Toggle>
@@ -3845,7 +3846,7 @@ export const FlameArrestor = ({
     >
       <Path
         d="M16.5 2.5L16.5 66.5M2.5 34.5H30.5M2.5 18.9848H30.5M2.5 50.0152H30.5M5.3 66.5H27.7C29.2464 66.5 30.5 65.1976 30.5 63.5909V5.40909C30.5 3.80244 29.2464 2.5 27.7 2.5H5.3C3.7536 2.5 2.5 3.80245 2.5 5.40909V63.5909C2.5 65.1976 3.7536 66.5 5.3 66.5Z"
-        stroke-linecap="round"
+        strokeLinecap="round"
       />
     </InternalSVG>
   </Div>
@@ -3959,7 +3960,7 @@ export const FlameArrestorFireRes = ({
       <Path d="M2 50H30" />
       <Path
         d="M29 2.5C33.2023 2.5 37.3635 3.3277 41.2459 4.93586C45.1283 6.54401 48.656 8.90111 51.6274 11.8726C54.5989 14.8441 56.956 18.3717 58.5642 22.2541C60.1723 26.1366 61 30.2977 61 34.5C61 38.7023 60.1723 42.8635 58.5642 46.7459C56.956 50.6283 54.5989 54.1559 51.6274 57.1274C48.6559 60.0989 45.1283 62.456 41.2459 64.0641C37.3635 65.6723 33.2023 66.5 29 66.5"
-        stroke-linecap="square"
+        strokeLinecap="square"
       />
       <Line x1="27" y1="66.5" x2="29" y2="66.5" />
       <Line x1="27" y1="2.5" x2="29" y2="2.5" />
@@ -4074,7 +4075,7 @@ export const Strainer = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="29" height="65" rx="1" />
-      <Path d="M2.293 2.29297L29.9383 66.7986" stroke-dasharray="6 6" />
+      <Path d="M2.293 2.29297L29.9383 66.7986" strokeDasharray="6 6" />
     </InternalSVG>
   </Div>
 );
@@ -4100,8 +4101,8 @@ export const StrainerCone = ({
       scale={scale}
     >
       <Rect x="2" y="2" width="29" height="65" rx="1" />
-      <Path d="M31 34.5L2.30611 2.33992" stroke-dasharray="6 6" />
-      <Path d="M31 34.5L2.30611 66.6601" stroke-dasharray="6 6" />
+      <Path d="M31 34.5L2.30611 2.33992" strokeDasharray="6 6" />
+      <Path d="M31 34.5L2.30611 66.6601" strokeDasharray="6 6" />
     </InternalSVG>
   </Div>
 );

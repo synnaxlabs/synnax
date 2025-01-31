@@ -58,7 +58,6 @@ I have verified that user-facing documentation for each of the following service
 - [ ] `reference/device-drivers/labjack`
 - [ ] `reference/device-drivers/ni`
 - [ ] `reference/device-drivers/opc-ua`
-- [ ] `reference/pluto`
 - [ ] `reference/python-client`
 - [ ] `reference/typescript-client`
 
@@ -69,9 +68,10 @@ I have verified that code examples for each of the following services run correc
 - [ ] `client/py`
 - [ ] `client/ts`
   - [ ] Version number in `examples/node` is up-to-date
-- [ ] `drift/electron`
-- [ ] `drift/tauri`
-- [ ] `pluto`
+
+### Broken Links
+
+- [ ] I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
 
 ### Release Notes
 
@@ -120,6 +120,38 @@ I can successfully:
   - Log Visualization Toolbar
   - Schematic Visualization Toolbar
   - Task Configuration Dialog
+
+### Calculated Channels
+
+I can successfully:
+
+- **Create Calculated Channel Modal**
+  - [ ] Create a new channel from command palette.
+- **Resources Toolbar**
+  - [ ] Open a channel plot by double-clicking it.
+  - [ ] Drag and drop a channel onto a line plot.
+  - [ ] Drag and drop a channel onto the line plot toolbar.
+  - **Context Menu**
+    - [ ] Rename a channel.
+    - [ ] Delete a channel.
+    - [ ] Delete multiple channels.
+    - [ ] Group channels.
+    - [ ] Set an alias for a channel under a range.
+    - [ ] Clear an alias for a channel under a range.
+    - [ ] Copy a link to a channel.
+    - [ ] Edit a calculation
+  - **Search and Command Palette**
+  - [ ] Open a channel plot by its name.
+  - [ ] Open the "Create Channel" modal.
+- **Using Calculated Channels**
+  - [ ] Plot a basic calculated channel.
+  - [ ] Plot a nested calculated channel.
+  - [ ] Intentionally create channel with an erroneous expression, plot it amke sure the server/console remains stable. Currently expect error to be logged in server.
+  - [ ] Plot a calculated channel that uses channels with hyphenated names.
+  - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
+    - [ ] 10hz
+    - [ ] 100hz
+    - [ ] 1000hz
 
 ### Clusters
 
@@ -187,9 +219,9 @@ I can successfully:
   - [ ] Split a mosaic vertically.
   - [ ] Focus on a leaf.
   - [ ] Open a leaf in a new window.
-- [ ] Rename a tab with `Cmd + R`.
+- [ ] Rename a tab with `Cmd + E`.
 - [ ] Close layout tabs with `Cmd + W`.
-- [ ] Focus using `Cmd + F`.
+- [ ] Focus using `Cmd + L`.
 - [ ] Open in a new window with `Cmd + O`.
 - **Search and Command Palette**
   - [ ] Toggle the color theme.
@@ -396,6 +428,7 @@ I can successfully:
 - **Search and Command Palette**
   - [ ] Open an existing schematic.
   - [ ] Open the "Create Schematic" dialog.
+  - [ ] Import a schematic from a file.
 - [ ] Rename a schematic and ensure synchronization across:
   - Mosaic Tab
   - Resources Toolbar
@@ -461,6 +494,7 @@ I can successfully:
 I can successfully:
 
 - [ ] Create a new workspace.
+- [ ] Import a workspace by drag and dropping from a directory.
 - **Workspace Selector**
   - [ ] Create a new workspace.
   - [ ] Switch workspaces in the selector.
@@ -470,15 +504,19 @@ I can successfully:
   - **Context Menu**
     - [ ] Rename a workspace.
     - [ ] Delete a workspace.
+    - [ ] Export a workspace.
     - [ ] Create a new line plot in a workspace.
     - [ ] Create a new log in a workspace.
     - [ ] Create a new schematic in a workspace.
     - [ ] Import a line plot.
     - [ ] Import a schematic.
+    - [ ] Import a log.
+    - [ ] Import a table.
     - [ ] Create a new table in a workspace.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
   - [ ] Open the "Create Workspace" dialog.
+  - [ ] Import a workspace.
   - [ ] Open an existing workspace.
 - [ ] Rename a workspace and ensure synchronization across:
   - Resources Toolbar

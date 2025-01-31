@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
-import {
-  type MutableRefObject,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { type RefObject, useCallback, useEffect, useState } from "react";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -108,7 +102,7 @@ export interface UseHeldProps {
 export const useHeldRef = ({
   triggers,
   loose,
-}: UseHeldProps): MutableRefObject<UseHeldReturn> => {
+}: UseHeldProps): RefObject<UseHeldReturn> => {
   const [ref, setRef] = useStateRef<UseHeldReturn>({
     triggers: [],
     held: false,
@@ -118,7 +112,8 @@ export const useHeldRef = ({
     callback: useCallback((e: UseEvent) => {
       setRef((prev) => {
         let next: Trigger[];
-        if (e.stage === "start") next = unique([...prev.triggers, ...e.triggers]);
+        if (e.stage === "start")
+          next = unique.unique([...prev.triggers, ...e.triggers]);
         else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };
       });
@@ -135,7 +130,8 @@ export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
     callback: useCallback((e: UseEvent) => {
       setHeld((prev) => {
         let next: Trigger[];
-        if (e.stage === "start") next = unique([...prev.triggers, ...e.triggers]);
+        if (e.stage === "start")
+          next = unique.unique([...prev.triggers, ...e.triggers]);
         else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };
       });

@@ -9,7 +9,7 @@
 
 import "@/video/Video.css";
 
-import { type ComponentPropsWithoutRef, forwardRef, type ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
@@ -17,11 +17,8 @@ export interface VideoProps extends ComponentPropsWithoutRef<"video"> {
   href: string;
 }
 
-export const Video = forwardRef<HTMLVideoElement, VideoProps>(
-  ({ href, className, ...props }: VideoProps, ref): ReactElement => (
-    <video ref={ref} className={CSS(CSS.B("video"), className)} {...props}>
-      <source id={href} src={href} type="video/mp4" />
-    </video>
-  ),
+export const Video = ({ href, className, ...props }: VideoProps): ReactElement => (
+  <video className={CSS(CSS.B("video"), className)} {...props}>
+    <source id={href} src={href} type="video/mp4" />
+  </video>
 );
-Video.displayName = "Video";

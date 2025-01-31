@@ -8,11 +8,13 @@ export const components = mdxOverrides;
 
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image } from "@/components/Media";
-import { Note } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 
 This guide will walk you through basic analysis on an example data set using Synnax.
 We'll import the data set, explore it using the Synnax Console, run analysis, and
 attach post-processed results.
+
+<Divider.Divider direction="x" />
 
 ## Prerequisites
 
@@ -33,6 +35,8 @@ the instructions [here](/reference/console/get-started).
 Finally, you'll need to make sure you have the `synnax` Python client installed and
 authenticated with your cluster. A guide for doing so is available [here](/reference/python-client/get-started).
 
+<Divider.Divider direction="x" />
+
 ## Importing a data set
 
 Our first step is to import a data set into Synnax. We'll be using a sample CSV file
@@ -45,7 +49,7 @@ curl -O https://raw.githubusercontent.com/synnaxlabs/synnax/main/docs/examples/a
 Next, we'll use the CLI to import our data set into Synnax. To do so, run
 
 ```bash
-synnax ingest april_9_wetdress.csv
+sy ingest april_9_wetdress.csv
 ```
 
 This command will begin an interactive import process that will prompt us with a few
@@ -164,6 +168,8 @@ set. When it's done, we'll see the following message:
 ```bash
 ━━━━━━━━━━━━━━━━━━ 100% 85740 out of 85570 samples - 7477108.2235981515 samples/s
 ```
+
+<Divider.Divider direction="x" />
 
 ## Plotting our data set
 

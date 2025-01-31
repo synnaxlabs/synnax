@@ -25,6 +25,7 @@ import {
   type Key,
   type KeyOrName,
   type NewPayload,
+  ontologyID as payloadOntologyID,
   type Params,
   type Payload,
   payload,
@@ -40,7 +41,7 @@ import {
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -107,6 +108,15 @@ export class Channel {
    * database, but can still be used for streaming purposes.
    */
   readonly virtual: boolean;
+  /**
+   * Only used for calculated channels. Specifies the python expression to evaluate
+   * the calculated value
+   */
+  readonly expression: string;
+  /**
+   * Only used for calculated channels. Specifies the channels required for calculation
+   */
+  readonly requires: Key[];
 
   constructor({
     dataType,
@@ -120,6 +130,8 @@ export class Channel {
     virtual = false,
     frameClient,
     alias,
+    expression = "",
+    requires = [],
   }: NewPayload & {
     frameClient?: framer.Client;
     density?: CrudeDensity;
@@ -134,6 +146,8 @@ export class Channel {
     this.internal = internal;
     this.alias = alias;
     this.virtual = virtual;
+    this.expression = expression;
+    this.requires = requires ?? [];
     this._frameClient = frameClient ?? null;
   }
 
@@ -158,14 +172,21 @@ export class Channel {
       index: this.index,
       isIndex: this.isIndex,
       internal: this.internal,
+      virtual: this.virtual,
+      expression: this.expression,
+      requires: this.requires,
     });
+  }
+
+  get isCalculated(): boolean {
+    return isCalculated(this.payload);
   }
 
   /***
    * @returns the ontology ID of the channel
    */
   get ontologyID(): ontology.ID {
-    return new ontology.ID({ type: "channel", key: this.key.toString() });
+    return payloadOntologyID(this.key);
   }
 
   /**
@@ -421,3 +442,25 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return new group.Group(res.group.name, res.group.key);
   }
 }
+
+export const isCalculated = ({ virtual, expression }: Payload): boolean =>
+  virtual && expression !== "";
+
+export const resolveCalculatedIndex = async (
+  retrieve: (key: Key) => Promise<Payload>,
+  channel: Payload,
+): Promise<Key | null> => {
+  if (!isCalculated(channel)) return channel.index;
+  for (const required of channel.requires) {
+    const requiredChannel = await retrieve(required);
+    if (!requiredChannel.virtual) return requiredChannel.index;
+  }
+  for (const required of channel.requires) {
+    const requiredChannel = await retrieve(required);
+    if (isCalculated(requiredChannel)) {
+      const index = await resolveCalculatedIndex(retrieve, requiredChannel);
+      if (index != null) return index;
+    }
+  }
+  return null;
+};

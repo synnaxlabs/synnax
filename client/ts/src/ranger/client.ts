@@ -20,7 +20,7 @@ import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { type Label } from "@/label/payload";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { type Resource } from "@/ontology/payload";
 import { type Alias, Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
@@ -32,6 +32,7 @@ import {
   type Name,
   type Names,
   type NewPayload,
+  ontologyID,
   type Params,
   type Payload,
   payloadZ,
@@ -39,9 +40,6 @@ import {
 import { type CreateOptions, type Writer } from "@/ranger/writer";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
-
-const ontologyID = (key: string): ontology.ID =>
-  new ontology.ID({ type: "range", key });
 
 export class Range {
   key: string;
@@ -83,7 +81,7 @@ export class Range {
   }
 
   get ontologyID(): ontology.ID {
-    return new ontology.ID({ key: this.key, type: "range" });
+    return ontologyID(this.key);
   }
 
   get payload(): Payload {
@@ -155,7 +153,7 @@ export class Range {
   async openChildRangeTracker(): Promise<observe.ObservableAsyncCloseable<Range[]>> {
     const wrapper = new observe.Observer<Range[]>();
     const initial: ontology.Resource[] = (await this.retrieveChildren()).map((r) => {
-      const id = new ontology.ID({ key: r.key, type: "range" });
+      const id = ontologyID(r.key);
       return { id, key: id.toString(), name: r.name, data: r.payload };
     });
     const base = await this.ontologyClient.openDependentTracker({
@@ -174,7 +172,7 @@ export class Range {
     const wrapper = new observe.Observer<Range>();
     const p = await this.retrieveParent();
     if (p == null) return null;
-    const id = new ontology.ID({ key: p.key, type: "range" });
+    const id = ontologyID(p.key);
     const resourceP = { id, key: id.toString(), name: p.name, data: p.payload };
     const base = await this.ontologyClient.openDependentTracker({
       target: this.ontologyID,
@@ -302,10 +300,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   }
 
   async retrieveParent(range: Key): Promise<Range | null> {
-    const res = await this.ontologyClient.retrieveParents({
-      key: range,
-      type: "range",
-    });
+    const res = await this.ontologyClient.retrieveParents(ontologyID(range));
     if (res.length === 0) return null;
     const first = res[0];
     if (first.id.type !== "range") return null;

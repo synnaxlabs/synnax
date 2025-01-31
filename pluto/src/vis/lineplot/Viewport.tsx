@@ -11,7 +11,6 @@ import "@/vis/lineplot/Viewport.css";
 
 import { box, xy } from "@synnaxlabs/x";
 import {
-  forwardRef,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
@@ -20,7 +19,6 @@ import {
 
 import { CSS } from "@/css";
 import { Viewport as Core } from "@/viewport";
-import { type UseRefValue } from "@/viewport/use";
 import { useContext } from "@/vis/lineplot/LinePlot";
 
 export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
@@ -28,37 +26,32 @@ export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
 export const selectViewportEl = (el: HTMLElement | null): Element | null =>
   el == null ? null : (el.closest(".pluto-line-plot__viewport") ?? null);
 
-export const Viewport = forwardRef<UseRefValue | undefined, ViewportProps>(
-  (
-    { children, initial = box.DECIMAL, onChange, ...props }: ViewportProps,
-    ref,
-  ): ReactElement => {
-    const { setViewport } = useContext("Viewport");
+export const Viewport = ({
+  ref,
+  children,
+  initial = box.DECIMAL,
+  onChange,
+  ...props
+}: ViewportProps): ReactElement => {
+  const { setViewport } = useContext("Viewport");
 
-    useLayoutEffect(() => {
-      setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
-    }, [setViewport, initial]);
+  useLayoutEffect(() => {
+    setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
+  }, [setViewport, initial]);
 
-    const handleChange = useCallback(
-      (e: Core.UseEvent): void => {
-        setViewport(e);
-        onChange?.(e);
-      },
-      [onChange, setViewport],
-    );
+  const handleChange = useCallback(
+    (e: Core.UseEvent): void => {
+      setViewport(e);
+      onChange?.(e);
+    },
+    [onChange, setViewport],
+  );
 
-    const maskProps = Core.use({
-      onChange: handleChange,
-      initial,
-      ref,
-      ...props,
-    });
+  const maskProps = Core.use({ onChange: handleChange, initial, ref, ...props });
 
-    return (
-      <Core.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>
-        {children}
-      </Core.Mask>
-    );
-  },
-);
-Viewport.displayName = "Viewport";
+  return (
+    <Core.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>
+      {children}
+    </Core.Mask>
+  );
+};

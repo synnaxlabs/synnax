@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/task/Task.css";
 
-import { type device, NotFoundError } from "@synnaxlabs/client";
+import { type device, NotFoundError, task as clientTask } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -94,7 +94,7 @@ const Wrapped = ({
   task,
 }: WrappedTaskLayoutProps<Write, WritePayload>): ReactElement => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const [device, setDevice] = useState<device.Device<Device.Properties> | undefined>(
     undefined,
   );
@@ -137,7 +137,6 @@ const Wrapped = ({
   const createTask = useCreate<WriteConfig, WriteStateDetails, WriteType>(layoutKey);
 
   const configure = useMutation<void>({
-    mutationKey: [client?.key],
     mutationFn: async () => {
       if (!methods.validate() || client == null) return;
       const { config, name } = methods.value();
@@ -207,16 +206,10 @@ const Wrapped = ({
       });
       setDesiredState("paused");
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: "Failed to configure task",
-        description: e.message,
-      }),
+    onError: (e) => handleException(e, `Failed to configure task`),
   });
 
   const start = useMutation({
-    mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (task == null) return;
       const isRunning = running === true;
@@ -225,7 +218,7 @@ const Wrapped = ({
     },
   });
 
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
 
   const name = task?.name;
   const key = task?.key;
@@ -249,7 +242,9 @@ const Wrapped = ({
                 tooltip={<Text.Text level="small">Copy Link</Text.Text>}
                 tooltipLocation="left"
                 variant="text"
-                onClick={() => handleLink({ name, ontologyID: { key, type: "task" } })}
+                onClick={() =>
+                  handleLink({ name, ontologyID: clientTask.ontologyID(key) })
+                }
               >
                 <Icon.Link />
               </Button.Icon>
@@ -274,7 +269,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => placer(createConfigureLayout())}
+                        onClick={() => place(createConfigureLayout())}
                       >
                         Connect a new server.
                       </Text.Link>

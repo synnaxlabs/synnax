@@ -26,12 +26,12 @@
 .console-range__overview {
     container-type: size;
     height: 100%;
-    .console-meta-data__item {
-        .console-meta-data__delete {
+    .console-metadata__item {
+        .console-metadata__delete {
             opacity: 0;
         }
         &:hover {
-            & .console-meta-data__delete {
+            & .console-metadata__delete {
                 opacity: 1;
             }
         }

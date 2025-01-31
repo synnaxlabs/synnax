@@ -156,9 +156,10 @@ engineering teams that are familiar with scientific analysis tools like Matlab a
 
 #### Performance Characteristics
 
-Timescale uses [hypertables](https://docs.timescale.com/timescaledb/latest/overview/concepts/hypertables)
-to increase query performance and reduce storage overhead when compared to Postgres. While
-a large step up from vanilla Postgres, Timescale follows a row-based storage model, which
+Timescale uses
+[hypertables](https://docs.timescale.com/use-timescale/latest/hypertables/) to increase
+query performance and reduce storage overhead when compared to Postgres. While a large
+step up from vanilla Postgres, Timescale follows a row-based storage model, which
 struggles when ingesting and querying data at very high rates.
 
 ### Influx
@@ -207,7 +208,7 @@ machine with the following specifications:
 We'll pull the latest open source versions of each database, which, at the time of writing,
 are:
 
-- [Synnax v0.32](reference/cluster/installation?platform=linux)
+- [Synnax v0.32](/reference/cluster/installation?platform=linux)
 - [InfluxDB v2.7.10](https://www.influxdata.com/downloads/)
 - [Timescale v2.17.1](https://github.com/timescale/timescaledb/releases)
 
@@ -1164,6 +1165,8 @@ operations from the time they are received over the network until they are writt
 to disk. This simpler pattern sacrifices complex queries and transaction patterns
 like serializable snapshot isolation, although we've found those unnecessary for
 the sensor data use case.
+
+<Divider.Divider direction="x" />
 
 ## Conclusion
 

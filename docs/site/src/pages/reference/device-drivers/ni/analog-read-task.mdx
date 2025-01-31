@@ -3,8 +3,8 @@ layout: "@/layouts/Reference.astro"
 title: "NI | Analog Read Task"
 heading: "NI Analog Read Task"
 description: "Learn how to create an analog read task for NI hardware."
-next: "Digital Write Task"
-nextURL: "/reference/device-drivers/ni/digital-write-task"
+next: "Digital Read Task"
+nextURL: "/reference/device-drivers/ni/digital-read-task"
 prev: "Configure Device"
 prevURL: "/reference/device-drivers/ni/configure-device"
 ---
@@ -76,8 +76,8 @@ the task for, right-click on it, and select "Create Analog Read Task".
 ### From the Command Palette
 
 To create an analog read task from the command palette, open the Synnax Console and
-click on the Quick Search & Command Palette at the top. You can also open this palette with
-`Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
+click on the Quick Search & Command Palette at the top. You can also open this palette
+with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type
 "NI". You'll see an option called "Create a New Analog Read Task". Select this
@@ -169,6 +169,6 @@ task and enable the Play (<Icon.Play />) button in the dialog. Click this button
 
 <Note.Note variant="info">
   Starting and stopping a task does not re-apply the task configuration. If you've made
-  changes to the configuration, you'll need to re-configure the task by hitting the "
-  Configure" button.
+  changes to the configuration, you'll need to re-configure the task by hitting the
+  "Configure" button.
 </Note.Note>

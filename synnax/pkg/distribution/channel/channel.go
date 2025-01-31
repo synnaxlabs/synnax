@@ -11,6 +11,7 @@ package channel
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -79,7 +80,7 @@ func (c Key) Lease() core.NodeKey { return c.Leaseholder() }
 // String implements fmt.Stringer.
 func (c Key) String() string { return strconv.Itoa(int(c)) }
 
-// Keys extends []Keys with a few convenience methods.
+// Keys extends []Key with a few convenience methods.
 type Keys []Key
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
@@ -200,8 +201,60 @@ type Channel struct {
 	// Internal determines if a channel is a channel created by Synnax or
 	// created by the user.
 	Internal bool `json:"internal" msgpack:"internal"`
+	// Requires is only used for calculated channels, and specifies the channels that
+	// are required for the calculation.
+	Requires Keys `json:"requires" msgpack:"requires"`
+	// Expression is only used for calculated channels, and specifies the python expression
+	// to evaluate the calculated value.
+	Expression string `json:"expression" msgpack:"expression"`
 }
 
+func (c Channel) IsCalculated() bool {
+	return c.Virtual && c.Expression != ""
+}
+
+// Equals returns true if the two channels are meaningfully equal to each other. This
+// function should be used instead of a direct comparison, as it takes into account
+// the contents of the Requires field, ignoring the order of the keys.
+// If the exclude parameter is provided, the function will ignore the fields specified
+// in the exclude parameter.
+func (c Channel) Equals(other Channel, exclude ...string) bool {
+	comparisons := []struct {
+		field string
+		equal bool
+	}{
+		{"Name", c.Name == other.Name},
+		{"Leaseholder", c.Leaseholder == other.Leaseholder},
+		{"DataType", c.DataType == other.DataType},
+		{"IsIndex", c.IsIndex == other.IsIndex},
+		{"Rate", c.Rate == other.Rate},
+		{"LocalKey", c.LocalKey == other.LocalKey},
+		{"LocalIndex", c.LocalIndex == other.LocalIndex},
+		{"Virtual", c.Virtual == other.Virtual},
+		{"Concurrency", c.Concurrency == other.Concurrency},
+		{"Internal", c.Internal == other.Internal},
+		{"Expression", c.Expression == other.Expression},
+	}
+
+	for _, comp := range comparisons {
+		if !comp.equal && !lo.Contains(exclude, comp.field) {
+			return false
+		}
+	}
+
+	if !lo.Contains(exclude, "Requires") {
+		slices.Sort(c.Requires)
+		slices.Sort(other.Requires)
+		if !slices.Equal(c.Requires, other.Requires) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// String implements stringer, returning a nicely formatted string representation of the
+// Channel.
 func (c Channel) String() string {
 	if c.Name != "" {
 		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key())
@@ -240,6 +293,8 @@ func (c Channel) Lease() core.NodeKey { return c.Leaseholder }
 // a non-leased virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == core.Free }
 
+// Storage returns the storage layer representation of the channel for creation
+// in the storage ts.DB.
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
 		Key:         c.Key().StorageKey(),

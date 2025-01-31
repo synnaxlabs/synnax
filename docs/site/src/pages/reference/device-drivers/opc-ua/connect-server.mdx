@@ -34,7 +34,7 @@ configured:
 
 We'll use the console's configuration workflow to connect to your server. To kick things
 off, open the console and click on the search and command palette at the top. You can
-also open this palette with `Ctrl+Shift+P` (Windows/Linux) / `Cmd+Shift+P` (MacOS).
+also open this palette with `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
 
 In command mode (enabled when the first character in the input is ">"), type "OPC UA".
 You'll see an option called "Connect an OPC UA Server". Select this open to open the
@@ -89,23 +89,30 @@ reference for each of the fields you'll need to fill:
       <td>Security Mode</td>
       <td>
         The security mode to use when connecting to the server. This should match the
-        security mode configured on the server: - **None**: No security is applied. -
-        **Sign**: Messages are signed but not encrypted. Requires authentication but
-        does not guarantee confidentiality. - **SignAndEncrypt**: Messages are signed
-        and encrypted, ensuring authenticity and confidentiality.
+        security mode configured on the server:
+
+        - **None**: No security is applied.
+        - **Sign**: Messages are signed but not encrypted. Requires authentication but
+                    does not guarantee confidentiality.
+        - **SignAndEncrypt**: Messages are signed and encrypted, ensuring authenticity
+                              and confidentiality.
       </td>
     </tr>
     <tr>
       <td>Security Policy</td>
       <td>
         The security policy to use when connecting to the server. This should match the
-        security policy configured on the server: - **None**: No security is applied. -
-        **Basic128Rsa15**: Basic 128-bit encryption using RSA-15. - **Basic256**: Basic
-        256-bit encryption. - **Basic256Sha256**: Basic 256-bit encryption with SHA-256.
-        - **Aes128Sha256RsaOaep**: 128-bit AES encryption with SHA-256 and RSA OAEP. -
-        **Aes256Sha256RsaPss**: 256-bit AES encryption with SHA-256 and RSA PSS.
+        security policy configured on the server:
+
+        - **None**: No security is applied.
+        - **Basic128Rsa15**: Basic 128-bit encryption using RSA-15.
+        - **Basic256**: Basic 256-bit encryption.
+        - **Basic256Sha256**: Basic 256-bit encryption with SHA-256.
+        - **Aes128Sha256RsaOaep**: 128-bit AES encryption with SHA-256 and RSA OAEP.
+        - **Aes256Sha256RsaPss**: 256-bit AES encryption with SHA-256 and RSA PSS.
       </td>
     </tr>
+
   </tbody>
 </Table>
 
@@ -117,11 +124,3 @@ You can use the "Test Connection" button to verify that the server is connected 
 Synnax cluster. When you are ready to connect the server, click "Save".
 
 <Video client:only="react" id="device-drivers/opc-ua/connect-server/save" />
-
-<Divider.Divider direction="x" />
-
-## Next Steps
-
-Now that you're connected to your server, it's time to set up data acquisition tasks. We
-recommend starting with the [Read Task](/reference/device-drivers/opc-ua/read-task) to
-read data from your server.

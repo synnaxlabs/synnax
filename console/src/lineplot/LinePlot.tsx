@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
@@ -32,7 +33,6 @@ import {
   scale,
   TimeRange,
   unique,
-  type UnknownRecord,
 } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
@@ -97,16 +97,8 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   </PMenu.Menu>
 );
 
-const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
-  const windowKey = useSelectWindowKey() as string;
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const placer = Layout.usePlacer();
-  const vis = useSelect(layoutKey);
-  const prevVis = usePrevious(vis);
-  const ranges = useSelectRanges(layoutKey);
-  const client = Synnax.use();
-  const dispatch = useDispatch();
-  const syncDispatch = Workspace.useSyncComponent<SyncPayload>(
+const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
+  Workspace.useSyncComponent<SyncPayload>(
     "Line Plot",
     layoutKey,
     async (ws, store, client) => {
@@ -118,10 +110,21 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
       await client.workspaces.linePlot.create(ws, {
         key: layoutKey,
         name: la.name,
-        data: data as unknown as UnknownRecord,
+        data,
       });
     },
   );
+
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement => {
+  const windowKey = useSelectWindowKey() as string;
+  const { name } = Layout.useSelectRequired(layoutKey);
+  const place = Layout.usePlacer();
+  const vis = useSelect(layoutKey);
+  const prevVis = usePrevious(vis);
+  const ranges = useSelectRanges(layoutKey);
+  const client = Synnax.use();
+  const dispatch = useDispatch();
+  const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
 
@@ -134,7 +137,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     const toFetch = lines.filter((line) => line.label == null);
     if (toFetch.length === 0) return;
     const fetched = await client.channels.retrieve(
-      unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
+      unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
     );
     const update = toFetch.map((l) => ({
       key: l.key,
@@ -175,7 +178,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   );
 
   const handleAxisChange = useCallback(
-    (axis: Channel.AxisProps) => {
+    (axis: Partial<Channel.AxisProps> & { key: string }) => {
       syncDispatch(
         setAxis({
           key: layoutKey,
@@ -188,7 +191,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     [syncDispatch, layoutKey],
   );
 
-  const xAxisChannelChange = useMutation<void, Error, Channel.AxisProps>({
+  const xAxisChannelChange = useMutation<
+    void,
+    Error,
+    Omit<Channel.AxisProps, "location">
+  >({
     mutationFn: async (axis) => {
       const key = vis.channels[axis.key as XAxisKey];
       const prevKey = prevVis?.channels[axis.key as XAxisKey];
@@ -238,12 +245,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
         );
       if (propsLines.length === 0 && rng != null)
         syncDispatch(
-          setRanges({
-            mode: "add",
-            key: layoutKey,
-            axisKey: "x1",
-            ranges: [rng.key],
-          }),
+          setRanges({ mode: "add", key: layoutKey, axisKey: "x1", ranges: [rng.key] }),
         );
     },
     [syncDispatch, layoutKey, propsLines.length, rng],
@@ -309,7 +311,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     const { box: selection } = useSelectSelection(layoutKey);
     const bounds = useSelectAxisBounds(layoutKey, "x1");
     const s = scale.Scale.scale<number>(1).scale(bounds);
-    const placer = Layout.usePlacer();
+    const place = Layout.usePlacer();
 
     const timeRange = new TimeRange(
       s.pos(box.left(selection)),
@@ -334,7 +336,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           );
           break;
         case "range":
-          placer(
+          place(
             Range.createLayout({
               initial: {
                 timeRange: {
@@ -421,8 +423,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                     if (client == null) return;
                     download({ client, lines, timeRange, name });
                     break;
-                  case "meta-data":
-                    placer({ ...Range.overviewLayout, name, key });
+                  case "metadata":
+                    place({ ...Range.overviewLayout, name, key });
                     break;
                   case "line-plot":
                     addRangeToNewPlot(key);
@@ -439,7 +441,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                   <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
                     Open in New Plot
                   </PMenu.Item>
-                  <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
+                  <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
                     View Details
                   </PMenu.Item>
                 </PMenu.Menu>
@@ -474,14 +476,8 @@ const buildLines = (
           const xChannel = vis.channels[xAxis as XAxisKey];
           const variantArg =
             range.variant === "dynamic"
-              ? {
-                  variant: "dynamic",
-                  timeSpan: range.span,
-                }
-              : {
-                  variant: "static",
-                  timeRange: range.timeRange,
-                };
+              ? { variant: "dynamic", timeSpan: range.span }
+              : { variant: "static", timeRange: range.timeRange };
 
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({
@@ -528,7 +524,7 @@ export const LinePlot: Layout.Renderer = ({
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
       const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
-      return data as unknown as State;
+      return data as State;
     },
     actionCreator: internalCreate,
   });

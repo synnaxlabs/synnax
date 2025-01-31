@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -48,7 +49,7 @@ const handleSelect: Ontology.HandleSelect = () => {};
 const handleConfigure = ({
   selection: { resources },
   placeLayout,
-  addStatus,
+  handleException,
 }: Ontology.TreeContextMenuProps): void => {
   const resource = resources[0];
   try {
@@ -57,12 +58,7 @@ const handleConfigure = ({
     const key = resource.id.key;
     placeLayout(baseLayout(key, {}));
   } catch (e) {
-    if (!(e instanceof Error)) throw e;
-    addStatus({
-      variant: "error",
-      message: `Failed to configure ${resource.name}`,
-      description: e.message,
-    });
+    handleException(e, `Failed to configure ${resource.name}`);
   }
 };
 
@@ -82,14 +78,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     mutationFn: async ({ selection, client }) =>
       await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
-    onError: (e, { addStatus, state: { setNodes } }, prevNodes) => {
+    onError: (e, { handleException, state: { setNodes } }, prevNodes) => {
       if (errors.CANCELED.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
-      addStatus({
-        variant: "error",
-        message: `Failed to delete devices`,
-        description: e.message,
-      });
+      handleException(e, `Failed to delete devices`);
     },
   }).mutate;
 };
@@ -151,7 +143,7 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "device",
+  type: device.ONTOLOGY_TYPE,
   hasChildren: false,
   icon: <Icon.Device />,
   canDrop: () => false,

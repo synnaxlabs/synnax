@@ -7,37 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
-
 import { LinePlot } from "@/lineplot";
 import { type Link } from "@/link";
 
-export const linkHandler: Link.Handler = async ({
-  resource,
-  resourceKey,
-  client,
-  placer,
-  addStatus,
-}): Promise<boolean> => {
-  if (resource !== channel.ONTOLOGY_TYPE) return false;
-  try {
-    const channel = await client.channels.retrieve(resourceKey);
-    placer(
-      LinePlot.create({
-        channels: {
-          ...LinePlot.ZERO_CHANNELS_STATE,
-          y1: [channel.key],
-        },
-        name: `${channel.name} Plot`,
-      }),
-    );
-  } catch (e) {
-    if (!(e instanceof Error)) throw e;
-    addStatus({
-      variant: "error",
-      description: "Failed to open channel from URL",
-      message: e.message,
-    });
-  }
-  return true;
+export const linkHandler: Link.Handler = async ({ client, key, placeLayout }) => {
+  const channel = await client.channels.retrieve(key);
+  placeLayout(
+    LinePlot.create({
+      channels: { ...LinePlot.ZERO_CHANNELS_STATE, y1: [channel.key] },
+      name: `${channel.name} Plot`,
+    }),
+  );
 };

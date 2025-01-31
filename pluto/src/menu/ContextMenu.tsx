@@ -12,9 +12,6 @@ import "@/menu/ContextMenu.css";
 import { box, position, unique, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
-  type FC,
-  type ForwardedRef,
-  forwardRef,
   type ReactElement,
   type RefCallback,
   useRef,
@@ -109,7 +106,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
       // Prevent parent context menus from opening.
       e.stopPropagation();
       const selected = findSelected(e.target as HTMLElement);
-      keys ??= unique(selected.map((el) => el.id).filter((id) => id.length > 0));
+      keys ??= unique.unique(selected.map((el) => el.id).filter((id) => id.length > 0));
     } else keys = [];
     setMenuState({ visible: true, keys, position: p, cursor: p });
   };
@@ -153,47 +150,6 @@ export interface ContextMenuProps
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
-const ContextMenuCore = (
-  {
-    children,
-    menu,
-    visible,
-    open,
-    close,
-    position: xy,
-    keys,
-    className,
-    cursor: _,
-    ...props
-  }: ContextMenuProps,
-  ref: ForwardedRef<HTMLDivElement>,
-): ReactElement => {
-  const menuC = visible ? menu?.({ keys }) : null;
-
-  return (
-    <div
-      className={CSS(CONTEXT_MENU_CONTAINER, className, CSS.inheritDims())}
-      onContextMenu={open}
-      {...props}
-    >
-      {children}
-      {menuC != null &&
-        createPortal(
-          <Align.Space
-            className={CSS(CSS.B("menu-context"), CSS.bordered())}
-            ref={ref}
-            style={{ left: xy.x, top: xy.y }}
-            onClick={close}
-            size={1 / 2}
-          >
-            {menuC}
-          </Align.Space>,
-          document.body,
-        )}
-    </div>
-  );
-};
-
 /**
  * Menu.ContextMenu wraps a set of children with a context menu. When the user
  * right clicks within wrapped area, the provided menu will be shown.
@@ -234,7 +190,40 @@ const ContextMenuCore = (
  * underlying div component acting as the root element.
  * @param props.menu - The menu to show when the user right clicks.
  */
-export const ContextMenu = forwardRef(
-  ContextMenuCore as React.ForwardRefRenderFunction<HTMLDivElement>,
-) as FC<ContextMenuProps>;
-ContextMenu.displayName = "ContextMenu";
+export const ContextMenu = ({
+  ref,
+  children,
+  menu,
+  visible,
+  open,
+  close,
+  position: xy,
+  keys,
+  className,
+  cursor: _,
+  ...props
+}: ContextMenuProps): ReactElement => {
+  const menuC = visible ? menu?.({ keys }) : null;
+  return (
+    <div
+      className={CSS(CONTEXT_MENU_CONTAINER, className, CSS.inheritDims())}
+      onContextMenu={open}
+      {...props}
+    >
+      {children}
+      {menuC != null &&
+        createPortal(
+          <Align.Space
+            className={CSS(CSS.B("menu-context"), CSS.bordered())}
+            ref={ref}
+            style={{ left: xy.x, top: xy.y }}
+            onClick={close}
+            size={1 / 2}
+          >
+            {menuC}
+          </Align.Space>,
+          document.body,
+        )}
+    </div>
+  );
+};

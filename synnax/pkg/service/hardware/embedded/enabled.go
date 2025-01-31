@@ -77,8 +77,8 @@ func (d *Driver) start() error {
 			return err
 		}
 		defer func() {
-			err = errors.CombineErrors(err, os.Remove(cfgFileName))
-			err = errors.CombineErrors(err, os.Remove(driverFileName))
+			err = errors.Combine(err, os.Remove(cfgFileName))
+			err = errors.Combine(err, os.Remove(driverFileName))
 		}()
 		if err := os.Chmod(driverFileName, 0755); err != nil {
 			return err

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, ontology } from "@synnaxlabs/client";
-import { Form, Synnax } from "@synnaxlabs/pluto";
+import { type label, ranger } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/pluto";
 import { compare, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -23,8 +23,7 @@ interface LabelsProps {
 }
 
 export const Labels = ({ rangeKey }: LabelsProps) => {
-  const otgID = new ontology.ID({ key: rangeKey, type: "range" });
-  const client = Synnax.use();
+  const otgID = ranger.ontologyID(rangeKey);
   const formCtx = Form.useSynced<typeof labelFormSchema, label.Label[]>({
     name: "Labels",
     key: ["range", "labels", rangeKey],
@@ -37,12 +36,12 @@ export const Labels = ({ rangeKey }: LabelsProps) => {
     openObservable: async (client) => await client.labels.trackLabelsOf(otgID),
     applyObservable: async ({ changes, ctx }) => {
       const existing = ctx.get<string[]>("labels").value;
-      const next = unique(changes.map((c) => c.key));
+      const next = unique.unique(changes.map((c) => c.key));
       if (compare.unorderedPrimitiveArrays(existing, next) === compare.EQUAL) return;
       ctx.set("labels", next);
     },
     applyChanges: async ({ client, values, prev }) => {
-      const next = unique(values.labels);
+      const next = unique.unique(values.labels);
       if (
         client == null ||
         compare.unorderedPrimitiveArrays(prev as string[], next) === compare.EQUAL
@@ -54,10 +53,9 @@ export const Labels = ({ rangeKey }: LabelsProps) => {
 
   return (
     <Form.Form {...formCtx}>
-      <Form.Field<string> required={false} path="labels">
-        {(p) => (
+      <Form.Field<string[]> required={false} path="labels">
+        {({ variant: _, ...p }) => (
           <Label.SelectMultiple
-            searcher={client?.labels}
             entryRenderKey="name"
             dropdownVariant="floating"
             zIndex={100}

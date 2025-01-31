@@ -10,6 +10,8 @@
 package aspen
 
 import (
+	"time"
+
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"time"
 )
 
 // Option is a function that configures an Aspen instance.
@@ -195,7 +196,7 @@ func defaultOptions() *options {
 		kv:      kv.DefaultConfig,
 	}
 	o.transport.Transport = grpct.New(
-		fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials())),
 	)
 	return o
 }

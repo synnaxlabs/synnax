@@ -70,6 +70,7 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
     "fs:default",
     "process:allow-restart",
     "process:allow-exit",
@@ -83,13 +84,10 @@
             "-l",
             "localhost:9090",
             "-d",
-            {
-              "validator": "\\S+"
-            }
+            { "validator": "\\S+" }
           ],
           "cmd": "",
-          "name": "bin/sy",
-          "sidecar": true
+          "name": "bin/sy"
         }
       ]
     },

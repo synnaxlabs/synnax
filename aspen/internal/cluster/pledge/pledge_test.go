@@ -11,6 +11,9 @@ package pledge_test
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -21,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
-	"sync"
-	"time"
 )
 
 func baseConfig(n *fmock.Network[pledge.Request, pledge.Response], logger *zap.SugaredLogger) pledge.Config {
@@ -238,7 +239,7 @@ var _ = Describe("PledgeServer", func() {
 		})
 
 		Context("Concurrent Pledges", func() {
-			It("Should assign unique Keys to all pledges", func() {
+			It("Should assign unique keys to all pledges", func() {
 				var (
 					mu         sync.Mutex
 					nodes      = make(node.Group)

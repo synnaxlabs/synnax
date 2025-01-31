@@ -47,7 +47,6 @@ export const Info: Layout.Renderer = () => {
   const progressPercent = (amountDownloaded.valueOf() / updateSize.valueOf()) * 100;
 
   const updateMutation = useMutation({
-    mutationKey: ["version.update"],
     mutationFn: async () => {
       if (!updateQuery.isFetched || updateQuery.data?.available !== true) return;
       const update = updateQuery.data;

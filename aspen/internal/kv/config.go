@@ -10,12 +10,13 @@
 package kv
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 // Config is the configuration for the aspen DB service. For default values, see DefaultConfig().
@@ -26,10 +27,10 @@ type Config struct {
 	Cluster *cluster.Cluster
 	// BatchTransportClient is used to send key-value NewStreamer to nodes.
 	// [Required]
-	BatchTransportClient BatchTransportClient
+	BatchTransportClient TxTransportClient
 	// BatchTransportServer is used to receive key-value NewStreamer from nodes.
 	// [Required]
-	BatchTransportServer BatchTransportServer
+	BatchTransportServer TxTransportServer
 	// FeedbackTransportClient is used to send gossip feedback to nodes.
 	// [Required]
 	FeedbackTransportClient FeedbackTransportClient
@@ -42,6 +43,12 @@ type Config struct {
 	// LeaseTransportServer is used to send leaseAlloc NewStreamer between nodes.
 	// [Required]
 	LeaseTransportServer LeaseTransportServer
+	// RecoveryTransportClient is used to send recovery requests to nodes.
+	// [Required]
+	RecoveryTransportClient RecoveryTransportClient
+	// RecoveryTransportServer is used to receive recovery requests from nodes.
+	// [Required]
+	RecoveryTransportServer RecoveryTransportServer
 	// Engine is the underlying key-value engine that DB writes its NewStreamer to.
 	// [Required]
 	Engine kvx.DB
@@ -63,6 +70,8 @@ func (cfg Config) Override(other Config) Config {
 	cfg.FeedbackTransportServer = override.Nil(cfg.FeedbackTransportServer, other.FeedbackTransportServer)
 	cfg.LeaseTransportServer = override.Nil(cfg.LeaseTransportServer, other.LeaseTransportServer)
 	cfg.LeaseTransportClient = override.Nil(cfg.LeaseTransportClient, other.LeaseTransportClient)
+	cfg.RecoveryTransportClient = override.Nil(cfg.RecoveryTransportClient, other.RecoveryTransportClient)
+	cfg.RecoveryTransportServer = override.Nil(cfg.RecoveryTransportServer, other.RecoveryTransportServer)
 	cfg.Engine = override.Nil(cfg.Engine, other.Engine)
 	cfg.GossipInterval = override.Numeric(cfg.GossipInterval, other.GossipInterval)
 	cfg.RecoveryThreshold = override.Numeric(cfg.RecoveryThreshold, other.RecoveryThreshold)
@@ -74,12 +83,14 @@ func (cfg Config) Override(other Config) Config {
 func (cfg Config) Validate() error {
 	v := validate.New("cesium")
 	validate.NotNil(v, "Cluster", cfg.Cluster)
-	validate.NotNil(v, "BatchTransportClient", cfg.BatchTransportClient)
-	validate.NotNil(v, "BatchTransportServer", cfg.BatchTransportServer)
+	validate.NotNil(v, "TxTransportClient", cfg.BatchTransportClient)
+	validate.NotNil(v, "TxTransportServer", cfg.BatchTransportServer)
 	validate.NotNil(v, "FeedbackTransportClient", cfg.FeedbackTransportClient)
 	validate.NotNil(v, "FeedbackTransportServer", cfg.FeedbackTransportServer)
 	validate.NotNil(v, "LeaseTransportClient", cfg.LeaseTransportServer)
 	validate.NotNil(v, "LeaseTransportServer", cfg.LeaseTransportClient)
+	validate.NotNil(v, "RecoveryTransportClient", cfg.RecoveryTransportClient)
+	validate.NotNil(v, "RecoveryTransportServer", cfg.RecoveryTransportServer)
 	validate.NotNil(v, "Engine", cfg.Engine)
 	return v.Error()
 }

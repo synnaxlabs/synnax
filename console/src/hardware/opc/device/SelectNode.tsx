@@ -54,11 +54,10 @@ export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement =>
             isArray: c.isArray,
           };
         })
-        .filter((n) => n != null) as NodeEntry[],
+        .filter((n) => n != null),
     [data],
   );
   return (
-    /// @ts-expect-error - data transformation errors
     <Select.Single<string, NodeEntry>
       {...props}
       columns={SELECT_NODE_COLUMNS}

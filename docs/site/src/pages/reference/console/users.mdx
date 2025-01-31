@@ -3,7 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "Users"
 heading: "Users"
 description: "Manage teams with users."
-prev: "Logs"
+prev: "Tables"
 prevURL: "/reference/console/tables"
 ---
 
@@ -17,11 +17,12 @@ If you are managing large teams in Synnax, you can register different user accou
 Each user can have different permissions, allowing you to block permissions for certain
 actions, such as editing schematics or registering users.
 
+<Divider.Divider direction="x" />
+
 ## Registering Users
 
 Users can be added with the "Register a User" command from the command palette in the
 top of the console. The palette can be opened by pressing <Icon.Keyboard.Control /> +
-
 <Icon.Keyboard.Shift /> + `P` (Windows) / <Icon.Keyboard.Command /> +
 <Icon.Keyboard.Shift /> + `P` (macOS).
 
@@ -39,7 +40,7 @@ left-hand side of the screen. Right-click the user and select "Edit Permissions"
 
 <Video client:only="react" id="console/users/permissions" />
 
-You can now give users the following permissions:
+You can give users the following permissions:
 
 - **Admin**: Admin users can manage other users, including registering users and setting
   permissions for them.

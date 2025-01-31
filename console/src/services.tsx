@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { rack } from "@synnaxlabs/client";
+
 import { ChannelServices } from "@/channel/services";
 import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
@@ -21,19 +23,15 @@ import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
-import { Workspace } from "@/workspace";
+import { WorkspaceServices } from "@/workspace/services";
 
 export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "rack",
+  type: rack.ONTOLOGY_TYPE,
   icon: <></>,
   hasChildren: true,
   canDrop: () => false,
-  onMosaicDrop: () => {},
-  TreeContextMenu: () => <></>,
-  onSelect: () => {},
   haulItems: () => [],
   allowRename: () => false,
-  onRename: undefined,
 };
 
 export const SERVICES: Ontology.Services = {
@@ -44,7 +42,7 @@ export const SERVICES: Ontology.Services = {
   node: Node.ONTOLOGY_SERVICE,
   group: Group.ONTOLOGY_SERVICE,
   range: RangeServices.ONTOLOGY_SERVICE,
-  workspace: Workspace.ONTOLOGY_SERVICE,
+  workspace: WorkspaceServices.ONTOLOGY_SERVICE,
   lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": EMPTY_ONTOLOGY_SERVICE,
   label: EMPTY_ONTOLOGY_SERVICE,

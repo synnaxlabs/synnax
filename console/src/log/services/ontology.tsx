@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax } from "@synnaxlabs/client";
+import { log, ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
+import { Export } from "@/export";
 import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
@@ -43,14 +44,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.log.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
+    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete log",
-        description: err.message,
-      });
+      handleException(err, "Failed to delete log");
     },
   }).mutate;
 };
@@ -62,11 +59,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
-  const onSelect = useAsyncActionMenu("log.menu", {
+  const handleExport = Log.useExport();
+  const group = Group.useCreateFromSelection();
+  const onSelect = useAsyncActionMenu({
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+    export: () => handleExport(resources[0].id.key),
+    group: () => group(props),
   });
   const isSingle = resources.length === 1;
   return (
@@ -77,6 +78,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
+          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
@@ -96,13 +98,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const loadLog = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer) => {
   const log = await client.workspaces.log.retrieve(id.key);
-  placeLayout(
-    Log.create({
-      ...(log.data as unknown as Log.State),
-      key: log.key,
-      name: log.name,
-    }),
-  );
+  placeLayout(Log.create({ ...(log.data as Log.State), key: log.key, name: log.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = async ({
@@ -117,7 +113,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   location,
   nodeKey,
   placeLayout,
-  addStatus,
+  handleException,
 }) => {
   void (async () => {
     try {
@@ -125,24 +121,20 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
       placeLayout(
         Log.create({
           name: log.name,
-          ...(log.data as unknown as Log.State),
+          ...log.data,
           key: id.key,
           location: "mosaic",
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (err) {
-      addStatus({
-        variant: "error",
-        message: "Failed to load log",
-        description: (err as Error).message,
-      });
+    } catch (e) {
+      handleException(e, "Failed to load log");
     }
   })();
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "log",
+  type: log.ONTOLOGY_TYPE,
   icon: <Icon.Log />,
   hasChildren: false,
   haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],

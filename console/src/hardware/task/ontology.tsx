@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax, type task } from "@synnaxlabs/client";
+import { ontology, ranger, type Synnax, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -79,7 +79,6 @@ export const retrieveAndPlaceLayout = async (
 ) => {
   const t = await client.hardware.tasks.retrieve(key);
   const layout = createLayout(t);
-  console.log(layout);
   placeLayout(layout);
 };
 
@@ -87,7 +86,7 @@ const handleSelect: Ontology.HandleSelect = ({
   selection,
   placeLayout,
   client,
-  addStatus,
+  handleException,
 }) => {
   if (selection.length === 0) return;
   const key = selection[0].id.key;
@@ -96,12 +95,7 @@ const handleSelect: Ontology.HandleSelect = ({
     try {
       await retrieveAndPlaceLayout(client, key, placeLayout);
     } catch (e) {
-      if (!(e instanceof Error)) throw e;
-      addStatus({
-        variant: "error",
-        message: `Could not open ${name}`,
-        description: e.message,
-      });
+      handleException(e, `Could not open ${name}`);
     }
   })();
 };
@@ -129,16 +123,12 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
       removeLayout(...resources.map(({ id }) => id.key));
     },
-    onError: (e: Error, { addStatus, selection: { resources } }) => {
+    onError: (e: Error, { handleException, selection: { resources } }) => {
       let message = "Failed to delete tasks";
       if (resources.length === 1)
         message = `Failed to delete task ${resources[0].name}`;
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message,
-        description: e.message,
-      });
+      handleException(e, message);
     },
   }).mutate;
 };
@@ -154,24 +144,19 @@ const useRangeSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         ),
       );
       const otgIDs = tasks.map((t) => t.ontologyID);
-      const rangeID = new ontology.ID({ type: "range", key: activeRange });
+      const rangeID = ranger.ontologyID(activeRange);
       await client.ontology.moveChildren(
         new ontology.ID(parent.key),
         rangeID,
         ...otgIDs,
       );
     },
-    onError: (e: Error, { addStatus }) => {
-      addStatus({
-        variant: "error",
-        message: "Failed to create snapshot",
-        description: e.message,
-      });
-    },
+    onError: (e: Error, { handleException }) =>
+      handleException(e, "Failed to create snapshot"),
   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus } = props;
+  const { store, selection, client, addStatus, handleException } = props;
   const { resources, nodes } = selection;
   const del = useDelete();
   const handleLink = Link.useCopyToClipboard();
@@ -187,15 +172,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         client,
         addStatus,
         store,
+        handleException,
         removeLayout: props.removeLayout,
         services: props.services,
       }),
     rename: () => Tree.startRenaming(nodes[0].key),
     link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
+      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
     rangeSnapshot: () => snap(props),
     group: () => group(props),
   };
@@ -249,7 +232,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "task",
+  type: task.ONTOLOGY_TYPE,
   hasChildren: false,
   icon: <Icon.Task />,
   canDrop: () => false,

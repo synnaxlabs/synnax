@@ -22,6 +22,7 @@ export * from "@/id";
 export * from "@/identity";
 export * from "@/invert";
 export * from "@/kv";
+export * from "@/link";
 export * from "@/math";
 export * from "@/migrate";
 export * from "@/observe";

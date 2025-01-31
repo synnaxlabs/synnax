@@ -9,3 +9,13 @@
 
 /// <reference types="vite/client" />
 declare const IS_DEV: boolean;
+
+interface MonacoEnvironment {
+  getWorker: (moduleId: string, label: string) => Worker;
+}
+
+declare global {
+  interface Window {
+    MonacoEnvironment: MonacoEnvironment;
+  }
+}

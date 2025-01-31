@@ -95,7 +95,7 @@ export class ID {
   static readonly z = z.union([z.instanceof(ID), crudeIDZ.transform((v) => new ID(v))]);
 }
 
-export const Root = new ID({ type: "builtin", key: "root" });
+export const Root = new ID({ type: BUILTIN_TYPE, key: "root" });
 
 export const schemaFieldZ = z.object({ type: z.number() });
 

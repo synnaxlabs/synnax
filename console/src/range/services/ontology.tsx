@@ -13,6 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
+import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
@@ -29,6 +30,7 @@ import {
   addChildRangeMenuItem,
   addToActivePlotMenuItem,
   addToNewPlotMenuItem,
+  clearActiveMenuItem,
   deleteMenuItem,
   fromClientRange,
   setAsActiveMenuItem,
@@ -78,12 +80,7 @@ const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       await fetchIfNotInState(store, client, res.id.key);
       store.dispatch(setActive(res.id.key));
     },
-    onError: (e, { addStatus }) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to activate range`,
-        description: e.message,
-      }),
+    onError: (e, { handleException }) => handleException(e, "Failed to activate range"),
   }).mutate;
 
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
@@ -102,13 +99,12 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
         }),
       );
     },
-    onError: (e, { addStatus, selection: { resources } }) => {
+    onError: (e, { handleException, selection: { resources } }) => {
       const rangeNames = resources.map((r) => r.name);
-      addStatus({
-        variant: "error",
-        message: `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
-        description: e.message,
-      });
+      handleException(
+        e,
+        `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
+      );
     },
   }).mutate;
 
@@ -128,20 +124,19 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         }),
       );
     },
-    onError: (e, { addStatus, selection: { resources } }) => {
+    onError: (e, { handleException, selection: { resources } }) => {
       const names = resources.map((r) => r.name);
-      addStatus({
-        variant: "error",
-        message: `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
-        description: e.message,
-      });
+      handleException(
+        e,
+        `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
+      );
     },
   }).mutate;
 
 const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   return ({ selection: { resources } }) =>
-    placer({
+    place({
       ...overviewLayout,
       name: resources[0].name,
       key: resources[0].id.key,
@@ -184,7 +179,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await client.ranges.delete(selection.resources.map((r) => r.id.key)),
     onError: (
       e,
-      { addStatus, selection: { resources }, state: { setNodes }, store },
+      { handleException, selection: { resources }, state: { setNodes }, store },
       prevNodes,
     ) => {
       if (errors.CANCELED.matches(e)) return;
@@ -197,11 +192,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       }
       let message = "Failed to delete ranges";
       if (resources.length === 1) message = `Failed to delete ${resources[0].name}`;
-      addStatus({
-        variant: "error",
-        message,
-        description: e.message,
-      });
+      handleException(e, message);
     },
   }).mutate;
 };
@@ -219,6 +210,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const addToActivePlot = useAddToActivePlot();
   const addToNewPlot = useAddToNewPlot();
   const activate = useActivate();
+  const dispatch = useDispatch();
+  const clearActiveRange = () => {
+    dispatch(setActive(null));
+  };
   const groupFromSelection = Group.useCreateFromSelection();
   const handleLink = Link.useCopyToClipboard();
   const handleAddChildRange = () => {
@@ -234,11 +229,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     group: () => groupFromSelection(props),
     details: () => viewDetails(props),
     link: () =>
-      handleLink({
-        name: resources[0].name,
-        ontologyID: resources[0].id.payload,
-      }),
+      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
     addChildRange: handleAddChildRange,
+    clearActive: clearActiveRange,
   };
   const isSingle = resources.length === 1;
   let showAddToActivePlot = false;
@@ -253,7 +246,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {isSingle && (
         <>
-          {resources[0].id.key !== activeRange?.key && setAsActiveMenuItem}
+          {resources[0].id.key !== activeRange?.key
+            ? setAsActiveMenuItem
+            : clearActiveMenuItem}
           {viewDetailsMenuItem}
           <PMenu.Divider />
           <Menu.RenameItem />
@@ -279,10 +274,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
-  {
-    type: ranger.ONTOLOGY_TYPE,
-    key: id.key,
-  },
+  { type: ranger.ONTOLOGY_TYPE, key: id.key },
 ];
 
 const PaletteListItem: Ontology.PaletteListItem = (props) => {
@@ -313,7 +305,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "range",
+  type: ranger.ONTOLOGY_TYPE,
   hasChildren: true,
   icon: <Icon.Range />,
   canDrop: () => true,

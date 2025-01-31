@@ -37,7 +37,10 @@ import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { create as createLinePlot } from "@/lineplot/LinePlot";
+import {
+  create as createLinePlot,
+  LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE,
+} from "@/lineplot/LinePlot";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { createLayout } from "@/range/CreateLayout";
@@ -101,7 +104,13 @@ export const deleteMenuItem = (
 
 export const setAsActiveMenuItem = (
   <PMenu.Item itemKey="setAsActive" startIcon={<Icon.Dynamic />} iconSpacing="small">
-    Set as Active
+    Set as Active Range
+  </PMenu.Item>
+);
+
+export const clearActiveMenuItem = (
+  <PMenu.Item itemKey="clearActive" startIcon={<Icon.Dynamic />} iconSpacing="small">
+    Clear Active Range
   </PMenu.Item>
 );
 
@@ -137,9 +146,8 @@ const fetchIfNotInState = async (
 const useAddToActivePlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   return useMutation<void, Error, string>({
-    mutationKey: ["add-to-active-plot", client?.key],
     mutationFn: async (key: string) => {
       const active = Layout.selectActiveMosaicLayout(store.getState());
       if (active == null || client == null) return;
@@ -153,57 +161,39 @@ const useAddToActivePlot = (): ((key: string) => void) => {
         }),
       );
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to add range to plot`,
-        description: e.message,
-      }),
+    onError: (e) => handleException(e, "Failed to add range to plot"),
   }).mutate;
 };
 
 const useViewDetails = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
-  const placer = Layout.usePlacer();
+  const handleException = Status.useExceptionHandler();
+  const place = Layout.usePlacer();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) return;
       const rng = await fetchIfNotInState(store, client, key);
-      placer({ ...overviewLayout, name: rng.name, key: rng.key });
+      place({ ...overviewLayout, name: rng.name, key: rng.key });
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to view details`,
-        description: e.message,
-      }),
+    onError: (e) => handleException(e, "Failed to view details"),
   }).mutate;
 };
 
 export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
-  const placer = Layout.usePlacer();
-  const addStatus = Status.useAggregator();
+  const place = Layout.usePlacer();
+  const handleException = Status.useExceptionHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
       if (client == null) return;
       const res = await fetchIfNotInState(store, client, key);
-      placer(
-        createLinePlot({
-          name: `Plot for ${res.name}`,
-          ranges: { x1: [key], x2: [] },
-        }),
+      place(
+        createLinePlot({ name: `Plot for ${res.name}`, ranges: { x1: [key], x2: [] } }),
       );
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: `Failed to add range to plot`,
-        description: e.message,
-      }),
+    onError: (e) => handleException(e, "Failed to add range to new plot"),
   }).mutate;
 };
 
@@ -232,14 +222,14 @@ const NoRanges = ({ onLinkClick }: NoRangesProps): ReactElement => {
 const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const client = Synnax.use();
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   const remover = Layout.useRemover();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const activeRange = useSelect();
 
   const handleCreate = (key?: string): void => {
-    placer(createLayout({ initial: { key } }));
+    place(createLayout({ initial: { key } }));
   };
 
   const handleRemove = (keys: string[]): void => {
@@ -250,7 +240,7 @@ const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
 
   const confirm = Confirm.useModal();
   const del = useMutation<void, Error, string, Range | undefined>({
@@ -272,11 +262,7 @@ const List = (): ReactElement => {
     mutationFn: async (key: string) => await client?.ranges.delete(key),
     onError: (e, _, range) => {
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete range",
-        description: e.message,
-      });
+      handleException(e, "Failed to delete range");
       dispatch(add({ ranges: [range as Range] }));
     },
   });
@@ -293,12 +279,7 @@ const List = (): ReactElement => {
       if (range == null || range.variant === "dynamic") return;
       await client?.ranges.create({ ...range });
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: "Failed to save range",
-        description: e.message,
-      }),
+    onError: (e) => handleException(e, "Failed to save range"),
   });
 
   const handleLink = Link.useCopyToClipboard();
@@ -310,13 +291,16 @@ const List = (): ReactElement => {
     const activeLayout = Layout.useSelectActiveMosaicLayout();
     const addToActivePlot = useAddToActivePlot();
     const addToNewPlot = useAddToNewPlot();
-    const placer = Layout.usePlacer();
+    const place = Layout.usePlacer();
     const handleSetActive = () => {
       dispatch(setActive(key));
     };
+    const handleClearActive = () => {
+      dispatch(setActive(null));
+    };
     const handleViewDetails = useViewDetails();
     const handleAddChildRange = () => {
-      placer(createLayout({ initial: { parent: key } }));
+      place(createLayout({ initial: { parent: key } }));
     };
 
     const rangeExists = rng != null;
@@ -330,17 +314,12 @@ const List = (): ReactElement => {
       save: () => rangeExists && save.mutate(rng.key),
       link: () =>
         rangeExists &&
-        handleLink({
-          name: rng.name,
-          ontologyID: {
-            key: rng.key,
-            type: ranger.ONTOLOGY_TYPE,
-          },
-        }),
+        handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) }),
       addToActivePlot: () => addToActivePlot(key),
       addToNewPlot: () => addToNewPlot(key),
       addChildRange: handleAddChildRange,
       setAsActive: handleSetActive,
+      clearActive: handleClearActive,
     };
 
     return (
@@ -351,13 +330,13 @@ const List = (): ReactElement => {
         {rangeExists && (
           <>
             <PMenu.Divider />
-            {rng.key !== activeRange?.key && setAsActiveMenuItem}
+            {rng.key !== activeRange?.key ? setAsActiveMenuItem : clearActiveMenuItem}
             {rng.persisted && viewDetailsMenuItem}
-            {(rng.key !== activeRange?.key || rng.persisted) && <PMenu.Divider />}
+            <PMenu.Divider />
             <Menu.RenameItem />
             {rng.persisted && addChildRangeMenuItem}
             <PMenu.Divider />
-            {activeLayout?.type === "lineplot" && addToActivePlotMenuItem}
+            {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && addToActivePlotMenuItem}
             {addToNewPlotMenuItem}
             <PMenu.Divider />
             <PMenu.Item startIcon={<Icon.Close />} itemKey="remove">
@@ -458,10 +437,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
           direction="x"
           size="small"
           wrap
-          style={{
-            overflowX: "auto",
-            height: "fit-content",
-          }}
+          style={{ overflowX: "auto", height: "fit-content" }}
         >
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="small" color={l.color}>
@@ -475,18 +451,13 @@ const ListItem = (props: ListItemProps): ReactElement => {
 };
 
 const Content = (): ReactElement => {
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
         <Header.Actions>
-          {[
-            {
-              children: <Icon.Add />,
-              onClick: () => placer(createLayout({})),
-            },
-          ]}
+          {[{ children: <Icon.Add />, onClick: () => place(createLayout({})) }]}
         </Header.Actions>
       </ToolbarHeader>
       <List />

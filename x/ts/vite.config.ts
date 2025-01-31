@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// <reference types="vitest/config" />
+
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
 import { defineConfig } from "vite";
@@ -29,6 +31,7 @@ export default defineConfig({
         dimensions: path.resolve(".", "src/spatial/dimensions/index.ts"),
         direction: path.resolve(".", "src/spatial/direction/index.ts"),
         location: path.resolve(".", "src/spatial/location/index.ts"),
+        link: path.resolve(".", "src/link/index.ts"),
         position: path.resolve(".", "src/spatial/position/index.ts"),
         scale: path.resolve(".", "src/spatial/scale/index.ts"),
         xy: path.resolve(".", "src/spatial/xy/index.ts"),
@@ -40,7 +43,7 @@ export default defineConfig({
         destructor: path.resolve(".", "src/destructor.ts"),
         toArray: path.resolve(".", "src/toArray.ts"),
         search: path.resolve(".", "src/search.ts"),
-        unique: path.resolve(".", "src/unique.ts"),
+        unique: path.resolve(".", "src/unique/index.ts"),
         record: path.resolve(".", "src/record.ts"),
         change: path.resolve(".", "src/change/index.ts"),
         identity: path.resolve(".", "src/identity.ts"),
@@ -48,12 +51,7 @@ export default defineConfig({
         zodutil: path.resolve(".", "src/zodutil/index.ts"),
       },
     },
-    rollupOptions: {
-      external: ["zod"],
-    },
+    rollupOptions: { external: ["zod"] },
   },
-  test: {
-    globals: true,
-    environment: "jsdom",
-  },
+  test: { globals: true, environment: "jsdom" },
 });

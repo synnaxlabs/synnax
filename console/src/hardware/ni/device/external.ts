@@ -13,6 +13,7 @@ import { type Layout } from "@/layout";
 export * from "@/hardware/device/useListenForChanges";
 export * from "@/hardware/ni/device/Configure";
 export * from "@/hardware/ni/device/ontology";
+export * from "@/hardware/ni/device/types";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CONFIGURE_LAYOUT_TYPE]: Configure,

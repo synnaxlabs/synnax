@@ -11,15 +11,16 @@ package cesium
 
 import (
 	"context"
+	"io/fs"
+	"math/rand"
+	"strconv"
+	"time"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
-	"io/fs"
-	"math/rand"
-	"strconv"
-	"time"
 )
 
 type GCConfig struct {
@@ -101,7 +102,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		for _, name := range directoriesToRemove {
 			c.Exec(func() error { return db.fs.Remove(name) })
 		}
-		err = errors.CombineErrors(err, c.Error())
+		err = errors.Combine(err, c.Error())
 	}()
 
 	// Do a pass first to remove all non-index channels

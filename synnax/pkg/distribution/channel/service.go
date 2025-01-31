@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/observe"
 
 	"github.com/synnaxlabs/x/types"
 
@@ -38,6 +39,7 @@ type Writeable interface {
 
 type Readable interface {
 	NewRetrieve() Retrieve
+	NewObservable() observe.Observable[gorp.TxReader[Key, Channel]]
 }
 
 type ReadWriteable interface {

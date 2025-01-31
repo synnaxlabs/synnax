@@ -73,11 +73,15 @@
     &.pluto--disabled {
         & .pluto-input__internal {
             background-color: var(--pluto-gray-l2);
-            border-color: var(--pluto-gray-l3);
         }
         & :not(.pluto-input__disabled-overlay) {
             cursor: not-allowed !important;
             color: var(--pluto-gray-l5) !important;
+        }
+        &:not(.pluto-input--custom-color) {
+            .pluto-input__internal {
+                border-color: var(--pluto-gray-l3) !important;
+            }
         }
     }
 
@@ -176,7 +180,7 @@
     font-size: inherit;
     line-height: inherit;
     white-space: nowrap;
-    background-color: var(--pluto-gray-l2);
+    background-color: var(--pluto-bg);
     * {
         color: var(--pluto-gray-l6);
     }
@@ -238,6 +242,11 @@
         transition:
             background 0.15s ease-in-out,
             border-color 0.15s ease-in-out;
+        .pluto-input__end-content {
+            transition:
+                background 0.15s ease-in-out,
+                border-color 0.15s ease-in-out;
+        }
         &:hover:not(:focus-within) {
             --pluto-bg: var(--pluto-gray-l3);
             background: var(--pluto-bg) !important;
@@ -250,6 +259,11 @@
             transition:
                 background 0s ease-in-out,
                 border-color 0s ease-in-out;
+            .pluto-input__end-content {
+                transition:
+                    background 0s ease-in-out,
+                    border-color 0s ease-in-out;
+            }
         }
     }
 }

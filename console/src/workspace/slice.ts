@@ -9,12 +9,13 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type workspace } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x";
 
-export interface SliceState extends migrate.Migratable {
-  active: string | null;
-  workspaces: Record<string, workspace.Workspace>;
-}
+import * as latest from "@/workspace/types";
+
+export type SliceState = latest.SliceState;
+export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
+export const migrateSlice = latest.migrateSlice;
 
 export const SLICE_NAME = "workspace";
 
@@ -22,17 +23,9 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.0",
-  active: null,
-  workspaces: {},
-};
-
 type SetActivePayload = string | null;
 
-export interface AddPayload {
-  workspaces: workspace.Workspace[];
-}
+export type AddPayload = workspace.Workspace | workspace.Workspace[];
 
 export interface RemovePayload {
   keys: string[];
@@ -43,14 +36,6 @@ export interface RenamePayload {
   name: string;
 }
 
-export const MIGRATIONS: migrate.Migrations = {};
-
-export const migrateSlice = migrate.migrator<SliceState, SliceState>({
-  name: "workspace.slice",
-  migrations: MIGRATIONS,
-  def: ZERO_SLICE_STATE,
-});
-
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -58,8 +43,8 @@ export const { actions, reducer } = createSlice({
     setActive: (state, { payload }: PayloadAction<SetActivePayload>) => {
       state.active = payload;
     },
-    add: (state, { payload: { workspaces } }: PayloadAction<AddPayload>) => {
-      workspaces.forEach((workspace) => {
+    add: (state, { payload: workspaces }: PayloadAction<AddPayload>) => {
+      toArray(workspaces).forEach((workspace) => {
         state.workspaces[workspace.key] = workspace;
         state.active = workspace.key;
       });
@@ -79,4 +64,3 @@ export const { actions, reducer } = createSlice({
 export const { setActive, add, remove, rename } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-export type Payload = Action["payload"];

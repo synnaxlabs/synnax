@@ -291,7 +291,7 @@ func (r *routine) runPostlude(err error) error {
 
 	for i := range r.deferrals {
 		if dErr := r.deferrals[len(r.deferrals)-i-1].f(); dErr != nil {
-			err = errors.CombineErrors(err, dErr)
+			err = errors.Combine(err, dErr)
 		}
 	}
 

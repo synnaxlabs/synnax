@@ -12,7 +12,7 @@ import "@/table/Table.css";
 import { box, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
-  forwardRef,
+  type ComponentPropsWithRef,
   type ReactElement,
   useCallback,
   useEffect,
@@ -33,46 +33,44 @@ export interface TableProps
   extends ComponentPropsWithoutRef<"table">,
     Pick<z.infer<typeof table.Table.stateZ>, "visible"> {}
 
-export const Table = Aether.wrap<TableProps>(
-  "Table",
-  ({ aetherKey, children, className, visible, ...props }): ReactElement => {
-    const [{ path }, , setState] = Aether.use({
-      aetherKey,
-      type: table.Table.TYPE,
-      schema: table.Table.stateZ,
-      initialState: {
-        region: box.ZERO,
-        visible,
-      },
-    });
+export const Table = ({
+  children,
+  className,
+  visible,
+  ...props
+}: TableProps): ReactElement => {
+  const [{ path }, , setState] = Aether.use({
+    type: table.Table.TYPE,
+    schema: table.Table.stateZ,
+    initialState: { region: box.ZERO, visible },
+  });
 
-    useEffect(() => {
-      setState((s) => ({ ...s, visible }));
-    }, [visible]);
+  useEffect(() => {
+    setState((s) => ({ ...s, visible }));
+  }, [visible]);
 
-    const ref = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
+  const ref = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
 
-    return (
-      <>
-        <div
-          ref={ref}
-          style={{
-            right: 0,
-            bottom: 0,
-            position: "absolute",
-            top: 6,
-            left: 6,
-          }}
-        />
-        <table className={CSS(CSS.B("table"), className)} {...props}>
-          <tbody>
-            <Aether.Composite path={path}>{children}</Aether.Composite>
-          </tbody>
-        </table>
-      </>
-    );
-  },
-);
+  return (
+    <>
+      <div
+        ref={ref}
+        style={{
+          right: 0,
+          bottom: 0,
+          position: "absolute",
+          top: 6,
+          left: 6,
+        }}
+      />
+      <table className={CSS(CSS.B("table"), className)} {...props}>
+        <tbody>
+          <Aether.Composite path={path}>{children}</Aether.Composite>
+        </tbody>
+      </table>
+    </>
+  );
+};
 
 export interface RowProps
   extends Omit<ComponentPropsWithoutRef<"tr">, "size" | "onResize" | "onSelect"> {
@@ -108,25 +106,25 @@ export const Row = ({
   </tr>
 );
 
-export interface CellProps extends ComponentPropsWithoutRef<"td"> {
+export interface CellProps extends ComponentPropsWithRef<"td"> {
   selected?: boolean;
 }
 
-export const Cell = forwardRef<HTMLTableCellElement, CellProps>(
-  (
-    { children, className, selected = false, ...props }: CellProps,
-    ref,
-  ): ReactElement => (
-    <td
-      ref={ref}
-      {...props}
-      className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
-    >
-      {children}
-    </td>
-  ),
+export const Cell = ({
+  ref,
+  children,
+  className,
+  selected = false,
+  ...props
+}: CellProps): ReactElement => (
+  <td
+    ref={ref}
+    {...props}
+    className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
+  >
+    {children}
+  </td>
 );
-Cell.displayName = "Cell";
 
 interface ResizerCellProps {
   direction: direction.Direction;

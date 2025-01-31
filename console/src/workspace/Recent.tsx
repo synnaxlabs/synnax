@@ -33,10 +33,8 @@ export const Recent = (): ReactElement | null => {
   const handleClick = (key: string): void => {
     void (async () => {
       const ws = await client.workspaces.retrieve(key);
-      dispatch(add({ workspaces: [ws] }));
-      dispatch(
-        Layout.setWorkspace({ slice: ws.layout as unknown as Layout.SliceState }),
-      );
+      dispatch(add(ws));
+      dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
     })();
   };
 

@@ -9,7 +9,7 @@
 
 import "@/vis/legend/Container.css";
 
-import { type ReactElement } from "react";
+import { memo, type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -22,27 +22,20 @@ export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryCha
   onLineChange?: (line: LineSpec) => void;
 }
 
-export const Floating = ({
-  className,
-  style,
-  onLineChange,
-  ...props
-}: LegendProps): ReactElement | null => {
-  const { lines } = useContext("Legend");
-  useContext("Legend");
-  return <Core.Simple data={lines} onEntryChange={onLineChange} {...props} />;
-};
+export const Floating = memo(
+  ({ className, style, onLineChange, ...props }: LegendProps): ReactElement | null => {
+    const { lines } = useContext("Legend");
+    useContext("Legend");
+    return <Core.Simple data={lines} onEntryChange={onLineChange} {...props} />;
+  },
+);
+Floating.displayName = "FloatingLegend";
 
 const Fixed = ({ onLineChange }: LegendProps) => {
   const { lines } = useContext("Legend");
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
-    {
-      key,
-      size: lines.length > 0 ? 36 : 0,
-      loc: "top",
-      order: 5,
-    },
+    { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
     "Legend",
   );
 

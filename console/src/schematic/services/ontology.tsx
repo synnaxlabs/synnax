@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax } from "@synnaxlabs/client";
+import { ontology, schematic, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
+import { Export } from "@/export";
 import { Group } from "@/group";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
 import { Layout } from "@/layout";
@@ -44,14 +45,10 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.schematic.delete(ids.map((id) => id.key));
     },
-    onError: (err, { state: { setNodes }, addStatus }, prevNodes) => {
+    onError: (err, { state: { setNodes }, handleException }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.CANCELED.matches(err)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete schematic",
-        description: err.message,
-      });
+      handleException(err, "Failed to delete schematic");
     },
   }).mutate;
 };
@@ -75,9 +72,7 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
             ),
         ),
       );
-      const otgIDs = schematics.map(
-        ({ key }) => new ontology.ID({ type: "schematic", key }),
-      );
+      const otgIDs = schematics.map(({ key }) => schematic.ontologyID(key));
       const otg = await client.ontology.retrieve(otgIDs);
       state.setResources([...state.resources, ...otg]);
       const nextTree = Tree.setNode({
@@ -88,12 +83,8 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state.setNodes([...nextTree]);
       Tree.startRenaming(otg[0].id.toString());
     },
-    onError: (err, { addStatus }) => {
-      addStatus({
-        variant: "error",
-        message: "Failed to copy schematic",
-        description: err.message,
-      });
+    onError: (err, { handleException }) => {
+      handleException(err, "Failed to copy schematic");
     },
   }).mutate;
 
@@ -114,14 +105,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const del = useDelete();
   const copy = useCopy();
   const snapshot = useSnapshot();
-  const handleExport = Schematic.useExport(resources[0].name);
+  const handleExport = Schematic.useExport();
   const handleLink = Link.useCopyToClipboard();
-  const onSelect = useAsyncActionMenu("schematic.menu", {
+  const group = Group.useCreateFromSelection();
+  const onSelect = useAsyncActionMenu({
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
     export: () => handleExport(resources[0].id.key),
+    group: () => group(props),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
   });
@@ -146,9 +139,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Divider />
       {isSingle && (
         <>
-          <PMenu.Item itemKey="export" startIcon={<Icon.Export />}>
-            Export
-          </PMenu.Item>
+          <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
@@ -174,7 +165,7 @@ const loadSchematic = async (
   const schematic = await client.workspaces.schematic.retrieve(id.key);
   placeLayout(
     Schematic.create({
-      ...(schematic.data as unknown as Schematic.State),
+      ...schematic.data,
       key: schematic.key,
       name: schematic.name,
       snapshot: schematic.snapshot,
@@ -194,8 +185,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   id,
   location,
   nodeKey,
-  addStatus,
   placeLayout,
+  handleException,
 }) => {
   void (async () => {
     try {
@@ -203,24 +194,20 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
       placeLayout(
         Schematic.create({
           name: schematic.name,
-          ...(schematic.data as unknown as Schematic.State),
+          ...schematic.data,
           key: id.key,
           location: "mosaic",
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (err) {
-      addStatus({
-        variant: "error",
-        message: "Failed to load schematic",
-        description: (err as Error).message,
-      });
+    } catch (e) {
+      handleException(e, "Failed to load schematic");
     }
   })();
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
-  type: "schematic",
+  type: schematic.ONTOLOGY_TYPE,
   icon: <Icon.Schematic />,
   hasChildren: false,
   haulItems: (r) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: r.id.toString() }],

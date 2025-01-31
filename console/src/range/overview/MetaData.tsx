@@ -19,13 +19,12 @@ import {
   List,
   Text,
 } from "@synnaxlabs/pluto";
-import { type change, compare, deep, kv } from "@synnaxlabs/x";
+import { type change, compare, deep, kv, link } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useMemo } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { Link } from "@/link";
 
 interface MetaDataProps {
   rangeKey: string;
@@ -37,7 +36,7 @@ const metaDataFormSchema = z.object({
 });
 
 const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement => {
-  const isLink = Link.isLink(value);
+  const isLink = link.is(value);
   const copyToClipboard = useCopyToClipboard();
   return (
     <Input.Text
@@ -82,7 +81,7 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
   return (
     <List.ItemFrame
       style={{ padding: "0.5rem", border: "none" }}
-      className={CSS.BE("meta-data", "item")}
+      className={CSS.BE("metadata", "item")}
       allowSelect={false}
       {...props}
     >
@@ -123,7 +122,7 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
             {valueInput}
           </Form.Field>
           <Button.Icon
-            className={CSS.BE("meta-data", "delete")}
+            className={CSS.BE("metadata", "delete")}
             size="small"
             variant="text"
             onClick={() => {
@@ -152,7 +151,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
     change.Change<string, ranger.KVPair>[]
   >({
     values: { pairs: [] },
-    name: "Range Meta Data",
+    name: "Range Metadata",
     key: ["range", rangeKey, "metadata"],
     queryFn: async ({ client }) => {
       const kv = client.ranges.getKV(rangeKey);
@@ -191,7 +190,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
         return;
       }
       const split = path.split(".").slice(0, -1).join(".");
-      const pair = deep.get<kv.Pair>(values, split, { optional: true });
+      const pair = deep.get<kv.Pair<string>>(values, split, { optional: true });
       if (pair == null || pair.key === "") return;
       if (path.includes("key")) await kv.delete(prev as string);
       await kv.set(pair.key, pair.value);
@@ -202,7 +201,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
   return (
     <Align.Space direction="y">
       <Text.Text level="h4" shade={9} weight={450}>
-        Meta Data
+        Metadata
       </Text.Text>
       <Form.Form {...formCtx}>
         <List.List<string, kv.Pair> data={sorted}>

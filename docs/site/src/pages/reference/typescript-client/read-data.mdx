@@ -31,16 +31,13 @@ const end = new Date("2022-02-12T14:30:00Z");
 const series = await channel.read(start, end);
 ```
 
-The returned data is a `MultiSeries`, which maintains a very similar interface
-to a JavaScript typed array (e.g. `Float32Array`, `Int32Array`, etc.). We can
-convert the returned data to a JavaScript array easily:
+The returned data is a [`MultiSeries`](series-and-frames#series), which maintains a very
+similar interface to a JavaScript typed array (e.g. `Float32Array`, `Int32Array`, etc.).
+We can convert the returned data to a JavaScript array easily:
 
 ```typescript
 const data = Array.from(series);
 ```
-
-For more information on `MultiSeries` and their underlying `Series` object, see
-[Series](series-and-frames#series).
 
 <Divider.Divider direction="x" />
 
@@ -57,15 +54,14 @@ const end = start.add(TimeStamp.seconds(10));
 const frame = await client.read({ start, end }, ["temperature", "humidity"]);
 ```
 
-The returned data is a `Frame` object, which contains a `MultiSeries` for each
-channel. To access the data for a specific channel, we can use the `get` method:
+The returned data is a [`Frame`](series-and-frames#frames) object, which contains a
+`MultiSeries` for each channel. To access the data for a specific channel, we can use
+the `get` method:
 
 ```typescript
 const temperature = frame.get("temperature");
 const humidity = frame.get("humidity");
 ```
-
-For more information on the `Frame` class, see [Frames](series-and-frames#frames).
 
 <Divider.Divider direction="x" />
 

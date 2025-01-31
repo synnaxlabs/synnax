@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Primitive,toArray } from "@synnaxlabs/x";
+import { type Primitive, toArray } from "@synnaxlabs/x";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 
@@ -84,7 +84,7 @@ export const analyzeParams = <
     variant,
     normalized: normal,
     actual: args,
-  } as unknown as ParamAnalysisResult<T, K>;
+  } as ParamAnalysisResult<T, K>;
 };
 
 export const checkForMultipleOrNoResults = <T, R>(

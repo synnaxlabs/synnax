@@ -30,16 +30,11 @@
     "macOS": {
       "entitlements": null,
       "frameworks": [],
-      "providerShortName": null,
-      "signingIdentity": null
+      "providerShortName": null
     },
     "resources": [],
     "shortDescription": "",
-    "linux": {
-      "deb": {
-        "depends": []
-      }
-    }
+    "linux": { "deb": { "depends": [] } }
   },
   "identifier": "com.synnaxlabs.dev",
   "plugins": {
@@ -49,12 +44,7 @@
         "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.json"
       ]
     },
-    "deep-link": {
-      "mobile": [],
-      "desktop": {
-        "schemes": ["synnax"]
-      }
-    }
+    "deep-link": { "mobile": [], "desktop": { "schemes": ["synnax"] } }
   },
   "app": {
     "windows": [
@@ -74,8 +64,6 @@
         "dragDropEnabled": false
       }
     ],
-    "security": {
-      "csp": null
-    }
+    "security": { "csp": null }
   }
 }

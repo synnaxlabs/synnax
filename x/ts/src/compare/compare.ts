@@ -99,8 +99,8 @@ export const uniqueUnorderedPrimitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
   b: readonly T[] | T[],
 ): number => {
-  const uniqueA = unique(a);
-  const uniqueB = unique(b);
+  const uniqueA = unique.unique(a);
+  const uniqueB = unique.unique(b);
   return unorderedPrimitiveArrays(uniqueA, uniqueB);
 };
 

@@ -12,7 +12,7 @@ import numpy as np
 import synnax as sy
 
 
-from common import (
+from examples.control.tpc.common import (
     SENSORS,
     VALVES,
     PTS,

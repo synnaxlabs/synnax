@@ -47,7 +47,7 @@ const SelectionUtilContext = createContext<SelectUtilContextValue>({
 });
 
 export const useSelectionContext = <K extends Key = Key>(): SelectContextValue<K> =>
-  useContext(SelectionContext) as unknown as SelectContextValue<K>;
+  useContext(SelectionContext) as SelectContextValue<K>;
 
 export const useSelection = <K extends Key = Key>(): K[] =>
   useSelectionContext<K>().selected;
@@ -90,7 +90,7 @@ const Base = memo(
       <SelectionUtilContext.Provider
         value={utilCtxValue as unknown as SelectUtilContextValue}
       >
-        <SelectionContext.Provider value={ctxValue as unknown as SelectContextValue}>
+        <SelectionContext.Provider value={ctxValue}>
           {children}
         </SelectionContext.Provider>
       </SelectionUtilContext.Provider>

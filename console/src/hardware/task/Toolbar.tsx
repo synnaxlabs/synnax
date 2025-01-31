@@ -69,8 +69,8 @@ const Content = (): ReactElement => {
   const client = Synnax.use();
   const [tasks, setTasks] = useState<task.Task[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const handleException = Status.useExceptionHandler();
   const handleRename = useMutation<void, Error, MutationVars, string>({
-    mutationKey: ["renameTask"],
     onMutate: ({ name, key }) => {
       const oldTask = tasks.find((t) => t.key === key);
       const oldName = oldTask?.name;
@@ -108,11 +108,7 @@ const Content = (): ReactElement => {
           return [...prev];
         });
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: `Failed to rename ${oldName ?? "task"} to ${name}`,
-        description: e.message,
-      });
+      handleException(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
     },
   }).mutate;
   const [desiredStates, setDesiredStates] = useState<
@@ -229,11 +225,7 @@ const Content = (): ReactElement => {
     },
     onError: (e) => {
       if (errors.CANCELED.matches(e)) return;
-      addStatus({
-        variant: "error",
-        message: "Failed to delete tasks",
-        description: e.message,
-      });
+      handleException(e, "Failed to delete tasks");
     },
   });
   return (
@@ -333,12 +325,7 @@ const Content = (): ReactElement => {
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
           <Header.Actions>
-            {[
-              {
-                children: <Icon.Add />,
-                onClick: () => place(createSelector({})),
-              },
-            ]}
+            {[{ children: <Icon.Add />, onClick: () => place(createSelector({})) }]}
           </Header.Actions>
         </ToolbarHeader>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
@@ -412,7 +399,7 @@ const TaskListItem = ({
         direction="y"
         size="small"
         grow
-        className={CSS.BE("task", "meta-data")}
+        className={CSS.BE("task", "metadata")}
       >
         <Align.Space direction="x" align="center" size="small">
           <Status.Circle

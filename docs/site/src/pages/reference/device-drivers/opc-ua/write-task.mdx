@@ -64,9 +64,9 @@ the state channel.
 State channels are typically suffixed with `_state`. A state channel maintains the same
 format as its corresponding command channel, but suffixed with `_state` instead of `_cmd`.
 
-As an example, to configure a valve in the [console schematic](/reference/console/schematics)
-to write to a digital output, you would set the `command` field to the command channel
-of the digital output and the `state` field to the state channel of the digital output.
+As an example, to configure a valve in a [schematic](/reference/console/schematics) to
+write to a digital output, you would set the `command` field to the command channel of
+the digital output and the `state` field to the state channel of the digital output.
 Clicking the valve would send a command to the digital output, and the valve would turn
 solid or transparent based on the state channel.
 
@@ -92,9 +92,9 @@ you'd like to create the task for, right-click on it, and select "Create a Write
 
 ### From the Command Palette
 
-To create a write task from the command palette, open the Synnax Console and
-click on the Quick Search & Command Palette at the top. You can also open this palette with
-`Ctrl+Shift+P` on Windows/Linux and `Cmd+Shift+P` on macOS.
+To create a write task from the command palette, open the Synnax Console and click on
+the Quick Search & Command Palette at the top. You can also open this palette with
+`Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type
 "OPC UA". You'll see an option called "Create a New Write Task". Select this
@@ -181,5 +181,5 @@ read back states of the nodes you are writing to.
 
 ## Using a Schematic to Control Write Tasks
 
-Once the necessary tasks are configured, you can use the [console schematic](/reference/console/schematics)
-to write commands to the OPC UA server.
+Once the necessary tasks are configured, you can use a
+[schematic](/reference/console/schematics) to write commands to the OPC UA server.

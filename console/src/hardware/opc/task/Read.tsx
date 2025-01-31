@@ -9,7 +9,13 @@
 
 import "@/hardware/opc/task/Task.css";
 
-import { type channel, DataType, type device, NotFoundError } from "@synnaxlabs/client";
+import {
+  type channel,
+  DataType,
+  type device,
+  NotFoundError,
+  task as clientTask,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -88,7 +94,7 @@ const Wrapped = ({
   task,
 }: WrappedTaskLayoutProps<Read, ReadPayload>): ReactElement => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const methods = Form.use({ schema, values: initialValues });
   const dev = useDevice<Device.Properties>(methods);
   const taskState = useObserveState<ReadStateDetails>(
@@ -103,7 +109,6 @@ const Wrapped = ({
   const [desiredState, setDesiredState] = useDesiredState(initialState, task?.key);
   const createTask = useCreate<ReadConfig, ReadStateDetails, ReadType>(layoutKey);
   const configure = useMutation<void>({
-    mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) throw new Error("Client not available");
       if (!methods.validate()) return;
@@ -253,16 +258,10 @@ const Wrapped = ({
       createTask({ key: task?.key, name, type: READ_TYPE, config });
       setDesiredState("paused");
     },
-    onError: (e) =>
-      addStatus({
-        variant: "error",
-        message: "Failed to configure task",
-        description: e.message,
-      }),
+    onError: (e) => handleException(e, `Failed to configure task`),
   });
 
   const start = useMutation({
-    mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (task == null) return;
       const isRunning = running === true;
@@ -273,7 +272,7 @@ const Wrapped = ({
 
   const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
 
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
 
   const name = task?.name;
   const key = task?.key;
@@ -298,7 +297,9 @@ const Wrapped = ({
                 tooltip={<Text.Text level="small">Copy Link</Text.Text>}
                 tooltipLocation="left"
                 variant="text"
-                onClick={() => handleLink({ name, ontologyID: { key, type: "task" } })}
+                onClick={() =>
+                  handleLink({ name, ontologyID: clientTask.ontologyID(key) })
+                }
               >
                 <Icon.Link />
               </Button.Icon>
@@ -323,7 +324,7 @@ const Wrapped = ({
                       </Text.Text>
                       <Text.Link
                         level="p"
-                        onClick={() => placer(createConfigureLayout())}
+                        onClick={() => place(createConfigureLayout())}
                       >
                         Connect a new server.
                       </Text.Link>

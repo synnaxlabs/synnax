@@ -391,7 +391,7 @@ export const Context = createContext<ContextValue>({
   reset: () => {},
   remove: () => {},
   get: <V extends any = unknown>(): FieldState<V> => ({
-    value: undefined as unknown as V,
+    value: undefined as V,
     status: { key: "", variant: "success", message: "" },
     touched: false,
     required: false,

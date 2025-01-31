@@ -9,7 +9,7 @@
 
 import "@/hardware/task/common/common.css";
 
-import { ontology, type task, UnexpectedError } from "@synnaxlabs/client";
+import { type ontology, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -300,14 +300,7 @@ export const ChannelListHeader = ({ onAdd, snapshot }: ChannelListHeaderProps) =
     <Header.Title weight={500}>Channels</Header.Title>
     {!snapshot && (
       <Header.Actions>
-        {[
-          {
-            key: "add",
-            onClick: onAdd,
-            children: <Icon.Add />,
-            size: "large",
-          },
-        ]}
+        {[{ key: "add", onClick: onAdd, children: <Icon.Add />, size: "large" }]}
       </Header.Actions>
     )}
   </Header.Header>
@@ -455,9 +448,9 @@ export const ParentRangeButton = ({
   taskKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const client = Synnax.use();
-  const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   const [parent, setParent] = useState<ontology.Resource | null>();
-  const placer = Layout.usePlacer();
+  const place = Layout.usePlacer();
 
   useAsyncEffect(async () => {
     try {
@@ -466,7 +459,7 @@ export const ParentRangeButton = ({
       const parent = await tsk.snapshottedTo();
       if (parent != null) setParent(parent);
       const tracker = await client.ontology.openDependentTracker({
-        target: new ontology.ID({ key: taskKey, type: "task" }),
+        target: task.ontologyID(taskKey),
         dependents: parent == null ? [] : [parent],
         relationshipDirection: "to",
       });
@@ -476,11 +469,7 @@ export const ParentRangeButton = ({
       });
       return async () => await tracker.close();
     } catch (e) {
-      addStatus({
-        variant: "error",
-        message: `Failed to retrieve child ranges`,
-        description: (e as Error).message,
-      });
+      handleException(e, "Failed to retrieve child ranges");
       return undefined;
     }
   }, [taskKey, client?.key]);
@@ -496,7 +485,7 @@ export const ParentRangeButton = ({
         iconSpacing="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          placer({ ...overviewLayout, key: parent.id.key, name: parent.name })
+          place({ ...overviewLayout, key: parent.id.key, name: parent.name })
         }
       >
         {parent.name}

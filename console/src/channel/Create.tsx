@@ -31,7 +31,7 @@ export const CREATE_LAYOUT_TYPE = "createChannel";
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
-export const createLayout: Layout.State = {
+export const CREATE_LAYOUT: Layout.State = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
   windowKey: CREATE_LAYOUT_TYPE,
@@ -46,27 +46,31 @@ export const createLayout: Layout.State = {
   },
 };
 
-const schema = channel.newPayload
-  .extend({
-    name: z.string().min(1, "Name must not be empty"),
-    dataType: DataType.z.transform((v) => v.toString()),
-  })
-  .refine((v) => !v.isIndex || new DataType(v.dataType).equals(DataType.TIMESTAMP), {
-    message: "Index channel must have data type TIMESTAMP",
-    path: ["dataType"],
-  })
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
-    message: "Data channel must have an index",
-    path: ["index"],
-  })
-  .refine((v) => v.virtual || !new DataType(v.dataType).isVariable, {
-    message: "Persisted channels must have a fixed-size data type",
-    path: ["dataType"],
-  });
+export const createFormValidator = (v: z.ZodSchema) =>
+  v
+    .refine((v) => !v.isIndex || new DataType(v.dataType).equals(DataType.TIMESTAMP), {
+      message: "Index channel must have data type TIMESTAMP",
+      path: ["dataType"],
+    })
+    .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
+      message: "Data channel must have an index",
+      path: ["index"],
+    })
+    .refine((v) => v.virtual || !new DataType(v.dataType).isVariable, {
+      message: "Persisted channels must have a fixed-size data type",
+      path: ["dataType"],
+    });
 
-type Schema = typeof schema;
+export const baseFormSchema = channel.newPayload.extend({
+  name: z.string().min(1, "Name must not be empty"),
+  dataType: DataType.z.transform((v) => v.toString()),
+});
 
-const ZERO_CHANNEL: z.infer<Schema> = {
+const createFormSchema = createFormValidator(baseFormSchema);
+
+type Schema = typeof createFormSchema;
+
+export const ZERO_CHANNEL: z.infer<Schema> = {
   key: 0,
   name: "",
   index: 0,
@@ -76,11 +80,16 @@ const ZERO_CHANNEL: z.infer<Schema> = {
   leaseholder: 0,
   rate: Rate.hz(0),
   virtual: false,
+  expression: "",
+  requires: [],
 };
 
 export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
   const client = Synnax.use();
-  const methods = Form.use<Schema>({ schema, values: { ...ZERO_CHANNEL } });
+  const methods = Form.use<Schema>({
+    schema: createFormSchema,
+    values: { ...ZERO_CHANNEL },
+  });
   const [createMore, setCreateMore] = useState(false);
 
   const { mutate, isPending } = useMutation({
@@ -146,8 +155,8 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
                 if (ctx.get("index").value !== 0) ctx.set("index", 0);
               }}
             />
-            <Form.Field<DataType> path="dataType" label="Data Type" grow>
-              {(p) => (
+            <Form.Field<string> path="dataType" label="Data Type" grow>
+              {({ variant: _, ...p }) => (
                 <Select.DataType
                   {...p}
                   disabled={isIndex}
@@ -161,7 +170,6 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
           <Form.Field<channel.Key> path="index" label="Index">
             {(p) => (
               <Channel.SelectSingle
-                client={client}
                 placeholder="Select Index"
                 searchOptions={{ isIndex: true }}
                 disabled={isIndex || isVirtual}
@@ -194,7 +202,7 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
             onClick={() => mutate(createMore)}
             triggers={[SAVE_TRIGGER]}
           >
-            Create Channel
+            Create
           </Button.Button>
         </Nav.Bar.End>
       </Layout.BottomNavBar>

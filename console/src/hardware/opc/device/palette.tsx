@@ -13,7 +13,7 @@ import { Icon as PIcon } from "@synnaxlabs/pluto";
 import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import { type Palette } from "@/palette";
 
-const connectServerCommand: Palette.Command = {
+const CONNECT_SERVER_COMMAND: Palette.Command = {
   key: "opc-connect-server",
   name: "Connect an OPC UA Server",
   icon: (
@@ -24,4 +24,4 @@ const connectServerCommand: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(createConfigureLayout()),
 };
 
-export const COMMANDS: Palette.Command[] = [connectServerCommand];
+export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];

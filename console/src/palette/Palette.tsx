@@ -9,18 +9,17 @@
 
 import "@/palette/Palette.css";
 
-import { ontology, type Synnax } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   componentRenderProp,
   Dropdown,
-  type Icon as PIcon,
   Input,
   List,
   Status,
-  Synnax as PSynnax,
+  Synnax,
   Text,
   Tooltip,
   Triggers,
@@ -36,15 +35,19 @@ import {
 import { useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
-import { type CreateConfirmModal } from "@/confirm/Confirm";
 import { CSS } from "@/css";
+import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
-import { type Service } from "@/ontology/service";
+import {
+  type Command,
+  CommandListItem,
+  type CommandSelectionContext,
+} from "@/palette/command";
+import { createResourceListItem } from "@/palette/resource";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
-import { type Permissions } from "@/permissions";
-import { type RootState, type RootStore } from "@/store";
+import { type RootAction, type RootState } from "@/store";
 
 export interface PaletteProps {
   commands: Command[];
@@ -67,10 +70,7 @@ export const Palette = ({
   const [value, setValue] = useState("");
   const store = useStore<RootState>();
 
-  const newCommands = commands.filter((c) => {
-    if (c.visible == null) return true;
-    return c.visible(store.getState());
-  });
+  const newCommands = commands.filter((c) => c.visible?.(store.getState()) ?? true);
 
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
@@ -113,13 +113,12 @@ export const Palette = ({
           >
             Quick Search & Command
           </Button.Button>
-          <PaletteDialogContent
+          <PaletteDialog
             value={value}
             onChange={setValue}
             commands={newCommands}
             services={services}
             commandSymbol={commandSymbol}
-            resourceTypes={services}
             close={dropdown.close}
           />
         </Dropdown.Dialog>
@@ -128,31 +127,25 @@ export const Palette = ({
   );
 };
 
-export interface PaletteListProps {
+interface PaletteListProps {
   mode: Mode;
-  resourceTypes: Ontology.Services;
+  services: Ontology.Services;
   commandSelectionContext: CommandSelectionContext;
 }
 
 const PaletteList = ({
   mode,
-  resourceTypes,
+  services,
   commandSelectionContext,
 }: PaletteListProps): ReactElement => {
   const item = useMemo(() => {
     const Item = (
-      mode === "command"
-        ? createCommandListItem(commandSelectionContext)
-        : createResourceListItem(resourceTypes)
+      mode === "command" ? CommandListItem : createResourceListItem(services)
     ) as FC<List.ItemProps<string, ontology.Resource | Command>>;
     return componentRenderProp(Item);
-  }, [commandSelectionContext, mode, resourceTypes]);
+  }, [commandSelectionContext, mode, services]);
   return (
-    <List.Core
-      className={CSS.BE("palette", "list")}
-      itemHeight={27}
-      style={{ flexGrow: 1 }}
-    >
+    <List.Core className={CSS.BE("palette", "list")} itemHeight={27} grow>
       {item}
     </List.Core>
   );
@@ -161,12 +154,11 @@ const PaletteList = ({
 export interface PaletteDialogProps extends Input.Control<string> {
   services: Ontology.Services;
   commandSymbol: string;
-  resourceTypes: Record<string, Service>;
   commands: Command[];
   close: () => void;
 }
 
-const PaletteDialogContent = ({
+const PaletteDialog = ({
   value,
   onChange,
   commands,
@@ -176,8 +168,9 @@ const PaletteDialogContent = ({
 }: PaletteDialogProps): ReactElement => {
   const { setSourceData } = List.useDataUtilContext<Key, Entry>();
   const addStatus = Status.useAggregator();
-  const client = PSynnax.use();
-  const store = useStore() as RootStore;
+  const handleException = Status.useExceptionHandler();
+  const client = Synnax.use();
+  const store = useStore<RootState, RootAction>();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
 
@@ -188,42 +181,56 @@ const PaletteDialogContent = ({
   const confirm = Confirm.useModal();
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
-    () => ({ store, placeLayout, confirm, client, addStatus }),
-    [store, placeLayout, client?.key, addStatus],
+    () => ({
+      store,
+      placeLayout,
+      confirm,
+      client,
+      addStatus,
+      handleException,
+      ingestors: INGESTORS,
+    }),
+    [store, placeLayout, confirm, client, addStatus, handleException],
   );
 
   const handleSelect = useCallback(
     (key: Key, { entries }: List.UseSelectOnChangeExtra<Key, Entry>) => {
       close();
       if (mode === "command") {
-        const entry = entries[0];
-        (entry as Command).onSelect(cmdSelectCtx);
-      } else {
-        if (client == null) return;
-        const id = new ontology.ID(key);
-        const t = services[id.type];
-        t?.onSelect({
-          services,
-          store,
-          addStatus,
-          placeLayout,
-          removeLayout,
-          client,
-          selection: entries as ontology.Resource[],
-        });
+        (entries[0] as Command).onSelect(cmdSelectCtx);
+        return;
       }
+      if (client == null) return;
+      const id = new ontology.ID(key);
+      const t = services[id.type];
+      t.onSelect?.({
+        services,
+        store,
+        addStatus,
+        placeLayout,
+        removeLayout,
+        handleException,
+        client,
+        selection: entries as ontology.Resource[],
+      });
     },
-    [mode, commands, close, client, services, addStatus],
+    [
+      close,
+      mode,
+      client,
+      services,
+      store,
+      addStatus,
+      placeLayout,
+      removeLayout,
+      handleException,
+    ],
   );
 
   const { value: searchValue, onChange: onSearchChange } = List.useSearch<
     string,
     ontology.Resource
-  >({
-    value,
-    onChange,
-    searcher: client?.ontology,
-  });
+  >({ value, onChange, searcher: client?.ontology });
 
   const { value: filterValue, onChange: onFilterChange } = List.useFilter({
     value,
@@ -233,11 +240,10 @@ const PaletteDialogContent = ({
 
   const handleChange = useCallback(
     (value: string) => {
-      const mode = value.startsWith(commandSymbol) ? "command" : "resource";
       if (mode === "command") onFilterChange(value);
       else onSearchChange(value);
     },
-    [commandSymbol, searchValue, onFilterChange, onChange],
+    [mode, onFilterChange, onSearchChange],
   );
 
   const actualValue = mode === "command" ? filterValue : searchValue;
@@ -253,8 +259,8 @@ const PaletteDialogContent = ({
           <Input.Text
             className={CSS(CSS.BE("palette", "input"))}
             placeholder={
-              <Text.WithIcon level="h3" startIcon={<Icon.Search key="hello" />}>
-                Type to search or {">"} to view commands
+              <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
+                Type to search or {commandSymbol} to view commands
               </Text.WithIcon>
             }
             size="huge"
@@ -265,7 +271,7 @@ const PaletteDialogContent = ({
           />
           <PaletteList
             mode={mode}
-            resourceTypes={services}
+            services={services}
             commandSelectionContext={cmdSelectCtx}
           />
         </Align.Pack>
@@ -273,112 +279,3 @@ const PaletteDialogContent = ({
     </List.Selector>
   );
 };
-
-const CommandAction = ({
-  name,
-  trigger: keyboardShortcut,
-}: CommandActionProps & { ctx: CommandSelectionContext }): ReactElement => (
-  <Align.Pack direction="x" className={CSS.BE("palette", "action")}>
-    <Text.Keyboard
-      level="small"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "0 1.5rem",
-      }}
-      shade={7}
-    >
-      {Triggers.toSymbols(keyboardShortcut)}
-    </Text.Keyboard>
-    <Button.Button variant="outlined" size="small" shade={7}>
-      {name}
-    </Button.Button>
-  </Align.Pack>
-);
-
-const createCommandListItem = (
-  ctx: CommandSelectionContext,
-): FC<List.ItemProps<string, Command>> => {
-  const CommandListItem = (props: List.ItemProps<string, Command>): ReactElement => {
-    const {
-      entry: { icon, name, actions },
-    } = props;
-    return (
-      <List.ItemFrame
-        highlightHovered
-        style={{ height: "6.5rem" }}
-        justify="spaceBetween"
-        align="center"
-        {...props}
-      >
-        <Text.WithIcon startIcon={icon} level="p" weight={400} shade={9} size="medium">
-          {name}
-        </Text.WithIcon>
-        <Align.Space direction="x" className={CSS.BE("palette", "actions")}>
-          {actions != null &&
-            actions.map((action, i) => <CommandAction key={i} {...action} ctx={ctx} />)}
-        </Align.Space>
-      </List.ItemFrame>
-    );
-  };
-  return CommandListItem;
-};
-
-type OntologyListItemProps = List.ItemProps<string, ontology.Resource>;
-
-export const createResourceListItem = (
-  resourceTypes: Ontology.Services,
-): FC<OntologyListItemProps> => {
-  const ResourceListItem = (props: OntologyListItemProps): ReactElement | null => {
-    const {
-      entry: { name, id },
-    } = props;
-    if (id == null) return null;
-    const resourceType = resourceTypes[id.type];
-    const PI = resourceType?.PaletteListItem;
-    if (PI != null) return <PI {...props} />;
-    return (
-      <List.ItemFrame style={{ padding: "1.5rem" }} highlightHovered {...props}>
-        <Text.WithIcon
-          startIcon={resourceType?.icon}
-          level="p"
-          weight={450}
-          shade={9}
-          size="medium"
-        >
-          {name}
-        </Text.WithIcon>
-      </List.ItemFrame>
-    );
-  };
-  ResourceListItem.displayName = "ResourceListItem";
-  return ResourceListItem;
-};
-
-export interface ResourceListItemProps
-  extends List.ItemProps<string, ontology.Resource> {
-  store: RootStore;
-}
-
-export interface CommandSelectionContext {
-  store: RootStore;
-  client: Synnax | null;
-  placeLayout: Layout.Placer;
-  confirm: CreateConfirmModal;
-  addStatus: Status.AddStatusFn;
-}
-
-interface CommandActionProps {
-  name: string;
-  trigger: Triggers.Trigger;
-  onClick: (ctx: CommandSelectionContext) => void;
-}
-
-export interface Command {
-  key: string;
-  name: ReactElement | string;
-  icon?: ReactElement<PIcon.BaseProps>;
-  visible?: (state: Permissions.StoreState) => boolean;
-  onSelect: (ctx: CommandSelectionContext) => void;
-  actions?: CommandActionProps[];
-}

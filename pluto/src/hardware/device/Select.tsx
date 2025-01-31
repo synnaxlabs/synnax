@@ -16,14 +16,8 @@ import { Select } from "@/select";
 import { Synnax } from "@/synnax";
 
 const deviceColumns: Array<List.ColumnSpec<device.DeviceKey, device.Device>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
-  {
-    key: "location",
-    name: "Location",
-  },
+  { key: "name", name: "Name" },
+  { key: "location", name: "Location" },
 ];
 
 export interface SelectSingleProps
