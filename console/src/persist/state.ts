@@ -19,7 +19,7 @@ export const PERSISTED_STATE_KEY = "console-persisted-state";
 export const DB_VERSION_KEY = "console-version";
 
 // Note that these are relative paths related to the tauri standard app data directory.
-// On MacOS, this is ~/Library/Application Support/com.synnaxlabs.dev.
+// On macOS, this is ~/Library/Application Support/com.synnaxlabs.dev.
 // On Windows, this is %APPDATA%/com.synnaxlabs.dev.
 export const V1_STORE_PATH = "~/.synnax/console/persisted-state.dat";
 export const V2_STORE_PATH = "persisted-state.json";

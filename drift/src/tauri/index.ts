@@ -54,8 +54,8 @@ const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 //  Prevent the user or a programming error from creating a tiny window.
 const MIN_DIM = 250;
 
-// On MacOS, we need to poll for fullscreen changes, as tauri doesn't provide an
-// event for it. This is the interval at which we poll.
+// On macOS, we need to poll for fullscreen changes, as tauri doesn't provide an event
+// for it. This is the interval at which we poll.
 const MACOS_FULLSCREEN_POLL_INTERVAL = TimeSpan.seconds(1);
 
 const clampDims = (dims?: dimensions.Dimensions): dimensions.Dimensions | undefined => {
@@ -112,7 +112,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async configure(): Promise<void> {
-    // We only need to poll for fullscreen on MacOS, as tauri doesn't provide an
+    // We only need to poll for fullscreen on macOS, as tauri doesn't provide an
     // emitted event for fullscreen changes.
     await this.startFullscreenPoll();
   }

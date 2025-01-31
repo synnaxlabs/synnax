@@ -47,8 +47,9 @@ http_archive(
 
 # |||||||| THIS SECTION SHOULD BE COMMENTED IN FOR MACOS BUILDS ||||||||
 
-# These two dependencies override the versions of the default deps loaded by rules_proto_grpc.
-# For some reason symlinks fail on MacOS with the default versions, so we need to override them.
+# These two dependencies override the versions of the default deps loaded by
+# rules_proto_grpc. For some reason symlinks fail on macOS with the default versions, so
+# we need to override them.
 
 #http_archive(
 #    name = "com_google_protobuf",

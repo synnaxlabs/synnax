@@ -10,7 +10,7 @@
 # included in the file licenses/APL.txt.
 #
 
-# This is a script to kill any dangling tauri dev processes on macos. Hopefully tauri
+# This is a script to kill any dangling tauri dev processes on macOS. Hopefully tauri
 # fixes these issues in the future.
 
 set -o localoptions -o localtraps
