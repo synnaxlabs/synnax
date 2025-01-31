@@ -15,10 +15,7 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-export const annotationStateZ = z.object({
-  start: TimeStamp.z,
-  end: TimeStamp.z,
-});
+export const annotationStateZ = z.object({ start: TimeStamp.z, end: TimeStamp.z });
 
 interface InternalState {
   render: render.Context;

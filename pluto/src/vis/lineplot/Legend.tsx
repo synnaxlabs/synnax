@@ -35,12 +35,7 @@ const Fixed = ({ onLineChange }: LegendProps) => {
   const { lines } = useContext("Legend");
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
-    {
-      key,
-      size: lines.length > 0 ? 36 : 0,
-      loc: "top",
-      order: 5,
-    },
+    { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
     "Legend",
   );
 

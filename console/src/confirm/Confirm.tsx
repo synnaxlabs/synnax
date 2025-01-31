@@ -8,56 +8,41 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 import { Align, Button, Nav, type Status, Text, Triggers } from "@synnaxlabs/pluto";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { selectArgs } from "@/layout/selectors";
-import { type RootState } from "@/store";
 
-interface ConfirmLayoutArgs {
+export interface LayoutArgs {
   message: string;
   description: string;
-  confirm?: {
-    variant?: Status.Variant;
-    label?: string;
-  };
-  cancel?: {
-    variant?: Status.Variant;
-    label?: string;
-  };
+  confirm?: { variant?: Status.Variant; label?: string };
+  cancel?: { variant?: Status.Variant; label?: string };
   result?: boolean;
 }
 
 export const LAYOUT_TYPE = "confirm";
 
-type LayoutOverrides = Omit<Partial<Layout.State>, "key" | "type">;
+export interface LayoutOverrides extends Omit<Partial<Layout.State>, "key" | "type"> {}
 
 export const configureLayout = (
-  args: ConfirmLayoutArgs,
+  args: LayoutArgs,
   layoutOverrides?: LayoutOverrides,
-): Layout.State<ConfirmLayoutArgs> => ({
+): Layout.State<LayoutArgs> => ({
   name: "Confirm",
   type: LAYOUT_TYPE,
   key: LAYOUT_TYPE,
   windowKey: LAYOUT_TYPE,
   location: "modal",
-  window: {
-    resizable: false,
-    size: { height: 250, width: 700 },
-    navTop: true,
-  },
+  window: { resizable: false, size: { height: 250, width: 700 }, navTop: true },
   ...layoutOverrides,
-  args: {
-    ...args,
-    result: undefined,
-  },
+  args: { ...args, result: undefined },
 });
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const Confirm: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const args = Layout.useSelectArgs<ConfirmLayoutArgs>(layoutKey);
+  const args = Layout.useSelectArgs<LayoutArgs>(layoutKey);
   const { message, description, confirm, cancel } = args;
   const { variant: confirmVariant = "error", label: confirmLabel = "Confirm" } =
     confirm ?? {};
@@ -65,7 +50,7 @@ export const Confirm: Layout.Renderer = ({ layoutKey, onClose }) => {
   const dispatch = useDispatch();
   const handleResult = (value: boolean) => {
     dispatch(
-      Layout.setArgs<ConfirmLayoutArgs>({
+      Layout.setArgs<LayoutArgs>({
         key: layoutKey,
         args: { ...args, result: value },
       }),
@@ -115,34 +100,4 @@ export const Confirm: Layout.Renderer = ({ layoutKey, onClose }) => {
       </Layout.BottomNavBar>
     </Align.Space>
   );
-};
-
-export type CreateConfirmModal = (
-  args: ConfirmLayoutArgs,
-  layoutOverrides?: LayoutOverrides,
-) => Promise<boolean>;
-
-export const useModal = (): CreateConfirmModal => {
-  const place = Layout.usePlacer();
-  const store = useStore<RootState>();
-  return async (args, layoutOverrides) => {
-    let unsubscribe: ReturnType<typeof store.subscribe> | null = null;
-    return await new Promise((resolve) => {
-      const layout = configureLayout(args, layoutOverrides);
-      place(layout);
-      unsubscribe = store.subscribe(() => {
-        const l = Layout.select(store.getState(), layout.key);
-        if (l == null) resolve(false);
-        const args = selectArgs<ConfirmLayoutArgs>(store.getState(), layout.key);
-        // This means the action was unrelated to the confirmation.
-        if (args != null && args.result == null) return;
-        // This means that the layout was removed by a separate mechanism than
-        // the user hitting 'Confirm' or 'Cancel'. We treat this as a cancellation.
-        if (args == null) resolve(false);
-        // Resolve with the standard result.
-        else resolve(args.result as boolean);
-        unsubscribe?.();
-      });
-    });
-  };
 };

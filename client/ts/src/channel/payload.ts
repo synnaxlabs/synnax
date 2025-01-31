@@ -33,7 +33,7 @@ export const payload = z.object({
   internal: z.boolean(),
   virtual: z.boolean(),
   alias: z.string().optional(),
-  expression: z.string(),
+  expression: z.string().default(""),
   requires: nullableArrayZ(keyZ),
 });
 

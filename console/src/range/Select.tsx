@@ -34,11 +34,7 @@ const dynamicIcon = (
 );
 
 const listColumns: Array<List.ColumnSpec<string, Range>> = [
-  {
-    key: "name",
-    name: "Name",
-    weight: 450,
-  },
+  { key: "name", name: "Name", weight: 450 },
   {
     key: "start",
     name: "Start",

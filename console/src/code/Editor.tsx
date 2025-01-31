@@ -35,10 +35,7 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
       base: isDark ? "vs-dark" : "vs",
       inherit: true,
       rules: [
-        {
-          foreground: "#cc255f",
-          token: "keyword",
-        },
+        { foreground: "#cc255f", token: "keyword" },
         {
           token: "delimiter.bracket",
           foreground: theme.colors.gray.l9.hex,

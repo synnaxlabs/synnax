@@ -144,7 +144,7 @@ const CreateLayoutForm = ({
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
-    (data: ranger.Range[]) => data.filter((r) => r.key !== initialValues.key),
+    (data: ranger.Payload[]) => data.filter((r) => r.key !== initialValues.key),
     [initialValues.key],
   );
 
@@ -185,7 +185,7 @@ const CreateLayoutForm = ({
                   style={{ width: "fit-content" }}
                   zIndex={100}
                   filter={recursiveParentFilter}
-                  entryRenderKey={(e: ranger.Range) => (
+                  entryRenderKey={(e) => (
                     <Text.WithIcon
                       level="p"
                       shade={9}
@@ -212,10 +212,9 @@ const CreateLayoutForm = ({
                 />
               )}
             </Form.Field>
-            <Form.Field<string> path="labels" required={false}>
-              {(p) => (
+            <Form.Field<string[]> path="labels" required={false}>
+              {({ variant, ...p }) => (
                 <Label.SelectMultiple
-                  searcher={client?.labels}
                   entryRenderKey="name"
                   dropdownVariant="floating"
                   zIndex={100}

@@ -30,12 +30,8 @@ export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <></>,
   hasChildren: true,
   canDrop: () => false,
-  onMosaicDrop: () => {},
-  TreeContextMenu: () => <></>,
-  onSelect: () => {},
   haulItems: () => [],
   allowRename: () => false,
-  onRename: undefined,
 };
 
 export const SERVICES: Ontology.Services = {

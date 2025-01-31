@@ -25,12 +25,7 @@ describe("telem", () => {
           { from: "avg", to: "bool" },
         ],
         outlet: "bool",
-        segments: {
-          s1,
-          s2,
-          avg,
-          bool,
-        },
+        segments: { s1, s2, avg, bool },
       },
       telem.newFactory(),
     );

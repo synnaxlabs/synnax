@@ -33,14 +33,8 @@ describe("Nav", () => {
   describe("Nav.Drawer", () => {
     it("should show the correct item", () => {
       const items: Nav.DrawerItem[] = [
-        {
-          key: "1",
-          content: <h1>Item 1 Content</h1>,
-        },
-        {
-          key: "2",
-          content: <h1>Item 2 Content</h1>,
-        },
+        { key: "1", content: <h1>Item 1 Content</h1> },
+        { key: "2", content: <h1>Item 2 Content</h1> },
       ];
       const TestNavDrawer = (): ReactElement => {
         const props = Nav.useDrawer({ items, initialKey: "1" });

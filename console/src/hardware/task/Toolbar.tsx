@@ -325,12 +325,7 @@ const Content = (): ReactElement => {
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
           <Header.Actions>
-            {[
-              {
-                children: <Icon.Add />,
-                onClick: () => place(createSelector({})),
-              },
-            ]}
+            {[{ children: <Icon.Add />, onClick: () => place(createSelector({})) }]}
           </Header.Actions>
         </ToolbarHeader>
         <List.List data={tasks} emptyContent={<EmptyContent />}>

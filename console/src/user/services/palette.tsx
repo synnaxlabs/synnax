@@ -9,16 +9,15 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { type Command } from "@/palette/Palette";
-import { registerLayout } from "@/user/RegisterModal";
-import { selectHasPermission } from "@/user/selectors";
+import { type Palette } from "@/palette";
+import { User } from "@/user";
 
-export const registerUserCommand: Command = {
+const REGISTER_USER_COMMAND: Palette.Command = {
   icon: <Icon.User />,
   name: "Register a User",
   key: "register-user",
-  onSelect: ({ placeLayout }) => placeLayout(registerLayout({})),
-  visible: (state) => selectHasPermission(state),
+  onSelect: ({ placeLayout }) => placeLayout(User.registerLayout({})),
+  visible: (state) => User.selectHasPermission(state),
 };
 
-export const COMMANDS = [registerUserCommand];
+export const COMMANDS = [REGISTER_USER_COMMAND];

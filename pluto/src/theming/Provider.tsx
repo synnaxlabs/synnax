@@ -141,14 +141,8 @@ export const Provider = ({
     initialState: {
       theme: ret.theme,
       fontURLs: [
-        {
-          name: "Inter Variable",
-          url: interWoff,
-        },
-        {
-          name: "Geist Mono",
-          url: geistMono,
-        },
+        { name: "Inter Variable", url: interWoff },
+        { name: "Geist Mono", url: geistMono },
       ],
     },
   });

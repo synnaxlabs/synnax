@@ -9,14 +9,14 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createEditLayout } from "@/label/Edit";
-import { type Command } from "@/palette/Palette";
+import { Label } from "@/label";
+import { type Palette } from "@/palette";
 
-export const editCommand: Command = {
+const EDIT_COMMAND: Palette.Command = {
   key: "edit-labels",
   name: "Edit Labels",
   icon: <Icon.Label />,
-  onSelect: ({ placeLayout }) => placeLayout(createEditLayout()),
+  onSelect: ({ placeLayout }) => placeLayout(Label.createEditLayout()),
 };
 
-export const COMMANDS = [editCommand];
+export const COMMANDS = [EDIT_COMMAND];

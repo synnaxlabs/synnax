@@ -37,11 +37,7 @@ export const Measure = ({ aetherKey }: MeasureProps): ReactElement => {
     aetherKey: cKey,
     type: measure.Measure.TYPE,
     schema: measure.measureStateZ,
-    initialState: {
-      hover: null,
-      one: null,
-      two: null,
-    },
+    initialState: { hover: null, one: null, two: null },
   });
 
   const ref = useRef<HTMLSpanElement>(null);
@@ -81,10 +77,7 @@ export const Measure = ({ aetherKey }: MeasureProps): ReactElement => {
   );
 
   const handleLeave = useCallback((): void => {
-    setState((p) => ({
-      ...p,
-      hover: null,
-    }));
+    setState((p) => ({ ...p, hover: null }));
   }, [setState]);
 
   useEffect(() => {

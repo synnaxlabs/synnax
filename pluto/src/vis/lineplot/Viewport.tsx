@@ -47,12 +47,7 @@ export const Viewport = ({
     [onChange, setViewport],
   );
 
-  const maskProps = Core.use({
-    onChange: handleChange,
-    initial,
-    ref,
-    ...props,
-  });
+  const maskProps = Core.use({ onChange: handleChange, initial, ref, ...props });
 
   return (
     <Core.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>

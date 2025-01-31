@@ -1,13 +1,6 @@
 {
-  "cluster": {
-    "insecure": true,
-    "mem_fs": false
-  },
-  "setup": {
-    "index_channels": 10,
-    "data_channels": 40,
-    "client": "py"
-  },
+  "cluster": { "insecure": true, "mem_fs": false },
+  "setup": { "index_channels": 10, "data_channels": 40, "client": "py" },
   "steps": [
     [
       {
@@ -17,22 +10,11 @@
         "params": {
           "channel_groups": [
             {
-              "index_channels": [
-                "int0"
-              ],
-              "data_channels": [
-                "int0-0",
-                "int0-1",
-                "int0-2",
-                "int0-3"
-              ]
+              "index_channels": ["int0"],
+              "data_channels": ["int0-0", "int0-1", "int0-2", "int0-3"]
             },
             {
-              "index_channels": [
-                "int4",
-                "int7",
-                "int9"
-              ],
+              "index_channels": ["int4", "int7", "int9"],
               "data_channels": [
                 "int4-0",
                 "int4-1",
@@ -49,24 +31,14 @@
               ]
             },
             {
-              "index_channels": [
-                "int5"
-              ],
-              "data_channels": [
-                "int5-0",
-                "int5-1",
-                "int5-2",
-                "int5-3"
-              ]
+              "index_channels": ["int5"],
+              "data_channels": ["int5-0", "int5-1", "int5-2", "int5-3"]
             }
           ],
           "num_writers": 3,
           "domains": 1000,
           "samples_per_domain": 2000,
-          "time_range": {
-            "start": 0,
-            "end": 1000000000000000
-          },
+          "time_range": { "start": 0, "end": 1000000000000000 },
           "writer_mode": 1,
           "all_in_one_domain": true,
           "expected_error": "no_error"
@@ -79,10 +51,7 @@
         "params": {
           "channel_groups": [
             {
-              "index_channels": [
-                "int6",
-                "int8"
-              ],
+              "index_channels": ["int6", "int8"],
               "data_channels": [
                 "int6-0",
                 "int6-3",
@@ -98,10 +67,7 @@
           "num_writers": 1,
           "domains": 1000,
           "samples_per_domain": 2000,
-          "time_range": {
-            "start": 0,
-            "end": 1000000000000000
-          },
+          "time_range": { "start": 0, "end": 1000000000000000 },
           "writer_mode": 1,
           "all_in_one_domain": true,
           "expected_error": "no_error"
@@ -114,21 +80,11 @@
         "params": {
           "channel_groups": [
             {
-              "index_channels": [
-                "int1"
-              ],
-              "data_channels": [
-                "int1-0",
-                "int1-1",
-                "int1-2",
-                "int1-3"
-              ]
+              "index_channels": ["int1"],
+              "data_channels": ["int1-0", "int1-1", "int1-2", "int1-3"]
             },
             {
-              "index_channels": [
-                "int2",
-                "int3"
-              ],
+              "index_channels": ["int2", "int3"],
               "data_channels": [
                 "int2-0",
                 "int2-1",
@@ -144,10 +100,7 @@
           "num_writers": 2,
           "domains": 1000,
           "samples_per_domain": 2000,
-          "time_range": {
-            "start": 0,
-            "end": 1000000000000000
-          },
+          "time_range": { "start": 0, "end": 1000000000000000 },
           "writer_mode": 1,
           "expected_error": "no_error"
         }
@@ -159,39 +112,14 @@
         "params": {
           "num_iterators": 5,
           "channel_groups": [
-            [
-              "int7-0",
-              "int4-1",
-              "int4-2"
-            ],
-            [
-              "int6-0",
-              "int9"
-            ],
-            [
-              "int4-0",
-              "int7-1",
-              "int7-2",
-              "int7-3",
-              "int7"
-            ],
-            [
-              "int9-0",
-              "int9-1",
-              "int9-3",
-              "int9"
-            ],
-            [
-              "int5",
-              "int5-2",
-              "int5-3"
-            ]
+            ["int7-0", "int4-1", "int4-2"],
+            ["int6-0", "int9"],
+            ["int4-0", "int7-1", "int7-2", "int7-3", "int7"],
+            ["int9-0", "int9-1", "int9-3", "int9"],
+            ["int5", "int5-2", "int5-3"]
           ],
           "chunk_size": 100000,
-          "bounds": {
-            "start": 0,
-            "end": 1000000000000000
-          },
+          "bounds": { "start": 0, "end": 1000000000000000 },
           "expected_error": "no_error"
         }
       },
@@ -199,14 +127,7 @@
         "op": "stream",
         "client": "ts",
         "params": {
-          "channels": [
-            "int0",
-            "int3-1",
-            "int5-2",
-            "int7-3",
-            "int9-0",
-            "int4"
-          ],
+          "channels": ["int0", "int3-1", "int5-2", "int7-3", "int9-0", "int4"],
           "samples_expected": 12000000,
           "expected_error": "no_error"
         }
@@ -215,12 +136,7 @@
         "op": "stream",
         "client": "py",
         "params": {
-          "channels": [
-            "int1",
-            "int3",
-            "int3-2",
-            "int3-3"
-          ],
+          "channels": ["int1", "int3", "int3-2", "int3-3"],
           "samples_expected": 8000000,
           "expected_error": "no_error"
         }
@@ -231,10 +147,7 @@
         "op": "delete",
         "client": "py",
         "params": {
-          "time_range": {
-            "start": 100000000000000,
-            "end": 500000000000000
-          },
+          "time_range": { "start": 100000000000000, "end": 500000000000000 },
           "channels": [
             "int0-0",
             "int0-1",
@@ -275,10 +188,7 @@
         "op": "delete",
         "client": "ts",
         "params": {
-          "time_range": {
-            "start": 100000000000000,
-            "end": 500000000000000
-          },
+          "time_range": { "start": 100000000000000, "end": 500000000000000 },
           "channels": [
             "int1",
             "int1-0",
@@ -317,39 +227,14 @@
         "params": {
           "num_iterators": 5,
           "channel_groups": [
-            [
-              "int0-0",
-              "int0-1",
-              "int3"
-            ],
-            [
-              "int1-0",
-              "int1-1",
-              "int1",
-              "int0-3"
-            ],
-            [
-              "int2-1",
-              "int3-0"
-            ],
-            [
-              "int2-0",
-              "int3-1",
-              "int3-2",
-              "int3-3",
-              "int1"
-            ],
-            [
-              "int8-0",
-              "int8-1",
-              "int8"
-            ]
+            ["int0-0", "int0-1", "int3"],
+            ["int1-0", "int1-1", "int1", "int0-3"],
+            ["int2-1", "int3-0"],
+            ["int2-0", "int3-1", "int3-2", "int3-3", "int1"],
+            ["int8-0", "int8-1", "int8"]
           ],
           "chunk_size": 100000,
-          "bounds": {
-            "start": 0,
-            "end": 1000000000000000
-          },
+          "bounds": { "start": 0, "end": 1000000000000000 },
           "expected_error": "no_error",
           "samples_expected": 20400000
         }
@@ -360,47 +245,19 @@
         "params": {
           "num_iterators": 5,
           "channel_groups": [
-            [
-              "int7-0",
-              "int4-1",
-              "int4-2"
-            ],
-            [
-              "int6-0",
-              "int9"
-            ],
-            [
-              "int4-0",
-              "int7-1",
-              "int7-2",
-              "int7-3",
-              "int7"
-            ],
-            [
-              "int9-0",
-              "int9-1",
-              "int9-3",
-              "int9"
-            ],
-            [
-              "int5",
-              "int5-2",
-              "int5-3"
-            ]
+            ["int7-0", "int4-1", "int4-2"],
+            ["int6-0", "int9"],
+            ["int4-0", "int7-1", "int7-2", "int7-3", "int7"],
+            ["int9-0", "int9-1", "int9-3", "int9"],
+            ["int5", "int5-2", "int5-3"]
           ],
           "chunk_size": 100000,
-          "bounds": {
-            "start": 0,
-            "end": 1000000000000000
-          },
+          "bounds": { "start": 0, "end": 1000000000000000 },
           "expected_error": "no_error",
           "samples_expected": 20400000
         }
       }
     ]
   ],
-  "cleanup": {
-    "delete_all_channels": true,
-    "client": "py"
-  }
+  "cleanup": { "delete_all_channels": true, "client": "py" }
 }

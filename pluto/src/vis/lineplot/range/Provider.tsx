@@ -34,20 +34,10 @@ export const Provider = ({
     aetherKey: cKey,
     type: range.Provider.TYPE,
     schema: range.providerStateZ,
-    initialState: {
-      ...props,
-      cursor: null,
-      hovered: null,
-      count: 0,
-    },
+    initialState: { ...props, cursor: null, hovered: null, count: 0 },
   });
   const gridStyle = useGridEntry(
-    {
-      key: cKey,
-      loc: "top",
-      size: count > 0 ? 32 : 0,
-      order: 3,
-    },
+    { key: cKey, loc: "top", size: count > 0 ? 32 : 0, order: 3 },
     "Annotation.Provider",
   );
 
@@ -76,10 +66,7 @@ export const Provider = ({
 
   return (
     <Menu.ContextMenu
-      style={{
-        ...gridStyle,
-        cursor: hovered != null ? "pointer" : "default",
-      }}
+      style={{ ...gridStyle, cursor: hovered != null ? "pointer" : "default" }}
       {...menuProps}
       menu={() => {
         if (menu == null || hovered == null) return null;

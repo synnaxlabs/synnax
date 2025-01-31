@@ -79,25 +79,23 @@ export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
-export type {
-  CrudeDataType,
-  CrudeDensity,
-  CrudeRate,
-  CrudeSize,
-  CrudeTimeSpan,
-  CrudeTimeStamp,
-  TelemValue,
-  TimeStampStringFormat,
-  TypedArray,
-  TZInfo,
-} from "@synnaxlabs/x";
 export {
+  type CrudeDataType,
+  type CrudeDensity,
+  type CrudeRate,
+  type CrudeSize,
+  type CrudeTimeSpan,
+  type CrudeTimeStamp,
   DataType,
   Density,
   MultiSeries,
   Rate,
   Series,
+  type TelemValue,
   TimeRange,
   TimeSpan,
   TimeStamp,
+  type TimeStampStringFormat,
+  type TypedArray,
+  type TZInfo,
 } from "@synnaxlabs/x";
