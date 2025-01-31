@@ -98,7 +98,7 @@ const canDrop: Haul.CanDrop = ({ items }) =>
   items.length === 1 && items[0].type === Mosaic.HAUL_DROP_TYPE;
 
 export const useBase =
-  runtime.getOS() === "MacOS" ? useDropOutsideMacOS : useDropOutsideWindows;
+  runtime.getOS() === "macOS" ? useDropOutsideMacOS : useDropOutsideWindows;
 
 export const useDropOutside = () => {
   const place = usePlacer();

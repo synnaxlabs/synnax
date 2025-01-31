@@ -95,7 +95,7 @@ const FallBackRenderContent = ({
         <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"
-            visibleIfOS="MacOS"
+            visibleIfOS="macOS"
             onClose={() => {
               void getCurrentWindow().close();
             }}

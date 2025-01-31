@@ -10,47 +10,52 @@
 import { Icon } from "@synnaxlabs/media";
 import { Select, Text } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { type ReactElement, useEffect, useLayoutEffect, useState } from "react";
+import { z } from "zod";
 
-import { Tabs as Core } from "@/components/Tabs";
+import { Tabs } from "@/components/Tabs";
 
-const TABS = [
-  { key: "docker", name: "Docker", tabKey: "docker", icon: <Icon.OS.Docker /> },
-  { key: "linux", name: "Linux", tabKey: "linux", icon: <Icon.OS.Linux /> },
-  { key: "macos", name: "macOS", tabKey: "macos", icon: <Icon.OS.MacOS /> },
-  { key: "windows", name: "Windows", tabKey: "windows", icon: <Icon.OS.Windows /> },
-];
+const platformTypeZ = z.enum(["docker", "linux", "macos", "windows"]);
+type PlatformType = z.infer<typeof platformTypeZ>;
 
-export interface PlatformTabsProps {
-  exclude?: string[];
-  priority?: string[];
+interface PlatformTab {
+  key: PlatformType;
+  name: string;
+  tabKey: PlatformType;
+  icon: ReactElement;
 }
 
-const getOSFromURL = (detect: boolean): runtime.OS | null => {
+const TABS: PlatformTab[] = [
+  { key: "docker", name: "Docker", tabKey: "docker", icon: <Icon.Logo.Docker /> },
+  { key: "linux", name: "Linux", tabKey: "linux", icon: <Icon.Logo.Linux /> },
+  { key: "macos", name: "macOS", tabKey: "macos", icon: <Icon.Logo.Apple /> },
+  { key: "windows", name: "Windows", tabKey: "windows", icon: <Icon.Logo.Windows /> },
+];
+
+const getTypeFromURL = (detect: boolean): PlatformType | null => {
   const url = new URL(window.location.href);
   const p = url.searchParams.get("platform");
-  const os = runtime.osZ.safeParse(p);
-  if (!os.success) return detect ? runtime.getOS() : null;
-  return os.data;
+  return (
+    platformTypeZ.safeParse(p).data ??
+    (detect ? (platformTypeZ.safeParse(runtime.getOS()).data ?? null) : null)
+  );
 };
 
-const setOSInURL = (os: runtime.OS) => {
+const setTypeInURL = (platformType: PlatformType) => {
   const url = new URL(window.location.href);
-  url.searchParams.set("platform", os.toLowerCase());
+  url.searchParams.set("platform", platformType);
   window.history.pushState({}, "", url.toString());
 };
 
-export const PlatformTabs = ({ exclude = [], priority = [], ...props }) => {
-  let tabs = [
-    { name: "Docker", tabKey: "docker", icon: <Icon.OS.Docker /> },
-    { name: "Linux", tabKey: "linux", icon: <Icon.OS.Linux /> },
-    { name: "macOS", tabKey: "macos", icon: <Icon.OS.MacOS /> },
-    { name: "Windows", tabKey: "windows", icon: <Icon.OS.Windows /> },
-  ].filter((tab) => !exclude.includes(tab.tabKey));
-
+export const PlatformTabs = ({
+  exclude = new Set<PlatformType>(),
+  priority = Array<PlatformType>(),
+  ...props
+}) => {
+  let tabs = TABS.filter((tab) => !exclude.has(tab.key));
   useLayoutEffect(() => {
-    const os = getOSFromURL(true);
-    if (os != null) setOSInURL(os);
+    const os = getTypeFromURL(true);
+    if (os != null) setTypeInURL(os);
   }, []);
 
   if (priority.length > 0)
@@ -61,23 +66,23 @@ export const PlatformTabs = ({ exclude = [], priority = [], ...props }) => {
       if (bIndex === -1) return -1;
       return aIndex - bIndex;
     });
-  return <Core queryParamKey="platform" tabs={tabs} {...props} />;
+  return <Tabs queryParamKey="platform" tabs={tabs} {...props} />;
 };
 
 export const OSSelectButton = () => {
-  const [value, onChange] = useState<string | undefined>(undefined);
+  const [value, setValue] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const i = setInterval(() => {
-      const os = getOSFromURL(false);
-      if (os != null) onChange(os.toLowerCase());
+      const os = getTypeFromURL(false);
+      if (os != null) setValue(os.toLowerCase());
     }, 200);
     return () => clearInterval(i);
   }, []);
 
-  const handleChange = (value: runtime.OS) => {
-    setOSInURL(value);
-    onChange(value);
+  const handleChange = (value: PlatformType) => {
+    setTypeInURL(value);
+    setValue(value);
   };
 
   if (value == null) return null;

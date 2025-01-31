@@ -12,17 +12,17 @@ import { Button } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
-export interface OSDownloadButtonEntry {
-  os: runtime.OS;
+interface OSDownloadButtonEntry {
   href: string;
+  os: runtime.OS;
 }
 
-export interface OSDownloadButtonProps extends Omit<Button.LinkProps, "href"> {
-  name: string;
+interface OSDownloadButtonProps extends Omit<Button.LinkProps, "href"> {
   entries: OSDownloadButtonEntry[];
+  name: string;
 }
 
-export const OSDownloadButton = ({
+const OSDownloadButton = ({
   entries = [],
   name,
   ...props
@@ -38,12 +38,16 @@ export const OSDownloadButton = ({
   );
 };
 
-export interface UpdateFile {
+interface PlatformEntry {
+  url: string;
+}
+
+interface UpdateFile {
   version: string;
   platforms: {
-    "darwin-x86_64": { url: string };
-    "linux-x86_64": { url: string };
-    "windows-x86_64": { url: string };
+    "darwin-x86_64": PlatformEntry;
+    "linux-x86_64": PlatformEntry;
+    "windows-x86_64": PlatformEntry;
   };
 }
 
@@ -52,62 +56,46 @@ const JSON_URL =
 
 export const SynnaxConsoleDownloadButton = (): ReactElement | null => {
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
-
   useEffect(() => {
     fetch(JSON_URL)
-      .then(async (response) => await response.json())
-      .then((f) => setUpdateFile(f as UpdateFile))
+      .then(async (response) => (await response.json()) as UpdateFile)
+      .then(setUpdateFile)
       .catch(() => setUpdateFile(null));
   }, []);
-
   if (updateFile == null) return null;
+  const version = updateFile.version;
+  const baseURL = `https://github.com/synnaxlabs/synnax/releases/download/console-${version}/Synnax_${version.slice(1)}`;
   return (
     <OSDownloadButton
-      className="os-download-button"
-      name={updateFile.version}
+      name={version}
       size="large"
       entries={[
-        {
-          os: "MacOS",
-          href: `https://github.com/synnaxlabs/synnax/releases/download/console-${updateFile.version}/Synnax_${updateFile.version.slice(1)}_aarch64.dmg`,
-        },
-        {
-          os: "Windows",
-          href: `https://github.com/synnaxlabs/synnax/releases/download/console-${updateFile.version}/Synnax_${updateFile.version.slice(1)}_x64-setup.exe`,
-        },
+        { os: "macOS", href: `${baseURL}_aarch64.dmg` },
+        { os: "Windows", href: `${baseURL}_x64-setup.exe` },
       ]}
     />
   );
 };
 
+const VERSION_URL =
+  "https://raw.githubusercontent.com/synnaxlabs/synnax/main/synnax/pkg/version/VERSION";
+
 export const SynnaxServerDownloadButton = (): ReactElement => {
-  const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
-
+  const [version, setVersion] = useState<string | null>(null);
   useEffect(() => {
-    fetch(JSON_URL)
-      .then(async (response) => await response.json())
-      .then((f) => {
-        console.log("Fetched update file:", f);
-        setUpdateFile(f as UpdateFile);
-      })
-      .catch((error) => {
-        console.error("Error fetching update file:", error);
-        setUpdateFile(null);
-      });
+    fetch(VERSION_URL)
+      .then(async (response) => await response.text())
+      .then(setVersion)
+      .catch(console.error);
   }, []);
-
-  if (updateFile == null) return <Button.Button disabled>Loading...</Button.Button>;
-
-  const version = updateFile.version;
-
   return (
     <Button.Link
-      href={`https://github.com/synnaxlabs/synnax/releases/download/synnax-${version}/synnax-setup-${version}.exe`}
+      href={`https://github.com/synnaxlabs/synnax/releases/download/synnax-v${version}/synnax-setup-v${version}.exe`}
       startIcon={<Icon.Download />}
       className="os-download-button"
       size="large"
     >
-      Download Synnax-{version} for Windows
+      Download v{version} Installer for Windows
     </Button.Link>
   );
 };
