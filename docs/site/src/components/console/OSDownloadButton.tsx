@@ -1,12 +1,3 @@
-// Copyright 2024 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
@@ -47,15 +38,6 @@ export interface UpdateFile {
   };
 }
 
-const OSToUpdateFilePlatform: Record<
-  "MacOS" | "Linux" | "Windows",
-  keyof UpdateFile["platforms"]
-> = {
-  MacOS: "darwin-x86_64",
-  Linux: "linux-x86_64",
-  Windows: "windows-x86_64",
-};
-
 const JSON_URL =
   "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.json";
 
@@ -89,23 +71,34 @@ export const SynnaxConsoleDownloadButton = (): ReactElement | null => {
   );
 };
 
-export const SynnaxServerDownloadButton = (): ReactElement | null => {
+export const SynnaxServerDownloadButton = (): ReactElement => {
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
 
   useEffect(() => {
     fetch(JSON_URL)
       .then(async (response) => await response.json())
-      .then((f) => setUpdateFile(f as UpdateFile))
-      .catch(() => setUpdateFile(null));
+      .then((f) => {
+        console.log("Fetched update file:", f);
+        setUpdateFile(f as UpdateFile);
+      })
+      .catch((error) => {
+        console.error("Error fetching update file:", error);
+        setUpdateFile(null);
+      });
   }, []);
 
-  if (updateFile == null) return null;
+  if (updateFile == null) return <Button.Button disabled>Loading...</Button.Button>;
+
+  const version = updateFile.version;
+
   return (
     <Button.Link
-      href={`https://github.com/synnaxlabs/synnax/releases/download/synnax-${updateFile.version}/synnax-setup-${updateFile.version.slice(1)}.exe`}
+      href={`https://github.com/synnaxlabs/synnax/releases/download/synnax-${version}/synnax-setup-${version.slice(1)}.exe`}
       startIcon={<Icon.Download />}
+      className="os-download-button"
+      size="large"
     >
-      Download Synnax-{updateFile.version} for Windows
+      Download Synnax-{version} for Windows
     </Button.Link>
   );
 };
