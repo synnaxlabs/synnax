@@ -106,12 +106,13 @@ interface Engine<S extends RequiredState> {
  * @param config - The configuration for the engine.
  * @returns A new engine instance.
  */
-export const open = async <S extends RequiredState>({
-  exclude = [],
-  initial,
-  migrator,
-  openKV,
-}: Config<S>): Promise<Engine<S>> => {
+export const open = async <S extends RequiredState>(
+  config: Config<S>,
+): Promise<Engine<S>> => {
+  const { exclude = [], initial, migrator, openKV } = config;
+  // We need to make sure we copy the initial state because we're going to mutate it,
+  // and we don't want to accidentally mutate the initial state, or run into errors
+  // with readonly properties.
   const copiedInitial = deep.copy(initial);
   const db = await openAndMigrateKV(openKV);
   const kvVersion = (await db.get(DB_VERSION_KEY)) as StateVersionValue;
