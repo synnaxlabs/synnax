@@ -441,7 +441,11 @@ const Core = ({
         {visible && (
           <ReactFlow<RFNode, RFEdge<RFEdgeData>>
             {...triggerProps}
-            className={CSS(CSS.B("diagram"), CSS.editable(editable))}
+            className={CSS(
+              CSS.B("diagram"),
+              CSS.editable(editable),
+              CSS.BE("symbol", "container"),
+            )}
             nodes={nodes_}
             // @ts-expect-error - edge types
             edges={edges_}

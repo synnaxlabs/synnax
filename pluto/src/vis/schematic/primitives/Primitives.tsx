@@ -1717,6 +1717,7 @@ export const Setpoint = ({
         endContent={units}
         outlineColor={color}
         borderWidth={1}
+        disabled={disabled}
       >
         <CoreButton.Button
           size={size}
