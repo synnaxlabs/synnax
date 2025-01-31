@@ -18,6 +18,9 @@ import { type Version } from "@/version";
 export const PERSISTED_STATE_KEY = "console-persisted-state";
 export const DB_VERSION_KEY = "console-version";
 
+// Note that these are relative paths related to the tauri standard app data directory.
+// On MacOS, this is ~/Library/Application Support/com.synnaxlabs.dev.
+// On Windows, this is %APPDATA%/com.synnaxlabs.dev.
 export const V1_STORE_PATH = "~/.synnax/console/persisted-state.dat";
 export const V2_STORE_PATH = "persisted-state.json";
 
@@ -109,6 +112,7 @@ export const open = async <S extends RequiredState>({
   migrator,
   openKV,
 }: Config<S>): Promise<Engine<S>> => {
+  const copiedInitial = deep.copy(initial);
   const db = await openAndMigrateKV(openKV);
   const kvVersion = (await db.get(DB_VERSION_KEY)) as StateVersionValue;
   let version: number = kvVersion?.version ?? 0;
@@ -147,18 +151,18 @@ export const open = async <S extends RequiredState>({
     } catch (e) {
       console.error("unable to apply migrations. continuing with initial state.");
       console.error(e);
-      state = initial;
+      state = copiedInitial;
     }
-  state ??= initial;
 
   // Override defaults for key-value pairs that should be excluded from state.
   if (state != null)
     exclude.forEach((key) => {
       if (typeof key === "function") return;
-      const v = deep.get(initial, key, { optional: true });
+      const v = deep.get(copiedInitial, key, { optional: true });
       if (v == null) return;
       deep.set(state, key, v);
     });
+  else state = copiedInitial;
 
   return { revert, clear, persist, initialState: state };
 };
@@ -192,7 +196,11 @@ export const middleware = <S extends RequiredState>(
         .revert()
         .then(() => window.location.reload())
         .catch(console.error);
-    else if (type === CLEAR_STATE.type) engine.clear().catch(console.error);
+    else if (type === CLEAR_STATE.type)
+      engine
+        .clear()
+        .then(() => window.location.reload())
+        .catch(console.error);
     else debouncedPersist(store.getState());
     return result;
   };
