@@ -208,7 +208,7 @@ jobs:
           Write-Host "Building version: $version"
           # Build the synnax binary
           Write-Host "Building synnax binary..."
-          & go build -tags driver -o synnax.exe
+          & go build -tags driver -o synnax-server.exe
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to build synnax binary"
               exit 1
