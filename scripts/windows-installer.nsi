@@ -31,10 +31,10 @@ Section "MainSection" SEC01
     CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax.exe"
     CreateShortcut "$DESKTOP\Synnax.lnk" "$INSTDIR\synnax.exe"
     
-    # Add to PATH
+    # Add to PATH (at the beginning instead of the end)
     DetailPrint "Adding to PATH..."
     FileOpen $0 "$INSTDIR\add-path.ps1" w
-    FileWrite $0 "[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';$INSTDIR', 'User')"
+    FileWrite $0 "[Environment]::SetEnvironmentVariable('Path', '$INSTDIR;' + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"
     FileClose $0
     nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\add-path.ps1"'
     Delete "$INSTDIR\add-path.ps1"
@@ -45,7 +45,7 @@ SectionEnd
 Section "Uninstall"
     DetailPrint "Removing from PATH..."
     FileOpen $0 "$INSTDIR\remove-path.ps1" w
-    FileWrite $0 '[Environment]::SetEnvironmentVariable("Path", ($([Environment]::GetEnvironmentVariable("Path", "User")) -replace [regex]::Escape(";$INSTDIR")), "User")'
+    FileWrite $0 '[Environment]::SetEnvironmentVariable("Path", ($([Environment]::GetEnvironmentVariable("Path", "User")) -replace [regex]::Escape("$INSTDIR;")), "User")'
     FileClose $0
     nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\remove-path.ps1"'
     Delete "$INSTDIR\remove-path.ps1"
