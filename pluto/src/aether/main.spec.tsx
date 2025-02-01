@@ -61,7 +61,7 @@ const REGISTRY: aether.ComponentRegistry = {
 
 const newProvider = async (): Promise<[FC<PropsWithChildren>, aether.Root]> => {
   const [a, b] = createMockWorkers();
-  const root = await aether.render({ worker: a.route("vis"), registry: REGISTRY });
+  const root = await aether.render({ comms: a.route("vis"), registry: REGISTRY });
   const worker = b.route<MainMessage, WorkerMessage>("vis");
   return [
     (props: PropsWithChildren) => (

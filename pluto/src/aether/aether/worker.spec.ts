@@ -8,10 +8,59 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { beforeEach, bench, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+
+const MockSender = {
+  send: vi.fn(),
+};
+
+const createLeaf = (key: string, parentCtxValues: aether.ContextMap | null = null) =>
+  new ExampleLeaf({
+    key,
+    type: "leaf",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parentCtxValues,
+  });
+
+const createComposite = (
+  key: string,
+  parentCtxValues: Map<string, any> | null = null,
+) =>
+  new ExampleComposite({
+    key,
+    type: "composite",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parentCtxValues,
+  });
+
+const createContextSetter = (
+  key: string,
+  parentCtxValues: aether.ContextMap | null = null,
+) =>
+  new ContextSetterComposite({
+    key,
+    type: "context",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parentCtxValues,
+  });
+
+const createSecondaryContextSetter = (
+  key: string,
+  parentCtxValues: aether.ContextMap | null = null,
+) =>
+  new SecondaryContextSetter({
+    key,
+    type: "context",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parentCtxValues,
+  });
 
 export const exampleProps = z.object({
   x: z.number(),
@@ -123,84 +172,72 @@ class SecondaryContextSetter extends aether.Composite<
   }
 }
 
-class OverrideContextSetter extends aether.Composite<
-  typeof exampleProps,
-  SameContextState,
-  ExampleLeaf
-> {
-  updatef = vi.fn();
-  deletef = vi.fn();
-
-  schema = exampleProps;
-  setCount = 0;
-
-  async afterUpdate(ctx: aether.Context): Promise<void> {
-    const v = ctx.getOptional<number | SameContextState>("key");
-    if (v != null && typeof v === "number") {
-      this.setCount++;
-      ctx.set("key", { key: v, setInternally: true });
-    } else if (v != null && typeof v === "object")
-      ctx.set("key", { key: v.key, setInternally: true });
-  }
-}
-
-interface SameContextState {
-  key: number;
-  setInternally: boolean;
-}
-
 const shouldNotCallCreate = () => {
   throw new Error("should not call create");
 };
 
-const MockSender = {
-  send: vi.fn(),
-};
-
 describe("Aether Worker", () => {
   describe("AetherLeaf", () => {
-    const create = () => new ExampleLeaf("test", "leaf", MockSender, alamos.NOOP);
     let leaf: ExampleLeaf;
     beforeEach(async () => {
-      leaf = create();
+      leaf = createLeaf("test");
     });
+
     describe("internalUpdate", () => {
       it("should throw an error if the path is empty", async () => {
-        await expect(leaf._updateState([], {}, create)).rejects.toThrowError(
-          /empty path/,
-        );
+        await expect(
+          leaf._updateState([], {}, (parentCtxValues) =>
+            createLeaf("test", parentCtxValues),
+          ),
+        ).rejects.toThrowError(/empty path/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
       });
+
       it("should throw an error if the path has a subpath", async () => {
         await expect(
-          leaf._updateState(["test", "dog"], {}, create),
+          leaf._updateState(["test", "dog"], {}, (parentCtxValues) =>
+            createLeaf("dog", parentCtxValues),
+          ),
         ).rejects.toThrowError(/subPath/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
       });
+
       it("should throw an error if the path does not have the correct key", async () => {
-        await expect(leaf._updateState(["dog"], {}, create)).rejects.toThrowError(
-          /key/,
-        );
+        await expect(
+          leaf._updateState(["dog"], {}, (parentCtxValues) =>
+            createLeaf("dog", parentCtxValues),
+          ),
+        ).rejects.toThrowError(/key/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
       });
+
       it("should correctly internalUpdate the state", async () => {
-        await leaf._updateState(["test"], { x: 2 }, create);
+        await leaf._updateState(["test"], { x: 2 }, (parentCtxValues) =>
+          createLeaf("test", parentCtxValues),
+        );
         expect(leaf.state).toEqual({ x: 2 });
       });
+
       it("should call the handleUpdate", async () => {
-        await leaf._updateState(["test"], { x: 2 }, create);
+        await leaf._updateState(["test"], { x: 2 }, (parentCtxValues) =>
+          createLeaf("test", parentCtxValues),
+        );
         expect(leaf.updatef).toHaveBeenCalledTimes(1);
       });
     });
+
     describe("internalDelete", () => {
       it("should call the bound onDelete handler", async () => {
         await leaf._delete(["test"]);
         expect(leaf.deletef).toHaveBeenCalledTimes(1);
       });
     });
+
     describe("setState", () => {
       it("should communicate the state call to the main thread Sender", async () => {
-        await leaf._updateState(["test"], { x: 2 }, create);
+        await leaf._updateState(["test"], { x: 2 }, (parentCtxValues) =>
+          createLeaf("test", parentCtxValues),
+        );
         leaf.setState((p) => ({ ...p }));
         expect(MockSender.send).toHaveBeenCalledTimes(1);
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -214,7 +251,7 @@ describe("Aether Worker", () => {
   describe("AetherComposite", () => {
     let composite: ExampleComposite;
     beforeEach(async () => {
-      composite = new ExampleComposite("test", "composite", MockSender, alamos.NOOP);
+      composite = createComposite("test");
     });
 
     describe("setState", () => {
@@ -223,11 +260,10 @@ describe("Aether Worker", () => {
         expect(composite.state).toEqual({ x: 2 });
         expect(composite.updatef).toHaveBeenCalledTimes(1);
       });
+
       it("should create a new leaf if the path has more than one element and the leaf does not exist", async () => {
-        await composite._updateState(
-          ["test", "dog"],
-          { x: 2 },
-          () => new ExampleLeaf("dog", "leaf", MockSender, alamos.NOOP),
+        await composite._updateState(["test", "dog"], { x: 2 }, () =>
+          createLeaf("dog"),
         );
         expect(composite.children).toHaveLength(1);
         const c = composite.children[0];
@@ -235,16 +271,16 @@ describe("Aether Worker", () => {
         expect(c.state).toEqual({ x: 2 });
         expect(c.updatef).toHaveBeenCalledTimes(1);
       });
+
       it("should set the state of the composite's leaf if the path has more than one element and the leaf exists", async () => {
-        await composite._updateState(
-          ["test", "dog"],
-          { x: 2 },
-          () => new ExampleLeaf("dog", "leaf", MockSender, alamos.NOOP),
+        await composite._updateState(["test", "dog"], { x: 2 }, () =>
+          createLeaf("dog"),
         );
         await composite._updateState(["test", "dog"], { x: 3 }, shouldNotCallCreate);
         expect(composite.children).toHaveLength(1);
         expect(composite.children[0].state).toEqual({ x: 3 });
       });
+
       it("should throw an error if the path is too deep and the child does not exist", async () => {
         await expect(
           composite._updateState(["test", "dog", "cat"], { x: 2 }, shouldNotCallCreate),
@@ -254,20 +290,17 @@ describe("Aether Worker", () => {
 
     describe("internalDelete", () => {
       it("should remove a child from the list of children", async () => {
-        await composite._updateState(
-          ["test", "dog"],
-          { x: 2 },
-          () => new ExampleLeaf("dog", "leaf", MockSender, alamos.NOOP),
+        await composite._updateState(["test", "dog"], { x: 2 }, () =>
+          createLeaf("dog"),
         );
         expect(composite.children).toHaveLength(1);
         await composite._delete(["test", "dog"]);
         expect(composite.children).toHaveLength(0);
       });
+
       it("should call the deletion hook on the child of a composite", async () => {
-        await composite._updateState(
-          ["test", "dog"],
-          { x: 2 },
-          () => new ExampleLeaf("dog", "leaf", MockSender, alamos.NOOP),
+        await composite._updateState(["test", "dog"], { x: 2 }, () =>
+          createLeaf("dog"),
         );
         const c = composite.children[0];
         await composite._delete(["test", "dog"]);
@@ -278,26 +311,26 @@ describe("Aether Worker", () => {
 
   describe("context propagation", () => {
     it("should correctly set a context value", async () => {
-      const v = new ContextSetterComposite("test", "context", MockSender, alamos.NOOP);
+      const v = createContextSetter("test");
       await v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
       expect(v.testingChildCtxValues.get("key")).toEqual(2);
       expect(v.testingParentCtxValues.size).toEqual(0);
     });
 
     it("should correctly pass an initial context value to a leaf child", async () => {
-      const v = new ContextSetterComposite("test", "context", MockSender, alamos.NOOP);
+      const v = createContextSetter("test");
       await v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
-      const c = new ExampleLeaf("dog", "leaf", MockSender, alamos.NOOP);
-      await v._updateState(["test", "dog"], { x: 3 }, () => c);
+      await v._updateState(["test", "dog"], { x: 3 }, (c) => createLeaf("dog", c));
+      const c = v.children[0];
       expect(c.testingParentCtxValues.get("key")).toEqual(2);
       expect(c.testingChildCtxValues.size).toEqual(0);
     });
 
     it("should correctly update the context value in a child leaf", async () => {
-      const v = new ContextSetterComposite("test", "context", MockSender, alamos.NOOP);
+      const v = createContextSetter("test");
       await v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
-      const c = new ExampleLeaf("dog", "leaf", MockSender, alamos.NOOP);
-      await v._updateState(["test", "dog"], { x: 3 }, () => c);
+      await v._updateState(["test", "dog"], { x: 3 }, (c) => createLeaf("dog", c));
+      const c = v.children[0];
       await v._updateState(["test"], { x: 4 }, shouldNotCallCreate);
       expect(v.testingChildCtxValues.get("key")).toEqual(4);
       expect(v.testingParentCtxValues.size).toEqual(0);
@@ -306,12 +339,16 @@ describe("Aether Worker", () => {
     });
 
     it("should correctly separate individual contexts", async () => {
-      const v = new ExampleComposite("test", "context", MockSender, alamos.NOOP);
+      const v = createComposite("test");
       await v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
-      const c1 = new ContextSetterComposite("dog", "context", MockSender, alamos.NOOP);
-      await v._updateState(["test", "dog"], { x: 3 }, () => c1);
-      const c2 = new ContextSetterComposite("cat", "context", MockSender, alamos.NOOP);
-      await v._updateState(["test", "cat"], { x: 4 }, () => c2);
+      await v._updateState(["test", "dog"], { x: 3 }, (c) =>
+        createContextSetter("dog", c),
+      );
+      await v._updateState(["test", "cat"], { x: 4 }, (c) =>
+        createContextSetter("cat", c),
+      );
+      const c1 = v.children[0];
+      const c2 = v.children[1];
       expect(c1.testingChildCtxValues.size).toEqual(1);
       expect(c2.testingChildCtxValues.size).toEqual(1);
       expect(c1.testingChildCtxValues.get("key")).toEqual(3);
@@ -319,20 +356,19 @@ describe("Aether Worker", () => {
     });
 
     it("should correctly initialize contexts with a nested leaf", async () => {
-      const v = new ContextSetterComposite("first", "context", MockSender, alamos.NOOP);
+      const v = createContextSetter("first");
       await v._updateState(["first"], { x: 2 }, shouldNotCallCreate);
       expect(v.testingChildCtxValues.size).toEqual(1);
-      const c1 = new SecondaryContextSetter(
-        "second",
-        "context",
-        MockSender,
-        alamos.NOOP,
+      await v._updateState(["first", "second"], { x: 3 }, (c) =>
+        createSecondaryContextSetter("second", c),
       );
-      await v._updateState(["first", "second"], { x: 3 }, () => c1);
+      const c1 = v.children[0];
       expect(c1.testingParentCtxValues.size).toEqual(1);
       expect(c1.testingChildCtxValues.size).toEqual(1);
-      const c2 = new ExampleLeaf("third", "leaf", MockSender, alamos.NOOP);
-      await v._updateState(["first", "second", "third"], { x: 4 }, () => c2);
+      await v._updateState(["first", "second", "third"], { x: 4 }, (c) =>
+        createLeaf("third", c),
+      );
+      const c2 = (v.children[0] as SecondaryContextSetter).children[0];
       expect(c2.testingParentCtxValues.size).toEqual(2);
       expect(c2.testingChildCtxValues.size).toEqual(0);
       expect(c2.testingParentCtxValues.get("key")).toEqual(2);
@@ -340,17 +376,16 @@ describe("Aether Worker", () => {
     });
 
     it("should correctly update contexts with a nested leaf", async () => {
-      const v = new ContextSetterComposite("first", "context", MockSender, alamos.NOOP);
+      const v = createContextSetter("first");
       await v._updateState(["first"], { x: 2 }, shouldNotCallCreate);
-      const c1 = new SecondaryContextSetter(
-        "second",
-        "context",
-        MockSender,
-        alamos.NOOP,
+      await v._updateState(["first", "second"], { x: 3 }, () =>
+        createSecondaryContextSetter("second"),
       );
-      await v._updateState(["first", "second"], { x: 3 }, () => c1);
-      const c2 = new ExampleLeaf("third", "leaf", MockSender, alamos.NOOP);
-      await v._updateState(["first", "second", "third"], { x: 4 }, () => c2);
+      const c1 = v.children[0];
+      await v._updateState(["first", "second", "third"], { x: 4 }, () =>
+        createLeaf("third"),
+      );
+      const c2 = (v.children[0] as SecondaryContextSetter).children[0];
       await v._updateState(["first"], { x: 5 }, shouldNotCallCreate);
       expect(c1.testingParentCtxValues.size).toEqual(1);
       expect(c1.testingChildCtxValues.size).toEqual(1);

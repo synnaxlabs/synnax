@@ -63,5 +63,5 @@ export const render = (): void => {
     ...table.REGISTRY,
   };
 
-  aether.render({ worker: w.route("vis"), registry: REGISTRY });
+  aether.render({ comms: w.route("vis"), registry: REGISTRY });
 };

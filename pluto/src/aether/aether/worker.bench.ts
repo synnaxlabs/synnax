@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { beforeEach, bench, describe, vi } from "vitest";
+import { bench, describe, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -68,7 +68,13 @@ class BenchL3 extends aether.Leaf<typeof complexSchema, { computedValue: number 
 
 // Add this function before the benchmark
 async function createBenchmarkTree() {
-  const root = new BenchRoot("root", "bench", MockSender, alamos.NOOP);
+  const root = new BenchRoot({
+    key: "root",
+    type: "bench",
+    sender: MockSender,
+    instrumentation: alamos.NOOP,
+    parentCtxValues: null,
+  });
 
   // Initialize the root
   await root._updateState(
@@ -101,7 +107,14 @@ async function createBenchmarkTree() {
         },
         status: "active",
       },
-      () => new BenchL1(l1Key, "bench", MockSender, alamos.NOOP),
+      (parentCtxValues) =>
+        new BenchL1({
+          key: l1Key,
+          type: "bench",
+          sender: MockSender,
+          instrumentation: alamos.NOOP,
+          parentCtxValues,
+        }),
     );
 
     for (let j = 0; j < 15; j++) {
@@ -118,7 +131,14 @@ async function createBenchmarkTree() {
           },
           status: "active",
         },
-        () => new BenchL2(l2Key, "bench", MockSender, alamos.NOOP),
+        (parentCtxValues) =>
+          new BenchL2({
+            key: l2Key,
+            type: "bench",
+            sender: MockSender,
+            instrumentation: alamos.NOOP,
+            parentCtxValues,
+          }),
       );
 
       for (let k = 0; k < 15; k++) {
@@ -135,7 +155,14 @@ async function createBenchmarkTree() {
             },
             status: "pending",
           },
-          () => new BenchL3(l3Key, "bench", MockSender, alamos.NOOP),
+          (parentCtxValues) =>
+            new BenchL3({
+              key: l3Key,
+              type: "bench",
+              sender: MockSender,
+              instrumentation: alamos.NOOP,
+              parentCtxValues,
+            }),
         );
       }
     }
