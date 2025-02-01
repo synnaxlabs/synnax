@@ -24,7 +24,7 @@ export default [
   includeIgnoreFile(gitignorePath),
   { languageOptions: { globals: globals.browser } },
   pluginJs.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   ...fixupConfigRules(pluginReact),
   {
     languageOptions: {
@@ -35,6 +35,8 @@ export default [
         ecmaFeatures: { jsx: true },
         ecmaVersion: "latest",
         sourceType: "module",
+        projectService: true,
+        tsconfigRootDir: path.dirname(filename),
       },
     },
     plugins: { "simple-import-sort": simpleImportSort },
@@ -89,6 +91,16 @@ export default [
       "@typescript-eslint/no-wrapper-object-types": "off",
       "react/no-unescaped-entities": "off",
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/require-await": "off",
+      "@typescript-eslint/no-duplicate-type-constituents": "off",
+      "@typescript-eslint/no-unsafe-unary-minus": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-redundant-type-constituents": "off",
+      "@typescript-eslint/restrict-plus-operands": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         {

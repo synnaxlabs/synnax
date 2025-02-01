@@ -169,6 +169,6 @@ export const constructXY = (x: Crude | XY, y?: Crude): XY => {
     if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY];
     else [xy.x, xy.y] = [parsedY, parsedX];
   else if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY as YLocation];
-  else [xy.x, xy.y] = [parsedY as XLocation, parsedX as YLocation];
+  else [xy.x, xy.y] = [parsedY as XLocation, parsedX];
   return xy;
 };

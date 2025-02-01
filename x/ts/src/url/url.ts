@@ -36,7 +36,7 @@ const removeTrailingSlash = (path: string): string =>
  * @returns the query string.
  */
 export const buildQueryString = (
-  request: Record<string, unknown>,
+  request: Record<string, string>,
   prefix: string = "",
 ): string => {
   if (request === null) return "";
