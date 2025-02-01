@@ -123,7 +123,7 @@ export class StateProvider extends aether.Composite<
       return unique
         .unique(key)
         .map((k) => this.getOne(k))
-        .filter((s) => s != null) as SugaredState[];
+        .filter((s) => s != null);
     return this.getOne(key);
   }
 

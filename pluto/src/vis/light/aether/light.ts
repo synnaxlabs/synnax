@@ -49,9 +49,9 @@ export class Light
 
     await this.updateEnabledState();
     i.stopListening?.();
-    i.stopListening = i.source.onChange(() =>
-      this.updateEnabledState().catch(this.reportError.bind(this)),
-    );
+    i.stopListening = i.source.onChange(() => {
+      this.updateEnabledState().catch(this.reportError.bind(this));
+    });
   }
 
   private reportError(e: Error): void {

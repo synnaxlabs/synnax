@@ -42,7 +42,7 @@ export const useCheckForUpdates = (): boolean => {
   useAsyncEffect(async () => {
     await checkForUpdates(!isSilenced);
     const i = setInterval(
-      () => checkForUpdates(!isSilenced),
+      () => void checkForUpdates(!isSilenced),
       TimeSpan.seconds(30).milliseconds,
     );
     return () => clearInterval(i);

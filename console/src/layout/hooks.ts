@@ -169,11 +169,10 @@ const matchThemeChange = ({
 
 const synchronizeWithOS = async (
   dispatch: Dispatch<UnknownAction>,
-): AsyncDestructor => {
+): Promise<AsyncDestructor> =>
   await getCurrentWindow().onThemeChanged((e) =>
     dispatch(setActiveTheme(matchThemeChange(e))),
   );
-};
 
 const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
   dispatch(

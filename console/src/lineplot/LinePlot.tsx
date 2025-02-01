@@ -459,7 +459,7 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(
       ([key, axis]): Channel.AxisProps => ({
-        location: axisLocation(key as AxisKey),
+        location: axisLocation(key),
         ...axis,
       }),
     );

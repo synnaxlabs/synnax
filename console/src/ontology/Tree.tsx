@@ -454,7 +454,7 @@ export const Tree = (): ReactElement => {
       const id = new ontology.ID(key);
       const svc = services[id.type];
       if (client == null) return;
-      svc.onSelect?.({
+      void svc.onSelect?.({
         client,
         store,
         services,

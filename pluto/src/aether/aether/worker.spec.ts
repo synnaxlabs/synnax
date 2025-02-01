@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, bench, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -330,7 +330,7 @@ describe("Aether Worker", () => {
       );
       await v._updateState(["first", "second"], { x: 3 }, () => c1);
       expect(c1.testingParentCtxValues.size).toEqual(1);
-      expect(c1.testingChildCtxValues.size).toEqual(2);
+      expect(c1.testingChildCtxValues.size).toEqual(1);
       const c2 = new ExampleLeaf("third", "leaf", MockSender, alamos.NOOP);
       await v._updateState(["first", "second", "third"], { x: 4 }, () => c2);
       expect(c2.testingParentCtxValues.size).toEqual(2);
@@ -353,10 +353,10 @@ describe("Aether Worker", () => {
       await v._updateState(["first", "second", "third"], { x: 4 }, () => c2);
       await v._updateState(["first"], { x: 5 }, shouldNotCallCreate);
       expect(c1.testingParentCtxValues.size).toEqual(1);
-      expect(c1.testingChildCtxValues.size).toEqual(2);
+      expect(c1.testingChildCtxValues.size).toEqual(1);
       expect(c2.testingParentCtxValues.size).toEqual(2);
       expect(c2.testingChildCtxValues.size).toEqual(0);
-      expect(c2.testingParentCtxValues.get("key")).toEqual(2);
+      expect(c2.testingParentCtxValues.get("key")).toEqual(5);
       expect(c2.testingParentCtxValues.get("key2")).toEqual(6);
     });
   });

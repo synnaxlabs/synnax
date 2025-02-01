@@ -135,7 +135,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
               },
               undefined,
               "WHITELIST",
-            );
+            ).catch(console.error);
           }
         })
         .catch(console.error);
@@ -184,7 +184,9 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
           handler(this.win)
             .then((action) => {
               if (action != null)
-                this.emit({ action: action as A }, undefined, "WHITELIST");
+                this.emit({ action: action as A }, undefined, "WHITELIST").catch(
+                  console.error,
+                );
             })
             .catch(console.error);
         }, debounce),
@@ -227,7 +229,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
         ...rest,
       });
       return await new Promise<void>((resolve, reject) => {
-        void w.once(tauriError, (e) => reject(e.payload));
+        void w.once(tauriError, (e) => reject(new Error(JSON.stringify(e.payload))));
         void w.once(tauriCreated, () => resolve());
       });
     } catch (e) {

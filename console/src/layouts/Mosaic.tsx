@@ -231,9 +231,9 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [dispatch, windowKey],
   );
   const handleFileDrop = useCallback(
-    async (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
+    (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
       const items = Array.from(event.dataTransfer.items);
-      await Promise.all(
+      void Promise.all(
         items.map(async (item) => {
           try {
             await Import.dataTransferItem(item, {

@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import { type Palette } from "@/palette";
 import { Workspace } from "@/workspace";
 import { ImportIcon } from "@/workspace/services/Icon";
-import { import_ } from "@/workspace/services/import";
+import { import_, type IngestContext } from "@/workspace/services/import";
 
 const CREATE_COMMAND: Palette.Command = {
   key: "workspace-create",
@@ -25,7 +25,7 @@ const IMPORT_COMMAND: Palette.Command = {
   key: "workspace-import",
   name: "Import Workspace",
   icon: <ImportIcon />,
-  onSelect: import_,
+  onSelect: (ctx: IngestContext) => void import_(ctx),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

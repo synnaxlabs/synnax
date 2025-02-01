@@ -254,7 +254,9 @@ const Core = ({
   );
 
   const { fitView } = useReactFlow();
-  const debouncedFitView = useDebouncedCallback((args) => fitView(args), 50, [fitView]);
+  const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
+    fitView,
+  ]);
   const resizeRef = Canvas.useRegion(
     useCallback(
       (b) => {
@@ -404,7 +406,7 @@ const Core = ({
       ({ stage, cursor }: Triggers.UseEvent) => {
         const reg = triggerRef.current;
         if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
-        fitView();
+        void fitView();
       },
       [fitView],
     ),
@@ -541,7 +543,7 @@ export const FitViewControl = ({
   return (
     <Button.ToggleIcon
       onClick={(e) => {
-        fitView(FIT_VIEW_OPTIONS);
+        void fitView(FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
       // @ts-expect-error - toggle icon issues

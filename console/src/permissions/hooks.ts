@@ -14,7 +14,7 @@ import { useDispatch } from "react-redux";
 
 import { giveAll, set } from "@/permissions/slice";
 
-export const useFetchPermissions = async (): Promise<void> => {
+export const useFetchPermissions = (): void => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const handleException = Status.useExceptionHandler();

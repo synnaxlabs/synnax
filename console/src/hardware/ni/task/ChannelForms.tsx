@@ -422,10 +422,10 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
       const hasScaled = scaledValues != null;
       const hasPreScaled = preScaledValues != null;
       if (hasScaled && hasPreScaled)
-        if (preScaledValues!.length !== scaledValues!.length)
+        if (preScaledValues.length !== scaledValues.length)
           preScaledField.setStatus({
             variant: "error",
-            message: `Pre-scaled ${preScaledValues!.length} values and scaled ${scaledValues!.length} values must be the same length`,
+            message: `Pre-scaled ${preScaledValues.length} values and scaled ${scaledValues.length} values must be the same length`,
           });
       if (hasPreScaled) preScaledField.onChange(preScaledValues);
       if (hasScaled) scaledField.onChange(scaledValues);
@@ -549,11 +549,15 @@ export interface DeviceFieldProps {
 export const DeviceField = ({ path }: DeviceFieldProps) => {
   const client = Synnax.use();
   const place = Layout.usePlacer();
-  const handleDeviceChange = async (v: string) => {
+  const handleDeviceChange = (v: string) => {
     if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
-    if (configured) return;
-    place(NIDevice.createConfigureLayout(v, {}));
+    client.hardware.devices
+      .retrieve<Properties>(v)
+      .then(({ configured }) => {
+        if (configured) return;
+        place(NIDevice.createConfigureLayout(v, {}));
+      })
+      .catch(console.error);
   };
   return (
     <Form.Field<string>

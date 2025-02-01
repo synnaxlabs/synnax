@@ -64,8 +64,8 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
     if (i.tracker != null) return;
     i.tracker = await i.client.ranges.openTracker();
-    i.tracker.onChange(async (c) => {
-      c.forEach(async (r) => {
+    i.tracker.onChange((c) => {
+      c.forEach((r) => {
         if (r.variant === "delete") i.ranges.delete(r.key);
         else if (hasColor(r.value.color)) i.ranges.set(r.key, r.value);
       });

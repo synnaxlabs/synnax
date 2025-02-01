@@ -33,7 +33,7 @@ export const Controls = ({
   visibleIfOS,
   ...props
 }: ControlsProps): ReactElement | null => {
-  const os = use({ force: forceOS, default: DEFAULT_OS }) as runtime.OS;
+  const os = use({ force: forceOS, default: DEFAULT_OS });
   const C = Variants[os];
   if (visibleIfOS != null && visibleIfOS !== os) return null;
   return <C {...props} />;

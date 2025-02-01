@@ -112,7 +112,7 @@ interface ActionProps {
 
 const Action = ({ action }: ActionProps): ReactElement => {
   if (!isValidElement(action)) {
-    const props = action as Button.ButtonProps;
+    const props = action;
     return <Button.Button {...props} />;
   }
   return action;

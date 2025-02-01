@@ -83,8 +83,9 @@ export const hardClearAndReload = () => {
   const appWindow = getCurrentWindow();
   if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
   openAndMigrateKV()
-    .then(async (db) => await db.clear())
-    .finally(window.location.reload);
+    .then((db) => void db.clear())
+    .catch(console.error)
+    .finally(() => window.location.reload());
 };
 
 interface Engine<S extends RequiredState> {
@@ -188,7 +189,10 @@ export const middleware = <S extends RequiredState>(
 ): Middleware<UnknownRecord> => {
   const appWindow = getCurrentWindow();
   if (appWindow.label !== MAIN_WINDOW) return passThroughMiddleware;
-  const debouncedPersist = debounce(engine.persist, debounceInterval.milliseconds);
+  const debouncedPersist = debounce(
+    engine.persist.bind(engine),
+    debounceInterval.milliseconds,
+  );
   return (store) => (next) => (action) => {
     const result = next(action);
     const type = (action as Action | undefined)?.type;

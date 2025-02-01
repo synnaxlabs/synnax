@@ -16,11 +16,15 @@ import { Layout } from "@/layout";
 export const SelectDevice = () => {
   const client = Synnax.use();
   const place = Layout.usePlacer();
-  const handleDeviceChange = async (v: string) => {
+  const handleDeviceChange = (v: string) => {
     if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
-    if (configured) return;
-    place(Device.createConfigureLayout(v, {}));
+    void client.hardware.devices
+      .retrieve<Properties>(v)
+      .then(({ configured }) => {
+        if (configured) return;
+        place(Device.createConfigureLayout(v, {}));
+      })
+      .catch(console.error);
   };
   return (
     <Form.Field<string>

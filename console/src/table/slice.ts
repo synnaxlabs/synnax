@@ -366,7 +366,7 @@ export const { actions, reducer } = createSlice({
       // later.
       const candidatePositions = candidateCells
         .map((cell) => findCellPosition(table, cell.key))
-        .filter((pos) => pos != null) as xy.XY[];
+        .filter((pos) => pos != null);
       const positionsObj = Object.fromEntries(
         candidatePositions.map((pos, i) => [candidateCells[i].key, pos]),
       );

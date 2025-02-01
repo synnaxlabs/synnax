@@ -62,7 +62,7 @@ export const middleware =
     runtime: Runtime<S, A | Action>,
     debug: boolean = false,
   ): Middleware<Dispatch<A | Action>, S, Dispatch<A | Action>> =>
-  ({ getState, dispatch }) =>
+  (store) =>
   (next) =>
   (action_) => {
     // eslint-disable-next-line prefer-const
@@ -89,7 +89,7 @@ export const middleware =
 
     let prevS: SliceState | null = null;
     if (isDrift) {
-      prevS = getState().drift;
+      prevS = store.getState().drift;
       action = assignLabel(
         action as PayloadAction<MaybeKeyPayload | LabelPayload>,
         prevS,
@@ -98,13 +98,13 @@ export const middleware =
 
     const res = next(action);
 
-    const nextS = shouldSync ? getState().drift : null;
+    const nextS = shouldSync ? store.getState().drift : null;
 
     const shouldEmit_ = shouldEmit(emitted, action.type);
 
     // Run everything within a mutex locked closure to ensure that we correctly sync
     // and then propagate actions to other windows.
-    mu.runExclusive(async (): Promise<void> => {
+    void mu.runExclusive(async (): Promise<void> => {
       try {
         if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
@@ -116,7 +116,7 @@ export const middleware =
           emitter,
           host: label,
         });
-        dispatch(setWindowError({ key: label, message: (err as Error).message }));
+        store.dispatch(setWindowError({ key: label, message: (err as Error).message }));
       }
     });
 

@@ -58,7 +58,7 @@ export class Setpoint
 
     const prevTrigger = i.prevTrigger;
     i.prevTrigger = trigger;
-    if (trigger > prevTrigger && command != null) this.internal.sink.set(command);
+    if (trigger > prevTrigger && command != null) await this.internal.sink.set(command);
 
     await this.updateValue();
     i.stopListening?.();

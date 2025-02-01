@@ -18,6 +18,8 @@ import { type MainMessage, type WorkerMessage } from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 
+interface ContextMap extends Pick<Map<string, any>, "get" | "forEach"> {}
+
 /**
  * A component in the Aether tree. Each component instance has a unique key identifying
  * it within the tree, and also has a type identifying it's class. Components
@@ -44,10 +46,7 @@ export interface Component {
   /**
    *
    */
-  _updateContext: (
-    values: Map<string, any>,
-    triggerAfterUpdate?: boolean,
-  ) => Promise<void>;
+  _updateContext: (values: ContextMap, triggerAfterUpdate?: boolean) => Promise<void>;
   /**
    * Propagates a delete to the internal tree of the component, calling the handleDelete
    * component on the component itself and any children as necessary. It is up to
@@ -197,7 +196,7 @@ export abstract class Leaf<State extends z.ZodTypeAny, InternalState extends {} 
   }
 
   async _updateContext(
-    values: Map<string, any>,
+    values: ContextMap,
     triggerAfterUpdate: boolean = true,
   ): Promise<void> {
     values.forEach((value, key) => this.parentCtxValues.set(key, value));
@@ -252,7 +251,7 @@ export abstract class Leaf<State extends z.ZodTypeAny, InternalState extends {} 
 const createChildContext = (
   parentValues: Map<string, any>,
   childValues: Map<string, any>,
-) => {
+): ContextMap => {
   const childCtx = new Map(parentValues);
   childValues.forEach((value, key) => childCtx.set(key, value));
   return childCtx;
@@ -319,7 +318,7 @@ export class Composite<
   }
 
   async _updateContext(
-    values: Map<string, any>,
+    values: ContextMap,
     triggerAfterUpdate: boolean = true,
   ): Promise<void> {
     this.childCtxChangedKeys.clear();
@@ -405,6 +404,8 @@ export class Root extends Composite<typeof aetherRootState> {
   private static readonly KEY = "root";
   private readonly registry: ComponentRegistry;
 
+  private count: number = 0;
+
   private readonly mu = new Mutex();
 
   schema = aetherRootState;
@@ -415,6 +416,7 @@ export class Root extends Composite<typeof aetherRootState> {
     registry,
   }: RootProps) {
     super(Root.KEY, Root.TYPE, wrap, instrumentation);
+    this.count = 0;
     this.wrap = wrap;
     this.registry = registry;
   }
@@ -423,13 +425,16 @@ export class Root extends Composite<typeof aetherRootState> {
     const root = new Root(props);
     await root._updateState([Root.KEY], {}, shouldNotCallCreate);
     root.wrap.handle((msg) => {
-      void root.mu.runExclusive(async () => await root.handle(msg));
+      root.count++;
+      void root.mu.runExclusive(async () => {
+        await root.handle(msg);
+      });
     });
     return root;
   }
   async handle(msg: MainMessage): Promise<void> {
     const { path, variant, type } = msg;
-    if (variant === "delete") this._delete(path);
+    if (variant === "delete") await this._delete(path);
     else
       await this._updateState(path, msg.state, () =>
         this.create(path[path.length - 1], type),

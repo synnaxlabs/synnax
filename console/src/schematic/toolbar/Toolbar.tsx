@@ -129,7 +129,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         </Align.Space>
         <Align.Space direction="x" align="center" empty>
           <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
-            <Export.ToolbarButton onExport={() => handleExport(state.key)} />
+            <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
             <Link.CopyToolbarButton
               name={name}
               ontologyID={schematic.ontologyID(state.key)}

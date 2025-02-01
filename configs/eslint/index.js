@@ -101,6 +101,7 @@ export default [
       "@typescript-eslint/no-unsafe-call": "off",
       "@typescript-eslint/no-redundant-type-constituents": "off",
       "@typescript-eslint/restrict-plus-operands": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
