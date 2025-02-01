@@ -76,27 +76,27 @@ export class Controller
   private writer?: framer.Writer;
 
   async afterUpdate(ctx: aether.Context): Promise<void> {
-    this.internal.instrumentation = alamos.useInstrumentation(ctx);
+    const { internal: i } = this;
+    i.instrumentation = alamos.useInstrumentation(ctx);
     if (
-      this.internal.prevTrigger == null ||
-      Math.abs(this.state.acquireTrigger - this.internal.prevTrigger) > 1
+      i.prevTrigger == null ||
+      Math.abs(this.state.acquireTrigger - i.prevTrigger) > 1
     )
-      this.internal.prevTrigger = this.state.acquireTrigger;
+      i.prevTrigger = this.state.acquireTrigger;
     const nextClient = synnax.use(ctx);
     const nextStateProv = StateProvider.use(ctx);
 
-    this.internal.client = nextClient;
-    if (this.internal.client == null) await this.release();
-    this.internal.stateProv = nextStateProv;
+    i.client = nextClient;
+    if (i.client == null) await this.release();
+    i.stateProv = nextStateProv;
 
-    this.internal.telemCtx = telem.useChildContext(ctx, this, this.internal.telemCtx);
+    i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
 
-    this.internal.addStatus = status.useAggregate(ctx);
+    i.addStatus = status.useAggregate(ctx);
 
     // Acquire or release control if necessary.
-    if (this.state.acquireTrigger > this.internal.prevTrigger) await this.acquire();
-    else if (this.state.acquireTrigger < this.internal.prevTrigger)
-      await this.release();
+    if (this.state.acquireTrigger > i.prevTrigger) await this.acquire();
+    else if (this.state.acquireTrigger < i.prevTrigger) await this.release();
   }
 
   async afterDelete(): Promise<void> {

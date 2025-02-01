@@ -147,14 +147,19 @@ export const Provider = ({
     },
   });
 
+  // The ret.theme.key dep will not trigger a re-render if the theme properties change
+  // but not the key. This reduces re-renders, but should be corrected once the user
+  // has the ability to edit the theme themselves.
   useEffect(() => setAetherTheme((p) => ({ ...p, theme: ret.theme })), [ret.theme.key]);
 
+  // See note on useEffect above.
   useLayoutEffect(() => {
     const el = document.documentElement;
     setThemeClass(el, ret.theme);
     if (applyCSSVars) CSS.applyVars(el, toCSSVars(ret.theme));
     else CSS.removeVars(el, "--pluto");
-  }, [ret.theme]);
+  }, [ret.theme.key]);
+
   return (
     <Context.Provider value={ret}>
       <Aether.Composite path={path}>{children}</Aether.Composite>

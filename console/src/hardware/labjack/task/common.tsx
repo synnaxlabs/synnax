@@ -18,7 +18,7 @@ export const SelectDevice = () => {
   const place = Layout.usePlacer();
   const handleDeviceChange = (v: string) => {
     if (client == null) return;
-    void client.hardware.devices
+    client.hardware.devices
       .retrieve<Properties>(v)
       .then(({ configured }) => {
         if (configured) return;

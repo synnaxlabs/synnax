@@ -33,9 +33,6 @@ import (
 
 var _ = Describe("Control", func() {
 	for fsName, makeFS := range fileSystems {
-		if fsName != "memFS" {
-			continue
-		}
 		Context("FS:"+fsName, Ordered, func() {
 			var (
 				db      *cesium.DB

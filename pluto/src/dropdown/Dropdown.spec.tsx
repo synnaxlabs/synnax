@@ -48,9 +48,7 @@ describe("Dropdown", () => {
     const toggle = c.getByText("Toggle");
     const dialog = c.getByRole("dialog");
     expect(dialog.className).toContain("hidden");
-    await act(async () => {
-      await userEvent.click(toggle);
-    });
+    await userEvent.click(toggle);
     expect(dialog.className).not.toContain("hidden");
   });
 });
