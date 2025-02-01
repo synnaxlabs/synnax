@@ -12,55 +12,50 @@ import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
 
 export interface TooltipProps
-  extends Omit<z.input<typeof tooltip.tooltipStateZ>, "position"> {}
+  extends Omit<z.input<typeof tooltip.tooltipStateZ>, "position">,
+    Aether.CProps {}
 
-export const Tooltip = Aether.wrap<TooltipProps>(
-  "Tooltip",
-  ({ aetherKey }): ReactElement | null => {
-    const [, , setState] = Aether.use({
-      aetherKey,
-      type: tooltip.Tooltip.TYPE,
-      schema: tooltip.tooltipStateZ,
-      initialState: {
-        position: null,
-      },
-    });
+export const Tooltip = ({ aetherKey, ...props }: TooltipProps): ReactElement | null => {
+  const cKey = useUniqueKey(aetherKey);
+  const [, , setState] = Aether.use({
+    aetherKey: cKey,
+    type: tooltip.Tooltip.TYPE,
+    schema: tooltip.tooltipStateZ,
+    initialState: { position: null, ...props },
+  });
 
-    const ref = useRef<HTMLSpanElement>(null);
+  const ref = useRef<HTMLSpanElement>(null);
 
-    const handleMove = useCallback(
-      (e: MouseEvent): void => {
-        // select the .pluto-canvas-container element
-        const canvas = document.querySelector(".pluto-canvas-container");
-        if (canvas == null) return;
-        const topLeft = box.topLeft(canvas);
-        setState({ position: xy.translation(topLeft, xy.construct(e)) });
-      },
-      [setState],
-    );
+  const handleMove = useCallback(
+    (e: MouseEvent): void => {
+      // select the .pluto-canvas-container element
+      const canvas = document.querySelector(".pluto-canvas-container");
+      if (canvas == null) return;
+      const topLeft = box.topLeft(canvas);
+      setState({ position: xy.translation(topLeft, xy.construct(e)) });
+    },
+    [setState],
+  );
 
-    const handleLeave = useCallback(
-      (): void => setState({ position: null }),
-      [setState],
-    );
+  const handleLeave = useCallback((): void => setState({ position: null }), [setState]);
 
-    useEffect(() => {
-      if (ref.current === null) return;
-      // Select the parent node of the tooltip
-      const parent = ref.current.parentElement;
-      if (parent == null) return;
-      // Bind a hover listener to the parent node
-      parent.addEventListener("mousemove", handleMove);
-      parent.addEventListener("mouseleave", handleLeave);
-      return () => {
-        parent.removeEventListener("mousemove", handleMove);
-        parent.removeEventListener("mouseleave", handleLeave);
-      };
-    }, [handleMove]);
+  useEffect(() => {
+    if (ref.current === null) return;
+    // Select the parent node of the tooltip
+    const parent = ref.current.parentElement;
+    if (parent == null) return;
+    // Bind a hover listener to the parent node
+    parent.addEventListener("mousemove", handleMove);
+    parent.addEventListener("mouseleave", handleLeave);
+    return () => {
+      parent.removeEventListener("mousemove", handleMove);
+      parent.removeEventListener("mouseleave", handleLeave);
+    };
+  }, [handleMove]);
 
-    return <span ref={ref} />;
-  },
-);
+  return <span ref={ref} />;
+};

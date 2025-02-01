@@ -9,21 +9,20 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { type Command } from "@/palette/Palette";
-import { create } from "@/schematic/Schematic";
-import { selectHasPermission } from "@/schematic/selectors";
+import { type Palette } from "@/palette";
+import { Schematic } from "@/schematic";
 import { ImportIcon } from "@/schematic/services/Icon";
 import { import_ } from "@/schematic/services/import";
 
-const CREATE_COMMAND: Command = {
+const CREATE_COMMAND: Palette.Command = {
   key: "create-schematic",
   name: "Create Schematic",
   icon: <Icon.Schematic />,
-  onSelect: ({ placeLayout }) => placeLayout(create({})),
-  visible: (state) => selectHasPermission(state),
+  onSelect: ({ placeLayout }) => placeLayout(Schematic.create({})),
+  visible: (state) => Schematic.selectHasPermission(state),
 };
 
-const IMPORT_COMMAND: Command = {
+const IMPORT_COMMAND: Palette.Command = {
   key: "import-schematic",
   name: "Import Schematic(s)",
   icon: <ImportIcon />,

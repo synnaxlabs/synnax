@@ -9,7 +9,15 @@
 
 import "@/schematic/toolbar/Symbols.css";
 
-import { Align, Haul, Input, Schematic, Text, Theming } from "@synnaxlabs/pluto";
+import {
+  Align,
+  CSS as PCSS,
+  Haul,
+  Input,
+  Schematic,
+  Text,
+  Theming,
+} from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
 import { id } from "@synnaxlabs/x";
 import {
@@ -59,7 +67,11 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       </Align.Space>
       <List.Core<string, Schematic.Spec<any>>
         direction="x"
-        className={CSS.B("schematic-symbols")}
+        className={CSS(
+          CSS.B("schematic-symbols"),
+          PCSS.BE("symbol", "container"),
+          PCSS.M("editable"),
+        )}
         wrap
       >
         {(p) => (
@@ -100,7 +112,7 @@ const SymbolsButton = ({
   return (
     // @ts-expect-error - generic elements
     <Align.Space
-      className={CSS.BE("schematic-symbols", "button")}
+      className={CSS(CSS.BE("schematic-symbols", "button"))}
       justify="spaceBetween"
       align="center"
       size={0.5}

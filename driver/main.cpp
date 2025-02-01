@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
 
     auto breaker = breaker::Breaker(cfg.breaker_config);
     breaker.start();
-    VLOG(1) << "[driver] retrieving meta-data";
+    VLOG(1) << "[driver] retrieving metadata";
     auto [rack, rack_err] = retrieve_driver_rack(cfg, breaker, client);
     breaker.stop();
     if (rack_err) {

@@ -19,18 +19,9 @@ interface Entry {
 }
 
 const data: Entry[] = [
-  {
-    key: "1",
-    name: "John",
-  },
-  {
-    key: "2",
-    name: "James",
-  },
-  {
-    key: "3",
-    name: "Javier",
-  },
+  { key: "1", name: "John" },
+  { key: "2", name: "James" },
+  { key: "3", name: "Javier" },
 ];
 
 interface UseSelectMultipleWrapperReturn {

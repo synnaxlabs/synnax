@@ -73,11 +73,15 @@
     &.pluto--disabled {
         & .pluto-input__internal {
             background-color: var(--pluto-gray-l2);
-            border-color: var(--pluto-gray-l3);
         }
         & :not(.pluto-input__disabled-overlay) {
             cursor: not-allowed !important;
             color: var(--pluto-gray-l5) !important;
+        }
+        &:not(.pluto-input--custom-color) {
+            .pluto-input__internal {
+                border-color: var(--pluto-gray-l3) !important;
+            }
         }
     }
 

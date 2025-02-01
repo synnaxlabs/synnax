@@ -24,6 +24,7 @@ import { Align } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Channel } from "@/channel";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
@@ -70,6 +71,7 @@ const SideEffect = (): null => {
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();
   Device.useListenForChanges();
+  Channel.useListenForCalculationState();
   Workspace.useSyncLayout();
   Link.useDeep(LINK_HANDLERS);
   Layout.useTriggers();
@@ -82,7 +84,7 @@ export const MAIN_TYPE = Drift.MAIN_WINDOW;
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
- * component as simple, presentational, and navigatable as possible.
+ * component as simple, presentational, and navigable as possible.
  */
 export const Main = (): ReactElement => (
   <>

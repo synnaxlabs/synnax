@@ -6,9 +6,8 @@ propellant tanks.
 
 ## Files
 
-This directory contains two files:
+This directory contains several files:
 
--
 - `common.py`: The names of the valves and sensors on the TPC system.
 - `control_sequence.py`: The main control sequence that runs the pressurization and
   venting process. This sequence also reruns the test with more optimal control bounds.

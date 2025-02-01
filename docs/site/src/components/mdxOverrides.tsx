@@ -12,7 +12,7 @@ interface TextFactoryProps {
   includeAnchor?: boolean;
 }
 
-interface TextProps extends Omit<Text.TextProps, "level"> {}
+export interface TextProps extends Omit<Text.TextProps, "level"> {}
 
 export const textFactory = ({
   level,

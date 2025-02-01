@@ -24,12 +24,7 @@ export const Title = <L extends Text.Level = "h2">({
   const key = useUniqueKey();
   const font = Theming.useTypography(level);
   const gridStyle = useGridEntry(
-    {
-      key,
-      size: (font.lineHeight + 2) * font.baseSize,
-      loc: "top",
-      order: 10,
-    },
+    { key, size: (font.lineHeight + 2) * font.baseSize, loc: "top", order: 10 },
     "Title",
   );
   return (

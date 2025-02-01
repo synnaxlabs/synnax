@@ -61,26 +61,10 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
     <List.List data={vis.lines} emptyContent={emptyContent}>
       <List.Column.Header
         columns={[
-          {
-            key: "label",
-            name: "Label",
-            width: 305,
-          },
-          {
-            key: "strokeWidth",
-            name: "Line Width",
-            width: 150,
-          },
-          {
-            key: "downsample",
-            name: "Downsampling",
-            width: 110,
-          },
-          {
-            key: "color",
-            name: "Color",
-            width: 100,
-          },
+          { key: "label", name: "Label", width: 305 },
+          { key: "strokeWidth", name: "Line Width", width: 150 },
+          { key: "downsample", name: "Downsampling", width: 110 },
+          { key: "color", name: "Color", width: 100 },
         ]}
       />
       <List.Core<string, LineState> style={{ height: "calc(100% - 28px)" }}>

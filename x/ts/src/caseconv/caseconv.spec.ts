@@ -51,16 +51,8 @@ describe("caseconv", () => {
           [{ fooBar: 1 }, { bazQux: 2 }],
         ],
         [
-          {
-            channel_key: "test",
-            time_stamp: 123,
-            value: [1, 2, 3],
-          },
-          {
-            channelKey: "test",
-            timeStamp: 123,
-            value: [1, 2, 3],
-          },
+          { channel_key: "test", time_stamp: 123, value: [1, 2, 3] },
+          { channelKey: "test", timeStamp: 123, value: [1, 2, 3] },
         ],
       ];
       SPECS.forEach(([input, expected], i) => {
@@ -108,16 +100,8 @@ describe("caseconv", () => {
           [{ foo_bar: 1 }, { baz_qux: 2 }],
         ],
         [
-          {
-            channelKey: "test",
-            timeStamp: 123,
-            value: [1, 2, 3],
-          },
-          {
-            channel_key: "test",
-            time_stamp: 123,
-            value: [1, 2, 3],
-          },
+          { channelKey: "test", timeStamp: 123, value: [1, 2, 3] },
+          { channel_key: "test", time_stamp: 123, value: [1, 2, 3] },
         ],
       ];
       SPECS.forEach(([input, expected], i) => {

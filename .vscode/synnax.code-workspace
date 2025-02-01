@@ -174,11 +174,6 @@
     "rewrap.wrappingColumn": 88
   },
   "extensions": {
-    "recommendations": [
-      "ms-vsliveshare.vsliveshare",
-      "golang.go",
-      "stkb.rewrap",
-      "rvest.vs-code-prettier-eslint"
-    ]
+    "recommendations": ["ms-vsliveshare.vsliveshare", "golang.go", "stkb.rewrap"]
   }
 }

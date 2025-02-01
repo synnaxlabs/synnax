@@ -178,82 +178,26 @@ Command line flags will take precedence over environment variables.
 
 <Table
   columns={[
-    {
-      key: "option",
-      name: "Flag",
-      type: "code",
-    },
-    {
-      key: "env",
-      name: "Environment Variable",
-      type: "code",
-    },
+    { key: "option", name: "Flag", type: "code" },
+    { key: "env", name: "Environment Variable", type: "code" },
   ]}
   data={[
-    {
-      option: "--listen/-l",
-      env: "SYNNAX_LISTEN",
-    },
-    {
-      option: "--peers/-p",
-      env: "SYNNAX_PEERS",
-    },
-    {
-      option: "--data/-d",
-      env: "SYNNAX_DATA",
-    },
-    {
-      option: "--verbose/-v",
-      env: "SYNNAX_VERBOSE",
-    },
-    {
-      option: "--insecure/-i",
-      env: "SYNNAX_INSECURE",
-    },
-    {
-      option: "--mem/-m",
-      env: "SYNNAX_MEM",
-    },
-    {
-      option: "--config/c",
-      env: "SYNNAX_CONFIG",
-    },
-    {
-      option: "--certs-dir",
-      env: "SYNNAX_CERTS_DIR",
-    },
-    {
-      option: "--ca-cert",
-      env: "SYNNAX_CA_CERT",
-    },
-    {
-      option: "--node-cert",
-      env: "SYNNAX_NODE_CERT",
-    },
-    {
-      option: "--node-key",
-      env: "SYNNAX_NODE_KEY",
-    },
-    {
-      option: "--username",
-      env: "SYNNAX_USERNAME",
-    },
-    {
-      option: "--password",
-      env: "SYNNAX_PASSWORD",
-    },
-    {
-      option: "--license-key",
-      env: "SYNNAX_LICENSE_KEY",
-    },
-    {
-      option: "--debug",
-      env: "SYNNAX_DEBUG",
-    },
-    {
-      option: "--slow-consumer-timeout",
-      env: "SYNNAX_SLOW_CONSUMER_TIMEOUT",
-    },
+    { option: "--listen/-l", env: "SYNNAX_LISTEN" },
+    { option: "--peers/-p", env: "SYNNAX_PEERS" },
+    { option: "--data/-d", env: "SYNNAX_DATA" },
+    { option: "--verbose/-v", env: "SYNNAX_VERBOSE" },
+    { option: "--insecure/-i", env: "SYNNAX_INSECURE" },
+    { option: "--mem/-m", env: "SYNNAX_MEM" },
+    { option: "--config/c", env: "SYNNAX_CONFIG" },
+    { option: "--certs-dir", env: "SYNNAX_CERTS_DIR" },
+    { option: "--ca-cert", env: "SYNNAX_CA_CERT" },
+    { option: "--node-cert", env: "SYNNAX_NODE_CERT" },
+    { option: "--node-key", env: "SYNNAX_NODE_KEY" },
+    { option: "--username", env: "SYNNAX_USERNAME" },
+    { option: "--password", env: "SYNNAX_PASSWORD" },
+    { option: "--license-key", env: "SYNNAX_LICENSE_KEY" },
+    { option: "--debug", env: "SYNNAX_DEBUG" },
+    { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
   ]}
 />
 
@@ -270,20 +214,11 @@ can specify a different configuration file using the `--config` flag or the
 Here are example configuration files in various formats:
 
 <Tabs
-client:only="react"
-tabs={[
-    {
-        name: "JSON",
-        tabKey: "json",
-    },
-    {
-        name: "YAML",
-        tabKey: "yaml",
-    },
-    {
-        name: "TOML",
-        tabKey: "toml",
-    },
+  client:only="react"
+  tabs={[
+    { name: "JSON", tabKey: "json" },
+    { name: "YAML", tabKey: "yaml" },
+    { name: "TOML", tabKey: "toml" },
 ]}
 >
 <slot slot="json">
@@ -311,7 +246,7 @@ tabs={[
 <slot slot="yaml">
 ```yaml
 listen: localhost:9090
-peers: 
+peers:
   - localhost:9091
   - localhost:9092
 data: /usr/local/synnax/data

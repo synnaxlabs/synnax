@@ -260,12 +260,7 @@ export interface SelectPathTypeProps
 
 export const SelectPathType = (props: SelectPathTypeProps): ReactElement => (
   <Select.DropdownButton
-    columns={[
-      {
-        key: "name",
-        name: "Type",
-      },
-    ]}
+    columns={[{ key: "name", name: "Type" }]}
     data={PATH_TYPES}
     style={{ width: 200 }}
     entryRenderKey="name"

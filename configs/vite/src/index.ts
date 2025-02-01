@@ -10,7 +10,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import ts, { type CompilerOptions } from "typescript";
-import type { Alias, AliasOptions, Plugin } from "vite";
+import { type Alias, type AliasOptions, type Plugin } from "vite";
 import dts from "vite-plugin-dts";
 
 const { parseConfigFileTextToJson, parseJsonConfigFileContent, sys } = ts;

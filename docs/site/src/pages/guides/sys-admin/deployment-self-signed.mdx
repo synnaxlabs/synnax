@@ -6,6 +6,7 @@ description: "Deploy a single node cluster with self-signed certificates."
 ---
 
 import { Icon } from "@synnaxlabs/media";
+import { Divider } from "@synnaxlabs/pluto";
 import { PlatformTabs } from "@/components/platform/PlatformTabs";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -14,6 +15,8 @@ This guide will walk you through every step of deploying a single-node cluster u
 self-signed certificates. We'll assume you have a remote server with a reachable IP
 address (and an optional domain name), and you have a local machine you'd like to use to
 connect to the cluster.
+
+<Divider.Divider direction="x" />
 
 ## Prerequisites
 
@@ -27,6 +30,8 @@ instructions, see the [installation guide](/reference/cluster/installation).
 
 This guide assumes you've installed the [Synnax Console](/reference/console/get-started)
 on your local machine. You can find the latest release [here](https://github.com/synnaxlabs/synnax/releases).
+
+<Divider.Divider direction="x" />
 
 ## Starting the Node
 
@@ -47,6 +52,8 @@ you can use that instead of `synnax.example.com`.
 If you don't have a domain name, don't use the IP address, as the certificate will not
 be valid for an IP address. Instead, stick with `synnax.example.com` or something similar.
 We'll configure a local host alias for this domain on the local machine in a [later step](#configuring-a-local-host-alias).
+
+<Divider.Divider direction="x" />
 
 ## Installing the CA Certificate Locally
 
@@ -119,6 +126,8 @@ Import-Certificate -FilePath C:\Users\LOCAL_USER\Downloads\synnax-ca.crt -CertSt
 
 </Fragment>
 </PlatformTabs>
+
+<Divider.Divider direction="x" />
 
 ## Configuring a Local Host Alias
 

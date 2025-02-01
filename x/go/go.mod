@@ -12,6 +12,7 @@ require (
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
 	github.com/uptrace/uptrace-go v1.32.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
+	github.com/yuin/gopher-lua v1.1.1
 	go.opentelemetry.io/otel v1.33.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67

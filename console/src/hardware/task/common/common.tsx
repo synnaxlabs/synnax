@@ -300,14 +300,7 @@ export const ChannelListHeader = ({ onAdd, snapshot }: ChannelListHeaderProps) =
     <Header.Title weight={500}>Channels</Header.Title>
     {!snapshot && (
       <Header.Actions>
-        {[
-          {
-            key: "add",
-            onClick: onAdd,
-            children: <Icon.Add />,
-            size: "large",
-          },
-        ]}
+        {[{ key: "add", onClick: onAdd, children: <Icon.Add />, size: "large" }]}
       </Header.Actions>
     )}
   </Header.Header>

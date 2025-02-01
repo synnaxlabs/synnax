@@ -45,7 +45,7 @@
     }
 }
 
-*:not(.pluto--editable) .pluto-symbol-primitive-toggle {
+.pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
     &:hover {
         &:not(.pluto--enabled) svg {
             fill: rgba(var(--pluto-symbol-color), 0.15) !important;
@@ -87,7 +87,7 @@
         opacity: 0.95;
     }
 
-    &:not(:hover):not(.pluto--enabled) svg {
+    &:not(.pluto--enabled) svg {
         fill: none;
     }
 }

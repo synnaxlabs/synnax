@@ -79,7 +79,6 @@ export const retrieveAndPlaceLayout = async (
 ) => {
   const t = await client.hardware.tasks.retrieve(key);
   const layout = createLayout(t);
-  console.log(layout);
   placeLayout(layout);
 };
 

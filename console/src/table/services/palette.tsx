@@ -9,19 +9,19 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { type Command } from "@/palette/Palette";
+import { type Palette } from "@/palette";
+import { Table } from "@/table";
 import { ImportIcon } from "@/table/services/Icon";
 import { import_ } from "@/table/services/import";
-import { create } from "@/table/Table";
 
-const CREATE_COMMAND: Command = {
+const CREATE_COMMAND: Palette.Command = {
   key: "create-table",
   name: "Create Table",
   icon: <Icon.Table />,
-  onSelect: ({ placeLayout }) => placeLayout(create({})),
+  onSelect: ({ placeLayout }) => placeLayout(Table.create({})),
 };
 
-const IMPORT_COMMAND: Command = {
+const IMPORT_COMMAND: Palette.Command = {
   key: "import-table",
   name: "Import Table(s)",
   icon: <ImportIcon />,

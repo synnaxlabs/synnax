@@ -10,7 +10,7 @@
 import { Confirm, LAYOUT_TYPE } from "@/confirm/Confirm";
 import { type Layout } from "@/layout";
 
-export { useModal } from "@/confirm/Confirm";
+export * from "@/confirm/useModal";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Confirm,

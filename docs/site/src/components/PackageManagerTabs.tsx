@@ -12,21 +12,9 @@ import { Tabs } from "@synnaxlabs/pluto/tabs";
 import { type ReactElement } from "react";
 
 const TABS = [
-  {
-    tabKey: "npm",
-    name: "npm",
-    icon: <Icon.NPM />,
-  },
-  {
-    tabKey: "yarn",
-    name: "yarn",
-    icon: <Icon.Yarn />,
-  },
-  {
-    tabKey: "pnpm",
-    name: "pnpm",
-    icon: <Icon.PNPM />,
-  },
+  { tabKey: "npm", name: "npm", icon: <Icon.NPM /> },
+  { tabKey: "yarn", name: "yarn", icon: <Icon.Yarn /> },
+  { tabKey: "pnpm", name: "pnpm", icon: <Icon.PNPM /> },
 ];
 
 export interface PackageManagerTabsProps {

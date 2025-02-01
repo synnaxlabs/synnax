@@ -597,6 +597,7 @@ export const SetpointPreview = ({
     units={"mV"}
     style={{ width: 120, transform: "scale(0.95)" }}
     className={CSS(CSS.BM("setpoint", "preview"), className)}
+    disabled
     {...props}
   >
     <Text.Text level="p">10.0</Text.Text>

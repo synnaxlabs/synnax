@@ -10,10 +10,10 @@
 import "@/viewport/Mask.css";
 
 import { box } from "@synnaxlabs/x";
-import { type CSSProperties, forwardRef,type ReactElement } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Mode,type UseReturn } from "@/viewport/use";
+import { type Mode, type UseReturn } from "@/viewport/use";
 
 type DivProps = React.DetailedHTMLProps<
   React.HTMLAttributes<HTMLDivElement>,
@@ -32,29 +32,29 @@ const MODE_CURSORS: Record<Mode, CSSProperties["cursor"]> = {
   click: "pointer",
 };
 
-export const Mask = forwardRef<HTMLDivElement, MaskProps>(
-  (
-    { className, mode, maskBox, children, style, ...props },
-    ref,
-  ): ReactElement | null => (
+export const Mask = ({
+  className,
+  mode,
+  maskBox,
+  children,
+  style,
+  ...props
+}: MaskProps): ReactElement | null => (
+  <div
+    className={CSS(CSS.noSelect, CSS.BE("viewport-mask", "container"), className)}
+    style={{
+      cursor: MODE_CURSORS[mode],
+      ...style,
+    }}
+    {...props}
+  >
     <div
-      ref={ref}
-      className={CSS(CSS.noSelect, CSS.BE("viewport-mask", "container"), className)}
       style={{
-        cursor: MODE_CURSORS[mode],
-        ...style,
+        ...box.css(maskBox),
+        display: box.areaIsZero(maskBox) ? "none" : "block",
       }}
-      {...props}
-    >
-      <div
-        style={{
-          ...box.css(maskBox),
-          display: box.areaIsZero(maskBox) ? "none" : "block",
-        }}
-        className={CSS.BE("viewport-mask", "selection")}
-      />
-      {children}
-    </div>
-  ),
+      className={CSS.BE("viewport-mask", "selection")}
+    />
+    {children}
+  </div>
 );
-Mask.displayName = "ZoomPanMask";

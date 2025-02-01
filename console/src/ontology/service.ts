@@ -101,7 +101,7 @@ export interface Service {
     | ReactElement<Icon.BaseProps>
     | ((resource: ontology.Resource) => ReactElement<Icon.BaseProps>);
   hasChildren: boolean;
-  onSelect: HandleSelect;
+  onSelect?: HandleSelect;
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
   allowRename: AllowRename;

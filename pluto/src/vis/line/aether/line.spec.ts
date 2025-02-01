@@ -77,20 +77,8 @@ describe("line", () => {
         },
       ],
       expected: [
-        {
-          xSeries: 0,
-          ySeries: 0,
-          xOffset: 0,
-          yOffset: 0,
-          count: 100,
-        },
-        {
-          xSeries: 1,
-          ySeries: 1,
-          xOffset: 0,
-          yOffset: 0,
-          count: 100,
-        },
+        { xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 0, count: 100 },
+        { xSeries: 1, ySeries: 1, xOffset: 0, yOffset: 0, count: 100 },
       ],
     };
 
@@ -113,20 +101,8 @@ describe("line", () => {
         },
       ],
       expected: [
-        {
-          ySeries: 0,
-          xSeries: 0,
-          xOffset: 0,
-          yOffset: 0,
-          count: 50,
-        },
-        {
-          ySeries: 1,
-          xSeries: 0,
-          xOffset: 50,
-          yOffset: 0,
-          count: 50,
-        },
+        { ySeries: 0, xSeries: 0, xOffset: 0, yOffset: 0, count: 50 },
+        { ySeries: 1, xSeries: 0, xOffset: 50, yOffset: 0, count: 50 },
       ],
     };
 
@@ -144,15 +120,7 @@ describe("line", () => {
           alignmentBounds: { lower: 50n, upper: 150n },
         },
       ],
-      expected: [
-        {
-          xSeries: 0,
-          ySeries: 0,
-          xOffset: 50,
-          yOffset: 0,
-          count: 50,
-        },
-      ],
+      expected: [{ xSeries: 0, ySeries: 0, xOffset: 50, yOffset: 0, count: 50 }],
     };
 
     const Y_COMPLETELY_CONTAINS_X: Spec = {
@@ -169,15 +137,7 @@ describe("line", () => {
           alignmentBounds: { lower: 0n, upper: 200n },
         },
       ],
-      expected: [
-        {
-          xSeries: 0,
-          ySeries: 0,
-          xOffset: 0,
-          yOffset: 50,
-          count: 50,
-        },
-      ],
+      expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 50, count: 50 }],
     };
 
     const X_COMPLETELY_CONTAINS_Y: Spec = {
@@ -194,15 +154,7 @@ describe("line", () => {
           alignmentBounds: { lower: 50n, upper: 100n },
         },
       ],
-      expected: [
-        {
-          xSeries: 0,
-          ySeries: 0,
-          xOffset: 50,
-          yOffset: 0,
-          count: 50,
-        },
-      ],
+      expected: [{ xSeries: 0, ySeries: 0, xOffset: 50, yOffset: 0, count: 50 }],
     };
 
     const MULTIPLE_PARTIAL_OVERLAPS: Spec = {
@@ -232,34 +184,10 @@ describe("line", () => {
         },
       ],
       expected: [
-        {
-          xSeries: 0,
-          ySeries: 0,
-          xOffset: 25,
-          yOffset: 0,
-          count: 50,
-        },
-        {
-          xSeries: 0,
-          ySeries: 1,
-          xOffset: 75,
-          yOffset: 0,
-          count: 25,
-        },
-        {
-          xSeries: 1,
-          ySeries: 1,
-          xOffset: 0,
-          yOffset: 25,
-          count: 25,
-        },
-        {
-          xSeries: 1,
-          ySeries: 2,
-          xOffset: 25,
-          yOffset: 0,
-          count: 25,
-        },
+        { xSeries: 0, ySeries: 0, xOffset: 25, yOffset: 0, count: 50 },
+        { xSeries: 0, ySeries: 1, xOffset: 75, yOffset: 0, count: 25 },
+        { xSeries: 1, ySeries: 1, xOffset: 0, yOffset: 25, count: 25 },
+        { xSeries: 1, ySeries: 2, xOffset: 25, yOffset: 0, count: 25 },
       ],
     };
 

@@ -325,12 +325,7 @@ const Content = (): ReactElement => {
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
           <Header.Actions>
-            {[
-              {
-                children: <Icon.Add />,
-                onClick: () => place(createSelector({})),
-              },
-            ]}
+            {[{ children: <Icon.Add />, onClick: () => place(createSelector({})) }]}
           </Header.Actions>
         </ToolbarHeader>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
@@ -404,7 +399,7 @@ const TaskListItem = ({
         direction="y"
         size="small"
         grow
-        className={CSS.BE("task", "meta-data")}
+        className={CSS.BE("task", "metadata")}
       >
         <Align.Space direction="x" align="center" size="small">
           <Status.Circle

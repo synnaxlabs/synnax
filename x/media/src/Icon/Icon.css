@@ -32,13 +32,16 @@
 }
 
 .synnax-icon-log {
-    transform: scale(0.85);
+    --pluto-base-scale: 0.85;
+    transform: scale(var(--pluto-base-scale));
 }
 
 .synnax-icon-schematic {
-    transform: scale(1);
+    --pluto-base-scale: 1;
+    transform: scale(var(--pluto-base-scale));
 }
 
 .synnax-icon-decimal {
-    transform: scale(1.25);
+    --pluto-base-scale: 1.3;
+    transform: scale(var(--pluto-base-scale));
 }

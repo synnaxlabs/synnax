@@ -11,6 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import {
   createContext,
   type PropsWithChildren,
+  type ReactElement,
   useContext as reactUseContext,
   useEffect,
 } from "react";
@@ -35,28 +36,28 @@ const Context = createContext<ContextValue>({ needsControlOf: [] });
 
 export const useContext = (): ContextValue => reactUseContext(Context);
 
-export const Controller = Aether.wrap<ControllerProps>(
-  control.Controller.TYPE,
-  ({ aetherKey, children, onStatusChange, ...props }) => {
-    const memoProps = useMemoDeepEqualProps(props);
-    const [{ path }, { status, needsControlOf }, setState] = Aether.use({
-      aetherKey,
-      type: control.Controller.TYPE,
-      schema: control.controllerStateZ,
-      initialState: memoProps,
-    });
-    useEffect(() => {
-      if (status != null) onStatusChange?.(status);
-    }, [status, onStatusChange]);
-    useEffect(() => {
-      setState((state) => ({ ...state, ...memoProps }));
-    }, [memoProps, setState]);
-    useEffect(() => () => onStatusChange?.("released"), []);
+export const Controller = ({
+  children,
+  onStatusChange,
+  ...props
+}: ControllerProps): ReactElement => {
+  const memoProps = useMemoDeepEqualProps(props);
+  const [{ path }, { status, needsControlOf }, setState] = Aether.use({
+    type: control.Controller.TYPE,
+    schema: control.controllerStateZ,
+    initialState: memoProps,
+  });
+  useEffect(() => {
+    if (status != null) onStatusChange?.(status);
+  }, [status, onStatusChange]);
+  useEffect(() => {
+    setState((state) => ({ ...state, ...memoProps }));
+  }, [memoProps, setState]);
+  useEffect(() => () => onStatusChange?.("released"), []);
 
-    return (
-      <Context.Provider value={{ needsControlOf }}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>;
-      </Context.Provider>
-    );
-  },
-);
+  return (
+    <Context.Provider value={{ needsControlOf }}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>;
+    </Context.Provider>
+  );
+};

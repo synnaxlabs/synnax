@@ -465,11 +465,7 @@ describe("connector", () => {
     //
     const SINGLE_MOVE_UP: Spec = {
       name: "single move up",
-      props: {
-        segments: [{ direction: "x", length: 30 }],
-        index: 0,
-        magnitude: 10,
-      },
+      props: { segments: [{ direction: "x", length: 30 }], index: 0, magnitude: 10 },
       expected: [
         { direction: "x", length: 10 },
         { direction: "y", length: 10 },
@@ -605,10 +601,7 @@ describe("connector", () => {
     //   |-T
     const SINGLE_MOVE_UP: Spec = {
       name: "single move up",
-      props: {
-        delta: { x: 0, y: -10 },
-        segments: [{ direction: "x", length: 30 }],
-      },
+      props: { delta: { x: 0, y: -10 }, segments: [{ direction: "x", length: 30 }] },
       expected: [
         { direction: "x", length: 15 },
         { direction: "y", length: 10 },
@@ -642,10 +635,7 @@ describe("connector", () => {
     // S-----T
     const SIMPLE_MOVE_LEFT: Spec = {
       name: "simple move left",
-      props: {
-        delta: { x: -10, y: 0 },
-        segments: [{ direction: "x", length: 30 }],
-      },
+      props: { delta: { x: -10, y: 0 }, segments: [{ direction: "x", length: 30 }] },
       expected: [{ direction: "x", length: 40 }],
     };
 
@@ -661,10 +651,7 @@ describe("connector", () => {
     // T
     const SIMPLE_MOVE_UP: Spec = {
       name: "simple move up",
-      props: {
-        delta: { x: 0, y: -10 },
-        segments: [{ direction: "y", length: 30 }],
-      },
+      props: { delta: { x: 0, y: -10 }, segments: [{ direction: "y", length: 30 }] },
       expected: [{ direction: "y", length: 40 }],
     };
 
@@ -779,10 +766,7 @@ describe("connector", () => {
 
     const TIGHT_SINGLE_COMPRESSION: Spec = {
       name: "tight single compression",
-      props: {
-        delta: { x: 1, y: 0 },
-        segments: [{ direction: "x", length: 6 }],
-      },
+      props: { delta: { x: 1, y: 0 }, segments: [{ direction: "x", length: 6 }] },
       expected: [{ direction: "x", length: 5 }],
     };
 
@@ -812,18 +796,9 @@ describe("connector", () => {
         ],
       },
       expected: [
-        {
-          direction: "x",
-          length: 2,
-        },
-        {
-          direction: "y",
-          length: -133,
-        },
-        {
-          direction: "x",
-          length: 4,
-        },
+        { direction: "x", length: 2 },
+        { direction: "y", length: -133 },
+        { direction: "x", length: 4 },
       ],
     };
 

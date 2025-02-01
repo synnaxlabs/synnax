@@ -11,20 +11,20 @@ import { Icon } from "@synnaxlabs/media";
 
 import { configureReadLayout } from "@/hardware/opc/task/Read";
 import { createWriteLayout } from "@/hardware/opc/task/Write";
-import { type Command } from "@/palette/Palette";
+import { type Palette } from "@/palette";
 
-const createReadTaskCommand: Command = {
+const CREATE_READ_TASK_COMMAND: Palette.Command = {
   key: "opc-create-read-task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(configureReadLayout({ create: true })),
 };
 
-const createWriteTaskCommand: Command = {
+const CREATE_WRITE_TASK_COMMAND: Palette.Command = {
   key: "opc-create-write-task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(createWriteLayout({ create: true })),
 };
 
-export const COMMANDS = [createReadTaskCommand, createWriteTaskCommand];
+export const COMMANDS = [CREATE_READ_TASK_COMMAND, CREATE_WRITE_TASK_COMMAND];

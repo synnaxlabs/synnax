@@ -9,15 +9,22 @@
 
 import "@/align/Center.css";
 
-import { type ForwardedRef, forwardRef, type JSX, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
 
-export const CoreCenter = <E extends SpaceElementType = "div">(
-  { className, justify = "center", align = "center", ...props }: SpaceProps<E>,
-  ref: ForwardedRef<JSX.IntrinsicElements[E]>,
-): ReactElement => (
+/**
+ * An element whose width and height is 100% and whose alignment and justification
+ * is centered. Props are the same as {@link Space}.
+ */
+export const Center = <E extends SpaceElementType = "div">({
+  className,
+  justify = "center",
+  align = "center",
+  ref,
+  ...props
+}: SpaceProps<E>): ReactElement => (
   // @ts-expect-error - generic element issues
   <Space<E>
     ref={ref}
@@ -27,11 +34,3 @@ export const CoreCenter = <E extends SpaceElementType = "div">(
     {...props}
   />
 );
-
-/**
- * An element whose width and height is 100% and whose alignment and justification
- * is centered. Props are the same as {@link Space}.
- */
-export const Center = forwardRef(CoreCenter) as <E extends SpaceElementType = "div">(
-  props: SpaceProps<E>,
-) => ReactElement;

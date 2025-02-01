@@ -10,6 +10,8 @@
 package unary
 
 import (
+	"sync/atomic"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -24,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"sync/atomic"
 )
 
 // ErrVirtual is returned when the caller tried to open a unary database on a virtual
@@ -38,8 +39,7 @@ type Config struct {
 	// creating a new database. If the database already exists, the Channel information
 	// will be read from the DB's meta file.
 	Channel core.Channel
-	// MetaCodec is used to encode and decode meta-data about the channel.
-	// [REQUIRED]
+	// MetaCodec is used to encode and decode metadata about the channel. [REQUIRED]
 	MetaCodec binary.Codec
 	// FS is the filesystem that the DB will use to store its data. DB will write to the
 	// root of the filesystem, so this should probably be a subdirectory. DB should have

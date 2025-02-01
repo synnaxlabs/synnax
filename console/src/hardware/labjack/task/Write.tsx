@@ -450,7 +450,7 @@ const ChannelListItem = ({
               model={device.model}
               channelType={entry.type}
               allowNone={false}
-              onClick={(e: MouseEvent) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
               style={{ width: 250 }}
               actions={[
                 <Form.Field<OutputChannelType>

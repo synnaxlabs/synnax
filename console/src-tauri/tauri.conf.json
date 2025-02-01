@@ -30,8 +30,7 @@
     "macOS": {
       "entitlements": null,
       "frameworks": [],
-      "providerShortName": null,
-      "signingIdentity": null
+      "providerShortName": null
     },
     "resources": [],
     "shortDescription": "",

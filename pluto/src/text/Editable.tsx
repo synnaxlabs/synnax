@@ -181,6 +181,7 @@ export const Editable = <L extends text.Level = text.Level>({
   if (ref.current !== null && !editable) ref.current.innerHTML = value;
 
   useEffect(() => {
+    if (ref.current == null) return;
     const m = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.attributeName !== "contenteditable") return;

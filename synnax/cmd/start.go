@@ -194,12 +194,15 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		labelSvc, err := label.OpenService(ctx, label.Config{
-			DB:       gorpDB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-		})
+		labelSvc, err := label.OpenService(
+			ctx,
+			label.Config{
+				DB:       gorpDB,
+				Ontology: dist.Ontology,
+				Group:    dist.Group,
+				Signals:  dist.Signals,
+			},
+		)
 		if err != nil {
 			return err
 		}
@@ -211,22 +214,27 @@ func start(cmd *cobra.Command) {
 			DB:       gorpDB,
 			Ontology: dist.Ontology,
 		})
-		hardwareSvc, err := hardware.OpenService(ctx, hardware.Config{
-			DB:           gorpDB,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			HostProvider: dist.Cluster,
-			Signals:      dist.Signals,
-			Channel:      dist.Channel,
-		})
+		hardwareSvc, err := hardware.OpenService(
+			ctx,
+			hardware.Config{
+				DB:           gorpDB,
+				Ontology:     dist.Ontology,
+				Group:        dist.Group,
+				HostProvider: dist.Cluster,
+				Signals:      dist.Signals,
+				Channel:      dist.Channel,
+			})
 		defer func() {
 			err = errors.Combine(err, hardwareSvc.Close())
 		}()
-		frameSvc, err := framer.OpenService(framer.Config{
-			Instrumentation: ins.Child("framer"),
-			Framer:          dist.Framer,
-			Channel:         dist.Channel,
-		})
+		frameSvc, err := framer.OpenService(
+			ctx,
+			framer.Config{
+				Instrumentation: ins.Child("framer"),
+				Framer:          dist.Framer,
+				Channel:         dist.Channel,
+			},
+		)
 		if err != nil {
 			return err
 		}
@@ -245,29 +253,31 @@ func start(cmd *cobra.Command) {
 		}
 
 		// Configure the API core.
-		_api, err := api.New(api.Config{
-			Instrumentation: ins.Child("api"),
-			Authenticator:   authenticator,
-			Enforcer:        &access.AllowAll{},
-			RBAC:            rbacSvc,
-			Schematic:       schematicSvc,
-			LinePlot:        linePlotSvc,
-			Insecure:        config.Bool(insecure),
-			Channel:         dist.Channel,
-			Framer:          frameSvc,
-			Storage:         dist.Storage,
-			User:            userSvc,
-			Token:           tokenSvc,
-			Table:           tableSvc,
-			Cluster:         dist.Cluster,
-			Ontology:        dist.Ontology,
-			Group:           dist.Group,
-			Ranger:          rangeSvc,
-			Log:             logSvc,
-			Workspace:       workspaceSvc,
-			Label:           labelSvc,
-			Hardware:        hardwareSvc,
-		})
+		_api, err := api.New(
+			api.Config{
+				Instrumentation: ins.Child("api"),
+				Authenticator:   authenticator,
+				Enforcer:        &access.AllowAll{},
+				RBAC:            rbacSvc,
+				Schematic:       schematicSvc,
+				LinePlot:        linePlotSvc,
+				Insecure:        config.Bool(insecure),
+				Channel:         dist.Channel,
+				Framer:          frameSvc,
+				Storage:         dist.Storage,
+				User:            userSvc,
+				Token:           tokenSvc,
+				Table:           tableSvc,
+				Cluster:         dist.Cluster,
+				Ontology:        dist.Ontology,
+				Group:           dist.Group,
+				Ranger:          rangeSvc,
+				Log:             logSvc,
+				Workspace:       workspaceSvc,
+				Label:           labelSvc,
+				Hardware:        hardwareSvc,
+			},
+		)
 		if err != nil {
 			return err
 		}
@@ -394,7 +404,8 @@ func buildServerConfig(
 	ins alamos.Instrumentation,
 	debug bool,
 ) (cfg server.Config) {
-	cfg.Branches = append(cfg.Branches,
+	cfg.Branches = append(
+		cfg.Branches,
 		&server.SecureHTTPBranch{Transports: httpTransports},
 		&server.GRPCBranch{Transports: grpcTransports},
 		server.NewHTTPRedirectBranch(),

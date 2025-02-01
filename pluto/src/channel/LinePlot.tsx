@@ -12,7 +12,7 @@ import "@/channel/LinePlot.css";
 import { type channel } from "@synnaxlabs/client";
 import { box, location as loc, type xy } from "@synnaxlabs/x/spatial";
 import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
 import { type Color } from "@/color";
@@ -358,24 +358,28 @@ const DynamicLine = ({
     key,
     timeSpan,
     channels: { x, y },
+    axes: _,
     ...props
   },
 }: {
   line: DynamicLineProps;
 }): ReactElement => {
-  const keepFor = Number(timeSpan.valueOf()) * 3;
-  const yTelem = telem.streamChannelData({
-    timeSpan,
-    channel: y,
-    keepFor,
-  });
-  const hasX = x != null && x !== 0;
-  const xTelem = telem.streamChannelData({
-    timeSpan,
-    channel: hasX ? x : y,
-    useIndexOfChannel: !hasX,
-    keepFor,
-  });
+  const { xTelem, yTelem } = useMemo(() => {
+    const keepFor = Number(timeSpan.valueOf()) * 3;
+    const yTelem = telem.streamChannelData({
+      timeSpan,
+      channel: y,
+      keepFor,
+    });
+    const hasX = x != null && x !== 0;
+    const xTelem = telem.streamChannelData({
+      timeSpan,
+      channel: hasX ? x : y,
+      useIndexOfChannel: !hasX,
+      keepFor,
+    });
+    return { xTelem, yTelem };
+  }, [timeSpan.valueOf(), x, y]);
   return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };
 
@@ -389,12 +393,15 @@ const StaticLine = ({
 }: {
   line: StaticLineProps;
 }): ReactElement => {
-  const yTelem = telem.channelData({ timeRange, channel: y });
-  const hasX = x != null && x !== 0;
-  const xTelem = telem.channelData({
-    timeRange,
-    channel: hasX ? x : y,
-    useIndexOfChannel: !hasX,
-  });
+  const { xTelem, yTelem } = useMemo(() => {
+    const yTelem = telem.channelData({ timeRange, channel: y });
+    const hasX = x != null && x !== 0;
+    const xTelem = telem.channelData({
+      timeRange,
+      channel: hasX ? x : y,
+      useIndexOfChannel: !hasX,
+    });
+    return { xTelem, yTelem };
+  }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
   return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };

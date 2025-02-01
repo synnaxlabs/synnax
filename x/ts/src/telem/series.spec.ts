@@ -933,6 +933,27 @@ describe("MultiSeries", () => {
     });
   });
 
+  describe("parseJSON", () => {
+    it("should correctly parse a multi-series of JSON", () => {
+      const a = new Series([
+        { a: 1, b: "apple" },
+        { a: 2, b: "banana" },
+      ]);
+      const b = new Series([
+        { a: 3, b: "carrot" },
+        { a: 4, b: "dog" },
+      ]);
+      const multi = new MultiSeries([a, b]);
+      const arr = multi.parseJSON(z.object({ a: z.number(), b: z.string() }));
+      expect(arr).toEqual([
+        { a: 1, b: "apple" },
+        { a: 2, b: "banana" },
+        { a: 3, b: "carrot" },
+        { a: 4, b: "dog" },
+      ]);
+    });
+  });
+
   describe("array construction", () => {
     it("should correctly construct a JS array from a multi-series", () => {
       const a = new Series(new Float32Array([1, 2, 3]));

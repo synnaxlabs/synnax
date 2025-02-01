@@ -9,57 +9,51 @@
 
 import { z } from "zod";
 
-export interface KV<K = string, V = string, WK = K, WV = V, D = K>
-  extends Reader<K, V>,
-    Writer<WK, WV>,
-    Deleter<D> {}
-
-export interface Reader<K = string, V = string> {
+export interface Reader<V = unknown> {
   /** @returns the value for a given key, or null if the key is not present. */
-  get: (key: K) => V | null;
+  get: (key: string) => V | null;
 }
 
-export interface Writer<K = string, V = string> {
+export interface Writer<V = unknown> {
   /** Sets a key-value pair in the store. */
-  set: (key: K, value: V) => void;
+  set: (key: string, value: V) => void;
 }
 
-export interface Deleter<K = string> {
+export interface Deleter {
   /** Deletes a key-value pair from the store. */
-  delete: (key: K) => void;
+  delete: (key: string) => void;
 }
 
-/** A read-writable key-value store. */
-export interface Async<K = string, V = string, WK = K, WV = V, D = K>
-  extends AsyncReader<K, V>,
-    AsyncWriter<WK, WV>,
-    AsyncDeleter<D> {}
+export interface KV<R = unknown, W = R> extends Reader<R>, Writer<W>, Deleter {}
 
 /** A readable key-value store. */
-export interface AsyncReader<K = string, V = string> {
+export interface AsyncReader<V = unknown> {
   /** Get the value for a given key. */
-  get: (key: K) => Promise<V | null>;
+  get: (key: string) => Promise<V | null>;
 }
 
 /** A writable key-value store. */
-export interface AsyncWriter<K = string, V = string> {
+export interface AsyncWriter<V = unknown> {
   /** Sets a key-value pair in the store. The value must be serializable. */
-  set: (key: K, value: V) => Promise<void>;
+  set: (key: string, value: V) => Promise<void>;
 }
 
 /** A key-value store that can delete key-value pairs. */
-export interface AsyncDeleter<K = string> {
+export interface AsyncDeleter {
   /** Deletes a key-value pair from the store. */
-  delete: (key: K) => Promise<void>;
+  delete: (key: string) => Promise<void>;
 }
 
-export const stringPairZ = z.object({
-  key: z.string(),
-  value: z.string(),
-});
+/** A read-writable key-value store. */
+export interface Async<R = unknown, W = R>
+  extends AsyncReader<R>,
+    AsyncWriter<W>,
+    AsyncDeleter {}
+
+export const stringPairZ = z.object({ key: z.string(), value: z.string() });
 
 /** A general purpose key-value pair. */
-export interface Pair<K = string, V = string> {
-  key: K;
+export interface Pair<V = unknown> {
+  key: string;
   value: V;
 }

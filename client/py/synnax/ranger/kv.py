@@ -28,7 +28,7 @@ class KVPair(Payload):
             if not is_primitive(value) and type(value).__str__ == object.__str__:
                 raise ValidationError(
                     f"""
-                Synnax has no way of casting {value} to a string when setting meta-data
+                Synnax has no way of casting {value} to a string when setting metadata
                 on a range. Please convert the value to a string before setting it.
                 """
                 )

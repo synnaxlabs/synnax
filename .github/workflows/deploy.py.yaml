@@ -34,7 +34,7 @@ jobs:
             alamos: &alamos
               - *shared
               - alamos/py/**
-            freighter:
+            freighter: &freighter
               - *shared
               - *alamos
               - freighter/py/**

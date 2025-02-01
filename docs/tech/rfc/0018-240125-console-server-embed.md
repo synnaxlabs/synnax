@@ -7,32 +7,33 @@
 
 # 0 - Summary
 
-This short RFC outlines the technical design for embedding a local instance of Synnax 
-server into the Console for introductory and benchtop usage. This will make it 
+This short RFC outlines the technical design for embedding a local instance of Synnax
+server into the Console for introductory and benchtop usage. This will make it
 dramatically easier for less software-savvy users to get started with Synnax. This RFC
 will cover:
 
     1. Embedding the server and automating the process with CI.
     2. Managing the server's lifecycle from within the Console.
     3. Changes we need to make to the UI.
- 
+
 # 1 - Vocabulary
 
 **Server** - The core Synnax server (also known as "Synnax Database" or "Synnax Engine")
-that serves reads and writes of telemetry, stores meta data, and handles control negotation.
-**Console** - A desktop application for controlling and visualizing data within a Synnax 
+that serves reads and writes of telemetry, stores metadata, and handles control
+negotation.
+**Console** - A desktop application for controlling and visualizing data within a Synnax
 cluster.
 
 # 2 - Design
 
 ## 2.0 - Embedding the Server
 
-To embed the Synnax server into the Console, we'll use Tauri's 
+To embed the Synnax server into the Console, we'll use Tauri's
 [sidecar](https://tauri.app/v1/guides/building/sidecar/) feature set. All we need to do
-is place a binary for each platform into the `src-tauri/bin` directory and make
-a few changes to the `tauri.conf.json` file. Integrating this into CI will require 
-pulling the latest server binaries from the Synnax repository and placing them into
-the appropriate directory. This part of the process shouldn't be too challenging.
+is place a binary for each platform into the `src-tauri/bin` directory and make a few
+changes to the `tauri.conf.json` file. Integrating this into CI will require pulling the
+latest server binaries from the Synnax repository and placing them into the appropriate
+directory. This part of the process shouldn't be too challenging.
 
 One of the major concerns with embedding the server is ensuring that the running console
 has sufficient permissions to actually execute the binaries. We'll need to test on

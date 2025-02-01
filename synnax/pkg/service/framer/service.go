@@ -12,10 +12,13 @@ package framer
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
+<<<<<<< HEAD
 	"github.com/synnaxlabs/x/computronx"
+=======
+>>>>>>> 7c07677f4058214e1d5d640b749bd87cb9f02402
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculated"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/downsampler"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -32,7 +35,7 @@ type Config struct {
 	alamos.Instrumentation
 	// Distribution layer framer service.
 	Framer  *framer.Service
-	Channel channel.Readable
+	Channel channel.Service
 }
 
 var (
@@ -58,7 +61,7 @@ func (c Config) Override(other Config) Config {
 
 type Service struct {
 	Config
-	Calculated *calculated.Service
+	Calculation *calculation.Service
 }
 
 func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*framer.Iterator, error) {
@@ -80,7 +83,7 @@ func (s *Service) NewDeleter() framer.Deleter {
 func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (framer.Streamer, error) {
 	ut := &updaterTransform{
 		Instrumentation: s.Instrumentation,
-		c:               s.Calculated,
+		c:               s.Calculation,
 		readable:        s.Channel,
 	}
 	ut.Transform = ut.transform
@@ -112,12 +115,12 @@ func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (f
 }
 
 func (s *Service) Close() error {
-	return s.Calculated.Close()
+	return s.Calculation.Close()
 }
 
 type updaterTransform struct {
 	alamos.Instrumentation
-	c        *calculated.Service
+	c        *calculation.Service
 	readable channel.Readable
 	closer   xio.MultiCloser
 	confluence.LinearTransform[framer.StreamerRequest, framer.StreamerRequest]
@@ -160,23 +163,26 @@ func (t *updaterTransform) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}))...)
 }
 
-func OpenService(cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
+<<<<<<< HEAD
 	computer, err := computronx.New()
 	if err != nil {
 		return nil, err
 	}
 	calc, err := calculated.Open(calculated.Config{
+=======
+	calc, err := calculation.Open(ctx, calculation.Config{
+>>>>>>> 7c07677f4058214e1d5d640b749bd87cb9f02402
 		Instrumentation:   cfg.Instrumentation.Child("calculated"),
-		Computron:         computer,
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
 		ChannelObservable: cfg.Channel.NewObservable(),
 	})
-	s.Calculated = calc
+	s.Calculation = calc
 	return s, err
 }

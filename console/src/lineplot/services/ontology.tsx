@@ -7,7 +7,7 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-import { linePlot } from "@synnaxlabs/client";
+import { linePlot, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
@@ -27,7 +27,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
       if (!(await confirm(selection.resources))) throw errors.CANCELED;
-      const ids = selection.resources.map((res) => linePlot.ontologyID(res.key));
+      const ids = selection.resources.map((res) => new ontology.ID(res.key));
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
       const prevNodes = Tree.deepCopy(nodes);
@@ -39,7 +39,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       return prevNodes;
     },
     mutationFn: async ({ client, selection }) => {
-      const ids = selection.resources.map((res) => linePlot.ontologyID(res.key));
+      const ids = selection.resources.map((res) => new ontology.ID(res.key));
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.linePlot.delete(ids.map((id) => id.key));
     },

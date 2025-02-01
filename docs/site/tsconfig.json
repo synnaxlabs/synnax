@@ -2,9 +2,7 @@
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "paths": { "@/*": ["src/*"], "html-escaper": ["node_modules/@types/html-escaper"] }
   },
   "include": ["src/**/*", "static/env.d.ts"]
 }

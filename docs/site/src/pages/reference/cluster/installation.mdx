@@ -8,12 +8,13 @@ prev: "Quick Start"
 prevURL: "/reference/cluster/quick-start"
 ---
 
-import { Note } from "@synnaxlabs/pluto";
+import { Align, Note } from "@synnaxlabs/pluto";
 import { PlatformTabs } from "@/components/platform/PlatformTabs";
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { SynnaxServerDownloadButton } from "@/components/console/OSDownloadButton";
 export const components = mdxOverrides;
 
 This page will walk you through how to install the Synnax binary on Windows,
@@ -175,36 +176,27 @@ You should see the following output:
 
 ## Installing on Windows
 
-To install the Synnax cluster on Windows, we'll download the latest version within
-a **PowerShell** terminal and add it to our `PATH` environment variable.
+Install the Synnax cluster on Windows by downloading and running the latest installer:
 
-<SynnaxDownloadURL os="windows" />
-
-<Note.Note variant="info">
-  We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which
-  will allow you to execute synnax commands from any shell. See [Microsoft's Environment
-  Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
-  documentation for more.
-</Note.Note>
-
-If any previous versions of Synnax are installed and available on your `PATH`,
-you may need to remove them to avoid conflicts.
+<br />
+<br />
+<Align.Space direction="y" justify="center" align="center">
+    <SynnaxServerDownloadButton client:load />
+    <small>
+        Releases for other operating systems and older versions can be found on the
+        <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
+    </small>
+</Align.Space>
+<br />
+<br />
 
 <Note.Note variant="warning">
-If you've also installed the [Synnax Python Client](../python-client/get-started),
-its `synnax` command may take precedence over the one you just installed. To
-avoid conflicts, rename the binary you've just installed to something else, like
-`synnax-server` by running:
-
-```powershell
-Move-Item $env:appdata/synnax/synnax.exe $env:appdata/synnax/synnax-server.exe
-```
-
-Then, you can run the binary using `synnax-server` instead of `synnax`.
-
+  If you've also installed the [Synnax Python Client](../python-client/get-started),
+  its `synnax` command may take precedence over the one you just installed. You can alternatively use the
+  `synnax-server` command which has also been added to your `PATH`.
 </Note.Note>
 
-To verify that the installation was successful, run:
+To verify that the installation was successful, run the following command in a **PowerShell** terminal:
 
 ```powershell
 synnax --version

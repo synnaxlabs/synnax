@@ -14,15 +14,11 @@ import { telem } from "@/telem/aether";
 
 export interface ProviderProps extends PropsWithChildren<any> {}
 
-export const Provider = Aether.wrap<ProviderProps>(
-  telem.BaseProvider.TYPE,
-  ({ children, aetherKey }): ReactElement | null => {
-    const [{ path }] = Aether.use({
-      aetherKey,
-      type: telem.BaseProvider.TYPE,
-      schema: telem.providerStateZ,
-      initialState: {},
-    });
-    return <Aether.Composite path={path}>{children}</Aether.Composite>;
-  },
-);
+export const Provider = ({ children }: ProviderProps): ReactElement => {
+  const [{ path }] = Aether.use({
+    type: telem.BaseProvider.TYPE,
+    schema: telem.providerStateZ,
+    initialState: {},
+  });
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
+};

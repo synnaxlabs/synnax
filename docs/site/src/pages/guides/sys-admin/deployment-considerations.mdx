@@ -4,7 +4,7 @@ title: "Deployment Considerations"
 description: "Essential concepts for deploying Synnax in production."
 ---
 
-import { Note } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { Image } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -14,6 +14,8 @@ Synnax effectively in a production environment. This page will address
 the topology of a Synnax deployment (clusters, nodes), and the considerations that
 should be taken into account when deploying Synnax (workload, networking, security, etc.).
 This page will also link to more detailed guides on deployment workflows.
+
+<Divider.Divider direction="x" />
 
 ## Key Terms
 
@@ -47,6 +49,8 @@ needs grow, you can add additional nodes in order to balance the workload.
 <Note.Note variant="info">
   Multi-node clusters are experimental and not yet recommended for production use.
 </Note.Note>
+
+<Divider.Divider direction="x" />
 
 ## Deployment Considerations
 
