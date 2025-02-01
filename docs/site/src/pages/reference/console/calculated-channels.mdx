@@ -53,12 +53,12 @@ When creating a calculated channel, you will be prompted to fill in the followin
     <tr>
       <td>Expression</td>
        <td>The resulting python expression that represents the value written to the calculated channel. The
-        the value written to the channel must be assigned to the `result` variable.</td>
+         value written to the channel must be assigned to the `result` variable.</td>
     </tr>
     <tr>
       <td> Requires </td>
-      <td>The existing channels necessary involved in the calculation expressed in the expression. A calculated channel must
-        use **at least one channel**.</td>
+      <td>The existing Synnax channels involved in the calculation. A calculated channel must
+        use **at least one channel** in its expression.</td>
     </tr>
   </tbody>
 </Table>
@@ -69,11 +69,11 @@ When creating a calculated channel, you will be prompted to fill in the followin
 
 ### Rules for Calculations
 
-#### Calculations are expressed using [Lua](https://www.lua.org/)
+#### Calculations are expressed using [Lua](https://www.lua.org/).
 
 See [below](/reference/console/calculated-channels#writing-expressions-in-lua) for more information on the syntax of Lua.
 
-#### The final value expressed in the channel must be specified with `return`
+#### The final value expressed in the channel must be specified with `return`.
 
 You may have intermediate variables in your expression, but the final value must be specified with `return`.
 For example, if you want to create a calculated channel that returns the sum of two scaled channels, you would write:
@@ -85,7 +85,7 @@ local scaled2 = channels.channel2 * 10
 return scaled1 + scaled2 // The final value written to the calculated channel
 ```
 
-#### Channels with hyphenated names are accessed with builtin `channels` dictionary
+#### Channels with hyphenated names are accessed via the `get` method.
 
 To perform operations on channels whose names contains hyphens, they must be accessed
 through the `get` method like so:
@@ -157,6 +157,13 @@ local last = readings[4]   -- gets pressure4 value
 You can iterate over the table using a for loop in 2 ways
 
 ```lua
+local readings = {
+  pressure1,
+  pressure2,
+  pressure3,
+  pressure4
+}
+
 -- Method 1: Using ipairs (recommended for arrays)
 local sum = 0
 for i, value in ipairs(readings) do
@@ -164,11 +171,9 @@ for i, value in ipairs(readings) do
 end
 
 -- Method 2: Using numeric index
-local max_pressure = 0
-for i = 1, #readings do
-    if readings[i] > max_pressure then
-        max_pressure = readings[i]
-    end
+local sum = 0
+for i = 1, #readings do  --- #readings = size of readings table/array
+  sum = sum + readings[i]
 end
 ```
 
@@ -308,7 +313,7 @@ You can also use any functions/constants available through Lua's built-in math l
 
 ### Example
 
-Here is an example expression that applies specific scaling to 4 channels and finds the max out of them:
+Here is an example expression that applies scaling to 4 channels and finds the max out of them:
 
 ```lua
 function linearScale(value, offset, slope)
@@ -332,16 +337,16 @@ end
 local channels = {
     fuel_pt_1,
     fuel_pt_2,
-    fuel_tc_1,
-    fuel_tc_2
+    fuel_pt_3,
+    fuel_pt_4
 }
 
 -- Create table of slope/offset pairs for each channel
 local scale_params = {
     {slope = 2.0, offset = 10},    -- for fuel_pt_1
     {slope = 1.5, offset = -5},    -- for fuel_pt_2
-    {slope = 3.0, offset = 0},     -- for fuel_tc_1
-    {slope = 0.5, offset = 15}     -- for fuel_tc_2
+    {slope = 3.0, offset = 0},     -- for fuel_pt_3
+    {slope = 0.5, offset = 15}     -- for fuel_pt_4
 }
 
 -- Create table with scaled values
