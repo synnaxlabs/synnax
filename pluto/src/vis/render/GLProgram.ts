@@ -62,10 +62,7 @@ export class GLProgram {
    * @param value - The value to set.
    */
   uniformXY(name: string, value: xy.Crude): void {
-    this.renderCtx.gl.uniform2fv(
-      this.getUniformLoc(name),
-      xy.couple(xy.construct(value)),
-    );
+    this.renderCtx.gl.uniform2fv(this.getUniformLoc(name), xy.couple(value));
   }
 
   /**

@@ -404,7 +404,7 @@ export class Composite<
   }
 
   private async updateChildContexts(): Promise<void> {
-    await Promise.all(this.children.map((c) => c._updateContext(this.childCtx())));
+    for (const c of this.children) await c._updateContext(this.childCtx());
   }
 
   async _delete(path: string[]): Promise<void> {
