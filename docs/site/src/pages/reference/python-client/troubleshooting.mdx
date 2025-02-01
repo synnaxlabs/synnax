@@ -7,6 +7,7 @@ next: "Building a Custom Driver"
 nextURL: "/reference/python-client/device-driver"
 prev: "Examples"
 prevURL: "/reference/python-client/examples"
+platforms: ["windows", "macos", "linux"]
 ---
 
 import { PlatformTabs } from "@/components/platform/PlatformTabs";
@@ -18,7 +19,7 @@ The following sections outline common issues our users encounter when working
 with the Synnax Python client. To get started, select your operating system
 below:
 
-<PlatformTabs client:only="react" exclude={["docker"]}>
+<PlatformTabs client:only="react" exclude={["docker"]} priority={["windows", "macos", "linux"]}>
 
 <Fragment slot="windows">
 

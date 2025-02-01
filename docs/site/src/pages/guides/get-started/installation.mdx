@@ -2,6 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Installing Synnax"
 description: "Install the Synnax core components."
+platforms: ["linux", "windows", "macos", "docker"]
 ---
 
 import { Align, Note, Divider, Video as PVideo } from "@synnaxlabs/pluto";
@@ -11,6 +12,7 @@ import { PlatformTabs } from "@/components/platform/PlatformTabs";
 import Details from "@/components/details/Details.astro";
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
+import { SynnaxServerDownloadButton } from "@/components/console/OSDownloadButton";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -73,10 +75,7 @@ The cluster is the core of every Synnax deployment. It's where all sensor and ac
 and it serves as a central hub where all of our devices, operator consoles, and control
 sequences will communicate.
 
-<PlatformTabs
-    priority={["linux", "macos", "windows"]}
-    client:only="react"
->
+<PlatformTabs client:only="react">
 
 <Fragment slot="docker">
 
@@ -218,61 +217,19 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 ### Using Windows
 
-To start a local cluster on Windows, use the following command in a **PowerShell** terminal
-to download the latest Synnax cluster.
+To install the Synnax cluster on Windows, download and run the latest Synnax installer.
 
-<Align.Pack direction="y">
-
-<SynnaxDownloadURL os="windows" />
-<Details>
-<div slot="summary">
-<small>Explanation of this command</small>
-</div>
-
-This command is intimidating, so here's a breakdown of what it does:
-
-1. **Set Error Handling**:
-
-   - `$ErrorActionPreference="Stop";`
-   - Configures PowerShell to stop execution immediately when an error is encountered.
-
-2. **Set Security Protocol**:
-
-   - `[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;`
-   - Ensures that the TLS 1.2 protocol is used for secure connections, which is a modern and secure standard.
-
-3. **Disable Progress Display**:
-
-   - `$ProgressPreference='SilentlyContinue';`
-   - Suppresses the display of progress bars during script execution.
-
-4. **Create Directory for Synnax**:
-
-   - `$null=New-Item -Type Directory -Force $env:appdata/synnax;`
-   - Creates a directory named `synnax` in the `%APPDATA%` folder (user's application data folder). The `-Force` flag ensures the directory is created even if it already exists.
-
-5. **Download the Synnax Executable**:
-
-   - `Invoke-WebRequest -Uri github.com/synnaxlabs/synnax/releases/download/synnax-v0.37.0/synnax-v0.37.0-windows -OutFile synnax.exe;`
-   - Downloads the `synnax-v0.37.0-windows` executable file from the specified GitHub URL and saves it as `synnax.exe` in the current directory.
-
-6. **Copy Executable to AppData**:
-
-   - `Copy-Item -Force "synnax.exe" -Destination $env:appdata/synnax;`
-   - Copies the downloaded `synnax.exe` file to the newly created `%APPDATA%\synnax` directory. The `-Force` flag overwrites any existing file with the same name.
-
-7. **Update the User PATH Variable**:
-
-   - `if (-not [Environment]::GetEnvironmentVariable("Path", "User").Contains("%APPDATA%synnax")) { [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";%APPDATA%synnax", "User"); };`
-   - Checks if the `%APPDATA%\synnax` directory is already in the user's PATH environment variable. If not, appends it to the PATH.
-
-8. **Update Current Session PATH**:
-   - `$env:PATH += ";$env:appdatasynnax"`
-   - Updates the current PowerShell session's PATH variable to include `%APPDATA%\synnax`, allowing the Synnax executable to be run without restarting the session.
-
-</Details>
-
-</Align.Pack>
+<br />
+<br />
+<Align.Space direction="y" justify="center" align="center">
+  <SynnaxServerDownloadButton client:load />
+  <small>
+    Releases for other operating systems and older versions can be found on the
+    <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
+  </small>
+</Align.Space>
+<br />
+<br />
 
 To start the node, run this:
 

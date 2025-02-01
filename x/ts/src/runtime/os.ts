@@ -44,7 +44,7 @@ export interface RequiredGetOSProps {
 }
 
 export interface OptionalGetOSProps {
-  force?: OS | undefined;
+  force?: OS;
   default: OS;
 }
 
@@ -57,7 +57,7 @@ export interface GetOS {
   (props?: OptionalGetOSProps): OS | undefined;
 }
 
-export const getOS = ((props: GetOSProps = {}): OS | undefined => {
+export const getOS: GetOS = ((props = {}) => {
   const { force, default: default_ } = props;
   if (force != null) return force;
   if (os != null) return os;

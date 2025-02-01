@@ -3,6 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "Deployment"
 heading: "Deploy with Self-Signed Certificates"
 description: "Deploy a single node cluster with self-signed certificates."
+platforms: ["linux", "windows", "macos"]
 ---
 
 import { Icon } from "@synnaxlabs/media";
@@ -61,11 +62,7 @@ In order to connect to the secure cluster, you'll need to add the CA certificate
 trusted store on your local machine. You'll need to do this for any machine you want to
 connect to the cluster from. See the operating system specific instructions below:
 
-<PlatformTabs
-    client:only="react"
-    exclude={["docker"]}
->
-<Icon.OS.Linux slot="linux-icon" />
+<PlatformTabs client:only="react" exclude={["docker"]}>
 <Fragment slot="linux">
 
 We'll start off by copying the CA certificate from the remote machine to your local machine.
@@ -89,7 +86,6 @@ sudo update-ca-certificates
 ```
 
 </Fragment>
-<Icon.OS.MacOS slot="macos-icon" />
 <Fragment slot="macos">
 
 We'll start off by copying the CA certificate from the remote machine to your local machine.
@@ -107,7 +103,6 @@ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keyc
 ```
 
 </Fragment>
-<Icon.OS.Windows slot="windows-icon" />
 <Fragment slot="windows">
 
 We'll start off by copying the CA certificate from the remote machine to your local machine.
@@ -139,12 +134,7 @@ you used when generating it.
 
 To do this, follow the operating system specific instructions below:
 
-<PlatformTabs
-    client:only="react"
-    priority={["linux", "macos", "windows"]}
-    exclude={["docker"]}
->
-<Icon.OS.Linux slot="linux-icon" />
+<PlatformTabs client:only="react" exclude={["docker"]}>
 <Fragment slot="linux">
 You can add an entry to your `/etc/hosts` file that maps the IP address of the remote
 machine to the host name you used when starting the Synnax node. You can do this with the
@@ -155,7 +145,6 @@ echo "REMOTE_IP synnax.example.com" | sudo tee -a /etc/hosts
 ```
 
 </Fragment>
-<Icon.OS.MacOS slot="macos-icon" />
 <Fragment slot="macos">
 You can add an entry to your `/etc/hosts` file that maps the IP address of the remote
 machine to the host name you used when starting the Synnax node. You can do this with the
@@ -166,7 +155,6 @@ echo "REMOTE_IP synnax.example.com" | sudo tee -a /etc/hosts
 ```
 
 </Fragment>
-<Icon.OS.Windows slot="windows-icon" />
 <Fragment slot="windows">
 You can add an entry to your `C:\Windows\System32\drivers\etc\hosts` file that maps the
 IP address of the remote machine to the host name you used when starting the Synnax node.

@@ -92,10 +92,9 @@ export const SynnaxServerDownloadButton = (): ReactElement => {
     <Button.Link
       href={`https://github.com/synnaxlabs/synnax/releases/download/synnax-v${version}/synnax-setup-v${version}.exe`}
       startIcon={<Icon.Download />}
-      className="os-download-button"
       size="large"
     >
-      Download v{version} Installer for Windows
+      Download Synnax v{version} for Windows
     </Button.Link>
   );
 };

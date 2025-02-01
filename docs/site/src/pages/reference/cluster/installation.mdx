@@ -6,6 +6,7 @@ next: "Production"
 nextURL: "/reference/cluster/production"
 prev: "Quick Start"
 prevURL: "/reference/cluster/quick-start"
+platforms: ["linux", "windows", "macos", "docker"]
 ---
 
 import { Align, Note } from "@synnaxlabs/pluto";
@@ -20,10 +21,7 @@ export const components = mdxOverrides;
 This page will walk you through how to install the Synnax binary on Windows,
 macOS, and Linux. To get started, select your operating system below:
 
-<PlatformTabs
-    priority={["linux", "macos", "windows"]}
-    client:only="react"
->
+<PlatformTabs client:only="react">
 
 <Fragment slot="docker">
 
@@ -181,19 +179,20 @@ Install the Synnax cluster on Windows by downloading and running the latest inst
 <br />
 <br />
 <Align.Space direction="y" justify="center" align="center">
-    <SynnaxServerDownloadButton client:load />
-    <small>
-        Releases for other operating systems and older versions can be found on the
-        <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
-    </small>
+  <SynnaxServerDownloadButton client:load />
+  <small>
+    Releases for other operating systems and older versions can be found on the
+    <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
+  </small>
 </Align.Space>
 <br />
 <br />
 
 <Note.Note variant="warning">
-  If you've also installed the [Synnax Python Client](../python-client/get-started),
-  its `synnax` command may take precedence over the one you just installed. You can alternatively use the
-  `synnax-server` command which has also been added to your `PATH`.
+  If you've also installed the [Synnax Python Client](../python-client/get-started), its
+  `synnax` command may take precedence over the one you just installed. You can
+  alternatively use the `synnax-server` command which has also been added to your
+  `PATH`.
 </Note.Note>
 
 To verify that the installation was successful, run the following command in a **PowerShell** terminal:

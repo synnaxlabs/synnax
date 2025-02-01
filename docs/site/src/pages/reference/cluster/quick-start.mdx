@@ -5,6 +5,7 @@ heading: "Deployment Quick Start"
 description: "Start a single node cluster for testing, learning, or development."
 next: "Installation"
 nextURL: "/reference/cluster/installation"
+platforms: ["linux", "windows", "macos", "docker"]
 ---
 
 import { Align, Button, Note } from "@synnaxlabs/pluto";
@@ -19,10 +20,7 @@ export const components = mdxOverrides;
 This page will walk you through starting a single node Synnax cluster. To get
 started, select your operating system below:
 
-<PlatformTabs
-    priority={["linux", "macos", "windows"]}
-    client:only="react"
->
+<PlatformTabs client:only="react">
 
 <Fragment slot="docker">
 
@@ -157,11 +155,11 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 <br />
 <br />
 <Align.Space direction="y" justify="center" align="center">
-    <SynnaxServerDownloadButton client:load />
-    <small>
-        Releases for other operating systems and older versions can be found on the
-        <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
-    </small>
+  <SynnaxServerDownloadButton client:load />
+  <small>
+    Releases for other operating systems and older versions can be found on the
+    <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
+  </small>
 </Align.Space>
 <br />
 <br />
