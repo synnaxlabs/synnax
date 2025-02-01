@@ -38,10 +38,10 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
   static readonly stateZ = tableStateZ;
   schema = Table.stateZ;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.renderCtx = render.Context.use(this.ctx);
-    render.Controller.control(this.ctx, () => this.requestRender("low"));
+    i.renderCtx = render.Context.use(ctx);
+    render.Controller.control(ctx, () => this.requestRender("low"));
     this.requestRender("high");
   }
 

@@ -22,7 +22,7 @@ const ERROR_BAD_SHADER = new Error("null shader encountered");
  */
 export class GLProgram {
   /** The render context used by this program. */
-  readonly ctx: Context;
+  readonly renderCtx: Context;
   /** The underlying webgl program. */
   readonly prog: WebGLProgram;
   /** The code for the vertex shader. */
@@ -40,7 +40,7 @@ export class GLProgram {
    * @param fragShader - The fragment shader code.
    */
   constructor(ctx: Context, vertShader: string, fragShader: string) {
-    this.ctx = ctx;
+    this.renderCtx = ctx;
     const prog = ctx.gl.createProgram();
     if (prog == null) throw errorCompile("failed to create program");
     this.prog = prog;
@@ -51,8 +51,8 @@ export class GLProgram {
 
   /** Sets the current program as the active program used by the context. */
   setAsActive(): Destructor {
-    this.ctx.gl.useProgram(this.prog);
-    return (): void => this.ctx.gl.useProgram(null);
+    this.renderCtx.gl.useProgram(this.prog);
+    return (): void => this.renderCtx.gl.useProgram(null);
   }
 
   /**
@@ -62,7 +62,10 @@ export class GLProgram {
    * @param value - The value to set.
    */
   uniformXY(name: string, value: xy.Crude): void {
-    this.ctx.gl.uniform2fv(this.getUniformLoc(name), xy.couple(xy.construct(value)));
+    this.renderCtx.gl.uniform2fv(
+      this.getUniformLoc(name),
+      xy.couple(xy.construct(value)),
+    );
   }
 
   /**
@@ -72,27 +75,27 @@ export class GLProgram {
    * @param value - The value to set.
    */
   uniformColor(name: string, value: color.Color): void {
-    this.ctx.gl.uniform4fv(this.getUniformLoc(name), value.rgba1);
+    this.renderCtx.gl.uniform4fv(this.getUniformLoc(name), value.rgba1);
   }
 
   private getUniformLoc(name: string): WebGLUniformLocation {
     const v = this.uniformLocCache.get(name);
     if (v != null) return v;
-    const loc = this.ctx.gl.getUniformLocation(this.prog, name);
+    const loc = this.renderCtx.gl.getUniformLocation(this.prog, name);
     if (loc == null) throw new Error(`unexpected missing uniform ${name}`);
     this.uniformLocCache.set(name, loc);
     return loc;
   }
 
   private compile(): void {
-    const gl = this.ctx.gl;
+    const gl = this.renderCtx.gl;
     this.compileShader(this.vertShader, gl.VERTEX_SHADER);
     this.compileShader(this.fragShader, gl.FRAGMENT_SHADER);
     gl.linkProgram(this.prog);
   }
 
   private compileShader(shader: string, type: number): void {
-    const gl = this.ctx.gl;
+    const gl = this.renderCtx.gl;
     const vs = gl.createShader(type);
     if (vs == null) throw ERROR_BAD_SHADER;
     gl.shaderSource(vs, shader);

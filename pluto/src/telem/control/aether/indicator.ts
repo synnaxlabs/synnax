@@ -32,18 +32,11 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
   stopListeningStatus?: () => void;
   stopListeningColor?: () => void;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.statusSource = await telem.useSource(
-      this.ctx,
-      this.state.statusSource,
-      i.statusSource,
-    );
-    i.colorSource = await telem.useSource(
-      this.ctx,
-      this.state.colorSource,
-      i.colorSource,
-    );
+    const { statusSource, colorSource } = this.state;
+    i.statusSource = await telem.useSource(ctx, statusSource, i.statusSource);
+    i.colorSource = await telem.useSource(ctx, colorSource, i.colorSource);
     await this.updateState();
     this.stopListeningStatus?.();
     this.stopListeningStatus = i.statusSource.onChange(() => {

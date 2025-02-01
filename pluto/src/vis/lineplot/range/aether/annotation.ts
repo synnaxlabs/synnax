@@ -26,12 +26,9 @@ export class Annotation extends aether.Leaf<typeof annotationStateZ, InternalSta
   static readonly TYPE = "range-annotation";
   schema = annotationStateZ;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.render = render.Context.use(this.ctx);
-    this.internal.draw = new Draw2D(
-      this.internal.render.upper2d,
-      theming.use(this.ctx),
-    );
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.render = render.Context.use(ctx);
+    this.internal.draw = new Draw2D(this.internal.render.upper2d, theming.use(ctx));
   }
 
   async render(): Promise<void> {}

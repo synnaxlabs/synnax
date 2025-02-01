@@ -44,17 +44,17 @@ export class Setpoint
 
   schema = setpointStateZ;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.addStatus = status.useOptionalAggregate(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.addStatus = status.useOptionalAggregate(ctx);
     const { sink: sinkProps, source: sourceProps, trigger, command } = this.state;
     const { internal: i } = this;
     i.prevTrigger ??= trigger;
     this.internal.source = await telem.useSource(
-      this.ctx,
+      ctx,
       sourceProps,
       this.internal.source,
     );
-    i.sink = await telem.useSink(this.ctx, sinkProps, i.sink);
+    i.sink = await telem.useSink(ctx, sinkProps, i.sink);
 
     const prevTrigger = i.prevTrigger;
     i.prevTrigger = trigger;

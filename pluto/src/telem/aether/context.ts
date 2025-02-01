@@ -65,11 +65,7 @@ export const useChildContext = (
   prev: Context,
 ): Context => {
   const tCtx = useContext(ctx);
-  if (ctx.parent != null) {
-    const pCtx = useContext(ctx.parent);
-    console.log(tCtx, pCtx);
-  }
-  if (tCtx != null && prev != null && tCtx.key === prev?.key) return prev;
+  if (tCtx != null && prev != null && tCtx.key === prev?.parent?.key) return prev;
   const next = tCtx.child(factories, tCtx);
   ctx.set(CONTEXT_KEY, next);
   return next;

@@ -37,12 +37,12 @@ export class Light
 
   schema = lightStateZ;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.addStatus = status.useOptionalAggregate(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.addStatus = status.useOptionalAggregate(ctx);
     const { source: sourceProps } = this.state;
     const { internal: i } = this;
     this.internal.source = await telem.useSource(
-      this.ctx,
+      ctx,
       sourceProps,
       this.internal.source,
     );

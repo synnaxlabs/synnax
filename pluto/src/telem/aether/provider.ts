@@ -29,27 +29,25 @@ export class BaseProvider extends aether.Composite<
   typeof providerStateZ,
   InternalState
 > {
-  static readonly TYPE = "TelemProvider";
+  static readonly TYPE = "telem.Provider";
   static readonly stateZ = providerStateZ;
   schema = BaseProvider.stateZ;
   prevClient: Synnax | null = null;
 
-  async afterUpdate(): Promise<void> {
-    const core = synnax.use(this.ctx);
-    const I = alamos.useInstrumentation(this.ctx, "telem");
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    const core = synnax.use(ctx);
+    const I = alamos.useInstrumentation(ctx, "telem");
     this.internal.instrumentation = I.child("provider");
     const shouldSwap = core !== this.prevClient;
     if (!shouldSwap) return;
     this.prevClient = core;
-    console.log("swapping client", { client: core });
     const c =
       core == null
         ? new client.NoopClient()
         : new client.Core({ core, instrumentation: I });
     const f = newFactory(c);
     const value = new Context(f);
-    console.log(value.key);
-    setContext(this.ctx, value);
+    setContext(ctx, value);
   }
 }
 

@@ -46,10 +46,10 @@ export class Diagram extends aether.Composite<
   static readonly stateZ = diagramStateZ;
   schema = Diagram.stateZ;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.renderCtx = render.Context.use(this.ctx);
-    this.internal.addStatus = status.useAggregate(this.ctx);
-    render.Controller.control(this.ctx, () => this.requestRender("low"));
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.renderCtx = render.Context.use(ctx);
+    this.internal.addStatus = status.useAggregate(ctx);
+    render.Controller.control(ctx, () => this.requestRender("low"));
     this.requestRender("high");
   }
 

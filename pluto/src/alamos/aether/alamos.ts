@@ -26,11 +26,11 @@ export interface InternalState {
 }
 
 export class Provider extends aether.Composite<typeof providerStateZ, InternalState> {
-  static readonly TYPE = "AlamosProvider";
+  static readonly TYPE = "alamos.Provider";
   schema = providerStateZ;
 
-  async afterUpdate(): Promise<void> {
-    const v = this.ctx.getOptional<alamos.Instrumentation>(CONTEXT_KEY);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    const v = ctx.getOptional<alamos.Instrumentation>(CONTEXT_KEY);
     if (v != null) return;
 
     const filters: alamos.LogLevelFilter[] = [];
@@ -44,7 +44,7 @@ export class Provider extends aether.Composite<typeof providerStateZ, InternalSt
       key: "aether",
       logger: new alamos.Logger({ filters }),
     });
-    this.ctx.set(CONTEXT_KEY, this.internal.ins);
+    ctx.set(CONTEXT_KEY, this.internal.ins);
   }
 }
 

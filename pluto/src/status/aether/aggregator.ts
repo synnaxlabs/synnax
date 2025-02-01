@@ -25,8 +25,8 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   static readonly TYPE: string = "status.Aggregator";
   schema = aggregatorStateZ;
 
-  async afterUpdate(): Promise<void> {
-    this.ctx.set(CONTEXT_KEY, this);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    ctx.set(CONTEXT_KEY, this);
   }
 
   add(spec: CrudeSpec): void {

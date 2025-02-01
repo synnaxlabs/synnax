@@ -36,7 +36,7 @@ export class Program extends GLProgram {
   }
 
   exec(): void {
-    const { gl } = this.ctx;
+    const { gl } = this.renderCtx;
     const positionAttr = gl.getAttribLocation(this.prog, "a_position");
     gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
     const vao = gl.createVertexArray();

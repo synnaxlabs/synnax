@@ -106,9 +106,9 @@ export class CoreAxis<
   S extends typeof coreAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  async afterUpdate(): Promise<void> {
-    this.internal.render = render.Context.use(this.ctx);
-    const theme = theming.use(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.render = render.Context.use(ctx);
+    const theme = theming.use(ctx);
     this.state.autoBoundPadding ??=
       direction.construct(this.state.location) === "x"
         ? DEFAULT_Y_BOUND_PADDING
@@ -119,15 +119,15 @@ export class CoreAxis<
       gridColor: theme.colors.gray.l1,
       ...this.state,
     });
-    render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
+    render.Controller.requestRender(ctx, render.REASON_LAYOUT);
     this.internal.updateBounds ??= throttle(
       (b) => this.setState((p) => ({ ...p, bounds: b })),
       this.state.autoBoundUpdateInterval.milliseconds,
     );
   }
 
-  async afterDelete(): Promise<void> {
-    render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
+  async afterDelete(ctx: aether.Context): Promise<void> {
+    render.Controller.requestRender(ctx, render.REASON_LAYOUT);
   }
 
   renderAxis(props: AxisRenderProps, decimalToDataScale: scale.Scale): void {

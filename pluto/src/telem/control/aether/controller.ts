@@ -75,27 +75,23 @@ export class Controller
   private readonly registry = new Map<AetherControllerTelem, null>();
   private writer?: framer.Writer;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.instrumentation = alamos.useInstrumentation(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.instrumentation = alamos.useInstrumentation(ctx);
     if (
       this.internal.prevTrigger == null ||
       Math.abs(this.state.acquireTrigger - this.internal.prevTrigger) > 1
     )
       this.internal.prevTrigger = this.state.acquireTrigger;
-    const nextClient = synnax.use(this.ctx);
-    const nextStateProv = StateProvider.use(this.ctx);
+    const nextClient = synnax.use(ctx);
+    const nextStateProv = StateProvider.use(ctx);
 
     this.internal.client = nextClient;
     if (this.internal.client == null) await this.release();
     this.internal.stateProv = nextStateProv;
 
-    this.internal.telemCtx = telem.useChildContext(
-      this.ctx,
-      this,
-      this.internal.telemCtx,
-    );
+    this.internal.telemCtx = telem.useChildContext(ctx, this, this.internal.telemCtx);
 
-    this.internal.addStatus = status.useAggregate(this.ctx);
+    this.internal.addStatus = status.useAggregate(ctx);
 
     // Acquire or release control if necessary.
     if (this.state.acquireTrigger > this.internal.prevTrigger) await this.acquire();

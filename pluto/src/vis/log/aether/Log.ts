@@ -61,13 +61,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   values: MultiSeries = new MultiSeries([]);
   scrollState: ScrollbackState = ZERO_SCROLLBACK;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.render = render.Context.use(this.ctx);
-    i.theme = theming.use(this.ctx);
+    i.render = render.Context.use(ctx);
+    i.theme = theming.use(ctx);
     if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
-    i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
+    i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
 
     const { scrolling, wheelPos } = this.state;
 

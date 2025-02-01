@@ -42,13 +42,13 @@ export class Toggle
 
   schema = toggleStateZ;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.addStatus = status.useOptionalAggregate(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.addStatus = status.useOptionalAggregate(ctx);
     const { sink: sinkProps, source: sourceProps, triggered, enabled } = this.state;
     const { triggered: prevTriggered } = this.prevState;
     const { internal: i } = this;
-    i.source = await telem.useSource(this.ctx, sourceProps, i.source);
-    i.sink = await telem.useSink(this.ctx, sinkProps, i.sink);
+    i.source = await telem.useSource(ctx, sourceProps, i.source);
+    i.sink = await telem.useSink(ctx, sinkProps, i.sink);
 
     if (triggered && !prevTriggered) await i.sink.set(!enabled);
 

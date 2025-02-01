@@ -28,9 +28,9 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
 
   private readonly eraser: render.Eraser = new render.Eraser();
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     if (this.deleted) return;
-    this.internal.render = render.Context.use(this.ctx);
+    this.internal.render = render.Context.use(ctx);
     await this.internal.render.loop.set({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),
