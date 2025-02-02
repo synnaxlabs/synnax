@@ -20,13 +20,14 @@
 using json = nlohmann::json;
 
 void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
-    auto config = AnalogReaderConfig(parser);
-    this->reader_config = config;
-    for (size_t i = 0; i < config.channels.size(); i++) {
-        if (config.channels[i].enabled) {
-            config.channels[i].ni_channel = this->parse_channel(
-                parser, config.channels[i].channel_type, config.channels[i].name);
-            this->channel_map[config.channels[i].name] = "channels." + std::to_string(i);
+    analog_config = AnalogReaderConfig(parser);
+    reader_config = static_cast<BaseReaderConfig>(analog_config);
+    
+    for (size_t i = 0; i < analog_config.channels.size(); i++) {
+        if (analog_config.channels[i].enabled) {
+            analog_config.channels[i].ni_channel = this->parse_channel(
+                parser, analog_config.channels[i].channel_type, analog_config.channels[i].name);
+            this->channel_map[analog_config.channels[i].name] = "channels." + std::to_string(i);
         }
     }
 }
@@ -224,33 +225,29 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
                                   driver::CRITICAL_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
 
-    // interpolate  timestamps between the initial and final timestamp to ensure
-    // non-overlapping timestamps between batched reads
     uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
-    // Construct and populate index channel
-
-    size_t s = d.samples_read_per_channel; // TODO: Remove this why is this here
-    // Construct and populate synnax frame
+    size_t s = d.samples_read_per_channel;
     size_t data_index = 0;
+    
     for (int ch = 0; ch < num_channels; ch++) {
-        if (this->reader_config.channels[ch].enabled == false) continue;
-        if (this->reader_config.channels[ch].channel_type == "index") {
+        if (this->analog_config.channels[ch].enabled == false) continue;
+        if (this->analog_config.channels[ch].channel_type == "index") {
             auto t = synnax::Series(synnax::TIMESTAMP, d.samples_read_per_channel);
             for (uint64_t i = 0; i < d.samples_read_per_channel; ++i)
                 t.write(d.t0 + i * incr);
-            f.add(this->reader_config.channels[ch].channel_key, std::move(t));
+            f.add(this->analog_config.channels[ch].channel_key, std::move(t));
             continue;
         }
         synnax::Series series;
-        if (this->reader_config.channels[ch].data_type == synnax::FLOAT32)
+        if (this->analog_config.channels[ch].data_type == synnax::FLOAT32)
             series = synnax::Series(synnax::FLOAT32, s);
-        else if (this->reader_config.channels[ch].data_type == synnax::FLOAT64)
+        else if (this->analog_config.channels[ch].data_type == synnax::FLOAT64)
             series = synnax::Series(synnax::FLOAT64, s);
         for (int i = 0; i < d.samples_read_per_channel; i++)
             this->write_to_series(
                 series, d.analog_data[data_index * d.samples_read_per_channel + i],
-                this->reader_config.channels[ch].data_type);
-        f.add(this->reader_config.channels[ch].channel_key, std::move(series));
+                this->analog_config.channels[ch].data_type);
+        f.add(this->analog_config.channels[ch].channel_key, std::move(series));
         data_index++;
     }
     return std::make_pair(std::move(f), freighter::NIL);
@@ -264,8 +261,7 @@ void ni::AnalogReadSource::write_to_series(synnax::Series &series, double &data,
 
 
 int ni::AnalogReadSource::create_channels() {
-    auto channels = this->reader_config.channels;
-    for (auto &channel: channels) {
+    for (auto &channel: analog_config.channels) {
         this->num_channels++;
         if (channel.channel_type == "index" || !channel.enabled ||
             !channel.ni_channel)
@@ -282,7 +278,7 @@ int ni::AnalogReadSource::create_channels() {
 }
 
 int ni::AnalogReadSource::validate_channels() {
-    for (auto &channel: this->reader_config.channels) {
+    for (auto &channel: analog_config.channels) {
         if (channel.channel_type == "index") {
             if (channel.channel_key == 0) {
                 LOG(ERROR) << "[ni.reader] Index channel key is 0";

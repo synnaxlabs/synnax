@@ -145,7 +145,9 @@ struct DigitalChannelConfig : public ChannelConfig {
 ///////////////////////////////////////////////////////////////////////////////////
 //                              Reader Configs                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-struct ReaderConfig {
+
+// Base reader configuration
+struct BaseReaderConfig {
     std::string device_key;
     std::string device_name;
     std::string task_name;
@@ -156,9 +158,9 @@ struct ReaderConfig {
     std::set<uint32_t> index_keys;
     uint64_t period = 0;
 
-    ReaderConfig() = default;
+    BaseReaderConfig() = default;
 
-    explicit ReaderConfig(config::Parser& parser)
+    explicit BaseReaderConfig(config::Parser& parser)
         : device_key(parser.required<std::string>("device")),
           device_name(parser.optional<std::string>("device_name", "")),
           task_name(parser.optional<std::string>("task_name", "")),
@@ -176,21 +178,16 @@ struct ReaderConfig {
                                   parser.required<uint64_t>("stream_rate")
                           )
                   )
-          ) {
-        
-        if (!parser.ok()) {
-            LOG(ERROR) << "Failed to parse reader config: " << parser.error_json().dump(4);
-        }
-    }
+          ) {}
 
-    virtual ~ReaderConfig() = default;
+    virtual ~BaseReaderConfig() = default;
 };
 
 // Analog-specific reader configuration
-struct AnalogReaderConfig : public ReaderConfig {
+struct AnalogReaderConfig : public BaseReaderConfig {
     std::vector<AnalogChannelConfig> channels;
 
-    explicit AnalogReaderConfig(config::Parser& parser) : ReaderConfig(parser) {
+    explicit AnalogReaderConfig(config::Parser& parser) : BaseReaderConfig(parser) {
         parser.iter("channels", [this](config::Parser& channel_parser) {
             auto channel = AnalogChannelConfig(channel_parser);
             if (this->device_name != "") {
@@ -202,10 +199,10 @@ struct AnalogReaderConfig : public ReaderConfig {
 };
 
 // Digital-specific reader configuration
-struct DigitalReaderConfig : public ReaderConfig {
+struct DigitalReaderConfig : public BaseReaderConfig {
     std::vector<DigitalChannelConfig> channels;
 
-    explicit DigitalReaderConfig(config::Parser& parser) : ReaderConfig(parser) {
+    explicit DigitalReaderConfig(config::Parser& parser) : BaseReaderConfig(parser) {
         parser.iter("channels", [this](config::Parser& channel_parser) {
             auto channel = DigitalChannelConfig(channel_parser);
             if (this->device_name != "") {
@@ -305,7 +302,7 @@ public:
 
     /// @brief NI related resources
     TaskHandle task_handle = 0;
-    ReaderConfig reader_config;
+    BaseReaderConfig reader_config;
     int num_samples_per_channel = 0;
     int buffer_size = 0;
     uint64_t num_channels = 0;
@@ -363,6 +360,9 @@ public:
     // NI related resources
     std::map<std::int32_t, std::string> port_to_channel;
     uint64_t num_ai_channels = 0;
+
+private:
+    AnalogReaderConfig analog_config;
 }; // class AnalogReadSource
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -390,6 +390,9 @@ public:
     int create_channels() override;
 
     void parse_channels(config::Parser &parser) override;
+
+private:
+    DigitalReaderConfig digital_config;
 }; // class DigitalReadSource
 
 

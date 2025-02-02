@@ -21,30 +21,29 @@
 using json = nlohmann::json;
 
 void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
-    auto config = DigitalReaderConfig(parser);
-    this->reader_config = config;
-    for (size_t i = 0; i < config.channels.size(); i++) {
-        if (config.channels[i].enabled) {
-            this->channel_map[config.channels[i].name] = "channels." + std::to_string(i);
+    digital_config = DigitalReaderConfig(parser);
+    reader_config = static_cast<BaseReaderConfig>(digital_config);
+    
+    for (size_t i = 0; i < digital_config.channels.size(); i++) {
+        if (digital_config.channels[i].enabled) {
+            this->channel_map[digital_config.channels[i].name] = "channels." + std::to_string(i);
         }
     }
 }
 
 int ni::DigitalReadSource::create_channels() {
     int err = 0;
-    auto channels = this->reader_config.channels;
-    for (auto &channel: channels) {
+    for (auto &channel: digital_config.channels) {
         if (channel.channel_type != "index" && channel.enabled) {
             err = this->check_ni_error(
                 this->dmx->CreateDIChan(task_handle,
-                                                   channel.name.c_str(),
-                                                   "", DAQmx_Val_ChanPerLine));
+                                      channel.name.c_str(),
+                                      "", DAQmx_Val_ChanPerLine));
             VLOG(1) << "Channel name: " << channel.name;
         }
         this->num_channels++;
         if (err < 0) {
-            LOG(ERROR) << "[ni.reader] failed while configuring channel " << channel.
-                    name;
+            LOG(ERROR) << "[ni.reader] failed while configuring channel " << channel.name;
             this->ok_state = false;
             return -1;
         }
@@ -113,27 +112,24 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
     breaker::Breaker &breaker) {
     auto f = synnax::Frame(num_channels);
 
-    // sleep per stream rate
     timer.wait(breaker);
     auto [d, err] = data_queue.dequeue();
     if (!err)
         return std::make_pair(std::move(f), freighter::Error(
                                   driver::TEMPORARY_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
-    // interpolate  timestamps between the initial and final timestamp to ensure
-    // non-overlapping timestamps between batched reads
-    uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
 
+    uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
     uint64_t data_index = 0;
 
     for (int i = 0; i < num_channels; i++) {
-        if (!this->reader_config.channels[i].enabled) continue;
-        if (this->reader_config.channels[i].channel_type == "index") {
+        if (!this->digital_config.channels[i].enabled) continue;
+        if (this->digital_config.channels[i].channel_type == "index") {
             auto t = synnax::Series(synnax::TIMESTAMP, this->num_samples_per_channel);
             for (uint64_t j = 0; j < d.samples_read_per_channel; ++j)
                 t.write(d.t0 + j * incr);
 
-            f.add(this->reader_config.channels[i].channel_key, std::move(t));
+            f.add(this->digital_config.channels[i].channel_key, std::move(t));
             continue;
         }
         auto series = synnax::Series(synnax::SY_UINT8, d.samples_read_per_channel);
@@ -141,14 +137,14 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
         for (int j = 0; j < d.samples_read_per_channel; j++)
             series.write((uint8_t) d.digital_data[data_index + j]);
 
-        f.add(this->reader_config.channels[i].channel_key, std::move(series));
+        f.add(this->digital_config.channels[i].channel_key, std::move(series));
         data_index++;
     }
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
 int ni::DigitalReadSource::validate_channels() {
-    for (auto &channel: this->reader_config.channels) {
+    for (auto &channel: digital_config.channels) {
         if (channel.channel_type == "index") {
             if (channel.channel_key == 0) {
                 LOG(ERROR) << "[ni.reader] Index channel key is 0";
