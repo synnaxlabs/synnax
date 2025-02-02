@@ -1,11 +1,11 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Calculated Channels"
-description: "Process telemetry real-time with Calculated Channels"
+description: "Process live telemetry with calculated channels."
 prev: "Channels"
 prevURL: "/reference/console/channels"
 next: "Workspaces"
-nextURL: "reference/console/workspaces"
+nextURL: "/reference/console/workspaces"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -15,25 +15,31 @@ import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Calculated channels derive new values based on calculations performed on existing
-[channels](/reference/console/channels). They can be used for a wide variety of
-real-time data processing and analysis such as:
+Calculated channels derive real-time data from existing
+[channels](/reference/console/channels). They enable live data processing and analysis,
+such as:
 
-- scaling, converting or filtering raw data
-- implementing sensor voting algorithms
-- creating channels to conditionally trigger alarms/warnings
+- Scaling, converting or filtering raw data
+- Implementing sensor voting algorithms
+- Creating channels to conditionally trigger alarms or warnings.
+
+<Divider.Divider direction="x" />
 
 ## Creating Channels
 
-You can create a channel using the "Create Calculated Channel" command in the Command Palette. To
-open the palette, click on the search bar at the top and type ">". You can also open the
-palette by pressing `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (MacOS).
+To create a calculated channel, open the Command Palette and run the "Create Calculated
+Channel" command.
 
-{/*  TODO: video of opening calculated channel from command palette */}
+- Click the search bar at the top and type `>` to open the palette.
+- Alternatively, press `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
 
-### Calculated Channel Parameters
+<Video client:only="react" id="console/calculated-channels/create" />
 
-When creating a calculated channel, you will be prompted to fill in the following fields:
+### Channel Parameters
+
+When creating a calculated channel, you will be prompted to fill in the following
+fields:
+
 <Table>
   <thead>
     <tr>
@@ -48,72 +54,88 @@ When creating a calculated channel, you will be prompted to fill in the followin
     </tr>
     <tr>
       <td>Data Type</td>
-      <td>What data type the channel stores.</td>
+      <td>The type of data the channel stores.</td>
     </tr>
     <tr>
       <td>Expression</td>
-       <td>The resulting python expression that represents the value written to the calculated channel. The
-         value written to the channel must be assigned to the `result` variable.</td>
+      <td>
+        The Lua expression that calculates the value to be written to the calculated
+        channel. This expression must end with a `return` statement.
+      </td>
     </tr>
     <tr>
-      <td> Requires </td>
-      <td>The existing Synnax channels involved in the calculation. A calculated channel must
-        use **at least one channel** in its expression.</td>
+      <td>Requires</td>
+      <td>
+        The existing Synnax channels used in the calculation. A calculated channel
+        **must reference at least one existing channel** in its expression.
+      </td>
     </tr>
   </tbody>
 </Table>
 
 <Note.Note variant="warning">
-  Calculated channels are [Virtual](/reference/concepts/channels#virtual-channels), meaning data written to them **will not** be stored permenantly.
+  Calculated channels are [virtual](/reference/concepts/channels#virtual-channels),
+  meaning data written to them **will not** be stored permanently.
 </Note.Note>
 
-### Rules for Calculations
+<Divider.Divider direction="x" />
 
-#### Calculations are expressed using [Lua](https://www.lua.org/).
+## Rules for Calculations
 
-See [below](/reference/console/calculated-channels#writing-expressions-in-lua) for more information on the syntax of Lua.
+#### Use [Lua](https://www.lua.org/) for expressions
 
-#### The final value expressed in the channel must be specified with `return`.
+Calculated channels use Lua to define expressions. If you are unfamiliar with Lua, check
+out our [short primer](#writing-expressions-in-lua) for an overview of its syntax and
+features.
 
-You may have intermediate variables in your expression, but the final value must be specified with `return`.
-For example, if you want to create a calculated channel that returns the sum of two scaled channels, you would write:
+#### Use `return` to specify the final value
+
+Your expression can include intermediate variables, but it must end with a `return`
+statement.
+
+**Example:** Scaling two channels before summing them:
 
 ```lua
 local scaled1 = channels.channel1 * 10
 local scaled2 = channels.channel2 * 10
 
-return scaled1 + scaled2 // The final value written to the calculated channel
+return scaled1 + scaled2 -- The final value written to the calculated channel
 ```
 
-#### Channels with hyphenated names are accessed via the `get` method.
+#### Access channels using `get()` for special names
 
-To perform operations on channels whose names contains hyphens, they must be accessed
-through the `get` method like so:
+If a channel name contains hyphens or spaces, use the `get()` method instead of direct
+property access:
 
 ```lua
-return get("channel-1") + get("channel-2)
+return get("channel-1") + get("channel-2")
 ```
 
-### Editing Calculations
+<Divider.Divider direction="x" />
 
-You can edit an existing calculated channel by right clicking on it in the resource toolbar and selecting "Edit Calculation" from the menu.
+## Editing Calculations
 
-{/*  TODO: video of editing a calculation */}
+To edit a calculated channel, right-click it in the Resources Toolbar and select "Edit
+Calculation" from the context menu:
 
+<Video client:only="react" id="console/calculated-channels/edit" />
 
-### Writing Expressions in Lua
+<Divider.Divider direction="x" />
 
-Calculations can be specified using any valid [Lua](https://www.lua.org/) expression. Here is a brief
-primer on its syntax:
+## Writing Expressions in Lua
 
-#### Basic Syntax
-##### Variables
+You can define calculations using any valid [Lua](https://www.lua.org/) expression.
+Below is a **brief** primer on Lua syntax:
+
+### Basic Syntax
+
+#### Variables
 
 ```lua
 local a = 1 -- declared with the local keyword
 ```
 
-##### If Statements
+#### If Statements
 
 ```lua
 if channels.temperature < 32 then
@@ -125,44 +147,32 @@ else
 end
 ```
 
-##### Tables
+#### Tables
 
-Tables are created with the `{}` syntax and function similar to python dictionaries
+Tables in Lua work like key-value dictionaries in Python and are created using `{}`:
 
 ```lua
-local table = {
+local thresholds = {
     max = 100,
     min = 0
 }
-return channels.temperature > table.max
+return channels.temperature > thresholds.max
 ```
 
-They can also be used as an array of values. Note that Lua **arrays start at 1**, not 0.
+Tables can also serve as arrays. Lua arrays start at 1, not 0.
 
 ```lua
-local readings = {
-  pressure1,
-  pressure2,
-  pressure3,
-  pressure4
-}
+local readings = { pressure1, pressure2, pressure3, pressure4 }
 
--- Get table length using #
-local count = #readings    -- returns 4
-
-local first = readings[1]  -- gets pressure1 value
-local last = readings[4]   -- gets pressure4 value
+local count = #readings    -- Returns 4 (table length)
+local first = readings[1]  -- Gets pressure1 value
+local last = readings[4]   -- Gets pressure4 value
 ```
 
-You can iterate over the table using a for loop in 2 ways
+You can loop through a table in two common ways:
 
 ```lua
-local readings = {
-  pressure1,
-  pressure2,
-  pressure3,
-  pressure4
-}
+local readings = { pressure1, pressure2, pressure3, pressure4 }
 
 -- Method 1: Using ipairs (recommended for arrays)
 local sum = 0
@@ -170,14 +180,14 @@ for i, value in ipairs(readings) do
     sum = sum + value
 end
 
--- Method 2: Using numeric index
+-- Method 2: Using numeric indices
 local sum = 0
-for i = 1, #readings do  --- #readings = size of readings table/array
+for i = 1, #readings do
   sum = sum + readings[i]
 end
 ```
 
-##### Functions
+#### Functions
 
 Functions are created with the `function` keyword
 
@@ -187,135 +197,157 @@ function add(a, b)
 end
 ```
 
-
-#### Supported Operators
-
-<Table>
-  <thead>
-  <tr>
-    <th>Operator Type</th>
-    <th>Operator</th>
-    <th>Description</th>
-  </tr>
-  </thead>
-  <tbody>
-  <tr>
-    <td>Arithmetic</td>
-    <td>+, -, *, /, //, %, ^</td>
-    <td>Addition, Subtraction, Multiplication, Float Division, Floor Division, Modulo, Exponentiation</td>
-  </tr>
-  <tr>
-    <td>Relational</td>
-    <td>==, **~=** (not !=), &lt;, &gt;, &lt;=, &gt;=</td>
-    <td>Equal to, <strong>Not equal to (uses ~= instead of !=)</strong>, Less than, Greater than, Less than or equal to, Greater than or equal to</td>
-  </tr>
-  <tr>
-    <td>Logical</td>
-    <td>and, or, not</td>
-    <td>Logical AND, Logical OR, Logical NOT</td>
-  </tr>
-  <tr>
-    <td>Concatenation</td>
-    <td>..</td>
-    <td>String concatenation</td>
-  </tr>
-  <tr>
-    <td>Bitwise</td>
-    <td>&amp;, |, ~, &lt;&lt;, &gt;&gt;, ~</td>
-    <td>Bitwise AND, OR, NOT, Left shift, Right shift, XOR</td>
-  </tr>
-  <tr>
-    <td>Length</td>
-    <td>#</td>
-    <td>Returns length of string or table</td>
-  </tr>
-  </tbody>
-</Table>
-
-You can also use any functions/constants available through Lua's built-in math library:
+### Supported Operators
 
 <Table>
   <thead>
-  <tr>
-    <th>Function Type</th>
-    <th>Functions</th>
-  </tr>
+    <tr>
+      <th>Operator Type</th>
+      <th>Operators</th>
+      <th>Description</th>
+    </tr>
   </thead>
   <tbody>
-  <tr>
-    <td>Constants</td>
-    <td>`math.pi` `math.huge` `math.maxinteger` `math.mininteger`</td>
-  </tr>
-  <tr>
-    <td>Basic Math</td>
-    <td>`math.abs()` `math.ceil()` `math.floor()` `math.max()` <br/><br/> `math.min()` `math.fmod()`  `math.modf()`</td>
-  </tr>
-  <tr>
-    <td>Power/Logarithmic</td>
-    <td>`math.sqrt()` `math.pow()` `math.exp()` `math.log()` `math.log10()`</td>
-  </tr>
-  <tr>
-    <td>Trigonometry</td>
-    <td>`math.sin()` `math.cos()` `math.tan()` `math.asin()` <br/> <br/>  `math.acos()` `math.atan()` `math.atan2()`</td>
-  </tr>
-  <tr>
-    <td>Angle Conversion</td>
-    <td>`math.deg()` `math.rad()`</td>
-  </tr>
-  <tr>
-    <td>Random</td>
-    <td>`math.random()` `math.randomseed()`</td>
-  </tr>
+    <tr>
+      <td>Arithmetic</td>
+      <td>`+`, `-`, `*`, `/`, `//`, `%`, `^`</td>
+      <td>
+        Addition, subtraction, multiplication, float division, floor division, modulo,
+        exponentiation
+      </td>
+    </tr>
+    <tr>
+      <td>Relational</td>
+      <td style="font-variant-ligatures: none;">`==`, `~=`, `<`, `>`, `<=`, `>=`</td>
+      <td>
+        Equal to, not equal to, less than, greater than, less than or equal to, greater
+        than or equal to
+      </td>
+    </tr>
+    <tr>
+      <td>Logical</td>
+      <td>`and`, `or`, `not`</td>
+      <td>Logical AND, OR, and NOT</td>
+    </tr>
+    <tr>
+      <td>Concatenation</td>
+      <td>`..`</td>
+      <td>String concatenation</td>
+    </tr>
+    <tr>
+      <td>Bitwise</td>
+      <td>`&`, `|`, `~`, `<<`, `>>`, `~`</td>
+      <td>
+        Bitwise AND, OR, XOR, left shift, right shift, unary bitwise NOT
+      </td>
+    </tr>
+    <tr>
+      <td>Length</td>
+      <td>`#`</td>
+      <td>Gets the length of a string or table</td>
+    </tr>
+  </tbody>
+</Table>
+
+You can also use Lua's built-in `math` library:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Function Type</th>
+      <th>Functions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Constants</td>
+      <td>`math.pi`, `math.huge`, `math.maxinteger`, `math.mininteger`</td>
+    </tr>
+    <tr>
+      <td>Basic Math</td>
+      <td>
+        `math.abs()`, `math.ceil()`, `math.floor()`, `math.max()`, `math.min()`,
+        `math.fmod()`, `math.modf()`
+      </td>
+    </tr>
+    <tr>
+      <td>Power/Logarithmic</td>
+      <td>`math.sqrt()`, `math.pow()`, `math.exp()`, `math.log()`, `math.log10()`</td>
+    </tr>
+    <tr>
+      <td>Trigonometry</td>
+      <td>
+        `math.sin()`, `math.cos()`, `math.tan()`, `math.asin()`, `math.acos()`,
+        `math.atan()`, `math.atan2()`
+      </td>
+    </tr>
+    <tr>
+      <td>Angle Conversion</td>
+      <td>`math.deg()`, `math.rad()`</td>
+    </tr>
+    <tr>
+      <td>Random</td>
+      <td>`math.random()`, `math.randomseed()`</td>
+    </tr>
   </tbody>
 </Table>
 
 <Table>
   <thead>
-  <tr>
-    <th>Control Structure</th>
-    <th>Syntax</th>
-    <th>Description</th>
-  </tr>
+    <tr>
+      <th>Structure</th>
+      <th>Syntax</th>
+      <th>Description</th>
+    </tr>
   </thead>
   <tbody>
-  <tr>
-    <td>If Statement</td>
-    <td> ```if condition then ... end```<br/> <br/>`if condition then ...` <br/>`else ... end`<br/> <br/>`if condition then ...`  <br/> `elseif condition then ...` <br/> `else ... end`</td>
-    <td>Conditional execution with optional else and elseif branches</td>
-  </tr>
-  <tr>
-    <td>Numeric For</td>
-    <td>`for i=start,end,step do` <br/> `...` <br/> `end`</td>
-    <td>Loop from start to end, with optional step value. Step defaults to 1 if omitted</td>
-  </tr>
-  <tr>
-    <td>Generic For</td>
-    <td>`for k,v in pairs(table) do ... end`</td>
-    <td>Iterate over all table elements<br/>`pairs()` for all elements<br/>`ipairs()` for array portion</td>
-  </tr>
-  <tr>
-    <td>While</td>
-    <td>`while condition do ... end`</td>
-    <td>Execute block while condition is true</td>
-  </tr>
-  <tr>
-    <td>Repeat</td>
-    <td>`repeat ... until condition`</td>
-    <td>Execute block until condition is true (at least once)</td>
-  </tr>
-  <tr>
-    <td>Break</td>
-    <td>`break`</td>
-    <td>Exit the innermost loop</td>
-  </tr>
+    <tr>
+      <td>If Statement</td>
+      <td>
+        `if ... then ... end`
+        <br />
+        `if ... then ... else ... end`
+        <br />
+        `if ... then ... elseif ... then ... else ... end`
+      </td>
+      <td>Conditional execution with optional else and elseif branches</td>
+    </tr>
+    <tr>
+      <td>Numeric For</td>
+      <td>`for i=start,end,step do ... end`</td>
+      <td>Loops from start to end, optional step (defaults to 1)</td>
+    </tr>
+    <tr>
+      <td>Generic For</td>
+      <td>`for k,v in pairs(table) do ... end`</td>
+      <td>Iterates over table elements using `pairs()` or `ipairs()`</td>
+    </tr>
+    <tr>
+      <td>While</td>
+      <td>`while condition do ... end`</td>
+      <td>Loops while `condition` is true</td>
+    </tr>
+    <tr>
+      <td>Repeat</td>
+      <td>`repeat ... until condition`</td>
+      <td>Runs at least once, then repeats until `condition` is met</td>
+    </tr>
+    <tr>
+      <td>Break</td>
+      <td>`break`</td>
+      <td>Exit the innermost loop</td>
+    </tr>
   </tbody>
 </Table>
 
-### Example
+<Divider.Divider direction="x" />
 
-Here is an example expression that applies scaling to 4 channels and finds the max out of them:
+## Example: Scaling and Finding the Maximum
+
+The following Lua script scales four channels and returns the highest value:
 
 ```lua
+-- Function to apply linear scaling
 function linearScale(value, offset, slope)
     if value == nil then
         return nil
@@ -323,9 +355,10 @@ function linearScale(value, offset, slope)
     return (value * slope) + offset
 end
 
-function max(t)
-    local max_val = nil
-    for _, value in pairs(t) do
+-- Function to find the maximum value in a table
+function findMax(t)
+    local max_val
+    for _, value in ipairs(t) do  -- Use ipairs for array-like tables
         if max_val == nil or value > max_val then
             max_val = value
         end
@@ -333,35 +366,23 @@ function max(t)
     return max_val
 end
 
--- Create table with the fuel channels
-local channels = {
-    fuel_pt_1,
-    fuel_pt_2,
-    fuel_pt_3,
-    fuel_pt_4
-}
+-- Fuel pressure channels
+local channels = {fuel_pt_1, fuel_pt_2, fuel_pt_3, fuel_pt_4}
 
--- Create table of slope/offset pairs for each channel
+-- Corresponding scale parameters (slope and offset)
 local scale_params = {
-    {slope = 2.0, offset = 10},    -- for fuel_pt_1
-    {slope = 1.5, offset = -5},    -- for fuel_pt_2
-    {slope = 3.0, offset = 0},     -- for fuel_pt_3
-    {slope = 0.5, offset = 15}     -- for fuel_pt_4
+    {slope = 2.0, offset = 10},
+    {slope = 1.5, offset = -5},
+    {slope = 3.0, offset = 0},
+    {slope = 0.5, offset = 15}
 }
 
--- Create table with scaled values
-local scaled_channels = {}
-
+-- Apply scaling to each channel
+local scaled_values = {}
 for i, value in ipairs(channels) do
     local params = scale_params[i]
-    table.insert(scaled_channels, linearScale(value, params.offset, params.slope))
+    scaled_values[i] = linearScale(value, params.offset, params.slope)
 end
 
-return max(scaled_channels)
-
+return findMax(scaled_channels)
 ```
-
-
-
-
-
