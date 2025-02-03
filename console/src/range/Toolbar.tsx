@@ -457,12 +457,7 @@ const Content = (): ReactElement => {
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
         <Header.Actions>
-          {[
-            {
-              children: <Icon.Add />,
-              onClick: () => place(createLayout({})),
-            },
-          ]}
+          {[{ children: <Icon.Add />, onClick: () => place(createLayout({})) }]}
         </Header.Actions>
       </ToolbarHeader>
       <List />

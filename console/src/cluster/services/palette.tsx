@@ -9,14 +9,14 @@
 
 import { AiFillApi } from "react-icons/ai";
 
-import { connectWindowLayout } from "@/cluster/Connect";
-import { type Command } from "@/palette/Palette";
+import { Cluster } from "@/cluster";
+import { type Palette } from "@/palette";
 
-export const connectCommand: Command = {
+const CONNECT_COMMAND: Palette.Command = {
   key: "connect-cluster",
   name: "Connect a Cluster",
   icon: <AiFillApi />,
-  onSelect: ({ placeLayout }) => placeLayout(connectWindowLayout),
+  onSelect: ({ placeLayout }) => placeLayout(Cluster.connectWindowLayout),
 };
 
-export const COMMANDS = [connectCommand];
+export const COMMANDS = [CONNECT_COMMAND];

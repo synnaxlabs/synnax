@@ -347,9 +347,6 @@ importers:
       '@synnaxlabs/x':
         specifier: workspace:*
         version: link:../../x/ts
-      '@types/offscreencanvas':
-        specifier: ^2019.7.3
-        version: 2019.7.3
       astro:
         specifier: ^5.1.6
         version: 5.1.6(@types/node@22.10.6)(rollup@4.30.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.7.0)
@@ -378,6 +375,12 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
         version: link:../../configs/ts
+      '@types/html-escaper':
+        specifier: ^3.0.3
+        version: 3.0.3
+      '@types/offscreencanvas':
+        specifier: ^2019.7.3
+        version: 2019.7.3
       '@types/react':
         specifier: ^19.0.6
         version: 19.0.6
@@ -2435,6 +2438,9 @@ packages:
 
   '@types/hast@3.0.4':
     resolution: {integrity: sha512-WPs+bbQw5aCj+x6laNGWLH3wviHtoCv/P3+otBhbOhJgG8qtpdAMlTCxLtsTWA7LH1Oh/bFCHsBn0TPS5m30EQ==}
+
+  '@types/html-escaper@3.0.3':
+    resolution: {integrity: sha512-nGFINiojbz41NZRuL1dHww4T7ZNFC+Vk46R/wsBmbfUitsovLDqJ8HwCrwCyiWud2GDgH22deYokbkktLYEaeQ==}
 
   '@types/http-cache-semantics@4.0.4':
     resolution: {integrity: sha512-1m0bIFVc7eJWyve9S0RnuRgcQqF/Xd5QsUZAZeQFr1Q3/p9JWoQQEqmVy+DPTNpGXwhgIetAoYF8JSc33q29QA==}
@@ -8537,6 +8543,8 @@ snapshots:
   '@types/hast@3.0.4':
     dependencies:
       '@types/unist': 3.0.3
+
+  '@types/html-escaper@3.0.3': {}
 
   '@types/http-cache-semantics@4.0.4': {}
 

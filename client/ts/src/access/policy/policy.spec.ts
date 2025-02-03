@@ -298,10 +298,7 @@ describe("privilege", async () => {
       password: "pwd1",
     });
     await expect(
-      client2.user.create({
-        username: id.id(),
-        password: id.id(),
-      }),
+      client2.user.create({ username: id.id(), password: id.id() }),
     ).rejects.toThrow(AuthError);
 
     const policy = await client.access.policy.create({

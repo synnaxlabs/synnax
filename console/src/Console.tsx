@@ -84,7 +84,6 @@ const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "Shift", "P"],
   ["Control", "MouseLeft"],
   ["Control", "W"],
-  ["Control", "A"],
 ];
 
 const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {

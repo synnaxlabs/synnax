@@ -10,7 +10,7 @@
 import "@/input/Time.css";
 
 import { TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
-import { forwardRef, useCallback } from "react";
+import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
@@ -88,43 +88,38 @@ export const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeRetur
  * @param props.dragDirection - The direction of the drag handle.
  * @default undefined
  */
-export const Time = forwardRef<HTMLInputElement, TimeProps>(
-  (
-    {
-      size,
-      value,
-      tzInfo = "local",
-      onChange,
-      dragDirection,
-      showDragHandle = true,
-      className,
-      children,
-      ...props
-    }: TimeProps,
-    ref,
-  ) => {
-    const { inputValue, ts, handleChange } = useTime({ value, onChange, tzInfo });
-    return (
-      <Text
-        ref={ref}
-        value={inputValue}
-        className={CSS(CSS.B("input-time"), className)}
-        type="time"
-        step="1"
-        onChange={handleChange}
-        {...props}
-      >
-        {showDragHandle && (
-          <DragButton
-            direction={dragDirection}
-            value={Number(ts.valueOf())}
-            onChange={handleChange}
-            dragScale={DRAG_SCALE}
-          />
-        )}
-        {children}
-      </Text>
-    );
-  },
-);
-Time.displayName = "InputTime";
+export const Time = ({
+  ref,
+  size,
+  value,
+  tzInfo = "local",
+  onChange,
+  dragDirection,
+  showDragHandle = true,
+  className,
+  children,
+  ...props
+}: TimeProps) => {
+  const { inputValue, ts, handleChange } = useTime({ value, onChange, tzInfo });
+  return (
+    <Text
+      ref={ref}
+      value={inputValue}
+      className={CSS(CSS.B("input-time"), className)}
+      type="time"
+      step="1"
+      onChange={handleChange}
+      {...props}
+    >
+      {showDragHandle && (
+        <DragButton
+          direction={dragDirection}
+          value={Number(ts.valueOf())}
+          onChange={handleChange}
+          dragScale={DRAG_SCALE}
+        />
+      )}
+      {children}
+    </Text>
+  );
+};

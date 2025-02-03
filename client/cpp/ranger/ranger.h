@@ -58,8 +58,8 @@ typedef freighter::UnaryClient<
     google::protobuf::Empty
 > RangeKVDeleteClient;
 
-/// @brief a range-scoped key-value store for storing meta-data and configuration
-/// about a range.
+/// @brief a range-scoped key-value store for storing metadata and configuration about a
+/// range.
 class RangeKV {
     std::string range_key;
     std::shared_ptr<RangeKVGetClient> kv_get_client;

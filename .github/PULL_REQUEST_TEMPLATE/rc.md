@@ -71,10 +71,7 @@ I have verified that code examples for each of the following services run correc
 
 ### Broken Links
 
-- [ ] I have used a broken link checker like
-      [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. Link
-      Check](https://www.drlinkcheck.com/) to check that all links work on the live
-      website:
+- [ ] I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
 
 ### Release Notes
 
@@ -142,7 +139,7 @@ I can successfully:
     - [ ] Set an alias for a channel under a range.
     - [ ] Clear an alias for a channel under a range.
     - [ ] Copy a link to a channel.
-    - [ ] Edit a calculation 
+    - [ ] Edit a calculation
   - **Search and Command Palette**
   - [ ] Open a channel plot by its name.
   - [ ] Open the "Create Channel" modal.
@@ -222,9 +219,9 @@ I can successfully:
   - [ ] Split a mosaic vertically.
   - [ ] Focus on a leaf.
   - [ ] Open a leaf in a new window.
-- [ ] Rename a tab with `Cmd + R`.
+- [ ] Rename a tab with `Cmd + E`.
 - [ ] Close layout tabs with `Cmd + W`.
-- [ ] Focus using `Cmd + F`.
+- [ ] Focus using `Cmd + L`.
 - [ ] Open in a new window with `Cmd + O`.
 - **Search and Command Palette**
   - [ ] Toggle the color theme.

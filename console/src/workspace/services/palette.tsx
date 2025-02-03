@@ -9,20 +9,19 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { type Command } from "@/palette/Palette";
+import { type Palette } from "@/palette";
 import { Workspace } from "@/workspace";
 import { ImportIcon } from "@/workspace/services/Icon";
 import { import_ } from "@/workspace/services/import";
 
-const CREATE_COMMAND: Command = {
+const CREATE_COMMAND: Palette.Command = {
   key: "workspace-create",
   name: "Create Workspace",
   icon: <Icon.Workspace />,
-  onSelect: ({ placeLayout: layoutPlacer }) =>
-    layoutPlacer(Workspace.CREATE_WINDOW_LAYOUT),
+  onSelect: ({ placeLayout }) => placeLayout(Workspace.CREATE_WINDOW_LAYOUT),
 };
 
-const IMPORT_COMMAND: Command = {
+const IMPORT_COMMAND: Palette.Command = {
   key: "workspace-import",
   name: "Import Workspace",
   icon: <ImportIcon />,

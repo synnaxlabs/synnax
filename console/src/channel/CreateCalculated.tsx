@@ -70,10 +70,7 @@ export const createCalculatedLayout = (base: Partial<Layout.State>): Layout.Stat
   name: "Channel.Create.Calculated",
   icon: "Channel",
   location: "modal",
-  tab: {
-    closable: true,
-    editable: false,
-  },
+  tab: { closable: true, editable: false },
   window: {
     resizable: false,
     size: { height: 600, width: 1000 },
@@ -192,7 +189,6 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     mutationFn: async (fld: Form.FieldState<channel.Key[]>) => {
       const v = fld.value;
       if (client == null || v.length == 0) return;
-      console.log(v);
       const channels = await client.channels.retrieve(v);
       const hyphenated = channels.filter((ch) => ch.name.includes("-"));
       if (!hyphenated.length) return;
@@ -281,12 +277,12 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
             )}
           </Form.Field>
           <Align.Space direction="x">
-            <Form.Field<DataType>
+            <Form.Field<string>
               path="dataType"
               label="Output Data Type"
               style={{ width: 150 }}
             >
-              {(p) => (
+              {({ variant: _, ...p }) => (
                 <Select.DataType
                   {...p}
                   disabled={isIndex}
@@ -302,7 +298,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
               label="Required Channels"
               grow
             >
-              {(p) => <Channel.SelectMultiple zIndex={100} {...p} />}
+              {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
           </Align.Space>
         </Form.Form>

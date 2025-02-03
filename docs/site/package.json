@@ -22,7 +22,6 @@
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "@types/offscreencanvas": "^2019.7.3",
     "astro": "^5.1.6",
     "astro-embed": "^0.9.0",
     "astro-seo": "^0.8.4",
@@ -34,6 +33,8 @@
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
+    "@types/html-escaper": "^3.0.3",
+    "@types/offscreencanvas": "^2019.7.3",
     "@types/react": "^19.0.6",
     "@types/react-dom": "^19.0.3",
     "algoliasearch": "^4.24.0",

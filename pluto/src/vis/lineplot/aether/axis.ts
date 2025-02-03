@@ -36,7 +36,7 @@ export const coreAxisStateZ = axis.axisStateZ
       })
       .or(z.boolean().optional().default(true)),
     autoBoundPadding: z.number().optional(),
-    autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(2)),
+    autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(10)),
     size: z.number().optional().default(0),
     label: z.string().optional().default(""),
     labelSize: z.number().optional().default(0),
@@ -202,8 +202,5 @@ export const parseAutoBounds = (
   autoBounds: boolean | { lower?: boolean; upper?: boolean },
 ): { lower: boolean; upper: boolean } => {
   if (typeof autoBounds === "boolean") return { lower: autoBounds, upper: autoBounds };
-  return {
-    lower: autoBounds?.lower ?? true,
-    upper: autoBounds?.upper ?? true,
-  };
+  return { lower: autoBounds?.lower ?? true, upper: autoBounds?.upper ?? true };
 };

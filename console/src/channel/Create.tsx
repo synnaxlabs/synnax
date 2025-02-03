@@ -155,8 +155,8 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
                 if (ctx.get("index").value !== 0) ctx.set("index", 0);
               }}
             />
-            <Form.Field<DataType> path="dataType" label="Data Type" grow>
-              {(p) => (
+            <Form.Field<string> path="dataType" label="Data Type" grow>
+              {({ variant: _, ...p }) => (
                 <Select.DataType
                   {...p}
                   disabled={isIndex}
@@ -170,7 +170,6 @@ export const CreateModal: Layout.Renderer = ({ onClose }): ReactElement => {
           <Form.Field<channel.Key> path="index" label="Index">
             {(p) => (
               <Channel.SelectSingle
-                client={client}
                 placeholder="Select Index"
                 searchOptions={{ isIndex: true }}
                 disabled={isIndex || isVirtual}
