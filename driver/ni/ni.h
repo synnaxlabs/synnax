@@ -402,7 +402,7 @@ private:
 
     void parse_config(config::Parser &parser);
 
-    int check_ni_error(int32 error);
+    int check_err(int32 error, std::string caller);
 
     const std::shared_ptr<DAQmx> dmx;
 
@@ -481,7 +481,7 @@ private:
 
     void parse_config(config::Parser &parser);
 
-    int check_ni_error(int32 error);
+    int check_err(int32 error, std::string caller);
 
     const std::shared_ptr<DAQmx> dmx;
 

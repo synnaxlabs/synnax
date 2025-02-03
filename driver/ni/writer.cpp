@@ -49,7 +49,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     this->parse_config(config_parser);
     if (!config_parser.ok()) {
         this->log_error(
-            "failed to parse configuration for " + this->writer_config.task_name);
+            "failed to parse configuration for " + this->writer_config.task_name + ": " + config_parser.error_json().dump(4));
         this->ctx->set_state({
             .task = this->task.key,
             .variant = "error",
@@ -133,11 +133,11 @@ int ni::DigitalWriteSink::init() {
 
     for (auto &channel: channels) {
         if (channel.channel_type != "index" && channel.enabled) {
-            err = this->check_ni_error(
+            err = this->check_err(
                 this->dmx->CreateDOChan(
                     this->task_handle, channel.name.c_str(), "",
                     DAQmx_Val_ChanPerLine
-                )
+                ), "init.CreateDOChan"
             );
         }
         this->num_channels++;
@@ -162,7 +162,12 @@ freighter::Error ni::DigitalWriteSink::cycle() {
 }
 
 freighter::Error ni::DigitalWriteSink::start_ni() {
-    if (this->check_ni_error(this->dmx->StartTask(this->task_handle))) {
+    if (
+        this->check_err(
+            this->dmx->StartTask(this->task_handle),
+            "start_ni.StartTask"
+        )
+    ) {
         this->log_error(
             "failed to start writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
@@ -175,7 +180,12 @@ freighter::Error ni::DigitalWriteSink::start_ni() {
 
 
 freighter::Error ni::DigitalWriteSink::stop_ni() {
-    if (this->check_ni_error(this->dmx->StopTask(task_handle))) {
+    if (
+        this->check_err(
+            this->dmx->StopTask(task_handle), 
+            "stop_ni.StopTask"
+        )
+    ) {
         this->log_error(
             "failed to stop writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
@@ -224,16 +234,20 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
     int32 samplesWritten = 0;
     format_data(std::move(frame));
 
-    if (this->check_ni_error(this->dmx->WriteDigitalLines(
-        this->task_handle,
-        1, // number of samples per channel
-        1, // auto start
-        10.0, // timeout
-        DAQmx_Val_GroupByChannel, // data layout
-        write_buffer, // data
-        &samplesWritten, // samples written
-        NULL
-    ))) {
+    if (
+        this->check_err(
+            this->dmx->WriteDigitalLines(
+                this->task_handle,
+                1, // number of samples per channel
+                1, // auto start
+                10.0, // timeout
+                DAQmx_Val_GroupByChannel, // data layout
+                write_buffer, // data
+                &samplesWritten, // samples written
+                NULL
+            ), "write.WriteDigitalLines"
+        )
+    ) {
         this->log_error("failed while writing digital data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
@@ -263,7 +277,7 @@ freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
                 it);
             // this corresponds to where in the order its NI channel was created
             // now we grab the level we'd like to write and put it into that location in the write_buffer
-            auto series = frame.series->at(frame_index).values<uint8_t>();
+            auto series = frame.series->at(frame_index).values<double>();
             write_buffer[cmd_channel_index] = series[0];
             this->writer_config.modified_state_keys.push(
                 this->writer_config.state_channel_keys[cmd_channel_index]);
@@ -280,9 +294,15 @@ ni::DigitalWriteSink::~DigitalWriteSink() {
 }
 
 void ni::DigitalWriteSink::clear_task() {
-    if (this->check_ni_error(this->dmx->ClearTask(task_handle)))
+    if (
+        this->check_err(
+            this->dmx->ClearTask(task_handle),
+            "clear_task.ClearTask"
+        )
+    ){
         this->log_error(
             "failed to clear writer for task " + this->writer_config.task_name);
+    }
 }
 
 std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_cmd_channel_keys() {
@@ -303,7 +323,7 @@ std::vector<synnax::ChannelKey> ni::DigitalWriteSink::get_state_channel_keys() {
     return keys;
 }
 
-int ni::DigitalWriteSink::check_ni_error(int32 error) {
+int ni::DigitalWriteSink::check_err(int32 error, std::string caller) {
     if (error == 0) return 0;
     char errBuff[2048] = {'\0'};
     this->dmx->GetExtendedErrorInfo(errBuff, 2048);
@@ -446,7 +466,7 @@ ni::AnalogWriteSink::AnalogWriteSink(
     this->parse_config(config_parser);
     if (!config_parser.ok()) {
         this->log_error(
-            "failed to parse configuration for " + this->writer_config.task_name);
+            "failed to parse configuration for " + this->writer_config.task_name + ": " + config_parser.error_json().dump(4));
         this->ctx->set_state({
             .task = this->task.key,
             .variant = "error",
@@ -518,6 +538,9 @@ void ni::AnalogWriteSink::parse_config(config::Parser &parser) {
             c_count++;
         }
     );
+    if (!parser.ok())
+        this->log_error(
+            "[parse_config] failed to parse configuration for " + this->writer_config.task_name + ": " + parser.error_json().dump(4));
 }
 
 std::shared_ptr<ni::Analog> ni::AnalogWriteSink::parse_channel(
@@ -558,8 +581,8 @@ int ni::AnalogWriteSink::init() {
     auto channels = this->writer_config.channels;
 
     for (auto &channel: channels) {
-        this->check_ni_error(channel.ni_channel->create_ni_scale(this->dmx));
-        this->check_ni_error(channel.ni_channel->create_ni_channel(this->dmx));
+        this->check_err(channel.ni_channel->create_ni_scale(this->dmx), "init.create_ni_scale");
+        this->check_err(channel.ni_channel->create_ni_channel(this->dmx), "init.create_ni_channel");
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);
             return -1;
@@ -581,7 +604,7 @@ freighter::Error ni::AnalogWriteSink::cycle() {
 }
 
 freighter::Error ni::AnalogWriteSink::start_ni() {
-    if (this->check_ni_error(this->dmx->StartTask(this->task_handle))) {
+    if (this->check_err(this->dmx->StartTask(this->task_handle), "start_ni.StartTask")) {
         this->log_error(
             "failed to start writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
@@ -593,7 +616,7 @@ freighter::Error ni::AnalogWriteSink::start_ni() {
 }
 
 freighter::Error ni::AnalogWriteSink::stop_ni() {
-    if (this->check_ni_error(this->dmx->StopTask(task_handle))) {
+    if (this->check_err(this->dmx->StopTask(task_handle), "stop_ni.StopTask")) {
         this->log_error(
             "failed to stop writer for task " + this->writer_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
@@ -641,20 +664,26 @@ freighter::Error ni::AnalogWriteSink::write(synnax::Frame frame) {
     int32 samplesWritten = 0;
     format_data(std::move(frame));
 
-    if (this->check_ni_error(this->dmx->WriteAnalogF64(
-        this->task_handle,
-        1, // number of samples per channel
-        1, // auto start
-        10.0, // timeout
-        DAQmx_Val_GroupByChannel, // data layout
-        write_buffer, // data
-        &samplesWritten, // samples written
-        NULL
-    ))) {
+    if (
+        this->check_err(
+                this->dmx->WriteAnalogF64(
+                this->task_handle,
+                1, // number of samples per channel
+                1, // auto start
+                10.0, // timeout
+                DAQmx_Val_GroupByChannel, // data layout
+                write_buffer, // data
+                &samplesWritten, // samples written
+                NULL
+            ), 
+            "write.WriteAnalogF64"
+        )
+    ) {
         this->log_error("failed while writing digital data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
                                 "Error writing digital data");
     }
+    LOG(INFO) << "AnalogWriteSink::write: samplesWritten: " << samplesWritten; // REMOVE DEBUG
     this->writer_state_source->update_state(
         this->writer_config.modified_state_keys,
         this->writer_config.analog_modified_state_values
@@ -679,12 +708,26 @@ freighter::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
                 it);
             // this corresponds to where in the order its NI channel was created
             // now we grab the level we'd like to write and put it into that location in the write_buffer
-            auto series = frame.series->at(frame_index).values<float>();
-            // TODO: Could be a double too, so handle tha. Could be all kinds of types actually
-            write_buffer[cmd_channel_index] = series[0];
+            const auto& series = frame.series->at(frame_index);
+            double value = 0.0;
+
+            if (series.data_type == synnax::FLOAT32) {
+                value = series.at<float>(0);
+            } else if (series.data_type == synnax::FLOAT64) {
+                value = series.at<double>(0);
+            } else if (series.data_type == synnax::INT32) {
+                value = static_cast<double>(series.at<int32_t>(0));
+            } else if (series.data_type == synnax::SY_UINT8) {
+                value = static_cast<double>(series.at<uint8_t>(0));
+            } else {
+                return freighter::NIL;  
+            }
+            write_buffer[cmd_channel_index] = value;
+
             this->writer_config.modified_state_keys.push(
-                this->writer_config.state_channel_keys[cmd_channel_index]);
-            this->writer_config.analog_modified_state_values.push(series[0]);
+                this->writer_config.state_channel_keys[cmd_channel_index]
+            );
+            this->writer_config.analog_modified_state_values.push(value);
         }
         frame_index++;
     }
@@ -697,7 +740,7 @@ ni::AnalogWriteSink::~AnalogWriteSink() {
 }
 
 void ni::AnalogWriteSink::clear_task() {
-    if (this->check_ni_error(this->dmx->ClearTask(task_handle)))
+    if (this->check_err(this->dmx->ClearTask(task_handle), "clear_task.ClearTask"))
         this->log_error(
             "failed to clear writer for task " + this->writer_config.task_name);
 }
@@ -720,7 +763,7 @@ std::vector<synnax::ChannelKey> ni::AnalogWriteSink::get_state_channel_keys() {
     return keys;
 }
 
-int ni::AnalogWriteSink::check_ni_error(int32 error) {
+int ni::AnalogWriteSink::check_err(int32 error, std::string caller) {
     if (error == 0) return 0;
     char errBuff[2048] = {'\0'};
     this->dmx->GetExtendedErrorInfo(errBuff, 2048);
@@ -733,7 +776,7 @@ int ni::AnalogWriteSink::check_ni_error(int32 error) {
         .variant = "error",
         .details = err_info
     });
-    this->log_error("NI Vendor Error: " + std::string(errBuff));
+    this->log_error("NI Vendor Error (" + caller + "): " + std::string(errBuff));
     this->ok_state = false;
     return -1;
 }

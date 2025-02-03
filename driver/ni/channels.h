@@ -282,8 +282,13 @@ public:
     }
 
     std::unique_ptr<ScaleConfig> getScaleConfig(config::Parser &parser) {
-        const std::string c = std::to_string(parser.required<uint32_t>("channel"));
         if (!parser.get_json().contains("custom_scale")) return nullptr;
+        const std::string c = std::to_string(
+                                    parser.optional<uint32_t>(
+                                        "channel", 
+                                        parser.optional<uint32_t>("cmd_channel", 0)
+                                    )
+                                );
         auto scale_parser = parser.child("custom_scale");
         if (scale_parser.required<std::string>("type") == "none") return nullptr;
         this->scale_name = c + "_scale";
@@ -321,9 +326,6 @@ public:
                   parser.optional<std::string>("units", "Volts")
               )
           ),
-          sy_key(
-              parser.required<uint32_t>("channel")
-          ),
           name(name),
           type(
               parser.required<std::string>("type")
@@ -338,7 +340,6 @@ public:
     double min_val = 0;
     double max_val = 0;
     int32_t units = DAQmx_Val_Volts;
-    uint32_t sy_key = 0;
     std::string name = "";
     std::string type = "";
     std::string scale_name = "";

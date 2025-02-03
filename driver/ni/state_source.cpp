@@ -44,7 +44,8 @@ synnax::Frame StateSource<T>::get_state() {
 
     for (auto &[key, value]: this->state_map)
         state_frame.add(key, synnax::Series(value));
-    return state_frame;
+    
+    return state_frame; 
 }
 
 template<typename T>
@@ -52,8 +53,11 @@ void StateSource<T>::update_state(
     std::queue<synnax::ChannelKey> &modified_state_keys,
     std::queue<T> &modified_state_values
 ) {
+    LOG(INFO) << "StateSource::update_state: updating state"; // REMOVE DEBUG
     std::unique_lock<std::mutex> lock(this->state_mutex);
     while (!modified_state_keys.empty()) {
+        LOG(INFO) << "updating key: " << modified_state_keys.front(); // REMOVE DEBUG
+        LOG(INFO) << "updating value: " << modified_state_values.front(); // REMOVE DEBUG
         this->state_map[modified_state_keys.front()] = static_cast<T>(modified_state_values.front());
         modified_state_keys.pop();
         modified_state_values.pop();
