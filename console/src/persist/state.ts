@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -109,14 +109,6 @@ interface Engine<S extends RequiredState> {
 export const open = async <S extends RequiredState>(
   config: Config<S>,
 ): Promise<Engine<S>> => {
-  const label = getCurrentWindow()?.label;
-  if (label !== MAIN_WINDOW)
-    return {
-      revert: async () => {},
-      clear: async () => {},
-      persist: async () => {},
-      initialState: undefined,
-    };
   const { exclude = [], initial, migrator, openKV } = config;
   // We need to make sure we copy the initial state because we're going to mutate it,
   // and we don't want to accidentally mutate the initial state, or run into errors
@@ -176,10 +168,6 @@ export const open = async <S extends RequiredState>(
   return { revert, clear, persist, initialState: state };
 };
 
-const passThroughMiddleware: Middleware<UnknownRecord, any> =
-  () => (next) => (action) =>
-    next(action);
-
 const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 
 /**
@@ -194,8 +182,6 @@ export const middleware = <S extends RequiredState>(
   engine: Engine<S>,
   debounceInterval: TimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<UnknownRecord> => {
-  const appWindow = getCurrentWindow();
-  if (appWindow.label !== MAIN_WINDOW) return passThroughMiddleware;
   const debouncedPersist = debounce(engine.persist, debounceInterval.milliseconds);
   return (store) => (next) => (action) => {
     const result = next(action);
