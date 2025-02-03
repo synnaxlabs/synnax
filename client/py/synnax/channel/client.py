@@ -88,7 +88,7 @@ class Channel(ChannelPayload):
         what this is, leave it at the default value of 0.
         :param virtual: Boolean indicating whether the channel is virtual. Virtual
         channels do not store any data, and are used for streaming purposes only.
-        :param expression: An optional expression that defines the channel as a
+        :param expression: An optional Lua expression that defines the channel as a
         calculation of another channel. If this is set, the channel will be
         automatically configured as virtual.
         :param requires: A list of keys of channels that the expression for the

@@ -208,7 +208,7 @@ jobs:
           Write-Host "Building version: $version"
           # Build the synnax binary
           Write-Host "Building synnax binary..."
-          & go build -tags driver -o synnax.exe
+          & go build -tags driver -o synnax-server.exe
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to build synnax binary"
               exit 1
@@ -217,7 +217,7 @@ jobs:
           Pop-Location
           # Move the built binary to scripts directory
           Write-Host "Moving synnax binary to scripts directory..."
-          Move-Item -Force .\synnax\synnax.exe .\scripts\
+          Move-Item -Force .\synnax\synnax-server.exe .\scripts\
           # Build the NSIS installer
           Write-Host "Building Windows installer..."
           & makensis /DVERSION=$version .\scripts\windows-installer.nsi

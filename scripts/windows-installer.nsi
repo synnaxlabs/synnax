@@ -15,26 +15,26 @@ InstallDir "$APPDATA\synnax"
 Section "MainSection" SEC01
     CreateDirectory "$INSTDIR"
     DetailPrint "Installing to: $INSTDIR"
-    Delete "$INSTDIR\synnax.exe"
-    Delete "$INSTDIR\synnax-server.bat"
+    Delete "$INSTDIR\synnax-server.exe"
+    Delete "$INSTDIR\synnax.bat"
     
     SetOutPath "$INSTDIR"
-    File /oname=synnax.exe "synnax.exe"
+    File /oname=synnax-server.exe "synnax-server.exe"
     
     # Create the batch file alias
-    FileOpen $0 "$INSTDIR\synnax-server.bat" w
+    FileOpen $0 "$INSTDIR\synnax.bat" w
     FileWrite $0 "@echo off$\r$\n"
-    FileWrite $0 'synnax.exe %*'
+    FileWrite $0 'synnax-server.exe %*'
     FileClose $0
     
     CreateDirectory "$SMPROGRAMS\Synnax"
-    CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax.exe"
-    CreateShortcut "$DESKTOP\Synnax.lnk" "$INSTDIR\synnax.exe"
+    CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax-server.exe"
+    CreateShortcut "$DESKTOP\Synnax.lnk" "$INSTDIR\synnax-server.exe"
     
-    # Add to PATH
+    # Add to PATH (at the beginning instead of the end)
     DetailPrint "Adding to PATH..."
     FileOpen $0 "$INSTDIR\add-path.ps1" w
-    FileWrite $0 "[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';$INSTDIR', 'User')"
+    FileWrite $0 "[Environment]::SetEnvironmentVariable('Path', '$INSTDIR;' + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"
     FileClose $0
     nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\add-path.ps1"'
     Delete "$INSTDIR\add-path.ps1"
@@ -45,13 +45,13 @@ SectionEnd
 Section "Uninstall"
     DetailPrint "Removing from PATH..."
     FileOpen $0 "$INSTDIR\remove-path.ps1" w
-    FileWrite $0 '[Environment]::SetEnvironmentVariable("Path", ($([Environment]::GetEnvironmentVariable("Path", "User")) -replace [regex]::Escape(";$INSTDIR")), "User")'
+    FileWrite $0 '[Environment]::SetEnvironmentVariable("Path", ($([Environment]::GetEnvironmentVariable("Path", "User")) -replace [regex]::Escape("$INSTDIR;")), "User")'
     FileClose $0
     nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\remove-path.ps1"'
     Delete "$INSTDIR\remove-path.ps1"
     
-    Delete "$INSTDIR\synnax.exe"
-    Delete "$INSTDIR\synnax-server.bat"
+    Delete "$INSTDIR\synnax-server.exe"
+    Delete "$INSTDIR\synnax.bat"
     Delete "$INSTDIR\uninstall.exe"
     Delete "$DESKTOP\Synnax.lnk"
     Delete "$SMPROGRAMS\Synnax\Synnax.lnk"
