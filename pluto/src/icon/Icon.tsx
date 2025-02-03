@@ -23,6 +23,11 @@ import { CSS } from "@/css";
 
 export interface BaseProps extends SVGProps<SVGSVGElement> {}
 
+/**
+ * A type representing a React element that renders an icon. This element encapsulates
+ * the visual representation of an icon component, typically rendered as an SVG with the
+ * specified base properties.
+ */
 export interface Element extends ReactElement<BaseProps> {}
 
 export interface IconProps
