@@ -6,13 +6,15 @@ platforms: ["linux", "windows", "macos", "docker"]
 ---
 
 import { Align, Note, Divider, Video as PVideo } from "@synnaxlabs/pluto";
-import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
+import {
+  SynnaxConsoleDownloadButton,
+  SynnaxServerDownloadButton,
+} from "@/components/console/OSDownloadButton";
 import { Image, Video } from "@/components/Media";
 import { PlatformTabs } from "@/components/platform/PlatformTabs";
 import Details from "@/components/details/Details.astro";
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
-import { SynnaxServerDownloadButton } from "@/components/console/OSDownloadButton";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
