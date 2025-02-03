@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -168,10 +168,6 @@ export const open = async <S extends RequiredState>(
   return { revert, clear, persist, initialState: state };
 };
 
-const passThroughMiddleware: Middleware<UnknownRecord, any> =
-  () => (next) => (action) =>
-    next(action);
-
 const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 
 /**
@@ -186,8 +182,6 @@ export const middleware = <S extends RequiredState>(
   engine: Engine<S>,
   debounceInterval: TimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<UnknownRecord> => {
-  const appWindow = getCurrentWindow();
-  if (appWindow.label !== MAIN_WINDOW) return passThroughMiddleware;
   const debouncedPersist = debounce(engine.persist, debounceInterval.milliseconds);
   return (store) => (next) => (action) => {
     const result = next(action);
