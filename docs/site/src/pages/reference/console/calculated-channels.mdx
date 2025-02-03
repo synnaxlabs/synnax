@@ -1,0 +1,388 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Calculated Channels"
+description: "Process live telemetry with calculated channels."
+prev: "Channels"
+prevURL: "/reference/console/channels"
+next: "Workspaces"
+nextURL: "/reference/console/workspaces"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/Media";
+import Diagram from "@/components/Diagram.astro";
+import Table from "@/components/Table.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Calculated channels derive real-time data from existing
+[channels](/reference/console/channels). They enable live data processing and analysis,
+such as:
+
+- Scaling, converting or filtering raw data
+- Implementing sensor voting algorithms
+- Creating channels to conditionally trigger alarms or warnings.
+
+<Divider.Divider direction="x" />
+
+## Creating Channels
+
+To create a calculated channel, open the Command Palette and run the "Create Calculated
+Channel" command.
+
+- Click the search bar at the top and type `>` to open the palette.
+- Alternatively, press `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
+
+<Video client:only="react" id="console/calculated-channels/create" />
+
+### Channel Parameters
+
+When creating a calculated channel, you will be prompted to fill in the following
+fields:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Name</td>
+      <td>A name for the channel.</td>
+    </tr>
+    <tr>
+      <td>Data Type</td>
+      <td>The type of data the channel stores.</td>
+    </tr>
+    <tr>
+      <td>Expression</td>
+      <td>
+        The Lua expression that calculates the value to be written to the calculated
+        channel. This expression must end with a `return` statement.
+      </td>
+    </tr>
+    <tr>
+      <td>Requires</td>
+      <td>
+        The existing Synnax channels used in the calculation. A calculated channel
+        **must reference at least one existing channel** in its expression.
+      </td>
+    </tr>
+  </tbody>
+</Table>
+
+<Note.Note variant="warning">
+  Calculated channels are [virtual](/reference/concepts/channels#virtual-channels),
+  meaning data written to them **will not** be stored permanently.
+</Note.Note>
+
+<Divider.Divider direction="x" />
+
+## Rules for Calculations
+
+#### Use [Lua](https://www.lua.org/) for expressions
+
+Calculated channels use Lua to define expressions. If you are unfamiliar with Lua, check
+out our [short primer](#writing-expressions-in-lua) for an overview of its syntax and
+features.
+
+#### Use `return` to specify the final value
+
+Your expression can include intermediate variables, but it must end with a `return`
+statement.
+
+**Example:** Scaling two channels before summing them:
+
+```lua
+local scaled1 = channels.channel1 * 10
+local scaled2 = channels.channel2 * 10
+
+return scaled1 + scaled2 -- The final value written to the calculated channel
+```
+
+#### Access channels using `get()` for special names
+
+If a channel name contains hyphens or spaces, use the `get()` method instead of direct
+property access:
+
+```lua
+return get("channel-1") + get("channel-2")
+```
+
+<Divider.Divider direction="x" />
+
+## Editing Calculations
+
+To edit a calculated channel, right-click it in the Resources Toolbar and select "Edit
+Calculation" from the context menu:
+
+<Video client:only="react" id="console/calculated-channels/edit" />
+
+<Divider.Divider direction="x" />
+
+## Writing Expressions in Lua
+
+You can define calculations using any valid [Lua](https://www.lua.org/) expression.
+Below is a **brief** primer on Lua syntax:
+
+### Basic Syntax
+
+#### Variables
+
+```lua
+local a = 1 -- declared with the local keyword
+```
+
+#### If Statements
+
+```lua
+if channels.temperature < 32 then
+    return "freezing"
+elseif channels.temperature < 70 then
+    return "cool"
+else
+    return "warm"
+end
+```
+
+#### Tables
+
+Tables in Lua work like key-value dictionaries in Python and are created using `{}`:
+
+```lua
+local thresholds = {
+    max = 100,
+    min = 0
+}
+return channels.temperature > thresholds.max
+```
+
+Tables can also serve as arrays. Lua arrays start at 1, not 0.
+
+```lua
+local readings = { pressure1, pressure2, pressure3, pressure4 }
+
+local count = #readings    -- Returns 4 (table length)
+local first = readings[1]  -- Gets pressure1 value
+local last = readings[4]   -- Gets pressure4 value
+```
+
+You can loop through a table in two common ways:
+
+```lua
+local readings = { pressure1, pressure2, pressure3, pressure4 }
+
+-- Method 1: Using ipairs (recommended for arrays)
+local sum = 0
+for i, value in ipairs(readings) do
+    sum = sum + value
+end
+
+-- Method 2: Using numeric indices
+local sum = 0
+for i = 1, #readings do
+  sum = sum + readings[i]
+end
+```
+
+#### Functions
+
+Functions are created with the `function` keyword
+
+```lua
+function add(a, b)
+    return a + b
+end
+```
+
+### Supported Operators
+
+<Table>
+  <thead>
+    <tr>
+      <th>Operator Type</th>
+      <th>Operators</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Arithmetic</td>
+      <td>`+`, `-`, `*`, `/`, `//`, `%`, `^`</td>
+      <td>
+        Addition, subtraction, multiplication, float division, floor division, modulo,
+        exponentiation
+      </td>
+    </tr>
+    <tr>
+      <td>Relational</td>
+      <td style="font-variant-ligatures: none;">`==`, `~=`, `<`, `>`, `<=`, `>=`</td>
+      <td>
+        Equal to, not equal to, less than, greater than, less than or equal to, greater
+        than or equal to
+      </td>
+    </tr>
+    <tr>
+      <td>Logical</td>
+      <td>`and`, `or`, `not`</td>
+      <td>Logical AND, OR, and NOT</td>
+    </tr>
+    <tr>
+      <td>Concatenation</td>
+      <td>`..`</td>
+      <td>String concatenation</td>
+    </tr>
+    <tr>
+      <td>Bitwise</td>
+      <td>`&`, `|`, `~`, `<<`, `>>`, `~`</td>
+      <td>
+        Bitwise AND, OR, XOR, left shift, right shift, unary bitwise NOT
+      </td>
+    </tr>
+    <tr>
+      <td>Length</td>
+      <td>`#`</td>
+      <td>Gets the length of a string or table</td>
+    </tr>
+  </tbody>
+</Table>
+
+You can also use Lua's built-in `math` library:
+
+<Table>
+  <thead>
+    <tr>
+      <th>Function Type</th>
+      <th>Functions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Constants</td>
+      <td>`math.pi`, `math.huge`, `math.maxinteger`, `math.mininteger`</td>
+    </tr>
+    <tr>
+      <td>Basic Math</td>
+      <td>
+        `math.abs()`, `math.ceil()`, `math.floor()`, `math.max()`, `math.min()`,
+        `math.fmod()`, `math.modf()`
+      </td>
+    </tr>
+    <tr>
+      <td>Power/Logarithmic</td>
+      <td>`math.sqrt()`, `math.pow()`, `math.exp()`, `math.log()`, `math.log10()`</td>
+    </tr>
+    <tr>
+      <td>Trigonometry</td>
+      <td>
+        `math.sin()`, `math.cos()`, `math.tan()`, `math.asin()`, `math.acos()`,
+        `math.atan()`, `math.atan2()`
+      </td>
+    </tr>
+    <tr>
+      <td>Angle Conversion</td>
+      <td>`math.deg()`, `math.rad()`</td>
+    </tr>
+    <tr>
+      <td>Random</td>
+      <td>`math.random()`, `math.randomseed()`</td>
+    </tr>
+  </tbody>
+</Table>
+
+<Table>
+  <thead>
+    <tr>
+      <th>Structure</th>
+      <th>Syntax</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>If Statement</td>
+      <td>
+        `if ... then ... end`
+        <br />
+        `if ... then ... else ... end`
+        <br />
+        `if ... then ... elseif ... then ... else ... end`
+      </td>
+      <td>Conditional execution with optional else and elseif branches</td>
+    </tr>
+    <tr>
+      <td>Numeric For</td>
+      <td>`for i=start,end,step do ... end`</td>
+      <td>Loops from start to end, optional step (defaults to 1)</td>
+    </tr>
+    <tr>
+      <td>Generic For</td>
+      <td>`for k,v in pairs(table) do ... end`</td>
+      <td>Iterates over table elements using `pairs()` or `ipairs()`</td>
+    </tr>
+    <tr>
+      <td>While</td>
+      <td>`while condition do ... end`</td>
+      <td>Loops while `condition` is true</td>
+    </tr>
+    <tr>
+      <td>Repeat</td>
+      <td>`repeat ... until condition`</td>
+      <td>Runs at least once, then repeats until `condition` is met</td>
+    </tr>
+    <tr>
+      <td>Break</td>
+      <td>`break`</td>
+      <td>Exit the innermost loop</td>
+    </tr>
+  </tbody>
+</Table>
+
+<Divider.Divider direction="x" />
+
+## Example: Scaling and Finding the Maximum
+
+The following Lua script scales four channels and returns the highest value:
+
+```lua
+-- Function to apply linear scaling
+function linearScale(value, offset, slope)
+    if value == nil then
+        return nil
+    end
+    return (value * slope) + offset
+end
+
+-- Function to find the maximum value in a table
+function findMax(t)
+    local max_val
+    for _, value in ipairs(t) do  -- Use ipairs for array-like tables
+        if max_val == nil or value > max_val then
+            max_val = value
+        end
+    end
+    return max_val
+end
+
+-- Fuel pressure channels
+local channels = {fuel_pt_1, fuel_pt_2, fuel_pt_3, fuel_pt_4}
+
+-- Corresponding scale parameters (slope and offset)
+local scale_params = {
+    {slope = 2.0, offset = 10},
+    {slope = 1.5, offset = -5},
+    {slope = 3.0, offset = 0},
+    {slope = 0.5, offset = 15}
+}
+
+-- Apply scaling to each channel
+local scaled_values = {}
+for i, value in ipairs(channels) do
+    local params = scale_params[i]
+    scaled_values[i] = linearScale(value, params.offset, params.slope)
+end
+
+return findMax(scaled_channels)
+```
