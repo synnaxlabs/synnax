@@ -140,7 +140,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
 
     auto [ack, aErr] = client->channels.create( // ack channel
         "ao_state",
-        synnax::SY_UINT8,
+        synnax::FLOAT64,
         ack_idx.key,
         false
     );
@@ -148,7 +148,7 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
 
     auto [cmd, cErr] = client->channels.create( // cmd channel
         "ao_cmd",
-        synnax::SY_UINT8,
+        synnax::FLOAT64,
         cmd_idx.key,
         false
     );
@@ -205,3 +205,5 @@ TEST(NiTaskTests, test_NI_analog_writer_task) {
     std::this_thread::sleep_for(std::chrono::seconds(500));
     writerTask->exec(stop_cmd);
 }
+
+// TODO: add tests for writing diff type series to the same channel
