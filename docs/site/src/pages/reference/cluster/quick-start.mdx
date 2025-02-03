@@ -5,26 +5,26 @@ heading: "Deployment Quick Start"
 description: "Start a single node cluster for testing, learning, or development."
 next: "Installation"
 nextURL: "/reference/cluster/installation"
+platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
-import { Align, Button, Note } from "@synnaxlabs/pluto";
 import { Icon } from "@synnaxlabs/media";
-import { PlatformTabs } from "@/components/platform/PlatformTabs";
+import { Align, Button, Note } from "@synnaxlabs/pluto";
+
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
-import { SynnaxServerDownloadButton } from "@/components/console/OSDownloadButton";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Platform } from "@/components/platform";
+import { Server } from "@/components/server";
+
 export const components = mdxOverrides;
 
 This page will walk you through starting a single node Synnax cluster. To get
 started, select your operating system below:
 
-<PlatformTabs
-    priority={["linux", "macos", "windows"]}
-    client:only="react"
->
+<Platform.Tabs client:only="react">
 
-<Fragment slot="docker">
+<Fragment slot="Docker">
 
 ## Using Docker
 
@@ -56,7 +56,7 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
-<Fragment slot="linux">
+<Fragment slot="Linux">
 
 ## Using Linux
 
@@ -103,7 +103,7 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
-<Fragment slot="macos">
+<Fragment slot="macOS">
 
 ## Using macOS
 
@@ -150,18 +150,18 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
-<Fragment slot="windows">
+<Fragment slot="Windows">
 
 ## Using Windows
 
 <br />
 <br />
 <Align.Space direction="y" justify="center" align="center">
-    <SynnaxServerDownloadButton client:load />
-    <small>
-        Releases for other operating systems and older versions can be found on the
-        <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
-    </small>
+  <Server.WindowsDownloadButton client:load />
+  <small>
+    Releases for other operating systems and older versions can be found on the
+    <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
+  </small>
 </Align.Space>
 <br />
 <br />
@@ -189,4 +189,4 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
-</PlatformTabs>
+</Platform.Tabs>

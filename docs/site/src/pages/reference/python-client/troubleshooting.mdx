@@ -7,20 +7,23 @@ next: "Building a Custom Driver"
 nextURL: "/reference/python-client/device-driver"
 prev: "Examples"
 prevURL: "/reference/python-client/examples"
+platforms: ["Windows", "macOS", "Linux"]
 ---
 
-import { PlatformTabs } from "@/components/platform/PlatformTabs";
 import { Divider, Note } from "@synnaxlabs/pluto";
+
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Platform } from "@/components/platform";
+
 export const components = mdxOverrides;
 
 The following sections outline common issues our users encounter when working
 with the Synnax Python client. To get started, select your operating system
 below:
 
-<PlatformTabs client:only="react" exclude={["docker"]}>
+<Platform.Tabs client:only="react" exclude={["Docker"]} priority={["Windows", "macOS", "Linux"]}>
 
-<Fragment slot="windows">
+<Fragment slot="Windows">
 
 ## Installing Python
 
@@ -107,7 +110,7 @@ your `PATH` variable for any other Python installations and remove them.
 
 </Fragment>
 
-<Fragment slot="macos">
+<Fragment slot="macOS">
 
 ## Installing Python
 
@@ -258,7 +261,7 @@ before running the `synnax` command.
 
 </Fragment>
 
-<Fragment slot="linux">
+<Fragment slot="Linux">
 
 ## Installing Python
 
@@ -398,4 +401,4 @@ echo $PATH
 
 </Fragment>
 
-</PlatformTabs>
+</Platform.Tabs>

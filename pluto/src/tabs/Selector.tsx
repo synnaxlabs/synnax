@@ -137,7 +137,7 @@ const SelectorButton = ({
     [onClose, tabKey],
   );
 
-  const _onSelect = useCallback(() => onSelect?.(tabKey), [onSelect, tabKey]);
+  const handleClick = useCallback(() => onSelect?.(tabKey), [onSelect, tabKey]);
 
   const isSelected = selected === tabKey;
   const hasIcon = icon != null;
@@ -163,13 +163,13 @@ const SelectorButton = ({
       direction="x"
       justify="center"
       align="center"
-      onClick={_onSelect}
+      onClick={handleClick}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       bordered={false}
       rounded={false}
     >
-      {PIcon.resolve(icon as ReactElement<PIcon.BaseProps>, {
+      {PIcon.resolve(icon as PIcon.Element, {
         className: CSS.BE(CLS, "icon"),
         style: {
           color: CSS.shadeVar(7),

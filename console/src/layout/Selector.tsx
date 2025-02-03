@@ -20,7 +20,7 @@ import { type RendererProps } from "@/layout/slice";
 export interface Selectable {
   key: string;
   title: string;
-  icon: ReactElement<Icon.BaseProps>;
+  icon: Icon.Element;
   create: (layoutKey: string) => PlacerArgs;
 }
 
