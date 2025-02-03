@@ -8,6 +8,7 @@ cc_library(
         "ni.cpp",
         "scanner.cpp",
         "task.cpp",
+        "state_source.cpp",
     ],
     hdrs = [
         "channels.h",

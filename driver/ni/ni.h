@@ -30,7 +30,7 @@
 
 #include "client/cpp/synnax.h"
 
-#include "driver/ni/ai_channels.h"
+#include "driver/ni/channels.h"
 #include "driver/ni/error.h"
 #include "driver/queue/ts_queue.h"
 #include "driver/pipeline/acquisition.h"
@@ -299,35 +299,39 @@ public:
 }; // class DigitalReadSource
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    DigitalStateSource                         //
+//                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
-class DigitalStateSource final : public pipeline::Source {
+template<typename T>
+class StateSource final : public pipeline::Source {
 public:
-    explicit DigitalStateSource() = default;
+    explicit StateSource() = default;
 
-    explicit DigitalStateSource(
+    explicit StateSource(
         float state_rate,
         synnax::ChannelKey &state_index_key,
         std::vector<synnax::ChannelKey> &state_channel_keys
     );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
-
     synnax::Frame get_state();
-
     void update_state(
         std::queue<synnax::ChannelKey> &modified_state_keys,
-        std::queue<std::uint8_t> &modified_state_values
+        std::queue<T> &modified_state_values
     );
 
 private:
     std::mutex state_mutex;
     std::condition_variable waiting_reader;
     synnax::Rate state_rate = synnax::Rate(1);
-    std::map<synnax::ChannelKey, uint8_t> state_map;
+    std::map<synnax::ChannelKey, T> state_map;
     synnax::ChannelKey state_index_key;
     loop::Timer timer;
-}; // class DigitalStateSource
+};
+
+// Type aliases
+using DigitalStateSource = StateSource<uint8_t>;
+using AnalogStateSource = StateSource<double>;
+
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    DigitalWriteSink                           //
@@ -419,36 +423,6 @@ private:
     std::map<std::string, std::string> channel_map;
 }; // class DigitalWriteSink
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    AnalogStateSource                          //
-///////////////////////////////////////////////////////////////////////////////////
-class AnalogStateSource final : public pipeline::Source {
-public:
-    explicit AnalogStateSource() = default;
-
-    explicit AnalogStateSource(
-        float state_rate,
-        synnax::ChannelKey &state_index_key,
-        std::vector<synnax::ChannelKey> &state_channel_keys
-    );
-
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
-
-    synnax::Frame get_state();
-
-    void update_state(
-        std::queue<synnax::ChannelKey> &modified_state_keys,
-        std::queue<double> &modified_state_values
-    );
-
-private:
-    std::mutex state_mutex;
-    std::condition_variable waiting_reader;
-    synnax::Rate state_rate = synnax::Rate(1);
-    std::map<synnax::ChannelKey, double> state_map;
-    synnax::ChannelKey state_index_key;
-    loop::Timer timer;
-}; // class AnalogStateSource
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                 AnalogWriteSink                               //
@@ -787,37 +761,5 @@ private:
 
 const std::string INTEGRATION_NAME = "ni";
 
-///////////////////////////////////////////////////////////////////////////////////
-//                                    StateSource                                //
-///////////////////////////////////////////////////////////////////////////////////
-template<typename T>
-class StateSource final : public pipeline::Source {
-public:
-    explicit StateSource() = default;
 
-    explicit StateSource(
-        float state_rate,
-        synnax::ChannelKey &state_index_key,
-        std::vector<synnax::ChannelKey> &state_channel_keys
-    );
-
-    std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
-    synnax::Frame get_state();
-    void update_state(
-        std::queue<synnax::ChannelKey> &modified_state_keys,
-        std::queue<T> &modified_state_values
-    );
-
-private:
-    std::mutex state_mutex;
-    std::condition_variable waiting_reader;
-    synnax::Rate state_rate = synnax::Rate(1);
-    std::map<synnax::ChannelKey, T> state_map;
-    synnax::ChannelKey state_index_key;
-    loop::Timer timer;
-};
-
-// Type aliases
-using DigitalStateSource = StateSource<uint8_t>;
-using AnalogStateSource = StateSource<double>;
 } // namespace ni
