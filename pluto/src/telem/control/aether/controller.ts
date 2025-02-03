@@ -50,7 +50,7 @@ interface InternalState {
   client: Synnax | null;
   instrumentation: Instrumentation;
   stateProv: StateProvider;
-  addStatus: status.Aggregate;
+  addStatus: status.AddStatusFn;
   theme: theming.Theme;
   prevTrigger: number;
   telemCtx: telem.Context;
@@ -92,7 +92,7 @@ export class Controller
 
     i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
 
-    i.addStatus = status.useAggregate(ctx);
+    i.addStatus = status.useAggregator(ctx);
 
     // Acquire or release control if necessary.
     if (this.state.acquireTrigger > i.prevTrigger) await this.acquire();

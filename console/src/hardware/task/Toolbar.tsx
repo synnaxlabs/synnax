@@ -176,7 +176,7 @@ const Content = (): ReactElement => {
             ];
           });
         })
-        .catch(console.error);
+        .catch(handleException);
     },
   });
   Observe.useListener({

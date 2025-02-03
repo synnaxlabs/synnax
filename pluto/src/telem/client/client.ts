@@ -67,9 +67,8 @@ export interface Client extends ChannelClient, ReadClient, StreamClient {
 }
 
 /**
- * Proxy is a Client implementation that proxies all operations to another Client,
- * allowing the underlying Client to be swapped out at runtime. If no Client is
- * set, all operations will throw an error.
+ * NoopClient is a Client implementation that does nothing. This client is swapped
+ * in when disconnected from the Synnax cluster.
  */
 export class NoopClient implements Client {
   readonly key: string = id.id();

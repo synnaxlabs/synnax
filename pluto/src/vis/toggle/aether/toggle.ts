@@ -27,7 +27,7 @@ export type ToggleState = z.input<typeof toggleStateZ>;
 interface InternalState {
   source: telem.BooleanSource;
   sink: telem.BooleanSink;
-  addStatus: status.Aggregate;
+  addStatus: status.AddStatusFn;
   stopListening: Destructor;
 }
 
@@ -43,7 +43,7 @@ export class Toggle
   schema = toggleStateZ;
 
   async afterUpdate(ctx: aether.Context): Promise<void> {
-    this.internal.addStatus = status.useOptionalAggregate(ctx);
+    this.internal.addStatus = status.useOptionalAggregator(ctx);
     const { sink: sinkProps, source: sourceProps, triggered, enabled } = this.state;
     const { triggered: prevTriggered } = this.prevState;
     const { internal: i } = this;

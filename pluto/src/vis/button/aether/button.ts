@@ -34,7 +34,7 @@ export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
     const prevTrigger = this.internal.prevTrigger;
     this.internal.prevTrigger = this.state.trigger;
     if (this.state.trigger <= prevTrigger) return;
-    this.internal.sink.set(true).catch(console.error);
+    await this.internal.sink.set(true);
   }
 
   render(): void {}

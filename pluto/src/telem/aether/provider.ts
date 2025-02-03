@@ -15,7 +15,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { synnax } from "@/synnax/aether";
 import { Context, setContext } from "@/telem/aether/context";
-import { newFactory } from "@/telem/aether/factory";
+import { createFactory } from "@/telem/aether/factory";
 import { client } from "@/telem/client";
 
 export type ProviderState = z.input<typeof providerStateZ>;
@@ -45,7 +45,7 @@ export class BaseProvider extends aether.Composite<
       core == null
         ? new client.NoopClient()
         : new client.Core({ core, instrumentation: I });
-    const f = newFactory(c);
+    const f = createFactory(c);
     const value = new Context(f);
     setContext(ctx, value);
   }

@@ -45,7 +45,7 @@ export class CompoundTelemFactory {
   }
 }
 
-export const newFactory = (client?: client.Client): CompoundTelemFactory => {
+export const createFactory = (client?: client.Client): CompoundTelemFactory => {
   const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
   const f = new CompoundTelemFactory(base);
   if (client != null) f.add(new RemoteFactory(client));

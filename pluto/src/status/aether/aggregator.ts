@@ -19,7 +19,13 @@ export const aggregatorStateZ = z.object({
 
 const CONTEXT_KEY = "status.aggregator";
 
-export type Aggregate = (spec: CrudeSpec) => void;
+export interface AddStatusFn {
+  (spec: CrudeSpec): void;
+}
+
+export interface ExceptionHandler {
+  (exc: unknown, message?: string): void;
+}
 
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   static readonly TYPE: string = "status.Aggregator";
@@ -37,15 +43,27 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   }
 }
 
-export const useAggregate = (ctx: aether.Context): Aggregate => {
+export const useAggregator = (ctx: aether.Context): AddStatusFn => {
   const agg = ctx.get<Aggregator>(CONTEXT_KEY);
   return agg.add.bind(agg);
 };
 
-export const useOptionalAggregate = (ctx: aether.Context): Aggregate => {
+export const useOptionalAggregator = (ctx: aether.Context): AddStatusFn => {
   const agg = ctx.getOptional<Aggregator>(CONTEXT_KEY);
   if (agg != null) return agg.add.bind(agg);
   return () => {};
+};
+
+export const useExceptionHandler = (ctx: aether.Context): ExceptionHandler => {
+  const addStatus = useAggregator(ctx);
+  return (exc: unknown, message?: string): void => {
+    if (!(exc instanceof Error)) throw exc;
+    addStatus({
+      variant: "error",
+      message: message ?? exc.message,
+      description: message != null ? exc.message : undefined,
+    });
+  };
 };
 
 export const REGISTRY: aether.ComponentRegistry = {

@@ -123,5 +123,17 @@ export default [
       react: { version: "^18.0.0" },
     },
   },
-  { ignores: ["node_modules", "build", "dist", "release", "**/*.d.ts"] },
+  {
+    ignores: [
+      "node_modules",
+      "build",
+      "dist",
+      "release",
+      "**/*.d.ts",
+      "examples",
+      "vite.config.ts",
+      "stylelint.config.js",
+      "eslint.config.js",
+    ],
+  },
 ];

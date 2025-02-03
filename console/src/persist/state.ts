@@ -206,7 +206,7 @@ export const middleware = <S extends RequiredState>(
         .clear()
         .then(() => window.location.reload())
         .catch(console.error);
-    else debouncedPersist(store.getState());
+    else void debouncedPersist(store.getState());
     return result;
   };
 };

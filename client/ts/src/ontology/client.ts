@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { observe, toArray } from "@synnaxlabs/x";
+import { observe, strings, toArray } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
@@ -123,7 +123,11 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     const resources = await this.execRetrieve({ ids: parseIDs(ids), ...options });
     if (Array.isArray(ids)) return resources;
     if (resources.length === 0)
-      throw new QueryError(`No resource found with ID ${ids.toString()}`);
+      throw new QueryError(
+        `No resource found with ID ${strings.naturalLanguageJoin(
+          toArray(ids).map((id) => new ID(id).toString()),
+        )}`,
+      );
     return resources[0];
   }
 
@@ -458,10 +462,13 @@ export class DependentTracker
           c.key[oppositeDirection(this.relDir)].type === this.resourceType),
     );
     if (sets.length === 0) return this.notify(this.dependents);
-    this.client.retrieve(sets.map((s) => s.key.to)).then((resources) => {
-      this.dependents = this.dependents.concat(resources);
-      this.notify(this.dependents);
-    });
+    this.client
+      .retrieve(sets.map((s) => s.key.to))
+      .then((resources) => {
+        this.dependents = this.dependents.concat(resources);
+        this.notify(this.dependents);
+      })
+      .catch(console.error);
   };
 
   async close(): Promise<void> {

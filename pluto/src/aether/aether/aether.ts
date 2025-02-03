@@ -22,13 +22,15 @@ import { prettyParse } from "@/util/zod";
  * A selected subset of the Map interface used for efficiently propagating context
  * updates through the tree.
  */
-export interface ContextMap extends Pick<Map<string, any>, "get" | "forEach"> {}
+export interface ContextMap extends Pick<Map<string, unknown>, "get" | "forEach"> {}
 
 /**
  * An internal function alias that creates a new component with the specified
  * initial parent context
  */
-type CreateComponent = (initialParentCtxValues: ContextMap) => Component;
+interface CreateComponent {
+  (initialParentCtxValues: ContextMap): InternalComponent;
+}
 
 /**
  * A component in the Aether tree. Each component instance has a unique key identifying
@@ -41,6 +43,9 @@ export interface Component {
   type: string;
   /** A unique key identifying the component within the tree. */
   key: string;
+}
+
+export interface InternalComponent extends Component {
   /**
    * Propagates a state update to the component at the given path. This is an internal
    * method, should not be called by subclasses outside of this file.
@@ -88,7 +93,9 @@ interface ComponentConstructorProps {
 }
 
 /** A constructor type for an AetherComponent. */
-export type ComponentConstructor = new (props: ComponentConstructorProps) => Component;
+export interface ComponentConstructor {
+  new (props: ComponentConstructorProps): InternalComponent;
+}
 
 /**
  * The Context interface allows for parent components to pass context values to
@@ -141,8 +148,10 @@ export interface Context {
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
  */
-export abstract class Leaf<State extends z.ZodTypeAny, InternalState extends {} = {}>
-  implements Component
+export abstract class Leaf<
+  StateSchema extends z.ZodTypeAny,
+  InternalState extends {} = {},
+> implements InternalComponent
 {
   readonly type: string;
   readonly key: string;
@@ -150,15 +159,15 @@ export abstract class Leaf<State extends z.ZodTypeAny, InternalState extends {} 
   private readonly sender: Sender<WorkerMessage>;
 
   private readonly _internalState: InternalState;
-  private _state: z.output<State> | undefined;
-  private _prevState: z.output<State> | undefined;
+  private _state: z.output<StateSchema> | undefined;
+  private _prevState: z.output<StateSchema> | undefined;
   private _deleted: boolean = false;
   protected readonly parentCtxValues: Map<string, any>;
   protected readonly childCtxValues: Map<string, any>;
   protected readonly childCtxChangedKeys: Set<string>;
   readonly instrumentation: alamos.Instrumentation;
 
-  schema: State | undefined = undefined;
+  schema: StateSchema | undefined = undefined;
 
   constructor({
     key,
@@ -178,7 +187,7 @@ export abstract class Leaf<State extends z.ZodTypeAny, InternalState extends {} 
     this.childCtxChangedKeys = new Set();
   }
 
-  private get _schema(): State {
+  private get _schema(): StateSchema {
     if (this.schema == null)
       throw new ValidationError(
         `[AetherLeaf] - expected subclass to define component schema, but none was found.
@@ -195,16 +204,19 @@ export abstract class Leaf<State extends z.ZodTypeAny, InternalState extends {} 
    * or a pure function that takes in the previous state and returns the next state.
    */
   setState(
-    next: state.SetArg<z.input<State> | z.output<State>, z.output<State>>,
+    next: state.SetArg<
+      z.input<StateSchema> | z.output<StateSchema>,
+      z.output<StateSchema>
+    >,
   ): void {
-    const nextState: z.input<State> = state.executeSetter(next, this._state);
+    const nextState: z.input<StateSchema> = state.executeSetter(next, this._state);
     this._prevState = { ...this._state };
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
     this.sender.send({ key: this.key, state: nextState });
   }
 
   /** @returns the current state of the component. */
-  get state(): z.output<State> {
+  get state(): z.output<StateSchema> {
     if (this._state == null)
       throw new UnexpectedError(
         `[AetherLeaf] - state not defined in ${this.type}:${this.key}`,
@@ -217,7 +229,7 @@ export abstract class Leaf<State extends z.ZodTypeAny, InternalState extends {} 
   }
 
   /** @returns the previous state of the component. */
-  get prevState(): z.output<State> {
+  get prevState(): z.output<StateSchema> {
     return this._prevState;
   }
 
@@ -315,18 +327,18 @@ export abstract class Leaf<State extends z.ZodTypeAny, InternalState extends {} 
  * child components. It is the base class for all composite components, and should not
  * be used directly.
  */
-export class Composite<
-    S extends z.ZodTypeAny,
-    IS extends {} = {},
-    C extends Component = Component,
+export abstract class Composite<
+    StateSchema extends z.ZodTypeAny,
+    InternalState extends {} = {},
+    ChildComponents extends InternalComponent = InternalComponent,
   >
-  extends Leaf<S, IS>
-  implements Component
+  extends Leaf<StateSchema, InternalState>
+  implements InternalComponent
 {
-  private readonly _children: Map<string, C> = new Map();
+  private readonly _children: Map<string, ChildComponents> = new Map();
 
   /** @returns a readonly array of the children of the component. */
-  get children(): readonly C[] {
+  get children(): readonly ChildComponents[] {
     return Array.from(this._children.values());
   }
 
@@ -336,7 +348,7 @@ export class Composite<
    * @param key - the key of the child component to find.
    * @returns the child component, or null if no child component with the given key
    */
-  getChild<T extends C = C>(key: string): T | null {
+  getChild<T extends ChildComponents = ChildComponents>(key: string): T | null {
     return (this._children.get(key) ?? null) as T | null;
   }
 
@@ -346,7 +358,9 @@ export class Composite<
    * @param types - the type of the children to find
    * @returns an array of all children of the component with the given type
    */
-  childrenOfType<T extends C = C>(...types: Array<T["type"]>): readonly T[] {
+  childrenOfType<T extends ChildComponents = ChildComponents>(
+    ...types: Array<T["type"]>
+  ): readonly T[] {
     return this.children.filter((c) =>
       types.includes(c.type),
     ) as unknown as readonly T[];
@@ -380,7 +394,7 @@ export class Composite<
       );
     const newChild = create(this.childCtx());
     await newChild._updateState(subPath, state, create);
-    this._children.set(childKey, newChild as C);
+    this._children.set(childKey, newChild as ChildComponents);
   }
 
   async _updateContext(values: ContextMap): Promise<void> {
@@ -527,7 +541,7 @@ export class Root extends Composite<typeof aetherRootState> {
     key,
     type,
     parentCtxValues,
-  }: Omit<ComponentConstructorProps, "sender" | "instrumentation">): Component {
+  }: Omit<ComponentConstructorProps, "sender" | "instrumentation">): InternalComponent {
     const Constructor = this.registry[type];
     if (Constructor == null)
       throw new UnexpectedError(`[Root.create] - ${type} not found in registry`);

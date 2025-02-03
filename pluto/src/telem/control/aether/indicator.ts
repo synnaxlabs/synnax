@@ -49,10 +49,6 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
   }
 
   async afterDelete(): Promise<void> {
-    this.internalAfterDelete().catch(console.error);
-  }
-
-  private async internalAfterDelete(): Promise<void> {
     await this.internal.statusSource.cleanup?.();
     await this.internal.colorSource.cleanup?.();
   }

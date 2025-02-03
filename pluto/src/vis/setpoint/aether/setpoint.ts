@@ -28,7 +28,7 @@ export type SetpointState = z.input<typeof setpointStateZ>;
 interface InternalState {
   source: telem.NumberSource;
   sink: telem.NumberSink;
-  addStatus: status.Aggregate;
+  addStatus: status.AddStatusFn;
   stopListening: Destructor;
   prevTrigger: number;
 }
@@ -45,7 +45,7 @@ export class Setpoint
   schema = setpointStateZ;
 
   async afterUpdate(ctx: aether.Context): Promise<void> {
-    this.internal.addStatus = status.useOptionalAggregate(ctx);
+    this.internal.addStatus = status.useOptionalAggregator(ctx);
     const { sink: sinkProps, source: sourceProps, trigger, command } = this.state;
     const { internal: i } = this;
     i.prevTrigger ??= trigger;
