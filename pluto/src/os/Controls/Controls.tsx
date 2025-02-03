@@ -15,13 +15,6 @@ import { type InternalControlsProps } from "@/os/Controls/types";
 import { Windows } from "@/os/Controls/Windows";
 import { use } from "@/os/use";
 
-const Variants: Record<runtime.OS, React.FC<InternalControlsProps>> = {
-  MacOS,
-  Windows,
-  Linux: Windows,
-  Docker: Windows,
-};
-
 const DEFAULT_OS = "Windows";
 
 export interface ControlsProps extends InternalControlsProps {
@@ -34,7 +27,7 @@ export const Controls = ({
   ...props
 }: ControlsProps): ReactElement | null => {
   const os = use({ force: forceOS, default: DEFAULT_OS });
-  const C = Variants[os];
   if (visibleIfOS != null && visibleIfOS !== os) return null;
+  const C = os === "macOS" ? MacOS : Windows;
   return <C {...props} />;
 };

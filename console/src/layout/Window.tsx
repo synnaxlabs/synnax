@@ -46,7 +46,7 @@ export const NavTop = ({
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls
           className="console-controls--macos"
-          visibleIfOS="MacOS"
+          visibleIfOS="macOS"
           forceOS={os}
         />
         {os === "Windows" && <Logo className="console-main-nav-top__logo" />}

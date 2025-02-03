@@ -34,6 +34,11 @@ export const consoleNav: PageNavNode = {
       name: "Channels",
     },
     {
+      key: "/reference/console/calculated-channels",
+      href: "/reference/console/calculated-channels",
+      name: "Calculated Channels",
+    },
+    {
       key: "/reference/console/workspaces",
       href: "/reference/console/workspaces",
       name: "Workspaces",

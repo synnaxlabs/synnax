@@ -22,7 +22,7 @@ import { type ComponentSize } from "@/util/component";
 
 export interface TagProps
   extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
-  icon?: ReactElement<PIcon.BaseProps>;
+  icon?: PIcon.Element;
   onClose?: () => void;
   color?: Color.Crude;
   size?: ComponentSize;

@@ -12,16 +12,20 @@ import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
-import { OSSelectButton } from "@/components/platform/PlatformTabs";
+import { Platform } from "@/components/platform";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
+export interface OnThisPageProps {
+  headings?: MarkdownHeading[];
+  platforms?: Platform.Platform[];
+  url: string;
+}
+
 export const OnThisPage = ({
   headings = [],
-}: {
-  headings?: MarkdownHeading[];
-  url: string;
-}): ReactElement => {
+  platforms = [],
+}: OnThisPageProps): ReactElement => {
   const toc = useRef<HTMLDivElement>(null);
   const [currentID, setCurrentID] = useState("");
 
@@ -82,7 +86,7 @@ export const OnThisPage = ({
 
   return (
     <>
-      <OSSelectButton />
+      {platforms.length > 0 && <Platform.SelectButton platforms={platforms} />}
       <div ref={toc} style={{ flexGrow: 1 }}>
         <Menu.Menu value={currentID}>
           {headings

@@ -143,7 +143,7 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
 };
 
 type CellEntry = KeyedNamed<TableCells.Variant> & {
-  icon: ReactElement<PIcon.BaseProps>;
+  icon: PIcon.Element;
 };
 
 const CELL_TYPE_OPTIONS: CellEntry[] = [

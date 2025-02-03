@@ -94,7 +94,7 @@ export const NavTop = (): ReactElement => {
       className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
-        <Controls className="console-controls--macos" visibleIfOS="MacOS" />
+        <Controls className="console-controls--macos" visibleIfOS="macOS" />
         {os === "Windows" && (
           <Logo className="console-main-nav-top__logo" variant="icon" />
         )}

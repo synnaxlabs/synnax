@@ -109,7 +109,7 @@ export class Channel {
    */
   readonly virtual: boolean;
   /**
-   * Only used for calculated channels. Specifies the python expression to evaluate
+   * Only used for calculated channels. Specifies the Lua expression used to evaluate
    * the calculated value
    */
   readonly expression: string;

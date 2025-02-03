@@ -4,7 +4,7 @@ import OnThisPage from "@/components/OnThisPage/OnThisPage.astro";
 import PageNav from "@/components/PageNav/PageNav.astro";
 import Main from "@/layouts/Root.astro";
 const { headings, frontmatter } = Astro.props;
-const { title, heading, description, url, next, nextURL, prev, prevURL } = frontmatter;
+const { title, heading, description, url, next, nextURL, prev, prevURL, platforms } = frontmatter;
 ---
 
 <Main frontmatter={frontmatter} headings={headings}>
@@ -20,5 +20,5 @@ const { title, heading, description, url, next, nextURL, prev, prevURL } = front
     >
         <slot /></Article
     >
-    <OnThisPage headings={headings} url={Astro.url} />
+    <OnThisPage headings={headings} url={Astro.url} platforms={platforms} />
 </Main>
