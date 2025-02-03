@@ -29,7 +29,7 @@ export interface ContextMap extends Pick<Map<string, unknown>, "get" | "forEach"
  * initial parent context
  */
 interface CreateComponent {
-  (initialParentCtxValues: ContextMap): InternalComponent;
+  (initialParentCtxValues: ContextMap): Component;
 }
 
 /**
@@ -43,9 +43,6 @@ export interface Component {
   type: string;
   /** A unique key identifying the component within the tree. */
   key: string;
-}
-
-export interface InternalComponent extends Component {
   /**
    * Propagates a state update to the component at the given path. This is an internal
    * method, should not be called by subclasses outside of this file.
@@ -94,7 +91,7 @@ interface ComponentConstructorProps {
 
 /** A constructor type for an AetherComponent. */
 export interface ComponentConstructor {
-  new (props: ComponentConstructorProps): InternalComponent;
+  new (props: ComponentConstructorProps): Component;
 }
 
 /**
@@ -151,7 +148,7 @@ export interface Context {
 export abstract class Leaf<
   StateSchema extends z.ZodTypeAny,
   InternalState extends {} = {},
-> implements InternalComponent
+> implements Component
 {
   readonly type: string;
   readonly key: string;
@@ -330,10 +327,10 @@ export abstract class Leaf<
 export abstract class Composite<
     StateSchema extends z.ZodTypeAny,
     InternalState extends {} = {},
-    ChildComponents extends InternalComponent = InternalComponent,
+    ChildComponents extends Component = Component,
   >
   extends Leaf<StateSchema, InternalState>
-  implements InternalComponent
+  implements Component
 {
   private readonly _children: Map<string, ChildComponents> = new Map();
 
@@ -541,7 +538,7 @@ export class Root extends Composite<typeof aetherRootState> {
     key,
     type,
     parentCtxValues,
-  }: Omit<ComponentConstructorProps, "sender" | "instrumentation">): InternalComponent {
+  }: Omit<ComponentConstructorProps, "sender" | "instrumentation">): Component {
     const Constructor = this.registry[type];
     if (Constructor == null)
       throw new UnexpectedError(`[Root.create] - ${type} not found in registry`);
