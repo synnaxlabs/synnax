@@ -28,4 +28,11 @@ const IMPORT_COMMAND: Palette.Command = {
   onSelect: import_,
 };
 
-export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];
+const EXPORT_COMMAND: Palette.Command = {
+  key: "workspace-export",
+  name: "Export Current Workspace",
+  icon: <Icon.Workspace />,
+  onSelect: (ctx) => void Workspace.export_(null, ctx),
+};
+
+export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND, EXPORT_COMMAND];
