@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
