@@ -12,14 +12,13 @@ import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
-import { type Platform } from "@/components/platform/platform";
-import { SelectPlatformButton } from "@/components/platform/SelectPlatformButton";
+import { Platform } from "@/components/platform";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
 export interface OnThisPageProps {
   headings?: MarkdownHeading[];
-  platforms?: Platform[];
+  platforms?: Platform.Platform[];
   url: string;
 }
 
@@ -87,7 +86,7 @@ export const OnThisPage = ({
 
   return (
     <>
-      {platforms.length > 0 && <SelectPlatformButton platforms={platforms} />}
+      {platforms.length > 0 && <Platform.SelectButton platforms={platforms} />}
       <div ref={toc} style={{ flexGrow: 1 }}>
         <Menu.Menu value={currentID}>
           {headings

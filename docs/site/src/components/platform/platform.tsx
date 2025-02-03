@@ -12,23 +12,24 @@ import { type Icon as PIcon } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const platformZ = z.enum(["docker", "linux", "macos", "windows"]);
+export const platformZ = runtime.osZ.or(z.enum(["Docker"]));
+
 export type Platform = z.infer<typeof platformZ>;
 
-export interface PlatformInfo {
+export interface Info {
   key: Platform;
   name: string;
   icon: PIcon.Element;
 }
 
-export const PLATFORMS: PlatformInfo[] = [
-  { key: "linux", name: "Linux", icon: <Icon.Logo.Linux /> },
-  { key: "windows", name: "Windows", icon: <Icon.Logo.Windows /> },
-  { key: "macos", name: "macOS", icon: <Icon.Logo.Apple /> },
-  { key: "docker", name: "Docker", icon: <Icon.Logo.Docker /> },
+export const PLATFORMS: Info[] = [
+  { key: "Linux", name: "Linux", icon: <Icon.Logo.Linux /> },
+  { key: "Windows", name: "Windows", icon: <Icon.Logo.Windows /> },
+  { key: "macOS", name: "macOS", icon: <Icon.Logo.Apple /> },
+  { key: "Docker", name: "Docker", icon: <Icon.Logo.Docker /> },
 ];
 
-export const getPlatformFromURL = (detect: boolean): Platform | null => {
+export const getFromURL = (detect: boolean): Platform | null => {
   const url = new URL(window.location.href);
   const platform = url.searchParams.get("platform");
   return (
@@ -37,7 +38,7 @@ export const getPlatformFromURL = (detect: boolean): Platform | null => {
   );
 };
 
-export const setPlatformInURL = (platform: Platform) => {
+export const setInURL = (platform: Platform) => {
   const url = new URL(window.location.href);
   url.searchParams.set("platform", platform);
   window.history.pushState({}, "", url.toString());

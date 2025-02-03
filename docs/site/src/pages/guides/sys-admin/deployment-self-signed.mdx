@@ -3,13 +3,15 @@ layout: "@/layouts/Reference.astro"
 title: "Deployment"
 heading: "Deploy with Self-Signed Certificates"
 description: "Deploy a single node cluster with self-signed certificates."
-platforms: ["linux", "windows", "macos"]
+platforms: ["Linux", "Windows", "macOS"]
 ---
 
 import { Icon } from "@synnaxlabs/media";
 import { Divider } from "@synnaxlabs/pluto";
-import { PlatformTabs } from "@/components/platform/PlatformTabs";
+
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Platform } from "@/components/platform";
+
 export const components = mdxOverrides;
 
 This guide will walk you through every step of deploying a single-node cluster using
@@ -62,8 +64,8 @@ In order to connect to the secure cluster, you'll need to add the CA certificate
 trusted store on your local machine. You'll need to do this for any machine you want to
 connect to the cluster from. See the operating system specific instructions below:
 
-<PlatformTabs client:only="react" exclude={["docker"]}>
-<Fragment slot="linux">
+<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Fragment slot="Linux">
 
 We'll start off by copying the CA certificate from the remote machine to your local machine.
 You can do this with the following command:
@@ -86,7 +88,7 @@ sudo update-ca-certificates
 ```
 
 </Fragment>
-<Fragment slot="macos">
+<Fragment slot="macOS">
 
 We'll start off by copying the CA certificate from the remote machine to your local machine.
 You can do this with the following command:
@@ -103,7 +105,7 @@ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keyc
 ```
 
 </Fragment>
-<Fragment slot="windows">
+<Fragment slot="Windows">
 
 We'll start off by copying the CA certificate from the remote machine to your local machine.
 You can do this with the following command:
@@ -120,7 +122,7 @@ Import-Certificate -FilePath C:\Users\LOCAL_USER\Downloads\synnax-ca.crt -CertSt
 ```
 
 </Fragment>
-</PlatformTabs>
+</Platform.Tabs>
 
 <Divider.Divider direction="x" />
 
@@ -134,8 +136,8 @@ you used when generating it.
 
 To do this, follow the operating system specific instructions below:
 
-<PlatformTabs client:only="react" exclude={["docker"]}>
-<Fragment slot="linux">
+<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Fragment slot="Linux">
 You can add an entry to your `/etc/hosts` file that maps the IP address of the remote
 machine to the host name you used when starting the Synnax node. You can do this with the
 following command:
@@ -145,7 +147,7 @@ echo "REMOTE_IP synnax.example.com" | sudo tee -a /etc/hosts
 ```
 
 </Fragment>
-<Fragment slot="macos">
+<Fragment slot="macOS">
 You can add an entry to your `/etc/hosts` file that maps the IP address of the remote
 machine to the host name you used when starting the Synnax node. You can do this with the
 following command:
@@ -155,7 +157,7 @@ echo "REMOTE_IP synnax.example.com" | sudo tee -a /etc/hosts
 ```
 
 </Fragment>
-<Fragment slot="windows">
+<Fragment slot="Windows">
 You can add an entry to your `C:\Windows\System32\drivers\etc\hosts` file that maps the
 IP address of the remote machine to the host name you used when starting the Synnax node.
 You can do this by opening the file in a text editor with administrator privileges and
@@ -166,4 +168,4 @@ REMOTE_IP synnax.example.com
 ```
 
 </Fragment>
-</PlatformTabs>
+</Platform.Tabs>

@@ -11,34 +11,36 @@ import { Select, Text } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
 
 import {
-  getPlatformFromURL,
+  getFromURL,
   type Platform,
   PLATFORMS,
-  setPlatformInURL,
+  setInURL,
 } from "@/components/platform/platform";
 
-export interface SelectPlatformButtonProps {
+const indexMap = new Map<Platform, number>();
+PLATFORMS.forEach((p, i) => indexMap.set(p.key, i));
+
+export interface SelectButtonProps {
   platforms: Platform[];
 }
 
-const PlatformIndexMap = new Map<Platform, number>();
-PLATFORMS.forEach((p, i) => PlatformIndexMap.set(p.key, i));
-
-export const SelectPlatformButton = ({ platforms }: SelectPlatformButtonProps) => {
+export const SelectButton = ({ platforms }: SelectButtonProps) => {
   const [platform, setPlatform] = useState<Platform>(platforms[0]);
 
-  const data = platforms.map((p) => PLATFORMS[PlatformIndexMap.get(p) as number]);
+  // Map the platforms so the order of the platforms is consistent between the props and
+  // the data passed to the select button.
+  const data = platforms.map((p) => PLATFORMS[indexMap.get(p) as number]);
 
   useEffect(() => {
     const i = setInterval(() => {
-      const p = getPlatformFromURL(false);
+      const p = getFromURL(false);
       if (p) setPlatform(p);
     }, 200);
     return () => clearInterval(i);
   }, []);
 
   const handleChange = (p: Platform) => {
-    setPlatformInURL(p);
+    setInURL(p);
     setPlatform(p);
   };
 

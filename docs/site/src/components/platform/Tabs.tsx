@@ -10,23 +10,24 @@
 import { useLayoutEffect } from "react";
 
 import {
-  getPlatformFromURL,
+  getFromURL,
   type Platform,
   PLATFORMS,
-  setPlatformInURL,
+  setInURL,
 } from "@/components/platform/platform";
-import { Tabs } from "@/components/Tabs";
+import { Tabs as Core, type TabsProps as CoreProps } from "@/components/Tabs";
 
 const TABS = PLATFORMS.map(({ key, ...p }) => ({ ...p, tabKey: key }));
 
-export const PlatformTabs = ({
-  exclude = [] as Platform[],
-  priority = [] as Platform[],
-  ...props
-}) => {
+export interface TabsProps extends Omit<CoreProps, "tabs" | "queryParamKey"> {
+  exclude?: Platform[];
+  priority?: Platform[];
+}
+
+export const Tabs = ({ exclude = [], priority = [], ...props }: TabsProps) => {
   useLayoutEffect(() => {
-    const platform = getPlatformFromURL(true);
-    if (platform) setPlatformInURL(platform);
+    const platform = getFromURL(true);
+    if (platform) setInURL(platform);
   }, []);
 
   const excludeSet = new Set(exclude);
@@ -41,5 +42,5 @@ export const PlatformTabs = ({
       return aIndex - bIndex;
     });
 
-  return <Tabs queryParamKey="platform" tabs={tabs} {...props} />;
+  return <Core queryParamKey="platform" tabs={tabs} {...props} />;
 };
