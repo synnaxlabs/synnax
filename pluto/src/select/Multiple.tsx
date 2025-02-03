@@ -11,7 +11,6 @@ import "@/select/Multiple.css";
 
 import { Icon } from "@synnaxlabs/media";
 import {
-  type AsyncTermSearcher,
   compare,
   convertRenderV,
   type Key,
@@ -19,6 +18,7 @@ import {
   type RenderableValue,
   toArray,
 } from "@synnaxlabs/x";
+import { type search } from "@synnaxlabs/x/search";
 import {
   type ReactElement,
   type ReactNode,
@@ -56,7 +56,7 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
     Pick<Input.TextProps, "placeholder">,
     Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
-  searcher?: AsyncTermSearcher<string, K, E>;
+  searcher?: search.AsyncTermSearcher<string, K, E>;
   entryRenderKey?: keyof E | ((e: E) => string | number);
   renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;

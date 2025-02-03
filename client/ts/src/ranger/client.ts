@@ -9,7 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type CrudeTimeRange, observe, sortTimeRange, TimeRange } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { type search } from "@synnaxlabs/x/search";
 import { type Series } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
@@ -210,7 +210,7 @@ const retrieveResZ = z.object({
   ranges: nullableArrayZ(payloadZ),
 });
 
-export class Client implements AsyncTermSearcher<string, Key, Range> {
+export class Client implements search.AsyncTermSearcher<string, Key, Range> {
   readonly type: string = "range";
   private readonly frameClient: framer.Client;
   private readonly writer: Writer;

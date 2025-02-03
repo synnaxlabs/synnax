@@ -10,7 +10,7 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { id } from "@synnaxlabs/x";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { type search } from "@synnaxlabs/x/search";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
@@ -220,7 +220,7 @@ const copyReqZ = z.object({
 });
 const copyResZ = z.object({ task: taskZ });
 
-export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
+export class Client implements search.AsyncTermSearcher<string, TaskKey, Payload> {
   readonly type: string = "task";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;

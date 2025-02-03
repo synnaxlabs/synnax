@@ -9,7 +9,7 @@
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { observe } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { type search } from "@synnaxlabs/x/search";
 
 import { type framer } from "@/framer";
 import { type Key, type Label, labelZ, ontologyID } from "@/label/payload";
@@ -21,7 +21,7 @@ import { signals } from "@/signals";
 const LABEL_SET_NAME = "sy_label_set";
 const LABEL_DELETE_NAME = "sy_label_delete";
 
-export class Client implements AsyncTermSearcher<string, Key, Label> {
+export class Client implements search.AsyncTermSearcher<string, Key, Label> {
   readonly type: string = "label";
   private readonly retriever: Retriever;
   private readonly writer: Writer;

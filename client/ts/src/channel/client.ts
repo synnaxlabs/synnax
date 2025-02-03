@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { type search } from "@synnaxlabs/x/search";
 import {
   type CrudeDensity,
   type CrudeTimeStamp,
@@ -224,7 +224,7 @@ const retrieveGroupResZ = z.object({
  * cluster. This class should not be instantiated directly, and instead should be used
  * through the `channels` property of an {@link Synnax} client.
  */
-export class Client implements AsyncTermSearcher<string, Key, Channel> {
+export class Client implements search.AsyncTermSearcher<string, Key, Channel> {
   readonly type = "channel";
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
@@ -402,7 +402,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
 
   newSearcherWithOptions(
     options: RetrieveOptions,
-  ): AsyncTermSearcher<string, Key, Channel> {
+  ): search.AsyncTermSearcher<string, Key, Channel> {
     return {
       type: this.type,
       search: async (term: string) => await this.search(term, options),

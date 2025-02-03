@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { type AsyncTermSearcher, type Key, type Keyed } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x/record";
+import { type search } from "@synnaxlabs/x/search";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
@@ -22,7 +23,7 @@ import { type RenderProp } from "@/util/renderProp";
 
 export interface UseSearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Input.OptionalControl<string> {
-  searcher?: AsyncTermSearcher<string, K, E>;
+  searcher?: search.AsyncTermSearcher<string, K, E>;
   debounce?: number;
   pageSize?: number;
   filter?: (items: E[]) => E[];
@@ -133,7 +134,13 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   useEffect(() => {
     handleFetchMore(true);
     setOnFetchMore(handleFetchMore);
-  }, [handleFetchMore]);
+    if (searcher == null || searcher?.onChange == null) return;
+    const disconnect = searcher.onChange((d) => {
+      const keys = new Set(d.map((d) => d.key));
+      setSourceData((prev) => [...prev.filter((d) => keys.has(d.key)), ...d]);
+    });
+    return () => disconnect();
+  }, [searcher, handleFetchMore]);
 
   const debounced = useDebouncedCallback(
     (term: string) => {

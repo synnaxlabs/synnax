@@ -147,7 +147,7 @@
       "require": "./dist/toArray.cjs"
     },
     "./search": {
-      "types": "./dist/src/search.d.ts",
+      "types": "./dist/src/search/index.d.ts",
       "import": "./dist/search.js",
       "require": "./dist/search.cjs"
     },

@@ -9,7 +9,8 @@
 
 import { type label } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type AsyncTermSearcher, nullToArr, toArray, unique } from "@synnaxlabs/x";
+import { nullToArr, toArray, unique } from "@synnaxlabs/x";
+import { type search } from "@synnaxlabs/x/search";
 import {
   type DragEvent,
   type FC,
@@ -148,7 +149,7 @@ interface UseSingleReturn extends Haul.UseDragReturn {
   emptyContent?: ReactElement;
   dragging: DraggingState;
   onDragStart: (e: DragEvent<HTMLDivElement>) => void;
-  searcher?: AsyncTermSearcher<string, label.Key, label.Label>;
+  searcher?: search.AsyncTermSearcher<string, label.Key, label.Label>;
 }
 
 const useSingle = ({

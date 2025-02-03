@@ -1,7 +1,7 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray, type UnknownRecord } from "@synnaxlabs/x";
 import { unknownRecordZ } from "@synnaxlabs/x/record";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { type search } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -26,7 +26,7 @@ const parse = (s: string): UnknownRecord => JSON.parse(s) as UnknownRecord;
 export const workspaceZ = z.object({
   key: z.string(),
   name: z.string(),
-  layout: unknownRecordZ.or(z.string().transform((s) => parse(s) as UnknownRecord)),
+  layout: unknownRecordZ.or(z.string().transform((s) => parse(s))),
 });
 
 export type Workspace = z.infer<typeof workspaceZ>;
@@ -48,7 +48,7 @@ export const newWorkspaceZ = workspaceZ.partial({ key: true }).transform((p) => 
 }));
 
 export const workspaceRemoteZ = workspaceZ.omit({ layout: true }).extend({
-  layout: z.string().transform((s) => parse(s) as UnknownRecord),
+  layout: z.string().transform((s) => parse(s)),
 });
 
 export type NewWorkspace = z.input<typeof newWorkspaceZ>;
@@ -69,7 +69,7 @@ const retrieveResZ = z.object({ workspaces: nullableArrayZ(workspaceZ) });
 const createResZ = z.object({ workspaces: workspaceRemoteZ.array() });
 const emptyResZ = z.object({});
 
-export class Client implements AsyncTermSearcher<string, Key, Workspace> {
+export class Client implements search.AsyncTermSearcher<string, Key, Workspace> {
   readonly type = "workspace";
   readonly schematic: schematic.Client;
   readonly linePlot: linePlot.Client;

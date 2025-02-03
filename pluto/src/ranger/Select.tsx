@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { type AsyncTermSearcher, nullToArr, toArray, unique } from "@synnaxlabs/x";
+import { nullToArr, toArray, unique } from "@synnaxlabs/x";
+import { type search } from "@synnaxlabs/x/search";
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -126,7 +127,7 @@ interface UseSingleReturn extends Omit<Haul.UseDragReturn, "startDrag"> {
   emptyContent?: ReactElement;
   dragging: DraggingState;
   onDragStart: (e: DragEvent<HTMLDivElement>) => void;
-  searcher?: AsyncTermSearcher<string, ranger.Key, ranger.Payload>;
+  searcher?: search.AsyncTermSearcher<string, ranger.Key, ranger.Payload>;
 }
 
 const useSingle = ({

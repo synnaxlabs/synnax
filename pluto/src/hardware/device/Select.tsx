@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
+import { type search } from "@synnaxlabs/x/search";
 import { type ReactElement } from "react";
 
 import { type List } from "@/list";
@@ -30,8 +30,9 @@ export const SelectSingle = ({
   ...props
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
-  let searcher: AsyncTermSearcher<string, device.DeviceKey, device.Device> | undefined =
-    client?.hardware.devices;
+  let searcher:
+    | search.AsyncTermSearcher<string, device.DeviceKey, device.Device>
+    | undefined = client?.hardware.devices;
   if (searchOptions != null && client != null)
     searcher = client.hardware.devices.newSearcherWithOptions(searchOptions);
   return (

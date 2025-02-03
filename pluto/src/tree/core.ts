@@ -50,9 +50,9 @@ export interface FlattenProps {
   path?: string;
 }
 
-export type SortOption = compare.CompareF<Node> | boolean;
+export type SortOption = compare.Comparer<Node> | boolean;
 
-export const defaultSort: compare.CompareF<Node> = (a, b) =>
+export const defaultSort: compare.Comparer<Node> = (a, b) =>
   compare.stringsWithNumbers(a.name, b.name);
 
 export const sortAndSplice = (

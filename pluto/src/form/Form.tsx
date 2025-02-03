@@ -241,12 +241,12 @@ export interface UseFieldArrayProps {
 }
 
 export interface FieldArrayUtils<V> {
-  push: (value: V | V[], sort?: compare.CompareF<V>) => void;
+  push: (value: V | V[], sort?: compare.Comparer<V>) => void;
   add: (value: V | V[], start: number) => void;
   remove: (index: number | number[]) => void;
   keepOnly: (indices: number | number[]) => void;
   set: (values: state.SetArg<V[]>) => void;
-  sort?: (compareFn: compare.CompareF<V>) => void;
+  sort?: (compareFn: compare.Comparer<V>) => void;
 }
 
 export const fieldArrayUtils = <V extends unknown = unknown>(

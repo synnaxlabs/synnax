@@ -139,7 +139,7 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
 
 const metaDataItem = componentRenderProp(MetaDataListItem);
 
-const sortF: compare.CompareF<kv.Pair> = (a, b) => {
+const sortF: compare.Comparer<kv.Pair> = (a, b) => {
   if (a.key === "") return 1;
   if (b.key === "") return -1;
   return compare.stringsWithNumbers(a.key, b.key);

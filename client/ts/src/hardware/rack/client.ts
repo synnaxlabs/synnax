@@ -9,7 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type UnknownRecord } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { type search } from "@synnaxlabs/x/search";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
@@ -56,7 +56,7 @@ const deleteReqZ = z.object({
 
 const deleteResZ = z.object({});
 
-export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
+export class Client implements search.AsyncTermSearcher<string, RackKey, Rack> {
   readonly type: string = "rack";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;

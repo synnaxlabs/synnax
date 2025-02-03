@@ -9,7 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { observe, toArray } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { type search } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
@@ -59,7 +59,7 @@ export const parseIDs = (ids: CrudeID | CrudeID[] | string | string[]): IDPayloa
   toArray(ids).map((id) => new ID(id).payload);
 
 /** The core client class for executing queries against a Synnax cluster ontology */
-export class Client implements AsyncTermSearcher<string, string, Resource> {
+export class Client implements search.AsyncTermSearcher<string, string, Resource> {
   readonly type: string = "ontology";
   groups: group.Client;
   private readonly client: UnaryClient;
@@ -229,7 +229,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   newSearcherWithOptions(
     options: RetrieveOptions,
-  ): AsyncTermSearcher<string, string, Resource> {
+  ): search.AsyncTermSearcher<string, string, Resource> {
     return {
       type: this.type,
       search: (term: string) => this.search(term, options),

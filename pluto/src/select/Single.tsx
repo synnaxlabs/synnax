@@ -9,12 +9,7 @@
 
 import "@/select/Single.css";
 
-import {
-  type AsyncTermSearcher,
-  type Key,
-  type Keyed,
-  primitiveIsZero,
-} from "@synnaxlabs/x";
+import { type Key, type Keyed, primitiveIsZero, type search } from "@synnaxlabs/x";
 import {
   type FocusEventHandler,
   type ReactElement,
@@ -54,7 +49,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
   entryRenderKey?: keyof E | ((e: E) => string | number | ReactNode);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
-  searcher?: AsyncTermSearcher<string, K, E>;
+  searcher?: search.AsyncTermSearcher<string, K, E>;
   hideColumnHeader?: boolean;
   omit?: Array<K>;
   children?: List.VirtualCoreProps<K, E>["children"];

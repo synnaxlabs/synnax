@@ -9,7 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray, type UnknownRecord } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { type search } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
 import { type framer } from "@/framer";
@@ -57,7 +57,7 @@ type PageOptions = Pick<RetrieveOptions, "makes">;
 
 const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
-export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
+export class Client implements search.AsyncTermSearcher<string, DeviceKey, Device> {
   readonly type = "device";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
@@ -160,7 +160,7 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
 
   newSearcherWithOptions(
     options: RetrieveOptions,
-  ): AsyncTermSearcher<string, DeviceKey, Device> {
+  ): search.AsyncTermSearcher<string, DeviceKey, Device> {
     return {
       type: this.type,
       search: async (term: string) => await this.search(term, options),
