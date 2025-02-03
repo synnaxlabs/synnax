@@ -31,6 +31,7 @@
 #include <thread>
 #include <condition_variable>
 #include <mutex>
+#include <array>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -51,18 +52,40 @@ std::mutex mtx;
 std::condition_variable cv;
 bool should_stop = false;
 
+
+std::string get_hostname() {
+    std::array<char, 256> hostname{};
+#ifdef _WIN32
+    DWORD size = hostname.size();
+    if (GetComputerNameA(hostname.data(), &size) == 0) {
+        LOG(WARNING) << "[driver] Failed to get hostname";
+        return "unknown";
+    }
+#else
+    if (gethostname(hostname.data(), hostname.size()) != 0) {
+        LOG(WARNING) << "[driver] Failed to get hostname";
+        return "unknown";
+    }
+#endif
+    return {hostname.data()};
+}
+
 std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
     const configd::Config &config,
     breaker::Breaker &breaker,
     const std::shared_ptr<synnax::Synnax> &client) {
     std::pair<synnax::Rack, freighter::Error> res;
-    if (config.rack_key != 0)
+    if (config.rack_key != 0) {
+        LOG(INFO) << "existing rack key found in configuration: " << config.rack_key;
         res = client->hardware.retrieve_rack(config.rack_key);
-    else
-        res = client->hardware.retrieve_rack(config.rack_name);
+    } else {
+        LOG(INFO) << "no existing rack key found in configuration. Creating a new rack";
+        res = client->hardware.create_rack(get_hostname());
+    }
     if (const auto err = res.second;
         err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
         return retrieve_driver_rack(config, breaker, client);
+    LOG(INFO) << "[driver] retrieved rack: " << res.first.key << " - " << res.first.name;
     return res;
 }
 
@@ -132,6 +155,7 @@ void configure_labjack(
     LOG(INFO) << "[driver] LabJack integration not available on this platform";
 }
 
+
 int main(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
     if (argc > 1)
@@ -150,6 +174,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     VLOG(1) << "[driver] configuration parsed successfully";
+
+    auto [persisted_state, state_err] = configd::load_persisted_state();
+    if (state_err) {
+        LOG(WARNING) << "[driver] failed to load persisted state: " << state_err;
+    } else if (persisted_state.rack_key != 0 && cfg.rack_key == 0) {
+        VLOG(1) << "[driver] using persisted rack key: " << persisted_state.rack_key;
+        cfg.rack_key = persisted_state.rack_key;
+    }
 
     LOG(INFO) << "[driver] starting up";
 
@@ -174,6 +206,9 @@ int main(int argc, char *argv[]) {
                 << rack_err;
         return 1;
     }
+
+    if (auto err = configd::save_persisted_state({.rack_key = rack.key}))
+        LOG(WARNING) << "[driver] failed to save persisted state: " << err;
 
     auto hb_factory = std::make_shared<heartbeat::Factory>();
     std::vector<std::shared_ptr<task::Factory> > factories{hb_factory};

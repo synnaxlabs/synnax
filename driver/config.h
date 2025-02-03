@@ -11,6 +11,7 @@
 
 /// std
 #include <fstream>
+#include <filesystem>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -41,7 +42,7 @@ struct Config {
     std::vector<std::string> integrations;
     bool debug;
 
-    bool integration_enabled(const std::string &integration) const {
+    [[nodiscard]] bool integration_enabled(const std::string &integration) const {
         return std::find(
                    integrations.begin(),
                    integrations.end(),
@@ -49,6 +50,72 @@ struct Config {
                ) != integrations.end();
     }
 };
+
+struct PersistedState {
+    synnax::RackKey rack_key;
+};
+
+inline std::string get_persisted_state_path() {
+#ifdef _WIN32
+    const char* appdata = std::getenv("APPDATA");
+    if (appdata == nullptr) return "";
+    return std::string(appdata) + "\\synnax-driver\\persisted-state.json";
+#elif defined(__APPLE__)
+    const char* home = std::getenv("HOME");
+    if (home == nullptr) return "";
+    return std::string(home) + "/Library/Application Support/synnax-driver/persisted-state.json";
+#else
+    const char* home = std::getenv("HOME");
+    if (home == nullptr) return "";
+    return std::string(home) + "/.config/synnax-driver/persisted-state.json";
+#endif
+}
+
+inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
+    auto path = get_persisted_state_path();
+    if (path.empty())
+        return {PersistedState{}, freighter::Error("failed to get home directory")};
+
+    std::filesystem::path dir_path = std::filesystem::path(path).parent_path();
+    std::error_code ec;
+    std::filesystem::create_directories(dir_path, ec);
+    if (ec)
+        return {PersistedState{}, freighter::Error("failed to create directory: " + ec.message())};
+
+    std::ifstream file(path);
+    if (!file.is_open())
+        return {PersistedState{.rack_key = 0}, freighter::NIL};
+
+    try {
+        json content = json::parse(file);
+        auto parser = config::Parser(content);
+        return {PersistedState{
+            .rack_key = parser.optional<synnax::RackKey>("rack_key", 0)
+        }, freighter::NIL};
+    } catch (const json::exception& e) {
+        return {PersistedState{}, freighter::Error("failed to parse persisted state: " + std::string(e.what()))};
+    }
+}
+
+inline freighter::Error save_persisted_state(const PersistedState& state) {
+    auto path = get_persisted_state_path();
+    if (path.empty()) {
+        return freighter::Error("failed to get home directory");
+    }
+
+    try {
+        const json content = {
+            {"rack_key", state.rack_key}
+        };
+        std::ofstream file(path);
+        if (!file.is_open())
+            return freighter::Error("failed to open file for writing");
+        file << content.dump(4);
+        return freighter::NIL;
+    } catch (const std::exception& e) {
+        return freighter::Error("failed to save persisted state: " + std::string(e.what()));
+    }
+}
 
 inline std::pair<configd::Config, freighter::Error> parse(
     const json &content

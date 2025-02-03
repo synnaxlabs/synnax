@@ -70,7 +70,7 @@ public:
     [[nodiscard]] bool ok() const { return type == TYPE_NIL; }
 
     /// @returns a string formatted error message.
-    [[nodiscard]] std::string message() const { return type + ": " + data; }
+    [[nodiscard]] std::string message() const { return "[" + type+ "] " + data; }
 
     explicit operator bool() const { return !ok(); }
 
