@@ -47,8 +47,8 @@ jobs:
           - os: ubuntu-latest
             lint: true
         exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
+          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -65,11 +65,10 @@ jobs:
 
       - name: Install Dependencies
         run: pnpm install
-      
+
       - name: Build
         run: pnpm build:media
 
       - name: Lint
         if: matrix.lint
         run: pnpm lint:media
-

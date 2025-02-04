@@ -45,23 +45,23 @@ jobs:
           - os: ubuntu-latest
             format: true
         exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
+          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
-          
+
       - name: Check Formatting
         if: matrix.format
         run: scripts/gofmt-check.sh synnax
-        
+
       - name: Test
         run: go test -v -shuffle=on ./...
         working-directory: synnax

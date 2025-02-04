@@ -32,6 +32,9 @@
     "editor.formatOnSave": true,
     "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
     "[python]": { "editor.defaultFormatter": "ms-python.black-formatter" },
+    "[github-actions-workflow]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
     "python.formatting.provider": "none",
     "eslint.workingDirectories": [{ "mode": "auto" }],
     "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
