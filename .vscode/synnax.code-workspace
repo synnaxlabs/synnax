@@ -33,8 +33,9 @@
     "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
     "[python]": { "editor.defaultFormatter": "ms-python.black-formatter" },
     "[github-actions-workflow]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
+      "editor.defaultFormatter": "redhat.vscode-yaml"
     },
+    "[yaml]": { "editor.defaultFormatter": "redhat.vscode-yaml" },
     "python.formatting.provider": "none",
     "eslint.workingDirectories": [{ "mode": "auto" }],
     "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },

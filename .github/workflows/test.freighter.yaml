@@ -8,10 +8,22 @@ on:
     branches:
       - main
       - rc
+    paths:
+      - .github/workflows/test.freighter.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - alamos/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - freighter/go/**
+      - freighter/integration/**
+      - freighter/py/**
+      - freighter/ts/**
+      - x/go/**
   workflow_dispatch:
 
 permissions:
-  contents: write
   packages: write
 
 jobs:
@@ -19,8 +31,6 @@ jobs:
     name: Changes
     runs-on: ubuntu-latest
     outputs:
-      cpp: ${{ steps.filter.outputs.cpp }}
-      go: ${{ steps.filter.outputs.go }}
       integration: ${{ steps.filter.outputs.integration }}
       py: ${{ steps.filter.outputs.py }}
       ts: ${{ steps.filter.outputs.ts }}
@@ -36,16 +46,10 @@ jobs:
           filters: |
             shared: &shared
               - .github/workflows/test.freighter.yaml
-            cpp:
-              - *shared
-              - freighter/cpp/**
-            go: &go
+            integration: &integration
               - *shared
               - alamos/go/**
               - freighter/go/**
-              - x/go/**
-            integration: &integration
-              - *go
               - freighter/integration/**
               - x/go/**
             py:
@@ -62,62 +66,6 @@ jobs:
               - configs/vite/**
               - freighter/ts/**
               - x/ts/**
-
-  cpp:
-    name: C++ (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.cpp == 'true'
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-
-      - name: Test
-        run: bazel test --test_output=all //freighter/cpp:freighter_test --nocache_test_results
-  go:
-    name: Go (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.go == 'true'
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            format: true
-        exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.work
-          cache-dependency-path: go.work.sum
-
-      - name: Check Formatting
-        if: matrix.format
-        run: scripts/gofmt-check.sh freighter/go
-
-      - name: Test
-        run: go test -v -shuffle=on ./...
-        working-directory: freighter/go
 
   integration:
     runs-on: ubuntu-latest
@@ -217,11 +165,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:freighter
-
       - name: Lint
         run: pnpm lint:freighter
+
+      - name: Build
+        run: pnpm build:freighter
 
       - name: Test
         run: pnpm test:freighter

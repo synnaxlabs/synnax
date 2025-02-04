@@ -1,4 +1,4 @@
-name: Test - Alamos (Go)
+name: Test - Freighter (Go)
 
 on:
   push:
@@ -9,8 +9,9 @@ on:
       - main
       - rc
     paths:
-      - .github/workflows/test.alamos.go.yaml
+      - .github/workflows/test.freighter.go.yaml
       - alamos/go/**
+      - freighter/go/**
       - x/go/**
   workflow_dispatch:
 
@@ -22,7 +23,8 @@ jobs:
         include:
           - os: ubuntu-latest
             format: true
-          - os: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && 'macos-latest,windows-latest' }}
+          - os: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && 'macos-latest' }}
+          - os: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -34,10 +36,10 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
-      - name: Format
+      - name: Check Formatting
         if: matrix.format
-        run: scripts/gofmt-check.sh alamos/go
+        run: scripts/gofmt-check.sh freighter/go
 
       - name: Test
         run: go test -v -shuffle=on ./...
-        working-directory: alamos/go
+        working-directory: freighter/go

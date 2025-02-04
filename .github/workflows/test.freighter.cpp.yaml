@@ -1,0 +1,40 @@
+name: Test - Freighter (C++)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/workflows/test.freighter.cpp.yaml
+      - alamos/go/**
+      - freighter/cpp/**
+      - x/go/**
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && 'macos-latest' }}
+          - os: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && 'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.13.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Test
+        run: bazel test --test_output=all //freighter/cpp:freighter_test --nocache_test_results

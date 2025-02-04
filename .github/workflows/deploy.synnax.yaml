@@ -122,7 +122,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
+        uses: bazel-contrib/setup-bazel@0.13.0
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
