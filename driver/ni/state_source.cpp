@@ -30,9 +30,7 @@ StateSource<T>::StateSource(
 }
 
 template<typename T>
-std::pair<synnax::Frame, freighter::Error> StateSource<T>::read(
-    breaker::Breaker &breaker
-) {
+std::pair<synnax::Frame, freighter::Error> StateSource<T>::read(breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
     // sleep for state period
     this->timer.wait(breaker);
@@ -43,7 +41,7 @@ std::pair<synnax::Frame, freighter::Error> StateSource<T>::read(
 template<typename T>
 synnax::Frame StateSource<T>::get_state() {
     // frame size = # monitored states + 1 state index channel
-    auto frame_size = this->state_map.size() + 1;
+    auto frame_size =this->state_map.size() + 1;
     auto state_frame = synnax::Frame(frame_size);
     state_frame.add(
         this->state_index_key,
@@ -62,7 +60,7 @@ synnax::Frame StateSource<T>::get_state() {
 template<typename T>
 void StateSource<T>::update_state(
     std::queue<synnax::ChannelKey> &modified_state_keys,
-    std::queue<T> &modified_state_values
+ std::queue<T> &modified_state_values
 ) {
     LOG(INFO) << "StateSource::update_state: updating state"; // REMOVE DEBUG
     std::unique_lock<std::mutex> lock(this->state_mutex);

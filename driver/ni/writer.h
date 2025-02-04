@@ -33,7 +33,6 @@
 #include "driver/ni/ni.h"
 
 namespace ni {
-
 // Forward declarations
 class Analog;
 
@@ -46,16 +45,16 @@ struct WriterChannelConfig {
     synnax::DataType data_type;
     uint32_t channel_key;
     uint32_t state_channel_key;
-    std::string port;  
-    std::string line;  
-    std::shared_ptr<ni::Analog> ni_channel;  // for analog
+    std::string port;
+    std::string line;
+    std::shared_ptr<ni::Analog> ni_channel; // for analog
     std::string channel_type;
 
     WriterChannelConfig() = default;
 
     explicit WriterChannelConfig(
-        config::Parser &parser, 
-        std::string device_name, 
+        config::Parser &parser,
+        std::string device_name,
         bool is_digital,
         TaskHandle task_handle,
         synnax::TaskKey task_key,
@@ -77,7 +76,7 @@ struct WriterChannelConfig {
             // analog channel names are formatted: <device_name>/ao<port_number>
             port = "ao" + std::to_string(port_num);
             name = device_name + "/" + port;
-            
+
             ni_channel = AnalogOutputChannelFactory::create_channel(channel_type, parser, task_handle, name);
             if (ni_channel == nullptr) {
                 std::string msg = "Channel " + name + " has an unrecognized type: " + channel_type;
@@ -135,26 +134,26 @@ struct WriterConfig {
 
         parser.iter("channels", [&](config::Parser &channel_parser) {
             auto channel = WriterChannelConfig(
-                                channel_parser, 
-                                device_name, 
-                                is_digital, 
-                                task_handle, 
-                                task_key, 
-                                ctx
-                            );
-            
+                channel_parser,
+                device_name,
+                is_digital,
+                task_handle,
+                task_key,
+                ctx
+            );
+
             if (!channel.enabled) return;
             if (!channel_parser.ok()) {
                 LOG(ERROR) << "Failed to parse channel config: " << channel_parser.error_json().dump(4);
                 return;
             }
-            
+
             channels.push_back(channel);
             drive_cmd_channel_keys.push_back(channel.channel_key);
             state_channel_keys.push_back(channel.state_channel_key);
         });
-        
-        if(!parser.ok()) {
+
+        if (!parser.ok()) {
             ctx->set_state({
                 .task = task_key,
                 .variant = "error",
@@ -183,7 +182,9 @@ public:
     );
 
     std::pair<synnax::Frame, freighter::Error> read(breaker::Breaker &breaker) override;
+
     synnax::Frame get_state();
+
     void update_state(
         std::queue<synnax::ChannelKey> &modified_state_keys,
         std::queue<T> &modified_state_values
@@ -210,41 +211,55 @@ using AnalogStateSource = StateSource<double>;
 class WriteSink : public pipeline::Sink {
 public:
     WriteSink(
-        const std::shared_ptr<DAQmx>& dmx,
+        const std::shared_ptr<DAQmx> &dmx,
         TaskHandle task_handle,
-        const std::shared_ptr<task::Context>& ctx,
-        const synnax::Task& task
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
     ) : dmx(dmx),
         task_handle(task_handle),
         ctx(ctx),
         task(task),
-        err_info({}) {}
+        err_info({}) {
+    }
 
     virtual ~WriteSink() {
         clear_task();
     }
 
     freighter::Error cycle();
-    freighter::Error start(const std::string& cmd_key);
-    freighter::Error stop(const std::string& cmd_key);
+
+    freighter::Error start(const std::string &cmd_key);
+
+    freighter::Error stop(const std::string &cmd_key);
+
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
+
     std::vector<synnax::ChannelKey> get_state_channel_keys();
+
     bool ok();
 
 protected:
     // Keep implementation-specific methods protected
     void get_index_keys();
+
     void jsonify_error(std::string);
-    void stopped_with_err(const freighter::Error& err) override;
+
+    void stopped_with_err(const freighter::Error &err) override;
+
     void log_error(std::string err_msg);
+
     void clear_task();
+
     int check_err(int32 error, std::string caller);
 
     // Pure virtual methods that derived classes must implement
     virtual freighter::Error start_ni() = 0;
+
     virtual freighter::Error stop_ni() = 0;
+
     virtual int init() = 0;
-    virtual freighter::Error format_data(const synnax::Frame& frame) = 0;
+
+    virtual freighter::Error format_data(const synnax::Frame &frame) = 0;
 
     // Protected members accessible to derived classes
     const std::shared_ptr<DAQmx> dmx;
@@ -267,23 +282,28 @@ protected:
 class DigitalWriteSink final : public WriteSink {
 public:
     explicit DigitalWriteSink(
-        const std::shared_ptr<DAQmx>& dmx,
+        const std::shared_ptr<DAQmx> &dmx,
         TaskHandle task_handle,
-        const std::shared_ptr<task::Context>& ctx,
-        const synnax::Task& task
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
     );
+
     ~DigitalWriteSink();
 
     freighter::Error write(synnax::Frame frame) override;
+
     std::shared_ptr<ni::DigitalStateSource> writer_state_source;
 
 private:
     freighter::Error start_ni() override;
-    freighter::Error stop_ni() override;
-    int init() override;
-    freighter::Error format_data(const synnax::Frame& frame) override;
 
-    uint8_t* write_buffer = nullptr;
+    freighter::Error stop_ni() override;
+
+    int init() override;
+
+    freighter::Error format_data(const synnax::Frame &frame) override;
+
+    uint8_t *write_buffer = nullptr;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -292,23 +312,28 @@ private:
 class AnalogWriteSink final : public WriteSink {
 public:
     explicit AnalogWriteSink(
-        const std::shared_ptr<DAQmx>& dmx,
+        const std::shared_ptr<DAQmx> &dmx,
         TaskHandle task_handle,
-        const std::shared_ptr<task::Context>& ctx,
-        const synnax::Task& task
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
     );
+
     ~AnalogWriteSink();
 
     freighter::Error write(synnax::Frame frame) override;
+
     std::shared_ptr<ni::AnalogStateSource> writer_state_source;
 
 private:
     freighter::Error start_ni() override;
-    freighter::Error stop_ni() override;
-    int init() override;
-    freighter::Error format_data(const synnax::Frame& frame) override;
 
-    double* write_buffer = nullptr;
+    freighter::Error stop_ni() override;
+
+    int init() override;
+
+    freighter::Error format_data(const synnax::Frame &frame) override;
+
+    double *write_buffer = nullptr;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -317,7 +342,7 @@ private:
 class WriterTask final : public task::Task {
 public:
     explicit WriterTask(
-        const std::shared_ptr<task::Context>& ctx,
+        const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         std::shared_ptr<pipeline::Sink> sink,
         std::shared_ptr<WriteSink> ni_sink,
@@ -327,17 +352,22 @@ public:
         const breaker::Config breaker_config
     );
 
-    void exec(task::Command& cmd) override;
+    void exec(task::Command &cmd) override;
+
     void stop() override;
-    void stop(const std::string& cmd_key);
-    void start(const std::string& key);
+
+    void stop(const std::string &cmd_key);
+
+    void start(const std::string &key);
+
     bool ok();
+
     std::string name() override { return task.name; }
 
     static std::unique_ptr<task::Task> configure(
-        const std::shared_ptr<DAQmx>& dmx,
-        const std::shared_ptr<task::Context>& ctx,
-        const synnax::Task& task
+        const std::shared_ptr<DAQmx> &dmx,
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
     );
 
 private:
@@ -349,5 +379,4 @@ private:
     bool ok_state = true;
     std::shared_ptr<WriteSink> sink;
 };
-
 }

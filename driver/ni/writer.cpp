@@ -156,7 +156,7 @@ void ni::WriteSink::jsonify_error(std::string s) {
             first_field_pos = pos;
     }
 
-    if (first_field_pos != std::string::npos) 
+    if (first_field_pos != std::string::npos)
         message = s.substr(0, first_field_pos);
 
     message = std::regex_replace(message, std::regex("\\s+$"), "");
@@ -189,8 +189,8 @@ void ni::WriteSink::jsonify_error(std::string s) {
     if (is_port_error)
         this->err_info["path"] = this->err_info["path"].get<std::string>() + ".port";
 
-    std::string error_message = "NI Error " + sc + ": " + message + " Path: " + 
-                               this->err_info["path"].get<std::string>();
+    std::string error_message = "NI Error " + sc + ": " + message + " Path: " +
+                                this->err_info["path"].get<std::string>();
 
     if (!cn.empty()) error_message += " Channel: " + cn;
 
@@ -212,7 +212,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
 ) : WriteSink(dmx, task_handle, ctx, task) {
     auto config_parser = config::Parser(task.config);
     writer_config = WriterConfig(config_parser, ctx, true, task_handle, task.key);
-    
+
     if (!config_parser.ok()) {
         this->log_error("Failed to parse config: " + config_parser.error_json().dump(4));
         return;
@@ -251,7 +251,7 @@ int ni::DigitalWriteSink::init() {
             err = this->check_err(
                 this->dmx->CreateDOChan(
                     this->task_handle,
-                    channel.name.c_str(), 
+                    channel.name.c_str(),
                     "",
                     DAQmx_Val_ChanPerLine
                 ), "init.CreateDOChan"
@@ -306,9 +306,9 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
         ), "write.WriteDigitalLines")) {
         this->log_error("failed while writing digital data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
-                              "Error writing digital data");
+                                "Error writing digital data");
     }
-    
+
     this->writer_state_source->update_state(
         this->writer_config.modified_state_keys,
         this->writer_config.digital_modified_state_values
@@ -323,7 +323,7 @@ freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
 
     for (auto key: *(frame.channels)) {
         auto it = std::find(this->writer_config.drive_cmd_channel_keys.begin(),
-                           this->writer_config.drive_cmd_channel_keys.end(), key);
+                            this->writer_config.drive_cmd_channel_keys.end(), key);
         if (it != this->writer_config.drive_cmd_channel_keys.end()) {
             cmd_channel_index = std::distance(
                 this->writer_config.drive_cmd_channel_keys.begin(),
@@ -350,7 +350,7 @@ ni::AnalogWriteSink::AnalogWriteSink(
 ) : WriteSink(dmx, task_handle, ctx, task) {
     auto config_parser = config::Parser(task.config);
     writer_config = WriterConfig(config_parser, ctx, false, task_handle, task.key);
-    
+
     if (!config_parser.ok()) {
         this->log_error("Failed to parse config: " + config_parser.error_json().dump(4));
         return;
@@ -435,9 +435,9 @@ freighter::Error ni::AnalogWriteSink::write(synnax::Frame frame) {
         ), "write.WriteAnalogF64")) {
         this->log_error("failed while writing analog data");
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR,
-                              "Error writing analog data");
+                                "Error writing analog data");
     }
-    
+
     this->writer_state_source->update_state(
         this->writer_config.modified_state_keys,
         this->writer_config.analog_modified_state_values
@@ -452,12 +452,12 @@ freighter::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
 
     for (auto key: *(frame.channels)) {
         auto it = std::find(this->writer_config.drive_cmd_channel_keys.begin(),
-                           this->writer_config.drive_cmd_channel_keys.end(), key);
+                            this->writer_config.drive_cmd_channel_keys.end(), key);
         if (it != this->writer_config.drive_cmd_channel_keys.end()) {
             cmd_channel_index = std::distance(
                 this->writer_config.drive_cmd_channel_keys.begin(),
                 it);
-            const auto& series = frame.series->at(frame_index);
+            const auto &series = frame.series->at(frame_index);
             double value = 0.0;
 
             if (series.data_type == synnax::FLOAT32) {
@@ -471,7 +471,7 @@ freighter::Error ni::AnalogWriteSink::format_data(const synnax::Frame &frame) {
             } else {
                 return freighter::NIL;
             }
-            
+
             write_buffer[cmd_channel_index] = value;
             this->writer_config.modified_state_keys.push(
                 this->writer_config.state_channel_keys[cmd_channel_index]

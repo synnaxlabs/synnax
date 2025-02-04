@@ -254,7 +254,7 @@ struct ScaleConfig {
                 name.c_str(),
                 polynomial.forward_coeffs.data(),
                 polynomial.num_coeffs,
-               polynomial.reverse_coeffs.data(),
+                polynomial.reverse_coeffs.data(),
                 polynomial.num_coeffs,
                 ni::UNITS_MAP.at(prescaled_units),
                 scaled_units.c_str()

@@ -69,14 +69,14 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 }
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
-    config::Parser &parser, 
+    config::Parser &parser,
     const std::string &channel_type,
     const std::string &channel_name
 ) {
     auto channel = AnalogInputChannelFactory::create_channel(
-        channel_type, 
-        parser, 
-        this->task_handle, 
+        channel_type,
+        parser,
+        this->task_handle,
         channel_name,
         this->port_to_channel
     );
@@ -189,7 +189,8 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
             f.add(this->reader_config.channels[ch].channel_key, std::move(t));
             continue;
         }
-        synnax::Series series = synnax::Series(synnax::FLOAT32, s); // TODO: remove this and fix the build error that happens when you remov eit
+        synnax::Series series = synnax::Series(synnax::FLOAT32, s);
+        // TODO: remove this and fix the build error that happens when you remov eit
         if (this->reader_config.channels[ch].data_type == synnax::FLOAT32)
             series = synnax::Series(synnax::FLOAT32, s);
         else if (this->reader_config.channels[ch].data_type == synnax::FLOAT64)

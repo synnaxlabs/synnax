@@ -232,7 +232,7 @@ bool ni::ReaderTask::ok() {
 ///////////////////////////////////////////////////////////////////////////////////
 
 ni::WriterTask::WriterTask(
-    const std::shared_ptr<task::Context>& ctx,
+    const std::shared_ptr<task::Context> &ctx,
     synnax::Task task,
     std::shared_ptr<pipeline::Sink> sink,
     std::shared_ptr<WriteSink> ni_sink,
@@ -261,23 +261,23 @@ ni::WriterTask::WriterTask(
     sink(ni_sink) {
 }
 
-void ni::WriterTask::exec(task::Command& cmd) {
+void ni::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") this->start(cmd.key);
     else if (cmd.type == "stop") this->stop(cmd.key);
 }
 
-void ni::WriterTask::start(const std::string& key) {
+void ni::WriterTask::start(const std::string &key) {
     if (this->running.exchange(true) || !this->ok() || !this->sink->ok()) return;
     sink->start(key);
     this->cmd_write_pipe.start();
     this->state_write_pipe.start();
 }
 
-void ni::WriterTask::stop() { 
-    this->stop(""); 
+void ni::WriterTask::stop() {
+    this->stop("");
 }
 
-void ni::WriterTask::stop(const std::string& cmd_key) {
+void ni::WriterTask::stop(const std::string &cmd_key) {
     if (!this->running.exchange(false)) {
         LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
                 this->running << " ok: " << this->ok();
@@ -293,9 +293,9 @@ bool ni::WriterTask::ok() {
 }
 
 std::unique_ptr<task::Task> ni::WriterTask::configure(
-    const std::shared_ptr<DAQmx>& dmx,
-    const std::shared_ptr<task::Context>& ctx,
-    const synnax::Task& task
+    const std::shared_ptr<DAQmx> &dmx,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
 ) {
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -311,7 +311,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     dmx->CreateTask("", &task_handle);
 
     LOG(INFO) << "[ni.writer] configuring task " << task.name;
-    
+
     // Create the appropriate sink based on the task type
     std::shared_ptr<WriteSink> daq_writer;
     if (task.type == "ni_digital_write") {

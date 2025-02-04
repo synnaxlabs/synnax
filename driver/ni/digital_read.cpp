@@ -52,8 +52,8 @@ int ni::DigitalReadSource::create_channels() {
         if (channel.channel_type != "index" && channel.enabled) {
             err = this->check_ni_error(
                 this->dmx->CreateDIChan(task_handle,
-                                                   channel.name.c_str(),
-                                                   "", DAQmx_Val_ChanPerLine));
+                                        channel.name.c_str(),
+                                        "", DAQmx_Val_ChanPerLine));
             VLOG(1) << "Channel name: " << channel.name;
         }
         this->num_channels++;
@@ -74,11 +74,11 @@ int ni::DigitalReadSource::configure_timing() {
     } else {
         if (this->check_ni_error(
             this->dmx->CfgSampClkTiming(this->task_handle,
-                                                   this->reader_config.timing_source.c_str(),
-                                                   this->reader_config.sample_rate.value,
-                                                   DAQmx_Val_Rising,
-                                                   DAQmx_Val_ContSamps,
-                                                   this->reader_config.sample_rate.value))) {
+                                        this->reader_config.timing_source.c_str(),
+                                        this->reader_config.sample_rate.value,
+                                        DAQmx_Val_Rising,
+                                        DAQmx_Val_ContSamps,
+                                        this->reader_config.sample_rate.value))) {
             LOG(ERROR) << "[ni.reader] failed while configuring timing for task " <<
                     this->reader_config.task_name;
             this->ok_state = false;

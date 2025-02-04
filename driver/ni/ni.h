@@ -459,5 +459,4 @@ private:
 };
 
 const std::string INTEGRATION_NAME = "ni";
-
 } // namespace ni

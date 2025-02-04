@@ -284,11 +284,11 @@ public:
     std::unique_ptr<ScaleConfig> getScaleConfig(config::Parser &parser) {
         if (!parser.get_json().contains("custom_scale")) return nullptr;
         const std::string c = std::to_string(
-                                    parser.optional<uint32_t>(
-                                        "channel", 
-                                        parser.optional<uint32_t>("cmd_channel", 0)
-                                    )
-                                );
+            parser.optional<uint32_t>(
+                "channel",
+                parser.optional<uint32_t>("cmd_channel", 0)
+            )
+        );
         auto scale_parser = parser.child("custom_scale");
         if (scale_parser.required<std::string>("type") == "none") return nullptr;
         this->scale_name = c + "_scale";
@@ -299,7 +299,7 @@ public:
         if (this->scale_name == "") return 0;
         return this->scale_config->create_ni_scale(dmx);
     }
-    
+
     int32 get_units(const std::string &s) {
         if (ni::UNITS_MAP.find(s) == ni::UNITS_MAP.end()) {
             LOG(WARNING) << "Invalid units: " << s << ". Defaulting to Volts.";
@@ -1827,10 +1827,10 @@ private:
 class AnalogOutputChannelFactory {
 public:
     static std::shared_ptr<Analog> create_channel(
-        const std::string& channel_type,
-        config::Parser& parser,
+        const std::string &channel_type,
+        config::Parser &parser,
         TaskHandle task_handle,
-        const std::string& name
+        const std::string &name
     ) {
         if (channel_type == "ao_current")
             return std::make_shared<CurrentOut>(parser, task_handle, name);
@@ -1838,7 +1838,7 @@ public:
             return std::make_shared<VoltageOut>(parser, task_handle, name);
         else if (channel_type == "ao_func_gen")
             return std::make_shared<FunctionGeneratorOut>(parser, task_handle, name);
-        
+
         LOG(ERROR) << "[ni.writer] Unrecognized analog output channel type: " << channel_type;
         return nullptr;
     }
@@ -1847,11 +1847,11 @@ public:
 class AnalogInputChannelFactory {
 public:
     static std::shared_ptr<Analog> create_channel(
-        const std::string& channel_type,
-        config::Parser& parser,
+        const std::string &channel_type,
+        config::Parser &parser,
         TaskHandle task_handle,
-        const std::string& name,
-        const std::map<int32_t, std::string>& port_to_channel = {}
+        const std::string &name,
+        const std::map<int32_t, std::string> &port_to_channel = {}
     ) {
         if (channel_type == "ai_accel")
             return std::make_shared<AIAccelChan>(parser, task_handle, name);
