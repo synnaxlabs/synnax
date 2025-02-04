@@ -5,10 +5,6 @@ on:
     branches:
       - main
       - rc
-  pull_request:
-    branches:
-      - main
-      - rc
   workflow_dispatch:
 
 permissions:
@@ -67,7 +63,7 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' && needs.setup.outputs.changed == 'true') || github.event_name == 'workflow_dispatch'
+    if: needs.setup.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
     needs: setup
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
@@ -159,7 +155,7 @@ jobs:
           cache: pnpm
 
       - name: Adjust Auto Updater URL for Release Candidate
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/rc'
+        if: github.ref == 'refs/heads/rc'
         working-directory: console/src-tauri
         run: |
           jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
@@ -207,14 +203,14 @@ jobs:
         run: pnpm build
 
       - name: Upload macOS Release Asset
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
 
       - name: Upload Windows Release Asset
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.sig
