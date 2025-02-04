@@ -30,9 +30,9 @@ cc_test(
     name = "sequence_test",
     size = "small",
     srcs = [
+        "channel_set_operator_test.cpp",
         "json_source_test.cpp",
         "sequence_test.cpp",
-        "set_operator_test.cpp",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

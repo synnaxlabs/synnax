@@ -115,6 +115,7 @@ public:
     ) : size(1),
         cap(1),
         data_type(synnax::TIMESTAMP) {
+        data = std::make_unique<std::byte[]>(this->byte_size());
         memcpy(data.get(), &v.value, this->byte_size());
     }
 

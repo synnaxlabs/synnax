@@ -20,13 +20,29 @@ extern "C" {
 #include "driver/sequence/operator.h"
 
 inline synnax::Series luaToSeries(lua_State *L, int index, const synnax::Channel &ch) {
+    if (ch.data_type == synnax::FLOAT32)
+        return synnax::Series(static_cast<float>(lua_tonumber(L, index)), synnax::FLOAT32);
     if (ch.data_type == synnax::FLOAT64)
         return synnax::Series(lua_tonumber(L, index), synnax::FLOAT64);
+    if (ch.data_type == synnax::INT8)
+        return synnax::Series(static_cast<int8_t>(lua_tonumber(L, index)), synnax::INT8);
+    if (ch.data_type == synnax::INT16)
+        return synnax::Series(static_cast<int16_t>(lua_tonumber(L, index)), synnax::INT16);
+    if (ch.data_type == synnax::INT32)
+        return synnax::Series(static_cast<int32_t>(lua_tonumber(L, index)), synnax::INT32);
     if (ch.data_type == synnax::INT64)
         return synnax::Series(lua_tointeger(L, index), synnax::INT64);
     if (ch.data_type == synnax::SY_UINT8)
         return synnax::Series(static_cast<uint8_t>(lua_toboolean(L, index)),
                               synnax::SY_UINT8);
+    if (ch.data_type == synnax::SY_UINT16)
+        return synnax::Series(static_cast<uint16_t>(lua_tonumber(L, index)),
+                              synnax::SY_UINT16);
+    if (ch.data_type == synnax::UINT32)
+        return synnax::Series(static_cast<uint32_t>(lua_tonumber(L, index)),
+                              synnax::UINT32);
+    if (ch.data_type == synnax::UINT64)
+        return synnax::Series(static_cast<uint64_t>(lua_tonumber(L, index)), synnax::UINT64);
     if (ch.data_type == synnax::STRING)
         return synnax::Series(std::string(lua_tostring(L, index)), synnax::STRING);
     if (ch.data_type == synnax::FLOAT32)
