@@ -39,15 +39,26 @@ class Analog;
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   WriterChannelConfig                         //
 ///////////////////////////////////////////////////////////////////////////////////
+///@brief defines the configuration for a channel in a writer task.
 struct WriterChannelConfig {
+    ///@brief the name of the channel in the format <device_name>/<port>/<line> for
+    /// digital channels or <device_name>/<port> for analog channels
     std::string name;
+    ///@brief whether the channel is enabled
     bool enabled = true;
+    ///@brief the data type of the channel
     synnax::DataType data_type;
+    ///@brief the key of the channel
     uint32_t channel_key;
+    ///@brief the key of the state channel
     uint32_t state_channel_key;
+    ///@brief the port of the channel on NI device
     std::string port;
+    ///@brief the line of the channel on NI device (for digital channels)
     std::string line;
-    std::shared_ptr<ni::Analog> ni_channel; // for analog
+    ///@brief the NI channel object (for analog channels)
+    std::shared_ptr<ni::Analog> ni_channel; 
+    ///@brief the type of the channel (for analog channels)
     std::string channel_type;
 
     WriterChannelConfig() = default;
@@ -97,17 +108,30 @@ struct WriterChannelConfig {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                   WriterConfig                                //
 ///////////////////////////////////////////////////////////////////////////////////
+///@brief defines the configuration for a writer task.
 struct WriterConfig {
+    ///@brief the type of the device
     std::string device_type;
+    ///@brief the name of the device. 
     std::string device_name;
+    ///@brief the key of the device to retrieve from Synnax Server
     std::string device_key;
+    ///@brief the name of the task
     std::string task_name;
+    ///@brief the rate at which the state channel is written to
     float state_rate = 0;
+    ///@brief the key of the task
     synnax::ChannelKey task_key;
+    ///@brief the channels in the task
     std::vector<WriterChannelConfig> channels;
+    ///@brief the keys of the state channels
     std::vector<synnax::ChannelKey> state_channel_keys;
+    ///@brief the keys of the drive command channels
     std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
+    ///@brief the key of the state index channel
     synnax::ChannelKey state_index_key;
+
+    ///@brief queues to maintain changes to state channels
     std::queue<synnax::ChannelKey> modified_state_keys;
     std::queue<std::uint8_t> digital_modified_state_values;
     std::queue<double> analog_modified_state_values;
@@ -170,6 +194,8 @@ struct WriterConfig {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
+///@brief a source that maintains the state of write task ports and writes them back to
+/// the Synnax server.
 template<typename T>
 class StateSource final : public pipeline::Source {
 public:

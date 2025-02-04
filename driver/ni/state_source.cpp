@@ -20,10 +20,8 @@ StateSource<T>::StateSource(
     std::vector<synnax::ChannelKey> &state_channel_keys
 ) {
     this->state_rate.value = state_rate;
-    // start the periodic thread
     this->state_index_key = state_index_key;
 
-    // initialize all states to 0
     for (auto &key: state_channel_keys)
         this->state_map[key] = 0;
     this->timer = loop::Timer(this->state_rate);
@@ -74,6 +72,7 @@ void StateSource<T>::update_state(
     waiting_reader.notify_one();
 }
 
+///@brief  Template instantiations to tell the compiler which versions to generate
 template class StateSource<uint8_t>;  // For DigitalStateSource
 template class StateSource<double>;   // For AnalogStateSource
 
