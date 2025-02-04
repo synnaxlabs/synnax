@@ -13,6 +13,7 @@ package rack
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
@@ -27,6 +28,8 @@ func NewKey(node core.NodeKey, localKey uint16) Key {
 func (k Key) Node() core.NodeKey { return core.NodeKey(k >> 16) }
 
 func (k Key) LocalKey() uint16 { return uint16(uint32(k) & 0xFFFF) }
+
+func (k Key) OntologyID() ontology.ID { return OntologyID(k) }
 
 func (k Key) IsValid() bool { return k.Node() != 0 && k.LocalKey() != 0 }
 

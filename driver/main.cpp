@@ -71,7 +71,7 @@ std::string get_hostname() {
 }
 
 std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
-    const configd::Config &config,
+    configd::Config &config,
     breaker::Breaker &breaker,
     const std::shared_ptr<synnax::Synnax> &client) {
     std::pair<synnax::Rack, freighter::Error> res;
@@ -82,9 +82,13 @@ std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
         LOG(INFO) << "no existing rack key found in configuration. Creating a new rack";
         res = client->hardware.create_rack(get_hostname());
     }
-    if (const auto err = res.second;
-        err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
+    const auto err = res.second;
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
         return retrieve_driver_rack(config, breaker, client);
+    if (err.matches(synnax::NOT_FOUND)) {
+        config.rack_key = 0;
+        return retrieve_driver_rack(config, breaker, client);
+    }
     LOG(INFO) << "[driver] retrieved rack: " << res.first.key << " - " << res.first.name;
     return res;
 }

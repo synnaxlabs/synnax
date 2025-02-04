@@ -74,23 +74,29 @@ type Service struct {
 	EmbeddedRackName string
 	localKeyCounter  *kv.AtomicInt64Counter
 	shutdownSignals  io.Closer
+	group            group.Group
 }
 
 const localKeyCounterSuffix = ".rack.counter"
+
+const groupName = "Devices"
 
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-
+	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	if err != nil {
+		return
+	}
 	counterKey := []byte(cfg.HostProvider.HostKey().String() + localKeyCounterSuffix)
 	c, err := kv.OpenCounter(ctx, cfg.DB, counterKey)
 	if err != nil {
 		return nil, err
 	}
 
-	s = &Service{Config: cfg, localKeyCounter: c}
+	s = &Service{Config: cfg, localKeyCounter: c, group: g}
 	cfg.Ontology.RegisterService(s)
 
 	s.EmbeddedRackName = fmt.Sprintf("sy_node_%s_rack", cfg.HostProvider.HostKey())

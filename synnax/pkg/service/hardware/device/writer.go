@@ -44,7 +44,7 @@ func (w Writer) Create(ctx context.Context, d Device) (err error) {
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineRelationship(ctx, d.Rack.OntologyID(), ontology.ParentOf, otgID)
 }
 
 func (w Writer) Delete(ctx context.Context, key string) error {
