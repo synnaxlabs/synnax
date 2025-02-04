@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include "driver/ni/ni.h"
+#include "driver/ni/writer.h"
 #include "driver/pipeline/middleware.h"
 
 

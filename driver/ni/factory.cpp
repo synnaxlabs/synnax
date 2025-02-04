@@ -13,6 +13,7 @@
 /// external.
 #include "glog/logging.h"
 #include "driver/ni/ni.h"
+#include "driver/ni/writer.h"
 #include "nlohmann/json.hpp"
 
 /// internal

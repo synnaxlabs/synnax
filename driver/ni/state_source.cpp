@@ -1,4 +1,15 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 #include "driver/ni/ni.h"
+
+#include "driver/ni/writer.h"
 
 namespace ni {
 
@@ -65,7 +76,6 @@ void StateSource<T>::update_state(
     waiting_reader.notify_one();
 }
 
-// Explicit template instantiations
 template class StateSource<uint8_t>;  // For DigitalStateSource
 template class StateSource<double>;   // For AnalogStateSource
 

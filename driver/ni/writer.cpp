@@ -14,13 +14,12 @@
 #include <regex>
 
 #include "client/cpp/telem/telem.h"
-#include "driver/ni/ni.h"
-
+#include "driver/ni/writer.h"
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                             Helper Functions                                  //
+//                            DigitalWriteSink                                   //
 ///////////////////////////////////////////////////////////////////////////////////
 void ni::DigitalWriteSink::get_index_keys() {
     if (this->writer_config.state_channel_keys.empty()) return;
@@ -31,9 +30,6 @@ void ni::DigitalWriteSink::get_index_keys() {
     this->writer_config.state_index_key = state_channel_info.index;
 }
 
-///////////////////////////////////////////////////////////////////////////////////
-//                            DigitalWriteSink                                   //
-///////////////////////////////////////////////////////////////////////////////////
 ni::DigitalWriteSink::DigitalWriteSink(
     const std::shared_ptr<DAQmx> &dmx,
     TaskHandle task_handle,
@@ -539,6 +535,7 @@ void ni::AnalogWriteSink::parse_config(config::Parser &parser) {
             c_count++;
         }
     );
+    
     if (!parser.ok())
         this->log_error(
             "[parse_config] failed to parse configuration for " + this->writer_config.task_name + ": " + parser.error_json().dump(4));
