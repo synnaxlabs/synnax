@@ -36,6 +36,7 @@ import { useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
+import { EXTRACTORS } from "@/extractors";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
@@ -189,6 +190,7 @@ const PaletteDialog = ({
       addStatus,
       handleException,
       ingestors: INGESTORS,
+      extractors: EXTRACTORS,
     }),
     [store, placeLayout, confirm, client, addStatus, handleException],
   );
