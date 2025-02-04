@@ -21,7 +21,6 @@
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriteSink                                  //
 ///////////////////////////////////////////////////////////////////////////////////
-
 void ni::WriteSink::get_index_keys() {
     if (this->writer_config.state_channel_keys.empty()) return;
     auto state_channel = this->writer_config.state_channel_keys[0];
@@ -205,7 +204,6 @@ void ni::WriteSink::jsonify_error(std::string s) {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                DigitalWriteSink                               //
 ///////////////////////////////////////////////////////////////////////////////////
-
 ni::DigitalWriteSink::DigitalWriteSink(
     const std::shared_ptr<DAQmx> &dmx,
     TaskHandle task_handle,
@@ -344,7 +342,6 @@ freighter::Error ni::DigitalWriteSink::format_data(const synnax::Frame &frame) {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                AnalogWriteSink                                //
 ///////////////////////////////////////////////////////////////////////////////////
-
 ni::AnalogWriteSink::AnalogWriteSink(
     const std::shared_ptr<DAQmx> &dmx,
     TaskHandle task_handle,

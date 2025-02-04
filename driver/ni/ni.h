@@ -27,7 +27,6 @@
 
 #include "nlohmann/json.hpp"
 
-
 #include "client/cpp/synnax.h"
 
 #include "driver/ni/channels.h"
@@ -97,7 +96,6 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     // TODO: verify this is an option in the console for sensitivity units
 };
 
-
 struct ChannelConfig {
     uint32_t channel_key;
     uint32_t state_channel_key;
@@ -129,7 +127,6 @@ struct ReaderConfig {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    NiSource                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-
 /// @brief an interface for a source that abstracts the common pattern of configuring and acquiring data
 /// from a National Instruments device. Serves as base class for special purpose readers.
 class Source : public pipeline::Source {
@@ -193,7 +190,6 @@ public:
     virtual void acquire_data() = 0;
 
     virtual int create_channels() = 0;
-
 
     /// @brief shared resources between daq sampling thread and acquisition thread
     struct DataPacket {
@@ -463,6 +459,5 @@ private:
 };
 
 const std::string INTEGRATION_NAME = "ni";
-
 
 } // namespace ni
