@@ -195,7 +195,7 @@ struct WriterConfig {
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
 ///@brief a source that maintains the state of write task ports and writes them back to
-/// the Synnax server.
+/// the Synnax server. Templated to support both digital and analog state channels.
 template<typename T>
 class StateSource final : public pipeline::Source {
 public:
