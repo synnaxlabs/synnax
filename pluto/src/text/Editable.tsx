@@ -209,10 +209,6 @@ export const Editable = <L extends text.Level = text.Level>({
         handleUpdate(el);
       }}
       onKeyDown={handleKeyDown}
-      onKeyUp={(e: KeyboardEvent<HTMLParagraphElement>) => {
-        e.stopPropagation();
-        e.preventDefault();
-      }}
       onDoubleClick={handleDoubleClick}
       contentEditable={editable}
       suppressContentEditableWarning
