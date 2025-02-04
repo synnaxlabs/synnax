@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -65,7 +65,10 @@ export interface ProviderProps extends PropsWithChildren {
 
 const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
   if (e.target instanceof HTMLInputElement) return true;
-  if (e.target instanceof HTMLElement && e.target.matches("[contenteditable]"))
+  if (
+    e.target instanceof HTMLElement &&
+    e.target.getAttribute("contenteditable") === "true"
+  )
     return true;
   return false;
 };
@@ -86,7 +89,7 @@ export const Provider = ({
   preventDefaultOn,
   preventDefaultOptions,
 }: ProviderProps): ReactElement => {
-  // We track mouse movement to allow for cursor position on keybord events;
+  // We track mouse movement to allow for cursor position on keyboard events;
   const cursor = useRef<xy.XY>(xy.ZERO);
   const handleMouseMove = useCallback((e: MouseEvent): void => {
     cursor.current = xy.construct(e);

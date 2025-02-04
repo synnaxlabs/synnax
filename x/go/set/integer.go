@@ -1,16 +1,11 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in
-// the file licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business
-// Source License, use of this software will be governed by the Apache License,
-// Version 2.0, included in the file licenses/APL.txt.
-//
-// Integer implements tools for constructing a set of integers. Integer
-// implements compression by having a set of ranges, where the ranges are
-// defined by the start and end integers in the set. You can add and remove
-// integers from this set.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 package set
 

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -366,11 +366,12 @@ export const Tree = (): ReactElement => {
       });
       if (parent == null) return [];
       const moved = dropped.filter(({ data }) => data?.depth === minDepth);
+      const keys = moved.map(({ key }) => key as string);
       const sourceID = new ontology.ID(parent.key);
-      moved.forEach((id) => treeProps.contract(id.toString()));
+      treeProps.contract(...keys);
       dropMutation.mutate({
         source: sourceID,
-        ids: moved.map(({ key }) => new ontology.ID(key as string)),
+        ids: keys.map((key) => new ontology.ID(key)),
         destination,
       });
       return moved;
