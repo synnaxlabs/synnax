@@ -69,120 +69,31 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
 }
 
 std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
-    config::Parser &parser, const std::string &channel_type,
+    config::Parser &parser, 
+    const std::string &channel_type,
     const std::string &channel_name
 ) {
-    if (channel_type == "ai_accel")
-        return std::make_shared<AIAccelChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_accel_4_wire_dc_voltage")
-        return std::make_shared<AIAccel4WireDCVoltageChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_bridge")
-        return std::make_shared<AIBridgeChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_charge")
-        return std::make_shared<AIChargeChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_current")
-        return std::make_shared<AICurrentChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_force_bridge_polynomial")
-        return std::make_shared<
-            AIForceBridgePolynomialChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_force_bridge_table")
-        return std::make_shared<
-            AIForceBridgeTableChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_force_bridge_two_point_lin")
-        return std::make_shared<
-            AIForceBridgeTwoPointLinChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_force_iepe")
-        return std::make_shared<AIForceIEPEChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_microphone")
-        return std::make_shared<AIMicrophoneChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_pressure_bridge_polynomial")
-        return std::make_shared<
-            AIPressureBridgePolynomialChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_pressure_bridge_table")
-        return std::make_shared<
-            AIPressureBridgeTableChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_pressure_bridge_two_point_lin")
-        return std::make_shared<
-            AIPressureBridgeTwoPointLinChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_resistance")
-        return std::make_shared<AIResistanceChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_rtd")
-        return std::make_shared<AIRTDChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_strain_gauge")
-        return std::make_shared<AIStrainGaugeChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_temp_builtin")
-        return std::make_shared<AITempBuiltInChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_thermocouple")
-        return std::make_shared<AIThermocoupleChan>(
-            parser, this->task_handle, channel_name, this->port_to_channel
-        );
-    if (channel_type == "ai_torque_bridge_polynomial")
-        return std::make_shared<AITorqueBridgePolynomialChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_torque_bridge_table")
-        return std::make_shared<AITorqueBridgeTableChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_torque_bridge_two_point_lin")
-        return std::make_shared<AITorqueBridgeTwoPointLinChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_velocity_iepe")
-        return std::make_shared<AIVelocityIEPEChan>(
-            parser, this->task_handle, channel_name
-        );
-    if (channel_type == "ai_voltage")
-        return std::make_shared<AIVoltageChan>(
-            parser, this->task_handle, channel_name
-        );
+    auto channel = AnalogInputChannelFactory::create_channel(
+        channel_type, 
+        parser, 
+        this->task_handle, 
+        channel_name,
+        this->port_to_channel
+    );
+    if (channel == nullptr) {
+        std::string msg = "Channel " + channel_name + " has an unrecognized type: " + channel_type;
+        this->ctx->set_state({
+            .task = task.key,
+            .variant = "error",
+            .details = {
+                {"running", false},
+                {"message", msg}
+            }
+        });
+        this->log_error(msg);
+    }
 
-    // If channel type not recognized update task state
-    std::string msg = "Channel " + channel_name + " has an unrecognized type: " + channel_type;
-    this->ctx->set_state({
-        .task = task.key,
-        .variant = "error",
-        .details = {
-            {"running", false},
-            {"message", msg}
-        }
-    });
-    this->log_error(msg);
-    return nullptr;
+    return channel;
 }
 
 

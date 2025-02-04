@@ -46,8 +46,8 @@ struct WriterChannelConfig {
     synnax::DataType data_type;
     uint32_t channel_key;
     uint32_t state_channel_key;
-    std::string port;  // for digital
-    std::string line;  // for digital
+    std::string port;  
+    std::string line;  
     std::shared_ptr<ni::Analog> ni_channel;  // for analog
     std::string channel_type;
 
@@ -78,20 +78,8 @@ struct WriterChannelConfig {
             port = "ao" + std::to_string(port_num);
             name = device_name + "/" + port;
             
-            // Create the appropriate analog channel type
-            if (channel_type == "ao_current")
-                ni_channel = std::make_shared<CurrentOut>(
-                                    parser, task_handle, name
-                                );
-            else if (channel_type == "ao_voltage")
-                ni_channel = std::make_shared<VoltageOut>(
-                                    parser, task_handle, name
-                                );
-            else if (channel_type == "ao_func_gen")
-                ni_channel = std::make_shared<FunctionGeneratorOut>(
-                                    parser, task_handle, name
-                                );
-            else {
+            ni_channel = AnalogOutputChannelFactory::create_channel(channel_type, parser, task_handle, name);
+            if (ni_channel == nullptr) {
                 std::string msg = "Channel " + name + " has an unrecognized type: " + channel_type;
                 ctx->set_state({
                     .task = task_key,
@@ -102,7 +90,6 @@ struct WriterChannelConfig {
                     }
                 });
                 LOG(ERROR) << "[ni.writer] " << msg;
-                return;
             }
         }
     }
