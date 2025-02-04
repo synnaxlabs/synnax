@@ -130,6 +130,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 			n, err := s.localKeyCounter.Add(1)
 			return NewKey(s.HostProvider.HostKey(), uint16(n)), err
 		},
+		group: s.group,
 	}
 }
 
