@@ -45,7 +45,7 @@ jobs:
           - os: ubuntu-latest
             format: true
         exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
+          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'refs/heads/main') && 'macos-latest' }}
           - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -65,3 +65,17 @@ jobs:
       - name: Test
         run: go test -v -shuffle=on ./...
         working-directory: aspen
+## github.base_ref,
+## github.event_name
+## github.head_ref
+## github.ref
+
+## Run all 3 when:
+# - workflow_dispatch
+# - push to main
+# - pull_request to main
+
+## run only ubuntu when:
+# - push to rc
+# - pull_request to rc
+
