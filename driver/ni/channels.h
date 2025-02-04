@@ -1800,7 +1800,7 @@ public:
         frequency(parser.required<double>("frequency")),
         amplitude(parser.required<double>("amplitude")),
         offset(parser.required<double>("offset")),
-        wave_type(get_type(parser.required<std::string>("waveType"), parser)) {
+        wave_type(get_type(parser.required<std::string>("wave_type"), parser)) {
     }
 
     int32 create_ni_channel(

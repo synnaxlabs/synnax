@@ -495,6 +495,7 @@ ni::AnalogWriteSink::AnalogWriteSink(
 void ni::AnalogWriteSink::parse_config(config::Parser &parser) {
     this->writer_config.state_rate = parser.required<float>("state_rate");
     this->writer_config.device_key = parser.required<std::string>("device");
+    LOG(INFO) << "analog write config: " << parser.get_json().dump(4);
 
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
         this->writer_config.device_key);
