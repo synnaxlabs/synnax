@@ -32,6 +32,8 @@
 #include <condition_variable>
 #include <mutex>
 #include <array>
+#include <filesystem>
+#include <system_error>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -52,6 +54,54 @@ std::mutex mtx;
 std::condition_variable cv;
 bool should_stop = false;
 
+namespace fs = std::filesystem;
+
+const char* SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
+Description=Synnax Driver Service
+Documentation=https://docs.synnaxlabs.com/
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/synnax-driver start
+User=synnax
+Group=synnax
+
+# State directory
+StateDirectory=synnax
+ConfigurationDirectory=synnax
+CacheDirectory=synnax
+LogsDirectory=synnax
+
+# Security hardening
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+NoNewPrivileges=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=true
+
+# Resource limits
+LimitNOFILE=65535
+TasksMax=4096
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+)";
 
 std::string get_hostname() {
     std::array<char, 256> hostname{};
@@ -73,7 +123,8 @@ std::string get_hostname() {
 std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
     configd::Config &config,
     breaker::Breaker &breaker,
-    const std::shared_ptr<synnax::Synnax> &client) {
+    const std::shared_ptr<synnax::Synnax> &client
+) {
     std::pair<synnax::Rack, freighter::Error> res;
     if (config.rack_key != 0) {
         LOG(INFO) << "existing rack key found in configuration: " << config.rack_key;
@@ -89,7 +140,8 @@ std::pair<synnax::Rack, freighter::Error> retrieve_driver_rack(
         config.rack_key = 0;
         return retrieve_driver_rack(config, breaker, client);
     }
-    LOG(INFO) << "[driver] retrieved rack: " << res.first.key << " - " << res.first.name;
+    LOG(INFO) << "[driver] retrieved rack: " << res.first.key << " - " << res.first.
+            name;
     return res;
 }
 
@@ -159,11 +211,10 @@ void configure_labjack(
     LOG(INFO) << "[driver] LabJack integration not available on this platform";
 }
 
-
-int main(int argc, char *argv[]) {
+void cmd_start_standalone(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
-    if (argc > 1)
-        config_path = argv[1];
+    if (argc > 2)  // Changed from argc > 1 to account for the command
+        config_path = argv[2];
 
     auto cfg_json = configd::read(config_path);
     LOG(INFO) << "[driver] reading configuration from " << config_path;
@@ -175,16 +226,26 @@ int main(int argc, char *argv[]) {
     auto [cfg, cfg_err] = configd::parse(cfg_json);
     if (cfg_err) {
         LOG(FATAL) << "[driver] failed to parse configuration: " << cfg_err;
-        return 1;
+        return;
     }
     VLOG(1) << "[driver] configuration parsed successfully";
 
     auto [persisted_state, state_err] = configd::load_persisted_state();
     if (state_err) {
         LOG(WARNING) << "[driver] failed to load persisted state: " << state_err;
-    } else if (persisted_state.rack_key != 0 && cfg.rack_key == 0) {
-        VLOG(1) << "[driver] using persisted rack key: " << persisted_state.rack_key;
-        cfg.rack_key = persisted_state.rack_key;
+    } else {
+        if (persisted_state.rack_key != 0 && cfg.rack_key == 0) {
+            VLOG(1) << "[driver] using persisted rack key: " << persisted_state.rack_key;
+            cfg.rack_key = persisted_state.rack_key;
+        }
+        // if (!persisted_state.host.empty() && cfg.client_config.host.empty()) {
+        //     cfg.client_config.host = persisted_state.host;
+        //     cfg.client_config.port = persisted_state.port;
+        //     cfg.client_config.username = persisted_state.username;
+        //     cfg.client_config.password = persisted_state.password;
+        //     VLOG(1) << "[driver] using persisted credentials for " << persisted_state.username
+        //             << "@" << persisted_state.host << ":" << persisted_state.port;
+        // }
     }
 
     LOG(INFO) << "[driver] starting up";
@@ -208,7 +269,7 @@ int main(int argc, char *argv[]) {
         LOG(FATAL) <<
                 "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
                 << rack_err;
-        return 1;
+        return;
     }
 
     if (auto err = configd::save_persisted_state({.rack_key = rack.key}))
@@ -234,7 +295,7 @@ int main(int argc, char *argv[]) {
 
     if (auto err = task_manager->start()) {
         LOG(FATAL) << "[driver] failed to start: " << err;
-        return 1;
+        return;
     } {
         std::unique_lock lock(mtx);
         cv.wait(lock, [] { return should_stop; });
@@ -244,5 +305,241 @@ int main(int argc, char *argv[]) {
     task_manager->stop();
     listener.join();
     LOG(INFO) << "[driver] shutdown complete";
+}
+
+std::string get_secure_input(const std::string& prompt, bool hide_input = false) {
+    std::string input;
+    #ifdef _WIN32
+        HANDLE h_stdin = GetStdHandle(STD_INPUT_HANDLE);
+        DWORD mode;
+        GetConsoleMode(h_stdin, &mode);
+        if (hide_input) {
+            SetConsoleMode(h_stdin, mode & (~ENABLE_ECHO_INPUT));
+        }
+    #else
+        if (hide_input) {
+            system("stty -echo");
+        }
+    #endif
+
+    std::cout << prompt;
+    std::getline(std::cin, input);
+    
+    if (hide_input) {
+        std::cout << std::endl;
+        #ifdef _WIN32
+            SetConsoleMode(h_stdin, mode);
+        #else
+            system("stty echo");
+        #endif
+    }
+    return input;
+}
+
+void cmd_login(int argc, char *argv[]) {
+    synnax::Config config;
+    bool valid_input = false;
+
+    while (!valid_input) {
+        // Get host
+        config.host = get_secure_input("Host (default: localhost): ");
+        if (config.host.empty()) config.host = "localhost";
+
+        // Get port
+        std::string port_str = get_secure_input("Port (default: 9090): ");
+        if (port_str.empty()) {
+            config.port = 9090;
+        } else {
+            try {
+                config.port = static_cast<uint16_t>(std::stoi(port_str));
+            } catch (const std::exception& e) {
+                LOG(WARNING) << "Invalid port number. Please enter a valid number between 0 and 65535.";
+                continue;
+            }
+        }
+
+        // Get username
+        config.username = get_secure_input("Username: ");
+        if (config.username.empty()) {
+            LOG(WARNING) << "Username cannot be empty.";
+            continue;
+        }
+
+        // Get password
+        config.password = get_secure_input("Password: ", true);
+        if (config.password.empty()) {
+            LOG(WARNING) << "Password cannot be empty.";
+            continue;
+        }
+
+        valid_input = true;
+    }
+
+    LOG(INFO) << "Attempting to connect to Synnax at " << config.host << ":" << config.port;
+    synnax::Synnax client(config);
+    if (const auto err = client.auth->authenticate()) {
+        LOG(ERROR) << "Failed to authenticate: " << err;
+        return;
+    }
+    LOG(INFO) << "Successfully logged in!";
+    
+    auto [existing_state, _] = configd::load_persisted_state();
+    configd::PersistedState state{
+        .rack_key = existing_state.rack_key,
+        .connection = config
+    };
+    
+    if (auto err = configd::save_persisted_state(state)) {
+        LOG(ERROR) << "Failed to save credentials: " << err;
+        return;
+    }
+    LOG(INFO) << "Credentials saved successfully!";
+}
+
+void cmd_install(int argc, char* argv[]) {
+    // Check if running as root
+    if (geteuid() != 0) {
+        LOG(FATAL) << "Installation must be run as root";
+        return;
+    }
+
+    LOG(INFO) << "Installing Synnax Driver...";
+
+    // Create system user
+    if (auto err = create_system_user()) {
+        LOG(FATAL) << "Failed to create system user: " << err;
+        return;
+    }
+    LOG(INFO) << "System user created successfully";
+
+    // Install binary
+    if (auto err = install_binary()) {
+        LOG(FATAL) << "Failed to install binary: " << err;
+        return;
+    }
+    LOG(INFO) << "Binary installed successfully";
+
+    // Install service
+    if (auto err = install_service()) {
+        LOG(FATAL) << "Failed to install service: " << err;
+        return;
+    }
+    LOG(INFO) << "Service installed successfully";
+
+    // Enable and start the service
+    if (system("systemctl enable synnax-driver") != 0) {
+        LOG(FATAL) << "Failed to enable service";
+        return;
+    }
+    if (system("systemctl start synnax-driver") != 0) {
+        LOG(FATAL) << "Failed to start service";
+        return;
+    }
+
+    LOG(INFO) << "Synnax Driver installed and started successfully!";
+}
+
+void print_usage() {
+    std::cout << "Usage: synnax-driver <command> [options]\n"
+              << "Commands:\n"
+              << "  start    Start the Synnax driver\n"
+              << "  login    Log in to Synnax\n"
+              << "  install  Install the Synnax driver as a system service\n";
+}
+
+freighter::Error create_system_user() {
+    int result = system("id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax");
+    if (result != 0) {
+        return freighter::Error("Failed to create system user");
+    }
+    return {};
+}
+
+freighter::Error install_binary() {
+    // Get the path to the current executable
+    std::error_code ec;
+    fs::path current_exe = fs::read_symlink("/proc/self/exe", ec);
+    if (ec) {
+        return freighter::Error("Failed to get current executable path: " + ec.message());
+    }
+
+    // Create target directory if it doesn't exist
+    fs::create_directories("/usr/local/bin", ec);
+    if (ec) {
+        return freighter::Error("Failed to create binary directory: " + ec.message());
+    }
+
+    // Copy the binary
+    fs::path target_path = "/usr/local/bin/synnax-driver";
+    fs::copy_file(current_exe, target_path, 
+                  fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+        return freighter::Error("Failed to copy binary: " + ec.message());
+    }
+
+    // Set permissions (755)
+    if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
+        return freighter::Error("Failed to set binary permissions");
+    }
+
+    return {};
+}
+
+freighter::Error install_service() {
+    const char* service_path = "/etc/systemd/system/synnax-driver.service";
+    
+    // Create parent directories if they don't exist
+    std::error_code ec;
+    fs::create_directories(fs::path(service_path).parent_path(), ec);
+    if (ec) {
+        return freighter::Error("Failed to create service directory: " + ec.message());
+    }
+
+    // Write service file
+    std::ofstream service_file(service_path);
+    if (!service_file) {
+        return freighter::Error("Failed to create service file");
+    }
+    service_file << SYSTEMD_SERVICE_TEMPLATE;
+    service_file.close();
+
+    // Set permissions (644)
+    if (chmod(service_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0) {
+        return freighter::Error("Failed to set service file permissions");
+    }
+
+    // Reload systemd
+    if (system("systemctl daemon-reload") != 0) {
+        return freighter::Error("Failed to reload systemd");
+    }
+
+    return {};
+}
+
+int main(int argc, char *argv[]) {
+    FLAGS_logtostderr = true;
+    google::InitGoogleLogging(argv[0]);
+
+    if (argc < 2) {
+        print_usage();
+        return 1;
+    }
+
+    std::string command = argv[1];
+    
+    if (command == "start-standalone") {
+        cmd_start_standalone(argc, argv);
+    } else if (command == "start") {
+        cmd_start_daemon(argc, argv);
+    } else if (command == "login") {
+        cmd_login(argc, argv);
+    } else if (command == "install") {
+        cmd_install(argc, argv);
+    } else {
+        std::cout << "Unknown command: " << command << std::endl;
+        print_usage();
+        return 1;
+    }
+
     return 0;
 }

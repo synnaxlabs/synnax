@@ -79,6 +79,7 @@ public:
         nullptr,
         nullptr
     );
+    std::shared_ptr<AuthMiddleware> auth = nullptr;
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
@@ -90,13 +91,13 @@ public:
             cfg.client_key_file
         );
         priv::check_little_endian();
-        const auto auth_mw = std::make_shared<AuthMiddleware>(
+        auth = std::make_shared<AuthMiddleware>(
             std::move(t.auth_login),
             cfg.username,
             cfg.password,
             5
         );
-        t.use(auth_mw);
+        t.use(auth);
         channels = ChannelClient(std::move(t.chan_retrieve),
                                  std::move(t.chan_create));
         ranges = RangeClient(

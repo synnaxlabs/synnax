@@ -53,6 +53,7 @@ struct Config {
 
 struct PersistedState {
     synnax::RackKey rack_key;
+    synnax::Config connection;
 };
 
 inline std::string get_persisted_state_path() {
@@ -61,14 +62,27 @@ inline std::string get_persisted_state_path() {
     if (appdata == nullptr) return "";
     return std::string(appdata) + "\\synnax-driver\\persisted-state.json";
 #elif defined(__APPLE__)
-    const char* home = std::getenv("HOME");
+    const char *home = std::getenv("HOME");
     if (home == nullptr) return "";
-    return std::string(home) + "/Library/Application Support/synnax-driver/persisted-state.json";
+    return std::string(home) +
+           "/Library/Application Support/synnax-driver/persisted-state.json";
 #else
     const char* home = std::getenv("HOME");
     if (home == nullptr) return "";
     return std::string(home) + "/.config/synnax-driver/persisted-state.json";
 #endif
+}
+
+inline synnax::Config parse_synnax_config(config::Parser &conn) {
+    return synnax::Config{
+        .host = conn.optional<std::string>("host", "localhost"),
+        .port = conn.optional<std::uint16_t>("port", 9090),
+        .username = conn.optional<std::string>("username", "synnax"),
+        .password = conn.optional<std::string>("password", "seldon"),
+        .ca_cert_file = conn.optional<std::string>("ca_cert_file", ""),
+        .client_cert_file = conn.optional<std::string>("client_cert_file", ""),
+        .client_key_file = conn.optional<std::string>("client_key_file", ""),
+    };
 }
 
 inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
@@ -80,7 +94,10 @@ inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
     std::error_code ec;
     std::filesystem::create_directories(dir_path, ec);
     if (ec)
-        return {PersistedState{}, freighter::Error("failed to create directory: " + ec.message())};
+        return {
+            PersistedState{},
+            freighter::Error("failed to create directory: " + ec.message())
+        };
 
     std::ifstream file(path);
     if (!file.is_open())
@@ -89,15 +106,24 @@ inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
     try {
         json content = json::parse(file);
         auto parser = config::Parser(content);
-        return {PersistedState{
-            .rack_key = parser.optional<synnax::RackKey>("rack_key", 0)
-        }, freighter::NIL};
-    } catch (const json::exception& e) {
-        return {PersistedState{}, freighter::Error("failed to parse persisted state: " + std::string(e.what()))};
+        auto conn = parser.optional_child("connection");
+        return {
+            PersistedState{
+                .rack_key = parser.optional<synnax::RackKey>("rack_key", 0),
+                .connection = parse_synnax_config(conn)
+            },
+            freighter::NIL
+        };
+    } catch (const json::exception &e) {
+        return {
+            PersistedState{},
+            freighter::Error(
+                "failed to parse persisted state: " + std::string(e.what()))
+        };
     }
 }
 
-inline freighter::Error save_persisted_state(const PersistedState& state) {
+inline freighter::Error save_persisted_state(const PersistedState &state) {
     auto path = get_persisted_state_path();
     if (path.empty()) {
         return freighter::Error("failed to get home directory");
@@ -105,15 +131,27 @@ inline freighter::Error save_persisted_state(const PersistedState& state) {
 
     try {
         const json content = {
-            {"rack_key", state.rack_key}
+            {"rack_key", state.rack_key},
+            {
+                "connection", {
+                    {"host", state.connection.host},
+                    {"port", state.connection.port},
+                    {"username", state.connection.username},
+                    {"password", state.connection.password},
+                    {"ca_cert_file", state.connection.ca_cert_file},
+                    {"client_cert_file", state.connection.client_cert_file},
+                    {"client_key_file", state.connection.client_key_file}
+                }
+            }
         };
         std::ofstream file(path);
         if (!file.is_open())
             return freighter::Error("failed to open file for writing");
         file << content.dump(4);
         return freighter::NIL;
-    } catch (const std::exception& e) {
-        return freighter::Error("failed to save persisted state: " + std::string(e.what()));
+    } catch (const std::exception &e) {
+        return freighter::Error(
+            "failed to save persisted state: " + std::string(e.what()));
     }
 }
 
@@ -122,15 +160,7 @@ inline std::pair<configd::Config, freighter::Error> parse(
 ) {
     config::Parser p(content);
     auto conn = p.optional_child("connection");
-    auto synnax_cfg = synnax::Config{
-        .host = conn.optional<std::string>("host", "localhost"),
-        .port = conn.optional<std::uint16_t>("port", 9090),
-        .username = conn.optional<std::string>("username", "synnax"),
-        .password = conn.optional<std::string>("password", "seldon"),
-        .ca_cert_file = conn.optional<std::string>("ca_cert_file", ""),
-        .client_cert_file = conn.optional<std::string>("client_cert_file", ""),
-        .client_key_file = conn.optional<std::string>("client_key_file", ""),
-    };
+    auto synnax_cfg = parse_synnax_config(conn);
 
     auto retry = p.optional_child("retry");
     auto breaker_config = breaker::Config{
