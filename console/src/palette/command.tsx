@@ -12,10 +12,10 @@ import { Align, type Icon, List, type Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { type Confirm } from "@/confirm";
+import { type Export } from "@/export";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
-import { type Permissions } from "@/permissions";
-import { type RootStore } from "@/store";
+import { type RootState, type RootStore } from "@/store";
 
 export const CommandListItem = (
   props: List.ItemProps<string, Command>,
@@ -47,13 +47,14 @@ export interface CommandSelectionContext {
   addStatus: Status.AddStatusFn;
   handleException: Status.ExceptionHandler;
   ingestors: Record<string, Import.FileIngestor>;
+  extractors: Record<string, Export.Extractor>;
 }
 
 export interface Command {
   key: string;
   name: ReactElement | string;
   icon?: Icon.Element;
-  visible?: (state: Permissions.StoreState) => boolean;
+  visible?: (state: RootState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
   endContent?: ReactElement[];
 }
