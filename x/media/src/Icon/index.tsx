@@ -76,6 +76,7 @@ import {
   MdFileUpload,
   MdFilterCenterFocus,
   MdHardware,
+  MdHive,
   MdInsights,
   MdKeyboardAlt,
   MdKeyboardArrowDown,
@@ -417,6 +418,7 @@ export const Icon: IconType = {
   Decimal: wrapIcon(TbDecimal, "decimal"),
   String: wrapIcon(VscSymbolString, "string"),
   Control: wrapIcon(MdOutlineControlCamera, "control"),
+  Rack: wrapIcon(MdHive, "rack"),
 };
 
 export interface IconType {
@@ -572,4 +574,5 @@ export interface IconType {
   Decimal: IconFC;
   String: IconFC;
   Control: IconFC;
+  Rack: IconFC;
 }

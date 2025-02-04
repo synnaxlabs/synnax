@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, QueryError, type task } from "@synnaxlabs/client";
+import { NotFoundError, QueryError, type rack, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Button, Form, Header, Menu, Status, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
@@ -120,9 +120,11 @@ const Wrapped = ({
       const { name, config } = methods.value();
       const devices = unique.unique(config.channels.map((c) => c.device));
 
+      let rack: rack.RackKey = 0;
       for (const devKey of devices) {
         const dev = await client.hardware.devices.retrieve<Properties>(devKey);
         dev.properties = enrich(dev.model, dev.properties);
+        rack = dev.rack;
 
         let modified = false;
         let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
@@ -187,12 +189,15 @@ const Wrapped = ({
           c.channel = dev.properties.analogInput.channels[c.port.toString()];
         });
       }
-      await createTask({
-        key: task?.key,
-        name,
-        type: ANALOG_READ_TYPE,
-        config,
-      });
+      await createTask(
+        {
+          key: task?.key,
+          name,
+          type: ANALOG_READ_TYPE,
+          config,
+        },
+        rack,
+      );
       setDesiredState("paused");
     },
   });

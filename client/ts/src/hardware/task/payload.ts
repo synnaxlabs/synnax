@@ -115,3 +115,8 @@ export const ONTOLOGY_TYPE: ontology.ResourceType = "task";
 
 export const ontologyID = (key: TaskKey): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+
+export const rackKey = (key: TaskKey): number => {
+  const bigInt = BigInt(key);
+  return Number(bigInt >> BigInt(32));
+};
