@@ -48,30 +48,34 @@ struct TaskConfig {
 };
 
 
+/// @brief an implementation of a driver task used for configuring and running
+/// automated sequences.
 class Task final : public task::Task {
     /// @brief cfg is the configuration for the task.
-    TaskConfig cfg;
-    /// @brief ctx is the task execution context for communicating with the Synnax cluster
-    /// and updating the task state.
-    std::shared_ptr<task::Context> ctx;
+    const TaskConfig cfg;
+    /// @brief task is the task configuration.
     const synnax::Task task;
+    /// @brief the list of channels that the task will write to.
+    const std::vector<synnax::Channel> write_channels;
+    /// @brief the list of channels that the task will read from.
+    const std::vector<synnax::Channel> read_channels;
     /// @brief breaker is used to manage the lifecycle of the sequence.
     breaker::Breaker breaker;
     /// @brief thread is the thread that will execute the sequence.
     std::thread thread;
-    std::vector<synnax::Channel> write_channels;
-    std::vector<synnax::Channel> read_channels;
-
+    /// @brief ctx is the task execution context for communicating with the Synnax cluster
+    /// and updating the task state.
+    std::shared_ptr<task::Context> ctx;
 public:
     Task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task,
+        synnax::Task task,
         TaskConfig cfg,
         const std::vector<synnax::Channel> &read_channels,
         const std::vector<synnax::Channel> &write_channels
     ): cfg(std::move(cfg)),
        ctx(ctx),
-       task(task),
+       task(std::move(task)),
        read_channels(read_channels),
        write_channels(write_channels),
        breaker(breaker::Config{
@@ -84,14 +88,11 @@ public:
 
 
     void run() {
-        std::unordered_map<synnax::ChannelKey, synnax::Channel> read_channel_map;
-        for (const auto &ch: read_channels) read_channel_map[ch.key] = ch;
-
         // Step 1 - instantiate the JSON source
         auto json_source = std::make_shared<JSONSource>(cfg.globals);
 
         // Step 2 - instantiate the channel source and streamer config.
-        auto ch_source = std::make_shared<ChannelSource>(read_channel_map);
+        auto ch_source = std::make_shared<ChannelSource>(read_channels);
         synnax::StreamerConfig streamer_cfg{.channels = cfg.read,};
 
         auto breaker_config = breaker::Config{

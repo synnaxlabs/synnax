@@ -87,6 +87,35 @@ std::pair<synnax::TimeStamp, bool> Writer::commit() {
     }
 }
 
+bool Writer::set_authority(const synnax::Authority &auth) const {
+    const std::vector<synnax::Authority> auths = {auth};
+    return this->set_authority({}, auths);
+}
+
+bool Writer::set_authority(const ChannelKey &key, const synnax::Authority &auth) const {
+    const std::vector<ChannelKey> keys = {key};
+    const std::vector<synnax::Authority> auths = {auth};
+    return this->set_authority(keys, auths);
+}
+
+bool Writer::set_authority(const std::vector<ChannelKey> &keys, const std::vector<synnax::Authority> &auths) const {
+    const WriterConfig config{
+        .channels = keys,
+        .authorities = auths,
+    };
+    api::v1::FrameWriterRequest req;
+    req.set_command(SET_AUTHORITY);
+    config.to_proto(req.mutable_config());
+    if (const auto err = stream->send(req); err) return false;
+    while (true) {
+        auto [res, recExc] = stream->receive();
+        if (recExc) return false;
+        if (res.command() == SET_AUTHORITY) return res.ack();
+    }
+}
+
+
+
 freighter::Error Writer::error() const {
     assert_open();
     api::v1::FrameWriterRequest req;

@@ -279,6 +279,12 @@ public:
     /// the caller must acknowledge the error by calling error() or close() on the writer.
     bool write(const Frame &fr);
 
+    [[nodiscard]] bool set_authority(const synnax::Authority &auth) const;
+
+    [[nodiscard]] bool set_authority(const ChannelKey &key, const synnax::Authority &auth) const;
+
+    [[nodiscard]] bool set_authority(const std::vector<ChannelKey> &keys, const std::vector<synnax::Authority> &auths) const;
+
     /// @brief commits all pending writes to the Synnax cluster. Commit can be called
     /// multiple times, committing any new writes made since the last commit.
     ///

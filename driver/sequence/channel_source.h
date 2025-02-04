@@ -17,34 +17,34 @@ extern "C" {
 
 inline void apply(lua_State *L, const std::string &name, const synnax::SampleValue &value) {
     switch (value.index()) {
-        case 0:  // double
+        case 0:  // float64
             lua_pushnumber(L, std::get<double>(value));
             break;
-        case 1:  // float
+        case 1:  // float32
             lua_pushnumber(L, std::get<float>(value));
             break;
-        case 2:  // int64_t
+        case 2:  // int64
             lua_pushinteger(L, std::get<int64_t>(value));
             break;
-        case 3:  // int32_t
+        case 3:  // int32
             lua_pushinteger(L, std::get<int32_t>(value));
             break;
-        case 4:  // int16_t
+        case 4:  // int16
             lua_pushinteger(L, std::get<int16_t>(value));
             break;
-        case 5:  // int8_t
+        case 5:  // int8
             lua_pushinteger(L, std::get<int8_t>(value));
             break;
-        case 6:  // uint64_t
+        case 6:  // uint64
             lua_pushinteger(L, std::get<uint64_t>(value));
             break;
-        case 7:  // uint32_t
+        case 7:  // uint32
             lua_pushinteger(L, std::get<uint32_t>(value));
             break;
-        case 8:  // uint16_t
+        case 8:  // uint16
             lua_pushinteger(L, std::get<uint16_t>(value));
             break;
-        case 9:  // uint8_t
+        case 9:  // uint8
             lua_pushinteger(L, std::get<uint8_t>(value));
             break;
         case 10:  // string
@@ -61,9 +61,9 @@ class ChannelSource final : public sequence::Source, public pipeline::Sink {
     std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
 
 public:
-    explicit ChannelSource(
-        const std::unordered_map<synnax::ChannelKey, synnax::Channel> &channels
-    ): channels(channels) {
+    explicit ChannelSource(const std::vector<synnax::Channel>& channel_vec) {
+        for (const auto& channel : channel_vec)
+            channels[channel.key] = channel;
     }
 
     freighter::Error write(const synnax::Frame &frame) override {
