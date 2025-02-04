@@ -1,4 +1,4 @@
-name: Test - Drift
+name: Test - Server
 
 on:
   push:
@@ -9,12 +9,13 @@ on:
       - main
       - rc
     paths:
-      - .github/workflows/test.drift.yaml
-      - configs/eslint/**
-      - configs/ts/**
-      - configs/vite/**
-      - drift/**
-      - x/ts/**
+      - .github/workflows/test.server.yaml
+      - alamos/go/**
+      - aspen/**
+      - cesium/**
+      - freighter/go/**
+      - synnax/**
+      - x/go/**
   workflow_dispatch:
 
 jobs:
@@ -24,7 +25,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            lint: true
+            format: true
           - os: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && 'macos-latest' }}
           - os: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
@@ -32,24 +33,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          node-version-file: package.json
-          cache: pnpm
+          go-version-file: go.work
+          cache-dependency-path: go.work.sum
 
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Lint
-        if: matrix.lint
-        run: pnpm lint:drift
+      - name: Check Formatting
+        if: matrix.format
+        run: scripts/gofmt-check.sh synnax
 
       - name: Build
-        run: pnpm build:drift
+        run: go build -v ./...
+        working-directory: synnax
 
       - name: Test
-        run: pnpm test:drift
+        run: go test -v -shuffle=on ./...
+        working-directory: synnax

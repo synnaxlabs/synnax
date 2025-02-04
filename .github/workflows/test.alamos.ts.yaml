@@ -1,4 +1,4 @@
-name: Test - Drift
+name: Test - Alamos (TypeScript)
 
 on:
   push:
@@ -9,11 +9,11 @@ on:
       - main
       - rc
     paths:
-      - .github/workflows/test.drift.yaml
+      - .github/workflows/test.alamos.ts.yaml
+      - alamos/ts/**
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
-      - drift/**
       - x/ts/**
   workflow_dispatch:
 
@@ -46,10 +46,10 @@ jobs:
 
       - name: Lint
         if: matrix.lint
-        run: pnpm lint:drift
+        run: pnpm lint:alamos
 
       - name: Build
-        run: pnpm build:drift
+        run: pnpm build:alamos
 
       - name: Test
-        run: pnpm test:drift
+        run: pnpm test:alamos

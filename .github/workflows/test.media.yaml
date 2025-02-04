@@ -8,46 +8,25 @@ on:
     branches:
       - main
       - rc
+    paths:
+      - .github/workflows/test.media.yaml
+      - configs/eslint/**
+      - configs/stylelint/**
+      - configs/ts/**
+      - configs/vite/**
+      - x/media/**
   workflow_dispatch:
 
 jobs:
-  changes:
-    name: Changes
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.filter.outputs.changed }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            changed:
-              - .github/workflows/test.media.yaml
-              - configs/eslint/**
-              - configs/stylelint/**
-              - configs/ts/**
-              - configs/vite/**
-              - x/media/**
-              - x/ts/**
-
   test:
     name: Test (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.changed == 'true'
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
             lint: true
-        exclude:
-          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
-          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
+          - os: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && 'macos-latest' }}
+          - os: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -65,9 +44,9 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:media
-
       - name: Lint
         if: matrix.lint
         run: pnpm lint:media
+
+      - name: Build
+        run: pnpm build:media

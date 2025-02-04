@@ -1,4 +1,4 @@
-name: Test - Drift
+name: Test - X (TypeScript)
 
 on:
   push:
@@ -9,11 +9,10 @@ on:
       - main
       - rc
     paths:
-      - .github/workflows/test.drift.yaml
+      - .github/workflows/test.x.ts.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
-      - drift/**
       - x/ts/**
   workflow_dispatch:
 
@@ -46,10 +45,10 @@ jobs:
 
       - name: Lint
         if: matrix.lint
-        run: pnpm lint:drift
+        run: pnpm lint:x
 
       - name: Build
-        run: pnpm build:drift
+        run: pnpm build:x
 
       - name: Test
-        run: pnpm test:drift
+        run: pnpm test:x
