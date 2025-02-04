@@ -58,7 +58,7 @@ export const Aggregator = ({
     setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
   }
 
-  const add: AddStatusFn = useCallback(
+  const handleAdd: AddStatusFn = useCallback(
     (status) => {
       const spec: status.Spec = { time: TimeStamp.now(), key: id.id(), ...status };
       setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
@@ -66,7 +66,10 @@ export const Aggregator = ({
     [setState],
   );
 
-  const value = useMemo<ContextValue>(() => ({ statuses, add }), [statuses, add]);
+  const value = useMemo<ContextValue>(
+    () => ({ statuses, add: handleAdd }),
+    [statuses, handleAdd],
+  );
 
   return (
     <Context.Provider value={value}>

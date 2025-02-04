@@ -19,7 +19,7 @@ import {
 
 import { useEffectCompare } from "@/hooks";
 import { useMemoCompare } from "@/memo";
-import { Status } from "@/status";
+// import { Status } from "@/status";
 
 export type ContextValue =
   | {
@@ -47,7 +47,11 @@ export const Provider = memo(
       route: null,
       enabled: false,
     });
-    const handleException = Status.useExceptionHandler();
+    const handleException = (e: ErrorEvent | MessageEvent<any>) => {
+      console.error(e);
+      if (e instanceof ErrorEvent) console.error(e.message);
+      console.error(JSON.stringify(e));
+    };
 
     useEffectCompare(
       () => {
