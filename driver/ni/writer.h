@@ -34,26 +34,152 @@
 
 namespace ni {
 
-// Forward declarations TODO: why are these needed?
+// Forward declarations
 class Analog;
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                   WriterChannelConfig                         //
+///////////////////////////////////////////////////////////////////////////////////
+struct WriterChannelConfig {
+    std::string name;
+    bool enabled = true;
+    synnax::DataType data_type;
+    uint32_t channel_key;
+    uint32_t state_channel_key;
+    std::string port;  // for digital
+    std::string line;  // for digital
+    std::shared_ptr<ni::Analog> ni_channel;  // for analog
+    std::string channel_type;
+
+    WriterChannelConfig() = default;
+
+    explicit WriterChannelConfig(
+        config::Parser &parser, 
+        std::string device_name, 
+        bool is_digital,
+        TaskHandle task_handle,
+        synnax::TaskKey task_key,
+        std::shared_ptr<task::Context> ctx
+    ) {
+        enabled = parser.optional<bool>("enabled", true);
+        channel_key = parser.required<uint32_t>("cmd_channel");
+        state_channel_key = parser.required<uint32_t>("state_channel");
+        channel_type = parser.optional<std::string>("type", "");
+
+        auto port_num = parser.required<std::uint64_t>("port");
+        if (is_digital) {
+            // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
+            auto line_num = parser.required<std::uint64_t>("line");
+            port = "port" + std::to_string(port_num);
+            line = "line" + std::to_string(line_num);
+            name = device_name + "/" + port + "/" + line;
+        } else {
+            // analog channel names are formatted: <device_name>/ao<port_number>
+            port = "ao" + std::to_string(port_num);
+            name = device_name + "/" + port;
+            
+            // Create the appropriate analog channel type
+            if (channel_type == "ao_current")
+                ni_channel = std::make_shared<CurrentOut>(
+                                    parser, task_handle, name
+                                );
+            else if (channel_type == "ao_voltage")
+                ni_channel = std::make_shared<VoltageOut>(
+                                    parser, task_handle, name
+                                );
+            else if (channel_type == "ao_func_gen")
+                ni_channel = std::make_shared<FunctionGeneratorOut>(
+                                    parser, task_handle, name
+                                );
+            else {
+                std::string msg = "Channel " + name + " has an unrecognized type: " + channel_type;
+                ctx->set_state({
+                    .task = task_key,
+                    .variant = "error",
+                    .details = {
+                        {"running", false},
+                        {"message", msg}
+                    }
+                });
+                LOG(ERROR) << "[ni.writer] " << msg;
+                return;
+            }
+        }
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                   WriterConfig                                //
+///////////////////////////////////////////////////////////////////////////////////
 struct WriterConfig {
-    std::vector<ChannelConfig> channels;
-    float state_rate = 0;
+    std::string device_type;
     std::string device_name;
     std::string device_key;
     std::string task_name;
-
+    float state_rate = 0;
     synnax::ChannelKey task_key;
-
+    std::vector<WriterChannelConfig> channels;
     std::vector<synnax::ChannelKey> state_channel_keys;
     std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
-
     synnax::ChannelKey state_index_key;
     std::queue<synnax::ChannelKey> modified_state_keys;
     std::queue<std::uint8_t> digital_modified_state_values;
     std::queue<double> analog_modified_state_values;
-}; // struct WriterConfig
+
+    WriterConfig() = default;
+
+    explicit WriterConfig(
+        config::Parser &parser,
+        const std::shared_ptr<task::Context> &ctx,
+        bool is_digital,
+        TaskHandle task_handle,
+        synnax::TaskKey task_key
+    ) {
+        device_key = parser.required<std::string>("device");
+        state_rate = parser.required<float>("state_rate");
+        task_name = parser.optional<std::string>("task_name", "");
+
+        auto [dev, err] = ctx->client->hardware.retrieveDevice(device_key);
+        if (err != freighter::NIL) {
+            LOG(ERROR) << "Failed to retrieve device with key " << device_key;
+            return;
+        }
+        device_name = dev.location;
+
+        parser.iter("channels", [&](config::Parser &channel_parser) {
+            auto channel = WriterChannelConfig(
+                                channel_parser, 
+                                device_name, 
+                                is_digital, 
+                                task_handle, 
+                                task_key, 
+                                ctx
+                            );
+            
+            if (!channel.enabled) return;
+            if (!channel_parser.ok()) {
+                LOG(ERROR) << "Failed to parse channel config: " << channel_parser.error_json().dump(4);
+                return;
+            }
+            
+            channels.push_back(channel);
+            drive_cmd_channel_keys.push_back(channel.channel_key);
+            state_channel_keys.push_back(channel.state_channel_key);
+        });
+        
+        if(!parser.ok()) {
+            ctx->set_state({
+                .task = task_key,
+                .variant = "error",
+                .details = {
+                    {"running", false},
+                    {"message", parser.error_json().dump(4)}
+                }
+            });
+            LOG(ERROR) << "Failed to parse channel config: " << parser.error_json().dump(4);
+        }
+    }
+};
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
@@ -192,12 +318,6 @@ public:
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
 
     std::vector<synnax::ChannelKey> get_state_channel_keys();
-
-    std::shared_ptr<ni::Analog> parse_channel(
-        config::Parser &parser,
-        const std::string &channel_type,
-        const std::string &channel_name
-    );
 
     void get_index_keys();
 
