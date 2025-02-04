@@ -70,12 +70,12 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Build
+        run: pnpm build:pluto
+
       - name: Lint
         if: matrix.lint
         run: pnpm lint:pluto
-
-      - name: Build
-        run: pnpm build:pluto
 
       - name: Test
         run: pnpm test:pluto
