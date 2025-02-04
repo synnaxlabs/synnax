@@ -8,57 +8,35 @@ on:
     branches:
       - main
       - rc
+    paths:
+      - .github/workflows/test.migration.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - aspen/**
+      - cesium/**
+      - client/py/**
+      - freighter/go/**
+      - freighter/py/**
+      - synnax/**
+      - x/go/**
   workflow_dispatch:
 
 permissions:
-  contents: write
   packages: write
 
 jobs:
-  changes:
-    name: Changes
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.filter.outputs.changed }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            changed:
-              - .github/workflows/test.migration.yaml
-              - alamos/go/**
-              - alamos/py/**
-              - aspen/**
-              - cesium/**
-              - client/py/**
-              - freighter/go/**
-              - freighter/py/**
-              - synnax/**
-              - x/go/**
-
   test:
     name: Test
-    needs: changes
     runs-on: ubuntu-latest
-    if: needs.changes.outputs.changed == 'true'
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Start Main Server
-        id: start_main
-        run: docker run -d --name synnax-main -p 9090:9090 -v data:/usr/local/synnax/data -e SYNNAX_DATA=/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:latest
-
       - name: Checkout Main Branch
         uses: actions/checkout@v4
         with:
           ref: main
+
+      - name: Start Main Server
+        id: start_main
+        run: docker run -d --name synnax-main -p 9090:9090 -v data:/usr/local/synnax/data -e SYNNAX_DATA=/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:latest
 
       - name: Install Poetry
         run: pipx install poetry
@@ -84,7 +62,6 @@ jobs:
           docker stop synnax-main
           docker rm synnax-main
 
-      # Build and Test with Current Server
       - name: Checkout Current Branch
         uses: actions/checkout@v4
 
@@ -108,9 +85,6 @@ jobs:
       - name: Start Current Server
         id: start_current
         run: docker run -d --name synnax-current -p 9090:9090 -v data:/usr/local/synnax/data -e SYNNAX_DATA=/usr/local/synnax/data -e SYNNAX_LISTEN=0.0.0.0:9090 -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
-
-      - name: Install Poetry
-        run: pipx install poetry
 
       - name: Set up Python
         uses: actions/setup-python@v5
