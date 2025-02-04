@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
+import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { text } from "@/text/core";
 import { theming } from "@/theming/aether";
@@ -61,13 +62,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   values: MultiSeries = new MultiSeries([]);
   scrollState: ScrollbackState = ZERO_SCROLLBACK;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.render = render.Context.use(this.ctx);
-    i.theme = theming.use(this.ctx);
+    i.render = render.Context.use(ctx);
+    i.theme = theming.use(ctx);
     if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
-    i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
+    i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
+    const handleException = status.useExceptionHandler(ctx);
 
     const { scrolling, wheelPos } = this.state;
 
@@ -108,13 +110,16 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      this.internal.telem.value().then(([_, series]) => {
-        this.checkEmpty();
-        this.values = new MultiSeries(series);
-        this.requestRender();
-      });
+      this.internal.telem
+        .value()
+        .then(([_, series]) => {
+          this.checkEmpty();
+          this.values = new MultiSeries(series);
+          void this.requestRender();
+        })
+        .catch((e) => handleException(e, "Failed to update log"));
     });
-    this.requestRender();
+    void this.requestRender();
   }
 
   private checkEmpty(): void {
@@ -129,9 +134,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     renderCtx.erase(box.construct(this.state.region), xy.ZERO, CANVAS);
   }
 
-  private requestRender(): void {
+  private async requestRender(): Promise<void> {
     const { render } = this.internal;
-    render.loop.set({
+    await render.loop.set({
       key: `${this.type}-${this.key}`,
       render: async () => await this.render(),
       priority: "high",

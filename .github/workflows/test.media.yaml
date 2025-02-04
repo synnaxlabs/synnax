@@ -65,10 +65,11 @@ jobs:
 
       - name: Install Dependencies
         run: pnpm install
+      
+      - name: Build
+        run: pnpm build:media
 
       - name: Lint
         if: matrix.lint
         run: pnpm lint:media
 
-      - name: Build
-        run: pnpm build:media

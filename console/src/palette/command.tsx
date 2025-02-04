@@ -45,7 +45,7 @@ export interface CommandSelectionContext {
   placeLayout: Layout.Placer;
   confirm: Confirm.CreateModal;
   addStatus: Status.AddStatusFn;
-  handleException: Status.HandleExcFn;
+  handleException: Status.ExceptionHandler;
   ingestors: Record<string, Import.FileIngestor>;
 }
 

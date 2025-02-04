@@ -61,13 +61,13 @@ class TickTextDimensions {
 }
 
 export class Canvas implements Axis {
-  ctx: render.Context;
+  renderCtx: render.Context;
   state: ParsedAxisState;
   tickFactory: TickFactory;
   dimensions: TickTextDimensions;
 
   constructor(ctx: render.Context, state: ParsedAxisState) {
-    this.ctx = ctx;
+    this.renderCtx = ctx;
     this.state = state;
     this.tickFactory = newTickFactory(this.state);
     this.dimensions = new TickTextDimensions(ctx.lower2d, state.font);
@@ -76,11 +76,11 @@ export class Canvas implements Axis {
   setState(state: AxisState): void {
     this.state = prettyParse(axisStateZ, state);
     this.tickFactory = newTickFactory(state);
-    this.dimensions = new TickTextDimensions(this.ctx.lower2d, this.state.font);
+    this.dimensions = new TickTextDimensions(this.renderCtx.lower2d, this.state.font);
   }
 
   render(props: AxisProps): RenderResult {
-    const { lower2d: canvas } = this.ctx;
+    const { lower2d: canvas } = this.renderCtx;
     canvas.font = this.state.font;
     canvas.fillStyle = this.state.color.hex;
     canvas.lineWidth = 1;
@@ -98,7 +98,7 @@ export class Canvas implements Axis {
   }
 
   drawBottom(ctx: AxisProps): RenderResult {
-    const { lower2d: canvas } = this.ctx;
+    const { lower2d: canvas } = this.renderCtx;
     const { plot: plottingRegion } = ctx;
     const size = box.width(plottingRegion);
     const gridSize = box.height(plottingRegion);
@@ -125,7 +125,7 @@ export class Canvas implements Axis {
   }
 
   drawTop(ctx: AxisProps): RenderResult {
-    const { lower2d: canvas } = this.ctx;
+    const { lower2d: canvas } = this.renderCtx;
     const { plot: plottingRegion } = ctx;
     const size = box.width(plottingRegion);
     const gridSize = box.height(plottingRegion);
@@ -152,7 +152,7 @@ export class Canvas implements Axis {
   }
 
   drawLeft(ctx: AxisProps): RenderResult {
-    const { lower2d: canvas } = this.ctx;
+    const { lower2d: canvas } = this.renderCtx;
     const { plot: plottingRegion } = ctx;
     const size = box.height(plottingRegion);
     const gridSize = box.width(plottingRegion);
@@ -179,7 +179,7 @@ export class Canvas implements Axis {
   }
 
   drawRight(ctx: AxisProps): RenderResult {
-    const { lower2d: canvas } = this.ctx;
+    const { lower2d: canvas } = this.renderCtx;
     const { plot: plottingRegion } = ctx;
     const size = box.height(plottingRegion);
     const gridSize = box.width(plottingRegion);
@@ -205,7 +205,7 @@ export class Canvas implements Axis {
   }
 
   private drawLine(start: xy.XY, end: xy.XY): void {
-    const { lower2d: canvas } = this.ctx;
+    const { lower2d: canvas } = this.renderCtx;
     canvas.beginPath();
     canvas.moveTo(...xy.couple(start));
     canvas.lineTo(...xy.couple(end));
@@ -234,7 +234,7 @@ export class Canvas implements Axis {
     if (showGrid) {
       const startBound = bounds.construct(-1, 1);
       const endBound = bounds.construct(size - 1, size + 1);
-      this.ctx.lower2d.strokeStyle = gridColor.hex;
+      this.renderCtx.lower2d.strokeStyle = gridColor.hex;
       ticks
         .filter(
           ({ position }) =>

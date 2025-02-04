@@ -120,7 +120,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       };
     },
     openObservable: async (client) => await client.ranges.openTracker(),
-    applyObservable: async ({ changes, ctx }) => {
+    applyObservable: ({ changes, ctx }) => {
       const target = changes.find((c) => c.variant === "set" && c.key === rangeKey);
       if (target == null || target.value == null) return;
       ctx.set("", {

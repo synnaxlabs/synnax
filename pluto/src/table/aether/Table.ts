@@ -11,6 +11,7 @@ import { box, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { status } from "@/status/aether";
 import { render } from "@/vis/render";
 
 export const tableStateZ = z.object({
@@ -29,6 +30,7 @@ export interface Cell extends aether.Component {
 
 interface InternalState {
   renderCtx: render.Context;
+  handleException: status.ExceptionHandler;
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
@@ -38,10 +40,11 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
   static readonly stateZ = tableStateZ;
   schema = Table.stateZ;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.renderCtx = render.Context.use(this.ctx);
-    render.Controller.control(this.ctx, () => this.requestRender("low"));
+    i.renderCtx = render.Context.use(ctx);
+    i.handleException = status.useExceptionHandler(ctx);
+    render.Controller.control(ctx, () => this.requestRender("low"));
     this.requestRender("high");
   }
 
@@ -59,7 +62,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
           this.state.clearOverScan,
           ...CANVASES,
         );
-    const { renderCtx } = this.internal;
+    const { renderCtx, handleException } = this.internal;
     const viewportScale = scale.XY.translate(box.topLeft(this.state.region));
     const clearScissor = renderCtx.scissor(
       this.state.region,
@@ -70,7 +73,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     try {
       for (const child of this.children) await child.render({ viewportScale });
     } catch (e) {
-      console.error(e);
+      handleException(e, "Failed to render table");
     } finally {
       clearScissor();
     }

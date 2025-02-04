@@ -22,8 +22,8 @@ export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
   Layout.RemovePayload | Layout.SetWorkspacePayload,
   RemovePayload
-> = ({ action, dispatch, getState }) => {
-  const state = getState();
+> = ({ action, store }) => {
+  const state = store.getState();
   const schematicSlice = selectSliceState(state);
   const layoutSlice = Layout.selectSliceState(state);
   // This is the case where the action does an explicit removal.
@@ -32,16 +32,16 @@ export const deleteEffect: MiddlewareEffect<
   const toRemove = Object.keys(schematicSlice.schematics).filter(
     (p) => keys.includes(p) || layoutSlice.layouts[p] == null,
   );
-  if (toRemove.length > 0) dispatch(remove({ keys: toRemove }));
+  if (toRemove.length > 0) store.dispatch(remove({ keys: toRemove }));
 };
 
 export const themeChangeEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
   Layout.SetActiveThemePayload,
   FixThemeContrastPayload
-> = ({ dispatch, getState }) => {
-  const theme = Layout.selectRawTheme(getState());
-  dispatch(fixThemeContrast({ theme }));
+> = ({ store }) => {
+  const theme = Layout.selectRawTheme(store.getState());
+  store.dispatch(fixThemeContrast({ theme }));
 };
 
 export const MIDDLEWARE = [

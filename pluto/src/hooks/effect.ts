@@ -12,11 +12,11 @@ import { type DependencyList, type EffectCallback, useEffect } from "react";
 import { useMemoCompare } from "@/memo";
 
 /* An async version of React.Destructor */
- 
-export type AsyncDestructor = Promise<(() => void) | void>;
+
+export type AsyncDestructor = (() => Promise<void>) | (() => void) | void;
 
 /** An async version of React.EffectCallback */
-export type AsyncEffectCallback = () => AsyncDestructor;
+export type AsyncEffectCallback = () => Promise<AsyncDestructor>;
 
 /**
  * A version of useEffect that supports async functions and destructors. NOTE: The behavior

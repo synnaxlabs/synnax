@@ -207,7 +207,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
             if (err != null) resolve(err);
             else resolve(oWs);
           })
-          .catch((err) => resolve(err));
+          .catch((err: Error) => resolve(err));
       };
       ws.onerror = (ev: Event) => {
         const ev_ = ev as ErrorEvent;

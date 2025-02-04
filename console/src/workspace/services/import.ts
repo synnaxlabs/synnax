@@ -42,8 +42,8 @@ export const ingest: Import.DirectoryIngestor = async (
   await client?.workspaces.create(ws);
 };
 
-interface IngestContext {
-  handleException: Status.HandleExcFn;
+export interface IngestContext {
+  handleException: Status.ExceptionHandler;
   client: Synnax | null;
   ingestors: Record<string, Import.FileIngestor>;
   placeLayout: Layout.Placer;

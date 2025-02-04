@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type framer, type Synnax } from "@synnaxlabs/client";
-import { type Channel } from "@synnaxlabs/pluto";
+import { type Channel, type Status } from "@synnaxlabs/pluto";
 import { type TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
@@ -17,6 +17,7 @@ export interface DownloadProps {
   timeRange: TimeRange;
   client: Synnax;
   lines: Channel.LineProps[];
+  handleException: Status.ExceptionHandler;
   name?: string;
 }
 
@@ -42,6 +43,7 @@ export const download = ({
   lines,
   client,
   timeRange,
+  handleException,
   name = "synnax-data",
 }: DownloadProps): void => {
   (async () => {
@@ -69,5 +71,5 @@ export const download = ({
     if (savePath == null) return;
     const data = new TextEncoder().encode(csv);
     await writeFile(savePath, data);
-  })().catch(console.error);
+  })().catch(handleException);
 };

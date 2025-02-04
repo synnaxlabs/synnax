@@ -24,7 +24,7 @@ export type LightState = z.input<typeof lightStateZ>;
 
 interface InternalState {
   source: telem.BooleanSource;
-  addStatus: status.Aggregate;
+  addStatus: status.AddStatusFn;
   stopListening: Destructor;
 }
 
@@ -37,21 +37,21 @@ export class Light
 
   schema = lightStateZ;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.addStatus = status.useOptionalAggregate(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.addStatus = status.useOptionalAggregator(ctx);
     const { source: sourceProps } = this.state;
     const { internal: i } = this;
     this.internal.source = await telem.useSource(
-      this.ctx,
+      ctx,
       sourceProps,
       this.internal.source,
     );
 
     await this.updateEnabledState();
     i.stopListening?.();
-    i.stopListening = i.source.onChange(() =>
-      this.updateEnabledState().catch(this.reportError.bind(this)),
-    );
+    i.stopListening = i.source.onChange(() => {
+      this.updateEnabledState().catch(this.reportError.bind(this));
+    });
   }
 
   private reportError(e: Error): void {

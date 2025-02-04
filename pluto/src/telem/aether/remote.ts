@@ -85,10 +85,11 @@ export class StreamChannelValue
   async value(): Promise<number> {
     // No valid channel has been set.
     if (primitiveIsZero(this.props.channel)) return 0;
-    if (this.channelKey === 0)
-      this.channelKey = (
-        await fetchChannelProperties(this.client, this.props.channel, false)
-      ).key;
+    if (this.channelKey === 0) {
+      const c = await fetchChannelProperties(this.client, this.props.channel, false);
+      if (c == null) return 0;
+      this.channelKey = c.key;
+    }
     if (!this.valid) await this.read();
     // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;
@@ -125,8 +126,9 @@ const fetchChannelProperties = async (
   client: client.ChannelClient,
   ch: channel.KeyOrName,
   fetchIndex: boolean,
-): Promise<SelectedChannelProperties> => {
+): Promise<SelectedChannelProperties | null> => {
   let c = await client.retrieveChannel(ch);
+  if (c == null) return null;
   if (!fetchIndex || c.isIndex)
     return { key: c.key, dataType: c.dataType, virtual: c.virtual };
   if (channel.isCalculated(c)) {
@@ -136,6 +138,7 @@ const fetchChannelProperties = async (
     );
     if (indexKey == null) throw new ValidationError("Cannot resolve calculated index");
     c = await client.retrieveChannel(indexKey);
+    if (c == null) return null;
     return { key: c.key, dataType: DataType.TIMESTAMP, virtual: false };
   }
   if (c.virtual) throw new ValidationError("Cannot plot data from virtual channels");
@@ -177,6 +180,7 @@ export class ChannelData
     // and return an empty array.
     if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
     const chan = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
+    if (chan == null) return [bounds.ZERO, []];
     if (!this.valid) await this.readFixed(chan.key);
     let b = bounds.max(this.data.map((d) => d.bounds));
     if (chan.dataType.equals(DataType.TIMESTAMP))
@@ -226,6 +230,7 @@ export class StreamChannelData
     if (channel === 0) return [bounds.ZERO, []];
     const now = TimeStamp.now();
     const ch = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
+    if (ch == null) return [bounds.ZERO, []];
     if (!this.valid) await this.read(ch);
     if (ch.dataType.isVariable) return [bounds.ZERO, this.data];
     let b = bounds.max(

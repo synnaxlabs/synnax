@@ -60,8 +60,8 @@ const HAUL_TYPE = "Schematic.Grid";
 
 const reflowPane = (symbolKey: string) => {
   const node = selectNode(symbolKey);
-  const nearestDiagram = node.closest(".react-flow__pane") as HTMLElement | null;
-  if (nearestDiagram != null) triggerReflow(nearestDiagram);
+  const nearestDiagram = node.closest(".react-flow__pane");
+  if (nearestDiagram != null) triggerReflow(nearestDiagram as HTMLElement);
 };
 
 const createGridEl = (loc: location.Outer): FC<GridElProps> => {

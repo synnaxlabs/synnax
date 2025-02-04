@@ -11,6 +11,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { type numeric } from "@/numeric";
 import * as bounds from "@/spatial/bounds/bounds";
+import { testutil } from "@/testutil";
 
 describe("Bounds", () => {
   describe("construction", () => {
@@ -322,7 +323,7 @@ describe("Bounds", () => {
       },
     ];
     SPECS.forEach(({ bounds: b, start, dist, expected }) => {
-      test(`should return ${expected} for ${b} and ${start} and ${dist}`, () => {
+      test(`should return ${expected} for ${testutil.toString(b)} and ${start} and ${dist}`, () => {
         expect(bounds.traverse(b, start, dist)).toEqual(expected);
       });
     });
@@ -366,7 +367,7 @@ describe("Bounds", () => {
       },
     ];
     SPECS.forEach(({ bounds: b, start, end, expected }) => {
-      test(`should return ${expected} for ${b} and ${start} and ${end}`, () => {
+      test(`should return ${expected} for ${JSON.stringify(b)} and ${start} and ${end}`, () => {
         expect(bounds.distance(b, start, end)).toEqual(expected);
       });
     });

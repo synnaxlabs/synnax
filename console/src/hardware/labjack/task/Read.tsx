@@ -482,7 +482,7 @@ const ChannelListItem = ({
         {showTareButton && (
           <TareButton
             disabled={tareIsDisabled}
-            onClick={() => onTare(childValues.channel as number)}
+            onClick={() => onTare(childValues.channel)}
           />
         )}
         <EnableDisableButton

@@ -40,14 +40,14 @@ describe("Persist", () => {
       const v2Store = new kv.MockAsync();
       const version = 12;
       const persistedStateKey = Persist.persistedStateKey(version);
-      v1Store.set(Persist.DB_VERSION_KEY, { version });
+      await v1Store.set(Persist.DB_VERSION_KEY, { version });
       const persistedState = {
         [Version.SLICE_NAME]: {
           ...ZERO_MOCK_STATE[Version.SLICE_NAME],
           consoleVersion: "16.2.0",
         },
       };
-      v1Store.set(persistedStateKey, persistedState);
+      await v1Store.set(persistedStateKey, persistedState);
       const openKV = async (path: string): Promise<SugaredKV> => {
         if (path === Persist.V1_STORE_PATH) return v1Store;
         if (path === Persist.V2_STORE_PATH) return v2Store;

@@ -94,7 +94,7 @@ export const PropertiesControls = memo(
           }
           return null;
         })
-        .filter((el) => el !== null) as Diagram.NodeLayout[];
+        .filter((el) => el !== null);
 
       return (
         <Align.Space align="start" direction="x" style={{ padding: "2rem" }}>

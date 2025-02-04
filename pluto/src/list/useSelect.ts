@@ -183,7 +183,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
       let data = dataRef.current;
       if (!Array.isArray(data)) data = data();
       let nextSelected: K[] = [];
-      const value = toArray(valueRef.current).filter((v) => v != null) as K[];
+      const value = toArray(valueRef.current).filter((v) => v != null);
       // Simple case. If we can't allow multiple, then just toggle the key.
       if (allowMultiple === false) nextSelected = value.includes(key) ? [] : [key];
       // If the control key is held, we can still allow multiple selection.

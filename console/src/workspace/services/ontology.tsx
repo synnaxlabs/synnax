@@ -112,7 +112,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       const otg = await client.ontology.retrieve(
         clientSchematic.ontologyID(schematic.key),
       );
-      maybeChangeWorkspace(workspace);
+      await maybeChangeWorkspace(workspace);
       placeLayout(
         Schematic.create({
           ...schematic.data,
@@ -154,7 +154,7 @@ const useCreateLinePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =
       const otg = await client.ontology.retrieve(
         clientLinePlot.ontologyID(linePlot.key),
       );
-      maybeChangeWorkspace(workspace);
+      await maybeChangeWorkspace(workspace);
       placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
@@ -187,7 +187,7 @@ const useCreateLog = (): ((props: Ontology.TreeContextMenuProps) => void) => {
         data: deep.copy(Log.ZERO_STATE),
       });
       const otg = await client.ontology.retrieve(clientLog.ontologyID(log.key));
-      maybeChangeWorkspace(workspace);
+      await maybeChangeWorkspace(workspace);
       placeLayout(Log.create({ ...log.data, key: log.key, name: log.name }));
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
@@ -220,7 +220,7 @@ const useCreateTable = (): ((props: Ontology.TreeContextMenuProps) => void) => {
         data: deep.copy(Table.ZERO_STATE),
       });
       const otg = await client.ontology.retrieve(clientTable.ontologyID(table.key));
-      maybeChangeWorkspace(workspace);
+      await maybeChangeWorkspace(workspace);
       placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
       setResources([...resources, otg]);
       const nextNodes = Tree.setNode({
@@ -341,7 +341,7 @@ const handleSelect: Ontology.HandleSelect = async ({ selection, client, store })
 const handleRename: Ontology.HandleTreeRename = {
   eager: ({ id, name, store }) => store.dispatch(rename({ key: id.key, name })),
   execute: async ({ client, id, name }) => await client.workspaces.rename(id.key, name),
-  rollback: async ({ id, store }, prevName) =>
+  rollback: ({ id, store }, prevName) =>
     store.dispatch(rename({ key: id.key, name: prevName })),
 };
 

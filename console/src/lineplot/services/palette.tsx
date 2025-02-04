@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 
+import { type Import } from "@/import";
 import { LinePlot } from "@/lineplot";
 import { ImportIcon } from "@/lineplot/services/Icon";
 import { import_ } from "@/lineplot/services/import";
@@ -25,7 +26,7 @@ const IMPORT_COMMAND: Palette.Command = {
   key: "import-line-plot",
   name: "Import Line Plot(s)",
   icon: <ImportIcon />,
-  onSelect: import_,
+  onSelect: (ctx: Import.ImportArgs) => void import_(ctx),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

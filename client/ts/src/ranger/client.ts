@@ -278,9 +278,11 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     const retrieved = await this.execRetrieve({ [variant]: normalized });
     if (!single) return retrieved;
     if (retrieved.length === 0)
-      throw new NotFoundError(`range matching ${actual} not found`);
+      throw new NotFoundError(`range matching ${actual as string} not found`);
     if (retrieved.length > 1)
-      throw new MultipleFoundError(`multiple ranges matching ${actual} found`);
+      throw new MultipleFoundError(
+        `multiple ranges matching ${actual as string} found`,
+      );
     return retrieved[0];
   }
 

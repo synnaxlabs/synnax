@@ -19,6 +19,7 @@ import {
 
 import { useEffectCompare } from "@/hooks";
 import { useMemoCompare } from "@/memo";
+// import { Status } from "@/status";
 
 export type ContextValue =
   | {
@@ -46,21 +47,18 @@ export const Provider = memo(
       route: null,
       enabled: false,
     });
+    const handleException = (e: ErrorEvent | MessageEvent<any>) => {
+      console.error(e);
+      if (e instanceof ErrorEvent) console.error(e.message);
+      console.error(JSON.stringify(e));
+    };
 
     useEffectCompare(
       () => {
         if (!enabled) return;
         const worker = new Worker(url, { type: "module" });
-        worker.onmessageerror = (e) => {
-          console.error(e);
-          console.error(e);
-          console.error(JSON.stringify(e));
-        };
-        worker.onerror = (e) => {
-          console.error(e);
-          console.error(e.message);
-          console.error(JSON.stringify(e));
-        };
+        worker.onmessageerror = handleException;
+        worker.onerror = handleException;
         const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
         worker.onmessage = (e) => router.handle(e);
         setState({
