@@ -30,13 +30,11 @@
     "macOS": {
       "entitlements": null,
       "frameworks": [],
-      "providerShortName": null,
-      "signingIdentity": null
+      "providerShortName": null
     },
     "resources": [],
     "shortDescription": "",
-    "linux": { "deb": { "depends": [] } },
-    "externalBin": ["bin/lua"]
+    "linux": { "deb": { "depends": [] } }
   },
   "identifier": "com.synnaxlabs.dev",
   "plugins": {
