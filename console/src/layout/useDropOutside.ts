@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -49,21 +49,23 @@ const useDropOutsideMacOS = ({
   const store = useStore<StoreState & Drift.StoreState>();
   useAsyncEffect(
     async () =>
-      listen("mouse_up", async ({ payload: [x, y] }: { payload: [number, number] }) => {
-        if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
-        const state = store.getState();
-        const layout = select(state, dragging.current.items[0].key as string);
-        if (layout?.windowKey == null) return;
-        const winLabel = Drift.selectWindowLabel(state, layout.windowKey);
-        if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
-        const win = await Window.getByLabel(winLabel);
-        if (win == null) return;
-        const sf = await win.scaleFactor();
-        const rawCursor = xy.construct(x, y);
-        const cursor = xy.scale(rawCursor, sf);
-        if (windowsContain(cursor)) return;
-        const dropped = onDrop(dragging.current, rawCursor);
-        drop({ target, dropped });
+      listen("mouse_up", ({ payload: [x, y] }: { payload: [number, number] }) => {
+        void (async () => {
+          if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
+          const state = store.getState();
+          const layout = select(state, dragging.current.items[0].key as string);
+          if (layout?.windowKey == null) return;
+          const winLabel = Drift.selectWindowLabel(state, layout.windowKey);
+          if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
+          const win = await Window.getByLabel(winLabel);
+          if (win == null) return;
+          const sf = await win.scaleFactor();
+          const rawCursor = xy.construct(x, y);
+          const cursor = xy.scale(rawCursor, sf);
+          if (windowsContain(cursor)) return;
+          const dropped = onDrop(dragging.current, rawCursor);
+          drop({ target, dropped });
+        })();
       }),
     [target],
   );
@@ -98,7 +100,7 @@ const canDrop: Haul.CanDrop = ({ items }) =>
   items.length === 1 && items[0].type === Mosaic.HAUL_DROP_TYPE;
 
 export const useBase =
-  runtime.getOS() === "MacOS" ? useDropOutsideMacOS : useDropOutsideWindows;
+  runtime.getOS() === "macOS" ? useDropOutsideMacOS : useDropOutsideWindows;
 
 export const useDropOutside = () => {
   const place = usePlacer();

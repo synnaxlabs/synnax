@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -113,9 +113,9 @@ export class GLProgram extends render.GLProgram {
     this.translationBufferCache = new Map();
     // Cache commonly used attribute locations
     this.attrLocations = {
-      x: this.ctx.gl.getAttribLocation(this.prog, "a_x"),
-      y: this.ctx.gl.getAttribLocation(this.prog, "a_y"),
-      translate: this.ctx.gl.getAttribLocation(this.prog, "a_translate"),
+      x: this.renderCtx.gl.getAttribLocation(this.prog, "a_x"),
+      y: this.renderCtx.gl.getAttribLocation(this.prog, "a_y"),
+      translate: this.renderCtx.gl.getAttribLocation(this.prog, "a_translate"),
     };
   }
 
@@ -143,7 +143,7 @@ export class GLProgram extends render.GLProgram {
     xDataType: DataType,
     yDataType: DataType,
   ): void {
-    const { gl } = this.ctx;
+    const { gl } = this.renderCtx;
     this.bindAttrBuffer("x", x.glBuffer, downsample, xOffset, xDataType);
     this.bindAttrBuffer("y", y.glBuffer, downsample, yOffset, yDataType);
     gl.drawArraysInstanced(gl.LINE_STRIP, 0, count / downsample, instances);
@@ -156,7 +156,7 @@ export class GLProgram extends render.GLProgram {
     alignment: number = 0,
     dataType: DataType,
   ): void {
-    const { gl } = this.ctx;
+    const { gl } = this.renderCtx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const aLoc = gl.getAttribLocation(this.prog, `a_${dir}`);
     const glDataType = dataTypeToGLProgram(gl, dataType);
@@ -187,8 +187,8 @@ export class GLProgram extends render.GLProgram {
   private getAndBindTranslationBuffer(
     strokeWidth: number,
   ): TranslationBufferCacheEntry {
-    const { gl } = this.ctx;
-    const key = `${this.ctx.aspect}:${strokeWidth}`;
+    const { gl } = this.renderCtx;
+    const key = `${this.renderCtx.aspect}:${strokeWidth}`;
     const existing = this.translationBufferCache.get(key);
     if (existing != null) {
       gl.bindBuffer(gl.ARRAY_BUFFER, existing.glBuffer);
@@ -197,7 +197,7 @@ export class GLProgram extends render.GLProgram {
     const buf = gl.createBuffer();
     if (buf == null)
       throw new UnexpectedError("Failed to create buffer from WebGL context");
-    const translationBuffer = newTranslationBuffer(this.ctx.aspect, strokeWidth);
+    const translationBuffer = newTranslationBuffer(this.renderCtx.aspect, strokeWidth);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.DYNAMIC_DRAW);
     const entry = { glBuffer: buf, jsBuffer: translationBuffer };
@@ -214,7 +214,7 @@ export class GLProgram extends render.GLProgram {
    * line.
    */
   private attrStrokeWidth(strokeWidth: number): number {
-    const { gl } = this.ctx;
+    const { gl } = this.renderCtx;
     const { jsBuffer } = this.getAndBindTranslationBuffer(strokeWidth);
     const loc = gl.getAttribLocation(this.prog, "a_translate");
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
@@ -240,7 +240,7 @@ export class Context {
   }
 
   get gl(): WebGL2RenderingContext {
-    return this.uint8HybridProgram.ctx.gl;
+    return this.uint8HybridProgram.renderCtx.gl;
   }
 
   getProgram(dataType: DataType): GLProgram {
@@ -248,8 +248,7 @@ export class Context {
     return this.float32Program;
   }
 
-  static create(ctx: aether.Context): Context {
-    const renderCtx = render.Context.use(ctx);
+  static create(ctx: aether.Context, renderCtx: render.Context): Context {
     const line = new Context(renderCtx);
     ctx.set(Context.CONTEXT_KEY, line);
     return line;
@@ -276,14 +275,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "line";
   schema: typeof stateZ = stateZ;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     if (this.deleted) return;
     const { internal: i } = this;
-    i.xTelem = await telem.useSource(this.ctx, this.state.x, i.xTelem);
-    i.yTelem = await telem.useSource(this.ctx, this.state.y, i.yTelem);
-    i.instrumentation = alamos.useInstrumentation(this.ctx, "line");
-    i.ctx = Context.use(this.ctx);
-    i.requestRender = render.Controller.useRequest(this.ctx);
+    i.xTelem = await telem.useSource(ctx, this.state.x, i.xTelem);
+    i.yTelem = await telem.useSource(ctx, this.state.y, i.yTelem);
+    i.instrumentation = alamos.useInstrumentation(ctx, "line");
+    i.ctx = Context.use(ctx);
+    i.requestRender = render.Controller.useRequest(ctx);
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() =>
@@ -380,7 +379,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     }));
     const clearProg = prog.setAsActive();
     const instances = prog.bindState(this.state);
-    const regionTransform = prog.ctx.scaleRegion(props.region).transform;
+    const regionTransform = prog.renderCtx.scaleRegion(props.region).transform;
     ops.forEach((op) => {
       const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
       prog.bindScale(scaleTransform, regionTransform);

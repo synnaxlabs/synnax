@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,7 +45,7 @@ export class CompoundTelemFactory {
   }
 }
 
-export const factory = (client?: client.Client): CompoundTelemFactory => {
+export const createFactory = (client?: client.Client): CompoundTelemFactory => {
   const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
   const f = new CompoundTelemFactory(base);
   if (client != null) f.add(new RemoteFactory(client));

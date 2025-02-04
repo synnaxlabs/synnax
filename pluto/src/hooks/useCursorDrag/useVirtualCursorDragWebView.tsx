@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,7 +39,7 @@ export const useVirtualCursorDragWebView = ({
     if (ref.current == null) return;
     const { current: el } = ref;
 
-    const onMouseDown = async (e: MouseEvent): Promise<void> => {
+    const onMouseDown = (e: MouseEvent): void => {
       if (document.pointerLockElement != null) return;
       const start = xy.construct(e);
       const mouseKey = Triggers.eventKey(e);
@@ -61,7 +61,7 @@ export const useVirtualCursorDragWebView = ({
 
       setRef({ start, current: start, mouseKey, cursor });
 
-      el.requestPointerLock();
+      void el.requestPointerLock();
     };
 
     el.addEventListener("mousedown", onMouseDown);

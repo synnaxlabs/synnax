@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 
 import { deep } from "@/deep";
-import { type UnknownRecord } from "@/record";
 
 interface TestRecord {
   a: number;
@@ -68,7 +67,7 @@ describe("path", () => {
             getter: (obj, key) => {
               if (key === "value()")
                 return (obj as { value: () => { c: number } }).value();
-              return (obj as UnknownRecord)[key];
+              return obj[key];
             },
           }),
         ).toEqual(0);

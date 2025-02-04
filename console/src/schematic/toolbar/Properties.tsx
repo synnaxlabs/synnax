@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -94,7 +94,7 @@ export const PropertiesControls = memo(
           }
           return null;
         })
-        .filter((el) => el !== null) as Diagram.NodeLayout[];
+        .filter((el) => el !== null);
 
       return (
         <Align.Space align="start" direction="x" style={{ padding: "2rem" }}>

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,7 +34,7 @@ export const Labels = ({ rangeKey }: LabelsProps) => {
       return { labels: labels.map((l) => l.key) };
     },
     openObservable: async (client) => await client.labels.trackLabelsOf(otgID),
-    applyObservable: async ({ changes, ctx }) => {
+    applyObservable: ({ changes, ctx }) => {
       const existing = ctx.get<string[]>("labels").value;
       const next = unique.unique(changes.map((c) => c.key));
       if (compare.unorderedPrimitiveArrays(existing, next) === compare.EQUAL) return;

@@ -2,16 +2,20 @@
 layout: "@/layouts/Reference.astro"
 title: "Installing Synnax"
 description: "Install the Synnax core components."
+platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
 import { Align, Note, Divider, Video as PVideo } from "@synnaxlabs/pluto";
-import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
-import { Image, Video } from "@/components/Media";
-import { PlatformTabs } from "@/components/platform/PlatformTabs";
-import Details from "@/components/details/Details.astro";
+
+import { Console } from "@/components/console";
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
+import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Image, Video } from "@/components/Media";
+import { Platform } from "@/components/platform";
+import { Server } from "@/components/server";
+
 export const components = mdxOverrides;
 
 <iframe
@@ -22,7 +26,7 @@ export const components = mdxOverrides;
   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
   referrerpolicy="strict-origin-when-cross-origin"
   allowfullscreen
-></iframe>
+/>
 
 The first step to getting started with Synnax is to install two key components:
 the [Console](/reference/console/get-started) and [Cluster](/reference/cluster/quick-start).
@@ -39,7 +43,7 @@ latest version of the console for your OS:
 <br />
 <br />
 <Align.Space direction="y" justify="center" align="center">
-  <SynnaxConsoleDownloadButton client:load />
+  <Console.DownloadButton client:load />
 </Align.Space>
 <br />
 <br />
@@ -73,12 +77,9 @@ The cluster is the core of every Synnax deployment. It's where all sensor and ac
 and it serves as a central hub where all of our devices, operator consoles, and control
 sequences will communicate.
 
-<PlatformTabs
-    priority={["linux", "macos", "windows"]}
-    client:only="react"
->
+<Platform.Tabs client:only="react">
 
-<Fragment slot="docker">
+<Fragment slot="Docker">
 
 ### Using Docker
 
@@ -118,7 +119,7 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
-<Fragment slot="linux">
+<Fragment slot="Linux">
 
 ### Using Linux
 
@@ -166,7 +167,7 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
-<Fragment slot="macos">
+<Fragment slot="macOS">
 
 ### Using macOS
 
@@ -214,65 +215,23 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
-<Fragment slot="windows">
+<Fragment slot="Windows">
 
 ### Using Windows
 
-To start a local cluster on Windows, use the following command in a **PowerShell** terminal
-to download the latest Synnax cluster.
+To install the Synnax cluster on Windows, download and run the latest Synnax installer.
 
-<Align.Pack direction="y">
-
-<SynnaxDownloadURL os="windows" />
-<Details>
-<div slot="summary">
-<small>Explanation of this command</small>
-</div>
-
-This command is intimidating, so here's a breakdown of what it does:
-
-1. **Set Error Handling**:
-
-   - `$ErrorActionPreference="Stop";`
-   - Configures PowerShell to stop execution immediately when an error is encountered.
-
-2. **Set Security Protocol**:
-
-   - `[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;`
-   - Ensures that the TLS 1.2 protocol is used for secure connections, which is a modern and secure standard.
-
-3. **Disable Progress Display**:
-
-   - `$ProgressPreference='SilentlyContinue';`
-   - Suppresses the display of progress bars during script execution.
-
-4. **Create Directory for Synnax**:
-
-   - `$null=New-Item -Type Directory -Force $env:appdata/synnax;`
-   - Creates a directory named `synnax` in the `%APPDATA%` folder (user's application data folder). The `-Force` flag ensures the directory is created even if it already exists.
-
-5. **Download the Synnax Executable**:
-
-   - `Invoke-WebRequest -Uri github.com/synnaxlabs/synnax/releases/download/synnax-v0.37.0/synnax-v0.37.0-windows -OutFile synnax.exe;`
-   - Downloads the `synnax-v0.37.0-windows` executable file from the specified GitHub URL and saves it as `synnax.exe` in the current directory.
-
-6. **Copy Executable to AppData**:
-
-   - `Copy-Item -Force "synnax.exe" -Destination $env:appdata/synnax;`
-   - Copies the downloaded `synnax.exe` file to the newly created `%APPDATA%\synnax` directory. The `-Force` flag overwrites any existing file with the same name.
-
-7. **Update the User PATH Variable**:
-
-   - `if (-not [Environment]::GetEnvironmentVariable("Path", "User").Contains("%APPDATA%synnax")) { [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";%APPDATA%synnax", "User"); };`
-   - Checks if the `%APPDATA%\synnax` directory is already in the user's PATH environment variable. If not, appends it to the PATH.
-
-8. **Update Current Session PATH**:
-   - `$env:PATH += ";$env:appdatasynnax"`
-   - Updates the current PowerShell session's PATH variable to include `%APPDATA%\synnax`, allowing the Synnax executable to be run without restarting the session.
-
-</Details>
-
-</Align.Pack>
+<br />
+<br />
+<Align.Space direction="y" justify="center" align="center">
+  <Server.WindowsDownloadButton client:load />
+  <small>
+    Releases for other operating systems and older versions can be found on the
+    <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
+  </small>
+</Align.Space>
+<br />
+<br />
 
 To start the node, run this:
 
@@ -298,7 +257,7 @@ To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 
-</PlatformTabs>
+</Platform.Tabs>
 
 ### Connecting the Console to the Cluster
 

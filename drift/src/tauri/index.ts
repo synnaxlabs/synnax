@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -54,8 +54,8 @@ const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 //  Prevent the user or a programming error from creating a tiny window.
 const MIN_DIM = 250;
 
-// On MacOS, we need to poll for fullscreen changes, as tauri doesn't provide an
-// event for it. This is the interval at which we poll.
+// On macOS, we need to poll for fullscreen changes, as tauri doesn't provide an event
+// for it. This is the interval at which we poll.
 const MACOS_FULLSCREEN_POLL_INTERVAL = TimeSpan.seconds(1);
 
 const clampDims = (dims?: dimensions.Dimensions): dimensions.Dimensions | undefined => {
@@ -112,13 +112,13 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
   }
 
   async configure(): Promise<void> {
-    // We only need to poll for fullscreen on MacOS, as tauri doesn't provide an
+    // We only need to poll for fullscreen on macOS, as tauri doesn't provide an
     // emitted event for fullscreen changes.
     await this.startFullscreenPoll();
   }
 
   private async startFullscreenPoll(): Promise<void> {
-    if (runtime.getOS() !== "MacOS") return;
+    if (runtime.getOS() !== "macOS") return;
     let prevFullscreen = (await this.getProps()).fullscreen;
     this.fullscreenPoll = setInterval(() => {
       this.win
@@ -135,7 +135,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
               },
               undefined,
               "WHITELIST",
-            );
+            ).catch(console.error);
           }
         })
         .catch(console.error);
@@ -184,7 +184,9 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
           handler(this.win)
             .then((action) => {
               if (action != null)
-                this.emit({ action: action as A }, undefined, "WHITELIST");
+                this.emit({ action: action as A }, undefined, "WHITELIST").catch(
+                  console.error,
+                );
             })
             .catch(console.error);
         }, debounce),
@@ -227,7 +229,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
         ...rest,
       });
       return await new Promise<void>((resolve, reject) => {
-        void w.once(tauriError, (e) => reject(e.payload));
+        void w.once(tauriError, (e) => reject(new Error(JSON.stringify(e.payload))));
         void w.once(tauriCreated, () => resolve());
       });
     } catch (e) {

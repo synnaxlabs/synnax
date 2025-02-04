@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,7 @@ const CLEAR_LOCAL_STORAGE_COMMAND: Palette.Command = {
   key: "clear-local-storage",
   name: "Clear Local Storage",
   icon: <Icon.Close />,
-  onSelect: ({ store, confirm }) => {
+  onSelect: ({ store, confirm, handleException }) => {
     confirm(
       {
         message: "Are you sure you want to clear the Console's local storage?",
@@ -25,10 +25,12 @@ const CLEAR_LOCAL_STORAGE_COMMAND: Palette.Command = {
           "This will remove all saved console data that is not persisted within a Synnax cluster.",
       },
       { icon: "Close", name: "Clear Local Storage.Confirm" },
-    ).then((result) => {
-      if (!result) return;
-      store.dispatch(CLEAR_STATE as PayloadAction<any>);
-    });
+    )
+      .then((result) => {
+        if (!result) return;
+        store.dispatch(CLEAR_STATE as PayloadAction<any>);
+      })
+      .catch(handleException);
   },
 };
 

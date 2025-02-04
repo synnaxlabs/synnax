@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Authority } from "@synnaxlabs/client";
-import { type Destructor } from "@synnaxlabs/x";
+import { deep, type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -33,19 +33,19 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
 
   schema = chipStateZ;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { sink: sinkProps, source: sourceProps } = this.state;
     this.internal.source = await telem.useSource(
-      this.ctx,
+      ctx,
       sourceProps,
       this.internal.source,
     );
-    this.internal.sink = await telem.useSink(this.ctx, sinkProps, this.internal.sink);
+    this.internal.sink = await telem.useSink(ctx, sinkProps, this.internal.sink);
 
     if (this.state.triggered && !this.prevState.triggered)
-      this.internal.sink
-        .set(this.state.status.data?.authority !== Authority.Absolute.valueOf())
-        .catch(console.error);
+      await this.internal.sink.set(
+        this.state.status.data?.authority !== Authority.Absolute.valueOf(),
+      );
 
     await this.updateEnabledState();
     this.internal.stopListening?.();
@@ -56,15 +56,11 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
 
   private async updateEnabledState(): Promise<void> {
     const nextStatus = await this.internal.source.value();
-    if (!nextStatus.time.equals(this.state.status.time))
+    if (!deep.equal(nextStatus, this.state.status))
       this.setState((p) => ({ ...p, status: nextStatus, triggered: false }));
   }
 
   async afterDelete(): Promise<void> {
-    this.asyncAfterDelete().catch(console.error);
-  }
-
-  private async asyncAfterDelete(): Promise<void> {
     this.internal.stopListening();
     await this.internal.source.cleanup?.();
     await this.internal.sink.cleanup?.();

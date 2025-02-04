@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -62,8 +62,8 @@ export type ButtonProps = Omit<
   ButtonExtensionProps &
   BaseProps & {
     level?: Text.Level;
-    startIcon?: ReactElement<PIcon.BaseProps> | ReactElement<PIcon.BaseProps>[];
-    endIcon?: ReactElement<PIcon.BaseProps> | ReactElement<PIcon.BaseProps>[];
+    startIcon?: PIcon.Element | PIcon.Element[];
+    endIcon?: PIcon.Element | PIcon.Element[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;
@@ -105,7 +105,7 @@ export const Button = Tooltip.wrap(
     loading = false,
     level,
     triggers,
-    startIcon = [] as ReactElement<PIcon.BaseProps>[],
+    startIcon = [] as PIcon.Element[],
     onClickDelay = 0,
     onClick,
     color,

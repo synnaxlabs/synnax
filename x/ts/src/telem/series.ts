@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -117,12 +117,12 @@ const stringArrayZ = z.string().transform(
       atob(s)
         .split("")
         .map((c) => c.charCodeAt(0)),
-    ).buffer as ArrayBuffer,
+    ).buffer,
 );
 
 const nullArrayZ = z
   .union([z.null(), z.undefined()])
-  .transform(() => new Uint8Array().buffer as ArrayBuffer);
+  .transform(() => new Uint8Array().buffer);
 
 const NEW_LINE = 10;
 
@@ -1151,7 +1151,7 @@ class MultiSubIterator<T extends TelemValue = TelemValue>
 
   next(): IteratorResult<T> {
     if (this.index >= this.end) return { done: true, value: undefined };
-    return { done: false, value: this.series.at(this.index++, true) as T };
+    return { done: false, value: this.series.at(this.index++, true) };
   }
 
   [Symbol.iterator](): Iterator<T> {

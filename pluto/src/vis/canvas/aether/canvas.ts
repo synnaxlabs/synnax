@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ import { box, runtime } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { Context } from "@/vis/line/aether/line";
+import { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export const canvasStateZ = z.object({
@@ -32,29 +32,24 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
   static readonly TYPE = "Canvas";
 
   schema = canvasStateZ;
-  renderContextSet = false;
+  renderCtx: render.Context | null = null;
 
-  async afterUpdate(): Promise<void> {
-    let renderCtx = render.Context.useOptional(this.ctx);
-    if (renderCtx == null) {
-      if (this.renderContextSet)
-        throw new UnexpectedError(
-          "[vis.worker.Canvas] - expected render context to be set",
-        );
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    if (this.renderCtx == null) {
       if (!this.state.bootstrap) return;
       const { glCanvas, lower2dCanvas, upper2dCanvas, os } = this.state;
       if (glCanvas == null || lower2dCanvas == null || upper2dCanvas == null)
         throw new UnexpectedError(
           "[vis.worker.Canvas] - expected render context bootstrap to include all canvases",
         );
-      renderCtx = render.Context.create(
-        this.ctx,
+      this.renderCtx = render.Context.create(
+        ctx,
         glCanvas as OffscreenCanvas,
         lower2dCanvas as OffscreenCanvas,
         upper2dCanvas as OffscreenCanvas,
         os,
       );
-      Context.create(this.ctx);
+      line.Context.create(ctx, this.renderCtx);
       this.setState((p) => ({
         ...p,
         bootstrap: false,
@@ -63,8 +58,8 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
         lower2dCanvas: undefined,
         upper2dCanvas: undefined,
       }));
-    } else renderCtx.update(this.ctx);
-    renderCtx.resize(this.state.region, this.state.dpr);
+    } else this.renderCtx.update(ctx);
+    this.renderCtx.resize(this.state.region, this.state.dpr);
   }
 }
 

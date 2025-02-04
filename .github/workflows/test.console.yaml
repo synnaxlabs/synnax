@@ -72,12 +72,12 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Build
+        run: pnpm build:console-vite
+
       - name: Lint
         if: matrix.lint
         run: pnpm lint:console
-
-      - name: Build
-        run: pnpm build:console-vite
 
       - name: Test
         run: pnpm test:console

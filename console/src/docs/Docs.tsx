@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -70,7 +70,7 @@ export const Docs: Layout.Renderer = memo(() => {
 
   useEffect(() => {
     const queryParams = {
-      noHeader: true,
+      noHeader: "true",
       theme: theme.key.includes("dark") ? "dark" : "light",
     };
     setURL(

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -366,7 +366,7 @@ export const { actions, reducer } = createSlice({
       // later.
       const candidatePositions = candidateCells
         .map((cell) => findCellPosition(table, cell.key))
-        .filter((pos) => pos != null) as xy.XY[];
+        .filter((pos) => pos != null);
       const positionsObj = Object.fromEntries(
         candidatePositions.map((pos, i) => [candidateCells[i].key, pos]),
       );

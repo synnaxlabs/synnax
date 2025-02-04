@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,5 @@
 
 export * from "@/vis/render/context";
 export * from "@/vis/render/controller";
-export * from "@/vis/render/eraser";
 export * from "@/vis/render/GLProgram";
 export * from "@/vis/render/loop";

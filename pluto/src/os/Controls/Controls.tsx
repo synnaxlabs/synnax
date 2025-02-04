@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,13 +15,6 @@ import { type InternalControlsProps } from "@/os/Controls/types";
 import { Windows } from "@/os/Controls/Windows";
 import { use } from "@/os/use";
 
-const Variants: Record<runtime.OS, React.FC<InternalControlsProps>> = {
-  MacOS,
-  Windows,
-  Linux: Windows,
-  Docker: Windows,
-};
-
 const DEFAULT_OS = "Windows";
 
 export interface ControlsProps extends InternalControlsProps {
@@ -33,8 +26,8 @@ export const Controls = ({
   visibleIfOS,
   ...props
 }: ControlsProps): ReactElement | null => {
-  const os = use({ force: forceOS, default: DEFAULT_OS }) as runtime.OS;
-  const C = Variants[os];
+  const os = use({ force: forceOS, default: DEFAULT_OS });
   if (visibleIfOS != null && visibleIfOS !== os) return null;
+  const C = os === "macOS" ? MacOS : Windows;
   return <C {...props} />;
 };

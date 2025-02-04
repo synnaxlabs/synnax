@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,7 +22,7 @@ import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 interface Entry {
   key: Mode;
-  icon: ReactElement<PIcon.BaseProps>;
+  icon: PIcon.Element;
   tooltip: ReactNode;
 }
 

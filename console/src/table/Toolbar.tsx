@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -92,7 +92,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           )}
         </Align.Space>
         <Align.Space direction="x" style={{ width: 66 }} empty>
-          <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+          <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
           <Link.CopyToolbarButton
             name={name}
             ontologyID={table.ontologyID(layoutKey)}
@@ -143,7 +143,7 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
 };
 
 type CellEntry = KeyedNamed<TableCells.Variant> & {
-  icon: ReactElement<PIcon.BaseProps>;
+  icon: PIcon.Element;
 };
 
 const CELL_TYPE_OPTIONS: CellEntry[] = [

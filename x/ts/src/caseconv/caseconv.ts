@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -6,6 +6,8 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
+import { type UnknownRecord } from "@/record";
 
 const snakeToCamelStr = (str: string): string => {
   const c = str.replace(/_[a-z]/g, (m) => m[1].toUpperCase());
@@ -29,8 +31,8 @@ const createConverter = (
     if (Array.isArray(obj)) return obj.map((v) => converter(v, opt)) as V;
     if (!isValidObject(obj)) return obj;
     opt = validateOptions(opt);
-    const res: any = {};
-    const anyObj = obj as any;
+    const res: UnknownRecord = {};
+    const anyObj = obj as UnknownRecord;
     Object.keys(anyObj).forEach((key) => {
       let value = anyObj[key];
       const nkey = f(key);
@@ -39,7 +41,7 @@ const createConverter = (
           if (!belongToTypes(value, opt.keepTypesOnRecursion))
             value = converter(value, opt);
         } else if (opt.recursiveInArray && isArrayObject(value))
-          value = [...value].map((v) => {
+          value = [...(value as unknown[])].map((v) => {
             let ret = v;
             if (isValidObject(v)) {
               // object in array
@@ -48,7 +50,7 @@ const createConverter = (
             } else if (isArrayObject(v)) {
               // array in array
               // workaround by using an object holding array value
-              const temp: any = converter({ key: v }, opt);
+              const temp: UnknownRecord = converter({ key: v }, opt);
               ret = temp.key;
             }
             return ret;
@@ -56,7 +58,7 @@ const createConverter = (
       res[nkey] = value;
     });
 
-    return res;
+    return res as V;
   };
   return converter;
 };
@@ -76,7 +78,10 @@ export const snakeToCamel = createConverter(snakeToCamelStr);
 const camelToSnakeStr = (str: string): string =>
   // Don't convert the first character and don't convert a character that is after a
   // non-alphanumeric character
-  str.replace(/([a-z0-9])([A-Z])/g, (_, p1, p2) => `${p1}_${p2.toLowerCase()}`);
+  str.replace(
+    /([a-z0-9])([A-Z])/g,
+    (_, p1: string, p2: string) => `${p1}_${p2.toLowerCase()}`,
+  );
 
 /**
  * Converts a camelCase string to snake_case.
@@ -146,7 +151,10 @@ const belongToTypes = (obj: any, types?: any[]): boolean =>
 const toKebabStr = (str: string): string =>
   str
     .replace(/\s+/g, "-")
-    .replace(/([a-z0-9])([A-Z])/g, (_, p1, p2) => `${p1}-${p2.toLowerCase()}`)
+    .replace(
+      /([a-z0-9])([A-Z])/g,
+      (_, p1: string, p2: string) => `${p1}-${p2.toLowerCase()}`,
+    )
     .toLowerCase();
 
 /**

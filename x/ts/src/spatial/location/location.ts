@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -169,6 +169,6 @@ export const constructXY = (x: Crude | XY, y?: Crude): XY => {
     if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY];
     else [xy.x, xy.y] = [parsedY, parsedX];
   else if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY as YLocation];
-  else [xy.x, xy.y] = [parsedY as XLocation, parsedX as YLocation];
+  else [xy.x, xy.y] = [parsedY as XLocation, parsedX];
   return xy;
 };

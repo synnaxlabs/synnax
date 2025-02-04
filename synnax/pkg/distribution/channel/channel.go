@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -204,7 +204,7 @@ type Channel struct {
 	// Requires is only used for calculated channels, and specifies the channels that
 	// are required for the calculation.
 	Requires Keys `json:"requires" msgpack:"requires"`
-	// Expression is only used for calculated channels, and specifies the python expression
+	// Expression is only used for calculated channels, and specifies the Lua expression
 	// to evaluate the calculated value.
 	Expression string `json:"expression" msgpack:"expression"`
 }

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,14 +18,14 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { type FC, type ReactElement, useState } from "react";
+import { type FC, useState } from "react";
 
 import { Task } from "@/hardware/task";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/external";
 
 interface SnapshotService {
-  icon: ReactElement<PIcon.BaseProps>;
+  icon: PIcon.Element;
   onClick: (client: Client, res: ontology.Resource, place: Layout.Placer) => void;
 }
 

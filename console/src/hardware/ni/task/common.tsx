@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,11 +21,15 @@ import { Link } from "@/link";
 export const SelectDevice = () => {
   const client = Synnax.use();
   const place = Layout.usePlacer();
-  const handleDeviceChange = async (v: string) => {
+  const handleDeviceChange = (v: string) => {
     if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve<Properties>(v);
-    if (configured) return;
-    place(NIDevice.createConfigureLayout(v, {}));
+    void client.hardware.devices
+      .retrieve<Properties>(v)
+      .then(({ configured }) => {
+        if (configured) return;
+        place(NIDevice.createConfigureLayout(v, {}));
+      })
+      .catch(console.error);
   };
   return (
     <Form.Field<string>

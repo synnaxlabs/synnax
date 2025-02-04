@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -120,7 +120,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       };
     },
     openObservable: async (client) => await client.ranges.openTracker(),
-    applyObservable: async ({ changes, ctx }) => {
+    applyObservable: ({ changes, ctx }) => {
       const target = changes.find((c) => c.variant === "set" && c.key === rangeKey);
       if (target == null || target.value == null) return;
       ctx.set("", {

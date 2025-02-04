@@ -3,6 +3,7 @@ title: "Release Notes"
 layout: "@/layouts/Releases.astro"
 ---
 
+import Release0380 from "@/pages/releases/0-38-0.mdx";
 import Release0370 from "@/pages/releases/0-37-0.mdx";
 import Release0360 from "@/pages/releases/0-36-0.mdx";
 import Release0350 from "@/pages/releases/0-35-0.mdx";
@@ -15,6 +16,11 @@ export const components = mdxOverrides;
 
 import { Divider } from "@synnaxlabs/pluto";
 
+<Divider.Divider direction="x" />
+<div class="release-wrapper">
+  ###### 0.38
+  <Release0380 />
+</div>
 <Divider.Divider direction="x" />
 <div class="release-wrapper">
   ###### 0.37

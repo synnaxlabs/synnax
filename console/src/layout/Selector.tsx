@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ import { type RendererProps } from "@/layout/slice";
 export interface Selectable {
   key: string;
   title: string;
-  icon: ReactElement<Icon.BaseProps>;
+  icon: Icon.Element;
   create: (layoutKey: string) => PlacerArgs;
 }
 

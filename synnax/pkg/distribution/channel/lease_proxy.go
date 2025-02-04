@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -439,10 +439,12 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 		return err
 	}
 	lp.external.Remove(keys.Local()...)
-	if err := lp.TSChannel.DeleteChannels(keys.Storage()); err != nil {
+	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
 		return err
 	}
-	return lp.maybeDeleteResources(ctx, tx, keys)
+	// It's very important that this goes last, as it's the only operation that can fail
+	// without an atomic guarantee.
+	return lp.TSChannel.DeleteChannels(keys.Storage())
 }
 
 func (lp *leaseProxy) maybeDeleteResources(

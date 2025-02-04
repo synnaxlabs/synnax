@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray, type UnknownRecord } from "@synnaxlabs/x";
 import { unknownRecordZ } from "@synnaxlabs/x/record";
@@ -26,7 +35,7 @@ const parse = (s: string): UnknownRecord => JSON.parse(s) as UnknownRecord;
 export const workspaceZ = z.object({
   key: z.string(),
   name: z.string(),
-  layout: unknownRecordZ.or(z.string().transform((s) => parse(s) as UnknownRecord)),
+  layout: unknownRecordZ.or(z.string().transform((s) => parse(s))),
 });
 
 export type Workspace = z.infer<typeof workspaceZ>;
@@ -48,7 +57,7 @@ export const newWorkspaceZ = workspaceZ.partial({ key: true }).transform((p) => 
 }));
 
 export const workspaceRemoteZ = workspaceZ.omit({ layout: true }).extend({
-  layout: z.string().transform((s) => parse(s) as UnknownRecord),
+  layout: z.string().transform((s) => parse(s)),
 });
 
 export type NewWorkspace = z.input<typeof newWorkspaceZ>;

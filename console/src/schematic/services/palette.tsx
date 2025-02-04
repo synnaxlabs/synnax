@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 
+import { type Import } from "@/import";
 import { type Palette } from "@/palette";
 import { Schematic } from "@/schematic";
 import { ImportIcon } from "@/schematic/services/Icon";
@@ -26,7 +27,7 @@ const IMPORT_COMMAND: Palette.Command = {
   key: "import-schematic",
   name: "Import Schematic(s)",
   icon: <ImportIcon />,
-  onSelect: import_,
+  onSelect: (ctx: Import.ImportArgs) => void import_(ctx),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

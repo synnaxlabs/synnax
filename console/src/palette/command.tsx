@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,10 +12,10 @@ import { Align, type Icon, List, type Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { type Confirm } from "@/confirm";
+import { type Export } from "@/export";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
-import { type Permissions } from "@/permissions";
-import { type RootStore } from "@/store";
+import { type RootState, type RootStore } from "@/store";
 
 export const CommandListItem = (
   props: List.ItemProps<string, Command>,
@@ -45,15 +45,16 @@ export interface CommandSelectionContext {
   placeLayout: Layout.Placer;
   confirm: Confirm.CreateModal;
   addStatus: Status.AddStatusFn;
-  handleException: Status.HandleExcFn;
+  handleException: Status.ExceptionHandler;
   ingestors: Record<string, Import.FileIngestor>;
+  extractors: Record<string, Export.Extractor>;
 }
 
 export interface Command {
   key: string;
   name: ReactElement | string;
-  icon?: ReactElement<Icon.BaseProps>;
-  visible?: (state: Permissions.StoreState) => boolean;
+  icon?: Icon.Element;
+  visible?: (state: RootState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
   endContent?: ReactElement[];
 }

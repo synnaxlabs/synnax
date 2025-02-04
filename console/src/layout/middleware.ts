@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,21 +33,21 @@ export const closeWindowOnEmptyMosaicEffect: MiddlewareEffect<
   StoreState & Drift.StoreState,
   MoveMosaicTabPayload | RemovePayload,
   Drift.CloseWindowPayload
-> = ({ getState, dispatch }) => {
-  const s = getState();
+> = ({ store }) => {
+  const s = store.getState();
   if (selectWindowKey(s) !== MAIN_WINDOW) return;
   const { mosaics } = selectSliceState(s);
   // Close windows with empty mosaics.
   Object.entries(mosaics).forEach(([k, { root }]) => {
     if (k === Drift.MAIN_WINDOW || !Mosaic.isEmpty(root)) return;
     const win = Drift.selectWindow(s, k);
-    if (win != null) dispatch(Drift.closeWindow({ key: k }));
+    if (win != null) store.dispatch(Drift.closeWindow({ key: k }));
   });
   // Close windows whose mosaics no longer exist.
   const windows = Drift.selectWindows(s);
   windows.forEach((win) => {
     if (!win.key.startsWith(MOSAIC_WINDOW_TYPE) || win.key in mosaics) return;
-    dispatch(Drift.closeWindow({ key: win.key }));
+    store.dispatch(Drift.closeWindow({ key: win.key }));
   });
 };
 
@@ -75,14 +75,13 @@ export const createWindowOnPlaceEffect: MiddlewareEffect<
   PlacePayload,
   Drift.CreateWindowPayload
 > = ({
-  getState,
-  dispatch,
+  store,
   action: {
     payload: { key, name, window, location },
   },
 }) => {
-  if (location != "window" || selectWindowKey(getState()) !== MAIN_WINDOW) return;
-  dispatch(createWindowAction(key, name, window));
+  if (location != "window" || selectWindowKey(store.getState()) !== MAIN_WINDOW) return;
+  store.dispatch(createWindowAction(key, name, window));
 };
 
 export const closeWindowOnRemoveEffect: MiddlewareEffect<
@@ -90,16 +89,16 @@ export const closeWindowOnRemoveEffect: MiddlewareEffect<
   RemovePayload,
   Drift.CloseWindowPayload
 > = ({
-  getState,
+  store,
   action: {
     payload: { keys },
   },
-  dispatch,
 }) => {
-  if (selectWindowKey(getState()) !== MAIN_WINDOW) return;
+  if (selectWindowKey(store.getState()) !== MAIN_WINDOW) return;
   keys.forEach((key) => {
-    const l = select(getState(), key);
-    if (l == null || l.location === "window") dispatch(Drift.closeWindow({ key }));
+    const l = select(store.getState(), key);
+    if (l == null || l.location === "window")
+      store.dispatch(Drift.closeWindow({ key }));
   });
 };
 
@@ -107,8 +106,8 @@ export const createWindowsOnSetWorkspaceEffect: MiddlewareEffect<
   StoreState & Drift.StoreState,
   SetWorkspacePayload,
   Drift.CreateWindowPayload | Drift.CloseWindowPayload
-> = ({ getState, dispatch }) => {
-  const state = getState();
+> = ({ store }) => {
+  const state = store.getState();
   const winKey = selectWindowKey(state);
   if (winKey !== MAIN_WINDOW) return;
   const { layouts } = selectSliceState(state);
@@ -116,7 +115,7 @@ export const createWindowsOnSetWorkspaceEffect: MiddlewareEffect<
     .filter(({ location: l }) => l === "window")
     .forEach(({ key, name, windowProps }) => {
       if (key === Drift.MAIN_WINDOW) return;
-      dispatch(createWindowAction(key, name, windowProps));
+      store.dispatch(createWindowAction(key, name, windowProps));
     });
 };
 
@@ -124,16 +123,15 @@ const deleteLayoutsOnMosaicCloseEffect: MiddlewareEffect<
   Drift.StoreState & StoreState,
   Drift.CloseWindowPayload,
   RemovePayload
-> = ({ getState, action: { payload }, dispatch }) => {
-  if (selectWindowKey(getState()) !== MAIN_WINDOW) return;
-  const s = getState();
+> = ({ store, action: { payload } }) => {
+  if (selectWindowKey(store.getState()) !== MAIN_WINDOW) return;
   if (payload.key == null || !payload.key.startsWith(Layout.MOSAIC_WINDOW_TYPE)) return;
-  const { layouts } = Layout.selectSliceState(s);
+  const { layouts } = Layout.selectSliceState(store.getState());
   // remove all layouts associated with the mosaic window
   const layoutKeys = Object.values(layouts)
     .filter((layout) => layout.windowKey === payload.key)
     .map((layout) => layout.key);
-  dispatch(Layout.remove({ keys: layoutKeys }));
+  store.dispatch(Layout.remove({ keys: layoutKeys }));
 };
 
 export const MIDDLEWARE = [

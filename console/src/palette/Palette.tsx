@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,6 +36,7 @@ import { useStore } from "react-redux";
 
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
+import { EXTRACTORS } from "@/extractors";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
@@ -189,6 +190,7 @@ const PaletteDialog = ({
       addStatus,
       handleException,
       ingestors: INGESTORS,
+      extractors: EXTRACTORS,
     }),
     [store, placeLayout, confirm, client, addStatus, handleException],
   );
@@ -203,7 +205,7 @@ const PaletteDialog = ({
       if (client == null) return;
       const id = new ontology.ID(key);
       const t = services[id.type];
-      t.onSelect?.({
+      void t.onSelect?.({
         services,
         store,
         addStatus,

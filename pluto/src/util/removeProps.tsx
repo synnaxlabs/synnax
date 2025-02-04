@@ -37,7 +37,7 @@ export const removeProps = <P extends object>(
   propsToRemove: string[],
 ): FC<P> => {
   const omitted: Record<string, never> = {};
-  propsToRemove.forEach((prop) => (omitted[prop as string] = undefined as never));
+  propsToRemove.forEach((prop) => (omitted[prop] = undefined as never));
   const C = (props: P) => {
     const { ...restProps } = { ...props, ...omitted };
     return <WrappedComponent {...(restProps as P)} />;

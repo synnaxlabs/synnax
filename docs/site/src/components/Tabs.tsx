@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,10 +10,10 @@
 import { Tabs as Core } from "@synnaxlabs/pluto/tabs";
 import { type ReactElement, useEffect, useState } from "react";
 
-export type TabsProps = {
+export interface TabsProps extends Record<string, ReactElement | any> {
   tabs: Core.Tab[];
   queryParamKey?: string;
-} & Record<string, ReactElement | any>;
+}
 
 export const Tabs = ({ tabs, queryParamKey, ...props }: TabsProps): ReactElement => {
   tabs = tabs.map((tab) => ({

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,6 @@
 import { Icon } from "@synnaxlabs/media";
 import { type Icon as PIcon } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
@@ -19,13 +18,13 @@ import { OPC } from "@/hardware/opc";
 export const PREFIXES = [LabJack.Task.PREFIX, NI.Task.PREFIX, OPC.Task.PREFIX] as const;
 export type Prefix = (typeof PREFIXES)[number];
 
-export const ICONS: Record<Prefix, ReactElement<PIcon.BaseProps>> = {
+export const ICONS: Record<Prefix, PIcon.Element> = {
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
   [OPC.Task.PREFIX]: <Icon.Logo.OPC />,
 };
 
-export const getIcon = (type: string): ReactElement<PIcon.BaseProps> => {
+export const getIcon = (type: string): PIcon.Element => {
   for (const prefix of PREFIXES) if (type.startsWith(prefix)) return ICONS[prefix];
   return <Icon.Task />;
 };

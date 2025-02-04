@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -106,7 +106,7 @@ export const NavControls = (): ReactElement => {
       </Button.ToggleIcon>
       <Select.Button<
         ClickMode,
-        { key: ClickMode; icon: ReactElement<PIcon.BaseProps>; tooltip: ReactNode }
+        { key: ClickMode; icon: PIcon.Element; tooltip: ReactNode }
       >
         value={control.clickMode}
         onChange={handleClickModeChange}

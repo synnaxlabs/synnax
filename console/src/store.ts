@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, type Reducer, type Store, Tuple } from "@reduxjs/toolkit";
-import { Drift } from "@synnaxlabs/drift";
+import {
+  combineReducers,
+  type Dispatch,
+  type Middleware,
+  type Reducer,
+  type Store,
+  Tuple,
+} from "@reduxjs/toolkit";
+import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
-import { type deep } from "@synnaxlabs/x";
+import { type deep, type UnknownRecord } from "@synnaxlabs/x";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
@@ -125,26 +133,45 @@ export const migrateState = (prev: RootState): RootState => {
   };
 };
 
-const createStore = async (): Promise<RootStore> => {
+interface OpenPersistReturn {
+  initialState?: RootState;
+  persistMiddleware: Middleware<UnknownRecord, RootState, Dispatch<RootAction>>;
+}
+
+const openPersist = async (): Promise<OpenPersistReturn> => {
+  const label = getCurrentWindow()?.label;
+  if (label !== MAIN_WINDOW)
+    return {
+      initialState: undefined,
+      persistMiddleware: () => (next) => (action) => next(action),
+    };
   const engine = await Persist.open<RootState>({
     initial: ZERO_STATE,
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });
+  return {
+    initialState: engine.initialState,
+    persistMiddleware: Persist.middleware(engine),
+  };
+};
+
+const createStore = async (): Promise<RootStore> => {
+  const { initialState, persistMiddleware } = await openPersist();
   return await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(),
-    preloadedState: engine.initialState,
+    preloadedState: initialState,
     middleware: (def) =>
       new Tuple(
         ...def(),
         ...LinePlot.MIDDLEWARE,
         ...Layout.MIDDLEWARE,
         ...Schematic.MIDDLEWARE,
-        Persist.middleware(engine),
+        persistMiddleware,
       ),
     reducer,
     enablePrerender: true,
-    debug: isDev(),
+    debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };

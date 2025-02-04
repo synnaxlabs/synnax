@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -79,8 +79,8 @@ const findSelected = (target_: HTMLElement): HTMLElement[] => {
   if (target == null) return [];
   const selected = Array.from(
     target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ?? [],
-  ) as HTMLElement[];
-  if (selected.includes(target)) return selected;
+  );
+  if (selected.includes(target)) return selected as HTMLElement[];
   return [target];
 };
 

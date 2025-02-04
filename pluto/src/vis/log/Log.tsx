@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,7 +18,6 @@ import { Aether } from "@/aether";
 import { type Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoDeepEqualProps } from "@/memo";
 import { Status } from "@/status";
 import { Canvas } from "@/vis/canvas";
@@ -51,10 +50,8 @@ export const Log = ({
   telem,
   ...props
 }: LogProps): ReactElement | null => {
-  const cKey = useUniqueKey(aetherKey);
   const memoProps = useMemoDeepEqualProps({ font, color, telem, visible });
   const [, { scrolling, empty }, setState] = Aether.use({
-    aetherKey: cKey,
     type: log.Log.TYPE,
     schema: log.logState,
     initialState: {

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -110,7 +110,7 @@ export const useListenForCalculationState = (): void => {
     onChange: (frame) => {
       const state = frame.get(CALCULATION_STATE_CHANNEL).parseJSON(calculationStateZ);
       state.forEach(({ key, variant, message }) => {
-        client?.channels.retrieve(key).then((ch) => {
+        void client?.channels.retrieve(key).then((ch) => {
           if (variant !== "error") {
             addStatus({ variant, message });
             return;

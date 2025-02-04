@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -255,7 +255,7 @@ const Wrapped = ({
           ...dev,
           properties: dev.properties,
         });
-      createTask({ key: task?.key, name, type: READ_TYPE, config });
+      await createTask({ key: task?.key, name, type: READ_TYPE, config });
       setDesiredState("paused");
     },
     onError: (e) => handleException(e, `Failed to configure task`),

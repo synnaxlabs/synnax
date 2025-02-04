@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -72,7 +72,7 @@ const curriedScale =
     if (type === "dimension") return [bound, (v * (nextRange / prevRange)) as T];
     // @ts-expect-error - typescript can't do the math correctly
     const nextV = ((v - prevLower) * (nextRange / prevRange) + nextLower) as T;
-    return [bound, nextV as T];
+    return [bound, nextV];
   };
 
 const curriedReBound =

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,7 +34,7 @@ type HTMLDivProps = DetailedHTMLProps<
   HTMLDivElement
 >;
 
-const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() as runtime.OS };
+const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() };
 
 interface Canvases {
   gl: HTMLCanvasElement | null;
@@ -77,7 +77,7 @@ export const Canvas = ({
           bootstrapped: true,
           region,
           dpr: window.devicePixelRatio,
-          os: runtime.getOS({ default: "Windows" }) as runtime.OS,
+          os: runtime.getOS({ default: "Windows" }),
         }));
         initialResizeComplete.current = true;
       }
@@ -159,7 +159,7 @@ export const Canvas = ({
           bootstrapped: false,
           region: box.construct(gl),
           dpr: window.devicePixelRatio,
-          os: runtime.getOS({ default: "Windows" }) as runtime.OS,
+          os: runtime.getOS({ default: "Windows" }),
         },
         [glCanvas, upper2dCanvas, lower2dCanvas],
       );

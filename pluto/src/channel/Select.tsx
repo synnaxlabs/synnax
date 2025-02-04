@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -63,7 +63,7 @@ const useColumns = (
   }, [filter, aliases]);
 };
 
-export const resolveIcon = (ch?: channel.Payload): ReactElement<PIcon.BaseProps> => {
+export const resolveIcon = (ch?: channel.Payload): PIcon.Element => {
   if (ch == null) return <Icon.Channel />;
   if (channel.isCalculated(ch)) return <Icon.Calculation />;
   if (ch.isIndex) return <Icon.Index />;

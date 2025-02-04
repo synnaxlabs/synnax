@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -61,7 +61,7 @@ export interface UseReturn {
   expanded: string[];
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
   expand: (key: string) => void;
-  contract: (key: string) => void;
+  contract: (...keys: string[]) => void;
   clearExpanded: () => void;
   nodes: FlattenedNode[];
 }
@@ -124,9 +124,12 @@ export const use = (props: UseProps): UseReturn => {
   );
 
   const handleContract = useCallback(
-    (key: string): void => {
-      setExpanded((expanded) => expanded.filter((k) => k !== key));
-      onExpand?.({ current: expanded, action: "contract", clicked: key });
+    (...keys: string[]): void => {
+      setExpanded((expanded) => expanded.filter((k) => !keys.includes(k)));
+      // Call onExpand for each contracted key
+      keys.forEach((key) => {
+        onExpand?.({ current: expanded, action: "contract", clicked: key });
+      });
     },
     [setExpanded],
   );
@@ -213,7 +216,7 @@ export const DefaultItem = memo(
       hasChildren || (children != null && children.length > 0);
 
     // Expand, contract, and loading items.
-    const startIcons: ReactElement<PIcon.BaseProps>[] = [];
+    const startIcons: PIcon.Element[] = [];
     if (actuallyHasChildren)
       startIcons.push(
         <Caret.Animated
@@ -224,7 +227,7 @@ export const DefaultItem = memo(
         />,
       );
     if (icon != null) startIcons.push(icon);
-    const endIcons: ReactElement<PIcon.BaseProps>[] = [];
+    const endIcons: PIcon.Element[] = [];
     if (loading)
       endIcons.push(
         <Icon.Loading key="loading-indicator" className={CSS.B("loading-indicator")} />,

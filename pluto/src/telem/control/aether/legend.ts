@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,9 +28,9 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
   static readonly TYPE = "Legend";
   schema = legendStateZ;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.stateProv = StateProvider.use(this.ctx);
+    i.stateProv = StateProvider.use(ctx);
 
     const keys = this.state.needsControlOf;
     i.disconnectStateProv?.();
