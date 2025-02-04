@@ -202,186 +202,143 @@ private:
 using DigitalStateSource = StateSource<uint8_t>;
 using AnalogStateSource = StateSource<double>;
 
+
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    DigitalWriteSink                           //
+//                                    WriteSink                                  //
 ///////////////////////////////////////////////////////////////////////////////////
-class DigitalWriteSink final : public pipeline::Sink {
+// Base class for common functionality
+class WriteSink : public pipeline::Sink {
 public:
-    explicit DigitalWriteSink(
-        const std::shared_ptr<DAQmx> &dmx,
+    WriteSink(
+        const std::shared_ptr<DAQmx>& dmx,
         TaskHandle task_handle,
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    );
+        const std::shared_ptr<task::Context>& ctx,
+        const synnax::Task& task
+    ) : dmx(dmx),
+        task_handle(task_handle),
+        ctx(ctx),
+        task(task),
+        err_info({}) {}
 
-    ~DigitalWriteSink();
-
-    int init();
-
-    freighter::Error write(synnax::Frame frame) override;
-
-    freighter::Error stop(const std::string &cmd_key);
-
-    freighter::Error start(const std::string &cmd_key);
-
-    freighter::Error start_ni();
-
-    freighter::Error stop_ni();
+    virtual ~WriteSink() {
+        clear_task();
+    }
 
     freighter::Error cycle();
-
+    freighter::Error start(const std::string& cmd_key);
+    freighter::Error stop(const std::string& cmd_key);
     std::vector<synnax::ChannelKey> get_cmd_channel_keys();
-
     std::vector<synnax::ChannelKey> get_state_channel_keys();
-
-    void get_index_keys();
-
     bool ok();
 
+protected:
+    // Keep implementation-specific methods protected
+    void get_index_keys();
     void jsonify_error(std::string);
-
-    void stopped_with_err(const freighter::Error &err) override;
-
+    void stopped_with_err(const freighter::Error& err) override;
     void log_error(std::string err_msg);
-
     void clear_task();
-
-    std::shared_ptr<ni::DigitalStateSource> writer_state_source;
-
-private:
-    freighter::Error format_data(const synnax::Frame &frame);
-
-    void parse_config(config::Parser &parser);
-
     int check_err(int32 error, std::string caller);
 
-    const std::shared_ptr<DAQmx> dmx;
+    // Pure virtual methods that derived classes must implement
+    virtual freighter::Error start_ni() = 0;
+    virtual freighter::Error stop_ni() = 0;
+    virtual int init() = 0;
+    virtual freighter::Error format_data(const synnax::Frame& frame) = 0;
 
-    uint8_t *write_buffer = nullptr;
+    // Protected members accessible to derived classes
+    const std::shared_ptr<DAQmx> dmx;
+    TaskHandle task_handle = 0;
     int buffer_size = 0;
     int num_samples_per_channel = 0;
-    TaskHandle task_handle = 0;
-
     uint64_t num_channels = 0;
-
     json err_info;
-
     bool ok_state = true;
     std::shared_ptr<task::Context> ctx;
     WriterConfig writer_config;
     breaker::Breaker breaker;
     synnax::Task task;
     std::map<std::string, std::string> channel_map;
-}; // class DigitalWriteSink
+};
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                    DigitalWriteSink                           //
+///////////////////////////////////////////////////////////////////////////////////
+class DigitalWriteSink final : public WriteSink {
+public:
+    explicit DigitalWriteSink(
+        const std::shared_ptr<DAQmx>& dmx,
+        TaskHandle task_handle,
+        const std::shared_ptr<task::Context>& ctx,
+        const synnax::Task& task
+    );
+    ~DigitalWriteSink();
+
+    freighter::Error write(synnax::Frame frame) override;
+    std::shared_ptr<ni::DigitalStateSource> writer_state_source;
+
+private:
+    freighter::Error start_ni() override;
+    freighter::Error stop_ni() override;
+    int init() override;
+    freighter::Error format_data(const synnax::Frame& frame) override;
+
+    uint8_t* write_buffer = nullptr;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                 AnalogWriteSink                               //
 ///////////////////////////////////////////////////////////////////////////////////
-class AnalogWriteSink final : public pipeline::Sink {
+class AnalogWriteSink final : public WriteSink {
 public:
     explicit AnalogWriteSink(
-        const std::shared_ptr<DAQmx> &dmx,
+        const std::shared_ptr<DAQmx>& dmx,
         TaskHandle task_handle,
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const std::shared_ptr<task::Context>& ctx,
+        const synnax::Task& task
     );
-
     ~AnalogWriteSink();
 
-    int init();
-
     freighter::Error write(synnax::Frame frame) override;
-
-    freighter::Error stop(const std::string &cmd_key);
-
-    freighter::Error start(const std::string &cmd_key);
-
-    freighter::Error start_ni();
-
-    freighter::Error stop_ni();
-
-    freighter::Error cycle();
-
-    std::vector<synnax::ChannelKey> get_cmd_channel_keys();
-
-    std::vector<synnax::ChannelKey> get_state_channel_keys();
-
-    void get_index_keys();
-
-    bool ok();
-
-    void jsonify_error(std::string);
-
-    void stopped_with_err(const freighter::Error &err) override;
-
-    void log_error(std::string err_msg);
-
-    void clear_task();
-
     std::shared_ptr<ni::AnalogStateSource> writer_state_source;
 
 private:
-    freighter::Error format_data(const synnax::Frame &frame);
+    freighter::Error start_ni() override;
+    freighter::Error stop_ni() override;
+    int init() override;
+    freighter::Error format_data(const synnax::Frame& frame) override;
 
-    void parse_config(config::Parser &parser);
-
-    int check_err(int32 error, std::string caller);
-
-    const std::shared_ptr<DAQmx> dmx;
-
-    double *write_buffer = nullptr;
-    int buffer_size = 0;
-    int num_samples_per_channel = 0;
-    TaskHandle task_handle = 0;
-
-    uint64_t num_channels = 0;
-
-    json err_info;
-
-    bool ok_state = true;
-    std::shared_ptr<task::Context> ctx;
-    WriterConfig writer_config;
-    breaker::Breaker breaker;
-    synnax::Task task;
-    std::map<std::string, std::string> channel_map;
-}; // class AnalogWriteSink
+    double* write_buffer = nullptr;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    DigitalWriterTask                          //
+//                                    WriterTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-class DigitalWriterTask final : public task::Task {
+class WriterTask final : public task::Task {
 public:
-    explicit DigitalWriterTask(
-        const std::shared_ptr<task::Context> &ctx,
+    explicit WriterTask(
+        const std::shared_ptr<task::Context>& ctx,
         synnax::Task task,
         std::shared_ptr<pipeline::Sink> sink,
-        std::shared_ptr<ni::DigitalWriteSink> ni_sink,
-        std::shared_ptr<pipeline::Source> writer_state_source,
-        synnax::WriterConfig writer_config,
-        synnax::StreamerConfig streamer_config,
+        std::shared_ptr<WriteSink> ni_sink,
+        std::shared_ptr<pipeline::Source> state_source,
+        synnax::WriterConfig state_writer_config,
+        synnax::StreamerConfig cmd_streamer_config,
         const breaker::Config breaker_config
     );
 
-
-    explicit DigitalWriterTask() = default;
-
-    void exec(task::Command &cmd) override;
-
+    void exec(task::Command& cmd) override;
     void stop() override;
-
-    void stop(const std::string &cmd_key);
-
-    void start(const std::string &cmd_key);
+    void stop(const std::string& cmd_key);
+    void start(const std::string& key);
+    bool ok();
+    std::string name() override { return task.name; }
 
     static std::unique_ptr<task::Task> configure(
-        const std::shared_ptr<DAQmx> &dmx,
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const std::shared_ptr<DAQmx>& dmx,
+        const std::shared_ptr<task::Context>& ctx,
+        const synnax::Task& task
     );
-
-    bool ok();
-
-    std::string name() override { return task.name; }
 
 private:
     std::atomic<bool> running = false;
@@ -390,54 +347,7 @@ private:
     pipeline::Control cmd_write_pipe;
     pipeline::Acquisition state_write_pipe;
     bool ok_state = true;
-    std::shared_ptr<ni::DigitalWriteSink> sink;
-}; // class DigitalWriterTask
-
-///////////////////////////////////////////////////////////////////////////////////
-//                                    AnalogWriterTask                           //
-///////////////////////////////////////////////////////////////////////////////////
-class AnalogWriterTask final : public task::Task {
-public:
-    explicit AnalogWriterTask(
-        const std::shared_ptr<task::Context> &ctx,
-        synnax::Task task,
-        std::shared_ptr<pipeline::Sink> sink,
-        std::shared_ptr<ni::AnalogWriteSink> ni_sink,
-        std::shared_ptr<pipeline::Source> writer_state_source,
-        synnax::WriterConfig writer_config,
-        synnax::StreamerConfig streamer_config,
-        const breaker::Config breaker_config
-    );
-
-
-    explicit AnalogWriterTask() = default;
-
-    void exec(task::Command &cmd) override;
-
-    void stop() override;
-
-    void stop(const std::string &cmd_key);
-
-    void start(const std::string &cmd_key);
-
-    static std::unique_ptr<task::Task> configure(
-        const std::shared_ptr<DAQmx> &dmx,
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    );
-
-    bool ok();
-
-    std::string name() override { return task.name; }
-
-private:
-    std::atomic<bool> running = false;
-    std::shared_ptr<task::Context> ctx;
-    synnax::Task task;
-    pipeline::Control cmd_write_pipe;
-    pipeline::Acquisition state_write_pipe;
-    bool ok_state = true;
-    std::shared_ptr<ni::AnalogWriteSink> sink;
-}; // class AnalogWriterTask
+    std::shared_ptr<WriteSink> sink;
+};
 
 }

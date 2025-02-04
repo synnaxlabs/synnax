@@ -54,11 +54,9 @@ std::unique_ptr<task::Task> ni::ScannerTask::configure(
     return std::make_unique<ni::ScannerTask>(syscfg, ctx, task);
 }
 
-
 void ni::ScannerTask::stop() {
     this->breaker.stop();
 }
-
 
 void ni::ScannerTask::exec(task::Command &cmd) {
     if (cmd.type == "scan") {
@@ -74,7 +72,6 @@ void ni::ScannerTask::exec(task::Command &cmd) {
 
 void ni::ScannerTask::run() {
     auto scan_cmd = task::Command{task.key, "scan", {}};
-    // perform a scan
     while (this->breaker.running()) {
         this->breaker.waitFor(this->scan_rate.period().chrono());
         this->exec(scan_cmd);
@@ -82,15 +79,14 @@ void ni::ScannerTask::run() {
     LOG(INFO) << "[ni.scanner] stopped scanning " << this->task.name;
 }
 
-
 bool ni::ScannerTask::ok() {
     return this->ok_state;
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
+
 ni::ReaderTask::ReaderTask(
     const std::shared_ptr<DAQmx> &dmx,
     const std::shared_ptr<task::Context> &ctx,
@@ -113,7 +109,6 @@ ni::ReaderTask::ReaderTask(
     daq_read_pipe.add_middleware(tare_mw);
 }
 
-
 std::unique_ptr<task::Task> ni::ReaderTask::configure(
     const std::shared_ptr<DAQmx> &dmx,
     const std::shared_ptr<task::Context> &ctx,
@@ -130,7 +125,6 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
-    //    LOG(INFO) << "Task config: " << parser.get_json().dump(4);
 
     TaskHandle task_handle;
     dmx->CreateTask("", &task_handle);
@@ -209,10 +203,8 @@ void ni::ReaderTask::stop() { this->stop(""); }
 
 void ni::ReaderTask::stop(const std::string &cmd_key) {
     if (!this->running.exchange(false)) {
-        // TODO: if running false, return silenelty as task is already stopped
         LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
-                this->running << " ok: "
-                << this->ok();
+                this->running << " ok: " << this->ok();
         return;
     }
     this->daq_read_pipe.stop();
@@ -236,13 +228,14 @@ bool ni::ReaderTask::ok() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                             DigitalWriterTask                                 //
+//                                    WriterTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-ni::DigitalWriterTask::DigitalWriterTask(
-    const std::shared_ptr<task::Context> &ctx,
+
+ni::WriterTask::WriterTask(
+    const std::shared_ptr<task::Context>& ctx,
     synnax::Task task,
     std::shared_ptr<pipeline::Sink> sink,
-    std::shared_ptr<ni::DigitalWriteSink> ni_sink,
+    std::shared_ptr<WriteSink> ni_sink,
     std::shared_ptr<pipeline::Source> state_source,
     synnax::WriterConfig state_writer_config,
     synnax::StreamerConfig cmd_streamer_config,
@@ -268,11 +261,41 @@ ni::DigitalWriterTask::DigitalWriterTask(
     sink(ni_sink) {
 }
 
+void ni::WriterTask::exec(task::Command& cmd) {
+    if (cmd.type == "start") this->start(cmd.key);
+    else if (cmd.type == "stop") this->stop(cmd.key);
+}
 
-std::unique_ptr<task::Task> ni::DigitalWriterTask::configure(
-    const std::shared_ptr<DAQmx> &dmx,
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+void ni::WriterTask::start(const std::string& key) {
+    if (this->running.exchange(true) || !this->ok() || !this->sink->ok()) return;
+    sink->start(key);
+    this->cmd_write_pipe.start();
+    this->state_write_pipe.start();
+}
+
+void ni::WriterTask::stop() { 
+    this->stop(""); 
+}
+
+void ni::WriterTask::stop(const std::string& cmd_key) {
+    if (!this->running.exchange(false)) {
+        LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
+                this->running << " ok: " << this->ok();
+        return;
+    }
+    this->state_write_pipe.stop();
+    this->cmd_write_pipe.stop();
+    sink->stop(cmd_key);
+}
+
+bool ni::WriterTask::ok() {
+    return this->ok_state;
+}
+
+std::unique_ptr<task::Task> ni::WriterTask::configure(
+    const std::shared_ptr<DAQmx>& dmx,
+    const std::shared_ptr<task::Context>& ctx,
+    const synnax::Task& task
 ) {
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -288,7 +311,17 @@ std::unique_ptr<task::Task> ni::DigitalWriterTask::configure(
     dmx->CreateTask("", &task_handle);
 
     LOG(INFO) << "[ni.writer] configuring task " << task.name;
-    auto daq_writer = std::make_shared<ni::DigitalWriteSink>(dmx, task_handle, ctx, task);
+    
+    // Create the appropriate sink based on the task type
+    std::shared_ptr<WriteSink> daq_writer;
+    if (task.type == "ni_digital_write") {
+        daq_writer = std::make_shared<DigitalWriteSink>(dmx, task_handle, ctx, task);
+    } else if (task.type == "ni_analog_write") {
+        daq_writer = std::make_shared<AnalogWriteSink>(dmx, task_handle, ctx, task);
+    } else {
+        LOG(ERROR) << "[ni.writer] unknown writer task type: " << task.type;
+        return nullptr;
+    }
 
     std::vector<synnax::ChannelKey> cmd_keys = daq_writer->get_cmd_channel_keys();
     std::vector<synnax::ChannelKey> state_keys = daq_writer->get_state_channel_keys();
@@ -308,149 +341,27 @@ std::unique_ptr<task::Task> ni::DigitalWriterTask::configure(
 
     if (daq_writer->ok()) daq_writer->cycle();
 
-    auto state_writer = daq_writer->writer_state_source;
-
-    VLOG(1) << "[ni.writer] constructed writer for " << task.name;
-    auto p = std::make_unique<ni::DigitalWriterTask>(
-        ctx,
-        task,
-        daq_writer,
-        daq_writer,
-        state_writer,
-        state_writer_config,
-        cmd_streamer_config,
-        breaker_config
-    );
-
-    ctx->set_state({
-        .task = task.key,
-        .variant = "success",
-        .details = {
-            {"running", false},
-            {"message", "Successfully configured task"}
-        }
-    });
-
-    return p;
-}
-
-void ni::DigitalWriterTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") this->start(cmd.key);
-    else if (cmd.type == "stop") this->stop(cmd.key);
-}
-
-
-void ni::DigitalWriterTask::start(const std::string &key) {
-    if (this->running.exchange(true) || !this->ok() || !this->sink->ok()) return;
-    sink->start(key);
-    this->cmd_write_pipe.start();
-    this->state_write_pipe.start();
-}
-
-void ni::DigitalWriterTask::stop() { this->stop(""); }
-
-void ni::DigitalWriterTask::stop(const std::string &cmd_key) {
-    if (!this->running.exchange(false)) {
-        LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
-                this->running << " ok: " << this->ok();
-        return;
+    // Get the appropriate state source based on the sink type
+    std::shared_ptr<pipeline::Source> state_writer;
+    if (auto digital_sink = std::dynamic_pointer_cast<DigitalWriteSink>(daq_writer)) {
+        state_writer = digital_sink->writer_state_source;
+    } else if (auto analog_sink = std::dynamic_pointer_cast<AnalogWriteSink>(daq_writer)) {
+        state_writer = analog_sink->writer_state_source;
     }
-    this->state_write_pipe.stop();
-    this->cmd_write_pipe.stop();
-    sink->stop(cmd_key);
-}
 
-
-bool ni::DigitalWriterTask::ok() {
-    return this->ok_state;
-}
-
-///////////////////////////////////////////////////////////////////////////////////
-//                             AnalogWriterTask                                  //
-///////////////////////////////////////////////////////////////////////////////////
-ni::AnalogWriterTask::AnalogWriterTask(
-    const std::shared_ptr<task::Context> &ctx,
-    synnax::Task task,
-    std::shared_ptr<pipeline::Sink> sink,
-    std::shared_ptr<ni::AnalogWriteSink> ni_sink,
-    std::shared_ptr<pipeline::Source> state_source,
-    synnax::WriterConfig state_writer_config,
-    synnax::StreamerConfig cmd_streamer_config,
-    const breaker::Config breaker_config
-) : ctx(ctx),
-    task(task),
-    cmd_write_pipe(
-        pipeline::Control(
-            ctx->client,
-            cmd_streamer_config,
-            std::move(sink),
-            breaker_config
-        )
-    ),
-    state_write_pipe(
-        pipeline::Acquisition(
-            ctx->client,
+    if (!daq_writer->ok()) {
+        LOG(ERROR) << "[ni.task] failed to configure task " << task.name;
+        return std::make_unique<WriterTask>(
+            ctx,
+            task,
+            daq_writer,
+            daq_writer,
+            state_writer,
             state_writer_config,
-            state_source,
+            cmd_streamer_config,
             breaker_config
-        )
-    ),
-    sink(ni_sink) {
-}
-
-
-std::unique_ptr<task::Task> ni::AnalogWriterTask::configure(
-    const std::shared_ptr<DAQmx> &dmx,
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
-) {
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-
-    auto parser = config::Parser(task.config);
-    auto data_saving = parser.optional<bool>("data_saving", true);
-
-    TaskHandle task_handle;
-    dmx->CreateTask("", &task_handle);
-
-    LOG(INFO) << "[ni.writer] configuring task " << task.name;
-    auto daq_writer = std::make_shared<ni::AnalogWriteSink>(dmx, task_handle, ctx, task);
-
-    std::vector<synnax::ChannelKey> cmd_keys = daq_writer->get_cmd_channel_keys();
-    std::vector<synnax::ChannelKey> state_keys = daq_writer->get_state_channel_keys();
-
-    auto state_writer_config = synnax::WriterConfig{
-        .channels = state_keys,
-        .start = synnax::TimeStamp::now(),
-        .mode = data_saving
-                    ? synnax::WriterMode::PersistStream
-                    : synnax::WriterMode::StreamOnly,
-        .enable_auto_commit = true,
-    };
-
-
-    auto cmd_streamer_config = synnax::StreamerConfig{
-        .channels = cmd_keys,
-    };
-
-    if (daq_writer->ok()) daq_writer->cycle();
-
-    auto state_writer = daq_writer->writer_state_source;
-
-    auto p = std::make_unique<ni::AnalogWriterTask>(
-        ctx,
-        task,
-        daq_writer,
-        daq_writer,
-        state_writer,
-        state_writer_config,
-        cmd_streamer_config,
-        breaker_config
-    );
+        );
+    }
 
     ctx->set_state({
         .task = task.key,
@@ -461,35 +372,16 @@ std::unique_ptr<task::Task> ni::AnalogWriterTask::configure(
         }
     });
 
-    return p;
-}
+    LOG(INFO) << "[ni.task] successfully configured task " << task.name;
 
-void ni::AnalogWriterTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") this->start(cmd.key);
-    else if (cmd.type == "stop") this->stop(cmd.key);
-}
-
-void ni::AnalogWriterTask::start(const std::string &key) {
-    if (this->running.exchange(true) || !this->ok() || !this->sink->ok()) return;
-    sink->start(key);
-    this->cmd_write_pipe.start();
-    this->state_write_pipe.start();
-}
-
-void ni::AnalogWriterTask::stop() { this->stop(""); }
-
-void ni::AnalogWriterTask::stop(const std::string &cmd_key) {
-    if (!this->running.exchange(false)) {
-        LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
-                this->running << " ok: " << this->ok();
-        return;
-    }
-    this->state_write_pipe.stop();
-    this->cmd_write_pipe.stop();
-    sink->stop(cmd_key);
-}
-
-
-bool ni::AnalogWriterTask::ok() {
-    return this->ok_state;
+    return std::make_unique<WriterTask>(
+        ctx,
+        task,
+        daq_writer,
+        daq_writer,
+        state_writer,
+        state_writer_config,
+        cmd_streamer_config,
+        breaker_config
+    );
 }
