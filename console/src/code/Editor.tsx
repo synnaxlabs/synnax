@@ -9,33 +9,12 @@
 
 import "@/code/Editor.css";
 
-import { Align, type Input, Theming, useAsyncEffect } from "@synnaxlabs/pluto";
-import { Command } from "@tauri-apps/plugin-shell";
+import { Align, type Input, Theming } from "@synnaxlabs/pluto";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
-
-async function startLuaLanguageServer() {
-  const command = Command.sidecar("bin/lua", ["--stdio"]);
-
-  command.on("close", (data) => {
-    console.log(`Process exited with code ${data.code}`);
-  });
-
-  command.stdout.on("data", (data) => {
-    console.log(`STDOUT: ${data}`);
-    // Forward this to WebSocket server if needed
-  });
-
-  command.stderr.on("data", (data) => {
-    console.error(`STDERR: ${data}`);
-  });
-
-  await command.spawn();
-}
-startLuaLanguageServer();
 
 export interface EditorProps
   extends Input.Control<string>,
@@ -45,10 +24,6 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
   const editorRef = useRef<HTMLDivElement | null>(null); // A ref to store the editor DOM element
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // A ref to store the Monaco editor instance
   const theme = Theming.use();
-
-  useAsyncEffect(async () => {
-    await startLuaLanguageServer();
-  }, []);
 
   useEffect(() => {
     if (editorRef.current === null) return;

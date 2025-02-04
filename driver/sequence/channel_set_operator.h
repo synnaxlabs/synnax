@@ -52,7 +52,8 @@ inline synnax::Series lua_to_series(lua_State *L, int index, const synnax::Chann
         );
     if (ch.data_type == synnax::SY_UINT8)
         return synnax::Series(
-            static_cast<uint8_t>(lua_toboolean(L, index)),
+            static_cast<uint8_t>(lua_isnumber(L, index) ? 
+                lua_tonumber(L, index) : lua_toboolean(L, index)),
             ch.data_type
         );
     if (ch.data_type == synnax::SY_UINT16)

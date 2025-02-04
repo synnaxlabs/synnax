@@ -109,9 +109,24 @@ TEST_F(SetOperatorTest, Int64Value) {
     RunTest<int64_t>("9223372036854775807", 9223372036854775807L);
 }
 
-TEST_F(SetOperatorTest, UInt8BooleanValue) {
+TEST_F(SetOperatorTest, Uint8NumberValue) {
     SetupChannel(synnax::SY_UINT8);
-    RunTest<uint8_t>("true", 1);
+    RunTest<uint8_t>("0", 0);
+}
+
+TEST_F(SetOperatorTest, Uint8Number1Value) {
+    SetupChannel(synnax::SY_UINT8);
+    RunTest<uint8_t>("1", 1);
+}
+
+TEST_F(SetOperatorTest, Uint8ChannelBooleanValue) {
+    SetupChannel(synnax::SY_UINT8);
+    RunTest<uint8_t>("false", 0);
+}
+
+TEST_F(SetOperatorTest, Uint8ChannelFalseValue) {
+    SetupChannel(synnax::SY_UINT8);
+    RunTest<uint8_t>("false", 0);
 }
 
 TEST_F(SetOperatorTest, UInt16Value) {
@@ -129,15 +144,7 @@ TEST_F(SetOperatorTest, UInt64Value) {
     RunTest<uint64_t>("18446744073709551615", 18446744073709551615ULL);
 }
 
-TEST_F(SetOperatorTest, Uint8ChannelBooleanValue) {
-    SetupChannel(synnax::SY_UINT8);
-    RunTest<uint8_t>("false", 0);
-}
 
-TEST_F(SetOperatorTest, Uint8ChannelFalseValue) {
-    SetupChannel(synnax::SY_UINT8);
-    RunTest<uint8_t>("false", 0);
-}
 
 class SetOperatorWithIndexTest : public testing::Test {
 protected:
