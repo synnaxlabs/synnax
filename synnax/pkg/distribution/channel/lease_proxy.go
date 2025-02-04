@@ -442,6 +442,8 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
 		return err
 	}
+	// It's very important that this goes last, as it's the only operation that can fail
+	// without an atomic guarantee.
 	return lp.TSChannel.DeleteChannels(keys.Storage())
 }
 
