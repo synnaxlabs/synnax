@@ -1,22 +1,29 @@
-name: Deploy - Synnax
+name: Deploy - Server
 
 on:
   push:
     branches:
       - main
       - rc
+    paths:
+      - .github/workflows/deploy.synnax.yaml
+      - alamos/go/**
+      - aspen/**
+      - cesium/**
+      - driver/**
+      - freighter/go/**
+      - synnax/**
+      - x/go/**
   workflow_dispatch:
 
 permissions:
-  contents: write
   packages: write
 
 jobs:
-  setup:
+  version:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
-      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -31,26 +38,9 @@ jobs:
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
           fi
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            changed:
-              - .github/workflows/deploy.synnax.yaml
-              - alamos/go/**
-              - aspen/**
-              - cesium/**
-              - driver/**
-              - freighter/go/**
-              - synnax/**
-              - x/go/**
-
   create-release:
     runs-on: ubuntu-latest
-    needs: setup
-    if: needs.setup.outputs.changed == 'true'
+    needs: version
     steps:
       - name: Create Release
         uses: actions/github-script@v7
@@ -60,21 +50,20 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo
             })
-            const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.setup.outputs.VERSION }}')
+            const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.version.outputs.VERSION }}')
             if (release != null) return release.id
             const { data: { id } } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: 'synnax-v${{ needs.setup.outputs.VERSION }}',
-              name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
+              tag_name: 'synnax-v${{ needs.version.outputs.VERSION }}',
+              name: 'Synnax v${{ needs.version.outputs.VERSION }}',
               draft: false,
               prerelease: false
             });
 
   build:
-    needs: setup
+    needs: version
     name: Build (${{ matrix.os }})
-    if: needs.setup.outputs.changed == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -189,13 +178,13 @@ jobs:
         run: go mod download
 
       - name: Build Windows Installer
-        if: matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
           # Navigate to the synnax binary directory
           Push-Location .\synnax
           # Read version from VERSION file
-          $version = "${{ needs.setup.outputs.VERSION }}"
+          $version = "${{ needs.version.outputs.VERSION }}"
           if (-not $version) {
               Write-Error "Failed to read version file"
               exit 1
@@ -224,10 +213,10 @@ jobs:
           Write-Host "Build process completed successfully!"
 
       - name: Upload Windows Installer
-        if: (github.event_name == 'push' || github.event_name == 'pull_request') && matrix.os == 'windows-latest' && needs.setup.outputs.changed == 'true'
+        if:  matrix.os == 'windows-latest'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
+        run: gh release upload --clobber synnax-v${{ needs.version.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.version.outputs.VERSION }}.exe
 
       - name: Determine OS
         id: os
@@ -244,59 +233,58 @@ jobs:
       - name: Build
         working-directory: synnax
         run: |
-          go build -tags driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+          go build -tags driver -o synnax-v${{ needs.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
-        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} ./synnax/synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload --clobber synnax-v${{ needs.version.outputs.VERSION }} ./synnax/synnax-v${{ needs.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Download Latest Earthly
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-latest'
         uses: earthly/actions-setup@v1
 
       - name: Login to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        uses: docker/login-action@v2
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        uses: docker/login-action@v2
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Image
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        run: earthly --push +docker -tag=${{ needs.setup.outputs.VERSION }}
-        working-directory: ./synnax
+        if: matrix.os == 'ubuntu-latest'
+        run: earthly --push +docker -tag=${{ needs.version.outputs.VERSION }}
+        working-directory: synnax
 
       - name: Push to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          docker push ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
+          docker push ghcr.io/synnaxlabs/synnax:${{ needs.version.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.version.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
             docker push ghcr.io/synnaxlabs/synnax:latest
           elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:rc
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.version.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:rc
             docker push ghcr.io/synnaxlabs/synnax:rc
           fi
 
       - name: Push to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          docker push synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
+          docker tag ghcr.io/synnaxlabs/synnax:${{ needs.version.outputs.VERSION }} synnaxlabs/synnax:${{ needs.version.outputs.VERSION }}
+          docker push synnaxlabs/synnax:${{ needs.version.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:latest
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.version.outputs.VERSION }} synnaxlabs/synnax:latest
             docker push synnaxlabs/synnax:latest
           elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:rc
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.version.outputs.VERSION }} synnaxlabs/synnax:rc
             docker push synnaxlabs/synnax:rc
           fi
