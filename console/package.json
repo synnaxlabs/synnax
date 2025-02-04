@@ -10,8 +10,8 @@
     "dev-vite": "vite --force",
     "build-vite": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix",
+    "lint": "eslint",
+    "fix": "eslint --fix",
     "test": "vitest",
     "devtools": "pnpm react-devtools",
     "react-devtools": "npx react-devtools"

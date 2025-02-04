@@ -8,8 +8,8 @@
     "test": "vitest",
     "bench": "vitest bench",
     "dev": "vite",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix",
+    "lint": "eslint",
+    "fix": "eslint --fix",
     "preview": "vite preview"
   },
   "dependencies": {

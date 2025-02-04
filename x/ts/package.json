@@ -15,8 +15,8 @@
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "test": "vitest",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "lint": "eslint",
+    "fix": "eslint --fix"
   },
   "dependencies": {
     "nanoid": "^5.0.9",

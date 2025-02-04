@@ -5,8 +5,8 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "lint": "eslint",
+    "fix": "eslint --fix"
   },
   "publishConfig": {
     "access": "public"

@@ -17,8 +17,8 @@
     "build": "tsc --noEmit && vite build",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix"
+    "lint": "eslint",
+    "fix": "eslint --fix"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.5.0",
