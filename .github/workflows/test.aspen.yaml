@@ -45,20 +45,12 @@ jobs:
           - os: ubuntu-latest
             format: true
         exclude:
-          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'refs/heads/main') && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
+          - os: ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Echo GitHub Context
-        run: |
-          echo "github.ref: ${{ github.ref }}"
-          echo "github.base_ref: ${{ github.base_ref }}"
-          echo "github.event_name: ${{ github.event_name }}"
-          echo "github.head_ref: ${{ github.head_ref }}"
-          echo "github: ${{ github }}"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -73,17 +65,3 @@ jobs:
       - name: Test
         run: go test -v -shuffle=on ./...
         working-directory: aspen
-## github.base_ref,
-## github.event_name
-## github.head_ref
-## github.ref
-
-## Run all 3 when:
-# - workflow_dispatch
-# - push to main
-# - pull_request to main
-
-## run only ubuntu when:
-# - push to rc
-# - pull_request to rc
-
