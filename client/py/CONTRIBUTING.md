@@ -5,8 +5,9 @@ before continuing.
 
 ## Development Environment Setup
 
-To get started contributing to the Synnax Python client, read the development environment
-setup guide for [macos](../../docs/tech/setup-macos.md) or [windows](../../docs/tech/setup-windows.md).
+To get started contributing to the Synnax Python client, read the development
+environment setup guide for [macOS](../../docs/tech/setup-macos.md) or
+[windows](../../docs/tech/setup-windows.md).
 
 As an additional step, read the **[Python Build System Guide](../../docs/tech/python/python.md)**
 for instructions on how we work with Python in the Synnax monorepo.

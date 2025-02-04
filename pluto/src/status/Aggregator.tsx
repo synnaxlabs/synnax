@@ -23,15 +23,12 @@ import { Aether } from "@/aether";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-export type AddStatusFn = (status: status.CrudeSpec) => void;
-
-export interface HandleExcFn {
-  (exc: unknown, message?: string): void;
-}
-
 interface ContextValue extends z.infer<typeof status.aggregatorStateZ> {
-  add: AddStatusFn;
+  add: status.AddStatusFn;
 }
+
+export type AddStatusFn = status.AddStatusFn;
+export type ExceptionHandler = status.ExceptionHandler;
 
 const ZERO_CONTEXT_VALUE: ContextValue = {
   statuses: [],
@@ -61,7 +58,7 @@ export const Aggregator = ({
     setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
   }
 
-  const handleAdd: ContextValue["add"] = useCallback(
+  const handleAdd: AddStatusFn = useCallback(
     (status) => {
       const spec: status.Spec = { time: TimeStamp.now(), key: id.id(), ...status };
       setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
@@ -81,18 +78,21 @@ export const Aggregator = ({
   );
 };
 
-export const useAggregator = (): AddStatusFn => useContext(Context).add;
+export const useAggregator = (): status.AddStatusFn => useContext(Context).add;
 
-export const useExceptionHandler = (): HandleExcFn => {
+export const useExceptionHandler = (): status.ExceptionHandler => {
   const addStatus = useAggregator();
-  return (exc: unknown, message?: string): void => {
-    if (!(exc instanceof Error)) throw exc;
-    addStatus({
-      variant: "error",
-      message: message ?? exc.message,
-      description: message != null ? exc.message : undefined,
-    });
-  };
+  return useCallback(
+    (exc: unknown, message?: string): void => {
+      if (!(exc instanceof Error)) throw exc;
+      addStatus({
+        variant: "error",
+        message: message ?? exc.message,
+        description: message != null ? exc.message : undefined,
+      });
+    },
+    [addStatus],
+  );
 };
 
 export interface UseNotificationsProps {

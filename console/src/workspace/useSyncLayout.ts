@@ -22,7 +22,7 @@ import { setActive } from "@/workspace/slice";
 
 const MAX_RETRY_COUNT = 3;
 
-export const useSyncLayout = async (): Promise<void> => {
+export const useSyncLayout = (): void => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const addStatus = Status.useAggregator();

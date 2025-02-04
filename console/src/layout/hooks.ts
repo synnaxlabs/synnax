@@ -23,7 +23,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { type Dispatch, type ReactElement, useCallback, useState } from "react";
+import { type Dispatch, useCallback, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { useOpenInNewWindow } from "@/layout/Menu";
@@ -169,11 +169,10 @@ const matchThemeChange = ({
 
 const synchronizeWithOS = async (
   dispatch: Dispatch<UnknownAction>,
-): AsyncDestructor => {
+): Promise<AsyncDestructor> =>
   await getCurrentWindow().onThemeChanged((e) =>
     dispatch(setActiveTheme(matchThemeChange(e))),
   );
-};
 
 const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
   dispatch(
@@ -182,7 +181,7 @@ const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void>
 
 export interface NavMenuItem {
   key: string;
-  icon: ReactElement<Icon.BaseProps>;
+  icon: Icon.Element;
   tooltip: string;
 }
 

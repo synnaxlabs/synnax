@@ -155,25 +155,28 @@ const Content = (): ReactElement => {
       const addedOrUpdated = update
         .filter((u) => u.variant === "set")
         .map((u) => u.key);
-      client.hardware.tasks.retrieve(addedOrUpdated).then((nextTasks) => {
-        setTasks((prev) => {
-          const next = prev
-            .filter((t) => !removed.includes(t.key))
-            .map((t) => {
-              const u = nextTasks.find((u) => u.key === t.key);
-              if (u == null) return t;
-              u.state = t.state;
-              return u;
-            });
-          const nextKeys = next.map((t) => t.key);
-          return [
-            ...next,
-            ...nextTasks.filter(
-              (u) => !u.internal && !u.snapshot && !nextKeys.includes(u.key),
-            ),
-          ];
-        });
-      });
+      client.hardware.tasks
+        .retrieve(addedOrUpdated)
+        .then((nextTasks) => {
+          setTasks((prev) => {
+            const next = prev
+              .filter((t) => !removed.includes(t.key))
+              .map((t) => {
+                const u = nextTasks.find((u) => u.key === t.key);
+                if (u == null) return t;
+                u.state = t.state;
+                return u;
+              });
+            const nextKeys = next.map((t) => t.key);
+            return [
+              ...next,
+              ...nextTasks.filter(
+                (u) => !u.internal && !u.snapshot && !nextKeys.includes(u.key),
+              ),
+            ];
+          });
+        })
+        .catch(handleException);
     },
   });
   Observe.useListener({
@@ -262,10 +265,10 @@ const Content = (): ReactElement => {
               start: () =>
                 selected.forEach((t) => {
                   if (t == null) return;
-                  t.executeCommand("start");
+                  void t.executeCommand("start");
                   if (desiredStates[t.key] === "running") return;
                   setDesiredStates((prev) => {
-                    t.executeCommand("start");
+                    void t.executeCommand("start");
                     const next = { ...prev };
                     next[t.key] = "running";
                     return next;
@@ -274,7 +277,7 @@ const Content = (): ReactElement => {
               stop: () =>
                 selected.forEach((t) => {
                   if (t == null) return;
-                  t.executeCommand("stop");
+                  void t.executeCommand("stop");
                   if (desiredStates[t.key] === "paused") return;
                   setDesiredStates((prev) => {
                     const next = { ...prev };
@@ -391,7 +394,7 @@ const TaskListItem = ({
   const loading = useDelayedState<boolean>(false, isLoading);
   const handleClick = () => {
     onStopStart(isRunning ? "paused" : "running");
-    entry.executeCommand(isRunning ? "stop" : "start");
+    void entry.executeCommand(isRunning ? "stop" : "start");
   };
   return (
     <List.ItemFrame {...props} justify="spaceBetween" align="center" rightAligned>

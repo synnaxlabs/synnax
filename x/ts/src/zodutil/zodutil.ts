@@ -41,6 +41,6 @@ export const getFieldSchema: deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny> = ((
     sourceTypeGetter(schema, "shape") as unknown as z.AnyZodObject,
     getFieldSchemaPath(path),
     { ...options, getter: sourceTypeGetter } as deep.GetOptions<boolean | undefined>,
-  ) as z.ZodTypeAny | null) as deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny>;
+  )) as deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny>;
 
 export const bigInt = z.bigint().or(z.string().transform(BigInt));

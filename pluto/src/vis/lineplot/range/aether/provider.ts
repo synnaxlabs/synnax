@@ -52,27 +52,27 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   schema = providerStateZ;
   fetchedInitial: TimeRange = TimeRange.ZERO;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.render = render.Context.use(this.ctx);
-    i.draw = new Draw2D(i.render.upper2d, theming.use(this.ctx));
+    i.render = render.Context.use(ctx);
+    i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
 
     i.ranges ??= new Map();
-    const client = synnax.use(this.ctx);
+    const client = synnax.use(ctx);
     if (client == null) return;
     i.client = client;
 
     if (i.tracker != null) return;
     i.tracker = await i.client.ranges.openTracker();
-    i.tracker.onChange(async (c) => {
-      c.forEach(async (r) => {
+    i.tracker.onChange((c) => {
+      c.forEach((r) => {
         if (r.variant === "delete") i.ranges.delete(r.key);
         else if (hasColor(r.value.color)) i.ranges.set(r.key, r.value);
       });
-      render.Controller.requestRender(this.ctx, render.REASON_TOOL);
+      render.Controller.requestRender(ctx, render.REASON_TOOL);
       this.setState((s) => ({ ...s, count: i.ranges.size }));
     });
-    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
+    render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
   private async fetchInitial(timeRange: TimeRange): Promise<void> {

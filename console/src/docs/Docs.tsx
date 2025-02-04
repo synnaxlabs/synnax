@@ -70,7 +70,7 @@ export const Docs: Layout.Renderer = memo(() => {
 
   useEffect(() => {
     const queryParams = {
-      noHeader: true,
+      noHeader: "true",
       theme: theme.key.includes("dark") ? "dark" : "light",
     };
     setURL(

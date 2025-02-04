@@ -3,7 +3,7 @@
 ## Development Environment Setup
 
 To get started contributing to Pluto, read the development environment setup guide for
-[MacOS](../docs/tech/setup-macos.md) or [Windows](../docs/tech/setup-windows.md).
+[macOS](../docs/tech/setup-macos.md) or [Windows](../docs/tech/setup-windows.md).
 
 ## Running the Storybook
 
@@ -71,7 +71,7 @@ within the `button` module in a file called `Icon.tsx` and the component is name
 `Icon`. When using the component in another module, we would import it as follows:
 
 ```tsx
-import { Button } from "@/button"
+import { Button } from "@/button";
 
 const MyComponent = () => {
     return (
@@ -113,14 +113,14 @@ example, the `Color` module contains React components like the `Color.Picker` an
 primitives like the `color.Color` class and the `color.Crude` type.
 
 This means that uppercase (main thread) modules are typically **extensions** of the
-lowercase (worker thread) modules. For example, the `Color` module *re-exports* the
+lowercase (worker thread) modules. For example, the `Color` module _re-exports_ the
 `color.Color` class as `Color.Color` along with the `Color.Picker` and `Color.Swatch`
 and other main thread-specific tooling.
 
 ### Z-Indexing
 
 | Name                     | Z-Index | Notes                                                                                |
-|--------------------------|---------|--------------------------------------------------------------------------------------|
+| ------------------------ | ------- | ------------------------------------------------------------------------------------ |
 | Lower 2D Canvas          | -3      | Used for items that should render below the upper 2D and GL canvases such as `Axes`. |
 | GL Canvas                | -2      | WebGL rendering for lines.                                                           |
 | Lower Schematic Elements | 2       | Below the upper 2D canvas.                                                           |

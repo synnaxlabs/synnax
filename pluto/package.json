@@ -6,6 +6,7 @@
     "build": "tsc --noEmit && vite build",
     "watch": "vite build --watch",
     "test": "vitest",
+    "bench": "vitest bench",
     "dev": "vite",
     "lint": "eslint --cache",
     "fix": "eslint --cache --fix",

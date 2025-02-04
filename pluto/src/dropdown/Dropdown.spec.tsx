@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, render } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -48,9 +48,7 @@ describe("Dropdown", () => {
     const toggle = c.getByText("Toggle");
     const dialog = c.getByRole("dialog");
     expect(dialog.className).toContain("hidden");
-    await act(async () => {
-      await userEvent.click(toggle);
-    });
+    await userEvent.click(toggle);
     expect(dialog.className).not.toContain("hidden");
   });
 });

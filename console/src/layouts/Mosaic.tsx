@@ -231,9 +231,9 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [dispatch, windowKey],
   );
   const handleFileDrop = useCallback(
-    async (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
+    (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
       const items = Array.from(event.dataTransfer.items);
-      await Promise.all(
+      void Promise.all(
         items.map(async (item) => {
           try {
             await Import.dataTransferItem(item, {
@@ -328,7 +328,7 @@ export const NavTop = (): ReactElement | null => {
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls
           className="console-controls--macos"
-          visibleIfOS="MacOS"
+          visibleIfOS="macOS"
           forceOS={os}
         />
         {os === "Windows" && <Logo className="console-main-nav-top__logo" />}

@@ -219,16 +219,21 @@ const handleRename: Ontology.HandleTreeRename = {
   },
 };
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
+const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
   id,
   placeLayout,
   nodeKey,
   location,
+  handleException,
 }) => {
-  const task = await client.hardware.tasks.retrieve(id.key);
-  const layout = createLayout(task);
-  placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
+  client.hardware.tasks
+    .retrieve(id.key)
+    .then((task) => {
+      const layout = createLayout(task);
+      placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
+    })
+    .catch(handleException);
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

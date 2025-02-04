@@ -17,6 +17,7 @@ import {
   Color,
   type Legend,
   Menu as PMenu,
+  Status,
   Synnax,
   useAsyncEffect,
   useDebouncedCallback,
@@ -127,6 +128,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
+  const handleException = Status.useExceptionHandler();
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -349,7 +351,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           break;
         case "download":
           if (client == null) return;
-          download({ timeRange, lines, client, name: `${name}-data` });
+          download({ timeRange, lines, client, name: `${name}-data`, handleException });
           break;
       }
     };
@@ -421,7 +423,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                 switch (itemKey) {
                   case "download":
                     if (client == null) return;
-                    download({ client, lines, timeRange, name });
+                    download({ client, lines, timeRange, name, handleException });
                     break;
                   case "metadata":
                     place({ ...Range.overviewLayout, name, key });
@@ -459,7 +461,7 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(
       ([key, axis]): Channel.AxisProps => ({
-        location: axisLocation(key as AxisKey),
+        location: axisLocation(key),
         ...axis,
       }),
     );

@@ -27,7 +27,7 @@ describe("telem", () => {
         outlet: "bool",
         segments: { s1, s2, avg, bool },
       },
-      telem.factory(),
+      telem.createFactory(),
     );
     expect(await p.value()).toBeTruthy();
   });

@@ -19,44 +19,37 @@ export const eraserStateZ = z.object({
 });
 
 interface InternalState {
-  render: render.Context;
+  renderCtx: render.Context;
 }
+
+const CANVASES: render.CanvasVariant[] = ["gl", "lower2d", "upper2d"];
 
 export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
   static readonly TYPE = "eraser";
   schema = eraserStateZ;
 
-  private readonly eraser: render.Eraser = new render.Eraser();
-
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     if (this.deleted) return;
-    this.internal.render = render.Context.use(this.ctx);
-    await this.internal.render.loop.set({
-      key: `${this.type}-${this.key}`,
-      render: this.render.bind(this),
-      priority: "high",
-      canvases: ["gl", "lower2d", "upper2d"],
-    });
+    this.internal.renderCtx = render.Context.use(ctx);
+    await this.renderOnLifecycleChange();
   }
 
   async afterDelete(): Promise<void> {
-    await this.internal.render.loop.set({
+    await this.renderOnLifecycleChange();
+  }
+
+  async renderOnLifecycleChange(): Promise<void> {
+    await this.internal.renderCtx.loop.set({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),
       priority: "high",
-      canvases: ["gl", "lower2d", "upper2d"],
+      canvases: CANVASES,
     });
   }
 
-  async render(): Promise<undefined> {
+  async render(): Promise<void> {
     if (this.deleted || !this.state.enabled) return;
-    this.internal.render.erase(
-      this.state.region,
-      xy.construct(0),
-      "gl",
-      "lower2d",
-      "upper2d",
-    );
+    this.internal.renderCtx.erase(this.state.region, xy.construct(0), ...CANVASES);
   }
 }
 

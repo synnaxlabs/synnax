@@ -59,7 +59,7 @@ interface ActionProps {
 const Action = ({ index, level, children, divided }: ActionProps): ReactElement => {
   let content: ReactElement = children as ReactElement;
   if (!isValidElement(children)) {
-    const { onClick, key, ...props } = children as Button.IconProps;
+    const { onClick, key, ...props } = children;
     content = (
       <Button.Icon
         key={key ?? index}

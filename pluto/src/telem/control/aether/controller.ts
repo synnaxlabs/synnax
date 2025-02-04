@@ -50,9 +50,10 @@ interface InternalState {
   client: Synnax | null;
   instrumentation: Instrumentation;
   stateProv: StateProvider;
-  addStatus: status.Aggregate;
+  addStatus: status.AddStatusFn;
   theme: theming.Theme;
   prevTrigger: number;
+  telemCtx: telem.Context;
 }
 
 interface AetherControllerTelem extends telem.Telem {
@@ -74,28 +75,28 @@ export class Controller
   private readonly registry = new Map<AetherControllerTelem, null>();
   private writer?: framer.Writer;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.instrumentation = alamos.useInstrumentation(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    const { internal: i } = this;
+    i.instrumentation = alamos.useInstrumentation(ctx);
     if (
-      this.internal.prevTrigger == null ||
-      Math.abs(this.state.acquireTrigger - this.internal.prevTrigger) > 1
+      i.prevTrigger == null ||
+      Math.abs(this.state.acquireTrigger - i.prevTrigger) > 1
     )
-      this.internal.prevTrigger = this.state.acquireTrigger;
-    const nextClient = synnax.use(this.ctx);
-    const nextStateProv = StateProvider.use(this.ctx);
+      i.prevTrigger = this.state.acquireTrigger;
+    const nextClient = synnax.use(ctx);
+    const nextStateProv = StateProvider.use(ctx);
 
-    this.internal.client = nextClient;
-    if (this.internal.client == null) await this.release();
-    this.internal.stateProv = nextStateProv;
+    i.client = nextClient;
+    if (i.client == null) await this.release();
+    i.stateProv = nextStateProv;
 
-    telem.registerFactory(this.ctx, this);
+    i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
 
-    this.internal.addStatus = status.useAggregate(this.ctx);
+    i.addStatus = status.useAggregator(ctx);
 
     // Acquire or release control if necessary.
-    if (this.state.acquireTrigger > this.internal.prevTrigger) await this.acquire();
-    else if (this.state.acquireTrigger < this.internal.prevTrigger)
-      await this.release();
+    if (this.state.acquireTrigger > i.prevTrigger) await this.acquire();
+    else if (this.state.acquireTrigger < i.prevTrigger) await this.release();
   }
 
   async afterDelete(): Promise<void> {

@@ -18,37 +18,18 @@ import { type MainMessage, type WorkerMessage } from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 
-type UpdateVariant = "state" | "context";
+/**
+ * A selected subset of the Map interface used for efficiently propagating context
+ * updates through the tree.
+ */
+export interface ContextMap extends Pick<Map<string, unknown>, "get" | "forEach"> {}
 
-/** An update to an AetherComponent from the main React tree. */
-export interface Update {
-  /**
-   * The variant of update being performed. State updates are used to update
-   * the state of a particular component, while context updates are used to propagate
-   * context changes to children in the tree.
-   */
-  variant: UpdateVariant;
-  /* The context provided by the parent component. */
-  ctx: Context;
-  /**
-   * The path of the component in the tree. This path is shortened as the update is
-   * propagated through the tree
-   */
-  path: string[];
-  /**
-   * The type of the component being updated. This is used to create the component
-   * if it does not already exist.
-   */
-  type: string;
-  /**
-   * The state to update on the component . This is only present if the variant is
-   * "state".
-   */
-  state: UnknownRecord;
-  /**
-   * instrumentation is used for logging and tracing.
-   */
-  instrumentation: alamos.Instrumentation;
+/**
+ * An internal function alias that creates a new component with the specified
+ * initial parent context
+ */
+interface CreateComponent {
+  (initialParentCtxValues: ContextMap): Component;
 }
 
 /**
@@ -62,14 +43,26 @@ export interface Component {
   type: string;
   /** A unique key identifying the component within the tree. */
   key: string;
-  ctx: Context;
   /**
-   * Propagates an update to the internal tree of the component, updating the component
-   * itself and any children as necessary.
+   * Propagates a state update to the component at the given path. This is an internal
+   * method, should not be called by subclasses outside of this file.
    *
-   * @param update - The update to propagate.
+   * @param path - The path of the component to update. The length of the path indicates
+   * the depth of the component in the aether tree. This method should propagate the
+   * state if the path has a length greater than 1.
+   * @param state - The state to update the component with.
+   * @param create - A function that creates a new component of the appropriate type if
+   * it doesn't exist in the tree.
    */
-  internalUpdate: (update: Update) => Promise<void>;
+  _updateState: (
+    path: string[],
+    state: UnknownRecord,
+    create: CreateComponent,
+  ) => Promise<void>;
+  /**
+   * Propagates a context update to the children and all of its descendants.
+   */
+  _updateContext: (values: ContextMap) => Promise<void>;
   /**
    * Propagates a delete to the internal tree of the component, calling the handleDelete
    * component on the component itself and any children as necessary. It is up to
@@ -77,166 +70,125 @@ export interface Component {
    *
    * @param path - The path of the component to delete.
    */
-  internalDelete: (path: string[]) => Promise<void>;
+  _delete: (path: string[]) => Promise<void>;
+}
+
+/** Constructor props that all aether components must accept. */
+interface ComponentConstructorProps {
+  /** The key of the component. */
+  key: string;
+  /** The type of the component. */
+  type: string;
+  /** A sender used to propagate messages back to the main thread. */
+  sender: Sender<WorkerMessage>;
+  /** Instrumentation used for logging and tracing. */
+  instrumentation: alamos.Instrumentation;
+  /** Initial parent context values for the component. These should be intentionally
+   * set to null if no values exists.
+   */
+  parentCtxValues: ContextMap | null;
 }
 
 /** A constructor type for an AetherComponent. */
-export type ComponentConstructor = new (update: Update) => Component;
-
-/**
- * AetherContext is used to propagate environment information to components in the
- * aether tree. It allows components to propagate state changes to the main react
- * tree, create new components, and set/get values from the environment, passing
- * them to children as necessary.
- */
-export class Context {
-  readonly providers: Map<string, any>;
-  private readonly registry: Record<string, ComponentConstructor>;
-  private readonly sender: Sender<WorkerMessage>;
-  changedKeys: string[];
-
-  constructor(
-    sender: Sender<WorkerMessage>,
-    registry: Record<string, ComponentConstructor>,
-    providers = new Map<string, any>(),
-  ) {
-    this.providers = providers;
-    this.registry = registry;
-    this.changedKeys = [];
-    this.sender = sender;
-  }
-
-  /**
-   * Propagates the given state for the component with the given key to the main
-   * react tree.
-   *
-   * @param key - The key of the component to propagate the state for.
-   * @param state - The state to propagate.
-   * @param transfer - Any transferable objects to transfer to the main thread.
-   */
-  propagateState(key: string, state: any, transfer: Transferable[] = []): void {
-    this.sender.send({ key, state }, transfer);
-  }
-
-  /**
-   * Copies the context, setting it's 'changed' flag to false, and optionally merging
-   * another set of context values into it.
-   *
-   * @param merge - The context to merge into the copy.
-   * @returns The copied context.
-   */
-  copyAndMerge(merge?: Context): Context {
-    const cpy = new Context(this.sender, this.registry, new Map());
-    merge?.providers.forEach((value, key) => cpy.providers.set(key, value));
-    this.providers.forEach((value, key) => cpy.providers.set(key, value));
-    cpy.changedKeys = [];
-    return cpy;
-  }
-
-  get changed(): boolean {
-    return this.changedKeys.length > 0;
-  }
-
-  /**
-   * Sets a value on the context and flags the context as changed.
-   *
-   * @param key - The key to set.
-   * @param value - The value to set.
-   */
-  set(key: string, value: any, trigger: boolean = true): void {
-    this.providers.set(key, value);
-    if (trigger) this.changedKeys.push(key);
-  }
-
-  setIfNotHas(key: string, value: any): void {
-    if (!this.providers.has(key)) this.set(key, value);
-  }
-
-  /**
-   * Creates a new component using the given update. It is up to the caller to
-   * validate that the component type is valid.
-   *
-   * @param update - The update to create the component from.
-   * @returns The created component.
-   */
-  async create<C extends Component>(update: Update): Promise<C> {
-    const Factory = this.registry[update.type];
-    if (Factory == null)
-      throw new Error(`[AetherRoot.create] - could not find component ${update.type}`);
-    const c = new Factory(update) as C;
-    await c.internalUpdate(update);
-    return c;
-  }
-
-  /**
-   * Gets a value from the context, returning null if the value does not exist. It's
-   * imporant to note that the context provides no validation of the type of the
-   * value, so it is up to the caller to ensure that the value is of the correct type.
-   *
-   * @param key - The key to get.
-   * @returns The value, or null if it does not exist.
-   */
-  getOptional<P>(key: string): P | null {
-    return this.providers.get(key) ?? null;
-  }
-
-  /**
-   * Checks if the context has a value for the given key.
-   *
-   * @param key - The key to check.
-   * @returns True if the context has a value for the given key, false otherwise.
-   */
-  has(key: string): boolean {
-    return this.providers.has(key);
-  }
-
-  /**
-   * Gets a value from the context, throwing an error if the value does not exist.
-   * It's imporant to note that the context provides no validation of the type of
-   * the value, so it is up to the caller to ensure that the value is of the correct
-   *
-   * @param key - The key to get.
-   * @returns The value.
-   */
-  get<P>(key: string): P {
-    const value = this.getOptional<P>(key);
-    if (value == null)
-      throw new Error(`[AetherRoot.get] - could not find provider ${key}`);
-    return value;
-  }
+export interface ComponentConstructor {
+  new (props: ComponentConstructorProps): Component;
 }
 
 /**
- * Implements an AtherComponent that does not have any children, and servers as the base
+ * The Context interface allows for parent components to pass context values to
+ * arbitrarily nested children.
+ */
+export interface Context {
+  /**
+   * Gets a context value, interpreting it as the given type, and returning it. This
+   * method does no internal type checking - it is up to the caller to ensure that the
+   * value exists for the given key and is of the correct type.
+   * @throws a NotFoundError if the value does not exist for the given key.
+   * @returns the context value interpreted as the given type.
+   */
+  get<P>(key: string): P;
+  /**
+   * Gets a context value, interpreting it as the given type, and returning it. This
+   * method does no internal type checking - it is up to the caller to ensure that the
+   * value is of the correct type.
+   * @returns the context value, or null if no value exists for the given key.
+   */
+  getOptional<P>(key: string): P | null;
+  /**
+   * Checks if a parent context value exists for the given key. Note that this will
+   * return false for all context values set by the component itself.
+   * @returns true if a value exists for the given key, false otherwise.
+   */
+  has(key: string): boolean;
+  /**
+   * Sets a context value for the given key, making it available to all children of the
+   * component, but NOT to the component itself. This detail is crucial, as it means
+   * the component can override the value of an existing parent key and propagate it
+   * to its children, while still being able to access the original parent value.
+   *
+   * @param key - The key of the context value to set.
+   * @param value - The value to set for the given key.
+   * @param trigger - If true, the component will be notified of the change.
+   */
+  set(key: string, value: any, trigger?: boolean): void;
+  /**
+   * Checks if the component has previously set a context value for the given key. This
+   * is an alternative to {@link has} that checks whether the component has set the value
+   * itself, as opposed to whether it has been set by a parent.
+   * @returns true if the component has set the value itself, false otherwise.
+   */
+  setPreviously(key: string): boolean;
+}
+
+/**
+ * Implements an AetherComponent that does not have any children, and servers as the base
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
  */
-export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Component {
+export abstract class Leaf<
+  StateSchema extends z.ZodTypeAny,
+  InternalState extends {} = {},
+> implements Component
+{
   readonly type: string;
   readonly key: string;
 
-  _ctx: Context;
-  private readonly _internalState: IS;
-  private _state: z.output<S> | undefined;
-  private _prevState: z.output<S> | undefined;
+  private readonly sender: Sender<WorkerMessage>;
+
+  private readonly _internalState: InternalState;
+  private _state: z.output<StateSchema> | undefined;
+  private _prevState: z.output<StateSchema> | undefined;
   private _deleted: boolean = false;
-  instrumentation: alamos.Instrumentation;
+  protected readonly parentCtxValues: Map<string, any>;
+  protected readonly childCtxValues: Map<string, any>;
+  protected readonly childCtxChangedKeys: Set<string>;
+  readonly instrumentation: alamos.Instrumentation;
 
-  schema: S | undefined = undefined;
+  schema: StateSchema | undefined = undefined;
 
-  constructor(u: Update) {
-    this.type = u.type;
-    this.key = u.path[0];
-    this._ctx = u.ctx;
-    this._internalState = {} as IS;
-    this.instrumentation = u.instrumentation.child(`${this.type}(${this.key})`);
+  constructor({
+    key,
+    type,
+    sender,
+    instrumentation,
+    parentCtxValues,
+  }: ComponentConstructorProps) {
+    this.type = type;
+    this.key = key;
+    this.sender = sender;
+    this._internalState = {} as InternalState;
+    this.instrumentation = instrumentation.child(`${this.type}(${this.key})`);
+    this.parentCtxValues = new Map();
+    parentCtxValues?.forEach((value, key) => this.parentCtxValues.set(key, value));
+    this.childCtxValues = new Map();
+    this.childCtxChangedKeys = new Set();
   }
 
-  private get _schema(): S {
+  private get _schema(): StateSchema {
     if (this.schema == null)
       throw new ValidationError(
         `[AetherLeaf] - expected subclass to define component schema, but none was found.
-        Make sure to defne a property 'schema' on the class.`,
+        Make sure to define a property 'schema' on the class.`,
       );
     return this.schema;
   }
@@ -248,31 +200,33 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * @param next - The new state to set on the component. This can be the state object
    * or a pure function that takes in the previous state and returns the next state.
    */
-  setState(next: state.SetArg<z.input<S> | z.output<S>, z.output<S>>): void {
-    const nextState: z.input<S> = state.executeSetter(next, this._state);
+  setState(
+    next: state.SetArg<
+      z.input<StateSchema> | z.output<StateSchema>,
+      z.output<StateSchema>
+    >,
+  ): void {
+    const nextState: z.input<StateSchema> = state.executeSetter(next, this._state);
     this._prevState = { ...this._state };
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
-    this.ctx.propagateState(this.key, nextState);
-  }
-
-  /** Returns the current context on the component. */
-  get ctx(): Context {
-    if (this._ctx == null) throw new UnexpectedError("context not defined");
-    return this._ctx;
+    this.sender.send({ key: this.key, state: nextState });
   }
 
   /** @returns the current state of the component. */
-  get state(): z.output<S> {
-    if (this._state == null) throw new UnexpectedError("state not defined");
+  get state(): z.output<StateSchema> {
+    if (this._state == null)
+      throw new UnexpectedError(
+        `[AetherLeaf] - state not defined in ${this.type}:${this.key}`,
+      );
     return this._state;
   }
 
-  get internal(): IS {
+  get internal(): InternalState {
     return this._internalState;
   }
 
   /** @returns the previous state of the component. */
-  get prevState(): z.output<S> {
+  get prevState(): z.output<StateSchema> {
     return this._prevState;
   }
 
@@ -280,38 +234,55 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
     return this._deleted;
   }
 
-  /**
-   * @implements AetherComponent, and should NOT be called by a subclass other than
-   * AetherComposite.
-   */
-  async internalUpdate({ variant, path, ctx, state }: Update): Promise<void> {
-    if (this.deleted) return;
-    this._ctx = ctx;
-    if (variant === "state") {
-      this.validatePath(path);
-      const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
-      if (this._state != null)
-        this.instrumentation.L.debug("updating state", () => ({
-          diff: deep.difference(this.state, state_),
-        }));
-      else this.instrumentation.L.debug("setting initial state", { state });
-      this._prevState = this._state ?? state_;
-      this._state = state_;
-    } else this.instrumentation.L.debug("updating context");
-    await this.afterUpdate();
+  private get ctx(): Context {
+    return {
+      get: (key: string) => this.parentCtxValues.get(key),
+      getOptional: (key: string) => this.parentCtxValues.get(key),
+      has: (key: string) => this.parentCtxValues.has(key),
+      setPreviously: (key: string) => this.childCtxValues.has(key),
+      set: (key: string, value: any, trigger: boolean = true) => {
+        this.childCtxValues.set(key, value);
+        if (trigger) this.childCtxChangedKeys.add(key);
+      },
+    };
   }
 
   /**
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  async internalDelete(path: string[]): Promise<void> {
+  async _updateState(
+    path: string[],
+    state: UnknownRecord,
+    _: CreateComponent,
+  ): Promise<void> {
+    if (this.deleted) return;
+    this.validatePath(path);
+    const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
+    if (this._state != null)
+      this.instrumentation.L.debug("updating state", () => ({
+        diff: deep.difference(this.state, state_),
+      }));
+    else this.instrumentation.L.debug("setting initial state", { state });
+    this._prevState = this._state ?? state_;
+    this._state = state_;
+    await this.afterUpdate(this.ctx);
+  }
+
+  async _updateContext(values: ContextMap): Promise<void> {
+    values.forEach((value, key) => this.parentCtxValues.set(key, value));
+    await this.afterUpdate(this.ctx);
+  }
+
+  /**
+   * @implements AetherComponent, and should NOT be called by a subclass other than
+   * AetherComposite.
+   */
+  async _delete(path: string[]): Promise<void> {
     this.validatePath(path);
     this._deleted = true;
-    await this.afterDelete();
+    await this.afterDelete(this.ctx);
   }
-
-  beforeUpdate(): void {}
 
   /**
    * afterUpdate is optionally defined by a subclass, allowing the component to
@@ -319,7 +290,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * state, previous state, derived state, and current context are all available to
    * the component.
    */
-  async afterUpdate(): Promise<void> {}
+  async afterUpdate(_: Context): Promise<void> {}
 
   /**
    * Runs after the component has been spliced out of the tree. This is useful for
@@ -327,7 +298,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * the current state, previous state, derived state, and current context are all
    * available to the component, and this.deleted is true.
    */
-  async afterDelete(): Promise<void> {}
+  async afterDelete(_: Context): Promise<void> {}
 
   private validatePath(path: string[]): void {
     if (path.length === 0)
@@ -353,112 +324,19 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
  * child components. It is the base class for all composite components, and should not
  * be used directly.
  */
-export class Composite<
-    S extends z.ZodTypeAny,
-    IS extends {} = {},
-    C extends Component = Component,
+export abstract class Composite<
+    StateSchema extends z.ZodTypeAny,
+    InternalState extends {} = {},
+    ChildComponents extends Component = Component,
   >
-  extends Leaf<S, IS>
+  extends Leaf<StateSchema, InternalState>
   implements Component
 {
-  private _children: Map<string, C>;
-
-  constructor(u: Update) {
-    super(u);
-    this._children = new Map();
-  }
+  private readonly _children: Map<string, ChildComponents> = new Map();
 
   /** @returns a readonly array of the children of the component. */
-  get children(): readonly C[] {
+  get children(): readonly ChildComponents[] {
     return Array.from(this._children.values());
-  }
-
-  /**
-   * @implements AetherComponent, and should NOT be called by a subclass, except for
-   * AetherRoot.
-   */
-  async internalUpdate(u: Update): Promise<void> {
-    const { variant, path } = u;
-
-    if (variant === "context") {
-      // We need to assume the context has changed, so we need to copy and merge the
-      // context before updating the component.
-      this._ctx = u.ctx.copyAndMerge(this._ctx);
-      return await this.updateContext({ ...u, ctx: this.ctx });
-    }
-
-    const [key, subPath] = this.getRequiredKey(path);
-    // In this case, we can safely assume the context hasn't changed, so we can just use
-    // the internal, cached context.
-    const uCached = { ...u, ctx: this.ctx };
-    return subPath.length === 0
-      ? await this.updateThis(key, uCached)
-      : await this.updateChild(subPath, uCached);
-  }
-
-  private async updateContext(u: Update): Promise<void> {
-    await super.internalUpdate(u);
-    for (const c of this.children)
-      await c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" });
-  }
-
-  private async updateChild(subPath: string[], u: Update): Promise<void> {
-    const childKey = subPath[0];
-    const child = this.getChild(childKey);
-    if (child != null) return await child.internalUpdate({ ...u, path: subPath });
-    if (subPath.length > 1)
-      throw new Error(
-        `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${childKey} while updating `,
-      );
-    this._children.set(childKey, await u.ctx.create({ ...u, path: subPath }));
-  }
-
-  private async updateThis(key: string, u: Update): Promise<void> {
-    const ctx = u.ctx.copyAndMerge(this._ctx);
-    // Check if super altered the context. If so, we need to re-render children.
-    if (key !== this.key)
-      throw new UnexpectedError(
-        `[Composite.update] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
-      );
-    await super.internalUpdate({ ...u, ctx });
-    if (!ctx.changed) return;
-    this.instrumentation.L.debug("context changed", {
-      changedKeys: ctx.changedKeys,
-    });
-    for (const c of this.children)
-      await c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" });
-  }
-
-  async internalDelete(path: string[]): Promise<void> {
-    const [key, subPath] = this.getRequiredKey(path);
-    if (subPath.length === 0) {
-      if (key !== this.key)
-        throw new Error(
-          `[Composite.delete] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
-        );
-      const children = this.children;
-      this._children = new Map();
-      for (const c of children) await c.internalDelete([c.key]);
-      await super.internalDelete([this.key]);
-    }
-    const child = this.getChild(subPath[0]);
-    if (child == null) return;
-    if (subPath.length > 1) await child.internalDelete(subPath);
-    else {
-      this._children.delete(child.key);
-      await child.internalDelete(subPath);
-    }
-  }
-
-  getRequiredKey(path: string[], type?: string): [string, string[]] {
-    const [key, ...subPath] = path;
-    if (key == null)
-      throw new Error(
-        `Composite ${this.type}:${this.key} received an empty path${
-          type != null ? ` for ${type}` : ""
-        }`,
-      );
-    return [key, subPath];
   }
 
   /**
@@ -467,7 +345,7 @@ export class Composite<
    * @param key - the key of the child component to find.
    * @returns the child component, or null if no child component with the given key
    */
-  getChild<T extends C = C>(key: string): T | null {
+  getChild<T extends ChildComponents = ChildComponents>(key: string): T | null {
     return (this._children.get(key) ?? null) as T | null;
   }
 
@@ -477,10 +355,96 @@ export class Composite<
    * @param types - the type of the children to find
    * @returns an array of all children of the component with the given type
    */
-  childrenOfType<T extends C = C>(...types: Array<T["type"]>): readonly T[] {
+  childrenOfType<T extends ChildComponents = ChildComponents>(
+    ...types: Array<T["type"]>
+  ): readonly T[] {
     return this.children.filter((c) =>
       types.includes(c.type),
     ) as unknown as readonly T[];
+  }
+
+  async _updateState(
+    path: string[],
+    state: UnknownRecord,
+    create: CreateComponent,
+  ): Promise<void> {
+    if (this.deleted) return;
+    const subPath = this.parsePath(path);
+
+    const isSelfUpdate = subPath.length === 0;
+    if (isSelfUpdate) {
+      this.childCtxChangedKeys.clear();
+      await super._updateState(path, state, create);
+      if (this.childCtxChangedKeys.size == 0) return;
+      await this.updateChildContexts();
+      return;
+    }
+
+    const childKey = subPath[0];
+    const child = this.getChild(childKey);
+    if (child != null) return child._updateState(subPath, state, create);
+    if (subPath.length > 1)
+      throw new UnexpectedError(
+        `[Composite.update] - ${this.type}:${this.key} received a subPath ${subPath.join(
+          ".",
+        )} but found now child with key ${childKey}`,
+      );
+    const newChild = create(this.childCtx());
+    await newChild._updateState(subPath, state, create);
+    this._children.set(childKey, newChild as ChildComponents);
+  }
+
+  async _updateContext(values: ContextMap): Promise<void> {
+    await super._updateContext(values);
+    await this.updateChildContexts();
+  }
+
+  private childCtx(): ContextMap {
+    return {
+      get: (key) => this.childCtxValues.get(key) ?? this.parentCtxValues.get(key),
+      forEach: (callback) => {
+        this.childCtxValues.forEach((value, key) =>
+          callback(value, key, this.childCtxValues),
+        );
+        this.parentCtxValues.forEach((value, key) => {
+          if (this.childCtxValues.has(key)) return;
+          callback(value, key, this.parentCtxValues);
+        });
+      },
+    };
+  }
+
+  private async updateChildContexts(): Promise<void> {
+    for (const c of this.children) await c._updateContext(this.childCtx());
+  }
+
+  async _delete(path: string[]): Promise<void> {
+    const subPath = this.parsePath(path);
+    if (subPath.length === 0) {
+      for (const c of this.children) await c._delete([c.key]);
+      this._children.clear();
+      await super._delete([this.key]);
+    }
+    const child = this.getChild(subPath[0]);
+    if (child == null) return;
+    if (subPath.length > 1) return await child._delete(subPath);
+    this._children.delete(child.key);
+    await child._delete(subPath);
+  }
+
+  private parsePath(path: string[], type?: string): string[] {
+    const [key, ...subPath] = path;
+    if (key == null)
+      throw new Error(
+        `Composite ${this.type}:${this.key} received an empty path${
+          type != null ? ` for ${type}` : ""
+        }`,
+      );
+    if (key !== this.key)
+      throw new UnexpectedError(
+        `[Composite.getRequiredKey] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
+      );
+    return subPath;
   }
 }
 
@@ -488,61 +452,113 @@ export type ComponentRegistry = Record<string, ComponentConstructor>;
 
 const aetherRootState = z.object({});
 
+/**
+ * The props for creating the root of the Aether tree.
+ */
 export interface RootProps {
-  worker: SenderHandler<WorkerMessage, MainMessage>;
+  /** A communication mechanism for sending messages to the main thread. */
+  comms: SenderHandler<WorkerMessage, MainMessage>;
+  /** A registry of available components that can be used to mirror those on the main thread. */
   registry: ComponentRegistry;
+  /** Instrumentation used for logging and tracing. */
   instrumentation?: alamos.Instrumentation;
 }
 
-export class Root extends Composite<typeof aetherRootState> {
-  wrap: SenderHandler<WorkerMessage, MainMessage>;
+const shouldNotCallCreate = () => {
+  throw new Error("should not call create");
+};
 
+export class Root extends Composite<typeof aetherRootState> {
+  /** Key of the root component. */
   private static readonly TYPE = "root";
+  /** Type of the root component. */
   private static readonly KEY = "root";
 
-  private static readonly ZERO_UPDATE: Omit<Update, "ctx" | "instrumentation"> = {
-    path: [Root.KEY],
-    type: Root.TYPE,
-    variant: "state",
-    state: {},
-  };
+  /** A communication mechanism for sending messages to the main thread. */
+  private readonly comms: SenderHandler<WorkerMessage, MainMessage>;
+  /** A registry used for creating new components in the tree. */
+  private readonly registry: ComponentRegistry;
+  /** Mutex used for serializing state updates to the tree. */
+  private readonly mu = new Mutex();
 
-  static readonly schema = aetherRootState;
-  schema = Root.schema;
-  mu = new Mutex();
+  schema = aetherRootState;
 
   constructor({
-    worker: wrap,
-    registry,
+    comms,
     instrumentation = alamos.Instrumentation.NOOP,
+    registry,
   }: RootProps) {
-    const ctx = new Context(wrap, registry, new Map());
-    const u = {
-      ctx,
-      ...Root.ZERO_UPDATE,
+    super({
+      key: Root.KEY,
+      type: Root.TYPE,
+      sender: comms,
       instrumentation,
-    };
-
-    super(u);
-    void this.mu.runExclusive(async () => await this.internalUpdate(u));
-    this.wrap = wrap;
-    this.wrap.handle((msg) => {
-      void this.mu.runExclusive(async () => await this.handle(msg));
+      parentCtxValues: null,
     });
+    this.comms = comms;
+    this.registry = registry;
   }
 
-  async handle(msg: MainMessage): Promise<void> {
-    if (msg.variant === "delete") await this.internalDelete(msg.path);
-    else {
-      const u: Update = {
-        ...msg,
-        variant: "state",
-        ctx: this.ctx,
-        instrumentation: this.instrumentation,
-      };
-      await this.internalUpdate(u);
-    }
+  /**
+   * Creates a new aether tree with the provided props, and starts listing for state
+   * updates on the provided comms.
+   */
+  static async render(props: RootProps): Promise<Root> {
+    const root = new Root(props);
+    await root._updateState([Root.KEY], {}, shouldNotCallCreate);
+    /**
+     * Unfortunately we get a bunch of nasty race conditions whenever component updates
+     * are not serialized, so we need to lock the entire component tree when making
+     * updates.
+     */
+    root.comms.handle((msg) => {
+      void root.mu.runExclusive(async () => {
+        await root.handle(msg);
+      });
+    });
+    return root;
+  }
+
+  /**
+   * Handles messages from the worker thread and applies them as updates in the
+   * aether tree.
+   */
+  private async handle(msg: MainMessage): Promise<void> {
+    const { path, variant, type } = msg;
+    if (variant === "delete") await this._delete(path);
+    else
+      await this._updateState(path, msg.state, (parentCtxValues) => {
+        const key = path[path.length - 1];
+        return this.create({ key, type, parentCtxValues });
+      });
+  }
+
+  /** Creates a new component from the registry */
+  private create({
+    key,
+    type,
+    parentCtxValues,
+  }: Omit<ComponentConstructorProps, "sender" | "instrumentation">): Component {
+    const Constructor = this.registry[type];
+    if (Constructor == null)
+      throw new UnexpectedError(`[Root.create] - ${type} not found in registry`);
+    return new Constructor({
+      key,
+      type,
+      sender: this.comms,
+      instrumentation: this.instrumentation,
+      parentCtxValues,
+    });
   }
 }
 
-export const render = (props: RootProps): Root => new Root(props);
+/**
+ * Creates a new aether tree with the provided props.
+ *
+ * @param props - The props for the root component.
+ * @param props.comms - A communication mechanism for sending messages to the main thread.
+ * Typically this is implemented by a web worker.
+ * @param props.registry - A registry of available components that can be used to mirror
+ * those on the main thread.
+ */
+export const render = Root.render.bind(Root);

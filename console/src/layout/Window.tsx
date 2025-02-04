@@ -13,7 +13,6 @@ import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Haul, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
-import { type runtime } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -47,7 +46,7 @@ export const NavTop = ({
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls
           className="console-controls--macos"
-          visibleIfOS="MacOS"
+          visibleIfOS="macOS"
           forceOS={os}
         />
         {os === "Windows" && <Logo className="console-main-nav-top__logo" />}
@@ -90,7 +89,7 @@ const WindowInternal = (): ReactElement | null => {
   let win = useSelectWindowKey(currLabel) ?? "";
   if (isMain) win = MAIN_WINDOW;
   const layout = useSelect(win);
-  const os = OS.use({ default: "Windows" }) as runtime.OS;
+  const os = OS.use({ default: "Windows" });
   const dispatch = useDispatch();
   useEffect(() => {
     if (layout?.key == null) return;

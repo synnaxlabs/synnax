@@ -213,7 +213,7 @@ export const DefaultItem = memo(
       hasChildren || (children != null && children.length > 0);
 
     // Expand, contract, and loading items.
-    const startIcons: ReactElement<PIcon.BaseProps>[] = [];
+    const startIcons: PIcon.Element[] = [];
     if (actuallyHasChildren)
       startIcons.push(
         <Caret.Animated
@@ -224,7 +224,7 @@ export const DefaultItem = memo(
         />,
       );
     if (icon != null) startIcons.push(icon);
-    const endIcons: ReactElement<PIcon.BaseProps>[] = [];
+    const endIcons: PIcon.Element[] = [];
     if (loading)
       endIcons.push(
         <Icon.Loading key="loading-indicator" className={CSS.B("loading-indicator")} />,

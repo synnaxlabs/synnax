@@ -38,7 +38,7 @@ export const measureStateZ = z.object({
 });
 
 interface InternalState {
-  render: render.Context;
+  renderCtx: render.Context;
   theme: Theme;
   draw: Draw2D;
   dataOne: xy.XY | null;
@@ -55,16 +55,16 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   static readonly TYPE = "measure";
   schema = measureStateZ;
 
-  async afterUpdate(): Promise<void> {
-    const ctx = render.Context.use(this.ctx);
-    this.internal.theme = theming.use(this.ctx);
-    this.internal.render = ctx;
-    this.internal.draw = new Draw2D(ctx.upper2d, this.internal.theme);
-    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    const renderCtx = render.Context.use(ctx);
+    this.internal.theme = theming.use(ctx);
+    this.internal.renderCtx = renderCtx;
+    this.internal.draw = new Draw2D(renderCtx.upper2d, this.internal.theme);
+    render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
-  async afterDelete(): Promise<void> {
-    render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
+  async afterDelete(ctx: aether.Context): Promise<void> {
+    render.Controller.requestRender(ctx, render.REASON_LAYOUT);
   }
 
   private get verticalLineColor(): color.Color {

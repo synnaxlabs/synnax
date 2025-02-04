@@ -156,6 +156,7 @@ export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
   if ("label" in a.payload) return a as PayloadAction<T & LabelPayload>;
   let label = s.label;
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
   const pld = a.payload as MaybeKeyPayload;
   if (pld.key != null)
     if (pld.key in s.windows) label = pld.key;

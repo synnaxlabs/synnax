@@ -72,7 +72,7 @@ const curriedScale =
     if (type === "dimension") return [bound, (v * (nextRange / prevRange)) as T];
     // @ts-expect-error - typescript can't do the math correctly
     const nextV = ((v - prevLower) * (nextRange / prevRange) + nextLower) as T;
-    return [bound, nextV as T];
+    return [bound, nextV];
   };
 
 const curriedReBound =

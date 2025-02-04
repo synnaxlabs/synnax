@@ -45,14 +45,14 @@ export interface CommandSelectionContext {
   placeLayout: Layout.Placer;
   confirm: Confirm.CreateModal;
   addStatus: Status.AddStatusFn;
-  handleException: Status.HandleExcFn;
+  handleException: Status.ExceptionHandler;
   ingestors: Record<string, Import.FileIngestor>;
 }
 
 export interface Command {
   key: string;
   name: ReactElement | string;
-  icon?: ReactElement<Icon.BaseProps>;
+  icon?: Icon.Element;
   visible?: (state: Permissions.StoreState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
   endContent?: ReactElement[];

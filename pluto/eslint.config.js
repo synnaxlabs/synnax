@@ -9,4 +9,4 @@
 
 import synnaxConfig from "eslint-config-synnaxlabs";
 
-export default [...synnaxConfig, { ignores: ["examples"] }];
+export default synnaxConfig;

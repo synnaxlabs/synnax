@@ -82,16 +82,16 @@ export class StateProvider extends aether.Composite<
     return ctx.get(CONTEXT_KEY);
   }
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.instrumentation = alamos.useInstrumentation(this.ctx, "control-state");
-    const theme = theming.use(this.ctx);
+    i.instrumentation = alamos.useInstrumentation(ctx, "control-state");
+    const theme = theming.use(ctx);
     i.palette = theme.colors.visualization.palettes.default;
     i.defaultColor = theme.colors.gray.l6;
-    const nextClient = synnax.use(this.ctx);
+    const nextClient = synnax.use(ctx);
     if (i.client != null && nextClient === i.client) return;
     i.client = nextClient;
-    this.ctx.set(CONTEXT_KEY, this);
+    ctx.set(CONTEXT_KEY, this);
     await this.maybeCloseTracker();
     if (i.client == null) return;
     this.internal.instrumentation.L.debug("starting state tracker");
@@ -123,7 +123,7 @@ export class StateProvider extends aether.Composite<
       return unique
         .unique(key)
         .map((k) => this.getOne(k))
-        .filter((s) => s != null) as SugaredState[];
+        .filter((s) => s != null);
     return this.getOne(key);
   }
 

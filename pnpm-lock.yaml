@@ -371,6 +371,9 @@ importers:
       shiki:
         specifier: ^1.26.2
         version: 1.26.2
+      zod:
+        specifier: ^3.24.1
+        version: 3.24.1
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -703,21 +706,12 @@ importers:
 
   x/media:
     dependencies:
-      '@synnaxlabs/x':
-        specifier: workspace:*
-        version: link:../ts
-      '@types/react':
-        specifier: ^19.0.6
-        version: 19.0.6
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
       react:
         specifier: ^19.0.0
         version: 19.0.0
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.0.0(react@19.0.0)
       react-icons:
         specifier: ^5.4.0
         version: 5.4.0(react@19.0.0)
@@ -731,6 +725,9 @@ importers:
       '@types/node':
         specifier: ^22.10.6
         version: 22.10.6
+      '@types/react':
+        specifier: ^19.0.6
+        version: 19.0.6
       '@vitejs/plugin-react':
         specifier: ^4.3.4
         version: 4.3.4(vite@6.0.7(@types/node@22.10.6)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))
@@ -8054,14 +8051,14 @@ snapshots:
     dependencies:
       '@remotion/studio': 4.0.248(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@remotion/studio-shared': 4.0.248(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      css-loader: 5.2.7(webpack@5.96.1(esbuild@0.24.0))
+      css-loader: 5.2.7(webpack@5.96.1)
       esbuild: 0.24.0
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
       react-refresh: 0.9.0
       remotion: 4.0.248(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       source-map: 0.7.3
-      style-loader: 2.0.0(webpack@5.96.1(esbuild@0.24.0))
+      style-loader: 2.0.0(webpack@5.96.1)
       webpack: 5.96.1(esbuild@0.24.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -9529,7 +9526,7 @@ snapshots:
 
   css-functions-list@3.2.3: {}
 
-  css-loader@5.2.7(webpack@5.96.1(esbuild@0.24.0)):
+  css-loader@5.2.7(webpack@5.96.1):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.0)
       loader-utils: 2.0.4
@@ -12620,7 +12617,7 @@ snapshots:
 
   strip-json-comments@3.1.1: {}
 
-  style-loader@2.0.0(webpack@5.96.1(esbuild@0.24.0)):
+  style-loader@2.0.0(webpack@5.96.1):
     dependencies:
       loader-utils: 2.0.4
       schema-utils: 3.3.0

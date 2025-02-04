@@ -203,7 +203,7 @@ const PaletteDialog = ({
       if (client == null) return;
       const id = new ontology.ID(key);
       const t = services[id.type];
-      t.onSelect?.({
+      void t.onSelect?.({
         services,
         store,
         addStatus,

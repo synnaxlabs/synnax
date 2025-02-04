@@ -6,26 +6,26 @@ next: "Production"
 nextURL: "/reference/cluster/production"
 prev: "Quick Start"
 prevURL: "/reference/cluster/quick-start"
+platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
 import { Align, Note } from "@synnaxlabs/pluto";
-import { PlatformTabs } from "@/components/platform/PlatformTabs";
+
 import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { SynnaxServerDownloadButton } from "@/components/console/OSDownloadButton";
+import { Platform } from "@/components/platform";
+import { Server } from "@/components/server";
+
 export const components = mdxOverrides;
 
 This page will walk you through how to install the Synnax binary on Windows,
 macOS, and Linux. To get started, select your operating system below:
 
-<PlatformTabs
-    priority={["linux", "macos", "windows"]}
-    client:only="react"
->
+<Platform.Tabs client:only="react">
 
-<Fragment slot="docker">
+<Fragment slot="Docker">
 
 ## Installing on Docker
 
@@ -37,7 +37,7 @@ docker pull synnaxlabs/synnax:latest
 
 </Fragment>
 
-<Fragment slot="linux">
+<Fragment slot="Linux">
 
 ## Installing on Linux
 
@@ -108,7 +108,7 @@ You should see the following output:
 
 </Fragment>
 
-<Fragment slot="macos">
+<Fragment slot="macOS">
 
 ## Installing on macOS
 
@@ -172,7 +172,7 @@ You should see the following output:
 
 </Fragment>
 
-<Fragment slot="windows">
+<Fragment slot="Windows">
 
 ## Installing on Windows
 
@@ -181,19 +181,20 @@ Install the Synnax cluster on Windows by downloading and running the latest inst
 <br />
 <br />
 <Align.Space direction="y" justify="center" align="center">
-    <SynnaxServerDownloadButton client:load />
-    <small>
-        Releases for other operating systems and older versions can be found on the
-        <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
-    </small>
+  <Server.WindowsDownloadButton client:load />
+  <small>
+    Releases for other operating systems and older versions can be found on the
+    <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
+  </small>
 </Align.Space>
 <br />
 <br />
 
 <Note.Note variant="warning">
-  If you've also installed the [Synnax Python Client](../python-client/get-started),
-  its `synnax` command may take precedence over the one you just installed. You can alternatively use the
-  `synnax-server` command which has also been added to your `PATH`.
+  If you've also installed the [Synnax Python Client](../python-client/get-started), its
+  `synnax` command may take precedence over the one you just installed. You can
+  alternatively use the `synnax-server` command which has also been added to your
+  `PATH`.
 </Note.Note>
 
 To verify that the installation was successful, run the following command in a **PowerShell** terminal:
@@ -208,4 +209,4 @@ You should see the following output:
 
 </Fragment>
 
-</PlatformTabs>
+</Platform.Tabs>

@@ -218,11 +218,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Lint
-        run: pnpm lint:freighter
-
       - name: Build
         run: pnpm build:freighter
+
+      - name: Lint
+        run: pnpm lint:freighter
 
       - name: Test
         run: pnpm test:freighter

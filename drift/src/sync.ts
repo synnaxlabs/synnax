@@ -126,8 +126,8 @@ export const syncCurrent = async (
         // This is very much a hack - some times (tauri) won't emit window created events,
         // so we move the window a smidge to emit events in order to do things like
         // hide traffic lights
-        runtime.setPosition(xy.translate(position as xy.XY, { x: 1, y: 1 }));
-        runtime.setPosition(position as xy.XY);
+        await runtime.setPosition(xy.translate(position as xy.XY, { x: 1, y: 1 }));
+        await runtime.setPosition(position as xy.XY);
       },
     ]);
 

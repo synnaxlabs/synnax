@@ -16,7 +16,7 @@ import {
   type Tree,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
@@ -28,7 +28,7 @@ export interface BaseProps {
   removeLayout: Layout.Remover;
   services: Services;
   addStatus: Status.AddStatusFn;
-  handleException: Status.HandleExcFn;
+  handleException: Status.ExceptionHandler;
 }
 
 export interface HandleSelectProps extends BaseProps {
@@ -44,7 +44,7 @@ export interface HandleMosaicDropProps {
   nodeKey: number;
   location: location.Location;
   addStatus: Status.AddStatusFn;
-  handleException: Status.HandleExcFn;
+  handleException: Status.ExceptionHandler;
   id: ontology.ID;
 }
 
@@ -97,9 +97,7 @@ export type PaletteListItem = FC<List.ItemProps<string, ontology.Resource>>;
 
 export interface Service {
   type: ontology.ResourceType;
-  icon:
-    | ReactElement<Icon.BaseProps>
-    | ((resource: ontology.Resource) => ReactElement<Icon.BaseProps>);
+  icon: Icon.Element | ((resource: ontology.Resource) => Icon.Element);
   hasChildren: boolean;
   onSelect?: HandleSelect;
   canDrop: Haul.CanDrop;

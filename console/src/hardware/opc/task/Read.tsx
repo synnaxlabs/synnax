@@ -255,7 +255,7 @@ const Wrapped = ({
           ...dev,
           properties: dev.properties,
         });
-      createTask({ key: task?.key, name, type: READ_TYPE, config });
+      await createTask({ key: task?.key, name, type: READ_TYPE, config });
       setDesiredState("paused");
     },
     onError: (e) => handleException(e, `Failed to configure task`),

@@ -17,7 +17,7 @@ import { type CanvasVariant } from "@/vis/render/context";
  * optional cleanup that is executed before the next render. This cleanup function will
  * be passed the signature of the previous render request.
  */
-export type Func = () => Promise<Cleanup | undefined>;
+export type Func = () => Promise<Cleanup | void>;
 
 /**
  * A request to render a component in the aether visualization tree. Submit a complete

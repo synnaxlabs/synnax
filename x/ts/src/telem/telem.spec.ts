@@ -565,7 +565,7 @@ describe("DataType", () => {
       [DataType.INT32, "int64", false],
     ];
     TESTS.forEach(([dt, other, expected]) =>
-      it(`should return ${expected} when comparing ${dt.toString()} to ${other}`, () => {
+      it(`should return ${expected} when comparing ${dt.toString()} to ${JSON.stringify(other)}`, () => {
         expect(dt.equals(other)).toBe(expected);
       }),
     );

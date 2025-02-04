@@ -29,7 +29,7 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   if (window == null) return null;
   const maximizedDisabled = window.resizable === false;
   const disabled: OS.ControlsAction[] = [];
-  if (window.focus === false && os === "MacOS")
+  if (window.focus === false && os === "macOS")
     disabled.push("close", "minimize", "maximize");
   else if (maximizedDisabled) disabled.push("maximize");
 

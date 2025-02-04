@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,7 +19,7 @@ export const PERSISTED_STATE_KEY = "console-persisted-state";
 export const DB_VERSION_KEY = "console-version";
 
 // Note that these are relative paths related to the tauri standard app data directory.
-// On MacOS, this is ~/Library/Application Support/com.synnaxlabs.dev.
+// On macOS, this is ~/Library/Application Support/com.synnaxlabs.dev.
 // On Windows, this is %APPDATA%/com.synnaxlabs.dev.
 export const V1_STORE_PATH = "~/.synnax/console/persisted-state.dat";
 export const V2_STORE_PATH = "persisted-state.json";
@@ -84,7 +84,8 @@ export const hardClearAndReload = () => {
   if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
   openAndMigrateKV()
     .then(async (db) => await db.clear())
-    .finally(window.location.reload);
+    .finally(() => window.location.reload())
+    .catch(console.error);
 };
 
 interface Engine<S extends RequiredState> {
@@ -168,10 +169,6 @@ export const open = async <S extends RequiredState>(
   return { revert, clear, persist, initialState: state };
 };
 
-const passThroughMiddleware: Middleware<UnknownRecord, any> =
-  () => (next) => (action) =>
-    next(action);
-
 const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 
 /**
@@ -186,9 +183,10 @@ export const middleware = <S extends RequiredState>(
   engine: Engine<S>,
   debounceInterval: TimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<UnknownRecord> => {
-  const appWindow = getCurrentWindow();
-  if (appWindow.label !== MAIN_WINDOW) return passThroughMiddleware;
-  const debouncedPersist = debounce(engine.persist, debounceInterval.milliseconds);
+  const debouncedPersist = debounce(
+    engine.persist.bind(engine),
+    debounceInterval.milliseconds,
+  );
   return (store) => (next) => (action) => {
     const result = next(action);
     const type = (action as Action | undefined)?.type;
@@ -202,7 +200,7 @@ export const middleware = <S extends RequiredState>(
         .clear()
         .then(() => window.location.reload())
         .catch(console.error);
-    else debouncedPersist(store.getState());
+    else void debouncedPersist(store.getState());
     return result;
   };
 };

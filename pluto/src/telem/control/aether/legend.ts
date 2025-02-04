@@ -28,9 +28,9 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
   static readonly TYPE = "Legend";
   schema = legendStateZ;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.stateProv = StateProvider.use(this.ctx);
+    i.stateProv = StateProvider.use(ctx);
 
     const keys = this.state.needsControlOf;
     i.disconnectStateProv?.();

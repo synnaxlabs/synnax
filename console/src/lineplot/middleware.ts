@@ -31,14 +31,14 @@ export const assignColorsEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
   CreatePayload | SetRangesPayload | SetXChannelPayload | SetYChannelsPayload,
   SetLinePayload
-> = ({ getState, action, dispatch }) => {
-  const s = getState();
+> = ({ store, action }) => {
+  const s = store.getState();
   const p = select(s, action.payload.key);
   p.lines.forEach((l) => {
     if (l.color === "") {
       const theme = Layout.selectTheme(s);
       const colors = theme?.colors.visualization.palettes.default ?? [];
-      dispatch(
+      store.dispatch(
         setLine({
           key: p.key,
           line: {
@@ -55,12 +55,12 @@ export const assignActiveRangeEffect: MiddlewareEffect<
   Range.StoreState & StoreState,
   CreatePayload | SetXChannelPayload | SetYChannelsPayload,
   SetRangesPayload
-> = ({ getState, action, dispatch }) => {
-  const s = getState();
+> = ({ store, action }) => {
+  const s = store.getState();
   const p = select(s, action.payload.key);
   const range = Range.selectActiveKey(s);
   if (!p.axes.hasHadChannelSet && p.ranges.x1.length === 0 && range != null)
-    dispatch(
+    store.dispatch(
       setRanges({
         key: p.key,
         axisKey: "x1",
@@ -73,15 +73,15 @@ export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
   Layout.RemovePayload | Layout.SetWorkspacePayload,
   RemovePayload
-> = ({ action, dispatch, getState }) => {
-  const state = getState();
+> = ({ action, store }) => {
+  const state = store.getState();
   const lineState = selectSliceState(state);
   const layout = Layout.selectSliceState(state);
   const keys = "keys" in action.payload ? action.payload.keys : [];
   const toRemove = Object.keys(lineState.plots).filter(
     (p) => layout.layouts[p] == null || keys.includes(p),
   );
-  if (toRemove.length > 0) dispatch(remove({ keys: toRemove }));
+  if (toRemove.length > 0) store.dispatch(remove({ keys: toRemove }));
 };
 
 export const MIDDLEWARE = [

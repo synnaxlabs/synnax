@@ -29,8 +29,10 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   static readonly z = providerStateZ;
   schema = Provider.z;
 
-  async afterUpdate(): Promise<void> {
-    this.ctx.set(CONTEXT_KEY, this.state.theme);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    const v = ctx.getOptional<Theme>(CONTEXT_KEY);
+    if (v != null && this.state.theme.key === this.prevState.theme.key) return;
+    ctx.set(CONTEXT_KEY, this.state.theme);
     await this.loadFonts();
   }
 

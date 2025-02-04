@@ -119,7 +119,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Import Apple Developer Certificate
-        # Only notarize on MacOS and on push events, not on PRs. This prevents excessive
+        # Only notarize on macOS and on push events, not on PRs. This prevents excessive
         # notarization requests and long CI times on PRs.
         if: matrix.os == 'macos-latest' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:
@@ -138,7 +138,7 @@ jobs:
           security find-identity -v -p codesigning build.keychain
 
       - name: Verify Apple Developer Certificate
-        # Same as above - only notarize on MacOS and on push events, not on PRs
+        # Same as above - only notarize on macOS and on push events, not on PRs
         if: matrix.os == 'macos-latest' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
@@ -206,7 +206,7 @@ jobs:
         working-directory: console
         run: pnpm build
 
-      - name: Upload MacOS Release Asset
+      - name: Upload macOS Release Asset
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.os == 'macos-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
