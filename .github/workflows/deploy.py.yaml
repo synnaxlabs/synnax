@@ -4,12 +4,19 @@ on:
   push:
     branches:
       - main
+    paths:
+      - .github/workflows/deploy.py.yaml
+      - alamos/py/pyproject.toml
+      - freighter/py/pyproject.toml
+      - client/py/pyproject.toml
   workflow_dispatch:
 
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    env:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -23,86 +30,86 @@ jobs:
           python-version-file: client/py/pyproject.toml
           cache: poetry
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            shared: &shared
-              - .github/workflows/deploy.py.yaml
-            alamos: &alamos
-              - *shared
-              - alamos/py/**
-            freighter: &freighter
-              - *shared
-              - *alamos
-              - freighter/py/**
-            client:
-              - *shared
-              - *alamos
-              - *freighter
-              - client/py/**
-
-      - name: Update Package Versions
-        run: |
-          cd client/py
-          CLIENT_VERSION=$(poetry version -s)
-          cd ../../freighter/py
-          FREIGHTER_VERSION=$(poetry version -s)
-          cd ../../alamos/py
-          ALAMOS_VERSION=$(poetry version -s)
-          cd ../../client/py
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = \"^$FREIGHTER_VERSION\"/" pyproject.toml
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
-          cd ../../freighter/py
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
-          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
-
-      - name: Publish Alamos
-        if: steps.filter.outputs.alamos == 'true'
+      # Version Checking Steps
+      - name: Check Alamos Version
+        id: alamos
         working-directory: alamos/py
         run: |
-          echo "Updating alamos version to $ALAMOS_VERSION"
-          echo "Locking alamos dependencies"
+          LOCAL_VERSION=$(poetry version -s)
+          PYPI_VERSION=$(curl -s https://pypi.org/pypi/alamos/json | jq -r '.info.version' || echo "0.0.0")
+          echo "Alamos - Local: $LOCAL_VERSION, PyPI: $PYPI_VERSION"
+          if [ "$LOCAL_VERSION" != "$PYPI_VERSION" ]; then
+            echo "publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "publish=false" >> $GITHUB_OUTPUT
+          fi
+          echo "local=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check Freighter Version
+        id: freighter
+        working-directory: freighter/py
+        run: |
+          LOCAL_VERSION=$(poetry version -s)
+          PYPI_VERSION=$(curl -s https://pypi.org/pypi/synnax-freighter/json | jq -r '.info.version' || echo "0.0.0")
+          echo "Freighter - Local: $LOCAL_VERSION, PyPI: $PYPI_VERSION"
+          if [ "$LOCAL_VERSION" != "$PYPI_VERSION" ]; then
+            echo "publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "publish=false" >> $GITHUB_OUTPUT
+          fi
+          echo "local=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check Client Version
+        id: client
+        working-directory: client/py
+        run: |
+          LOCAL_VERSION=$(poetry version -s)
+          PYPI_VERSION=$(curl -s https://pypi.org/pypi/synnax/json | jq -r '.info.version' || echo "0.0.0")
+          echo "Client - Local: $LOCAL_VERSION, PyPI: $PYPI_VERSION"
+          if [ "$LOCAL_VERSION" != "$PYPI_VERSION" ]; then
+            echo "publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "publish=false" >> $GITHUB_OUTPUT
+          fi
+          echo "local=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+
+      # Publishing Steps
+
+      - name: Publish Alamos
+        if: steps.alamos.outputs.publish == 'true'
+        working-directory: alamos/py
+        run: |
+          echo "Publishing alamos (new version: $(poetry version -s))"
           poetry lock -n
-          echo "Installing alamos dependencies"
           poetry install -n
-          echo "Publishing alamos"
           poetry publish --build --no-interaction
 
       - name: Publish Freighter
-        if: steps.filter.outputs.freighter == 'true'
+        if: steps.freighter.outputs.publish == 'true'
         working-directory: freighter/py
         run: |
-          echo "Updating freighter version to $FREIGHTER_VERSION"
-          # poll until the new version of alamos is available
-          while true; do
-            echo "Locking freighter dependencies"
-            # wait until this command exits with 0
-            poetry lock -n && break
+          echo "Updating dependency for alamos to version ^${{ steps.alamos.outputs.local }}"
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^${{ steps.alamos.outputs.local }}\"/" pyproject.toml
+          echo "Publishing freighter (new version: $(poetry version -s))"
+          until poetry lock -n; do
             poetry cache clear --all -n .
-            echo "Failed to lock dependencies, retrying in 1 seconds"
             sleep 1
           done
           poetry install -n
-          echo "Publishing freighter"
           poetry publish --build --no-interaction
 
       - name: Publish Client
-        if: steps.filter.outputs.client == 'true'
+        if: steps.client.outputs.publish == 'true'
         working-directory: client/py
         run: |
-          echo "Updating client version to $CLIENT_VERSION"
-          # poll until the new version of freighter is available
-          while true; do
-            echo "Locking client dependencies"
-            # wait until this command exits with 0
-            poetry lock -n && break
+          echo "Updating dependency for alamos to version ^${{ steps.alamos.outputs.local }}"
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^${{ steps.alamos.outputs.local }}\"/" pyproject.toml
+          echo "Updating dependency for synnax-freighter to version ^${{ steps.freighter.outputs.local }}"
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = \"^${{ steps.freighter.outputs.local }}\"/" pyproject.toml
+          echo "Publishing client (new version: $(poetry version -s))"
+          until poetry lock -n; do
             poetry cache clear --all -n .
-            echo "Failed to lock dependencies, retrying in 1 seconds"
             sleep 1
           done
           poetry install -n
-          echo "Publishing client"
           poetry publish --build --no-interaction
