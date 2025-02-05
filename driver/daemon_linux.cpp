@@ -121,6 +121,15 @@ freighter::Error install_binary() {
 }
 
 freighter::Error install_service() {
+    // Check if service exists and is running
+    LOG(INFO) << "Checking for existing service";
+    if (fs::exists(SYSTEMD_SERVICE_PATH)) {
+        LOG(INFO) << "Existing service found, stopping it";
+        system("systemctl stop synnax-driver");
+        // Give it a moment to stop
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
+
     if (auto err = create_system_user()) return err;
     if (auto err = install_binary()) return err;
 
@@ -251,8 +260,18 @@ std::string get_log_file_path() {
 
 freighter::Error view_logs() {
     // For systemd, we use journalctl
-    if (system("journalctl -fu synnax-driver") != 0)
+    int result = system("journalctl -fu synnax-driver");
+    // Exit code 130 indicates Ctrl+C termination
+    if (result != 0 && WEXITSTATUS(result) != 130)
         return freighter::Error("Failed to view logs");
+    return freighter::NIL;
+}
+
+freighter::Error status() {
+    LOG(INFO) << "Checking service status";
+    int result = system("systemctl status synnax-driver");
+    if (result != 0)
+        return freighter::Error("Service is not running");
     return freighter::NIL;
 }
 } // namespace daemon

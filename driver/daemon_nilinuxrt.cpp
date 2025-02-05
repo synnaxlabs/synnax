@@ -160,6 +160,15 @@ freighter::Error install_binary() {
 }
 
 freighter::Error install_service() {
+    // Check if service exists and is running
+    LOG(INFO) << "Checking for existing service";
+    if (fs::exists(INIT_SCRIPT_PATH)) {
+        LOG(INFO) << "Existing service found, stopping it";
+        system("/etc/init.d/synnax-driver stop");
+        // Give it a moment to stop
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
+
     if (auto err = create_system_user()) return err;
     if (auto err = install_binary()) return err;
 
@@ -274,8 +283,18 @@ std::string get_log_file_path() {
 }
 
 freighter::Error view_logs() {
-    if (system("tail -f /var/log/synnax-driver.log") != 0)
+    int result = system("tail -f /var/log/synnax-driver.log");
+    // Exit code 130 indicates Ctrl+C termination
+    if (result != 0 && WEXITSTATUS(result) != 130)
         return freighter::Error("Failed to view logs");
+    return freighter::NIL;
+}
+
+freighter::Error status() {
+    LOG(INFO) << "Checking service status";
+    int result = system("/etc/init.d/synnax-driver status");
+    if (result != 0)
+        return freighter::Error("Service is not running");
     return freighter::NIL;
 }
 
