@@ -47,4 +47,10 @@ void update_status(Status status, const std::string& message = "");
 // Notifies the service manager that the watchdog is still alive
 void notify_watchdog();
 
+// Get the path to the log file for the current platform
+std::string get_log_file_path();
+
+// View the service logs
+freighter::Error view_logs();
+
 }  // namespace daemon 

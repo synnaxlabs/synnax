@@ -269,4 +269,14 @@ freighter::Error restart_service() {
     return freighter::NIL;
 }
 
+std::string get_log_file_path() {
+    return "/var/log/synnax-driver.log";
+}
+
+freighter::Error view_logs() {
+    if (system("tail -f /var/log/synnax-driver.log") != 0)
+        return freighter::Error("Failed to view logs");
+    return freighter::NIL;
+}
+
 }  // namespace daemond

@@ -359,6 +359,13 @@ void cmd_login(int argc, char *argv[]) {
     LOG(INFO) << "Credentials saved successfully!";
 }
 
+void cmd_view_logs() {
+    if (auto err = daemond::view_logs()) {
+        LOG(ERROR) << "Failed to view logs: " << err;
+        exit(1);
+    }
+}
+
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
             << "Commands:\n"
@@ -367,7 +374,8 @@ void print_usage() {
             << "  restart         Restart the Synnax driver service\n"
             << "  login           Log in to Synnax\n"
             << "  install         Install the Synnax driver as a system service\n"
-            << "  uninstall       Uninstall the Synnax driver service\n";
+            << "  uninstall       Uninstall the Synnax driver service\n"
+            << "  logs            View the driver logs\n";
 }
 
 void cmd_install_service() {
@@ -448,6 +456,7 @@ int main(const int argc, char *argv[]) {
     else if (command == "login") cmd_login(argc, argv);
     else if (command == "install") cmd_install_service();
     else if (command == "uninstall") cmd_uninstall_service();
+    else if (command == "logs") cmd_view_logs();
     else {
         std::cout << "Unknown command: " << command << std::endl;
         print_usage();

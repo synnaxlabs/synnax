@@ -243,4 +243,16 @@ freighter::Error restart_service() {
         return freighter::Error("Failed to restart service");
     return freighter::NIL;
 }
+
+std::string get_log_file_path() {
+    // For systemd, logs are in the journal
+    return "";
+}
+
+freighter::Error view_logs() {
+    // For systemd, we use journalctl
+    if (system("journalctl -fu synnax-driver") != 0)
+        return freighter::Error("Failed to view logs");
+    return freighter::NIL;
+}
 } // namespace daemon
