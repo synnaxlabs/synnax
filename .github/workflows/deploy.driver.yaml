@@ -1,0 +1,116 @@
+name: Deploy - Synnax
+
+on:
+  push:
+    branches:
+      - sy-1887-embedded-control-sequencing
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-20.04
+    outputs:
+      VERSION: ${{ steps.version.outputs.VERSION }}
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Get Version
+        id: version
+        working-directory: synnax
+        run: |
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            changed:
+              - .github/workflows/deploy.synnax.yaml
+              - alamos/go/**
+              - aspen/**
+              - cesium/**
+              - driver/**
+              - freighter/go/**
+              - synnax/**
+              - x/go/**
+              - "WORKSPACE"
+
+  create-release:
+    runs-on: ubuntu-20.04
+    needs: setup
+    if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
+    steps:
+      - name: Create Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            })
+            const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.setup.outputs.VERSION }}')
+            if (release != null) return release.id
+            const { data: { id } } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: 'synnax-driver-v${{ needs.setup.outputs.VERSION }}',
+              name: 'Synnax Driver v${{ needs.setup.outputs.VERSION }}',
+              draft: false,
+              prerelease: false
+            });
+
+  build:
+    needs: setup
+    name: Build (${{ matrix.os }})
+    if: needs.setup.outputs.changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install MbedTLS On Ubuntu
+        run: |
+          sudo apt-get install -y libmbedtls-dev
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Build Open62541 
+        shell: bash
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
+          cmake --build . --config RelWithDebInfo --target install
+        working-directory: driver/vendor/open62541/open62541
+
+      - name: Build Driver 
+        run: bazel build --enable_platform_specific_config //driver:driver_main --define=platform=nilinuxrt
+
+      - name: Upload Release Assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: gh release upload --clobber synnax-driver-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver_main
+
