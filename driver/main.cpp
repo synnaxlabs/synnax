@@ -365,28 +365,7 @@ void print_usage() {
 }
 
 void cmd_install_service() {
-    if (geteuid() != 0) {
-        LOG(ERROR) << "Must run as root to install service";
-        exit(1);
-    }
-
-    if (auto err = daemon::create_system_user()) {
-        LOG(ERROR) << "Failed to create system user: " << err;
-        exit(1);
-    }
-
-    if (auto err = daemon::install_binary()) {
-        LOG(ERROR) << "Failed to install binary: " << err;
-        exit(1);
-    }
-
-    try {
-        daemon::install_service();
-        LOG(INFO) << "Service installation completed successfully";
-    } catch (const std::exception& e) {
-        LOG(ERROR) << "Failed to install service: " << e.what();
-        exit(1);
-    }
+    daemond::install_service();
 }
 
 void cmd_uninstall_service() {
@@ -396,7 +375,7 @@ void cmd_uninstall_service() {
     }
 
     try {
-        daemon::uninstall_service();
+        daemond::uninstall_service();
         LOG(INFO) << "Service uninstallation completed successfully";
     } catch (const std::exception& e) {
         LOG(ERROR) << "Failed to uninstall service: " << e.what();
@@ -417,13 +396,13 @@ void cmd_start_daemon(int argc, char *argv[]) {
         return;
     }
 
-    daemon::Config config;
+    daemond::Config config;
     config.watchdog_interval = 10;
     config.callback = [](int argc, char* argv[]) {
         cmd_start_standalone(argc, argv);
     };
 
-    daemon::run(config, argc, argv);
+    daemond::run(config, argc, argv);
 }
 
 int main(int argc, char *argv[]) {

@@ -1,10 +1,13 @@
 #pragma once
 
+/// std.
 #include <functional>
 #include <string>
-#include "freighter/error.h"
 
-namespace daemon {
+/// internal.
+#include "freighter/cpp/freighter.h"
+
+namespace daemond {
 
 // Callback type for the main application logic
 using ApplicationCallback = std::function<void(int argc, char* argv[])>;
@@ -27,10 +30,8 @@ struct Config {
 };
 
 // Service management functions
-void install_service();
-void uninstall_service();
-freighter::Error create_system_user();
-freighter::Error install_binary();
+freighter::Error install_service();
+freighter::Error uninstall_service();
 
 // Runs the application as a daemon with the given configuration
 void run(const Config& config, int argc, char* argv[]);
