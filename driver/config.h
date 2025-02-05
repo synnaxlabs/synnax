@@ -94,12 +94,16 @@ inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
 
     std::filesystem::path dir_path = std::filesystem::path(path).parent_path();
     std::error_code ec;
-    std::filesystem::create_directories(dir_path, ec);
-    if (ec)
-        return {
-            PersistedState{},
-            freighter::Error("failed to create directory: " + ec.message())
-        };
+    
+    // Check if directory exists before creating it
+    if (!std::filesystem::exists(dir_path)) {
+        std::filesystem::create_directories(dir_path, ec);
+        if (ec)
+            return {
+                PersistedState{},
+                freighter::Error("failed to create directory: " + ec.message())
+            };
+    }
 
     std::ifstream file(path);
     if (!file.is_open())
