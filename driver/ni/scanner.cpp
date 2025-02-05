@@ -55,7 +55,7 @@ ni::Scanner::Scanner(
     this->syscfg->SetFilterProperty(
         this->filter,
         NISysCfgFilterPropertyIsChassis,
-        NISysCfgBoolFalse
+        NISysCfgBoolTrue
     );
     VLOG(1) << "[ni.scanner] successfully configured scanner for task " << this->task.
             name;
