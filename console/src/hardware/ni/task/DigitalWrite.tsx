@@ -199,7 +199,10 @@ const Wrapped = ({
         return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
       });
       methods.set("config.channels", config.channels);
-      await createTask({ key: task?.key, name, type: DIGITAL_WRITE_TYPE, config });
+      await createTask(
+        { key: task?.key, name, type: DIGITAL_WRITE_TYPE, config },
+        dev.rack,
+      );
       setDesiredState("paused");
     },
   });

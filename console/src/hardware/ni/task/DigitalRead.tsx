@@ -181,12 +181,15 @@ const Wrapped = ({
         const key = `${c.port}l${c.line}`;
         c.channel = dev.properties.digitalInput.channels[key];
       });
-      await createTask({
-        key: task?.key,
-        name,
-        type: DIGITAL_READ_TYPE,
-        config,
-      });
+      await createTask(
+        {
+          key: task?.key,
+          name,
+          type: DIGITAL_READ_TYPE,
+          config,
+        },
+        dev.rack,
+      );
       setDesiredState("paused");
     },
   });

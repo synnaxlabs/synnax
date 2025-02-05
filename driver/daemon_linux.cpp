@@ -124,10 +124,12 @@ freighter::Error install_service() {
     // Check if service exists and is running
     LOG(INFO) << "Checking for existing service";
     if (fs::exists(SYSTEMD_SERVICE_PATH)) {
-        LOG(INFO) << "Existing service found, stopping it";
+        LOG(INFO) << "Existing service found, stopping and removing it";
         system("systemctl stop synnax-driver");
         // Give it a moment to stop
         std::this_thread::sleep_for(std::chrono::seconds(2));
+        // Uninstall the existing service
+        if (auto err = uninstall_service()) return err;
     }
 
     if (auto err = create_system_user()) return err;

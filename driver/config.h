@@ -99,6 +99,20 @@ inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
                 PersistedState{},
                 freighter::Error("failed to create directory: " + ec.message())
             };
+        
+        // Set directory permissions to read/write/execute for all users
+        std::filesystem::permissions(
+            dir_path,
+            std::filesystem::perms::owner_all |
+            std::filesystem::perms::group_all |
+            std::filesystem::perms::others_all,
+            ec
+        );
+        if (ec)
+            return {
+                PersistedState{},
+                freighter::Error("failed to set directory permissions: " + ec.message())
+            };
     }
 
     std::ifstream file(path);
@@ -150,6 +164,20 @@ inline freighter::Error save_persisted_state(const PersistedState &state) {
         if (!file.is_open())
             return freighter::Error("failed to open file for writing");
         file << content.dump(4);
+        file.close();
+
+        // Set file permissions to read/write for all users
+        std::error_code ec;
+        std::filesystem::permissions(
+            path,
+            std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
+            std::filesystem::perms::group_read | std::filesystem::perms::group_write |
+            std::filesystem::perms::others_read | std::filesystem::perms::others_write,
+            ec
+        );
+        if (ec)
+            return freighter::Error("failed to set file permissions: " + ec.message());
+            
         return freighter::NIL;
     } catch (const std::exception &e) {
         return freighter::Error(
