@@ -151,7 +151,7 @@ export const Configure = <P extends UnknownRecord = UnknownRecord>({
         </Align.Space>
       </Form.Form>
       <Nav.Bar location="bottom" size={48}>
-        <Triggers.SaveHelpText action={step === "identifier" ? "Save" : "Next"} noBar />
+        <Triggers.SaveHelpText action={step === "identifier" ? "Save" : "Next"} />
         <Nav.Bar.End style={{ padding: "1rem" }}>
           <Button.Button
             type="submit"
