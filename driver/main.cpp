@@ -362,9 +362,12 @@ void cmd_login(int argc, char *argv[]) {
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
             << "Commands:\n"
-            << "  start    Start the Synnax driver\n"
-            << "  login    Log in to Synnax\n"
-            << "  install  Install the Synnax driver as a system service\n";
+            << "  start           Start the Synnax driver service\n"
+            << "  stop            Stop the Synnax driver service\n"
+            << "  restart         Restart the Synnax driver service\n"
+            << "  login           Log in to Synnax\n"
+            << "  install         Install the Synnax driver as a system service\n"
+            << "  uninstall       Uninstall the Synnax driver service\n";
 }
 
 void cmd_install_service() {
@@ -384,6 +387,30 @@ void cmd_uninstall_service() {
         LOG(ERROR) << "Failed to uninstall service: " << e.what();
         exit(1);
     }
+}
+
+void cmd_start_service() {
+    if (auto err = daemond::start_service()) {
+        LOG(ERROR) << "Failed to start service: " << err;
+        exit(1);
+    }
+    LOG(INFO) << "Service started successfully";
+}
+
+void cmd_stop_service() {
+    if (auto err = daemond::stop_service()) {
+        LOG(ERROR) << "Failed to stop service: " << err;
+        exit(1);
+    }
+    LOG(INFO) << "Service stopped successfully";
+}
+
+void cmd_restart_service() {
+    if (auto err = daemond::restart_service()) {
+        LOG(ERROR) << "Failed to restart service: " << err;
+        exit(1);
+    }
+    LOG(INFO) << "Service restarted successfully";
 }
 
 void cmd_start_daemon(int argc, char *argv[]) {
@@ -414,8 +441,10 @@ int main(const int argc, char *argv[]) {
 
     const std::string command = argv[1];
 
-    if (command == "start-standalone")cmd_start_standalone(argc, argv);
-    else if (command == "start") cmd_start_daemon(argc, argv);
+    if (command == "internal-start-daemon") cmd_start_daemon(argc, argv);
+    else if (command == "start") cmd_start_service();
+    else if (command == "stop") cmd_stop_service();
+    else if (command == "restart") cmd_restart_service();
     else if (command == "login") cmd_login(argc, argv);
     else if (command == "install") cmd_install_service();
     else if (command == "uninstall") cmd_uninstall_service();

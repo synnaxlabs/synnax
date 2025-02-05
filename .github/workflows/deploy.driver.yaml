@@ -112,5 +112,7 @@ jobs:
       - name: Upload Release Assets
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-driver-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/driver_main
+        run: |
+          mv bazel-bin/driver/driver_main synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os }}
+          gh release upload --clobber synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os }} synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os }}
 

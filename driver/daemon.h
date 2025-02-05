@@ -33,6 +33,11 @@ struct Config {
 freighter::Error install_service();
 freighter::Error uninstall_service();
 
+// Service control functions
+freighter::Error start_service();
+freighter::Error stop_service();
+freighter::Error restart_service();
+
 // Runs the application as a daemon with the given configuration
 void run(const Config& config, int argc, char* argv[]);
 

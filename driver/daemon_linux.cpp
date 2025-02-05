@@ -36,7 +36,7 @@ StartLimitBurst=3
 Type=notify
 Environment=GLOG_logtostderr=1
 Environment=GLOG_v=1
-ExecStart=/usr/local/bin/synnax-driver start
+ExecStart=/usr/local/bin/synnax-driver internal-start-daemon
 User=synnax
 Group=synnax
 
@@ -221,5 +221,26 @@ void run(const Config &config, int argc, char *argv[]) {
         should_stop = true;
     }
     watchdog.join();
+}
+
+freighter::Error start_service() {
+    LOG(INFO) << "Starting service";
+    if (system("systemctl start synnax-driver") != 0)
+        return freighter::Error("Failed to start service");
+    return freighter::NIL;
+}
+
+freighter::Error stop_service() {
+    LOG(INFO) << "Stopping service";
+    if (system("systemctl stop synnax-driver") != 0)
+        return freighter::Error("Failed to stop service");
+    return freighter::NIL;
+}
+
+freighter::Error restart_service() {
+    LOG(INFO) << "Restarting service";
+    if (system("systemctl restart synnax-driver") != 0)
+        return freighter::Error("Failed to restart service");
+    return freighter::NIL;
 }
 } // namespace daemon

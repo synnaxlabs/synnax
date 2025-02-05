@@ -59,7 +59,7 @@ do_start() {
     start-stop-daemon --start --background \
         --make-pidfile --pidfile $PIDFILE \
         --chuid $DAEMON_USER \
-        --startas /bin/bash -- -c "exec $DAEMON start >> $LOGFILE 2>&1"
+        --startas /bin/bash -- -c "exec $DAEMON internal-start-daemon >> $LOGFILE 2>&1"
 
     RETVAL=$?
     if [ $RETVAL -eq 0 ]; then
@@ -246,6 +246,27 @@ void run(const Config& config, int argc, char* argv[]) {
     }
 
     update_status(Status::STOPPING);
+}
+
+freighter::Error start_service() {
+    LOG(INFO) << "Starting service";
+    if (system("/etc/init.d/synnax-driver start") != 0)
+        return freighter::Error("Failed to start service");
+    return freighter::NIL;
+}
+
+freighter::Error stop_service() {
+    LOG(INFO) << "Stopping service";
+    if (system("/etc/init.d/synnax-driver stop") != 0)
+        return freighter::Error("Failed to stop service");
+    return freighter::NIL;
+}
+
+freighter::Error restart_service() {
+    LOG(INFO) << "Restarting service";
+    if (system("/etc/init.d/synnax-driver restart") != 0)
+        return freighter::Error("Failed to restart service");
+    return freighter::NIL;
 }
 
 }  // namespace daemond
