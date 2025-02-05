@@ -69,14 +69,14 @@ export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) =
       <CopyButton
         disabled={hasDisabledButtons}
         onClick={handleCopyTypeScriptCode}
-        tooltip="TypeScript Code"
+        tooltip="TypeScript code"
       >
         {Icon.TypeScript}
       </CopyButton>
-      <CopyButton onClick={handleCopyJSONConfig} tooltip="JSON Configuration">
+      <CopyButton onClick={handleCopyJSONConfig} tooltip="JSON configuration">
         {Icon.JSON}
       </CopyButton>
-      <CopyButton disabled={hasDisabledButtons} onClick={handleCopyLink} tooltip="Link">
+      <CopyButton disabled={hasDisabledButtons} onClick={handleCopyLink} tooltip="link">
         {Icon.Link}
       </CopyButton>
     </Align.Space>
