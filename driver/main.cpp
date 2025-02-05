@@ -412,7 +412,6 @@ int main(const int argc, char *argv[]) {
         print_usage();
         return 1;
     }
-
     const std::string command = argv[1];
 
     if (command == "internal-start-daemon") cmd_start_daemon(argc, argv);

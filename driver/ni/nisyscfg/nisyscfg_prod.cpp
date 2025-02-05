@@ -40,28 +40,28 @@ std::pair<std::shared_ptr<SysCfg>, freighter::Error> SysCfgProd::load() {
 SysCfgProd::SysCfgProd(std::unique_ptr<libutil::SharedLib> &lib_) : lib(std::move(lib_)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
     function_pointers_.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgInitializeSession")));
+        const_cast<void *>(this->lib->get_func_ptr("NISysCfgInitializeSession")));
 
     function_pointers_.CreateFilter = reinterpret_cast<CreateFilterPtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgCreateFilter")));
+        const_cast<void *>(this->lib->get_func_ptr("NISysCfgCreateFilter")));
 
     function_pointers_.SetFilterPropertyV = reinterpret_cast<SetFilterPropertyVPtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgSetFilterPropertyV")));
+        const_cast<void *>(this->lib->get_func_ptr("NISysCfgSetFilterPropertyV")));
 
     function_pointers_.CloseHandle = reinterpret_cast<CloseHandlePtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgCloseHandle")));
+        const_cast<void *>(this->lib->get_func_ptr("NISysCfgCloseHandle")));
 
     function_pointers_.FindHardware = reinterpret_cast<FindHardwarePtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgFindHardware")));
+        const_cast<void *>(this->lib->get_func_ptr("NISysCfgFindHardware")));
 
     function_pointers_.NextResource = reinterpret_cast<NextResourcePtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgNextResource")));
+        const_cast<void *>(this->lib->get_func_ptr("NISysCfgNextResource")));
 
     function_pointers_.GetResourceProperty = reinterpret_cast<GetResourcePropertyPtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgGetResourceProperty")));
+        const_cast<void *>(this->lib->get_func_ptr("NISysCfgGetResourceProperty")));
 
     function_pointers_.GetResourceIndexedProperty = reinterpret_cast<GetResourceIndexedPropertyPtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgGetResourceIndexedProperty")));
+        const_cast<void *>(this->lib->get_func_ptr("NISysCfgGetResourceIndexedProperty")));
 }
 
 NISYSCFGCFUNC SysCfgProd::InitializeSession(
@@ -98,12 +98,11 @@ NISYSCFGCDECL SysCfgProd::SetFilterProperty(
     NISysCfgFilterProperty propertyID,
     ...
 ) {
-  va_list args;
-  NISysCfgStatus status;
-  va_start(args, propertyID);
-  status = function_pointers_.SetFilterPropertyV(filterHandle, propertyID, args);
-  va_end(args);
-  return status;
+    va_list args;
+    va_start(args, propertyID);
+    NISysCfgStatus status = function_pointers_.SetFilterPropertyV(filterHandle, propertyID, args);
+    va_end(args);
+    return status;
 }
 
 NISYSCFGCFUNC SysCfgProd::CloseHandle(
