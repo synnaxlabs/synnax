@@ -856,7 +856,7 @@ NISYSCFGCFUNC NISysCfgSetFilterPropertyWithTypeV(
 );
 
 ////////////////////////////////////////////////////////////////////////////////
-// System Configuration firmware modification functions
+// System Configuration firmware modifit cation functions
 ////////////////////////////////////////////////////////////////////////////////
 
 // Caller should free detailedResult using NISysCfgFreeDetailedString.

@@ -45,8 +45,8 @@ SysCfgProd::SysCfgProd(std::unique_ptr<libutil::SharedLib> &lib_) : lib(std::mov
     function_pointers_.CreateFilter = reinterpret_cast<CreateFilterPtr>(
         const_cast<void*>(this->lib->get_func_ptr("NISysCfgCreateFilter")));
 
-    function_pointers_.SetFilterProperty = reinterpret_cast<SetFilterPropertyPtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgSetFilterProperty")));
+    function_pointers_.SetFilterPropertyV = reinterpret_cast<SetFilterPropertyVPtr>(
+        const_cast<void*>(this->lib->get_func_ptr("NISysCfgSetFilterPropertyV")));
 
     function_pointers_.CloseHandle = reinterpret_cast<CloseHandlePtr>(
         const_cast<void*>(this->lib->get_func_ptr("NISysCfgCloseHandle")));
