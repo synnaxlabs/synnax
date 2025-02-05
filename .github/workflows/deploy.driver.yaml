@@ -37,7 +37,7 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             changed:
-              - .github/workflows/deploy.synnax.yaml
+              - .github/workflows/deploy.driver.yaml
               - alamos/go/**
               - aspen/**
               - cesium/**
