@@ -57,6 +57,8 @@ struct PersistedState {
 };
 
 inline std::string get_persisted_state_path() {
+    if (getuid() == 0 || geteuid() == 0) 
+        return "/var/lib/synnax/persisted-state.json";
 #ifdef _WIN32
     if (const char* appdata = std::getenv("LOCALAPPDATA")) 
         return std::string(appdata) + "\\synnax-driver\\persisted-state.json";

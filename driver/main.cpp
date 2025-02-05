@@ -346,7 +346,11 @@ void cmd_login(int argc, char *argv[]) {
     }
     LOG(INFO) << "Successfully logged in!";
 
-    auto [existing_state, _] = configd::load_persisted_state();
+    auto [existing_state, load_err] = configd::load_persisted_state();
+    if (load_err) {
+        LOG(ERROR) << "Failed to load persisted state: " << load_err;
+        return;
+    }
     configd::PersistedState state{
         .rack_key = existing_state.rack_key,
         .connection = config
