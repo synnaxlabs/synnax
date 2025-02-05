@@ -79,16 +79,19 @@ cc_binary(
             "/DEFAULTLIB:iphlpapi.lib",
             "/DEFAULTLIB:psapi.lib",
             "/FORCE:MULTIPLE",  # FIXME: handles the current duplicate symbo,ls because of labjack lib. temp workaround
-            # "/DEBUG",
-            # "/INCREMENTAL:NO",    # Required for AddressSanitizer
-            # "/fsanitize=address",  # Enable AddressSanitizer for heap debugging
-            # "/DELAYLOAD:LabJackM.dll",
-            # "/DELAYLOAD:LabJackWUSB.dll",  # so that link to dll is only attempted once a function is called
+        ],
+        ":nilinuxrt": [
+            "-lm",
+            "-ldl",
+        ],
+        "@platforms//os:linux": [
+            "-lm",
+            "-ldl",
+            "-lsystemd"
         ],
         "//conditions:default": [
             "-lm",
             "-ldl",
-            "-lsystemd"
         ],
     }),
     deps = [
