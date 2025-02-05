@@ -58,18 +58,11 @@ struct PersistedState {
 
 inline std::string get_persisted_state_path() {
 #ifdef _WIN32
-    const char* appdata = std::getenv("APPDATA");
-    if (appdata == nullptr) return "";
-    return std::string(appdata) + "\\synnax-driver\\persisted-state.json";
+    return "C:\\ProgramData\\synnax-driver\\persisted-state.json";
 #elif defined(__APPLE__)
-    const char *home = std::getenv("HOME");
-    if (home == nullptr) return "";
-    return std::string(home) +
-           "/Library/Application Support/synnax-driver/persisted-state.json";
+    return "/Library/Application Support/synnax-driver/persisted-state.json";
 #else
-    const char* home = std::getenv("HOME");
-    if (home == nullptr) return "";
-    return std::string(home) + "/.config/synnax-driver/persisted-state.json";
+    return "/etc/synnax-driver/persisted-state.json";
 #endif
 }
 
