@@ -69,10 +69,10 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	EmbeddedRackName string
-	localKeyCounter  *kv.AtomicInt64Counter
-	shutdownSignals  io.Closer
-	group            group.Group
+	EmbeddedRackKey Key
+	localKeyCounter *kv.AtomicInt64Counter
+	shutdownSignals io.Closer
+	group           group.Group
 }
 
 const localKeyCounterSuffix = ".rack.counter"
@@ -97,18 +97,21 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	s = &Service{Config: cfg, localKeyCounter: c, group: g}
 	cfg.Ontology.RegisterService(s)
 
-	s.EmbeddedRackName = fmt.Sprintf("sy_node_%s_rack", cfg.HostProvider.HostKey())
+	embeddedRackName := fmt.Sprintf("Node %s Built-In Driver", cfg.HostProvider.HostKey())
 	var existingEmbeddedRack Rack
-	if err := s.NewRetrieve().WhereNames(s.EmbeddedRackName).Entry(&existingEmbeddedRack).Exec(ctx, cfg.DB); err != nil {
+	if err := s.NewRetrieve().WhereInternal(true).Entry(&existingEmbeddedRack).Exec(ctx, cfg.DB); err != nil {
 		if errors.Is(err, query.NotFound) {
 			w := s.NewWriter(nil)
-			if err := w.Create(ctx, &Rack{Name: s.EmbeddedRackName}); err != nil {
+			created := &Rack{Name: embeddedRackName, Internal: true}
+			if err := w.Create(ctx, created); err != nil {
 				return nil, err
 			}
+			s.EmbeddedRackKey = created.Key
 		} else {
 			return nil, err
 		}
 	}
+	s.EmbeddedRackKey = existingEmbeddedRack.Key
 
 	if cfg.Signals == nil {
 		return

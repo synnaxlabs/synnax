@@ -42,6 +42,13 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 	return r
 }
 
+func (r Retrieve) WhereInternal(internal bool) Retrieve {
+	r.gorp = r.gorp.Where(func(rack *Rack) bool {
+		return rack.Internal == internal
+	})
+	return r
+}
+
 func (r Retrieve) Entry(rack *Rack) Retrieve {
 	r.gorp = r.gorp.Entry(rack)
 	return r

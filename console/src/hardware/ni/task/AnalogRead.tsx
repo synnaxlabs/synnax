@@ -73,7 +73,7 @@ export const ANALOG_READ_SELECTABLE: Layout.Selectable = {
   key: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createAnalogReadLayout({ create: true }),
     key: layoutKey,
   }),

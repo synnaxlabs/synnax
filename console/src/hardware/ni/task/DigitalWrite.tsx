@@ -65,7 +65,7 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createDigitalWriteLayout({ create: true }),
     key: layoutKey,
   }),

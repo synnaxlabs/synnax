@@ -7,11 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Confirm, LAYOUT_TYPE } from "@/confirm/Confirm";
-import { type Layout } from "@/layout";
-
-export * from "@/confirm/useModal";
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [LAYOUT_TYPE]: Confirm,
-};
+export * as Triggers from "@/triggers/Save";

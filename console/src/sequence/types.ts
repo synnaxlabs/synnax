@@ -5,7 +5,7 @@ export const SEQUENCE_TYPE = "sequence";
 export type SequenceType = typeof SEQUENCE_TYPE;
 
 export const configZ = z.object({
-  rate: z.number(),
+  rate: z.number().min(1),
   read: z.array(channel.keyZ),
   write: z.array(channel.keyZ),
   script: z.string(),
@@ -15,7 +15,7 @@ export const configZ = z.object({
 export type Config = z.infer<typeof configZ>;
 
 export const ZERO_CONFIG: Config = {
-  rate: 0,
+  rate: 10,
   read: [],
   write: [],
   script: "",

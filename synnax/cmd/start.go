@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"os"
 	"os/signal"
 	"time"
@@ -317,7 +318,7 @@ func start(cmd *cobra.Command) {
 			ctx,
 			buildEmbeddedDriverConfig(
 				ins.Child("driver"),
-				hardwareSvc.Rack.EmbeddedRackName,
+				hardwareSvc.Rack.EmbeddedRackKey,
 				insecure,
 			),
 		)
@@ -420,7 +421,7 @@ func buildServerConfig(
 
 func buildEmbeddedDriverConfig(
 	ins alamos.Instrumentation,
-	rackName string,
+	rackKey rack.Key,
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
@@ -431,7 +432,7 @@ func buildEmbeddedDriverConfig(
 		),
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString(listenFlag)),
-		RackName:        rackName,
+		RackKey:         rackKey,
 		Username:        viper.GetString(usernameFlag),
 		Password:        viper.GetString(passwordFlag),
 		Debug:           config.Bool(viper.GetBool(debugFlag)),

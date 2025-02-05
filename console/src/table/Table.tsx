@@ -385,7 +385,7 @@ export const SELECTABLE: Layout.Selectable = {
   key: LAYOUT_TYPE,
   title: "Table",
   icon: <Icon.Table />,
-  create: (layoutKey: string) => create({ key: layoutKey }),
+  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 
 interface ColResizerProps {

@@ -38,6 +38,7 @@ type Rack struct {
 	Key         Key    `json:"key" msgpack:"key"`
 	Name        string `json:"name" msgpack:"name"`
 	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
+	Internal    bool   `json:"internal" msgpack:"internal"`
 }
 
 var _ gorp.Entry[Key] = Rack{}

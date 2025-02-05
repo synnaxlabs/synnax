@@ -9,7 +9,7 @@
 
 import { type ontology } from "@synnaxlabs/client";
 
-import { Confirm } from "@/confirm";
+import { Modals } from "@/modals";
 
 interface UseConfirmDeleteProps {
   type: string;
@@ -20,19 +20,21 @@ export const useConfirmDelete = ({
   type,
   description = "This action cannot be undone.",
 }: UseConfirmDeleteProps) => {
-  const confirm = Confirm.useModal();
+  const confirm = Modals.useConfirm();
   return async (resources: ontology.Resource[]): Promise<boolean> => {
     let message = `Are you sure you want to delete ${resources.length} ${type.toLowerCase()}s?`;
     if (resources.length === 1)
       message = `Are you sure you want to delete ${resources[0].name}?`;
-    return await confirm(
-      {
-        message,
-        description,
-        confirm: { variant: "error", label: "Delete" },
-        cancel: { label: "Cancel" },
-      },
-      { name: `${type}.Delete`, icon: type },
+    return (
+      (await confirm(
+        {
+          message,
+          description,
+          confirm: { variant: "error", label: "Delete" },
+          cancel: { label: "Cancel" },
+        },
+        { name: `${type}.Delete`, icon: type },
+      )) ?? false
     );
   };
 };

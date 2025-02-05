@@ -11,16 +11,7 @@ import "@/hardware/device/Configure.css";
 
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Button,
-  Form,
-  Nav,
-  Status,
-  Synnax,
-  Text,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Form, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useRef, useState } from "react";
@@ -28,6 +19,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
+import { Triggers } from "@/triggers";
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
 
@@ -39,8 +31,6 @@ const configurablePropertiesZ = z.object({
   name: z.string().min(1, "Name must be at least 1 character long"),
   identifier: identifierZ,
 });
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export type ConfigureProps<P extends UnknownRecord = UnknownRecord> = Pick<
   Layout.RendererProps,
@@ -161,19 +151,14 @@ export const Configure = <P extends UnknownRecord = UnknownRecord>({
         </Align.Space>
       </Form.Form>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ paddingLeft: "2rem" }} size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={7} level="small">
-            {step === "identifier" ? "To Save" : "To Next"}
-          </Text.Text>
-        </Nav.Bar.Start>
+        <Triggers.SaveHelpText action={step === "identifier" ? "Save" : "Next"} noBar />
         <Nav.Bar.End style={{ padding: "1rem" }}>
           <Button.Button
             type="submit"
             loading={isPending}
             disabled={isPending}
             onClick={() => mutate()}
-            triggers={[SAVE_TRIGGER]}
+            triggers={Triggers.SAVE}
           >
             {step === "identifier" ? "Save" : "Next"}
           </Button.Button>

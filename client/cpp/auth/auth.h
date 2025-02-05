@@ -59,15 +59,17 @@ public:
         max_retries(max_retries) {
     }
 
+    /// @brief authenticates with the credentials provided when construction the 
+    /// Synnax client.
     freighter::Error authenticate() {
         api::v1::LoginRequest req;
-        req.set_username(username);
-        req.set_password(password);
+        req.set_username(this->username);
+        req.set_password(this->password);
         auto [res, err] = login_client->send("/auth/login", req);
         if (err) return err;
-        token = res.token();
-        authenticated = true;
-        retry_count = 0;
+        this->token = res.token();
+        this->authenticated = true;
+        this->retry_count = 0;
         return freighter::NIL;
     }
 
@@ -75,14 +77,14 @@ public:
         freighter::Context context,
         freighter::Next *next
     ) override {
-        if (!authenticated)
+        if (!this->authenticated)
             if (auto err = this->authenticate(); err)
                 return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
         auto [res_ctx, err] = next->operator()(context);
         if (err.matches(synnax::INVALID_TOKEN) && retry_count < max_retries) {
-            authenticated = false;
-            retry_count++;
+            this->authenticated = false;
+            this->retry_count++;
             return this->operator()(context, next);
         }
         return {res_ctx, err};

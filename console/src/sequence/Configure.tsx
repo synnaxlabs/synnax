@@ -32,10 +32,18 @@ export const SEQUENCE_SELECTABLE: Layout.Selectable = {
   key: SEQUENCE_TYPE,
   title: "Control Sequence",
   icon: <Icon.Control />,
-  create: (layoutKey) => ({
-    ...createSequenceLayout({ create: true }),
-    key: layoutKey,
-  }),
+  create: async ({ layoutKey, rename }) => {
+    const result = await rename(
+      {},
+      { icon: "Control", name: "Control.Sequence.Create" },
+    );
+    if (result == null) return null;
+    return {
+      ...createSequenceLayout({ create: true, initialValues: { name: result } }),
+      name: result,
+      key: layoutKey,
+    };
+  },
 };
 
 export const Wrapped = ({
@@ -122,28 +130,43 @@ export const Wrapped = ({
           }}
         >
           <Align.Space direction="y" style={{ padding: "2rem" }}>
-            <Form.Field<rack.RackKey> path="rack" label="Location" padHelpText={false}>
-              {(p) => <Rack.SelectSingle allowNone={false} {...p} />}
-            </Form.Field>
-            <Form.NumericField
-              label="Loop Rate"
-              path="config.rate"
-              padHelpText={false}
-              inputProps={{ endContent: "Hz" }}
-            />
+            <Align.Space direction="x">
+              <Form.Field<rack.RackKey>
+                path="rack"
+                label="Location"
+                padHelpText={false}
+                grow
+              >
+                {(p) => <Rack.SelectSingle allowNone={false} {...p} />}
+              </Form.Field>
+              <Form.NumericField
+                label="Loop Rate"
+                path="config.rate"
+                padHelpText={false}
+                inputProps={{
+                  endContent: "Hz",
+                  bounds: { lower: 1, upper: 1001 },
+                  dragScale: { x: 1, y: 1 },
+                }}
+              />
+            </Align.Space>
             <Form.Field<channel.Key[]>
               path="config.read"
               label="Read From"
               padHelpText={false}
             >
-              {(p) => <Channel.SelectMultiple {...p} />}
+              {({ value, onChange }) => (
+                <Channel.SelectMultiple value={value} onChange={onChange} />
+              )}
             </Form.Field>
             <Form.Field<channel.Key[]>
               path="config.write"
               label="Write To"
               padHelpText={false}
             >
-              {(p) => <Channel.SelectMultiple {...p} />}
+              {({ value, onChange }) => (
+                <Channel.SelectMultiple value={value} onChange={onChange} />
+              )}
             </Form.Field>
           </Align.Space>
 
