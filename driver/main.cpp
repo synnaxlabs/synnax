@@ -172,7 +172,7 @@ void configure_labjack(
 
 void cmd_start_standalone(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
-    if (argc > 2)  // Changed from argc > 1 to account for the command
+    if (argc > 2) // Changed from argc > 1 to account for the command
         config_path = argv[2];
 
     auto cfg_json = configd::read(config_path);
@@ -194,7 +194,8 @@ void cmd_start_standalone(int argc, char *argv[]) {
         LOG(WARNING) << "[driver] failed to load persisted state: " << state_err;
     } else {
         if (persisted_state.rack_key != 0 && cfg.rack_key == 0) {
-            VLOG(1) << "[driver] using persisted rack key: " << persisted_state.rack_key;
+            VLOG(1) << "[driver] using persisted rack key: " << persisted_state.
+rack_key;
             cfg.rack_key = persisted_state.rack_key;
         }
         // if (!persisted_state.host.empty() && cfg.client_config.host.empty()) {
@@ -267,31 +268,31 @@ void cmd_start_standalone(int argc, char *argv[]) {
     LOG(INFO) << "[driver] shutdown complete";
 }
 
-std::string get_secure_input(const std::string& prompt, bool hide_input = false) {
+std::string get_secure_input(const std::string &prompt, bool hide_input = false) {
     std::string input;
-    #ifdef _WIN32
+#ifdef _WIN32
         HANDLE h_stdin = GetStdHandle(STD_INPUT_HANDLE);
         DWORD mode;
         GetConsoleMode(h_stdin, &mode);
         if (hide_input) {
             SetConsoleMode(h_stdin, mode & (~ENABLE_ECHO_INPUT));
         }
-    #else
-        if (hide_input) {
-            system("stty -echo");
-        }
-    #endif
+#else
+    if (hide_input) {
+        system("stty -echo");
+    }
+#endif
 
     std::cout << prompt;
     std::getline(std::cin, input);
 
     if (hide_input) {
         std::cout << std::endl;
-        #ifdef _WIN32
+#ifdef _WIN32
             SetConsoleMode(h_stdin, mode);
-        #else
-            system("stty echo");
-        #endif
+#else
+        system("stty echo");
+#endif
     }
     return input;
 }
@@ -312,8 +313,9 @@ void cmd_login(int argc, char *argv[]) {
         } else {
             try {
                 config.port = static_cast<uint16_t>(std::stoi(port_str));
-            } catch (const std::exception& e) {
-                LOG(WARNING) << "Invalid port number. Please enter a valid number between 0 and 65535.";
+            } catch (const std::exception &e) {
+                LOG(WARNING) <<
+                        "Invalid port number. Please enter a valid number between 0 and 65535.";
                 continue;
             }
         }
@@ -335,7 +337,8 @@ void cmd_login(int argc, char *argv[]) {
         valid_input = true;
     }
 
-    LOG(INFO) << "Attempting to connect to Synnax at " << config.host << ":" << config.port;
+    LOG(INFO) << "Attempting to connect to Synnax at " << config.host << ":" << config.
+            port;
     synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
         LOG(ERROR) << "Failed to authenticate: " << err;
@@ -358,10 +361,10 @@ void cmd_login(int argc, char *argv[]) {
 
 void print_usage() {
     std::cout << "Usage: synnax-driver <command> [options]\n"
-              << "Commands:\n"
-              << "  start    Start the Synnax driver\n"
-              << "  login    Log in to Synnax\n"
-              << "  install  Install the Synnax driver as a system service\n";
+            << "Commands:\n"
+            << "  start    Start the Synnax driver\n"
+            << "  login    Log in to Synnax\n"
+            << "  install  Install the Synnax driver as a system service\n";
 }
 
 void cmd_install_service() {
@@ -377,7 +380,7 @@ void cmd_uninstall_service() {
     try {
         daemond::uninstall_service();
         LOG(INFO) << "Service uninstallation completed successfully";
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         LOG(ERROR) << "Failed to uninstall service: " << e.what();
         exit(1);
     }
@@ -392,20 +395,21 @@ void cmd_start_daemon(int argc, char *argv[]) {
     }
 
     if (persisted_state.connection.host.empty()) {
-        LOG(FATAL) << "[driver] No connection details found. Please run 'synnax-driver login' first";
+        LOG(FATAL) <<
+                "[driver] No connection details found. Please run 'synnax-driver login' first";
         return;
     }
 
     daemond::Config config;
     config.watchdog_interval = 10;
-    config.callback = [](int argc, char* argv[]) {
-        cmd_start_standalone(argc, argv);
+    config.callback = [](const int argc_, char *argv_[]) {
+        cmd_start_standalone(argc_, argv_);
     };
 
     daemond::run(config, argc, argv);
 }
 
-int main(int argc, char *argv[]) {
+int main(const int argc, char *argv[]) {
     FLAGS_logtostderr = true;
     google::InitGoogleLogging(argv[0]);
 
@@ -414,23 +418,17 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::string command = argv[1];
+    const std::string command = argv[1];
 
-    if (command == "start-standalone") {
-        cmd_start_standalone(argc, argv);
-    } else if (command == "start") {
-        cmd_start_daemon(argc, argv);
-    } else if (command == "login") {
-        cmd_login(argc, argv);
-    } else if (command == "install") {
-        cmd_install_service();
-    } else if (command == "uninstall") {
-        cmd_uninstall_service();
-    } else {
+    if (command == "start-standalone")cmd_start_standalone(argc, argv);
+    else if (command == "start") cmd_start_daemon(argc, argv);
+    else if (command == "login") cmd_login(argc, argv);
+    else if (command == "install") cmd_install_service();
+    else if (command == "uninstall") cmd_uninstall_service();
+    else {
         std::cout << "Unknown command: " << command << std::endl;
         print_usage();
         return 1;
     }
-
     return 0;
 }
