@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type workspace } from "@synnaxlabs/client";
-import { Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
-import { List } from "@synnaxlabs/pluto/list";
+import { List, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 

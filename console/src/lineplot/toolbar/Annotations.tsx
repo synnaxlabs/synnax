@@ -14,12 +14,12 @@ import {
   Color,
   Divider,
   Input,
+  List as PList,
   Menu as PMenu,
   Select,
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { List as PList } from "@synnaxlabs/pluto/list";
 import { bounds, id, type KeyedNamed } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";

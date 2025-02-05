@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
+import {
+  Align,
+  Button,
+  Form,
+  Input,
+  Nav,
+  Synnax,
+  Text,
+  Triggers,
+} from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";

@@ -9,8 +9,7 @@
 
 import "@/layout/Selector.css";
 
-import { Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
+import { Align, Button, Eraser, type Icon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

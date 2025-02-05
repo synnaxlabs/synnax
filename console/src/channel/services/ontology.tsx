@@ -15,8 +15,8 @@ import {
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,
+  Tree,
 } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto/tree";
 import { errors, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";

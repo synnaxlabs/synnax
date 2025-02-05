@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Channel } from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
+import { Channel, Input } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { type AxisKey, axisLabel } from "@/lineplot/axis";

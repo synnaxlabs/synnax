@@ -14,11 +14,11 @@ import {
   type state,
   Status,
   Synnax,
+  Tree as Core,
   useAsyncEffect,
   useCombinedStateAndRef,
   useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
-import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep, unique } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";

@@ -9,9 +9,7 @@
 
 import "@/notifications/Notifications.css";
 
-import { Status } from "@synnaxlabs/pluto";
-import { type Button } from "@synnaxlabs/pluto/button";
-import { List } from "@synnaxlabs/pluto/list";
+import { type Button, List, Status } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { createPortal } from "react-dom";

@@ -14,11 +14,11 @@ import {
   CSS as PCSS,
   Haul,
   Input,
+  List,
   Schematic,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { List } from "@synnaxlabs/pluto/list";
 import { id } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,

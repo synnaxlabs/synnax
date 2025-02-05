@@ -18,11 +18,11 @@ import {
   componentRenderProp,
   Dropdown,
   Input,
+  List,
   Status,
   Synnax,
+  Text,
 } from "@synnaxlabs/pluto";
-import { List } from "@synnaxlabs/pluto/list";
-import { Text } from "@synnaxlabs/pluto/text";
 import { type MouseEventHandler, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
