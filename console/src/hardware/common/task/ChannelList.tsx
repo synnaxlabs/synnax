@@ -120,7 +120,7 @@ export const ChannelList = <C extends Channel>({
   return (
     <Align.Space direction="y" {...props} empty grow>
       {header}
-      <PMenu.ContextMenu {...menuProps} menu={(p) => <ContextMenu {...p} />}>
+      <PMenu.ContextMenu {...menuProps} menu={ContextMenu}>
         <List.List<string, C> data={channels} emptyContent={emptyContent}>
           <List.Selector<string, C>
             value={selected}

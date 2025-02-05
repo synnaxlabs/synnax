@@ -109,8 +109,8 @@ const Form: FC<
   Common.Task.FormProps<AnalogWriteConfig, AnalogWriteDetails, AnalogWriteType>
 > = ({ task, isSnapshot }) => (
   <Common.Task.Layouts.ListAndDetails
-    listItem={(p) => <ChannelListItem {...p} />}
-    details={(p) => <ChannelForm {...p} />}
+    listItem={ChannelListItem}
+    details={ChannelForm}
     generateChannel={generateChannel}
     isSnapshot={isSnapshot}
     initalChannels={task.config.channels}

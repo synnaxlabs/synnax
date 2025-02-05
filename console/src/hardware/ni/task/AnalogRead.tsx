@@ -128,7 +128,7 @@ const Form: FC<
   return (
     <Common.Task.Layouts.ListAndDetails
       listItem={(p) => <ChannelListItem {...p} onTare={tare} isRunning={isRunning} />}
-      details={(p) => <ChannelDetails {...p} />}
+      details={ChannelDetails}
       generateChannel={getNewChannel}
       isSnapshot={isSnapshot}
       initalChannels={task.config.channels}

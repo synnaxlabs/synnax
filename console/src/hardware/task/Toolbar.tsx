@@ -33,7 +33,6 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
 import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
-import { Common } from "@/hardware/common";
 import { createLayout } from "@/hardware/task/ontology";
 import { ZERO_SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
@@ -108,9 +107,9 @@ const Content = (): ReactElement => {
       handleException(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
     },
   }).mutate;
-  const [desiredStates, setDesiredStates] = useState<
-    Record<task.Key, Common.Task.DesiredState>
-  >({});
+  const [desiredStates, setDesiredStates] = useState<Record<task.Key, DesiredState>>(
+    {},
+  );
   const menuProps = PMenu.useContextMenu();
   const addStatus = Status.useAggregator();
   const dispatch = useDispatch();
@@ -371,9 +370,11 @@ export const Toolbar: Layout.NavDrawerItem = {
   maxSize: 400,
 };
 
+type DesiredState = "running" | "paused" | null;
+
 interface TaskListItemProps extends List.ItemProps<string, task.Task> {
-  desiredState: Common.Task.DesiredState;
-  onStopStart: (state: Common.Task.DesiredState) => void;
+  desiredState: DesiredState;
+  onStopStart: (state: DesiredState) => void;
   onRename: (name: string) => void;
 }
 
@@ -390,9 +391,7 @@ const TaskListItem = ({
   const logo = getIcon(type);
   const isRunning = entry.state?.details?.running === true;
   const isLoading =
-    desiredState != null &&
-    !Common.Task.checkDesiredStateMatch(desiredState, isRunning) &&
-    state?.variant === "success";
+    state?.variant === "success" && desiredState === (isRunning ? "running" : "paused");
   const loading = useDelayedState<boolean>(false, isLoading);
   const handleException = Status.useExceptionHandler();
   const handleClick = () => {

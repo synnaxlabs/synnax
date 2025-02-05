@@ -75,7 +75,7 @@ const TaskForm: FC<
     isSnapshot={isSnapshot}
     generateChannel={generateChannel}
   >
-    {(p) => <ChannelListItem {...p} />}
+    {ChannelListItem}
   </Common.Task.Layouts.List>
 );
 

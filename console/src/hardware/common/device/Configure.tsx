@@ -43,8 +43,7 @@ export interface ConfigureProps<P extends UnknownRecord> extends Layout.Renderer
 
 export const Configure = <P extends UnknownRecord>({
   layoutKey,
-  onClose,
-  zeroProperties,
+  ...props
 }: ConfigureProps<P>): ReactElement => {
   const client = Synnax.use();
   const {
@@ -76,7 +75,7 @@ export const Configure = <P extends UnknownRecord>({
         </Text.Text>
       </Align.Space>
     );
-  return <Internal device={device} onClose={onClose} zeroProperties={zeroProperties} />;
+  return <Internal device={device} {...props} />;
 };
 
 interface InternalProps<P extends UnknownRecord>

@@ -21,7 +21,7 @@ export const TareButton = ({ onClick, disabled }: TareButtonProps) => (
     disabled={disabled}
     stopPropagation
     onClick={onClick}
-    tooltip="Click to tare"
+    tooltip="Tare"
   >
     <Icon.Tare />
   </Button.Icon>

@@ -219,7 +219,7 @@ const Internal = ({
               path="connection.securityMode"
               label="Security Mode"
             >
-              {(p) => <SelectSecurityMode {...p} />}
+              {SelectSecurityMode}
             </Form.Field>
           </Align.Space>
           <Divider.Divider direction="x" padded="bottom" />

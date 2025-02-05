@@ -15,15 +15,17 @@ export interface UseTareProps<C extends TareableChannel> {
   isRunning: boolean;
 }
 
+export type UseTareReturn<C extends TareableChannel> = [
+  (key: channel.Key) => void,
+  (keys: string[], channels: C[]) => boolean,
+  (keys: string[], channels: C[]) => void,
+];
+
 export const useTare = <C extends TareableChannel>({
   task,
   isChannelTareable,
   isRunning,
-}: UseTareProps<C>): [
-  (key: channel.Key) => void,
-  (keys: string[], channels: C[]) => boolean,
-  (keys: string[], channels: C[]) => void,
-] => {
+}: UseTareProps<C>): UseTareReturn<C> => {
   const client = Synnax.use();
   const handleException = Status.useExceptionHandler();
   const tare = useMutation({

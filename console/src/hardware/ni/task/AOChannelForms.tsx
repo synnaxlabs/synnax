@@ -38,7 +38,7 @@ const SelectWaveType = (props: Select.ButtonProps<WaveType, WaveTypeEntry>) => (
     data={WAVE_TYPE_DATA}
     entryRenderKey="icon"
   >
-    {(p) => <SelectButtonOption {...p} />}
+    {SelectButtonOption}
   </Select.Button>
 );
 
@@ -97,7 +97,7 @@ export const AO_CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
           <Form.NumericField path={`${prefix}.offset`} label="Offset" grow />
         </Align.Space>
         <Form.Field<WaveType> path={`${prefix}.waveType`} showLabel={false}>
-          {(p) => <SelectWaveType {...p} />}
+          {SelectWaveType}
         </Form.Field>
       </Align.Space>
     </>

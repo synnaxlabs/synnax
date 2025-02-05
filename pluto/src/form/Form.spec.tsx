@@ -225,10 +225,9 @@ describe("Form", () => {
       expect(c.getByDisplayValue("Jane Doe")).toBeTruthy();
     });
     it("should render help text if validation on the field fails", () => {
-      const c = render(
-        <Form.Field<number> path="age">{(p) => <Input.Numeric {...p} />}</Form.Field>,
-        { wrapper },
-      );
+      const c = render(<Form.Field<number> path="age">{Input.Numeric}</Form.Field>, {
+        wrapper,
+      });
       const input = c.getByDisplayValue("42");
       fireEvent.change(input, { target: { value: 1 } });
       fireEvent.blur(input);

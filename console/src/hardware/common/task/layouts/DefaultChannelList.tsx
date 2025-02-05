@@ -92,7 +92,7 @@ export const DefaultChannelList = <C extends Channel>({
       onSelect={onSelect}
       {...rest}
     >
-      {(p) => children(p)}
+      {children}
     </ChannelList>
   );
 };

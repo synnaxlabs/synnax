@@ -13,7 +13,7 @@ import { type Channel } from "@/hardware/common/task/ChannelList";
 import {
   DefaultChannelList,
   type DefaultChannelListProps,
-} from "@/hardware/common/task/DefaultChannelList";
+} from "@/hardware/common/task/layouts/DefaultChannelList";
 
 export interface ListProps<C extends Channel>
   extends Pick<
@@ -34,7 +34,7 @@ export const List = <C extends Channel>({
       onSelect={setSelected}
       generateChannel={generateChannel}
     >
-      {(p) => children(p)}
+      {children}
     </DefaultChannelList>
   );
 };

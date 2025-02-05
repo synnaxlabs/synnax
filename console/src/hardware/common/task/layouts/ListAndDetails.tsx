@@ -17,7 +17,7 @@ import { type Channel } from "@/hardware/common/task/ChannelList";
 import {
   DefaultChannelList,
   type DefaultChannelListProps,
-} from "@/hardware/common/task/DefaultChannelList";
+} from "@/hardware/common/task/layouts/DefaultChannelList";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 export interface GenerateChannelFn<C extends Channel> {
@@ -80,7 +80,7 @@ export const ListAndDetails = <C extends Channel>({
         generateChannel={handleGenerateChannel}
         style={{ height: "calc(100% - 18px)", width: "30rem" }}
       >
-        {(p) => listItem(p)}
+        {listItem}
       </DefaultChannelList>
       <Divider.Divider direction="y" />
       <Align.Space direction="y" grow>
