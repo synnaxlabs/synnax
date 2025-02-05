@@ -389,6 +389,7 @@ export class Series<T extends TelemValue = TelemValue> {
   /** @returns a native typed array with the proper data type. */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
+    // @ts-expect-error - issues with union types in array constructors.
     return new this.dataType.Array(this._data, 0, this.writePos);
   }
 
