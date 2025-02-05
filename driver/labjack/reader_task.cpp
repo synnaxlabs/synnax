@@ -76,12 +76,7 @@ std::unique_ptr<task::Task> labjack::ReaderTask::configure(
 ) {
     LOG(INFO) << "[labjack.task] configuring task " << task.name;
 
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
+    auto breaker_config = breaker::default_config(task.name);
 
     auto parser = config::Parser(task.config);
     ReaderConfig reader_config(parser);

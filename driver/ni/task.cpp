@@ -21,13 +21,10 @@ ni::ScannerTask::ScannerTask(
     const std::shared_ptr<SysCfg> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
-) : scanner(syscfg, ctx, task), ctx(ctx), task(task) {
-    this->breaker = breaker::Breaker(breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    });
+) : scanner(syscfg, ctx, task),
+    ctx(ctx),
+    task(task),
+    breaker(breaker::default_config(task.name)) {
 
     auto parser = config::Parser(task.config);
     bool enabled = parser.optional<bool>("enabled", true);
@@ -115,13 +112,6 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
 ) {
     LOG(INFO) << "[ni.task] configuring task " << task.name;
 
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
 
@@ -161,7 +151,7 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
         source,
         ni_source,
         writer_config,
-        breaker_config
+        breaker::default_config(task.name)
     );
 
     if (!ni_source->ok()) {
@@ -296,12 +286,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
+   
 
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
@@ -350,16 +335,7 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
 
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[ni.task] failed to configure task " << task.name;
-        return std::make_unique<WriterTask>(
-            ctx,
-            task,
-            daq_writer,
-            daq_writer,
-            state_writer,
-            state_writer_config,
-            cmd_streamer_config,
-            breaker_config
-        );
+        return nullptr;
     }
 
     ctx->set_state({
@@ -381,6 +357,6 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         state_writer,
         state_writer_config,
         cmd_streamer_config,
-        breaker_config
+        breaker::default_config(task.name)
     );
 }

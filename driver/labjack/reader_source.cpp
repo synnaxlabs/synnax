@@ -21,14 +21,8 @@ labjack::ReaderSource::ReaderSource(
 ) : ctx(ctx),
     task(task),
     reader_config(reader_config),
-    device_manager(device_manager) {
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-    this->breaker = breaker::Breaker(breaker_config);
+    device_manager(device_manager),
+    breaker(breaker::default_config(task.name)) {
     this->handle = this->device_manager->get_device_handle(this->reader_config.serial_number);
 
     if (this->reader_config.channels.empty() && this->reader_config.tc_channels.empty())

@@ -559,13 +559,7 @@ int ni::Source::init() {
     }
     this->get_index_keys();
     this->validate_channels();
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-    this->breaker = breaker::Breaker(breaker_config);
+    this->breaker = breaker::Breaker(breaker::default_config(task.name));
     int err = this->create_channels();
     if (err) {
         this->log_error(

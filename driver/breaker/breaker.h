@@ -184,4 +184,14 @@ private:
     std::unique_ptr<std::condition_variable> breaker_shutdown;
     std::mutex shutdown_mutex;
 };
+
+/// @brief Creates a default breaker configuration with standard retry and backoff settings
+inline Config default_config(const std::string& name) {
+    return Config{
+        .name = name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
+    };
+}
 }

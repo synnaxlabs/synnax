@@ -42,12 +42,7 @@ opc::WriterSink::WriterSink(
         this->cmd_channel_map[ch.cmd_channel] = ch;
     }
 
-    this->breaker = breaker::Breaker(breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 10,
-        .scale = 1.2
-    });
+    this->breaker = breaker::Breaker(breaker::default_config(task.name));
 
     this->breaker.start();
     this->keep_alive_thread = std::thread(&opc::WriterSink::maintain_connection, this);

@@ -218,13 +218,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
         return;
     }
 
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-    this->breaker = breaker::Breaker(breaker_config);
+    this->breaker = breaker::Breaker(breaker::default_config(task.name));
 
     if (this->init()) {
         this->log_error("Failed to configure NI hardware for task " + writer_config.task_name);
@@ -356,13 +350,7 @@ ni::AnalogWriteSink::AnalogWriteSink(
         return;
     }
 
-    auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
-    };
-    this->breaker = breaker::Breaker(breaker_config);
+    this->breaker = breaker::Breaker(breaker::default_config(task.name));
 
     if (this->init()) {
         this->log_error("Failed to configure NI hardware for task " + writer_config.task_name);

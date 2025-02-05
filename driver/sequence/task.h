@@ -74,12 +74,7 @@ public:
        task(task),
        read_channels(read_channels),
        write_channels(write_channels),
-       breaker(breaker::Config{
-           .name = "sequence",
-           .base_interval = 1 * SECOND,
-           .max_retries = 20,
-           .scale = 1.2,
-       }) {
+       breaker(breaker::default_config(task.name)) {
     }
 
 
@@ -97,20 +92,12 @@ public:
         auto ch_source = std::make_shared<ChannelSource>(read_channel_map);
         synnax::StreamerConfig streamer_cfg{.channels = cfg.read,};
 
-        auto breaker_config = breaker::Config{
-            .name = "sequence",
-            .base_interval = 1 * SECOND,
-            .max_retries = 20,
-            .scale = 1.2,
-        };
-
-
         /// Step 3 - open the control pipeline;
         auto pipe = pipeline::Control(
             this->ctx->client,
             streamer_cfg,
             ch_source,
-            breaker_config
+            breaker::default_config(task.name)
         );
 
         /// Step 4 - open a synnax writer
