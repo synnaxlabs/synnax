@@ -43,7 +43,7 @@ export type ChannelListProps<C extends Channel> = Omit<
 };
 
 export const ChannelList = <C extends Channel>({
-  children,
+  children: ListItem,
   header,
   isSnapshot,
   emptyContent,
@@ -130,9 +130,13 @@ export const ChannelList = <C extends Channel>({
             }
           >
             <List.Core<string, C>>
-              {(props) =>
-                children({ ...props, path: `${path}.${props.index}`, isSnapshot })
-              }
+              {(props) => (
+                <ListItem
+                  {...props}
+                  path={`${path}.${props.index}`}
+                  isSnapshot={isSnapshot}
+                />
+              )}
             </List.Core>
           </List.Selector>
         </List.List>

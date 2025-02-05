@@ -61,7 +61,22 @@ export type Channel = v1.Channel;
 
 // Tasks
 
-export const analogReadConfigZ = v1.analogReadConfigZ;
+type AnyAnalogReadConfig = v0.AnalogReadConfig | v1.AnalogReadConfig;
+const ANALOG_READ_CONFIG_MIGRATIONS: migrate.Migrations = {
+  [v0.VERSION]: v1.analogReadConfigMigration,
+};
+const migrateAnalogReadConfig = migrate.migrator<
+  AnyAnalogReadConfig,
+  v1.AnalogReadConfig
+>({
+  name: v1.ANALOG_READ_CONFIG_MIGRATION_NAME,
+  migrations: ANALOG_READ_CONFIG_MIGRATIONS,
+  def: v1.ZERO_ANALOG_READ_CONFIG,
+  defaultVersion: v0.VERSION,
+});
+export const analogReadConfigZ = v0.analogReadConfigZ
+  .transform(migrateAnalogReadConfig)
+  .or(v1.analogReadConfigZ);
 export interface AnalogReadConfig extends v1.AnalogReadConfig {}
 export type AnalogReadDetails = v0.AnalogReadDetails;
 export const ANALOG_READ_TYPE = v0.ANALOG_READ_TYPE;
@@ -98,19 +113,3 @@ export interface DigitalReadPayload extends v0.DigitalReadPayload {}
 export const ZERO_DIGITAL_READ_PAYLOAD = v0.ZERO_DIGITAL_READ_PAYLOAD;
 
 export interface ScanConfig extends v0.ScanConfig {}
-
-// Migrations
-
-type AnyAnalogReadConfig = v0.AnalogReadConfig | v1.AnalogReadConfig;
-const ANALOG_READ_CONFIG_MIGRATIONS: migrate.Migrations = {
-  [v0.VERSION]: v1.analogReadConfigMigration,
-};
-export const migrateAnalogReadConfig = migrate.migrator<
-  AnyAnalogReadConfig,
-  v1.AnalogReadConfig
->({
-  name: v1.ANALOG_READ_CONFIG_MIGRATION_NAME,
-  migrations: ANALOG_READ_CONFIG_MIGRATIONS,
-  def: v1.ZERO_ANALOG_READ_CONFIG,
-  defaultVersion: v0.VERSION,
-});
