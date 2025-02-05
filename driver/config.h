@@ -88,6 +88,7 @@ inline synnax::Config parse_synnax_config(config::Parser &conn) {
 
 inline std::pair<PersistedState, freighter::Error> load_persisted_state() {
     auto path = get_persisted_state_path();
+    LOG(INFO) << "Loading persisted state from " << path;
     if (path.empty())
         return {PersistedState{}, freighter::Error("failed to get home directory")};
 

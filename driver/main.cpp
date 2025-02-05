@@ -378,40 +378,17 @@ void print_usage() {
             << "  logs            View the driver logs\n";
 }
 
-void cmd_install_service() {
-    daemond::install_service();
-}
-
-void cmd_uninstall_service() {
-    if (const auto err = daemond::uninstall_service()) {
-        LOG(ERROR) << "Failed to uninstall service: " << err;
+// Helper function to execute service commands
+void exec_svg_cmd(
+    const std::function<freighter::Error()> &cmd,
+    const std::string &action,
+    const std::string &past_tense
+) {
+    if (const auto err = cmd()) {
+        LOG(ERROR) << "Failed to " << action << " driver: " << err;
         exit(1);
     }
-    LOG(INFO) << "Service uninstallation completed successfully";
-}
-
-void cmd_start_service() {
-    if (const auto err = daemond::start_service()) {
-        LOG(ERROR) << "Failed to start service: " << err;
-        exit(1);
-    }
-    LOG(INFO) << "Service started successfully";
-}
-
-void cmd_stop_service() {
-    if (const auto err = daemond::stop_service()) {
-        LOG(ERROR) << "Failed to stop service: " << err;
-        exit(1);
-    }
-    LOG(INFO) << "Service stopped successfully";
-}
-
-void cmd_restart_service() {
-    if (const auto err = daemond::restart_service()) {
-        LOG(ERROR) << "Failed to restart service: " << err;
-        exit(1);
-    }
-    LOG(INFO) << "Service restarted successfully";
+    LOG(INFO) << "Driver " << past_tense << " successfully";
 }
 
 void cmd_start_daemon(int argc, char *argv[]) {
@@ -435,13 +412,20 @@ int main(const int argc, char *argv[]) {
     const std::string command = argv[1];
 
     if (command == "internal-start-daemon") cmd_start_daemon(argc, argv);
-    else if (command == "start") cmd_start_service();
-    else if (command == "stop") cmd_stop_service();
-    else if (command == "restart") cmd_restart_service();
-    else if (command == "login") cmd_login(argc, argv);
-    else if (command == "install") cmd_install_service();
-    else if (command == "uninstall") cmd_uninstall_service();
-    else if (command == "logs") cmd_view_logs();
+    else if (command == "start")
+        exec_svg_cmd(daemond::start_service, "start", "started");
+    else if (command == "stop")
+        exec_svg_cmd(daemond::stop_service, "stop", "stopped");
+    else if (command == "restart")
+        exec_svg_cmd(daemond::restart_service, "restart", "restarted");
+    else if (command == "login")
+        cmd_login(argc, argv);
+    else if (command == "install")
+        exec_svg_cmd(daemond::install_service, "install", "installed");
+    else if (command == "uninstall")
+        exec_svg_cmd(daemond::uninstall_service, "uninstall", "uninstalled");
+    else if (command == "logs")
+        cmd_view_logs();
     else {
         std::cout << "Unknown command: " << command << std::endl;
         print_usage();
