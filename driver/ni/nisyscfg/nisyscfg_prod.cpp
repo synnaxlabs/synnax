@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <cstring>
+#include <cstdarg>
 
 /// internal.
 #include "driver/ni/nisyscfg/nisyscfg.h"
@@ -97,7 +98,12 @@ NISYSCFGCDECL SysCfgProd::SetFilterProperty(
     NISysCfgFilterProperty propertyID,
     ...
 ) {
-    return function_pointers_.SetFilterProperty(filterHandle, propertyID);
+    va_list args;
+    va_start(args, propertyID);
+    void* value = va_arg(args, void*);
+    NISYSCFGCFUNC status = function_pointers_.SetFilterProperty(filterHandle, propertyID, value);
+    va_end(args);
+    return status;
 }
 
 NISYSCFGCFUNC SysCfgProd::CloseHandle(
