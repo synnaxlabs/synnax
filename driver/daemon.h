@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <string>
+#include "freighter/error.h"
 
 namespace daemon {
 
@@ -24,6 +25,12 @@ struct Config {
     // The application's main logic callback
     ApplicationCallback callback;
 };
+
+// Service management functions
+void install_service();
+void uninstall_service();
+freighter::Error create_system_user();
+freighter::Error install_binary();
 
 // Runs the application as a daemon with the given configuration
 void run(const Config& config, int argc, char* argv[]);

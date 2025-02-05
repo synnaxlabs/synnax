@@ -12,9 +12,6 @@
 /// POSIX
 #include <unistd.h>
 
-/// systemd
-#include <systemd/sd-daemon.h>
-
 /// Windows-specific headers
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -28,8 +25,6 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
-
-
 
 /// LabJack only supported on Windows.
 #include "driver/labjack/labjack.h"
@@ -66,62 +61,6 @@ std::condition_variable cv;
 bool should_stop = false;
 
 namespace fs = std::filesystem;
-
-const char* SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
-Description=Synnax Driver Service
-Documentation=https://docs.synnaxlabs.com/
-After=network-online.target
-Wants=network-online.target
-StartLimitIntervalSec=60
-StartLimitBurst=3
-
-[Service]
-Type=notify
-Environment=GLOG_logtostderr=1
-Environment=GLOG_v=1
-ExecStart=/usr/local/bin/synnax-driver start
-User=synnax
-Group=synnax
-
-# Watchdog configuration
-WatchdogSec=30s
-
-# State directory
-StateDirectory=synnax
-ConfigurationDirectory=synnax
-CacheDirectory=synnax
-LogsDirectory=synnax
-
-# Logging
-StandardOutput=journal
-StandardError=journal
-
-# Temporarily reduce security restrictions for debugging
-#ProtectSystem=strict
-#ProtectHome=true
-#PrivateTmp=true
-#PrivateDevices=true
-#ProtectKernelTunables=true
-#ProtectKernelModules=true
-#ProtectControlGroups=true
-#NoNewPrivileges=true
-#RestrictNamespaces=true
-#RestrictRealtime=true
-#RestrictSUIDSGID=true
-#MemoryDenyWriteExecute=true
-
-# Resource limits
-LimitNOFILE=65535
-LimitCORE=infinity
-TasksMax=4096
-
-# Restart policy
-Restart=on-failure
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target
-)";
 
 std::string get_hostname() {
     std::array<char, 256> hostname{};
@@ -425,116 +364,44 @@ void print_usage() {
               << "  install  Install the Synnax driver as a system service\n";
 }
 
-freighter::Error create_system_user() {
-    int result = system("id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax");
-    if (result != 0) {
-        return freighter::Error("Failed to create system user");
-    }
-    return {};
-}
-
-freighter::Error install_binary() {
-    // Get the path to the current executable
-    std::error_code ec;
-    fs::path current_exe = fs::read_symlink("/proc/self/exe", ec);
-    if (ec) {
-        return freighter::Error("Failed to get current executable path: " + ec.message());
-    }
-
-    // Create target directory if it doesn't exist
-    fs::create_directories("/usr/local/bin", ec);
-    if (ec) {
-        return freighter::Error("Failed to create binary directory: " + ec.message());
-    }
-
-    // Copy the binary
-    fs::path target_path = "/usr/local/bin/synnax-driver";
-    fs::copy_file(current_exe, target_path,
-                  fs::copy_options::overwrite_existing, ec);
-    if (ec) {
-        return freighter::Error("Failed to copy binary: " + ec.message());
-    }
-
-    // Set permissions (755)
-    if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
-        return freighter::Error("Failed to set binary permissions");
-    }
-
-    return {};
-}
-
-freighter::Error install_service() {
-    const char* service_path = "/etc/systemd/system/synnax-driver.service";
-
-    // Create parent directories if they don't exist
-    std::error_code ec;
-    fs::create_directories(fs::path(service_path).parent_path(), ec);
-    if (ec) {
-        return freighter::Error("Failed to create service directory: " + ec.message());
-    }
-
-    // Write service file
-    std::ofstream service_file(service_path);
-    if (!service_file) {
-        return freighter::Error("Failed to create service file");
-    }
-    service_file << SYSTEMD_SERVICE_TEMPLATE;
-    service_file.close();
-
-    // Set permissions (644)
-    if (chmod(service_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0) {
-        return freighter::Error("Failed to set service file permissions");
-    }
-
-    // Reload systemd
-    if (system("systemctl daemon-reload") != 0) {
-        return freighter::Error("Failed to reload systemd");
-    }
-
-    return {};
-}
-
-void cmd_install(int argc, char*argv[]) {
-    // Check if running as root
+void cmd_install_service() {
     if (geteuid() != 0) {
-        LOG(FATAL) << "Installation must be run as root";
-        return;
+        LOG(ERROR) << "Must run as root to install service";
+        exit(1);
     }
 
-    LOG(INFO) << "Installing Synnax Driver...";
-
-    // Create system user
-    if (auto err = create_system_user()) {
-        LOG(FATAL) << "Failed to create system user: " << err;
-        return;
-    }
-    LOG(INFO) << "System user created successfully";
-
-    // Install binary
-    if (auto err = install_binary()) {
-        LOG(FATAL) << "Failed to install binary: " << err;
-        return;
-    }
-    LOG(INFO) << "Binary installed successfully";
-
-    // Install service
-    if (auto err = install_service()) {
-        LOG(FATAL) << "Failed to install service: " << err;
-        return;
-    }
-    LOG(INFO) << "Service installed successfully";
-
-    // Enable and start the service
-    if (system("systemctl enable synnax-driver") != 0) {
-        LOG(FATAL) << "Failed to enable service";
-        return;
-    }
-    if (system("systemctl start synnax-driver") != 0) {
-        LOG(FATAL) << "Failed to start service";
-        return;
+    if (auto err = daemon::create_system_user()) {
+        LOG(ERROR) << "Failed to create system user: " << err;
+        exit(1);
     }
 
-    LOG(INFO) << "Synnax Driver installed and started successfully!";
+    if (auto err = daemon::install_binary()) {
+        LOG(ERROR) << "Failed to install binary: " << err;
+        exit(1);
+    }
+
+    try {
+        daemon::install_service();
+        LOG(INFO) << "Service installation completed successfully";
+    } catch (const std::exception& e) {
+        LOG(ERROR) << "Failed to install service: " << e.what();
+        exit(1);
+    }
+}
+
+void cmd_uninstall_service() {
+    if (geteuid() != 0) {
+        LOG(ERROR) << "Must run as root to uninstall service";
+        exit(1);
+    }
+
+    try {
+        daemon::uninstall_service();
+        LOG(INFO) << "Service uninstallation completed successfully";
+    } catch (const std::exception& e) {
+        LOG(ERROR) << "Failed to uninstall service: " << e.what();
+        exit(1);
+    }
 }
 
 void cmd_start_daemon(int argc, char *argv[]) {
@@ -577,7 +444,9 @@ int main(int argc, char *argv[]) {
     } else if (command == "login") {
         cmd_login(argc, argv);
     } else if (command == "install") {
-        cmd_install(argc, argv);
+        cmd_install_service();
+    } else if (command == "uninstall") {
+        cmd_uninstall_service();
     } else {
         std::cout << "Unknown command: " << command << std::endl;
         print_usage();
