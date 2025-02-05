@@ -199,7 +199,7 @@ std::unique_ptr<task::Task> ReaderTask::configure(
         ctx,
         task,
         cfg,
-        breaker_config,
+        breaker::default_config(task.name),
         std::move(source),
         writer_cfg,
         ua_client,

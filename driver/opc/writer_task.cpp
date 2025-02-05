@@ -144,7 +144,7 @@ std::unique_ptr<task::Task> opc::WriterTask::configure(
         ctx,
         task,
         cfg,
-        breaker_config,
+        breaker::default_config(task.name),
         std::move(sink),
         cmd_streamer_config,
         ua_client,

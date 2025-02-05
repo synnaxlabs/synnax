@@ -69,7 +69,6 @@ labjack::StateSource::StateSource(
     this->timer = loop::Timer(this->state_rate);
 }
 
-
 std::pair<synnax::Frame, freighter::Error> labjack::StateSource::read(
     breaker::Breaker &breaker) {
     std::unique_lock<std::mutex> lock(this->state_mutex);
@@ -135,7 +134,7 @@ labjack::WriteSink::WriteSink(
     device_manager(device_manager),
     breaker(breaker::default_config(task.name)) {
 
-    this->breaker = breaker::Breaker(breaker_config);
+    this->breaker = breaker::Breaker(breaker::default_config(task.name));
 
     auto state_index_keys = this->get_index_keys(); // retrieve state index from first state channel
 

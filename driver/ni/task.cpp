@@ -287,7 +287,6 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
     const synnax::Task &task
 ) {
    
-
     auto parser = config::Parser(task.config);
     auto data_saving = parser.optional<bool>("data_saving", true);
 
@@ -359,4 +358,5 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         cmd_streamer_config,
         breaker::default_config(task.name)
     );
+    
 }
