@@ -36,6 +36,7 @@
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@tauri-apps/api": "^2.1.1",
     "@types/react": "^19.0.6",
+    "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.3.1",
     "eslint": "^9.18.0",
     "eslint-config-synnaxlabs": "workspace:*",
