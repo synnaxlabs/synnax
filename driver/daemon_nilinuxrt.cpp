@@ -238,10 +238,11 @@ void run(const Config& config, int argc, char* argv[]) {
     update_status(Status::INITIALIZING);
     update_status(Status::READY);
 
-    // Enter a true loop that sleeps 1 second and writes a log
-    while (true) {
-        LOG(INFO) << "Daemon is running";
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+    try {
+        config.callback(argc, argv);
+    } catch (const std::exception& e) {
+        update_status(Status::ERROR, e.what());
+        LOG(ERROR) << "Application error: " << e.what();
     }
 
     update_status(Status::STOPPING);

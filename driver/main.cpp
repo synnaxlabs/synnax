@@ -193,19 +193,16 @@ void cmd_start_standalone(int argc, char *argv[]) {
     if (state_err) {
         LOG(WARNING) << "[driver] failed to load persisted state: " << state_err;
     } else {
+        LOG(INFO) << "peristed state found in storage";
         if (persisted_state.rack_key != 0 && cfg.rack_key == 0) {
             VLOG(1) << "[driver] using persisted rack key: " << persisted_state.
 rack_key;
             cfg.rack_key = persisted_state.rack_key;
         }
-        // if (!persisted_state.host.empty() && cfg.client_config.host.empty()) {
-        //     cfg.client_config.host = persisted_state.host;
-        //     cfg.client_config.port = persisted_state.port;
-        //     cfg.client_config.username = persisted_state.username;
-        //     cfg.client_config.password = persisted_state.password;
-        //     VLOG(1) << "[driver] using persisted credentials for " << persisted_state.username
-        //             << "@" << persisted_state.host << ":" << persisted_state.port;
-        // }
+        if (!persisted_state.connection.host.empty()) {
+            cfg.client_config = persisted_state.connection;
+            LOG(INFO) << "[driver] using persisted credentials";
+        }
     }
 
     LOG(INFO) << "[driver] starting up";
@@ -232,7 +229,10 @@ rack_key;
         return;
     }
 
-    if (auto err = configd::save_persisted_state({.rack_key = rack.key}))
+    if (auto err = configd::save_persisted_state({
+        .rack_key = rack.key,
+        .connection = cfg.client_config
+    }))
         LOG(WARNING) << "[driver] failed to save persisted state: " << err;
 
     auto hb_factory = std::make_shared<heartbeat::Factory>();
@@ -391,12 +391,6 @@ void cmd_start_daemon(int argc, char *argv[]) {
     auto [persisted_state, state_err] = configd::load_persisted_state();
     if (state_err) {
         LOG(FATAL) << "[driver] failed to load persisted state: " << state_err;
-        return;
-    }
-
-    if (persisted_state.connection.host.empty()) {
-        LOG(FATAL) <<
-                "[driver] No connection details found. Please run 'synnax-driver login' first";
         return;
     }
 
