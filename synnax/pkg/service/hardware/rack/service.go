@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -48,6 +49,8 @@ type Config struct {
 	// communication mechanism.
 	// [REQUIRED]
 	Signals *signals.Provider
+	// Channel
+	Channel channel.Writeable
 }
 
 var (
@@ -66,6 +69,7 @@ func (c Config) Override(other Config) Config {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 

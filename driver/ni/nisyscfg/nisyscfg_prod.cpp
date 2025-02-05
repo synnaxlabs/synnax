@@ -98,12 +98,12 @@ NISYSCFGCDECL SysCfgProd::SetFilterProperty(
     NISysCfgFilterProperty propertyID,
     ...
 ) {
-    va_list args;
-    va_start(args, propertyID);
-    void* value = va_arg(args, void*);
-    NISYSCFGCFUNC status = function_pointers_.SetFilterProperty(filterHandle, propertyID, value);
-    va_end(args);
-    return status;
+  va_list args;
+  NISysCfgStatus status;
+  va_start(args, propertyID);
+  status = function_pointers_.SetFilterPropertyV(filterHandle, propertyID, args);
+  va_end(args);
+  return status;
 }
 
 NISYSCFGCFUNC SysCfgProd::CloseHandle(
