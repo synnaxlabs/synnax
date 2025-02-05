@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <map>
 
+#include "driver/ni/util.h"
 #include "nidaqmx/nidaqmx.h"
 #include "driver/config/config.h"
 

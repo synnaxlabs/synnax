@@ -10,7 +10,7 @@
 #include <string>
 #include <algorithm>
 
-#include "driver/ni/ni.h"
+#include "driver/ni/scanner.h"
 #include "nisyscfg/nisyscfg_api.h"
 
 #include "nlohmann/json.hpp"

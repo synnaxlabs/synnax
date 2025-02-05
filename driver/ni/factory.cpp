@@ -14,6 +14,8 @@
 #include "glog/logging.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/writer.h"
+#include "driver/ni/reader.h"
+#include "driver/ni/scanner.h"
 #include "nlohmann/json.hpp"
 
 /// internal
@@ -63,7 +65,6 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
         return {ni::ReaderTask::configure(this->dmx, ctx, task), true};
     if (task.type == "ni_analog_write" || task.type == "ni_digital_write")
         return {ni::WriterTask::configure(this->dmx, ctx, task), true};
-    LOG(ERROR) << "[ni] Unknown task type: " << task.type << std::endl;
     return {nullptr, false};
 }
 

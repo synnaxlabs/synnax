@@ -13,7 +13,7 @@
 #include <cassert>
 
 #include "client/cpp/telem/telem.h"
-#include "driver/ni/ni.h"
+#include "driver/ni/reader.h"
 
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
@@ -25,7 +25,7 @@ void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
             task_name;
     parser.iter("channels",
                 [&](config::Parser &channel_builder) {
-                    ni::ChannelConfig config;
+                    ni::ReaderChannelConfig config;
                     // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
                     std::string port = "port" + std::to_string(
                                            channel_builder.required<std::uint64_t>(

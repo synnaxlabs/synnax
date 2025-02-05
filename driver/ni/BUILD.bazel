@@ -13,7 +13,10 @@ cc_library(
     hdrs = [
         "channels.h",
         "error.h",
+        "util.h",
         "ni.h",
+        "scanner.h",
+        "reader.h",
         "writer.h",
         "scale.h",
         "//client/cpp:synnax",

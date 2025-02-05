@@ -16,10 +16,12 @@
 #include "nidaqmx/nidaqmx_api.h"
 #include "driver/config/config.h"
 #include "driver/ni/scale.h"
+#include "driver/ni/util.h"
 #include "driver/task/task.h"
 
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
+
 
 namespace ni {
 static int32_t get_terminal_config(const std::string &terminal_config) {

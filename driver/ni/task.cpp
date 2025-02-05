@@ -11,7 +11,9 @@
 #include <stdio.h>
 
 #include "driver/ni/ni.h"
+#include "driver/ni/reader.h"
 #include "driver/ni/writer.h"
+#include "driver/ni/scanner.h"
 #include "driver/pipeline/middleware.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -358,5 +360,5 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         cmd_streamer_config,
         breaker::default_config(task.name)
     );
-    
+
 }

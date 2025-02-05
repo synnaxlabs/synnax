@@ -13,7 +13,7 @@
 #include <utility>
 
 #include "client/cpp/telem/telem.h"
-#include "driver/ni/ni.h"
+#include "driver/ni/reader.h"
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
@@ -24,7 +24,7 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
     //    LOG(INFO) << "channel config:" << parser.get_json().dump(4);
     parser.iter("channels",
                 [&](config::Parser &channel_builder) {
-                    ni::ChannelConfig config;
+                    ni::ReaderChannelConfig config;
                     // analog channel names are formatted: <device_name>/ai<port>
                     std::string port = std::to_string(
                         channel_builder.required<std::uint64_t>("port"));
