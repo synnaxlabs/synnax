@@ -20,7 +20,7 @@ const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
 const std::string BINARY_NAME = "synnax-driver";
 const std::string INIT_SCRIPT_PATH = "/etc/init.d/synnax-driver";
 
-const char* INIT_SCRIPT_TEMPLATE = R"(#!/bin/sh
+const char* INIT_SCRIPT_TEMPLATE = R"###(#!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          synnax-driver
 # Required-Start:    $network $local_fs
@@ -40,23 +40,63 @@ LOGFILE="/var/log/$NAME.log"
 # Exit if executable not installed
 [ -x "$DAEMON" ] || exit 0
 
-# Load init functions
-. /lib/lsb/init-functions
+log_message() {
+    echo "$1" | tee -a $LOGFILE
+}
 
 do_start() {
-    log_daemon_msg "Starting $NAME"
+    log_message "Starting $NAME at $(date)"
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            log_message "$NAME is already running (PID: $PID)"
+            return 1
+        else
+            rm -f "$PIDFILE"
+        fi
+    fi
+
     start-stop-daemon --start --background \
         --make-pidfile --pidfile $PIDFILE \
         --chuid $DAEMON_USER \
-        --exec $DAEMON -- start
-    log_end_msg $?
+        --startas /bin/bash -- -c "exec $DAEMON start >> $LOGFILE 2>&1"
+
+    RETVAL=$?
+    if [ $RETVAL -eq 0 ]; then
+        log_message "$NAME started successfully"
+    else
+        log_message "Failed to start $NAME"
+    fi
+    return $RETVAL
 }
 
 do_stop() {
-    log_daemon_msg "Stopping $NAME"
+    log_message "Stopping $NAME at $(date)"
     start-stop-daemon --stop --pidfile $PIDFILE --retry 30
-    log_end_msg $?
-    rm -f $PIDFILE
+    RETVAL=$?
+    if [ $RETVAL -eq 0 ]; then
+        rm -f $PIDFILE
+        log_message "$NAME stopped successfully"
+    else
+        log_message "Failed to stop $NAME"
+    fi
+    return $RETVAL
+}
+
+do_status() {
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            log_message "$NAME is running (PID: $PID)"
+            return 0
+        else
+            log_message "$NAME is not running (stale PID file)"
+            return 1
+        fi
+    else
+        log_message "$NAME is not running"
+        return 3
+    fi
 }
 
 case "$1" in
@@ -71,7 +111,7 @@ case "$1" in
         do_start
         ;;
     status)
-        status_of_proc -p $PIDFILE "$DAEMON" "$NAME"
+        do_status
         ;;
     *)
         echo "Usage: $0 {start|stop|restart|status}"
@@ -80,7 +120,7 @@ case "$1" in
 esac
 
 exit 0
-)";
+)###";
 
 freighter::Error create_system_user() {
     LOG(INFO) << "Creating system user";
@@ -95,7 +135,7 @@ freighter::Error install_binary() {
     LOG(INFO) << "Moving binary to " << BINARY_INSTALL_DIR;
     std::error_code ec;
     const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
-    if (ec) 
+    if (ec)
         return freighter::Error("Failed to get current executable path: " + ec.message());
 
     fs::create_directories(BINARY_INSTALL_DIR, ec);
@@ -122,6 +162,20 @@ freighter::Error install_binary() {
 freighter::Error install_service() {
     if (auto err = create_system_user()) return err;
     if (auto err = install_binary()) return err;
+
+    // Create log file with proper permissions
+    LOG(INFO) << "Creating log file";
+    std::ofstream log_file("/var/log/synnax-driver.log");
+    if (!log_file)
+        return freighter::Error("Failed to create log file");
+    log_file.close();
+
+    // Set permissions so both root and synnax user can write to it
+    if (chmod("/var/log/synnax-driver.log", 0666) != 0)
+        return freighter::Error("Failed to set log file permissions");
+
+    if (system("chown synnax:synnax /var/log/synnax-driver.log") != 0)
+        return freighter::Error("Failed to set log file ownership");
 
     LOG(INFO) << "Creating init script at " << INIT_SCRIPT_PATH;
     std::error_code ec;
@@ -165,7 +219,7 @@ void update_status(Status status, const std::string& message) {
         case Status::STOPPING: status_str = "Stopping"; break;
         case Status::ERROR: status_str = "Error"; break;
     }
-    
+
     if (!message.empty()) {
         LOG(INFO) << "[daemon] Status: " << status_str << " - " << message;
     } else {
@@ -178,9 +232,12 @@ void notify_watchdog() {
 }
 
 void run(const Config& config, int argc, char* argv[]) {
+    // Initialize logging
+    google::SetLogDestination(google::INFO, "/var/log/synnax-driver");
+
     update_status(Status::INITIALIZING);
     update_status(Status::READY);
-    
+
     try {
         config.callback(argc, argv);
     } catch (const std::exception& e) {
@@ -191,4 +248,4 @@ void run(const Config& config, int argc, char* argv[]) {
     update_status(Status::STOPPING);
 }
 
-}  // namespace daemond 
+}  // namespace daemond
