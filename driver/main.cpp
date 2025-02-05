@@ -383,22 +383,15 @@ void cmd_install_service() {
 }
 
 void cmd_uninstall_service() {
-    if (geteuid() != 0) {
-        LOG(ERROR) << "Must run as root to uninstall service";
+    if (const auto err = daemond::uninstall_service()) {
+        LOG(ERROR) << "Failed to uninstall service: " << err;
         exit(1);
     }
-
-    try {
-        daemond::uninstall_service();
-        LOG(INFO) << "Service uninstallation completed successfully";
-    } catch (const std::exception &e) {
-        LOG(ERROR) << "Failed to uninstall service: " << e.what();
-        exit(1);
-    }
+    LOG(INFO) << "Service uninstallation completed successfully";
 }
 
 void cmd_start_service() {
-    if (auto err = daemond::start_service()) {
+    if (const auto err = daemond::start_service()) {
         LOG(ERROR) << "Failed to start service: " << err;
         exit(1);
     }
@@ -406,7 +399,7 @@ void cmd_start_service() {
 }
 
 void cmd_stop_service() {
-    if (auto err = daemond::stop_service()) {
+    if (const auto err = daemond::stop_service()) {
         LOG(ERROR) << "Failed to stop service: " << err;
         exit(1);
     }
@@ -414,7 +407,7 @@ void cmd_stop_service() {
 }
 
 void cmd_restart_service() {
-    if (auto err = daemond::restart_service()) {
+    if (const auto err = daemond::restart_service()) {
         LOG(ERROR) << "Failed to restart service: " << err;
         exit(1);
     }
@@ -422,19 +415,11 @@ void cmd_restart_service() {
 }
 
 void cmd_start_daemon(int argc, char *argv[]) {
-    // Load persisted state to get connection details
-    auto [persisted_state, state_err] = configd::load_persisted_state();
-    if (state_err) {
-        LOG(FATAL) << "[driver] failed to load persisted state: " << state_err;
-        return;
-    }
-
     daemond::Config config;
     config.watchdog_interval = 10;
     config.callback = [](const int argc_, char *argv_[]) {
         cmd_start_standalone(argc_, argv_);
     };
-
     daemond::run(config, argc, argv);
 }
 
