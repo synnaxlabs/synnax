@@ -7,6 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <sys/stat.h>
+
+/// POSIX
+#include <unistd.h>
+
+/// systemd
+#include <systemd/sd-daemon.h>
+
 /// Windows-specific headers
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -20,6 +28,8 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
+
+
 
 /// LabJack only supported on Windows.
 #include "driver/labjack/labjack.h"
@@ -47,6 +57,7 @@
 #include "driver/heartbeat/heartbeat.h"
 #include "driver/ni/ni.h"
 #include "driver/sequence/task.h"
+#include "driver/daemon.h"
 
 using json = nlohmann::json;
 
@@ -66,9 +77,14 @@ StartLimitBurst=3
 
 [Service]
 Type=notify
+Environment=GLOG_logtostderr=1
+Environment=GLOG_v=1
 ExecStart=/usr/local/bin/synnax-driver start
 User=synnax
 Group=synnax
+
+# Watchdog configuration
+WatchdogSec=30s
 
 # State directory
 StateDirectory=synnax
@@ -76,23 +92,27 @@ ConfigurationDirectory=synnax
 CacheDirectory=synnax
 LogsDirectory=synnax
 
-# Security hardening
-CapabilityBoundingSet=
-ProtectSystem=strict
-ProtectHome=true
-PrivateTmp=true
-PrivateDevices=true
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-NoNewPrivileges=true
-RestrictNamespaces=true
-RestrictRealtime=true
-RestrictSUIDSGID=true
-MemoryDenyWriteExecute=true
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+# Temporarily reduce security restrictions for debugging
+#ProtectSystem=strict
+#ProtectHome=true
+#PrivateTmp=true
+#PrivateDevices=true
+#ProtectKernelTunables=true
+#ProtectKernelModules=true
+#ProtectControlGroups=true
+#NoNewPrivileges=true
+#RestrictNamespaces=true
+#RestrictRealtime=true
+#RestrictSUIDSGID=true
+#MemoryDenyWriteExecute=true
 
 # Resource limits
 LimitNOFILE=65535
+LimitCORE=infinity
 TasksMax=4096
 
 # Restart policy
@@ -250,10 +270,10 @@ void cmd_start_standalone(int argc, char *argv[]) {
 
     LOG(INFO) << "[driver] starting up";
 
-    FLAGS_logtostderr = true;
-    if (cfg.debug)
-        FLAGS_v = 1;
-    google::InitGoogleLogging(argv[0]);
+    // FLAGS_logtostderr = true;
+    // if (cfg.debug)
+    //     FLAGS_v = 1;
+    // google::InitGoogleLogging(argv[0]);
 
     VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":"
             << cfg.client_config.port;
@@ -289,7 +309,8 @@ void cmd_start_standalone(int argc, char *argv[]) {
         rack,
         client,
         std::move(factory),
-        cfg.breaker_config);
+        cfg.breaker_config
+    );
 
     std::thread listener(input_listener);
 
@@ -324,7 +345,7 @@ std::string get_secure_input(const std::string& prompt, bool hide_input = false)
 
     std::cout << prompt;
     std::getline(std::cin, input);
-    
+
     if (hide_input) {
         std::cout << std::endl;
         #ifdef _WIN32
@@ -382,13 +403,13 @@ void cmd_login(int argc, char *argv[]) {
         return;
     }
     LOG(INFO) << "Successfully logged in!";
-    
+
     auto [existing_state, _] = configd::load_persisted_state();
     configd::PersistedState state{
         .rack_key = existing_state.rack_key,
         .connection = config
     };
-    
+
     if (auto err = configd::save_persisted_state(state)) {
         LOG(ERROR) << "Failed to save credentials: " << err;
         return;
@@ -396,7 +417,84 @@ void cmd_login(int argc, char *argv[]) {
     LOG(INFO) << "Credentials saved successfully!";
 }
 
-void cmd_install(int argc, char* argv[]) {
+void print_usage() {
+    std::cout << "Usage: synnax-driver <command> [options]\n"
+              << "Commands:\n"
+              << "  start    Start the Synnax driver\n"
+              << "  login    Log in to Synnax\n"
+              << "  install  Install the Synnax driver as a system service\n";
+}
+
+freighter::Error create_system_user() {
+    int result = system("id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax");
+    if (result != 0) {
+        return freighter::Error("Failed to create system user");
+    }
+    return {};
+}
+
+freighter::Error install_binary() {
+    // Get the path to the current executable
+    std::error_code ec;
+    fs::path current_exe = fs::read_symlink("/proc/self/exe", ec);
+    if (ec) {
+        return freighter::Error("Failed to get current executable path: " + ec.message());
+    }
+
+    // Create target directory if it doesn't exist
+    fs::create_directories("/usr/local/bin", ec);
+    if (ec) {
+        return freighter::Error("Failed to create binary directory: " + ec.message());
+    }
+
+    // Copy the binary
+    fs::path target_path = "/usr/local/bin/synnax-driver";
+    fs::copy_file(current_exe, target_path,
+                  fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+        return freighter::Error("Failed to copy binary: " + ec.message());
+    }
+
+    // Set permissions (755)
+    if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
+        return freighter::Error("Failed to set binary permissions");
+    }
+
+    return {};
+}
+
+freighter::Error install_service() {
+    const char* service_path = "/etc/systemd/system/synnax-driver.service";
+
+    // Create parent directories if they don't exist
+    std::error_code ec;
+    fs::create_directories(fs::path(service_path).parent_path(), ec);
+    if (ec) {
+        return freighter::Error("Failed to create service directory: " + ec.message());
+    }
+
+    // Write service file
+    std::ofstream service_file(service_path);
+    if (!service_file) {
+        return freighter::Error("Failed to create service file");
+    }
+    service_file << SYSTEMD_SERVICE_TEMPLATE;
+    service_file.close();
+
+    // Set permissions (644)
+    if (chmod(service_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0) {
+        return freighter::Error("Failed to set service file permissions");
+    }
+
+    // Reload systemd
+    if (system("systemctl daemon-reload") != 0) {
+        return freighter::Error("Failed to reload systemd");
+    }
+
+    return {};
+}
+
+void cmd_install(int argc, char*argv[]) {
     // Check if running as root
     if (geteuid() != 0) {
         LOG(FATAL) << "Installation must be run as root";
@@ -439,81 +537,26 @@ void cmd_install(int argc, char* argv[]) {
     LOG(INFO) << "Synnax Driver installed and started successfully!";
 }
 
-void print_usage() {
-    std::cout << "Usage: synnax-driver <command> [options]\n"
-              << "Commands:\n"
-              << "  start    Start the Synnax driver\n"
-              << "  login    Log in to Synnax\n"
-              << "  install  Install the Synnax driver as a system service\n";
-}
-
-freighter::Error create_system_user() {
-    int result = system("id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax");
-    if (result != 0) {
-        return freighter::Error("Failed to create system user");
-    }
-    return {};
-}
-
-freighter::Error install_binary() {
-    // Get the path to the current executable
-    std::error_code ec;
-    fs::path current_exe = fs::read_symlink("/proc/self/exe", ec);
-    if (ec) {
-        return freighter::Error("Failed to get current executable path: " + ec.message());
+void cmd_start_daemon(int argc, char *argv[]) {
+    // Load persisted state to get connection details
+    auto [persisted_state, state_err] = configd::load_persisted_state();
+    if (state_err) {
+        LOG(FATAL) << "[driver] failed to load persisted state: " << state_err;
+        return;
     }
 
-    // Create target directory if it doesn't exist
-    fs::create_directories("/usr/local/bin", ec);
-    if (ec) {
-        return freighter::Error("Failed to create binary directory: " + ec.message());
+    if (persisted_state.connection.host.empty()) {
+        LOG(FATAL) << "[driver] No connection details found. Please run 'synnax-driver login' first";
+        return;
     }
 
-    // Copy the binary
-    fs::path target_path = "/usr/local/bin/synnax-driver";
-    fs::copy_file(current_exe, target_path, 
-                  fs::copy_options::overwrite_existing, ec);
-    if (ec) {
-        return freighter::Error("Failed to copy binary: " + ec.message());
-    }
+    daemon::Config config;
+    config.watchdog_interval = 10;
+    config.callback = [](int argc, char* argv[]) {
+        cmd_start_standalone(argc, argv);
+    };
 
-    // Set permissions (755)
-    if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
-        return freighter::Error("Failed to set binary permissions");
-    }
-
-    return {};
-}
-
-freighter::Error install_service() {
-    const char* service_path = "/etc/systemd/system/synnax-driver.service";
-    
-    // Create parent directories if they don't exist
-    std::error_code ec;
-    fs::create_directories(fs::path(service_path).parent_path(), ec);
-    if (ec) {
-        return freighter::Error("Failed to create service directory: " + ec.message());
-    }
-
-    // Write service file
-    std::ofstream service_file(service_path);
-    if (!service_file) {
-        return freighter::Error("Failed to create service file");
-    }
-    service_file << SYSTEMD_SERVICE_TEMPLATE;
-    service_file.close();
-
-    // Set permissions (644)
-    if (chmod(service_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0) {
-        return freighter::Error("Failed to set service file permissions");
-    }
-
-    // Reload systemd
-    if (system("systemctl daemon-reload") != 0) {
-        return freighter::Error("Failed to reload systemd");
-    }
-
-    return {};
+    daemon::run(config, argc, argv);
 }
 
 int main(int argc, char *argv[]) {
@@ -526,7 +569,7 @@ int main(int argc, char *argv[]) {
     }
 
     std::string command = argv[1];
-    
+
     if (command == "start-standalone") {
         cmd_start_standalone(argc, argv);
     } else if (command == "start") {
