@@ -74,9 +74,9 @@ const migrateAnalogReadConfig = migrate.migrator<
   def: v1.ZERO_ANALOG_READ_CONFIG,
   defaultVersion: v0.VERSION,
 });
-export const analogReadConfigZ = v0.analogReadConfigZ
-  .transform(migrateAnalogReadConfig)
-  .or(v1.analogReadConfigZ);
+export const analogReadConfigZ = v1.analogReadConfigZ.or(
+  v0.analogReadConfigZ.transform(migrateAnalogReadConfig),
+);
 export interface AnalogReadConfig extends v1.AnalogReadConfig {}
 export type AnalogReadDetails = v0.AnalogReadDetails;
 export const ANALOG_READ_TYPE = v0.ANALOG_READ_TYPE;
