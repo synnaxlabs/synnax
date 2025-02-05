@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,8 +15,8 @@
 #include "freighter/cpp/freighter.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
 
-/// Auth meta data key. NOTE: This must be lowercase, GRPC will panic on capitalized
-/// or uppercase keys.
+/// Auth metadata key. NOTE: This must be lowercase, GRPC will panic on capitalized or
+/// uppercase keys.
 const std::string HEADER_KEY = "authorization";
 /// Auth value prefix.
 const std::string HEADER_VALUE_PREFIX = "Bearer ";

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,18 +13,18 @@ import { READ_LAYOUT } from "@/hardware/opc/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/opc/task/Write";
 import { type Palette } from "@/palette";
 
-const createReadTaskCommand: Palette.Command = {
-  key: "opc-create-read-task",
+const CREATE_READ_TASK_COMMAND: Palette.Command = {
+  key: "opc-ua-create-read-task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(READ_LAYOUT),
 };
 
-const createWriteTaskCommand: Palette.Command = {
-  key: "opc-create-write-task",
+const CREATE_WRITE_TASK_COMMAND: Palette.Command = {
+  key: "opc-ua-create-write-task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
 };
 
-export const COMMANDS = [createReadTaskCommand, createWriteTaskCommand];
+export const COMMANDS = [CREATE_READ_TASK_COMMAND, CREATE_WRITE_TASK_COMMAND];

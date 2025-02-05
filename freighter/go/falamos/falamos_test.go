@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("Falamos", func() {
 	Describe("Name", func() {
-		It("Should correctly attach tracing meta data", func() {
+		It("Should correctly attach tracing metadata", func() {
 			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
 			clientMw := MustSucceed(falamos.Middleware(falamos.Config{
 				Instrumentation: clientIns,

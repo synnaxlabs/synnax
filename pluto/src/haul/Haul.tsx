@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,9 +20,10 @@ import React, {
   createContext,
   type DragEvent,
   type DragEventHandler,
-  type MutableRefObject,
+  memo,
   type PropsWithChildren,
   type ReactElement,
+  type RefObject,
   useCallback,
   useContext as reactUseContext,
   useId,
@@ -113,64 +114,67 @@ const HAUL_REF: ProviderRef = {
 
 export const useContext = (): ContextValue | null => reactUseContext(Context);
 
-export const Provider = ({
-  children,
-  useState = React.useState,
-  onDropOutside,
-}: ProviderProps): ReactElement => {
-  const ctx = reactUseContext(Context);
+export const Provider = memo(
+  ({
+    children,
+    useState = React.useState,
+    onDropOutside,
+  }: ProviderProps): ReactElement => {
+    const ctx = reactUseContext(Context);
 
-  const [state, setState] = useState(ZERO_DRAGGING_STATE);
-  const ref = useRef<ProviderRef>(HAUL_REF);
-  const interceptors = useRef<Set<DragEndInterceptor>>(new Set());
+    const [state, setState] = useState(ZERO_DRAGGING_STATE);
+    const ref = useRef<ProviderRef>(HAUL_REF);
+    const interceptors = useRef<Set<DragEndInterceptor>>(new Set());
 
-  const start: ContextValue["start"] = useCallback(
-    (source, items, onSuccessfulDrop) => {
-      ref.current = { source, items, onSuccessfulDrop };
-      setState({ source, items });
-    },
-    [setState, onDropOutside],
-  );
+    const start: ContextValue["start"] = useCallback(
+      (source, items, onSuccessfulDrop) => {
+        ref.current = { source, items, onSuccessfulDrop };
+        setState({ source, items });
+      },
+      [setState, onDropOutside],
+    );
 
-  const drop: ContextValue["drop"] = useCallback(
-    ({ target, dropped }) => {
-      const hauled = ref.current.items;
-      ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
-      ref.current = HAUL_REF;
-      setState(ZERO_DRAGGING_STATE);
-    },
-    [setState],
-  );
+    const drop: ContextValue["drop"] = useCallback(
+      ({ target, dropped }) => {
+        const hauled = ref.current.items;
+        ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
+        ref.current = HAUL_REF;
+        setState(ZERO_DRAGGING_STATE);
+      },
+      [setState],
+    );
 
-  const end: ContextValue["end"] = useCallback(
-    (cursor: xy.XY) => {
-      let dropped: DropProps | null = null;
-      interceptors.current.forEach((interceptor) => {
-        if (dropped != null) return;
-        dropped = interceptor(ref.current, cursor);
-      });
-      if (dropped != null) drop(dropped);
-      ref.current = HAUL_REF;
-      setState(ZERO_DRAGGING_STATE);
-    },
-    [setState],
-  );
+    const end: ContextValue["end"] = useCallback(
+      (cursor: xy.XY) => {
+        let dropped: DropProps | null = null;
+        interceptors.current.forEach((interceptor) => {
+          if (dropped != null) return;
+          dropped = interceptor(ref.current, cursor);
+        });
+        if (dropped != null) drop(dropped);
+        ref.current = HAUL_REF;
+        setState(ZERO_DRAGGING_STATE);
+      },
+      [setState],
+    );
 
-  const bind: ContextValue["bind"] = useCallback((interceptor) => {
-    interceptors.current.add(interceptor);
-    return () => interceptors.current.delete(interceptor);
-  }, []);
+    const bind: ContextValue["bind"] = useCallback((interceptor) => {
+      interceptors.current.add(interceptor);
+      return () => interceptors.current.delete(interceptor);
+    }, []);
 
-  const oCtx = useMemo<ContextValue>(
-    () => ctx ?? { state, start, end, drop, bind },
-    [state, start, end, drop, ctx],
-  );
-  return <Context.Provider value={oCtx}>{children}</Context.Provider>;
-};
+    const oCtx = useMemo<ContextValue>(
+      () => ctx ?? { state, start, end, drop, bind },
+      [state, start, end, drop, ctx],
+    );
+    return <Context.Provider value={oCtx}>{children}</Context.Provider>;
+  },
+);
+Provider.displayName = "HaulProvider";
 
 // |||||| DRAGGING ||||||
 
-export const useDraggingRef = (): MutableRefObject<DraggingState> => {
+export const useDraggingRef = (): RefObject<DraggingState> => {
   const ref = useRef<DraggingState>(ZERO_DRAGGING_STATE);
   const ctx = useContext();
   if (ctx == null) return ref;

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -90,7 +90,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
           <Align.Space direction="x" align="center" empty>
             <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
-              <Export.ToolbarButton onExport={() => handleExport(state.key)} />
+              <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
               <Link.CopyToolbarButton
                 name={name}
                 ontologyID={linePlot.ontologyID(state.key)}

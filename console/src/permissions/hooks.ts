@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,7 @@ import { useDispatch } from "react-redux";
 
 import { giveAll, set } from "@/permissions/slice";
 
-export const useFetchPermissions = async (): Promise<void> => {
+export const useFetchPermissions = (): void => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const handleException = Status.useExceptionHandler();

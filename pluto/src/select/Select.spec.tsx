@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,34 +25,14 @@ interface MockRecord {
 }
 
 const mockColumns: Array<List.ColumnSpec<string, MockRecord>> = [
-  {
-    key: "name",
-    name: "Name",
-    visible: true,
-  },
-  {
-    key: "age",
-    name: "Age",
-    visible: true,
-  },
+  { key: "name", name: "Name", visible: true },
+  { key: "age", name: "Age", visible: true },
 ];
 
 const mockOptions: MockRecord[] = [
-  {
-    key: "1",
-    name: "John",
-    age: 32,
-  },
-  {
-    key: "2",
-    name: "James",
-    age: 20,
-  },
-  {
-    key: "3",
-    name: "Javier",
-    age: 40,
-  },
+  { key: "1", name: "John", age: 32 },
+  { key: "2", name: "James", age: 20 },
+  { key: "3", name: "Javier", age: 40 },
 ];
 
 interface SelectMultipleProps

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,7 +28,7 @@ export type SetpointState = z.input<typeof setpointStateZ>;
 interface InternalState {
   source: telem.NumberSource;
   sink: telem.NumberSink;
-  addStatus: status.Aggregate;
+  addStatus: status.AddStatusFn;
   stopListening: Destructor;
   prevTrigger: number;
 }
@@ -44,21 +44,21 @@ export class Setpoint
 
   schema = setpointStateZ;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.addStatus = status.useOptionalAggregate(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.addStatus = status.useOptionalAggregator(ctx);
     const { sink: sinkProps, source: sourceProps, trigger, command } = this.state;
     const { internal: i } = this;
     i.prevTrigger ??= trigger;
     this.internal.source = await telem.useSource(
-      this.ctx,
+      ctx,
       sourceProps,
       this.internal.source,
     );
-    i.sink = await telem.useSink(this.ctx, sinkProps, i.sink);
+    i.sink = await telem.useSink(ctx, sinkProps, i.sink);
 
     const prevTrigger = i.prevTrigger;
     i.prevTrigger = trigger;
-    if (trigger > prevTrigger && command != null) this.internal.sink.set(command);
+    if (trigger > prevTrigger && command != null) await this.internal.sink.set(command);
 
     await this.updateValue();
     i.stopListening?.();

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -53,101 +53,97 @@ const generateErrorDescription = (
 ): string =>
   `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
 
-export const Provider = Aether.wrap<ProviderProps>(
-  synnax.Provider.TYPE,
-  ({ aetherKey, connParams, children }): ReactElement => {
-    const [state, setState, ref] = useCombinedStateAndRef<synnax.ContextValue>(
-      synnax.ZERO_CONTEXT_VALUE,
-    );
+export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
+  const [state, setState, ref] = useCombinedStateAndRef<synnax.ContextValue>(
+    synnax.ZERO_CONTEXT_VALUE,
+  );
 
-    const [{ path }, , setAetherState] = Aether.use({
-      aetherKey,
-      type: synnax.Provider.TYPE,
-      schema: synnax.Provider.stateZ,
-      initialState: { props: connParams ?? null, state: null },
+  const [{ path }, , setAetherState] = Aether.use({
+    type: synnax.Provider.TYPE,
+    schema: synnax.Provider.stateZ,
+    initialState: { props: connParams ?? null, state: null },
+  });
+
+  const addStatus = Status.useAggregator();
+
+  const handleChange = useCallback(
+    (state: connection.State) => {
+      if (ref.current.state.status !== state.status)
+        addStatus({
+          variant: CONNECTION_STATE_VARIANT[state.status],
+          message: state.message ?? caseconv.capitalize(state.status),
+        });
+      setState((prev) => ({ ...prev, state }));
+    },
+    [addStatus],
+  );
+
+  useAsyncEffect(async () => {
+    if (state.synnax != null) state.synnax.close();
+    if (connParams == null) return setState(synnax.ZERO_CONTEXT_VALUE);
+
+    const c = new Synnax({
+      ...connParams,
+      connectivityPollFrequency: TimeSpan.seconds(5),
     });
 
-    const addStatus = Status.useAggregator();
-
-    const handleChange = useCallback(
-      (state: connection.State) => {
-        if (ref.current.state.status !== state.status)
-          addStatus({
-            variant: CONNECTION_STATE_VARIANT[state.status],
-            message: state.message ?? caseconv.capitalize(state.status),
-          });
-        setState((prev) => ({ ...prev, state }));
+    setState({
+      synnax: c,
+      state: {
+        clusterKey: "",
+        status: "connecting",
+        message: "Connecting...",
+        clientServerCompatible: false,
+        clientVersion: c.clientVersion,
       },
-      [addStatus],
-    );
+    });
 
-    useAsyncEffect(async () => {
-      if (state.synnax != null) state.synnax.close();
-      if (connParams == null) return setState(synnax.ZERO_CONTEXT_VALUE);
+    const connectivity = await c.connectivity.check();
 
-      const c = new Synnax({
-        ...connParams,
-        connectivityPollFrequency: TimeSpan.seconds(5),
-      });
+    setState({ synnax: c, state: connectivity });
+    addStatus({
+      variant: CONNECTION_STATE_VARIANT[connectivity.status],
+      message: connectivity.message ?? connectivity.status.toUpperCase(),
+    });
 
-      setState({
-        synnax: c,
-        state: {
-          clusterKey: "",
-          status: "connecting",
-          message: "Connecting...",
-          clientServerCompatible: false,
-          clientVersion: c.clientVersion,
+    if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
+      const oldServer =
+        connectivity.nodeVersion == null ||
+        migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
+
+      const description = generateErrorDescription(
+        oldServer,
+        connectivity.clientVersion,
+        connectivity.nodeVersion,
+      );
+
+      addStatus({
+        variant: "warning",
+        message: "Incompatible cluster version",
+        description,
+        data: {
+          type: SERVER_VERSION_MISMATCH,
+          oldServer,
+          nodeVersion: connectivity.nodeVersion,
+          clientVersion: connectivity.clientVersion,
         },
       });
+    }
 
-      const connectivity = await c.connectivity.check();
+    c.connectivity.onChange(handleChange);
 
-      setState({ synnax: c, state: connectivity });
-      addStatus({
-        variant: CONNECTION_STATE_VARIANT[connectivity.status],
-        message: connectivity.message ?? connectivity.status.toUpperCase(),
-      });
+    setAetherState({ props: connParams, state: connectivity });
 
-      if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
-        const oldServer =
-          connectivity.nodeVersion == null ||
-          migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
+    return () => {
+      c.close();
+      setState(synnax.ZERO_CONTEXT_VALUE);
+      setAetherState({ props: null, state: null });
+    };
+  }, [connParams, handleChange]);
 
-        const description = generateErrorDescription(
-          oldServer,
-          connectivity.clientVersion,
-          connectivity.nodeVersion,
-        );
-
-        addStatus({
-          variant: "warning",
-          message: "Incompatible cluster version",
-          description,
-          data: {
-            type: SERVER_VERSION_MISMATCH,
-            oldServer,
-            nodeVersion: connectivity.nodeVersion,
-            clientVersion: connectivity.clientVersion,
-          },
-        });
-      }
-
-      c.connectivity.onChange(handleChange);
-
-      setAetherState({ props: connParams, state: connectivity });
-
-      return () => {
-        c.close();
-        setState(synnax.ZERO_CONTEXT_VALUE);
-        setAetherState({ props: null, state: null });
-      };
-    }, [connParams, handleChange]);
-
-    return (
-      <Context.Provider value={state}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>
-      </Context.Provider>
-    );
-  },
-);
+  return (
+    <Context.Provider value={state}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>
+    </Context.Provider>
+  );
+};

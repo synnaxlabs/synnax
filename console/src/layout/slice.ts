@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -412,6 +412,7 @@ export const { actions, reducer } = createSlice({
         location: "mosaic",
         type: GET_STARTED_LAYOUT_TYPE,
         windowKey: MAIN_WINDOW,
+        beta: false,
       };
     },
     setWorkspace: (

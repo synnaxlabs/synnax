@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -159,89 +159,6 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
       {() => <></>}
     </Common.Task.ChannelList>
   );
-
-  return (
-    <Align.Space
-      className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
-      grow
-      empty
-      bordered
-      rounded
-      background={1}
-      {...props}
-    >
-      <Header.Header level="h4">
-        <Header.Title weight={500}>Channels</Header.Title>
-      </Header.Header>
-      <Menu.ContextMenu
-        style={{ maxHeight: value.length > 0 ? "calc(100% - 200px)" : "100%" }}
-        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => (
-          <Common.Task.ChannelListContextMenu
-            path={path}
-            keys={keys}
-            value={value}
-            remove={remove}
-            onSelect={(k, i) => {
-              setSelectedChannels(k);
-              setSelectedChannelIndex(i);
-            }}
-            isSnapshot={snapshot}
-          />
-        )}
-        {...menuProps}
-      >
-        <List.List<string, ReadChannelConfig>
-          data={value}
-          emptyContent={
-            <Align.Center>
-              <Text.Text shade={6} level="p" style={{ maxWidth: 300 }}>
-                No channels added. Drag a variable{" "}
-                <Icon.Variable
-                  style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
-                />{" "}
-                from the browser to add a channel to the task.
-              </Text.Text>
-            </Align.Center>
-          }
-        >
-          <List.Selector<string, ReadChannelConfig>
-            value={selectedChannels}
-            allowNone={false}
-            autoSelectOnNone={false}
-            allowMultiple
-            onChange={(keys, { clickedIndex }) => {
-              if (clickedIndex == null) return;
-              setSelectedChannels(keys);
-              setSelectedChannelIndex(clickedIndex);
-            }}
-            replaceOnSingle
-          >
-            <List.Core<string, ReadChannelConfig> grow>
-              {({ key, ...props }) => (
-                <ChannelListItem
-                  key={key}
-                  {...props}
-                  path={path}
-                  remove={() => {
-                    const indices = selectedChannels
-                      .map((k) => value.findIndex((v) => v.key === k))
-                      .filter((i) => i >= 0);
-                    remove(indices);
-                    setSelectedChannels([]);
-                    setSelectedChannelIndex(null);
-                  }}
-                  snapshot={snapshot}
-                />
-              )}
-            </List.Core>
-          </List.Selector>
-        </List.List>
-      </Menu.ContextMenu>
-      {value.length > 0 && (
-        <ChannelForm selectedChannelIndex={selectedChannelIndex} snapshot={snapshot} />
-      )}
-    </Align.Space>
-  );
 };
 
 interface ChannelListItemProps extends List.ItemProps<string, ReadChannelConfig> {
@@ -313,47 +230,47 @@ export const ChannelListItem = ({
   );
 };
 
-interface ChannelFormProps {
-  selectedChannelIndex?: number | null;
-  snapshot?: boolean;
-}
+// interface ChannelFormProps {
+//   selectedChannelIndex?: number | null;
+//   snapshot?: boolean;
+// }
 
-const ChannelForm = ({
-  selectedChannelIndex,
-  snapshot,
-}: ChannelFormProps): ReactElement | null => {
-  if (selectedChannelIndex == null || selectedChannelIndex == -1) {
-    if (snapshot === true) return null;
-    return (
-      <Align.Center className={CSS.B("channel-form")}>
-        <Text.Text level="p" shade={6}>
-          Select a channel to configure its properties.
-        </Text.Text>
-      </Align.Center>
-    );
-  }
-  const prefix = `config.channels.${selectedChannelIndex}`;
-  return (
-    <Align.Space direction="x" grow className={CSS.B("channel-form")} empty>
-      <Form.Field<string>
-        path={`${prefix}.name`}
-        padHelpText={!snapshot}
-        label="Channel Name"
-      >
-        {(p) => <Input.Text variant="natural" level="h3" {...p} />}
-      </Form.Field>
-      <Form.SwitchField
-        path={`${prefix}.useAsIndex`}
-        label="Use as Index"
-        visible={(_, ctx) =>
-          DataType.TIMESTAMP.equals(
-            ctx.get<string>(`${prefix}.dataType`, { optional: true })?.value ?? "",
-          )
-        }
-      />
-    </Align.Space>
-  );
-};
+// const ChannelForm = ({
+//   selectedChannelIndex,
+//   snapshot,
+// }: ChannelFormProps): ReactElement | null => {
+//   if (selectedChannelIndex == null || selectedChannelIndex == -1) {
+//     if (snapshot === true) return null;
+//     return (
+//       <Align.Center className={CSS.B("channel-form")}>
+//         <Text.Text level="p" shade={6}>
+//           Select a channel to configure its properties.
+//         </Text.Text>
+//       </Align.Center>
+//     );
+//   }
+//   const prefix = `config.channels.${selectedChannelIndex}`;
+//   return (
+//     <Align.Space direction="x" grow className={CSS.B("channel-form")} empty>
+//       <Form.Field<string>
+//         path={`${prefix}.name`}
+//         padHelpText={!snapshot}
+//         label="Channel Name"
+//       >
+//         {(p) => <Input.Text variant="natural" level="h3" {...p} />}
+//       </Form.Field>
+//       <Form.SwitchField
+//         path={`${prefix}.useAsIndex`}
+//         label="Use as Index"
+//         visible={(_, ctx) =>
+//           DataType.TIMESTAMP.equals(
+//             ctx.get<string>(`${prefix}.dataType`, { optional: true })?.value ?? "",
+//           )
+//         }
+//       />
+//     </Align.Space>
+//   );
+// };
 
 const Properties = (): ReactElement => {
   const arrayMode = Form.useFieldValue<boolean>("config.arrayMode");
@@ -366,7 +283,7 @@ const Properties = (): ReactElement => {
         label={arrayMode ? "Array Size" : "Stream Rate"}
         path={arrayMode ? "config.arraySize" : "config.streamRate"}
       >
-        {(p) => <Input.Numeric {...p} />}
+        {Input.Numeric}
       </Form.Field>
       <Common.Task.Fields.DataSaving />
     </>

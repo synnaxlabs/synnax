@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,12 +32,7 @@ describe("Header", () => {
         <Header.Header>
           <Header.Title>Header</Header.Title>
           <Header.Actions>
-            {[
-              {
-                onClick,
-                children: <Icon.Add aria-label="add" />,
-              },
-            ]}
+            {[{ onClick, children: <Icon.Add aria-label="add" /> }]}
           </Header.Actions>
         </Header.Header>,
       );

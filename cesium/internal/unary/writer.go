@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -74,6 +74,7 @@ var (
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
+// Validate implements config.Config.
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
@@ -82,6 +83,7 @@ func (c WriterConfig) Validate() error {
 	return v.Error()
 }
 
+// Override implements config.Config.
 func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Start = override.Zero(c.Start, other.Start)
 	c.End = override.Zero(c.End, other.End)

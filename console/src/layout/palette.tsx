@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,15 +10,13 @@
 import { MdDarkMode } from "react-icons/md";
 
 import { setActiveTheme } from "@/layout/slice";
-import { type Command, type CommandSelectionContext } from "@/palette/Palette";
+import { type Palette } from "@/palette";
 
-export const toggleThemeCommand: Command = {
+const TOGGLE_THEME_COMMAND: Palette.Command = {
   icon: <MdDarkMode />,
   name: "Toggle Color Theme",
   key: "toggle-theme",
-  onSelect: (ctx: CommandSelectionContext) => {
-    ctx.store.dispatch(setActiveTheme());
-  },
+  onSelect: ({ store }) => store.dispatch(setActiveTheme()),
 };
 
-export const COMMANDS = [toggleThemeCommand];
+export const COMMANDS = [TOGGLE_THEME_COMMAND];

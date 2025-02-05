@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,14 +33,8 @@ describe("Nav", () => {
   describe("Nav.Drawer", () => {
     it("should show the correct item", () => {
       const items: Nav.DrawerItem[] = [
-        {
-          key: "1",
-          content: <h1>Item 1 Content</h1>,
-        },
-        {
-          key: "2",
-          content: <h1>Item 2 Content</h1>,
-        },
+        { key: "1", content: <h1>Item 1 Content</h1> },
+        { key: "2", content: <h1>Item 2 Content</h1> },
       ];
       const TestNavDrawer = (): ReactElement => {
         const props = Nav.useDrawer({ items, initialKey: "1" });

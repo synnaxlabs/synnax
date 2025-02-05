@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { DataType, Synnax } from "@synnaxlabs/client";
 import { argv, exit } from "process";
 
@@ -24,11 +33,7 @@ async function createChannels(tc: SetUpConfig): Promise<void> {
 
   for (let i = 0; i < tc.numIndex; i++) {
     const index = await client.channels.create(
-      {
-        name: `int${i}`,
-        isIndex: true,
-        dataType: DataType.TIMESTAMP,
-      },
+      { name: `int${i}`, isIndex: true, dataType: DataType.TIMESTAMP },
       { retrieveIfNameExists: true },
     );
     channels.push(index.key);
@@ -38,11 +43,7 @@ async function createChannels(tc: SetUpConfig): Promise<void> {
   for (let ind = 0; ind < tc.numIndex; ind++)
     for (let k = 0; k < numDataChannelsPerIndex; k++) {
       const ch = await client.channels.create(
-        {
-          name: `int${ind}-${k}`,
-          index: channels[ind],
-          dataType: DataType.FLOAT32,
-        },
+        { name: `int${ind}-${k}`, index: channels[ind], dataType: DataType.FLOAT32 },
         { retrieveIfNameExists: true },
       );
       channels.push(ch.key);

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -60,7 +60,8 @@ const Properties = (): ReactElement => (
   </>
 );
 
-interface ChannelListItemProps extends List.ItemProps<string, WriteChannelConfig> {
+interface ChannelListItemProps
+  extends Common.Task.ChannelListItemProps<WriteChannelConfig> {
   path: string;
   remove?: () => void;
   snapshot?: boolean;

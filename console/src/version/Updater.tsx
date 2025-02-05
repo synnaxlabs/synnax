@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -42,7 +42,7 @@ export const useCheckForUpdates = (): boolean => {
   useAsyncEffect(async () => {
     await checkForUpdates(!isSilenced);
     const i = setInterval(
-      () => checkForUpdates(!isSilenced),
+      () => void checkForUpdates(!isSilenced),
       TimeSpan.seconds(30).milliseconds,
     );
     return () => clearInterval(i);

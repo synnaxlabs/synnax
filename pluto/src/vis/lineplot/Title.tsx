@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,12 +24,7 @@ export const Title = <L extends Text.Level = "h2">({
   const key = useUniqueKey();
   const font = Theming.useTypography(level);
   const gridStyle = useGridEntry(
-    {
-      key,
-      size: (font.lineHeight + 2) * font.baseSize,
-      loc: "top",
-      order: 10,
-    },
+    { key, size: (font.lineHeight + 2) * font.baseSize, loc: "top", order: 10 },
     "Title",
   );
   return (

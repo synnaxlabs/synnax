@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -112,11 +112,11 @@ int main(int argc, char *argv[]) {
 
     auto breaker = breaker::Breaker(cfg.breaker_config);
     breaker.start();
-    VLOG(1) << "[driver] retrieving meta-data";
+    VLOG(1) << "[driver] retrieving metadata";
     auto [rack, rack_err] = retrieve_driver_rack(cfg, breaker, client);
     breaker.stop();
     if (rack_err) {
-        LOG(FATAL) << "[driver] failed to retrieve meta-data - can't proceed without it. Exiting."
+        LOG(FATAL) << "[driver] failed to retrieve metadata - can't proceed without it. Exiting."
                 << rack_err;
         return 1;
     }
@@ -140,11 +140,11 @@ int main(int argc, char *argv[]) {
 #ifdef USE_NI
 
     auto ni_enabled = std::find(
-        cfg.integrations.begin(), 
+        cfg.integrations.begin(),
         cfg.integrations.end(),
         ni::INTEGRATION_NAME
     );
-   
+
     if (ni_enabled != cfg.integrations.end() && ni::dlls_available()) {
         std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
         factories.push_back(std::move(ni_factory));
@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef _WIN32
     auto labjack_enabled = std::find(
-        cfg.integrations.begin(), 
+        cfg.integrations.begin(),
         cfg.integrations.end(),
         labjack::INTEGRATION_NAME
     );

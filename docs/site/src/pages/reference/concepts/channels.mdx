@@ -162,3 +162,14 @@ virtual channels.
 This field is only used for data channels, and specifies the key of the index channel
 associated with the data channel. This field will be ignored for index and virtual
 channels.
+
+### Expression
+
+The expression field is only used for [calculated
+channels](/reference/console/calculated-channels). This experssion is a Lua string that
+calculated what value should be written to the channel and returns it with `return`.
+
+### Requires
+
+Requires is a list of channels that a calculated channel depends on. Calculated channels
+must include at least one channel in the `requires` list.

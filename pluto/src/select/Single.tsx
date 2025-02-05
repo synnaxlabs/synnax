@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -51,7 +51,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
     Pick<Input.TextProps, "variant" | "disabled">,
     Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">>,
     Pick<CoreList.SearchProps<K, E>, "filter"> {
-  entryRenderKey?: keyof E | ((e: E) => string | number);
+  entryRenderKey?: keyof E | ((e: E) => string | number | ReactNode);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
   searcher?: AsyncTermSearcher<string, K, E>;
@@ -207,7 +207,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
 export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   extends Omit<Input.TextProps, "value" | "onFocus"> {
-  entryRenderKey: keyof E | ((e: E) => string | number);
+  entryRenderKey: keyof E | ((e: E) => string | number | ReactNode);
   selected: E | null;
   visible: boolean;
   debounceSearch?: number;

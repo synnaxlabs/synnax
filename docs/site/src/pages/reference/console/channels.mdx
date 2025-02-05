@@ -5,8 +5,8 @@ heading: "Channels"
 description: "Store data in channels."
 prev: "UI Overview"
 prevURL: "/reference/console/ui-overview"
-next: "Workspaces"
-nextURL: "/reference/console/workspaces"
+next: "Calculated Channels"
+nextURL: "/reference/console/calculated-channels"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
@@ -18,7 +18,9 @@ export const components = mdxOverrides;
 A [channel](/reference/concepts/channels) is a collection of time-ordered data in
 Synnax. Channels are commonly used to store data from sources such as sensors, but can
 also be used to store data as disparate as actuator commands, post-processed analysis
-results, or any other time-ordered data.
+results, or any other time-ordered data. Normally, channels are directly written to by a
+client, but [calculated channels](/reference/console/calculated-channels) can also be
+used to generate data derived from other channels.
 
 <Divider.Divider direction="x" />
 

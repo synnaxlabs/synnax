@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,6 +18,7 @@ import {
   componentRenderProp,
   Dropdown,
   Input,
+  Status,
   Synnax,
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
@@ -38,6 +39,7 @@ export const Selector = (): ReactElement => {
   const place = Layout.usePlacer();
   const active = useSelectActive();
   const dProps = Dropdown.use();
+  const handleException = Status.useExceptionHandler();
   const handleChange = useCallback(
     (v: string | null) => {
       dProps.close();
@@ -46,23 +48,21 @@ export const Selector = (): ReactElement => {
         dispatch(Layout.clearWorkspace());
         return;
       }
-      if (v == null) {
-        dispatch(setActive(null));
-        return;
-      }
       if (client == null) return;
-      void (async () => {
-        const ws = await client.workspaces.retrieve(v);
-        dispatch(add(ws));
-        dispatch(
-          Layout.setWorkspace({
-            slice: ws.layout as Layout.SliceState,
-            keepNav: false,
-          }),
-        );
-      })();
+      client.workspaces
+        .retrieve(v)
+        .then((ws) => {
+          dispatch(add(ws));
+          dispatch(
+            Layout.setWorkspace({
+              slice: ws.layout as Layout.SliceState,
+              keepNav: false,
+            }),
+          );
+        })
+        .catch((e) => handleException(e, "Failed to switch workspace"));
     },
-    [active, client, dispatch, dProps.close],
+    [active, client, dispatch, dProps.close, handleException],
   );
 
   return (

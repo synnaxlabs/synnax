@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -169,11 +169,10 @@ const matchThemeChange = ({
 
 const synchronizeWithOS = async (
   dispatch: Dispatch<UnknownAction>,
-): AsyncDestructor => {
+): Promise<AsyncDestructor> =>
   await getCurrentWindow().onThemeChanged((e) =>
     dispatch(setActiveTheme(matchThemeChange(e))),
   );
-};
 
 const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
   dispatch(

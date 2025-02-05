@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,23 +9,24 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { create } from "@/lineplot/LinePlot";
+import { type Import } from "@/import";
+import { LinePlot } from "@/lineplot";
 import { ImportIcon } from "@/lineplot/services/Icon";
 import { import_ } from "@/lineplot/services/import";
-import { type Command } from "@/palette/Palette";
+import { type Palette } from "@/palette";
 
-const CREATE_COMMAND: Command = {
+const CREATE_COMMAND: Palette.Command = {
   key: "create-line-plot",
   name: "Create Line Plot",
   icon: <Icon.Visualize />,
-  onSelect: ({ placeLayout }) => placeLayout(create({})),
+  onSelect: ({ placeLayout }) => placeLayout(LinePlot.create({})),
 };
 
-const IMPORT_COMMAND: Command = {
+const IMPORT_COMMAND: Palette.Command = {
   key: "import-line-plot",
   name: "Import Line Plot(s)",
   icon: <ImportIcon />,
-  onSelect: import_,
+  onSelect: (ctx: Import.ImportArgs) => void import_(ctx),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

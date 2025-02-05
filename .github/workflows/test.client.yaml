@@ -41,7 +41,6 @@ jobs:
               - alamos/go/**
               - aspen/**
               - cesium/**
-              - computron/**  
               - freighter/go/**
               - synnax/**
               - x/go/**
@@ -207,11 +206,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Lint
-        run: pnpm lint:client
-
       - name: Build
         run: pnpm build:client
+
+      - name: Lint
+        run: pnpm lint:client
 
       - name: Test
         run: pnpm test:client

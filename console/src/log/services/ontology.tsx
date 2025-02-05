@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -115,9 +115,9 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   placeLayout,
   handleException,
 }) => {
-  void (async () => {
-    try {
-      const log = await client.workspaces.log.retrieve(id.key);
+  client.workspaces.log
+    .retrieve(id.key)
+    .then((log) => {
       placeLayout(
         Log.create({
           name: log.name,
@@ -127,10 +127,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           tab: { mosaicKey: nodeKey, location },
         }),
       );
-    } catch (e) {
-      handleException(e, "Failed to load log");
-    }
-  })();
+    })
+    .catch((e) => handleException(e, "Failed to load log"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

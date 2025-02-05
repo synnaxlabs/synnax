@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -75,9 +75,12 @@ export const resolveIcon = (ch?: channel.Payload): PIcon.Element => {
   return <Icon.Channel />;
 };
 
-const renderTag = (
-  p: Select.MultipleTagProps<channel.Key, channel.Payload>,
-): ReactElement => <Select.MultipleTag icon={resolveIcon(p.entry)} {...p} />;
+const renderTag = ({
+  key,
+  ...props
+}: Select.MultipleTagProps<channel.Key, channel.Payload>): ReactElement => (
+  <Select.MultipleTag key={key} icon={resolveIcon(props.entry)} {...props} />
+);
 
 export const SelectMultiple = ({
   columns: filter = DEFAULT_FILTER,

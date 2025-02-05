@@ -3,20 +3,20 @@ layout: "@/layouts/Reference.astro"
 title: "Workspaces"
 heading: "Workspaces"
 description: "Organize and share console layouts with workspaces."
-prev: "Channels"
-prevURL: "/reference/console/channels"
+prev: "Calculated Channels"
+prevURL: "/reference/console/calculated-channels"
 next: "Ranges"
 nextURL: "/reference/console/ranges"
 ---
 
-import { Image } from "@/components/Media";
 import { Icon } from "@synnaxlabs/media";
 import { Divider, Note } from "@synnaxlabs/pluto";
-import { Video } from "@/components/Media";
-import { mdxOverrides } from "@/components/mdxOverrides";
-export const components = mdxOverrides;
 
 import Diagram from "@/components/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Image, Video } from "@/components/Media";
+
+export const components = mdxOverrides;
 
 <Diagram style="height: 400px" preview>
   <Image
@@ -40,8 +40,8 @@ component configurations, or to collaboratively develop a project.
 <Note.Note variant="warning">
   Make sure that you are working in an active workspace! If you are working on a
   visualization like a [schematic](/reference/console/schematics) or [line
-  plot](/reference/console/line-plots), your visualization will not be saved permanently
-  unless you are working in an active workspace.
+  plot](/reference/console/line-plots), your visualization will **not be saved**
+  permanently unless you are working in an active workspace.
 </Note.Note>
 
 <Divider.Divider direction="x" />
@@ -61,3 +61,43 @@ Workspaces can be loaded by finding them in the resources toolbar on the left-ha
 or clicking the workspace tab on the top.
 
 <Video client:only="react" id="console/workspaces/load" />
+
+<Divider.Divider direction="x" />
+
+## Sharing a Workspace
+
+If you want to share a workspace with someone else, you have two different options:
+sharing a workspace with someone connected to the same Synnax server, or sharing a
+workspace via exporting it to a directory file.
+
+### Sharing via Link
+
+To share a workspace by link, find the workspace in the resources toolbar, right-click
+and open the context menu, and then click the "Copy Link" option.
+
+<Image client:only="react" id="console/workspaces/copy-link" />
+
+Anyone with this link that is connected to the cluster on their Synnax Console can open
+the workspace by pasting the link into a web browser or other application.
+
+### Sharing via File
+
+#### Exporting a workspace
+
+To share a workspace by file, find the workspace in the resources toolbar, right-click
+on it and open the context menu, and then click the "Export" option.
+
+<Image client:only="react" id="console/workspaces/export" />
+
+Alternatively, you can export the current workspace by using the "Export Current
+Workspace" command available in the command palette.
+
+The workspace will be saved in a directory, which will include a `LAYOUT.json` file
+which describes the layout of the workspace, and other JSON files which describe the
+structure of schematics, line plots, and other visualizations in the workspace.
+
+#### Importing a workspace
+
+To import a workspace, you can either call the "Import Workspace" command from the
+command palette, or drag and drop a directory containing a `LAYOUT.json` file into the
+Synnax Console.

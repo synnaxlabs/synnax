@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,6 +16,7 @@ import { type CSSProperties } from "react";
 import { Content } from "@/layout/Content";
 import { type State, type WindowProps } from "@/layout/slice";
 import { DefaultContextMenu } from "@/layout/Window";
+import { Version } from "@/version";
 
 const layoutCSS = (window?: WindowProps): CSSProperties => ({
   width: "100%",
@@ -56,6 +57,7 @@ export const Modal = ({ state, remove, centered, root }: ModalProps) => {
               </Nav.Bar.Start>
             )}
             <Nav.Bar.End style={{ paddingRight: "1rem" }}>
+              {state.beta != null && <Version.BetaTag />}
               <Button.Icon onClick={() => remove(key)} size="small">
                 <Icon.Close style={{ color: "var(--pluto-gray-l8)" }} />
               </Button.Icon>

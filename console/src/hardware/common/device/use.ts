@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -55,14 +55,12 @@ export const use = <
     ctx,
     path: "config.device",
     onChange: useCallback(
-      async (fs) => {
+      (fs) => {
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
-        try {
-          const device = await client.hardware.devices.retrieve<P, MK, MO>(fs.value);
-          setDevice(device);
-        } catch (e) {
-          handleExc(e);
-        }
+        client.hardware.devices
+          .retrieve<P, MK, MO>(fs.value)
+          .then(setDevice)
+          .catch(handleExc);
       },
       [client?.key, setDevice, handleExc],
     ),

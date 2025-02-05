@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,10 +11,10 @@ package group
 
 import (
 	"context"
-	"errors"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -139,6 +139,19 @@ func (w Writer) CreateWithKey(
 // Delete deletes the Groups with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 	for _, key := range keys {
+		var children []ontology.Resource
+		if err := w.otg.NewRetrieve().
+			WhereIDs(OntologyID(key)).
+			TraverseTo(ontology.Children).
+			IncludeSchema(false).
+			ExcludeFieldData(true).
+			Entries(&children).
+			Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		if len(children) > 0 {
+			return errors.Wrap(validate.Error, "cannot delete a group with children")
+		}
 		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err
 		}

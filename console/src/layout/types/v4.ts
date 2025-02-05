@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,7 +18,10 @@ const VERSION = "4.0.0";
 
 export const sliceStateZ = v3.sliceStateZ
   .omit({ version: true })
-  .extend({ version: z.literal(VERSION), colorContext: Color.contextStateZ })
+  .extend({
+    version: z.literal(VERSION),
+    colorContext: Color.contextStateZ,
+  })
   .transform(Color.transformColorsToHex);
 
 export type SliceState = z.infer<typeof sliceStateZ>;

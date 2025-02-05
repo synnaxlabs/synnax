@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,11 +12,11 @@ import { Icon } from "@synnaxlabs/media";
 import { CONFIGURE_LAYOUT } from "@/hardware/opc/device/Configure";
 import { type Palette } from "@/palette";
 
-const connectServerCommand: Palette.Command = {
+const CONNECT_SERVER_COMMAND: Palette.Command = {
   key: "opc-ua-connect-server",
   name: "Connect an OPC UA Server",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(CONFIGURE_LAYOUT),
 };
 
-export const COMMANDS: Palette.Command[] = [connectServerCommand];
+export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];

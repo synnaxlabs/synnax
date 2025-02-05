@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,14 +27,14 @@ export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
 
   schema = buttonStateZ;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { sink: sinkProps } = this.state;
     this.internal.prevTrigger ??= this.state.trigger;
-    this.internal.sink = await telem.useSink(this.ctx, sinkProps, this.internal.sink);
+    this.internal.sink = await telem.useSink(ctx, sinkProps, this.internal.sink);
     const prevTrigger = this.internal.prevTrigger;
     this.internal.prevTrigger = this.state.trigger;
     if (this.state.trigger <= prevTrigger) return;
-    this.internal.sink.set(true).catch(console.error);
+    await this.internal.sink.set(true);
   }
 
   render(): void {}

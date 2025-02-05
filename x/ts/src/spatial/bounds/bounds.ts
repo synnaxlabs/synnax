@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -523,16 +523,16 @@ export const traverse = <T extends numeric.Value = number>(
     if (index !== -1) {
       const b = _bounds[index];
       let distanceInBound: T;
-      if (dir > 0) distanceInBound = math.sub(b.upper, currentPosition) as T;
+      if (dir > 0) distanceInBound = math.sub(b.upper, currentPosition);
       else distanceInBound = math.sub(currentPosition, b.lower) as T;
 
       if (distanceInBound > (0 as T)) {
-        const moveDist = math.min(math.abs(remainingDist), distanceInBound) as T;
+        const moveDist = math.min(math.abs(remainingDist), distanceInBound);
         currentPosition = math.add(
           currentPosition,
           dir > 0 ? moveDist : -moveDist,
         ) as T;
-        remainingDist = math.sub(remainingDist, dir > 0 ? moveDist : -moveDist) as T;
+        remainingDist = math.sub(remainingDist, dir > 0 ? moveDist : -moveDist);
 
         // If we've exhausted the distance, return the current position
         if (math.equal(remainingDist, 0)) return currentPosition as T;

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,7 +36,7 @@ const removeTrailingSlash = (path: string): string =>
  * @returns the query string.
  */
 export const buildQueryString = (
-  request: Record<string, unknown>,
+  request: Record<string, string>,
   prefix: string = "",
 ): string => {
   if (request === null) return "";

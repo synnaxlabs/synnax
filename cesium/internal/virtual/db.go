@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,6 +10,8 @@
 package virtual
 
 import (
+	"sync/atomic"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -23,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"sync/atomic"
 )
 
 type controlEntity struct {
@@ -59,7 +60,7 @@ type Config struct {
 	// MetaCodec is used to encode and decode the channel metadata.
 	// [REQUIRED]
 	MetaCodec binary.Codec
-	// FS is the filesystem that the DB will use to store meta-data about the channel.
+	// FS is the filesystem that the DB will use to store metadata about the channel.
 	// [REQUIRED]
 	FS xfs.FS
 }

@@ -1,4 +1,4 @@
-#  Copyright 2024 Synnax Labs, Inc.
+#  Copyright 2025 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -12,7 +12,7 @@ import numpy as np
 import synnax as sy
 
 
-from common import (
+from examples.control.tpc.common import (
     SENSORS,
     VALVES,
     PTS,

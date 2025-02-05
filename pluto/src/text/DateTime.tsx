@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,14 +13,14 @@ import {
   type TimeStampStringFormat,
   type TZInfo,
 } from "@synnaxlabs/x";
-import { type ForwardedRef, forwardRef, type JSX, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
 
 export type DateTimeProps<L extends text.Level = "h1"> = Omit<
   TextProps<L>,
-  "children" | "ref"
+  "children"
 > & {
   children: CrudeTimeStamp;
   format?: TimeStampStringFormat;
@@ -28,23 +28,16 @@ export type DateTimeProps<L extends text.Level = "h1"> = Omit<
   displayTZ?: TZInfo;
 };
 
-export const CoreDateTime = <L extends text.Level = "h1">(
-  {
-    format = "dateTime",
-    suppliedTZ = "UTC",
-    displayTZ = "local",
-    children,
-    ...props
-  }: DateTimeProps<L>,
-  ref: ForwardedRef<JSX.IntrinsicElements[L]>,
-): ReactElement => (
+export const DateTime = <L extends text.Level = "h1">({
+  ref,
+  format = "dateTime",
+  suppliedTZ = "UTC",
+  displayTZ = "local",
+  children,
+  ...props
+}: DateTimeProps<L>): ReactElement => (
   // @ts-expect-error - generic component errors
   <Text<L> ref={ref} {...props}>
     {new TimeStamp(children, suppliedTZ).fString(format, displayTZ)}
   </Text>
 );
-
-// @ts-expect-error - generic component errors
-export const DateTime = forwardRef(CoreDateTime) as <L extends text.Level = "h1">(
-  props: DateTimeProps<L> & { ref?: React.Ref<L> },
-) => ReactElement;

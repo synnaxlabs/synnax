@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Align, Device, Form, Synnax, Text } from "@synnaxlabs/pluto";
+import { Align, Device, Form, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { type JSX } from "react";
 
 import { Layout } from "@/layout";
@@ -30,11 +30,16 @@ export const Select = ({
 }: SelectProps) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
-  const handleDeviceChange = async (key: device.Key) => {
+  const handleException = Status.useExceptionHandler();
+  const handleDeviceChange = (key: device.Key) => {
     if (client == null) return;
-    const { configured } = await client.hardware.devices.retrieve(key);
-    if (configured) return;
-    placeLayout({ ...configureLayout, key });
+    client.hardware.devices
+      .retrieve(key)
+      .then(({ configured }) => {
+        if (configured) return;
+        placeLayout({ ...configureLayout, key });
+      })
+      .catch((e) => handleException(e, "Failed to retrieve device"));
   };
   return (
     <Form.Field<string>

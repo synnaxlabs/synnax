@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,6 +17,7 @@ import {
   Color,
   type Legend,
   Menu as PMenu,
+  Status,
   Synnax,
   useAsyncEffect,
   useDebouncedCallback,
@@ -127,6 +128,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
+  const handleException = Status.useExceptionHandler();
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -178,7 +180,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
   );
 
   const handleAxisChange = useCallback(
-    (axis: Channel.AxisProps) => {
+    (axis: Partial<Channel.AxisProps> & { key: string }) => {
       syncDispatch(
         setAxis({
           key: layoutKey,
@@ -191,7 +193,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
     [syncDispatch, layoutKey],
   );
 
-  const xAxisChannelChange = useMutation<void, Error, Channel.AxisProps>({
+  const xAxisChannelChange = useMutation<
+    void,
+    Error,
+    Omit<Channel.AxisProps, "location">
+  >({
     mutationFn: async (axis) => {
       const key = vis.channels[axis.key as XAxisKey];
       const prevKey = prevVis?.channels[axis.key as XAxisKey];
@@ -241,12 +247,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
         );
       if (propsLines.length === 0 && rng != null)
         syncDispatch(
-          setRanges({
-            mode: "add",
-            key: layoutKey,
-            axisKey: "x1",
-            ranges: [rng.key],
-          }),
+          setRanges({ mode: "add", key: layoutKey, axisKey: "x1", ranges: [rng.key] }),
         );
     },
     [syncDispatch, layoutKey, propsLines.length, rng],
@@ -350,7 +351,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
           break;
         case "download":
           if (client == null) return;
-          download({ timeRange, lines, client, name: `${name}-data` });
+          download({ timeRange, lines, client, name: `${name}-data`, handleException });
           break;
       }
     };
@@ -422,9 +423,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                 switch (itemKey) {
                   case "download":
                     if (client == null) return;
-                    download({ client, lines, timeRange, name });
+                    download({ client, lines, timeRange, name, handleException });
                     break;
-                  case "meta-data":
+                  case "metadata":
                     place({ ...Range.overviewLayout, name, key });
                     break;
                   case "line-plot":
@@ -442,7 +443,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                   <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
                     Open in New Plot
                   </PMenu.Item>
-                  <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
+                  <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
                     View Details
                   </PMenu.Item>
                 </PMenu.Menu>
@@ -460,7 +461,7 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(
       ([key, axis]): Channel.AxisProps => ({
-        location: axisLocation(key as AxisKey),
+        location: axisLocation(key),
         ...axis,
       }),
     );
@@ -477,14 +478,8 @@ const buildLines = (
           const xChannel = vis.channels[xAxis as XAxisKey];
           const variantArg =
             range.variant === "dynamic"
-              ? {
-                  variant: "dynamic",
-                  timeSpan: range.span,
-                }
-              : {
-                  variant: "static",
-                  timeRange: range.timeRange,
-                };
+              ? { variant: "dynamic", timeSpan: range.span }
+              : { variant: "static", timeRange: range.timeRange };
 
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({

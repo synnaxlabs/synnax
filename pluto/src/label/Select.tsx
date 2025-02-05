@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -99,11 +99,7 @@ export const SelectMultiple = ({
           ...toArray(value),
           ...(dropped.map((c) => c.key) as label.Key[]),
         ]);
-        onChange(v, {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        });
+        onChange(v, { clickedIndex: null, clicked: null, entries: [] });
         return dropped;
       },
       [onChange, value],
@@ -115,11 +111,7 @@ export const SelectMultiple = ({
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
         toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-        {
-          clickedIndex: null,
-          clicked: null,
-          entries: [],
-        },
+        { clickedIndex: null, clicked: null, entries: [] },
       );
     },
     [onChange, value],

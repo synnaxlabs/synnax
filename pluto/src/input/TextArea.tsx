@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,13 +9,13 @@
 
 import "@/input/TextArea.css";
 
-import { type ComponentPropsWithoutRef, forwardRef } from "react";
+import { type ComponentPropsWithRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type ExtensionProps } from "@/input/types";
 
 type HTMlTextAreaProps = Omit<
-  ComponentPropsWithoutRef<"textarea">,
+  ComponentPropsWithRef<"textarea">,
   "size" | "onChange" | "value" | "children" | "placeholder"
 >;
 export interface TextAreaProps extends ExtensionProps<string>, HTMlTextAreaProps {
@@ -34,42 +34,37 @@ export interface TextAreaProps extends ExtensionProps<string>, HTMlTextAreaProps
  * @param props.selectOnFocus - Whether the input should select its contents when focused.
  * @param props.centerPlaceholder - Whether the placeholder should be centered.
  */
-export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
-  (
-    {
-      value,
-      style,
-      onChange,
+export const TextArea = ({
+  ref,
+  value,
+  style,
+  onChange,
+  className,
+  onFocus,
+  selectOnFocus = false,
+  placeholder,
+  variant = "outlined",
+  sharp = false,
+  children,
+  ...props
+}: TextAreaProps): ReactElement => (
+  <textarea
+    style={style}
+    className={CSS(
+      CSS.B("textarea"),
+      CSS.BM("textarea", variant),
+      CSS.sharp(sharp),
       className,
-      onFocus,
-      selectOnFocus = false,
-      placeholder,
-      variant = "outlined",
-      sharp = false,
-      children,
-      ...props
-    },
-    ref,
-  ) => (
-    <textarea
-      style={style}
-      className={CSS(
-        CSS.B("textarea"),
-        CSS.BM("textarea", variant),
-        CSS.sharp(sharp),
-        className,
-      )}
-      ref={ref}
-      value={value}
-      // remove newlines
-      onChange={(e) => onChange(e.target.value.replace(/\n/g, ""))}
-      onFocus={(e) => {
-        if (selectOnFocus) e.target.select();
-        onFocus?.(e);
-      }}
-      placeholder={placeholder as string}
-      {...props}
-    />
-  ),
+    )}
+    ref={ref}
+    value={value}
+    // remove newlines
+    onChange={(e) => onChange(e.target.value.replace(/\n/g, ""))}
+    onFocus={(e) => {
+      if (selectOnFocus) e.target.select();
+      onFocus?.(e);
+    }}
+    placeholder={placeholder as string}
+    {...props}
+  />
 );
-TextArea.displayName = "InputTextArea";

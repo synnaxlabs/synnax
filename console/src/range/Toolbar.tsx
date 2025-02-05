@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -399,14 +399,15 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
+  const handleException = Status.useExceptionHandler();
   const onRename = (name: string): void => {
     if (name.length === 0) return;
     dispatch(rename({ key: entry.key, name }));
     dispatch(Layout.rename({ key: entry.key, name }));
     if (!entry.persisted) return;
-    void (async () => {
-      await client?.ranges.rename(entry.key, name);
-    })();
+    client?.ranges
+      .rename(entry.key, name)
+      .catch((e) => handleException(e, "Failed to rename range"));
   };
   return (
     <Core.ItemFrame
@@ -457,12 +458,7 @@ const Content = (): ReactElement => {
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
         <Header.Actions>
-          {[
-            {
-              children: <Icon.Add />,
-              onClick: () => place(createLayout({})),
-            },
-          ]}
+          {[{ children: <Icon.Add />, onClick: () => place(createLayout({})) }]}
         </Header.Actions>
       </ToolbarHeader>
       <List />

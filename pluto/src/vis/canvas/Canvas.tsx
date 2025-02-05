@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,7 +34,7 @@ type HTMLDivProps = DetailedHTMLProps<
   HTMLDivElement
 >;
 
-const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() as runtime.OS };
+const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() };
 
 interface Canvases {
   gl: HTMLCanvasElement | null;
@@ -54,146 +54,141 @@ export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
   resizeDebounce?: number;
 }
 
-export const Canvas = Aether.wrap<CanvasProps>(
-  canvas.Canvas.TYPE,
-  ({
-    children,
-    resizeDebounce: debounce = 100,
-    aetherKey,
-    className,
-    ...props
-  }): ReactElement => {
-    const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
-      aetherKey,
-      type: canvas.Canvas.TYPE,
-      schema: canvas.canvasStateZ,
-      initialState: ZERO_PROPS,
-    });
+export const Canvas = ({
+  children,
+  resizeDebounce: debounce = 100,
+  className,
+  ...props
+}: CanvasProps): ReactElement => {
+  const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
+    type: canvas.Canvas.TYPE,
+    schema: canvas.canvasStateZ,
+    initialState: ZERO_PROPS,
+  });
 
-    const canvases = useRef<Canvases>({ ...ZERO_CANVASES });
+  const canvases = useRef<Canvases>({ ...ZERO_CANVASES });
 
-    const initialResizeComplete = useRef(false);
+  const initialResizeComplete = useRef(false);
 
-    const handleResize = useCallback(
-      (region: box.Box) => {
-        if (canvases.current.bootstrapped) {
-          setState(() => ({
-            bootstrapped: true,
-            region,
-            dpr: window.devicePixelRatio,
-            os: runtime.getOS({ default: "Windows" }) as runtime.OS,
-          }));
-          initialResizeComplete.current = true;
-        }
-      },
-      [setState],
-    );
-
-    const elRef = useRef<HTMLDivElement | null>(null);
-    const resizeRef = useResize(handleResize, { debounce });
-    const combinedElRef = useCombinedRefs(elRef, resizeRef);
-
-    useEffect(() => {
-      // Handle device pixel ratio change i.e. when the user moves the window to a
-      // different display.
-      const handleChange = (): void => {
-        if (
-          window.devicePixelRatio === dpr ||
-          !canvases.current.bootstrapped ||
-          elRef.current == null
-        )
-          return;
-        setState((p) => ({
-          ...p,
-          // We need to explicitly construct the region here because this callback
-          // may race against the `useResize` callback and cause a stale region to
-          // be used in state.
-          region: box.construct(elRef.current),
+  const handleResize = useCallback(
+    (region: box.Box) => {
+      if (canvases.current.bootstrapped) {
+        setState(() => ({
+          bootstrapped: true,
+          region,
           dpr: window.devicePixelRatio,
+          os: runtime.getOS({ default: "Windows" }),
         }));
-      };
-      window
-        .matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
-        .addEventListener("change", handleChange, { once: true });
-    }, [dpr]);
+        initialResizeComplete.current = true;
+      }
+    },
+    [setState],
+  );
 
-    // We want to trigger a re-render when the window is focused or blurred to ensure
-    // that we wake up sleeping render contexts.
-    useEffect(() => {
-      const handler = () => {
-        if (!canvases.current.bootstrapped || elRef.current == null) return;
-        setState((p) => ({
-          ...p,
-          // We need to explicitly construct the region here because this callback
-          // may race against the `useResize` callback and cause a stale region to
-          // be used in state.
-          region: box.construct(elRef.current),
-          glCanvas: undefined,
-          upper2dCanvas: undefined,
-          lower2dCanvas: undefined,
-        }));
-      };
-      window.addEventListener("focus", handler);
-      window.addEventListener("blur", handler);
-    }, [setState]);
+  const elRef = useRef<HTMLDivElement | null>(null);
+  const resizeRef = useResize(handleResize, { debounce });
+  const combinedElRef = useCombinedRefs(elRef, resizeRef);
 
-    const refCallback = useCallback(
-      (el: HTMLCanvasElement | null) => {
-        if (el == null) return;
+  useEffect(() => {
+    // Handle device pixel ratio change i.e. when the user moves the window to a
+    // different display.
+    const handleChange = (): void => {
+      if (
+        window.devicePixelRatio === dpr ||
+        !canvases.current.bootstrapped ||
+        elRef.current == null
+      )
+        return;
+      setState((p) => ({
+        ...p,
+        // We need to explicitly construct the region here because this callback
+        // may race against the `useResize` callback and cause a stale region to
+        // be used in state.
+        region: box.construct(elRef.current),
+        dpr: window.devicePixelRatio,
+      }));
+    };
+    window
+      .matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
+      .addEventListener("change", handleChange, { once: true });
+  }, [dpr]);
 
-        // Store the canvas
-        if (el.className.includes("gl")) canvases.current.gl = el;
-        else if (el.className.includes("upper2d")) canvases.current.upper2d = el;
-        else canvases.current.lower2d = el;
-        const { gl, lower2d, upper2d, bootstrapped } = canvases.current;
+  // We want to trigger a re-render when the window is focused or blurred to ensure
+  // that we wake up sleeping render contexts.
+  useEffect(() => {
+    const handler = () => {
+      if (!canvases.current.bootstrapped || elRef.current == null) return;
+      setState((p) => ({
+        ...p,
+        // We need to explicitly construct the region here because this callback
+        // may race against the `useResize` callback and cause a stale region to
+        // be used in state.
+        region: box.construct(elRef.current),
+        glCanvas: undefined,
+        upper2dCanvas: undefined,
+        lower2dCanvas: undefined,
+      }));
+    };
+    window.addEventListener("focus", handler);
+    window.addEventListener("blur", handler);
+  }, [setState]);
 
-        if (gl == null || lower2d == null || upper2d == null || bootstrapped) return;
+  const refCallback = useCallback(
+    (el: HTMLCanvasElement | null) => {
+      if (el == null) return;
 
-        // Bootstrap the canvas
-        canvases.current.bootstrapped = true;
-        const glCanvas = gl.transferControlToOffscreen();
-        const upper2dCanvas = upper2d.transferControlToOffscreen();
-        const lower2dCanvas = lower2d.transferControlToOffscreen();
-        setState(
-          {
-            glCanvas,
-            upper2dCanvas,
-            lower2dCanvas,
-            bootstrap: true,
-            bootstrapped: false,
-            region: box.construct(gl),
-            dpr: window.devicePixelRatio,
-            os: runtime.getOS({ default: "Windows" }) as runtime.OS,
-          },
-          [glCanvas, upper2dCanvas, lower2dCanvas],
-        );
-      },
-      [setState],
-    );
+      // Store the canvas
+      if (el.className.includes("gl")) canvases.current.gl = el;
+      else if (el.className.includes("upper2d")) canvases.current.upper2d = el;
+      else canvases.current.lower2d = el;
+      const { gl, lower2d, upper2d, bootstrapped } = canvases.current;
 
-    return (
-      <div
-        ref={combinedElRef}
-        className={CSS(CSS.B("canvas-container"), className)}
-        {...props}
-      >
-        <canvas
-          ref={refCallback}
-          className={CSS(CSS.B("canvas"), CSS.BM("canvas", "lower2d"))}
-        />
-        <canvas
-          ref={refCallback}
-          className={CSS(CSS.B("canvas"), CSS.BM("canvas", "gl"))}
-        />
-        <canvas
-          ref={refCallback}
-          className={CSS(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
-        />
-        <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
-      </div>
-    );
-  },
-);
+      if (gl == null || lower2d == null || upper2d == null || bootstrapped) return;
+
+      // Bootstrap the canvas
+      canvases.current.bootstrapped = true;
+      const glCanvas = gl.transferControlToOffscreen();
+      const upper2dCanvas = upper2d.transferControlToOffscreen();
+      const lower2dCanvas = lower2d.transferControlToOffscreen();
+      setState(
+        {
+          glCanvas,
+          upper2dCanvas,
+          lower2dCanvas,
+          bootstrap: true,
+          bootstrapped: false,
+          region: box.construct(gl),
+          dpr: window.devicePixelRatio,
+          os: runtime.getOS({ default: "Windows" }),
+        },
+        [glCanvas, upper2dCanvas, lower2dCanvas],
+      );
+    },
+    [setState],
+  );
+
+  return (
+    <div
+      ref={combinedElRef}
+      className={CSS(CSS.B("canvas-container"), className)}
+      {...props}
+    >
+      <canvas
+        ref={refCallback}
+        className={CSS(CSS.B("canvas"), CSS.BM("canvas", "lower2d"))}
+      />
+      <canvas
+        ref={refCallback}
+        className={CSS(CSS.B("canvas"), CSS.BM("canvas", "gl"))}
+      />
+      <canvas
+        ref={refCallback}
+        className={CSS(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
+      />
+      <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
+    </div>
+  );
+};
 
 export const useRegion = (
   handler: UseResizeHandler,

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,29 +10,28 @@
 import { type PayloadAction } from "@reduxjs/toolkit";
 import { Icon } from "@synnaxlabs/media";
 
-import { type Command } from "@/palette/Palette";
+import { type Palette } from "@/palette";
 import { CLEAR_STATE } from "@/persist/state";
 
-export const defineCommand: Command = {
+const CLEAR_LOCAL_STORAGE_COMMAND: Palette.Command = {
   key: "clear-local-storage",
   name: "Clear Local Storage",
   icon: <Icon.Close />,
-  onSelect: ({ store, confirm }) => {
+  onSelect: ({ store, confirm, handleException }) => {
     confirm(
       {
         message: "Are you sure you want to clear the Console's local storage?",
         description:
           "This will remove all saved console data that is not persisted within a Synnax cluster.",
       },
-      {
-        icon: "Close",
-        name: "Clear Local Storage.Confirm",
-      },
-    ).then((result) => {
-      if (!result) return;
-      store.dispatch(CLEAR_STATE as PayloadAction<any>);
-    });
+      { icon: "Close", name: "Clear Local Storage.Confirm" },
+    )
+      .then((result) => {
+        if (!result) return;
+        store.dispatch(CLEAR_STATE as PayloadAction<any>);
+      })
+      .catch(handleException);
   },
 };
 
-export const COMMANDS = [defineCommand];
+export const COMMANDS = [CLEAR_LOCAL_STORAGE_COMMAND];

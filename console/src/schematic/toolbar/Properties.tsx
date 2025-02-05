@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -90,11 +90,11 @@ export const PropertiesControls = memo(
             });
             return new Diagram.NodeLayout(el.key, nodeBox, handles);
           } catch (e) {
-            console.log(e);
+            console.error(e);
           }
           return null;
         })
-        .filter((el) => el !== null) as Diagram.NodeLayout[];
+        .filter((el) => el !== null);
 
       return (
         <Align.Space align="start" direction="x" style={{ padding: "2rem" }}>
@@ -173,7 +173,7 @@ const IndividualProperties = ({
   element: NodeElementInfo;
   onChange: (key: string, props: any) => void;
 }): ReactElement => {
-  const C = Schematic.SYMBOLS[selected.props.key as Schematic.Variant];
+  const C = Schematic.SYMBOLS[selected.props.key];
 
   const formMethods = Form.use({
     values: deep.copy(selected.props),
@@ -209,7 +209,7 @@ const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement =
       </Input.Item>
       <Input.Item label="Type" align="start">
         <Diagram.SelectPathType
-          value={edge.edge.variant}
+          value={edge.edge.variant as Diagram.PathType}
           onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
         />
       </Input.Item>

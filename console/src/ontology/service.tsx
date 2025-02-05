@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,7 +28,7 @@ export interface BaseProps {
   removeLayout: Layout.Remover;
   services: Services;
   addStatus: Status.AddStatusFn;
-  handleException: Status.HandleExcFn;
+  handleException: Status.ExceptionHandler;
 }
 
 export interface HandleSelectProps extends BaseProps {
@@ -44,7 +44,7 @@ export interface HandleMosaicDropProps {
   nodeKey: number;
   location: location.Location;
   addStatus: Status.AddStatusFn;
-  handleException: Status.HandleExcFn;
+  handleException: Status.ExceptionHandler;
   id: ontology.ID;
 }
 
@@ -99,7 +99,7 @@ export interface Service {
   type: ontology.ResourceType;
   icon: Icon.Element | ((resource: ontology.Resource) => Icon.Element);
   hasChildren: boolean;
-  onSelect: HandleSelect;
+  onSelect?: HandleSelect;
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
   allowRename: AllowRename;

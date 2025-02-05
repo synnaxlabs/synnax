@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type label, ranger } from "@synnaxlabs/client";
-import { Form, Synnax } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/pluto";
 import { compare, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -24,7 +24,6 @@ interface LabelsProps {
 
 export const Labels = ({ rangeKey }: LabelsProps) => {
   const otgID = ranger.ontologyID(rangeKey);
-  const client = Synnax.use();
   const formCtx = Form.useSynced<typeof labelFormSchema, label.Label[]>({
     name: "Labels",
     key: ["range", "labels", rangeKey],
@@ -35,7 +34,7 @@ export const Labels = ({ rangeKey }: LabelsProps) => {
       return { labels: labels.map((l) => l.key) };
     },
     openObservable: async (client) => await client.labels.trackLabelsOf(otgID),
-    applyObservable: async ({ changes, ctx }) => {
+    applyObservable: ({ changes, ctx }) => {
       const existing = ctx.get<string[]>("labels").value;
       const next = unique.unique(changes.map((c) => c.key));
       if (compare.unorderedPrimitiveArrays(existing, next) === compare.EQUAL) return;
@@ -54,10 +53,9 @@ export const Labels = ({ rangeKey }: LabelsProps) => {
 
   return (
     <Form.Form {...formCtx}>
-      <Form.Field<string> required={false} path="labels">
-        {(p) => (
+      <Form.Field<string[]> required={false} path="labels">
+        {({ variant: _, ...p }) => (
           <Label.SelectMultiple
-            searcher={client?.labels}
             entryRenderKey="name"
             dropdownVariant="floating"
             zIndex={100}

@@ -48,22 +48,23 @@ const toggleScanner: Palette.Command = {
   key: "toggle-ni-scan-task",
   name: "Toggle NI Device Scanner",
   icon: <Icon.Logo.NI />,
-  onSelect: async ({ client, addStatus, handleException }) => {
-    try {
-      if (client == null) throw new Error("Cannot reach server");
-      const tsk = await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
-      const enabled = tsk.config.enabled ?? true;
-      await client.hardware.tasks.create<ScanConfig>({
-        ...tsk.payload,
-        config: { ...tsk.config, enabled: !enabled },
-      });
-      addStatus({
-        variant: "success",
-        message: `NI device scanning ${enabled ? "disabled" : "enabled"}`,
-      });
-    } catch (e) {
-      handleException(e, "Failed to toggle NI scan task");
-    }
+  onSelect: ({ client, addStatus, handleException }) => {
+    if (client == null) throw new Error("Cannot reach server");
+    client.hardware.tasks
+      .retrieveByName<ScanConfig>("ni scanner")
+      .then(({ payload, config }) =>
+        client.hardware.tasks.create<ScanConfig>({
+          ...payload,
+          config: { ...config, enabled: !config.enabled },
+        }),
+      )
+      .then(({ config: { enabled } }) =>
+        addStatus({
+          variant: "success",
+          message: `NI device scanning ${enabled ? "disabled" : "enabled"}`,
+        }),
+      )
+      .catch(handleException);
   },
 };
 

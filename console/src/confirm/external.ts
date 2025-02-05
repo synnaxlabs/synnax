@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,7 @@
 import { Confirm, LAYOUT_TYPE } from "@/confirm/Confirm";
 import { type Layout } from "@/layout";
 
-export { useModal } from "@/confirm/Confirm";
+export * from "@/confirm/useModal";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Confirm,

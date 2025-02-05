@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type workspace } from "@synnaxlabs/client";
-import { Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -28,15 +28,20 @@ export const Recent = (): ReactElement | null => {
     setData(workspaces ?? []);
   }, [client]);
 
-  if (client == null || key == null) return null;
+  const handleException = Status.useExceptionHandler();
 
   const handleClick = (key: string): void => {
-    void (async () => {
-      const ws = await client.workspaces.retrieve(key);
-      dispatch(add(ws));
-      dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
-    })();
+    if (client == null) return;
+    client.workspaces
+      .retrieve(key)
+      .then((ws) => {
+        dispatch(add(ws));
+        dispatch(Layout.setWorkspace({ slice: ws.layout as Layout.SliceState }));
+      })
+      .catch((e) => handleException(e, "Failed to open workspace"));
   };
+
+  if (client == null || key == null) return null;
 
   return (
     <List.List<workspace.Key, workspace.Workspace> data={data}>

@@ -1,4 +1,4 @@
-#  Copyright 2023 Synnax Labs, Inc.
+#  Copyright 2025 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -32,6 +32,7 @@ from synnax.telem import (
     CrudeRate,
     CrudeTimeStamp,
     DataType,
+    MultiSeries,
     Rate,
     Series,
     TimeRange,
@@ -64,10 +65,10 @@ class Channel(ChannelPayload):
         index: ChannelKey = 0,
         leaseholder: int = 0,
         key: ChannelKey = 0,
-        virtual: bool = False,
+        virtual: bool | None = None,
         internal: bool = False,
         expression: str = "",
-        requires: ChannelKeys = [],
+        requires: ChannelKeys | None = None,
         _frame_client: FrameClient | None = None,
         _client: ChannelClient | None = None,
     ) -> None:
@@ -75,22 +76,34 @@ class Channel(ChannelPayload):
         that this does not create the Channel in the cluster. To create the channel,
         call client.channels.create(channel).
 
-        :param data_type: The data type of the samples in the channel e.g. np.int64
-        :param rate: Rate sets the rate at which the channels values are written. If
-        this parameter is non-zero, is_index must be false and index must be an empty
-        string or unspecified.
-        :param name: A human-readable name for the channel.
-        :param key: Is auto-assigned by the cluster, and should not be set by the
-        caller.
+        :param name: A name for the channel.
+        :param data_type: The data type of the samples in the channel. For example, `"float32"`.
+        :param rate: Rate sets the rate at which the channels values are written. If this
+        parameter is non-zero, is_index must be false and index must be an empty string or
+        unspecified.
         :param is_index: Boolean indicating whether the channel is an index. Index
-        channels should have ax data type of synnax.TIMESTAMP.
+        channels should have a data type of synnax.TIMESTAMP.
         :param index: The key of the channel that indexes this channel.
-        :param leaseholder: The node that holds the lease for this channel. If you
-        don't know what this is, leave it at the default value of 0.
+        :param leaseholder: The node that holds the lease for this channel. If you don't know
+        what this is, leave it at the default value of 0.
+        :param virtual: Boolean indicating whether the channel is virtual. Virtual
+        channels do not store any data, and are used for streaming purposes only.
+        :param expression: An optional Lua expression that defines the channel as a
+        calculation of another channel. If this is set, the channel will be
+        automatically configured as virtual.
+        :param requires: A list of keys of channels that the expression for the
+        calculated channel depends on in order to be evaluated. This should only be
+        set if expression is not an empty string. If expression is not an empty string,
+        this should have at least one channel.
+        :param internal: Boolean indicating whether the channel is internal. Internal
+        channels are not visible to the user and are used for internal purposes only.
+        :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
         .channels.create() and .channels.retrieve() and should not be set by the caller.
         """
+        if virtual is None:
+            virtual = len(expression) > 0
         super().__init__(
             data_type=DataType(data_type),
             rate=Rate(rate),
@@ -111,20 +124,20 @@ class Channel(ChannelPayload):
     def read(
         self,
         start_or_range: TimeRange,
-    ) -> Series: ...
+    ) -> MultiSeries: ...
 
     @overload
     def read(
         self,
         start_or_range: CrudeTimeStamp,
         end: CrudeTimeStamp,
-    ) -> Series: ...
+    ) -> MultiSeries: ...
 
     def read(
         self,
         start_or_range: CrudeTimeStamp | TimeRange,
         end: CrudeTimeStamp | None = None,
-    ) -> Series:
+    ) -> MultiSeries:
         """Reads telemetry from the channel between the two timestamps.
 
         :param start_or_range: The starting timestamp of the range to read from.
@@ -177,6 +190,9 @@ class Channel(ChannelPayload):
             key=self.key,
             index=self.index,
             is_index=self.is_index,
+            virtual=self.virtual,
+            expression=self.expression,
+            requires=self.requires,
         )
 
 
@@ -234,9 +250,9 @@ class ChannelClient:
         is_index: bool = False,
         index: ChannelKey = 0,
         leaseholder: int = 0,
-        virtual: bool = False,
+        virtual: bool | None = None,
         expression: str = "",
-        requires: ChannelKeys = [],
+        requires: ChannelKeys | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates new channel(s) in the Synnax cluster.
@@ -252,6 +268,15 @@ class ChannelClient:
         :param index: The key of the channel that indexes this channel.
         :param leaseholder: The node that holds the lease for this channel. If you don't know
         what this is, leave it at the default value of 0.
+        :param virtual: Boolean indicating whether the channel is virtual. Virtual
+        channels do not store any data, and are used for streaming purposes only.
+        :param expression: An optional expression that defines the channel as a
+        calculation of another channel. If this is set, the channel will be
+        automatically configured as virtual.
+        :param requires: A list of keys of channels that the expression for the
+        calculated channel depends on in order to be evaluated. This should only be
+        set if expression is not an empty string. If expression is not an empty string,
+        this should have at least one channel.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
         with the same name if they already exist in the cluster.
         :returns: The created channel.
@@ -282,7 +307,7 @@ class ChannelClient:
                     data_type=DataType(data_type),
                     index=index,
                     is_index=is_index,
-                    virtual=virtual,
+                    virtual=virtual if virtual is not None else len(expression) > 0,
                     expression=expression,
                     requires=requires,
                 )
@@ -318,40 +343,23 @@ class ChannelClient:
 
         Overload 1:
 
-        :param key: The key of the channel to retrieve. If this is specified, the name
-        parameter is ignored.
-        :param name: The name of the channel to retrieve. If key is specified, this is
-        ignored.
-        Only one of key or name must be specified.
+        :param channel: The key or name of the channel to retrieve. If this is
         :returns: The associated channel.
         :raises QueryError: If the channel is not found.
 
         Overload 2 + 3:
-        :param keys: The keys of the channels to retrieve. If this is specified, the names
-        parameter is ignored.
-        :param names: The names of the channels to retrieve. If keys are specified, this is
-        ignored.
-        Only one of keys or names may be specified.
-        :param leaseholder: The node that holds the lease for the channels to retrieve. If you
-        don't know what this is, don't specify it.
-        :param include_not_found: Boolean indicating whether or not to include the keys or
-        names of the channels that were not found in the result.
-        :returns: The retrieved channels if include_not_found is False, otherwise a tuple
-        containing the retrieved channels and the keys or names of the channels that were
-        not found.
+        :param channel: The list of keys or the list of names for the channels to retrieve.
+        :returns: The retrieved channels.
         """
         normal = normalize_channel_params(channel)
         res = self._retriever.retrieve(channel)
         sug = self.__sugar(res)
         if not normal.single:
             return sug
-
         if len(res) == 1:
             return sug[0]
-
         if len(res) > 1:
             raise _multiple_results_error(channel, res)
-
         raise NotFoundError(f"Channel matching '{channel}' not found.")
 
     @overload

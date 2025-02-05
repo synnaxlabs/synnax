@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,9 @@ export const Modals = () => {
   const remove = useRemover();
   return (
     <>
-      {layouts.map((l) => l.window && <Modal key={l.key} state={l} remove={remove} />)}
+      {layouts.map((l) => (
+        <Modal key={l.key} state={l} remove={remove} />
+      ))}
     </>
   );
 };

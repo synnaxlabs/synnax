@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -152,25 +152,28 @@ const Content = (): ReactElement => {
       const addedOrUpdated = update
         .filter((u) => u.variant === "set")
         .map((u) => u.key);
-      client.hardware.tasks.retrieve(addedOrUpdated).then((nextTasks) => {
-        setTasks((prev) => {
-          const next = prev
-            .filter((t) => !removed.includes(t.key))
-            .map((t) => {
-              const u = nextTasks.find((u) => u.key === t.key);
-              if (u == null) return t;
-              u.state = t.state;
-              return u;
-            });
-          const nextKeys = next.map((t) => t.key);
-          return [
-            ...next,
-            ...nextTasks.filter(
-              (u) => !u.internal && !u.snapshot && !nextKeys.includes(u.key),
-            ),
-          ];
-        });
-      });
+      client.hardware.tasks
+        .retrieve(addedOrUpdated)
+        .then((nextTasks) => {
+          setTasks((prev) => {
+            const next = prev
+              .filter((t) => !removed.includes(t.key))
+              .map((t) => {
+                const u = nextTasks.find((u) => u.key === t.key);
+                if (u == null) return t;
+                u.state = t.state;
+                return u;
+              });
+            const nextKeys = next.map((t) => t.key);
+            return [
+              ...next,
+              ...nextTasks.filter(
+                (u) => !u.internal && !u.snapshot && !nextKeys.includes(u.key),
+              ),
+            ];
+          });
+        })
+        .catch(handleException);
     },
   });
   Observe.useListener({
@@ -259,25 +262,30 @@ const Content = (): ReactElement => {
               start: () =>
                 selected.forEach((t) => {
                   if (t == null) return;
-                  t.executeCommand("start");
-                  if (desiredStates[t.key] === "running") return;
-                  setDesiredStates((prev) => {
-                    t.executeCommand("start");
-                    const next = { ...prev };
-                    next[t.key] = "running";
-                    return next;
-                  });
+                  t.executeCommand("start")
+                    .then(() => {
+                      if (desiredStates[t.key] === "running") return;
+                      setDesiredStates((prev) => {
+                        const next = { ...prev };
+                        next[t.key] = "running";
+                        return next;
+                      });
+                    })
+                    .catch((e) => handleException(e, "Failed to start task"));
                 }),
               stop: () =>
                 selected.forEach((t) => {
                   if (t == null) return;
-                  t.executeCommand("stop");
-                  if (desiredStates[t.key] === "paused") return;
-                  setDesiredStates((prev) => {
-                    const next = { ...prev };
-                    next[t.key] = "paused";
-                    return next;
-                  });
+                  t.executeCommand("stop")
+                    .then(() => {
+                      if (desiredStates[t.key] === "paused") return;
+                      setDesiredStates((prev) => {
+                        const next = { ...prev };
+                        next[t.key] = "paused";
+                        return next;
+                      });
+                    })
+                    .catch((e) => handleException(e, "Failed to stop task"));
                 }),
               edit: () => handleEdit(keys[0]),
             }}
@@ -322,12 +330,7 @@ const Content = (): ReactElement => {
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
           <Header.Actions>
-            {[
-              {
-                children: <Icon.Add />,
-                onClick: () => place(ZERO_SELECTOR_LAYOUT),
-              },
-            ]}
+            {[{ children: <Icon.Add />, onClick: () => place(ZERO_SELECTOR_LAYOUT) }]}
           </Header.Actions>
         </ToolbarHeader>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
@@ -391,9 +394,13 @@ const TaskListItem = ({
     !Common.Task.checkDesiredStateMatch(desiredState, isRunning) &&
     state?.variant === "success";
   const loading = useDelayedState<boolean>(false, isLoading);
+  const handleException = Status.useExceptionHandler();
   const handleClick = () => {
     onStopStart(isRunning ? "paused" : "running");
-    entry.executeCommand(isRunning ? "stop" : "start");
+    const action = isRunning ? "stop" : "start";
+    entry
+      .executeCommand(action)
+      .catch((e) => handleException(e, `Failed to ${action} task`));
   };
   return (
     <List.ItemFrame {...props} justify="spaceBetween" align="center" rightAligned>
@@ -401,7 +408,7 @@ const TaskListItem = ({
         direction="y"
         size="small"
         grow
-        className={CSS.BE("task", "meta-data")}
+        className={CSS.BE("task", "metadata")}
       >
         <Align.Space direction="x" align="center" size="small">
           <Status.Circle

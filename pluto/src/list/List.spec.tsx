@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,33 +23,13 @@ interface SampleRecord {
 }
 
 const cols: Array<List.ColumnSpec<string, SampleRecord>> = [
-  {
-    key: "name",
-    name: "Name",
-    visible: true,
-  },
-  {
-    key: "age",
-    name: "Age",
-    visible: true,
-  },
+  { key: "name", name: "Name", visible: true },
+  { key: "age", name: "Age", visible: true },
 ];
 const data: SampleRecord[] = [
-  {
-    key: "1",
-    name: "John",
-    age: 32,
-  },
-  {
-    key: "2",
-    name: "Jane",
-    age: 20,
-  },
-  {
-    key: "3",
-    name: "Jack",
-    age: 40,
-  },
+  { key: "1", name: "John", age: 32 },
+  { key: "2", name: "Jane", age: 20 },
+  { key: "3", name: "Jack", age: 40 },
 ];
 
 const TestList = (): ReactElement => {
@@ -71,9 +51,7 @@ const TestList = (): ReactElement => {
 
 describe("List", () => {
   beforeAll(() => {
-    vi.mock("../../util/canvas.ts", () => ({
-      textWidth: () => 0,
-    }));
+    vi.mock("../../util/canvas.ts", () => ({ textWidth: () => 0 }));
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });
   describe("Column", () => {

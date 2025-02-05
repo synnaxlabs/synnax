@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,16 +33,21 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   schematic: {
     icon: <Icon.Schematic />,
     onClick: (client, res, place) => {
-      void (async () => {
-        const s = await client.workspaces.schematic.retrieve(res.id.key);
-        place(create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }));
-      })();
+      client.workspaces.schematic
+        .retrieve(res.id.key)
+        .then((s) =>
+          place(create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot })),
+        )
+        .catch(console.error);
     },
   },
   task: {
     icon: <Icon.Task />,
-    onClick: (client, res, place) =>
-      void Hardware.Task.retrieveAndPlaceLayout(client, res.id.key, place),
+    onClick: (client, res, place) => {
+      Hardware.Task.retrieveAndPlaceLayout(client, res.id.key, place).catch(
+        console.error,
+      );
+    },
   },
 };
 

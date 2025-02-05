@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,6 +16,7 @@ const PREFIX = "new-device-";
 export const useListenForChanges = (): void => {
   const client = Synnax.use();
   const addStatus = Status.useAggregator();
+  const handleException = Status.useExceptionHandler();
   useAsyncEffect(async () => {
     if (client == null) return;
     const tracker = await client.hardware.devices.openDeviceTracker();
@@ -32,8 +33,12 @@ export const useListenForChanges = (): void => {
           });
         });
     });
-    return () => void tracker.close();
-  }, [addStatus, client]);
+    return () => {
+      tracker
+        .close()
+        .catch((e) => handleException(e, "Failed to close device tracker"));
+    };
+  }, [addStatus, client, handleException]);
 };
 
 const PREFIX_LENGTH = PREFIX.length;

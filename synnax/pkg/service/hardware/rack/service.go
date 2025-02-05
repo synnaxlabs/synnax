@@ -1,13 +1,11 @@
-/*
- * Copyright 2024 Synnax Labs, Inc.
- *
- * Use of this software is governed by the Business Source License included in the file
- * licenses/BSL.txt.
- *
- * As of the Change Date specified in that file, in accordance with the Business Source
- * License, use of this software will be governed by the Apache License, Version 2.0,
- * included in the file licenses/APL.txt.
- */
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 package rack
 
@@ -110,7 +108,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return
 	}
 
-	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T))
+	cdcS, err := signals.PublishFromGorp[Key](ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T))
 	s.shutdownSignals = cdcS
 
 	return s, nil

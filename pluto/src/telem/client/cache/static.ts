@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,7 +18,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
+import { convertSeriesToSupportedGL } from "@/telem/aether/convertSeries";
 
 export interface DirtyReadResult {
   series: Series[];
@@ -73,8 +73,7 @@ export class Static {
    */
   write(series: Series[]): void {
     if (series.length === 0) return;
-    // WebGL only supports Float32 arrays.
-    series.forEach((s) => this.writeOne(convertSeriesFloat32(s)));
+    series.forEach((s) => this.writeOne(convertSeriesToSupportedGL(s)));
     this.checkIntegrity(series);
   }
 

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import { Icon as MediaIcon } from "@synnaxlabs/media";
 import clsx from "clsx";
-import { cloneElement, forwardRef, type ReactElement, useCallback } from "react";
+import { cloneElement, type ReactElement, useCallback } from "react";
 
 import { type BaseProps } from "@/button/Button";
 import { color } from "@/button/color";
@@ -21,29 +21,39 @@ interface ChildProps {
   fill?: string;
 }
 
-/** The props for the {@link Icon} */
+/** The props for the {@link Icon} component */
 export interface IconProps extends BaseProps, Tooltip.WrapProps {
   children: ReactElement<ChildProps> | string;
   loading?: boolean;
 }
 
-const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
-  (
-    {
-      children,
-      stopPropagation,
-      className,
-      variant = "text",
-      size = "medium",
-      sharp = false,
-      disabled = false,
-      loading = false,
-      onClick,
-      color: propColor,
-      ...props
-    },
+/**
+ * Use.Icon a button that only renders an icon without any text.
+ *
+ * @param props - Props for the component, which are passed down to the underlying
+ * element.
+ * @param props.size - The size of button to render.
+ * @param props.variant - The variant of button to render. Options are "filled" (default),
+ * "outlined", and "text".
+ * @param props.children - A ReactElement representing the icon to render.
+ * @param props.loading - Whether the button is in a loading state. This will cause the
+ * button to render a loading spinner.
+ */
+export const Icon = Tooltip.wrap(
+  ({
     ref,
-  ): ReactElement => {
+    children,
+    stopPropagation,
+    className,
+    variant = "text",
+    size = "medium",
+    sharp = false,
+    disabled = false,
+    loading = false,
+    onClick,
+    color: propColor,
+    ...props
+  }: IconProps): ReactElement => {
     if (loading) children = <MediaIcon.Loading />;
     const isDisabled = disabled || loading;
     const handleClick = useCallback(
@@ -80,19 +90,3 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
     );
   },
 );
-
-CoreIcon.displayName = "ButtonIcon";
-
-/**
- * Use.Icon a button that only renders an icon without any text.
- *
- * @param props - Props for the component, which are passed down to the underlying
- * element.
- * @param props.size - The size of button to render.
- * @param props.variant - The variant of button to render. Options are "filled" (default),
- * "outlined", and "text".
- * @param props.children - A ReactElement representing the icon to render.
- * @param props.loading - Whether the button is in a loading state. This will cause the
- * button to render a loading spinner.
- */
-export const Icon = Tooltip.wrap(CoreIcon);

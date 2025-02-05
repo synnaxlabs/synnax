@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -188,9 +188,9 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   placeLayout,
   handleException,
 }) => {
-  void (async () => {
-    try {
-      const schematic = await client.workspaces.schematic.retrieve(id.key);
+  client.workspaces.schematic
+    .retrieve(id.key)
+    .then((schematic) =>
       placeLayout(
         Schematic.create({
           name: schematic.name,
@@ -199,11 +199,9 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           location: "mosaic",
           tab: { mosaicKey: nodeKey, location },
         }),
-      );
-    } catch (e) {
-      handleException(e, "Failed to load schematic");
-    }
-  })();
+      ),
+    )
+    .catch((e) => handleException(e, "Failed to load schematic"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

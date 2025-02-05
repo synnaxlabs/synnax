@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -341,7 +341,7 @@ export const edgePoints = (b: Crude, loc: location.Location): [xy.XY, xy.XY] => 
     : location.Y_LOCATIONS.includes(loc as location.Y)
       ? "y"
       : null;
-  if (x === null) throw new Error(`Invalid location: ${location}`);
+  if (x === null) throw new Error(`Invalid location: ${loc}`);
   const f = loc === "top" || loc === "left" ? Math.min : Math.max;
   const one = { ...b_.one };
   const two = { ...b_.two };

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
-import {
-  type MutableRefObject,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { type RefObject, useCallback, useEffect, useState } from "react";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -108,7 +102,7 @@ export interface UseHeldProps {
 export const useHeldRef = ({
   triggers,
   loose,
-}: UseHeldProps): MutableRefObject<UseHeldReturn> => {
+}: UseHeldProps): RefObject<UseHeldReturn> => {
   const [ref, setRef] = useStateRef<UseHeldReturn>({
     triggers: [],
     held: false,

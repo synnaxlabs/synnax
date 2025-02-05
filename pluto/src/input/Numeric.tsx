@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import { bounds } from "@synnaxlabs/x";
 import { evaluate, Unit } from "mathjs";
-import { forwardRef, type ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
@@ -48,125 +48,120 @@ export interface NumericProps
  * @param props.dragDirection - The direction of the drag handle.
  * @default undefined
  */
-export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
-  (
-    {
-      onChange,
-      value,
-      dragDirection,
-      showDragHandle = true,
-      dragScale,
-      selectOnFocus = true,
-      bounds: propsBounds = bounds.INFINITE,
-      resetValue,
-      variant = "outlined",
-      className,
-      children,
-      disabled,
-      onBlur,
-      units,
-      ...props
+export const Numeric = ({
+  ref,
+  onChange,
+  value,
+  dragDirection,
+  showDragHandle = true,
+  dragScale,
+  selectOnFocus = true,
+  bounds: propsBounds = bounds.INFINITE,
+  resetValue,
+  variant = "outlined",
+  className,
+  children,
+  disabled,
+  onBlur,
+  units,
+  ...props
+}: NumericProps): ReactElement => {
+  // We need to keep the actual value as a valid number, but we need to let the user
+  // input an invalid value that may eventually be valid, so we need to keep the
+  // internal value as a string in state.
+  const [internalValue, setInternalValue, internalValueRef] = useCombinedStateAndRef(
+    value.toString(),
+  );
+  const [isValueValid, setIsValueValid, isValueValidRef] =
+    useCombinedStateAndRef<boolean>(true);
+  const valueRef = useSyncedRef(value);
+
+  const updateActualValue = useCallback(() => {
+    // This just means we never actually modified the input
+    if (isValueValidRef.current) return;
+    setIsValueValid(true);
+    let v = null;
+    try {
+      const ev = evaluate(internalValueRef.current);
+      // Sometimes mathjs returns a Unit object, so we need to convert it to a number.
+      if (ev instanceof Unit) v = ev.toNumber();
+      else if (typeof ev === "number" && !isNaN(ev)) v = ev;
+    } catch {
+      v = null;
+    }
+    if (v != null) onChange?.(bounds.clamp(propsBounds, v));
+    else setInternalValue(valueRef.current.toString());
+  }, [onChange, setInternalValue]);
+
+  const updateActualValueRef = useSyncedRef(updateActualValue);
+
+  const handleBlur = useCallback(() => {
+    onBlur?.();
+    updateActualValue();
+  }, [onBlur, updateActualValue]);
+
+  // Sometimes we don't blur the component before it unmounts, so this makes
+  // sure we try to update the actual value on unmount.
+  useEffect(() => () => updateActualValueRef.current?.(), []);
+
+  const handleChange = useCallback(
+    (v: string) => {
+      setIsValueValid(false);
+      setInternalValue(v);
     },
-    ref,
-  ): ReactElement => {
-    // We need to keep the actual value as a valid number, but we need to let the user
-    // input an invalid value that may eventually be valid, so we need to keep the
-    // internal value as a string in state.
-    const [internalValue, setInternalValue, internalValueRef] = useCombinedStateAndRef(
-      value.toString(),
-    );
-    const [isValueValid, setIsValueValid, isValueValidRef] =
-      useCombinedStateAndRef<boolean>(true);
-    const valueRef = useSyncedRef(value);
+    [setInternalValue, setIsValueValid],
+  );
 
-    const updateActualValue = useCallback(() => {
-      // This just means we never actually modified the input
-      if (isValueValidRef.current) return;
+  // If the value is valid, use the actual value, otherwise use the internal value.
+  const value_ = isValueValid ? value : internalValue;
+
+  const onDragChange = useCallback(
+    (value: number) => {
       setIsValueValid(true);
-      let v = null;
-      try {
-        const ev = evaluate(internalValueRef.current);
-        // Sometimes mathjs returns a Unit object, so we need to convert it to a number.
-        if (ev instanceof Unit) v = ev.toNumber();
-        else if (typeof ev === "number" && !isNaN(ev)) v = ev;
-      } catch {
-        v = null;
-      }
-      if (v != null) onChange?.(bounds.clamp(propsBounds, v));
-      else setInternalValue(valueRef.current.toString());
-    }, [onChange, setInternalValue]);
+      onChange?.(bounds.clamp(propsBounds, Math.round(value)));
+    },
+    [onChange, setIsValueValid],
+  );
 
-    const updateActualValueRef = useSyncedRef(updateActualValue);
+  if (dragScale == null && bounds.isFinite(propsBounds))
+    // make X 5% of the bounds and Y 10% of the bounds
+    dragScale = {
+      x: bounds.span(propsBounds) * 0.01,
+      y: bounds.span(propsBounds) * 0.02,
+    };
 
-    const handleBlur = useCallback(() => {
-      onBlur?.();
-      updateActualValue();
-    }, [onBlur, updateActualValue]);
+  if (variant === "preview" || disabled) showDragHandle = false;
 
-    // Sometimes we don't blur the component before it unmounts, so this makes
-    // sure we try to update the actual value on unmount.
-    useEffect(() => () => updateActualValueRef.current?.(), []);
-
-    const handleChange = useCallback(
-      (v: string) => {
-        setIsValueValid(false);
-        setInternalValue(v);
-      },
-      [setInternalValue, setIsValueValid],
-    );
-
-    // If the value is valid, use the actual value, otherwise use the internal value.
-    const value_ = isValueValid ? value : internalValue;
-
-    const onDragChange = useCallback(
-      (value: number) => {
-        setIsValueValid(true);
-        onChange?.(bounds.clamp(propsBounds, Math.round(value)));
-      },
-      [onChange, setIsValueValid],
-    );
-
-    if (dragScale == null && bounds.isFinite(propsBounds))
-      // make X 5% of the bounds and Y 10% of the bounds
-      dragScale = {
-        x: bounds.span(propsBounds) * 0.01,
-        y: bounds.span(propsBounds) * 0.02,
-      };
-
-    if (variant === "preview" || disabled) showDragHandle = false;
-
-    return (
-      <Text
-        ref={ref}
-        type="text"
-        variant={variant}
-        value={value_.toString()}
-        onChange={handleChange}
-        disabled={disabled}
-        selectOnFocus={selectOnFocus}
-        // When the user hits 'Enter', we should try to evaluate the input and update the
-        // actual value.
-        onKeyDown={(e) => {
-          if (Triggers.eventKey(e) !== "Enter") return;
-          updateActualValue();
-          onBlur?.();
-        }}
-        onBlur={handleBlur}
-        {...props}
-      >
-        {showDragHandle && (
-          <DragButton
-            direction={dragDirection}
-            value={value}
-            onChange={onDragChange}
-            dragScale={dragScale}
-            resetValue={resetValue}
-            onBlur={handleBlur}
-          />
-        )}
-        {children}
-      </Text>
-    );
-  },
-);
-Numeric.displayName = "InputNumber";
+  return (
+    <Text
+      ref={ref}
+      type="text"
+      variant={variant}
+      value={value_.toString()}
+      onChange={handleChange}
+      disabled={disabled}
+      selectOnFocus={selectOnFocus}
+      // When the user hits 'Enter', we should try to evaluate the input and update the
+      // actual value.
+      onKeyDown={(e) => {
+        if (Triggers.eventKey(e) !== "Enter") return;
+        updateActualValue();
+        onBlur?.();
+      }}
+      onBlur={handleBlur}
+      {...props}
+    >
+      {showDragHandle && (
+        <DragButton
+          direction={dragDirection}
+          value={value}
+          onChange={onDragChange}
+          dragScale={dragScale}
+          resetValue={resetValue}
+          onBlur={handleBlur}
+        />
+      )}
+      {children}
+    </Text>
+  );
+};

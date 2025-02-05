@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,6 @@
 
 import "@/Icon/Icon.css";
 
-import { type runtime } from "@synnaxlabs/x";
 import clsx from "clsx";
 import { type FC } from "react";
 import {
@@ -259,13 +258,6 @@ const wrapIcon = (
   return O;
 };
 
-const IconOS: Record<runtime.OS, IconFC> = {
-  Linux: FaLinux,
-  MacOS: FaApple,
-  Windows: FaWindows,
-  Docker: FaDocker,
-};
-
 export const Icon: IconType = {
   Pause: wrapIcon(MdPause, "pause"),
   Play: wrapIcon(MdPlayArrow, "play"),
@@ -311,12 +303,6 @@ export const Icon: IconType = {
   Resources: wrapIcon(AiFillFolder, "resources"),
   Group: wrapIcon(AiFillFolder, "group"),
   Workspace: wrapIcon(MdWorkspacesFilled, "workspace"),
-  OS: {
-    Linux: wrapIcon(IconOS.Linux, "os-linux"),
-    MacOS: wrapIcon(IconOS.MacOS, "os-macos"),
-    Windows: wrapIcon(IconOS.Windows, "os-windows"),
-    Docker: wrapIcon(IconOS.Docker, "os-docker"),
-  },
   Box: wrapIcon(AiOutlineBorder, "box"),
   Python: wrapIcon(SiPython, "python"),
   TypeScript: wrapIcon(SiTypescript, "typescript"),
@@ -326,11 +312,15 @@ export const Icon: IconType = {
   QuestionMark: wrapIcon(MdQuestionMark, "question-mark"),
   Menu: wrapIcon(GiHamburgerMenu, "menu"),
   Logo: {
+    Apple: wrapIcon(FaApple, "logo-apple"),
+    Docker: wrapIcon(FaDocker, "logo-docker"),
     Github: wrapIcon(AiFillGithub, "logo-github"),
+    LabJack: wrapIcon(LabJack, "logo-labjack"),
     LinkedIn: wrapIcon(AiFillLinkedin, "logo-linkedin"),
+    Linux: wrapIcon(FaLinux, "logo-linux"),
     NI: wrapIcon(NI, "logo-ni"),
     OPC: wrapIcon(OPC, "logo-opc"),
-    LabJack: wrapIcon(LabJack, "logo-labjack"),
+    Windows: wrapIcon(FaWindows, "logo-windows"),
   },
   Arrow: {
     Right: wrapIcon(TbArrowRight, "arrow-right"),
@@ -490,7 +480,6 @@ export interface IconType {
   Resources: IconFC;
   Group: IconFC;
   Workspace: IconFC;
-  OS: Record<runtime.OS, IconFC>;
   Box: IconFC;
   Python: IconFC;
   TypeScript: IconFC;
@@ -499,7 +488,17 @@ export interface IconType {
   Yarn: IconFC;
   QuestionMark: IconFC;
   Menu: IconFC;
-  Logo: { Github: IconFC; LinkedIn: IconFC; NI: IconFC; OPC: IconFC; LabJack: IconFC };
+  Logo: {
+    Apple: IconFC;
+    Docker: IconFC;
+    Github: IconFC;
+    LabJack: IconFC;
+    LinkedIn: IconFC;
+    Linux: IconFC;
+    NI: IconFC;
+    OPC: IconFC;
+    Windows: IconFC;
+  };
   Keyboard: {
     Command: IconFC;
     Windows: IconFC;

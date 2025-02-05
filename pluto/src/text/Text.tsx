@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,13 +9,7 @@
 
 import "@/text/Text.css";
 
-import {
-  type ForwardedRef,
-  forwardRef,
-  type JSX,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -42,20 +36,18 @@ export type TextProps<L extends text.Level = text.Level> = Omit<
 > &
   CoreProps<L>;
 
-const CoreText = <L extends text.Level = text.Level>(
-  {
-    level = "p" as L,
-    color,
-    className,
-    style,
-    children,
-    noWrap = false,
-    shade,
-    weight,
-    ...props
-  }: TextProps<L>,
-  ref: ForwardedRef<JSX.IntrinsicElements[L]>,
-): ReactElement => (
+export const Text = <L extends text.Level = text.Level>({
+  ref,
+  level = "p" as L,
+  color,
+  className,
+  style,
+  children,
+  noWrap = false,
+  shade,
+  weight,
+  ...props
+}: TextProps<L>): ReactElement => (
   // @ts-expect-error - TODO: Generic Elements are weird
   <Generic.Element<L>
     el={level}
@@ -67,10 +59,6 @@ const CoreText = <L extends text.Level = text.Level>(
     {children}
   </Generic.Element>
 );
-
-export const Text = forwardRef(CoreText) as <L extends text.Level = text.Level>(
-  props: TextProps<L>,
-) => ReactElement;
 
 export const evalColor = (
   color?: Color.Crude | boolean,

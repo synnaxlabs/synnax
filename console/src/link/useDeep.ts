@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -74,7 +74,7 @@ export const useDeep = (handlers: Record<string, Handler>): void => {
     }
 
     try {
-      handle({ client, dispatch, key: resourceKey, placeLayout });
+      await handle({ client, dispatch, key: resourceKey, placeLayout });
     } catch (e) {
       handleException(e, `Failed to open ${resource} from link`);
     }
@@ -89,8 +89,8 @@ export const useDeep = (handlers: Record<string, Handler>): void => {
 
   // Handles the case where the app is open and a link gets called
   useAsyncEffect(async () => {
-    const unlisten = await onOpenUrl(async (urls) => {
-      await urlHandler(urls);
+    const unlisten = await onOpenUrl((urls) => {
+      void urlHandler(urls);
     });
     return unlisten;
   }, []);

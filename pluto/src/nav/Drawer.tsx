@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,6 @@ import "@/nav/Drawer.css";
 import { type box, location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useLayoutEffect, useState } from "react";
 
-import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
@@ -49,52 +48,48 @@ export const useDrawer = ({ items, initialKey }: UseDrawerProps): UseDrawerRetur
   return { onSelect: handleSelect, activeItem };
 };
 
-export const Drawer = Aether.wrap<DrawerProps>(
-  "Nav.Drawer",
-  ({
-    aetherKey,
-    activeItem,
-    children,
-    onSelect,
-    location: loc_ = "left",
-    collapseThreshold = 0.65,
-    className,
-    onResize,
-    ...props
-  }): ReactElement | null => {
-    const dir = location.direction(loc_);
-    const handleCollapse = useCallback(
-      () => activeItem != null && onSelect?.(activeItem.key),
-      [onSelect, activeItem?.key],
-    );
-    const { erase, setEnabled } = Eraser.use({ aetherKey });
-    const handleResize = useCallback(
-      (size: number, box: box.Box) => {
-        onResize?.(size, box);
-        erase(box);
-      },
-      [onResize, erase],
-    );
-    useLayoutEffect(() => {
-      setEnabled(activeItem != null);
-    }, [activeItem, setEnabled]);
-    if (activeItem == null) return null;
-    const { content, key, minSize, maxSize, initialSize } = activeItem;
-    return (
-      <Resize.Single
-        key={key}
-        className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
-        collapseThreshold={collapseThreshold}
-        onCollapse={handleCollapse}
-        location={loc_}
-        onResize={handleResize}
-        minSize={minSize}
-        maxSize={maxSize}
-        initialSize={initialSize}
-        {...props}
-      >
-        {content}
-      </Resize.Single>
-    );
-  },
-);
+export const Drawer = ({
+  activeItem,
+  children,
+  onSelect,
+  location: loc_ = "left",
+  collapseThreshold = 0.65,
+  className,
+  onResize,
+  ...props
+}: DrawerProps): ReactElement | null => {
+  const dir = location.direction(loc_);
+  const handleCollapse = useCallback(
+    () => activeItem != null && onSelect?.(activeItem.key),
+    [onSelect, activeItem?.key],
+  );
+  const { erase, setEnabled } = Eraser.use({});
+  const handleResize = useCallback(
+    (size: number, box: box.Box) => {
+      onResize?.(size, box);
+      erase(box);
+    },
+    [onResize, erase],
+  );
+  useLayoutEffect(() => {
+    setEnabled(activeItem != null);
+  }, [activeItem, setEnabled]);
+  if (activeItem == null) return null;
+  const { content, key, minSize, maxSize, initialSize } = activeItem;
+  return (
+    <Resize.Single
+      key={key}
+      className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
+      collapseThreshold={collapseThreshold}
+      onCollapse={handleCollapse}
+      location={loc_}
+      onResize={handleResize}
+      minSize={minSize}
+      maxSize={maxSize}
+      initialSize={initialSize}
+      {...props}
+    >
+      {content}
+    </Resize.Single>
+  );
+};

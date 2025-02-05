@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,7 +36,7 @@ export class Program extends GLProgram {
   }
 
   exec(): void {
-    const { gl } = this.ctx;
+    const { gl } = this.renderCtx;
     const positionAttr = gl.getAttribLocation(this.prog, "a_position");
     gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
     const vao = gl.createVertexArray();

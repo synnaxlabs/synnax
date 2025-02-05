@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,7 +22,7 @@ import { setActive } from "@/workspace/slice";
 
 const MAX_RETRY_COUNT = 3;
 
-export const useSyncLayout = async (): Promise<void> => {
+export const useSyncLayout = (): void => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const addStatus = Status.useAggregator();

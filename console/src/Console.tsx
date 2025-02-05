@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -76,7 +76,6 @@ const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "Shift", "P"],
   ["Control", "MouseLeft"],
   ["Control", "W"],
-  ["Control", "A"],
 ];
 
 const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -42,7 +42,7 @@ export interface ValueProps {
 
 interface InternalState {
   theme: theming.Theme;
-  render: render.Context;
+  renderCtx: render.Context;
   telem: telem.StringSource;
   stopListening?: () => void;
   backgroundTelem: telem.ColorSource;
@@ -59,17 +59,17 @@ export class Value
   static readonly z = valueState;
   schema = Value.z;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.render = render.Context.use(this.ctx);
-    i.theme = theming.use(this.ctx);
+    i.renderCtx = render.Context.use(ctx);
+    i.theme = theming.use(ctx);
     if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
-    i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
+    i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = this.internal.telem.onChange(() => this.requestRender());
     i.backgroundTelem = await telem.useSource(
-      this.ctx,
+      ctx,
       this.state.backgroundTelem,
       i.backgroundTelem,
     );
@@ -77,7 +77,7 @@ export class Value
     i.stopListeningBackground = this.internal.backgroundTelem.onChange(() =>
       this.requestRender(),
     );
-    this.internal.requestRender = render.Controller.useOptionalRequest(this.ctx);
+    this.internal.requestRender = render.Controller.useOptionalRequest(ctx);
     this.requestRender();
   }
 
@@ -88,7 +88,7 @@ export class Value
     await i.telem.cleanup?.();
     await i.backgroundTelem.cleanup?.();
     if (i.requestRender == null)
-      i.render.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
+      i.renderCtx.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
     else i.requestRender(render.REASON_LAYOUT);
   }
 
@@ -117,7 +117,7 @@ export class Value
   }
 
   async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
-    const { render: renderCtx, telem, backgroundTelem } = this.internal;
+    const { renderCtx, telem, backgroundTelem } = this.internal;
     const b = box.construct(this.state.box);
     if (box.areaIsZero(b)) return;
     const { location } = this.state;
