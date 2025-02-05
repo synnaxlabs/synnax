@@ -1,4 +1,4 @@
-name: Deploy - Synnax
+name: Deploy - Driver
 
 on:
   push:
@@ -60,7 +60,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo
             })
-            const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.setup.outputs.VERSION }}')
+            const release = releases.find(r => r.tag_name === 'synnax-driver-v${{ needs.setup.outputs.VERSION }}')
             if (release != null) return release.id
             const { data: { id } } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
