@@ -36,24 +36,24 @@ export const outputChannelTypeZ = z.enum([AO_CHANNEL_TYPE, DO_CHANNEL_TYPE]);
 export type OutputChannelType = z.infer<typeof outputChannelTypeZ>;
 export type ChannelType = InputChannelType | OutputChannelType;
 
-type ConvertChannelTypeToPortType = {
+interface ConvertChannelTypeToPortType {
   [DI_CHANNEL_TYPE]: Device.DIPortType;
   [AI_CHANNEL_TYPE]: Device.AIPortType;
   [TC_CHANNEL_TYPE]: Device.AIPortType;
   [AO_CHANNEL_TYPE]: Device.AOPortType;
   [DO_CHANNEL_TYPE]: Device.DOPortType;
-};
+}
 
 export const getPortTypeFromChannelType = <
   T extends keyof ConvertChannelTypeToPortType,
 >(
   type: T,
 ): ConvertChannelTypeToPortType[T] => {
-  if (type === DI_CHANNEL_TYPE) return "DI";
-  if (type === AI_CHANNEL_TYPE) return "AI";
-  if (type === TC_CHANNEL_TYPE) return "AI";
-  if (type === AO_CHANNEL_TYPE) return "AO";
-  if (type === DO_CHANNEL_TYPE) return "DO";
+  if (type === DI_CHANNEL_TYPE) return "DI" as ConvertChannelTypeToPortType[T];
+  if (type === AI_CHANNEL_TYPE) return "AI" as ConvertChannelTypeToPortType[T];
+  if (type === TC_CHANNEL_TYPE) return "AI" as ConvertChannelTypeToPortType[T];
+  if (type === AO_CHANNEL_TYPE) return "AO" as ConvertChannelTypeToPortType[T];
+  if (type === DO_CHANNEL_TYPE) return "DO" as ConvertChannelTypeToPortType[T];
   throw new Error(`Unknown channel type: ${type}`);
 };
 
