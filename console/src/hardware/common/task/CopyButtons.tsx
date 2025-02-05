@@ -51,18 +51,14 @@ export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) =
       `TypeScript code to retrieve ${name}`,
     );
   };
-  const handleCopyJSONConfig = () => {
+  const handleCopyJSONConfig = () =>
     copy(
       binary.JSON_CODEC.encodeString(getConfig()),
       `JSON configuration for ${getName()}`,
     );
-  };
   const copyLink = Link.useCopyToClipboard();
-  const handleCopyLink = () => {
-    console.log(taskKey);
-    if (taskKey == null) return;
+  const handleCopyLink = () =>
     copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
-  };
   const hasDisabledButtons = taskKey === "";
   return (
     <Align.Space direction="x" size="small">
