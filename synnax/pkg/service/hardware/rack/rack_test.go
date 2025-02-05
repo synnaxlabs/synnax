@@ -59,7 +59,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should create a rack and assign it a key", func() {
 			r := &rack.Rack{Name: "rack1"}
 			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(r.Key.IsValid()).To(BeTrue())
+			Expect(!r.Key.IsZero()).To(BeTrue())
 			Expect(r.Key.Node()).To(Equal(core.NodeKey(1)))
 			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
 		})

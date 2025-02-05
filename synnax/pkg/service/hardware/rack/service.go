@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -32,17 +31,31 @@ import (
 // Config is the configuration for creating a Service.
 type Config struct {
 	alamos.Instrumentation
-	DB           *gorp.DB
-	Ontology     *ontology.Ontology
-	Group        *group.Service
+	// DB is the gorp database that racks will be stored in.
+	// [REQUIRED]
+	DB *gorp.DB
+	// Ontology is used to define relationships between racks and other resources
+	// in the Synnax cluster.
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// Group is used to create rack related groups of ontology resources.
+	// [REQUIRED]
+	Group *group.Service
+	// HostProvider is used to assign keys to racks.
+	// [REQUIRED]
 	HostProvider core.HostProvider
-	Signals      *signals.Provider
-	Channel      channel.Writeable
+	// Signals is used to propagate rack changes through the Synnax signals' channel
+	// communication mechanism.
+	// [REQUIRED]
+	Signals *signals.Provider
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening a rack service. Note
+	// that this configuration is not valid. See the Config documentation for more
+	// details on which fields must be set.
+	DefaultConfig = Config{}
 )
 
 // Override implements config.Properties.
@@ -53,7 +66,6 @@ func (c Config) Override(other Config) Config {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 

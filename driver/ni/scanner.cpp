@@ -47,16 +47,16 @@ ni::Scanner::Scanner(
         NISysCfgFilterPropertyIsDevice,
         NISysCfgBoolTrue
     );
-    //    this->syscfg->SetFilterProperty(
-    //        this->filter,
-    //        NISysCfgFilterPropertyIsPresent,
-    //        NISysCfgIsPresentTypePresent
-    //    );
-    //    this->syscfg->SetFilterProperty(
-    //        this->filter,
-    //        NISysCfgFilterPropertyIsChassis,
-    //        NISysCfgBoolFalse
-    //    );
+    this->syscfg->SetFilterProperty(
+        this->filter,
+        NISysCfgFilterPropertyIsPresent,
+        NISysCfgIsPresentTypePresent
+    );
+    this->syscfg->SetFilterProperty(
+        this->filter,
+        NISysCfgFilterPropertyIsChassis,
+        NISysCfgBoolFalse
+    );
     VLOG(1) << "[ni.scanner] successfully configured scanner for task " << this->task.
             name;
 

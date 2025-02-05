@@ -16,21 +16,30 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Writer is used to create, update, and delete racks within a Synnax cluster.
 type Writer struct {
-	tx     gorp.Tx
-	otg    ontology.Writer
-	group  group.Group
+	// tx is the underlying gorp transaction that rack operations will be executed
+	// against.
+	tx gorp.Tx
+	// otg is a writer used to modify rack related resources and relationships within
+	// the ontology.
+	otg ontology.Writer
+	// group is the base group that racks will be created under.
+	group group.Group
+	// newKey returns a new key for a rack.
 	newKey func() (Key, error)
 }
 
+// Create creates or updates a rack. If the rack key is zero or a rack with the key
+// does not exist, a new rack will be created.
 func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
-	if !r.Key.IsValid() {
+	if r.Key.IsZero() {
 		r.Key, err = w.newKey()
 		if err != nil {
 			return
 		}
 	}
-	if err := r.Validate(); err != nil {
+	if err = r.Validate(); err != nil {
 		return err
 	}
 	if err = gorp.NewCreate[Key, Rack]().Entry(r).Exec(ctx, w.tx); err != nil {
@@ -43,6 +52,8 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
 }
 
+// Delete deletes the rack with the provided key. Delete is idempotent, and deleting
+// a non-existent rack will not return an error.
 func (w Writer) Delete(ctx context.Context, key Key) error {
 	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 		return err
@@ -50,7 +61,8 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 	return gorp.NewDelete[Key, Rack]().WhereKeys(key).Exec(ctx, w.tx)
 }
 
-func (w Writer) IncrementTaskCount(ctx context.Context, key Key, by uint32) (next uint32, err error) {
+// NextTaskKey increments
+func (w Writer) NextTaskKey(ctx context.Context, key Key, by uint32) (next uint32, err error) {
 	return next, gorp.NewUpdate[Key, Rack]().WhereKeys(key).Change(func(r Rack) Rack {
 		r.TaskCounter += by
 		next = r.TaskCounter
