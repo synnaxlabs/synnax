@@ -24,6 +24,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
+import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import {
   type ConfigSchema,
@@ -121,7 +122,11 @@ export const wrapForm = <
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>
-              {/* TODO: Add copy buttons */}
+              <CopyButtons
+                getConfig={() => methods.get("config").value}
+                getName={() => methods.get<string>("name").value}
+                taskKey={task.key}
+              />
             </Align.Space>
             <ParentRangeButton key={task.key} />
             <Align.Space direction="x" className={CSS.B("task-properties")}>
