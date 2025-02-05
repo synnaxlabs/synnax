@@ -175,7 +175,19 @@ void ni::Scanner::create_devices() {
     if (!this->ok_state) return;
     for (auto &device: devices["devices"]) {
         auto model = device["model"].get<std::string>();
-        if (model.empty() || (model.length() > 0 && model[0] == 'O') || device["failed_to_create"] == true) continue;
+        
+        // Check if model is empty or matches any ignored prefix
+        bool should_ignore = model.empty() || device["failed_to_create"] == true;
+        if (!should_ignore) {
+            for (const auto& prefix : IGNORED_MODEL_PREFIXES) {
+                if (model.length() >= prefix.length() && model.substr(0, prefix.length()) == prefix) {
+                    should_ignore = true;
+                    break;
+                }
+            }
+        }
+        if (should_ignore) continue;
+
         // first try to retrieve the device and if found, do not create a new device,
         // simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieve_device(

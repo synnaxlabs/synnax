@@ -448,6 +448,8 @@ public:
     void log_err(std::string err_msg);
 
 private:
+    const std::vector<std::string> IGNORED_MODEL_PREFIXES = {"O", "cRIO", "nown"};  // Add more prefixes as needed
+
     std::shared_ptr<SysCfg> syscfg;
 
     json get_device_properties(NISysCfgResourceHandle resource);
