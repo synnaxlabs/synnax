@@ -18,6 +18,7 @@ namespace fs = std::filesystem;
 namespace daemond {
 const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
 const std::string BINARY_NAME = "synnax-driver";
+const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
 
 std::mutex mtx;
 std::condition_variable cv;
@@ -80,6 +81,7 @@ WantedBy=multi-user.target
 )";
 
 freighter::Error create_system_user() {
+    LOG(INFO) << "Creating system user";
     int result = system(
         "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax");
     if (result != 0) {
@@ -89,6 +91,7 @@ freighter::Error create_system_user() {
 }
 
 freighter::Error install_binary() {
+    LOG(INFO) << "Moving binary to " << BINARY_INSTALL_DIR;
     std::error_code ec;
     const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
     if (ec)
@@ -118,28 +121,26 @@ freighter::Error install_binary() {
 }
 
 freighter::Error install_service() {
-    if (auto err = create_system_user())return err;
+    if (auto err = create_system_user()) return err;
     if (auto err = install_binary()) return err;
 
-    const char *service_path = "/etc/systemd/system/synnax-driver.service";
-
+    LOG(INFO) << "Creating service file at " << SYSTEMD_SERVICE_PATH;
     std::error_code ec;
-    fs::create_directories(fs::path(service_path).parent_path(), ec);
+    fs::create_directories(fs::path(SYSTEMD_SERVICE_PATH).parent_path(), ec);
     if (ec)
         return freighter::Error("Failed to create service directory: " + ec.message());
 
-    std::ofstream service_file(service_path);
+    std::ofstream service_file(SYSTEMD_SERVICE_PATH.c_str());
     if (!service_file)
         return freighter::Error("Failed to create service file");
 
     service_file << SYSTEMD_SERVICE_TEMPLATE;
     service_file.close();
 
-    // Set permissions (644)
-    if (chmod(service_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0)
+    if (chmod(SYSTEMD_SERVICE_PATH.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0)
         return freighter::Error("Failed to set service file permissions");
 
-    // Reload systemd
+    LOG(INFO) << "Enabling and starting service";
     if (system("systemctl daemon-reload") != 0)
         return freighter::Error("Failed to reload systemd");
 
@@ -147,12 +148,11 @@ freighter::Error install_service() {
 }
 
 freighter::Error uninstall_service() {
-    // Stop and disable the service
+    LOG(INFO) << "Stopping and disabling service";
     system("systemctl stop synnax-driver");
     system("systemctl disable synnax-driver");
 
-    // Remove service file
-    fs::remove("/etc/systemd/system/synnax-driver.service");
+    fs::remove(SYSTEMD_SERVICE_PATH);
 
     if (system("systemctl daemon-reload") != 0)
         return freighter::Error("Failed to reload systemd");
