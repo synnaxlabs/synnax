@@ -35,7 +35,7 @@ const Base = ({
   visible: _,
   focused: __,
   text = "Select a Component Type",
-  ...props
+  ...rest
 }: SelectorProps): ReactElement => {
   const place = usePlacer();
 
@@ -44,7 +44,7 @@ const Base = ({
       <Align.Center
         className={CSS.B("vis-layout-selector")}
         size="large"
-        {...props}
+        {...rest}
         wrap
       >
         <Text.Text level="h4" shade={6} weight={400}>

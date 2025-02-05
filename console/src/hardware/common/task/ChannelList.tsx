@@ -55,7 +55,7 @@ export const ChannelList = <C extends Channel>({
   isDragging,
   path,
   remove,
-  ...props
+  ...rest
 }: ChannelListProps<C>): ReactElement => {
   const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
     const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
@@ -118,7 +118,7 @@ export const ChannelList = <C extends Channel>({
   };
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space direction="y" {...props} empty grow>
+    <Align.Space direction="y" {...rest} empty grow>
       {header}
       <PMenu.ContextMenu {...menuProps} menu={ContextMenu}>
         <List.List<string, C> data={channels} emptyContent={emptyContent}>

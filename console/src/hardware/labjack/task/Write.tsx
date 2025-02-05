@@ -61,16 +61,16 @@ const ChannelListItem = ({
   path,
   isSnapshot,
   device,
-  ...props
+  ...rest
 }: ChannelListItemProps): ReactElement => {
   const {
     entry,
     entry: { cmdKey, enabled, stateKey, type, port },
-  } = props;
+  } = rest;
   const { set } = PForm.useContext();
   return (
     <List.ItemFrame
-      {...props}
+      {...rest}
       style={{ width: "100%" }}
       justify="spaceBetween"
       align="center"

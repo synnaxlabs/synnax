@@ -21,7 +21,7 @@ export interface CopyToolbarButtonProps extends Omit<Button.IconProps, "children
 export const CopyToolbarButton = ({
   name,
   ontologyID,
-  ...props
+  ...rest
 }: CopyToolbarButtonProps) => {
   const handleClick = useCopyToClipboard();
   return (
@@ -31,7 +31,7 @@ export const CopyToolbarButton = ({
       size="medium"
       style={{ height: "100%", width: "var(--pluto-height-medium)" }}
       onClick={() => handleClick({ name, ontologyID })}
-      {...props}
+      {...rest}
     >
       <Icon.Link />
     </Button.Icon>

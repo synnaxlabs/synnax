@@ -20,7 +20,7 @@ export interface EditorProps
   extends Input.Control<string>,
     Omit<Align.SpaceProps, "value" | "onChange"> {}
 
-export const Editor = ({ value, onChange, className, ...props }: EditorProps) => {
+export const Editor = ({ value, onChange, className, ...rest }: EditorProps) => {
   const editorRef = useRef<HTMLDivElement | null>(null); // A ref to store the editor DOM element
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // A ref to store the Monaco editor instance
   const theme = Theming.use();
@@ -91,7 +91,7 @@ export const Editor = ({ value, onChange, className, ...props }: EditorProps) =>
     <Align.Space
       direction="y"
       grow
-      {...props}
+      {...rest}
       className={CSS(className, CSS.B("editor"))}
     >
       <div ref={editorRef} style={{ height: "100%", position: "relative" }} />

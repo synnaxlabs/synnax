@@ -439,10 +439,7 @@ const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement
 });
 Cell.displayName = "Cell";
 
-export const Table: Layout.Renderer = ({
-  layoutKey,
-  ...props
-}): ReactElement | null => {
+export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
   const table = useLoadRemote({
     name: "Table",
     targetVersion: ZERO_STATE.version,
@@ -455,5 +452,5 @@ export const Table: Layout.Renderer = ({
     actionCreator: internalCreate,
   });
   if (table == null) return null;
-  return <Loaded layoutKey={layoutKey} {...props} />;
+  return <Loaded layoutKey={layoutKey} {...rest} />;
 };

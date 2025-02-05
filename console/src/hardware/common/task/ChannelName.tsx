@@ -20,7 +20,7 @@ export interface ChannelNameProps extends Omit<Text.TextProps, "level"> {
 export const ChannelName = ({
   channel,
   defaultName = "No Channel",
-  ...props
+  ...rest
 }: ChannelNameProps): ReactElement => {
   const channelName = Channel.useName(channel, defaultName);
   return (
@@ -28,7 +28,7 @@ export const ChannelName = ({
       level="p"
       shade={9}
       color={channel === 0 ? "var(--pluto-warning-m1)" : undefined}
-      {...props}
+      {...rest}
     >
       {channelName}
     </Text.Text>

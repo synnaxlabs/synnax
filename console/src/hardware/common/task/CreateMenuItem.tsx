@@ -12,7 +12,7 @@ import { Icon as PIcon, Menu } from "@synnaxlabs/pluto";
 
 export interface CreateMenuItemProps extends Menu.ItemProps {}
 
-export const CreateMenuItem = ({ children, ...props }: CreateMenuItemProps) => (
+export const CreateMenuItem = (props: CreateMenuItemProps) => (
   <Menu.Item
     startIcon={
       <PIcon.Create>
@@ -20,7 +20,5 @@ export const CreateMenuItem = ({ children, ...props }: CreateMenuItemProps) => (
       </PIcon.Create>
     }
     {...props}
-  >
-    {children}
-  </Menu.Item>
+  ></Menu.Item>
 );

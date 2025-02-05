@@ -30,11 +30,11 @@ export const Modals = () => {
 
 export interface ModalBarProps extends Nav.BarProps {}
 
-export const BottomNavBar = ({ className, ...props }: ModalBarProps) => (
+export const BottomNavBar = ({ className, ...rest }: ModalBarProps) => (
   <Nav.Bar
     location="bottom"
     size="8rem"
     className={CSS(CSS.B("bottom-nav-bar"), className)}
-    {...props}
+    {...rest}
   />
 );

@@ -25,13 +25,13 @@ export const DigitalListItem = ({
   path,
   children,
   isSnapshot,
-  ...props
+  ...rest
 }: DigitalListItemProps): ReactElement => {
-  const { enabled } = props.entry;
+  const { enabled } = rest.entry;
   const { set } = Form.useContext();
   return (
     <List.ItemFrame
-      {...props}
+      {...rest}
       style={{ width: "100%" }}
       justify="spaceBetween"
       align="center"

@@ -15,12 +15,12 @@ import { type ReactElement, useCallback, useState } from "react";
 import { CSS } from "@/css";
 import { type Channel } from "@/hardware/common/task/ChannelList";
 import {
-  DefaultChannelList,
-  type DefaultChannelListProps,
-} from "@/hardware/common/task/layouts/DefaultChannelList";
+  ChannelList,
+  type ChannelListProps,
+} from "@/hardware/common/task/layouts/ChannelList";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
-export interface GenerateChannelFn<C extends Channel> {
+export interface GenerateChannel<C extends Channel> {
   (channels: C[], index: number): C | null;
 }
 
@@ -28,14 +28,12 @@ export interface DetailsProps {
   path: string;
 }
 
-export interface ListAndDetailsProps<C extends Channel> {
-  listItem: DefaultChannelListProps<C>["children"];
+export interface ListAndDetailsProps<C extends Channel>
+  extends Pick<ChannelListProps<C>, "onTare" | "allowTare" | "isSnapshot"> {
+  listItem: ChannelListProps<C>["children"];
   details: (props: DetailsProps) => ReactElement;
-  generateChannel: GenerateChannelFn<C>;
-  isSnapshot: boolean;
+  generateChannel: GenerateChannel<C>;
   initalChannels: C[];
-  onTare?: DefaultChannelListProps<C>["onTare"];
-  allowTare?: DefaultChannelListProps<C>["allowTare"];
 }
 
 export const ListAndDetails = <C extends Channel>({
@@ -43,7 +41,7 @@ export const ListAndDetails = <C extends Channel>({
   details,
   initalChannels,
   generateChannel,
-  ...props
+  ...rest
 }: ListAndDetailsProps<C>): ReactElement => {
   const [selected, setSelected] = useState<string[]>(
     initalChannels.length ? [initalChannels[0].key] : [],
@@ -73,15 +71,15 @@ export const ListAndDetails = <C extends Channel>({
   }, [selectedIndex, copy, get]);
   return (
     <>
-      <DefaultChannelList<C>
-        {...props}
+      <ChannelList<C>
+        {...rest}
         selected={selected}
         onSelect={handleSelect}
         generateChannel={handleGenerateChannel}
         style={{ height: "calc(100% - 18px)", width: "30rem" }}
       >
         {listItem}
-      </DefaultChannelList>
+      </ChannelList>
       <Divider.Divider direction="y" />
       <Align.Space direction="y" grow>
         <Header.Header level="h4">

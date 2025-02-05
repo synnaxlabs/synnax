@@ -49,16 +49,15 @@ const generateChannel = (channels: DOChannel[]): DOChannel => {
 
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<DOChannel> {}
 
-const ChannelListItem = ({
-  entry,
-  entry: { cmdChannel, stateChannel },
-  ...props
-}: ChannelListItemProps): ReactElement => (
-  <DigitalListItem {...props} entry={entry}>
-    <Common.Task.ChannelName channel={cmdChannel} defaultName="No Command Channel" />
-    <Common.Task.ChannelName channel={stateChannel} defaultName="No State Channel" />
-  </DigitalListItem>
-);
+const ChannelListItem = (props: ChannelListItemProps): ReactElement => {
+  const { cmdChannel, stateChannel } = props.entry;
+  return (
+    <DigitalListItem {...props}>
+      <Common.Task.ChannelName channel={cmdChannel} defaultName="No Command Channel" />
+      <Common.Task.ChannelName channel={stateChannel} defaultName="No State Channel" />
+    </DigitalListItem>
+  );
+};
 
 const Properties = (): ReactElement => (
   <>

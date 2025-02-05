@@ -282,11 +282,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-export const Item: Tree.Item = ({ entry, ...props }: Tree.ItemProps): ReactElement => {
+export const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps): ReactElement => {
   const alias = Channel.useAlias(Number(new ontology.ID(entry.key).key));
-  return (
-    <Tree.DefaultItem {...props} entry={{ ...entry, name: alias ?? entry.name }} />
-  );
+  return <Tree.DefaultItem {...rest} entry={{ ...entry, name: alias ?? entry.name }} />;
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

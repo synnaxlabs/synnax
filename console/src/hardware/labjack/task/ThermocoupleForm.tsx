@@ -60,7 +60,7 @@ interface SelectCJCSourceProps extends Select.SingleProps<string, CJCSourceType>
   model: Device.ModelKey;
 }
 
-const SelectCJCSourceField = ({ model, ...props }: SelectCJCSourceProps) => {
+const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceProps) => {
   const ports: CJCSourceType[] = Device.DEVICES[model].ports.AI;
   const data = [
     { key: "TEMPERATURE_DEVICE_K" },
@@ -73,7 +73,7 @@ const SelectCJCSourceField = ({ model, ...props }: SelectCJCSourceProps) => {
       columns={[{ key: "key", name: "CJC Source" }]}
       allowNone={false}
       entryRenderKey="key"
-      {...props}
+      {...rest}
     />
   );
 };

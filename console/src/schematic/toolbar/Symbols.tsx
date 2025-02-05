@@ -98,7 +98,7 @@ const SymbolsButton = ({
   children,
   el: { name, key, Preview, defaultProps },
   theme,
-  ...props
+  ...rest
 }: SymbolsButtonProps): ReactElement => {
   const { startDrag, ...dragProps } = Haul.useDrag({
     type: "Diagram-Elements",
@@ -117,7 +117,7 @@ const SymbolsButton = ({
       align="center"
       size={0.5}
       draggable
-      {...props}
+      {...rest}
       {...dragProps}
       onDragStart={handleDragStart}
     >

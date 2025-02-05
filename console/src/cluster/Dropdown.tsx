@@ -182,11 +182,11 @@ interface ListItemProps extends CoreList.ItemProps<string, Cluster> {
   validateName: (name: string) => boolean;
 }
 
-const ListItem = ({ validateName, ...props }: ListItemProps): ReactElement => {
+const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement => {
   const dispatch = useDispatch();
   const handleChange = (value: string) => {
     if (!validateName(value)) return;
-    dispatch(rename({ key: props.entry.key, name: value }));
+    dispatch(rename({ key: rest.entry.key, name: value }));
   };
 
   return (
@@ -194,19 +194,19 @@ const ListItem = ({ validateName, ...props }: ListItemProps): ReactElement => {
       className={CSS(CSS.B("cluster-list-item"))}
       direction="x"
       align="center"
-      {...props}
+      {...rest}
     >
       <Align.Space direction="y" justify="spaceBetween" size={0.5} grow>
         <Text.MaybeEditable
           level="p"
-          id={`cluster-dropdown-${props.entry.key}`}
+          id={`cluster-dropdown-${rest.entry.key}`}
           weight={450}
-          value={props.entry.name}
+          value={rest.entry.name}
           onChange={handleChange}
           allowDoubleClick={false}
         />
         <Text.Text level="p" shade={6}>
-          {props.entry.host}:{props.entry.port}
+          {rest.entry.host}:{rest.entry.port}
         </Text.Text>
       </Align.Space>
     </CoreList.ItemFrame>

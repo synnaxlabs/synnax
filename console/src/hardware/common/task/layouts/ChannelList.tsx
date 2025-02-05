@@ -13,8 +13,8 @@ import { useCallback } from "react";
 
 import {
   type Channel,
-  ChannelList,
-  type ChannelListProps,
+  ChannelList as Core,
+  type ChannelListProps as CoreProps,
 } from "@/hardware/common/task/ChannelList";
 
 interface HeaderProps {
@@ -54,22 +54,22 @@ const EmptyContent = ({ isSnapshot, onAdd }: EmptyContentProps) => (
   </Align.Center>
 );
 
-export type DefaultChannelListProps<C extends Channel> = Omit<
-  ChannelListProps<C>,
+export type ChannelListProps<C extends Channel> = Omit<
+  CoreProps<C>,
   "channels" | "header" | "emptyContent" | "path" | "remove"
 > & {
   generateChannel: (channels: C[]) => C | null;
   path?: string;
 };
 
-export const DefaultChannelList = <C extends Channel>({
+export const ChannelList = <C extends Channel>({
   isSnapshot,
   children,
   generateChannel,
   onSelect,
   path = "config.channels",
   ...rest
-}: DefaultChannelListProps<C>) => {
+}: ChannelListProps<C>) => {
   const {
     value: channels,
     push,
@@ -82,7 +82,7 @@ export const DefaultChannelList = <C extends Channel>({
     onSelect([channel.key], channels.length);
   }, [push, channels, generateChannel, onSelect]);
   return (
-    <ChannelList
+    <Core
       header={<Header isSnapshot={isSnapshot} onAdd={handleAdd} />}
       emptyContent={<EmptyContent isSnapshot={isSnapshot} onAdd={handleAdd} />}
       isSnapshot={isSnapshot}
@@ -93,6 +93,6 @@ export const DefaultChannelList = <C extends Channel>({
       {...rest}
     >
       {children}
-    </ChannelList>
+    </Core>
   );
 };

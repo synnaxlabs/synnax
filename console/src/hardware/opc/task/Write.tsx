@@ -71,12 +71,12 @@ const ChannelListItem = ({
   path,
   remove,
   snapshot,
-  ...props
+  ...rest
 }: ChannelListItemProps): ReactElement => {
-  const { entry } = props;
+  const { entry } = rest;
   const ctx = PForm.useContext();
   const childValues = PForm.useChildFieldValues<WriteChannelConfig>({
-    path: `${path}.${props.index}`,
+    path: `${path}.${rest.index}`,
     optional: true,
   });
   if (childValues == null) return <></>;
@@ -87,7 +87,7 @@ const ChannelListItem = ({
 
   return (
     <List.ItemFrame
-      {...props}
+      {...rest}
       entry={childValues}
       justify="spaceBetween"
       align="center"
@@ -117,7 +117,7 @@ const ChannelListItem = ({
       <Align.Space direction="x" align="center">
         <Common.Task.EnableDisableButton
           value={childValues.enabled}
-          onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+          onChange={(v) => ctx.set(`${path}.${rest.index}.enabled`, v)}
           isSnapshot={snapshot}
         />
       </Align.Space>

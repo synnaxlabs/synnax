@@ -21,7 +21,7 @@ export interface SelectPortProps extends Select.SingleProps<string, Port> {
   portType: PortType;
 }
 
-export const SelectPort = ({ model, portType, ...props }: SelectPortProps) => (
+export const SelectPort = ({ model, portType, ...rest }: SelectPortProps) => (
   <Select.Single<string, Port>
     data={DEVICES[model].ports[portType]}
     columns={[
@@ -38,6 +38,6 @@ export const SelectPort = ({ model, portType, ...props }: SelectPortProps) => (
     ]}
     allowNone={false}
     entryRenderKey="key"
-    {...props}
+    {...rest}
   />
 );

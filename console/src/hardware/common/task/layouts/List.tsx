@@ -11,15 +11,12 @@ import { type ReactElement, useState } from "react";
 
 import { type Channel } from "@/hardware/common/task/ChannelList";
 import {
-  DefaultChannelList,
-  type DefaultChannelListProps,
-} from "@/hardware/common/task/layouts/DefaultChannelList";
+  ChannelList,
+  type ChannelListProps,
+} from "@/hardware/common/task/layouts/ChannelList";
 
 export interface ListProps<C extends Channel>
-  extends Pick<
-    DefaultChannelListProps<C>,
-    "generateChannel" | "isSnapshot" | "children"
-  > {}
+  extends Pick<ChannelListProps<C>, "generateChannel" | "isSnapshot" | "children"> {}
 
 export const List = <C extends Channel>({
   children,
@@ -28,13 +25,13 @@ export const List = <C extends Channel>({
 }: ListProps<C>): ReactElement => {
   const [selected, setSelected] = useState<string[]>([]);
   return (
-    <DefaultChannelList<C>
+    <ChannelList<C>
       isSnapshot={isSnapshot}
       selected={selected}
       onSelect={setSelected}
       generateChannel={generateChannel}
     >
       {children}
-    </DefaultChannelList>
+    </ChannelList>
   );
 };

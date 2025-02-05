@@ -30,9 +30,9 @@ export const ZERO_SELECTOR_LAYOUT: Layout.BaseState = {
   key: SELECTOR_LAYOUT_TYPE,
 };
 
-const SELECTOR = Layout.createSelectorComponent(SELECTABLES);
+const SelectorComponent = Layout.createSelectorComponent(SELECTABLES);
 
 export const Selector = ({
   text = "Select a Task Type",
-  ...props
-}: Layout.SelectorProps): ReactElement => SELECTOR({ text, ...props });
+  ...rest
+}: Layout.SelectorProps): ReactElement => <SelectorComponent text={text} {...rest} />;

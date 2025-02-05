@@ -53,13 +53,9 @@ const Properties = (): ReactElement => (
 
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps<DIChannel> {}
 
-const ChannelListItem = ({
-  entry,
-  entry: { channel },
-  ...props
-}: ChannelListItemProps): ReactElement => (
-  <DigitalListItem {...props} entry={entry}>
-    <Common.Task.ChannelName channel={channel} defaultName="No Channel" />
+const ChannelListItem = (props: ChannelListItemProps): ReactElement => (
+  <DigitalListItem {...props}>
+    <Common.Task.ChannelName channel={props.entry.channel} defaultName="No Channel" />
   </DigitalListItem>
 );
 

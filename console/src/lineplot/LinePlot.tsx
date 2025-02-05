@@ -517,7 +517,7 @@ export const create =
 
 export const LinePlot: Layout.Renderer = ({
   layoutKey,
-  ...props
+  ...rest
 }): ReactElement | null => {
   const linePlot = useLoadRemote({
     name: "Line Plot",
@@ -531,7 +531,7 @@ export const LinePlot: Layout.Renderer = ({
     actionCreator: internalCreate,
   });
   if (linePlot == null) return null;
-  return <Loaded layoutKey={layoutKey} {...props} />;
+  return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
 export const SELECTABLE: Layout.Selectable = {

@@ -421,11 +421,11 @@ export const Tree = (): ReactElement => {
       return { prevName };
     },
     mutationFn: useCallback<MutationFunction<void, { key: string; name: string }>>(
-      async ({ key, name }: { key: string; name: string }, ...props) => {
+      async ({ key, name }: { key: string; name: string }, ...rest) => {
         const rProps = getRenameProps(key, name);
         const svc = services[rProps.id.type];
         if (svc.allowRename == null || svc.onRename == null) return;
-        await svc?.onRename?.execute?.(getRenameProps(key, name), ...props);
+        await svc?.onRename?.execute?.(getRenameProps(key, name), ...rest);
       },
       [services],
     ),
@@ -575,10 +575,10 @@ interface AdapterItemProps extends Core.ItemProps {
 }
 
 const AdapterItem = memo<AdapterItemProps>(
-  ({ loading, services, ...props }): ReactElement => {
-    const id = new ontology.ID(props.entry.key);
+  ({ loading, services, ...rest }): ReactElement => {
+    const id = new ontology.ID(rest.entry.key);
     const Item = useMemo(() => services[id.type]?.Item ?? Core.DefaultItem, [id.type]);
-    return <Item loading={loading} {...props} />;
+    return <Item loading={loading} {...rest} />;
   },
 );
 AdapterItem.displayName = "AdapterItem";

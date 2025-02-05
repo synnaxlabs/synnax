@@ -60,14 +60,14 @@ interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AOChanne
 const ChannelListItem = ({
   path,
   isSnapshot,
-  ...props
+  ...rest
 }: ChannelListItemProps): ReactElement => {
   const {
     entry: { port, enabled, type },
-  } = props;
+  } = rest;
   const { set } = PForm.useContext();
   return (
-    <List.ItemFrame {...props} justify="spaceBetween" align="center">
+    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
       <Align.Space direction="x">
         <Text.Text level="p" shade={6}>
           {port}

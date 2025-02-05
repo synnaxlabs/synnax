@@ -70,16 +70,16 @@ const ChannelListItem = ({
   isSnapshot,
   onTare,
   isRunning,
-  ...props
+  ...rest
 }: ChannelListItemProps): ReactElement => {
   const {
     entry: { channel, enabled, type, port },
-  } = props;
+  } = rest;
   const { set } = PForm.useContext();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   return (
-    <List.ItemFrame {...props} justify="spaceBetween" align="center">
+    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
       <Align.Space direction="x">
         <Text.Text level="p" shade={6}>
           {port}

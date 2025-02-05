@@ -33,9 +33,9 @@ interface NavMenuProps extends Omit<PMenu.MenuProps, "children"> {
 export const NavMenu = ({
   children,
   activeItem,
-  ...props
+  ...rest
 }: NavMenuProps): ReactElement => (
-  <PMenu.Menu {...props}>
+  <PMenu.Menu {...rest}>
     {children.map(({ key, tooltip, icon }) => (
       <PMenu.Item.Icon
         className={CSS(

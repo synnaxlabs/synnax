@@ -335,9 +335,8 @@ const Content = (): ReactElement => {
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>
-              {({ key, ...props }) => (
+              {(props) => (
                 <TaskListItem
-                  key={key}
                   {...props}
                   desiredState={desiredStates[props.entry.key]}
                   onStopStart={(state) => {
@@ -349,7 +348,7 @@ const Content = (): ReactElement => {
                       return next;
                     });
                   }}
-                  onRename={(name) => handleRename({ name, key })}
+                  onRename={(name) => handleRename({ name, key: props.key })}
                 />
               )}
             </List.Core>
@@ -382,12 +381,12 @@ const TaskListItem = ({
   desiredState,
   onStopStart,
   onRename,
-  ...props
+  ...rest
 }: TaskListItemProps) => {
   const {
     entry,
     entry: { type, state },
-  } = props;
+  } = rest;
   const logo = getIcon(type);
   const isRunning = entry.state?.details?.running === true;
   const isLoading =
@@ -402,7 +401,7 @@ const TaskListItem = ({
       .catch((e) => handleException(e, `Failed to ${action} task`));
   };
   return (
-    <List.ItemFrame {...props} justify="spaceBetween" align="center" rightAligned>
+    <List.ItemFrame {...rest} justify="spaceBetween" align="center" rightAligned>
       <Align.Space
         direction="y"
         size="small"

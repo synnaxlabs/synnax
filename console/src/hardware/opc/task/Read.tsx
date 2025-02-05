@@ -171,12 +171,12 @@ export const ChannelListItem = ({
   path,
   remove,
   snapshot,
-  ...props
+  ...rest
 }: ChannelListItemProps): ReactElement => {
-  const { entry } = props;
+  const { entry } = rest;
   const ctx = Form.useContext();
   const childValues = Form.useChildFieldValues<ReadChannelConfig>({
-    path: `${path}.${props.index}`,
+    path: `${path}.${rest.index}`,
     optional: true,
   });
   if (childValues == null) return <></>;
@@ -187,7 +187,7 @@ export const ChannelListItem = ({
 
   return (
     <List.ItemFrame
-      {...props}
+      {...rest}
       entry={childValues}
       justify="spaceBetween"
       align="center"
@@ -222,7 +222,7 @@ export const ChannelListItem = ({
         )}
         <Common.Task.EnableDisableButton
           value={childValues.enabled}
-          onChange={(v) => ctx.set(`${path}.${props.index}.enabled`, v)}
+          onChange={(v) => ctx.set(`${path}.${rest.index}.enabled`, v)}
           isSnapshot={snapshot ?? false}
         />
       </Align.Space>

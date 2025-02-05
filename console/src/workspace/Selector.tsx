@@ -146,15 +146,15 @@ export const Selector = (): ReactElement => {
 
 export const SelectorListItem = ({
   onSelect,
-  ...props
+  ...rest
 }: List.ItemProps<string, workspace.Workspace>): ReactElement => {
-  const { entry } = props;
+  const { entry } = rest;
   const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();
     onSelect?.(entry.key);
   };
   return (
-    <List.ItemFrame {...props} onClick={handleSelect}>
+    <List.ItemFrame {...rest} onClick={handleSelect}>
       <Text.Text level="p">{entry.name}</Text.Text>
     </List.ItemFrame>
   );

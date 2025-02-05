@@ -49,10 +49,10 @@ interface ListItemProps extends PList.ItemProps<string, RuleState> {
   onChangeLabel: (label: string) => void;
 }
 
-const ListItem = ({ entry, onChangeLabel, ...props }: ListItemProps): ReactElement => (
+const ListItem = ({ entry, onChangeLabel, ...rest }: ListItemProps): ReactElement => (
   <PList.ItemFrame
     entry={entry}
-    {...props}
+    {...rest}
     // style={{ paddingTop: "0.5", paddingBottom: "0.5rem" }}
     style={{ padding: "0.75rem 1.5rem" }}
   >
@@ -116,10 +116,10 @@ const List = ({
             {...menuProps}
           >
             <PList.Core<string, RuleState> direction="y" empty grow>
-              {({ key, ...props }) => (
+              {({ key, ...rest }) => (
                 <ListItem
                   key={key}
-                  {...props}
+                  {...rest}
                   onChangeLabel={(v) => onLabelChange(v, key)}
                 />
               )}
