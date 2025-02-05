@@ -19,8 +19,9 @@ ni::Scanner::Scanner(
     const std::shared_ptr<SysCfg> &syscfg,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
-) : syscfg(syscfg), task(task), ctx(ctx) {
-    // initialize syscfg session for the scanner (TODO: Error Handling for status)
+) : syscfg(syscfg), 
+    task(task), 
+    ctx(ctx) {
     NISysCfgStatus status = NISysCfg_OK;
     status = syscfg->InitializeSession(
         "localhost", // target (ip, mac or dns name)
@@ -186,7 +187,7 @@ void ni::Scanner::create_devices() {
         }
         auto new_device = synnax::Device(
             device["key"].get<std::string>(), // key
-            device["model"].get<std::string>(), // name
+            device["model"].get<std::string>() + " / " + device["location"].get<std::string>(), // name
             synnax::taskKeyRack(this->task.key), // rack key
             device["location"].get<std::string>(), // location
             device["serial_number"].get<std::string>(), // serial number
