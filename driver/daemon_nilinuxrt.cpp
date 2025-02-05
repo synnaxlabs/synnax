@@ -23,8 +23,8 @@ const std::string INIT_SCRIPT_PATH = "/etc/init.d/synnax-driver";
 const char* INIT_SCRIPT_TEMPLATE = R"###(#!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          synnax-driver
-# Required-Start:    $network $local_fs
-# Required-Stop:     $network $local_fs
+# Required-Start:    $network $local_fs $ni_rseries
+# Required-Stop:     $network $local_fs $ni_rseries
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Synnax Driver Service
@@ -56,6 +56,13 @@ do_start() {
         fi
     fi
 
+    # Add debug logging
+    log_message "Starting daemon with command: $DAEMON internal-start-daemon"
+    log_message "Current working directory: $(pwd)"
+    log_message "Running as user: $(whoami)"
+
+    # Try starting with explicit working directory
+    cd /
     start-stop-daemon --start --background \
         --make-pidfile --pidfile $PIDFILE \
         --chuid $DAEMON_USER \
@@ -64,6 +71,14 @@ do_start() {
     RETVAL=$?
     if [ $RETVAL -eq 0 ]; then
         log_message "$NAME started successfully"
+        # Add 5 second wait and status check
+        sleep 5
+        if kill -0 $(cat $PIDFILE) 2>/dev/null; then
+            log_message "Process verified running after 5 seconds"
+        else
+            log_message "Process failed to stay running"
+            return 1
+        fi
     else
         log_message "Failed to start $NAME"
     fi
