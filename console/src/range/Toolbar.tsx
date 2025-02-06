@@ -44,7 +44,7 @@ import {
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { createLayout } from "@/range/CreateLayout";
-import { overviewLayout } from "@/range/external";
+import { OVERVIEW_LAYOUT } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import {
   add,
@@ -174,7 +174,7 @@ const useViewDetails = (): ((key: string) => void) => {
     mutationFn: async (key: string) => {
       if (client == null) return;
       const rng = await fetchIfNotInState(store, client, key);
-      place({ ...overviewLayout, name: rng.name, key: rng.key });
+      place({ ...OVERVIEW_LAYOUT, name: rng.name, key: rng.key });
     },
     onError: (e) => handleException(e, "Failed to view details"),
   }).mutate;

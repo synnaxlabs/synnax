@@ -61,7 +61,7 @@ export const CopyButtons = ({ getConfig, getName, taskKey }: CopyButtonsProps) =
     copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
   const hasDisabledButtons = taskKey === "";
   return (
-    <Align.Space direction="x" size="small">
+    <Align.Space direction="x" empty>
       <CopyButton
         disabled={hasDisabledButtons}
         onClick={handleCopyTypeScriptCode}

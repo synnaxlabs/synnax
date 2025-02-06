@@ -136,9 +136,15 @@ export const ChannelList = <C extends Channel>({
   );
   const menuProps = PMenu.useContextMenu();
   return (
-    <Align.Space empty grow onDragOver={onDragOver} onDrop={onDrop}>
+    <Align.Space empty grow>
       {header}
-      <PMenu.ContextMenu {...menuProps} menu={(p) => <ContextMenu {...p} {...rest} />}>
+      <PMenu.ContextMenu
+        {...menuProps}
+        menu={(p) => <ContextMenu {...p} {...rest} />}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        style={{ height: "100%" }}
+      >
         <List.List<string, C> data={channels} emptyContent={emptyContent}>
           <List.Selector<string, C>
             onChange={handleChange}

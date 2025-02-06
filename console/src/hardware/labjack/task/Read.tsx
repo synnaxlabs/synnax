@@ -240,7 +240,7 @@ const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = 
   </Common.Device.Provider>
 );
 
-const zeroPayload: Common.Task.ZeroPayloadFunction<
+const getInitialPayload: Common.Task.GetInitialPayload<
   ReadConfig,
   ReadStateDetails,
   ReadType
@@ -313,6 +313,6 @@ const onConfigure = async (client: Synnax, config: ReadConfig): Promise<ReadConf
 export const ReadTask = Common.Task.wrapForm(<Properties />, Form, {
   configSchema: readConfigZ,
   type: READ_TYPE,
-  zeroPayload,
+  getInitialPayload,
   onConfigure,
 });

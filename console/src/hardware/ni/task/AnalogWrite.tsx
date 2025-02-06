@@ -117,7 +117,7 @@ const Form: FC<
   />
 );
 
-const zeroPayload: Common.Task.ZeroPayloadFunction<
+const getInitialPayload: Common.Task.GetInitialPayload<
   AnalogWriteConfig,
   AnalogWriteDetails,
   AnalogWriteType
@@ -228,6 +228,6 @@ const onConfigure = async (
 export const AnalogWriteTask = Common.Task.wrapForm(<Properties />, Form, {
   configSchema: analogWriteConfigZ,
   type: ANALOG_WRITE_TYPE,
-  zeroPayload,
+  getInitialPayload,
   onConfigure,
 });

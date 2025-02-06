@@ -138,7 +138,7 @@ const Form: FC<
   );
 };
 
-const zeroPayload: Common.Task.ZeroPayloadFunction<
+const getInitialPayload: Common.Task.GetInitialPayload<
   AnalogReadConfig,
   AnalogReadDetails,
   AnalogReadType
@@ -220,6 +220,6 @@ const onConfigure = async (
 export const AnalogReadTask = Common.Task.wrapForm(<Properties />, Form, {
   configSchema: analogReadConfigZ,
   type: ANALOG_READ_TYPE,
-  zeroPayload,
+  getInitialPayload,
   onConfigure,
 });

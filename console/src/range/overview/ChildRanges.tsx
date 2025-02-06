@@ -23,14 +23,14 @@ import {
 import { type FC, useState } from "react";
 
 import { Layout } from "@/layout";
-import { createLayout, overviewLayout } from "@/range/external";
+import { createLayout, OVERVIEW_LAYOUT } from "@/range/external";
 
 export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
   const { entry } = props;
   const place = Layout.usePlacer();
   return (
     <List.ItemFrame
-      onClick={() => place({ ...overviewLayout, name: entry.name, key: entry.key })}
+      onClick={() => place({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })}
       direction="x"
       size={0.5}
       justify="spaceBetween"

@@ -58,10 +58,8 @@ export interface WrapFormOptions<
   C extends UnknownRecord = UnknownRecord,
   D extends BaseStateDetails = BaseStateDetails,
   T extends string = string,
-> {
-  configSchema: ConfigSchema<C>;
+> extends WrapOptions<C, D, T> {
   type: T;
-  zeroPayload: WrapOptions<C, D, T>["zeroPayload"];
   onConfigure: (
     client: Synnax,
     config: C,
@@ -79,7 +77,7 @@ export const wrapForm = <
 >(
   Properties: ReactNode,
   Form: FC<FormProps<C, D, T>>,
-  { configSchema, type, zeroPayload, onConfigure }: WrapFormOptions<C, D, T>,
+  { configSchema, type, getInitialPayload, onConfigure }: WrapFormOptions<C, D, T>,
 ): Layout.Renderer => {
   const Wrapper = ({ layoutKey, task }: TaskProps<C, D, T>) => {
     const client = PSynnax.use();
@@ -166,5 +164,5 @@ export const wrapForm = <
     );
   };
   Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
-  return wrap(Wrapper, { zeroPayload, configSchema });
+  return wrap(Wrapper, { getInitialPayload, configSchema });
 };

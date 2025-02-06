@@ -23,7 +23,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createLayout } from "@/range/CreateLayout";
-import { overviewLayout } from "@/range/overview/Overview";
+import { OVERVIEW_LAYOUT } from "@/range/overview/Overview";
 import { select, useSelect } from "@/range/selectors";
 import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 import {
@@ -46,7 +46,7 @@ const handleSelect: Ontology.HandleSelect = async ({
   const ranges = await client.ranges.retrieve(selection.map((s) => s.id.key));
   store.dispatch(add({ ranges: fromClientRange(ranges) }));
   const first = ranges[0];
-  placeLayout({ ...overviewLayout, name: first.name, key: first.key });
+  placeLayout({ ...OVERVIEW_LAYOUT, name: first.name, key: first.key });
 };
 
 const handleRename: Ontology.HandleTreeRename = {
@@ -137,7 +137,7 @@ const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const place = Layout.usePlacer();
   return ({ selection: { resources } }) =>
     place({
-      ...overviewLayout,
+      ...OVERVIEW_LAYOUT,
       name: resources[0].name,
       key: resources[0].id.key,
     });

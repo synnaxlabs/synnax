@@ -7,33 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/task/Task.css";
-
 import {
   type channel,
-  DataType,
   NotFoundError,
   type Synnax,
   type task,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Form,
-  Haul,
-  Header,
-  Input,
-  List,
-  Menu,
-  Text,
-  useSyncedRef,
-} from "@synnaxlabs/pluto";
-import { caseconv, primitiveIsZero } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback, useState } from "react";
+import { Form as PForm, Input } from "@synnaxlabs/pluto";
+import { caseconv, DataType, primitiveIsZero } from "@synnaxlabs/x";
+import { type FC, type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
+import { Form } from "@/hardware/opc/task/Form";
 import {
   type Read,
   READ_TYPE,
@@ -64,227 +51,36 @@ export const READ_SELECTABLE: Layout.Selectable = {
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.read.channels[nodeId] ?? props.read.channels[caseconv.snakeToCamel(nodeId)];
 
-interface ChannelListProps {
+interface IsIndexItemProps {
   path: string;
-  device: Device.Device;
-  snapshot: boolean;
-}
-
-const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
-  const valueRef = useSyncedRef(value);
-
-  const menuProps = Menu.useContextMenu();
-
-  const handleDrop = useCallback(({ items }: Haul.OnDropProps): Haul.Item[] => {
-    console.log(items);
-    const dropped = items.filter(
-      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
-    );
-    console.log(dropped);
-    const toAdd = dropped
-      .filter((v) => !valueRef.current.some((c) => c.nodeId === v.data?.nodeId))
-      .map((i) => {
-        const nodeId = i.data?.nodeId as string;
-        const name = i.data?.name as string;
-        return {
-          key: nodeId,
-          name,
-          nodeName: name,
-          channel: 0,
-          enabled: true,
-          nodeId,
-          useAsIndex: false,
-          dataType: typeof i.data?.dataType === "string" ? i.data?.dataType : "float32",
-        };
-      });
-    push(toAdd);
-    return dropped;
-  }, []);
-
-  const canDrop = useCallback((state: Haul.DraggingState): boolean => {
-    console.log("canDrop", state);
-    const v = state.items.some(
-      (i) => i.type === "opc" && i.data?.nodeClass === "Variable",
-    );
-    return v;
-  }, []);
-
-  const props = Haul.useDrop({
-    type: "opc.ReadTask",
-    canDrop,
-    onDrop: handleDrop,
-  });
-
-  const dragging = Haul.canDropOfType("opc")(Haul.useDraggingState());
-  console.log(dragging);
-
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(
-    value.length > 0 ? [value[0].key] : [],
-  );
-  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(
-    value.length > 0 ? 0 : null,
-  );
-
-  return (
-    <Common.Task.ChannelList
-      grow
-      className={CSS(CSS.B("channels"), dragging && CSS.B("dragging"))}
-      header={
-        <Header.Header level="h4">
-          <Header.Title weight={500}>Channels</Header.Title>
-        </Header.Header>
-      }
-      emptyContent={
-        <Align.Center>
-          <Text.Text shade={6} level="p">
-            No channels added. Drag a variable{" "}
-            <Icon.Variable
-              style={{ fontSize: "2.5rem", transform: "translateY(0.5rem)" }}
-            />{" "}
-            from the browser to add a channel to the task.
-          </Text.Text>
-        </Align.Center>
-      }
-      isSnapshot={snapshot}
-      onSelect={(keys, index) => {
-        setSelectedChannels(keys);
-        setSelectedChannelIndex(index);
-      }}
-      selected={selectedChannels}
-      channels={value}
-      path={path}
-      remove={remove}
-    >
-      {() => <></>}
-    </Common.Task.ChannelList>
-  );
-};
-
-interface ChannelListItemProps extends List.ItemProps<string, ReadChannelConfig> {
-  path: string;
-  remove?: () => void;
   snapshot?: boolean;
 }
 
-export const ChannelListItem = ({
-  path,
-  remove,
-  snapshot,
-  ...rest
-}: ChannelListItemProps): ReactElement => {
-  const { entry } = rest;
-  const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<ReadChannelConfig>({
-    path: `${path}.${rest.index}`,
-    optional: true,
-  });
-  if (childValues == null) return <></>;
-  const opcNode =
-    childValues.nodeId.length > 0 ? childValues.nodeId : "No Node Selected";
-  let opcNodeColor;
-  if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
-
-  return (
-    <List.ItemFrame
-      {...rest}
-      entry={childValues}
-      justify="spaceBetween"
-      align="center"
-      onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && remove?.()}
-    >
-      <Align.Space direction="y" size="small">
-        <Text.WithIcon
-          startIcon={<Icon.Channel style={{ color: "var(--pluto-gray-l7)" }} />}
-          level="p"
-          weight={500}
-          shade={9}
-          align="end"
-        >
-          {entry.name}
-        </Text.WithIcon>
-        <Text.WithIcon
-          startIcon={<Icon.Variable style={{ color: "var(--pluto-gray-l7)" }} />}
-          level="small"
-          weight={350}
-          shade={7}
-          color={opcNodeColor}
-          size="small"
-        >
-          {entry.nodeName} {opcNode}
-        </Text.WithIcon>
-      </Align.Space>
-      <Align.Space direction="x" align="center">
-        {childValues.useAsIndex && (
-          <Text.Text level="p" style={{ color: "var(--pluto-success-z)" }}>
-            Index
-          </Text.Text>
-        )}
-        <Common.Task.EnableDisableButton
-          value={childValues.enabled}
-          onChange={(v) => ctx.set(`${path}.${rest.index}.enabled`, v)}
-          isSnapshot={snapshot ?? false}
-        />
-      </Align.Space>
-    </List.ItemFrame>
-  );
-};
-
-// interface ChannelFormProps {
-//   selectedChannelIndex?: number | null;
-//   snapshot?: boolean;
-// }
-
-// const ChannelForm = ({
-//   selectedChannelIndex,
-//   snapshot,
-// }: ChannelFormProps): ReactElement | null => {
-//   if (selectedChannelIndex == null || selectedChannelIndex == -1) {
-//     if (snapshot === true) return null;
-//     return (
-//       <Align.Center className={CSS.B("channel-form")}>
-//         <Text.Text level="p" shade={6}>
-//           Select a channel to configure its properties.
-//         </Text.Text>
-//       </Align.Center>
-//     );
-//   }
-//   const prefix = `config.channels.${selectedChannelIndex}`;
-//   return (
-//     <Align.Space direction="x" grow className={CSS.B("channel-form")} empty>
-//       <Form.Field<string>
-//         path={`${prefix}.name`}
-//         padHelpText={!snapshot}
-//         label="Channel Name"
-//       >
-//         {(p) => <Input.Text variant="natural" level="h3" {...p} />}
-//       </Form.Field>
-//       <Form.SwitchField
-//         path={`${prefix}.useAsIndex`}
-//         label="Use as Index"
-//         visible={(_, ctx) =>
-//           DataType.TIMESTAMP.equals(
-//             ctx.get<string>(`${prefix}.dataType`, { optional: true })?.value ?? "",
-//           )
-//         }
-//       />
-//     </Align.Space>
-//   );
-// };
+const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
+  <PForm.SwitchField
+    path={`${path}.useAsIndex`}
+    label="Use as Index"
+    visible={(_, ctx) =>
+      DataType.TIMESTAMP.equals(
+        ctx.get<string>(`${path}.dataType`, { optional: true })?.value ?? "",
+      )
+    }
+  />
+);
 
 const Properties = (): ReactElement => {
-  const arrayMode = Form.useFieldValue<boolean>("config.arrayMode");
+  const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
   return (
     <>
       <Device.Select />
       <Common.Task.Fields.SampleRate />
-      <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
-      <Form.Field<number>
+      <PForm.SwitchField label="Array Sampling" path="config.arrayMode" />
+      <PForm.Field<number>
         label={arrayMode ? "Array Size" : "Stream Rate"}
         path={arrayMode ? "config.arraySize" : "config.streamRate"}
       >
         {Input.Numeric}
-      </Form.Field>
+      </PForm.Field>
       <Common.Task.Fields.DataSaving />
     </>
   );
@@ -293,20 +89,11 @@ const Properties = (): ReactElement => {
 const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
   isSnapshot,
 }) => (
-  <Common.Device.Provider<Device.Properties, Device.Make>
-    configureLayout={Device.CONFIGURE_LAYOUT}
-    isSnapshot={isSnapshot}
-  >
-    {({ device }) => (
-      <>
-        {!isSnapshot && <Device.Browser device={device} />}
-        <ChannelList path="config.channels" device={device} snapshot={isSnapshot} />
-      </>
-    )}
-  </Common.Device.Provider>
+  <Form isSnapshot={isSnapshot}>
+    {({ path, snapshot }) => <IsIndexItem path={path} snapshot={snapshot} />}
+  </Form>
 );
-
-const zeroPayload: Common.Task.ZeroPayloadFunction<
+const getInitialPayload: Common.Task.GetInitialPayload<
   ReadConfig,
   ReadStateDetails,
   ReadType
@@ -452,6 +239,6 @@ const onConfigure = async (
 export const ReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: readConfigZ,
   type: READ_TYPE,
-  zeroPayload,
+  getInitialPayload,
   onConfigure,
 });

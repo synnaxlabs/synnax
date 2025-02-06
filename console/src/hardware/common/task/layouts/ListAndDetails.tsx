@@ -76,7 +76,6 @@ export const ListAndDetails = <C extends Channel>({
         selected={selected}
         onSelect={handleSelect}
         generateChannel={handleGenerateChannel}
-        style={{ height: "calc(100% - 18px)", width: "30rem" }}
       >
         {listItem}
       </ChannelList>

@@ -80,7 +80,7 @@ const TaskForm: FC<
 
 const getDeviceKey: (chan: DOChannel) => string = (chan) => `${chan.port}l${chan.line}`;
 
-const zeroPayload: Common.Task.ZeroPayloadFunction<
+const getInitialPayload: Common.Task.GetInitialPayload<
   DigitalWriteConfig,
   DigitalWriteDetails,
   DigitalWriteType
@@ -193,6 +193,6 @@ const onConfigure = async (
 export const DigitalWriteTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: digitalWriteConfigZ,
   type: DIGITAL_WRITE_TYPE,
-  zeroPayload,
+  getInitialPayload,
   onConfigure,
 });

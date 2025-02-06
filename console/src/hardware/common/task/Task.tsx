@@ -11,7 +11,7 @@ import { type device, type task } from "@synnaxlabs/client";
 import { Align, Eraser, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 import { type z } from "zod";
 
 import { Layout } from "@/layout";
@@ -27,6 +27,7 @@ export const LAYOUT: Omit<LayoutBaseState, "type" | "key"> = {
   name: "Configure",
   icon: "Task",
   location: "mosaic",
+  args: {},
 };
 
 export interface TaskProps<
@@ -34,17 +35,14 @@ export interface TaskProps<
   D extends {} = UnknownRecord,
   T extends string = string,
 > {
-  task: task.Task<C, D, T> | task.Payload<C, D, T>;
   layoutKey: string;
+  task: task.Payload<C, D, T> | task.Task<C, D, T>;
 }
 
-export type ConfigSchema<C extends UnknownRecord = UnknownRecord> = z.ZodType<
-  C,
-  z.ZodTypeDef,
-  unknown
->;
+export interface ConfigSchema<C extends UnknownRecord = UnknownRecord>
+  extends z.ZodType<C, z.ZodTypeDef, unknown> {}
 
-export interface ZeroPayloadFunction<
+export interface GetInitialPayload<
   C extends UnknownRecord = UnknownRecord,
   D extends {} = UnknownRecord,
   T extends string = string,
@@ -57,8 +55,8 @@ export interface WrapOptions<
   D extends {} = UnknownRecord,
   T extends string = string,
 > {
-  zeroPayload: task.Payload<C, D, T> | ZeroPayloadFunction<C, D, T>;
-  configSchema?: ConfigSchema<C>;
+  configSchema: ConfigSchema<C>;
+  getInitialPayload: GetInitialPayload<C, D, T>;
 }
 
 export const wrap = <
@@ -70,46 +68,36 @@ export const wrap = <
   options: WrapOptions<C, D, T>,
 ): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
+    const { deviceKey, taskKey } = Layout.useSelectArgs<LayoutArgs>(layoutKey);
     const client = Synnax.use();
-    const args = Layout.useSelectArgs<LayoutArgs>(layoutKey);
-    const {
-      isError,
-      error,
-      isPending,
-      data: task,
-    } = useQuery({
-      queryKey: [layoutKey, client?.key, args?.taskKey, args?.deviceKey],
+    const { data, error, isError, isPending } = useQuery({
       queryFn: async () => {
-        const { zeroPayload, configSchema: configurationSchema } = options;
-        if (args?.taskKey == null)
-          return typeof zeroPayload === "function"
-            ? zeroPayload(args?.deviceKey)
-            : zeroPayload;
-
+        const { configSchema, getInitialPayload } = options;
+        if (taskKey == null) return getInitialPayload(deviceKey);
         if (client == null) throw new Error("Synnax server not connected");
-        const task = await client.hardware.tasks.retrieve<C, D, T>(args.taskKey, {
+        const task = await client.hardware.tasks.retrieve<C, D, T>(taskKey, {
           includeState: true,
         });
-        if (configurationSchema) task.config = configurationSchema.parse(task.config);
+        task.config = configSchema.parse(task.config);
         return task;
       },
+      queryKey: [taskKey, deviceKey, client?.key, layoutKey],
     });
-    let content: ReactElement | null = null;
-    content = isPending ? (
-      <Status.Text.Centered variant="loading" level="h2">
+    const content = isPending ? (
+      <Status.Text.Centered level="h2" variant="loading">
         Fetching task from server
       </Status.Text.Centered>
     ) : isError ? (
-      <Align.Space direction="y" grow align="center" justify="center">
-        <Text.Text level="h2" color={Status.variantColors.error}>
+      <Align.Space align="center" grow justify="center">
+        <Text.Text color={Status.variantColors.error} level="h2">
           Failed to load data for task with key {layoutKey}
         </Text.Text>
-        <Text.Text level="p" color={Status.variantColors.error}>
+        <Text.Text color={Status.variantColors.error} level="p">
           {error.message}
         </Text.Text>
       </Align.Space>
     ) : (
-      <Task layoutKey={layoutKey} task={task} />
+      <Task layoutKey={layoutKey} task={data} />
     );
     return <Eraser.Eraser>{content}</Eraser.Eraser>;
   };

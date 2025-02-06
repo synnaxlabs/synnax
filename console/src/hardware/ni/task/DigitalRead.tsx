@@ -75,7 +75,7 @@ const TaskForm: FC<
   </Common.Task.Layouts.List>
 );
 
-const zeroPayload: Common.Task.ZeroPayloadFunction<
+const getInitialPayload: Common.Task.GetInitialPayload<
   DigitalReadConfig,
   DigitalReadDetails,
   DigitalReadType
@@ -151,6 +151,6 @@ const onConfigure = async (
 export const DigitalReadTask = Common.Task.wrapForm(<Properties />, TaskForm, {
   configSchema: digitalReadConfigZ,
   type: DIGITAL_READ_TYPE,
-  zeroPayload,
+  getInitialPayload,
   onConfigure,
 });

@@ -205,7 +205,7 @@ const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>>
   </Common.Device.Provider>
 );
 
-const zeroPayload: Common.Task.ZeroPayloadFunction<
+const getInitialPayload: Common.Task.GetInitialPayload<
   WriteConfig,
   WriteStateDetails,
   WriteType
@@ -324,6 +324,6 @@ const onConfigure = async (
 export const WriteTask = Common.Task.wrapForm(<Properties />, Form, {
   configSchema: writeConfigZ,
   type: WRITE_TYPE,
-  zeroPayload,
+  getInitialPayload,
   onConfigure,
 });

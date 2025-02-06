@@ -426,7 +426,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }): ReactElement 
                     download({ client, lines, timeRange, name, handleException });
                     break;
                   case "metadata":
-                    place({ ...Range.overviewLayout, name, key });
+                    place({ ...Range.OVERVIEW_LAYOUT, name, key });
                     break;
                   case "line-plot":
                     addRangeToNewPlot(key);
