@@ -26,27 +26,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "TS-15110",
     "key": "409651"
@@ -77,27 +62,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "TS-15120",
     "key": "409652"
@@ -117,27 +87,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [32] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "TS-15130",
     "key": "409653"
@@ -157,27 +112,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [8]
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [8] }
     },
     "model": "TS-15050",
     "key": "445805"
@@ -197,27 +137,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "TS-15100",
     "key": "409650"
@@ -260,27 +185,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PCI-6289",
     "key": "122594"
@@ -310,27 +220,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PCI-6281",
     "key": "122592"
@@ -360,27 +255,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 80
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 80 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PCI-6255",
     "key": "122589"
@@ -410,27 +290,12 @@
     ],
     "estimatedPinout": {
       "confidence": 95,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PCI-6229",
     "key": "122579"
@@ -460,27 +325,12 @@
     ],
     "estimatedPinout": {
       "confidence": 97,
-      "analogInput": {
-        "portCount": 80
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 80 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PCI-6225",
     "key": "122578"
@@ -510,27 +360,12 @@
     ],
     "estimatedPinout": {
       "confidence": 97,
-      "analogInput": {
-        "portCount": 80
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 80 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXI-6225",
     "key": "123259"
@@ -552,36 +387,19 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PXI-6224",
     "key": "123258"
   },
   "PXIe-6259": {
     "productSpecs": "https://www.ni.com/docs/en-US/bundle/pci-pcie-pxi-pxie-usb-6259-specs/page/specs.html",
-    "productData": {
-      "BusTypeFormFactor": "PXI Express"
-    },
+    "productData": { "BusTypeFormFactor": "PXI Express" },
     "category": "multifunction-io",
     "pinouts": [
       {
@@ -603,36 +421,19 @@
     ],
     "estimatedPinout": {
       "confidence": 95,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PXIe-6259",
     "key": "123696"
   },
   "PXI-6221": {
     "productSpecs": "https://www.ni.com/docs/en-US/bundle/pci-pxi-usb-6221-specs/page/specs.html",
-    "productData": {
-      "BusTypeFormFactor": "PXI"
-    },
+    "productData": { "BusTypeFormFactor": "PXI" },
     "category": "multifunction-io",
     "pinouts": [
       {
@@ -650,36 +451,19 @@
     ],
     "estimatedPinout": {
       "confidence": 95,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXI-6221",
     "key": "123257"
   },
   "PXI-6259": {
     "productSpecs": "https://www.ni.com/docs/en-US/bundle/pci-pcie-pxi-pxie-usb-6259-specs/page/specs.html",
-    "productData": {
-      "BusTypeFormFactor": "PXI"
-    },
+    "productData": { "BusTypeFormFactor": "PXI" },
     "category": "multifunction-io",
     "pinouts": [
       {
@@ -701,36 +485,19 @@
     ],
     "estimatedPinout": {
       "confidence": 95,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PXI-6259",
     "key": "123272"
   },
   "PXI-6255": {
     "productSpecs": "https://www.ni.com/docs/en-US/bundle/pci-pxi-usb-6255-specs/page/specs.html",
-    "productData": {
-      "BusTypeFormFactor": "PXI"
-    },
+    "productData": { "BusTypeFormFactor": "PXI" },
     "category": "multifunction-io",
     "pinouts": [
       {
@@ -748,36 +515,19 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 80
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 80 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXI-6255",
     "key": "123271"
   },
   "PXI-6254": {
     "productSpecs": "",
-    "productData": {
-      "BusTypeFormFactor": "PXI"
-    },
+    "productData": { "BusTypeFormFactor": "PXI" },
     "category": "multifunction-io",
     "model": "PXI-6254",
     "key": "123270",
@@ -785,9 +535,7 @@
   },
   "PXI-6251": {
     "productSpecs": "https://www.ni.com/docs/en-US/bundle/pci-pcie-pxi-pxie-usb-6251-specs/page/specs.html",
-    "productData": {
-      "BusTypeFormFactor": "PXI"
-    },
+    "productData": { "BusTypeFormFactor": "PXI" },
     "category": "multifunction-io",
     "pinouts": [
       {
@@ -809,36 +557,19 @@
     ],
     "estimatedPinout": {
       "confidence": 95,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXI-6251",
     "key": "123269"
   },
   "PXI-6220": {
     "productSpecs": "https://www.ni.com/docs/en-US/bundle/pci-pxi-6220-specs/page/specs.html",
-    "productData": {
-      "BusTypeFormFactor": "PXI"
-    },
+    "productData": { "BusTypeFormFactor": "PXI" },
     "category": "multifunction-io",
     "pinouts": [
       {
@@ -848,27 +579,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXI-6220",
     "key": "123256"
@@ -963,27 +679,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PXI-6289",
     "key": "123277"
@@ -1005,27 +706,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PXI-6284",
     "key": "123276"
@@ -1055,27 +741,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXI-6281",
     "key": "123275"
@@ -1097,27 +768,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXI-6280",
     "key": "123274"
@@ -1190,27 +846,12 @@
     ],
     "estimatedPinout": {
       "confidence": 97,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "USB-6366",
     "key": "124941"
@@ -1270,27 +911,12 @@
     ],
     "estimatedPinout": {
       "confidence": 96,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "USB-6361",
     "key": "124939"
@@ -1355,27 +981,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "USB-6353",
     "key": "124937"
@@ -1394,27 +1005,12 @@
     "pinouts": [],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [4]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [4] }
     }
   },
   "USB-6351": {
@@ -1438,27 +1034,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "USB-6351",
     "key": "124936"
@@ -1518,27 +1099,12 @@
     ],
     "estimatedPinout": {
       "confidence": 96,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PCIe-6361",
     "key": "122779"
@@ -1564,27 +1130,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PCIe-6353",
     "key": "122778"
@@ -1610,27 +1161,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PCIe-6351",
     "key": "122777"
@@ -1678,27 +1214,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PCIe-6323",
     "key": "122768"
@@ -1754,27 +1275,12 @@
     ],
     "estimatedPinout": {
       "confidence": 95,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PCI-6221",
     "key": "122576"
@@ -1809,27 +1315,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PCIe-6346",
     "key": "238351"
@@ -1885,27 +1376,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "USB-6289",
     "key": "124929"
@@ -1935,27 +1411,12 @@
     ],
     "estimatedPinout": {
       "confidence": 96,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [4]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [4] }
     },
     "model": "NI-9381",
     "key": "122209"
@@ -1985,27 +1446,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "USB-6281",
     "key": "124928"
@@ -2035,27 +1481,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 80
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 80 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "USB-6255",
     "key": "124925"
@@ -2120,27 +1551,12 @@
     ],
     "estimatedPinout": {
       "confidence": 95,
-      "analogInput": {
-        "portCount": 144
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 144 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXIe-6365",
     "key": "123712"
@@ -2187,27 +1603,12 @@
     ],
     "estimatedPinout": {
       "confidence": 96,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXIe-6361",
     "key": "123710"
@@ -2229,27 +1630,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PXIe-6358",
     "key": "123709"
@@ -2284,27 +1670,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 80
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 80 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXIe-6355",
     "key": "123707"
@@ -2325,27 +1696,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 27
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 27 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXIe-6349",
     "key": "123704"
@@ -2376,27 +1732,12 @@
     ],
     "estimatedPinout": {
       "confidence": 96,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 2,
-        "lineCounts": [6, 4]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 2, "lineCounts": [6, 4] }
     },
     "model": "PXI-6238",
     "key": "123266"
@@ -2418,27 +1759,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 80
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 80 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXIe-6345",
     "key": "123702"
@@ -2459,27 +1785,12 @@
     ],
     "estimatedPinout": {
       "confidence": 99,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 2,
-        "lineCounts": [6, 4]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 2, "lineCounts": [6, 4] }
     },
     "model": "PXI-6232",
     "key": "123263"
@@ -2513,27 +1824,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PCIe-7857",
     "key": "264044"
@@ -2553,27 +1849,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PCIe-7846",
     "key": "264042"
@@ -2594,27 +1875,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 2
-      },
-      "analogOutput": {
-        "portCount": 24
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 2 },
+      "analogOutput": { "portCount": 24 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7865",
     "key": "309808"
@@ -2635,27 +1901,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 2
-      },
-      "analogOutput": {
-        "portCount": 24
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 2 },
+      "analogOutput": { "portCount": 24 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7866",
     "key": "309412"
@@ -2676,27 +1927,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [16]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [16] }
     },
     "model": "PXIe-7862",
     "key": "248438"
@@ -2717,27 +1953,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [16]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [16] }
     },
     "model": "PXIe-7861",
     "key": "248435"
@@ -2758,27 +1979,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7868",
     "key": "225846"
@@ -2799,27 +2005,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7867",
     "key": "225845"
@@ -2840,27 +2031,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7858",
     "key": "123750"
@@ -2947,27 +2123,12 @@
     ],
     "estimatedPinout": {
       "confidence": 99,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 2,
-        "lineCounts": [6, 4]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 2, "lineCounts": [6, 4] }
     },
     "model": "PXI-6230",
     "key": "123262"
@@ -2997,27 +2158,12 @@
     ],
     "estimatedPinout": {
       "confidence": 95,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PXI-6229",
     "key": "123260"
@@ -3038,27 +2184,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PCIe-7856",
     "key": "264036"
@@ -3092,27 +2223,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7857",
     "key": "123749"
@@ -3133,27 +2249,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7856",
     "key": "123748"
@@ -3174,27 +2275,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7847",
     "key": "123747"
@@ -3215,27 +2301,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7846",
     "key": "123746"
@@ -3309,27 +2380,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [32, 8, 8]
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [32, 8, 8] }
     },
     "model": "PXIe-6378",
     "key": "123717"
@@ -3351,27 +2407,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXIe-6376",
     "key": "123716"
@@ -3460,27 +2501,12 @@
     ],
     "estimatedPinout": {
       "confidence": 95,
-      "analogInput": {
-        "portCount": 208
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 208 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXIe-6375",
     "key": "123715"
@@ -3502,27 +2528,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "PXIe-6368",
     "key": "123714"
@@ -3556,27 +2567,12 @@
     ],
     "estimatedPinout": {
       "confidence": 97,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "PXIe-6366",
     "key": "123713"
@@ -3595,27 +2591,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "TS-15200",
     "key": "405312"
@@ -3633,10 +2614,7 @@
   },
   "PXIe-7891": {
     "productSpecs": "https://www.ni.com/docs/en-US/bundle/pxie-7891-specs/page/specs.html",
-    "productData": {
-      "BusTypeFormFactor": "PXI",
-      "AO_NumberOfChannels": "32"
-    },
+    "productData": { "BusTypeFormFactor": "PXI", "AO_NumberOfChannels": "32" },
     "category": "multifunction-io",
     "model": "PXIe-7891",
     "key": "345090",
@@ -3655,27 +2633,12 @@
     "key": "123609",
     "pinouts": [],
     "estimatedPinout": {
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     }
   },
   "PXIe-4300": {
@@ -3694,10 +2657,7 @@
   },
   "RM-26999": {
     "productSpecs": "https://www.ni.com/docs/en-US/bundle/rm-26999-specs/page/specs.html",
-    "productData": {
-      "AnalogInputChannels": "4",
-      "BusTypeFormFactor": "None"
-    },
+    "productData": { "AnalogInputChannels": "4", "BusTypeFormFactor": "None" },
     "category": "voltage",
     "model": "RM-26999",
     "key": "255064",
@@ -3826,27 +2786,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9252",
     "key": "134829"
@@ -3880,27 +2825,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9202",
     "key": "134827"
@@ -3949,27 +2879,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9244",
     "key": "122194"
@@ -4036,27 +2951,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 3
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 3 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9242",
     "key": "122193"
@@ -4093,27 +2993,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 4
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 4 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9239",
     "key": "122192"
@@ -4192,27 +3077,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 4
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 4 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9238",
     "key": "122191"
@@ -4249,27 +3119,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 4
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 4 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9229",
     "key": "122181"
@@ -4306,27 +3161,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9228",
     "key": "122180"
@@ -4380,27 +3220,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9224",
     "key": "122176"
@@ -4431,27 +3256,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 4
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 4 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9223",
     "key": "122175"
@@ -4482,27 +3292,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 4
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 4 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9222",
     "key": "122174"
@@ -4527,27 +3322,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9221",
     "key": "122173"
@@ -4589,27 +3369,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9220",
     "key": "122172"
@@ -4646,27 +3411,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 4
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 4 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9215",
     "key": "122167"
@@ -4697,27 +3447,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9209",
     "key": "122162"
@@ -4757,27 +3492,12 @@
     ],
     "estimatedPinout": {
       "confidence": 96,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [1]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [1] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9206",
     "key": "122159"
@@ -4822,27 +3542,12 @@
     ],
     "estimatedPinout": {
       "confidence": 96,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [1]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [1] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9205",
     "key": "122157"
@@ -4871,27 +3576,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9201",
     "key": "122155"
@@ -4928,27 +3618,12 @@
     ],
     "estimatedPinout": {
       "confidence": 99,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9207",
     "key": "122160"
@@ -4987,27 +3662,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 6
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 6 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9262",
     "key": "218644"
@@ -5078,27 +3738,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9269",
     "key": "122203"
@@ -5135,27 +3780,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 16
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 16 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9264",
     "key": "122201"
@@ -5181,27 +3811,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9263",
     "key": "122200"
@@ -5230,27 +3845,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 2
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 2 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9260",
     "key": "122199"
@@ -5407,27 +4007,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9219",
     "key": "122171"
@@ -5555,27 +4140,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9218",
     "key": "122170"
@@ -5628,27 +4198,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 4
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 4 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9775",
     "key": "139017"
@@ -5737,27 +4292,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "sbRIO-9218",
     "key": "354286"
@@ -5777,27 +4317,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "sbRIO-9220",
     "key": "352441"
@@ -5882,27 +4407,12 @@
     "key": "123611",
     "pinouts": [],
     "estimatedPinout": {
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     }
   },
   "sbRIO-9253": {
@@ -5966,27 +4476,12 @@
     ],
     "estimatedPinout": {
       "confidence": 99,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9253",
     "key": "243674"
@@ -6074,27 +4569,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9208",
     "key": "122161"
@@ -6119,27 +4599,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9203",
     "key": "122156"
@@ -6166,27 +4631,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 8
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 8 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9266",
     "key": "151218"
@@ -6223,27 +4673,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 4
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 4 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9265",
     "key": "122202"
@@ -6310,27 +4745,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 3,
-        "lineCounts": [8, 8, 8]
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 3, "lineCounts": [8, 8, 8] }
     },
     "model": "USB-6501",
     "key": "124942"
@@ -6444,27 +4864,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [8]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [8] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9470",
     "key": "291423"
@@ -6580,27 +4985,12 @@
     ],
     "estimatedPinout": {
       "confidence": 99,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [16]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [16] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9478",
     "key": "122228"
@@ -6633,27 +5023,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [32] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9477",
     "key": "122227"
@@ -6689,27 +5064,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [32] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9476",
     "key": "122226"
@@ -6743,27 +5103,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [8]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [8] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9475",
     "key": "122225"
@@ -6796,27 +5141,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [8]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [8] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9474",
     "key": "122224"
@@ -6849,27 +5179,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 1,
-        "lineCounts": [8]
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 1, "lineCounts": [8] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9472",
     "key": "122223"
@@ -6931,27 +5246,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 1, "lineCounts": [32] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9426",
     "key": "122218"
@@ -6978,27 +5278,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 1, "lineCounts": [32] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9425",
     "key": "122217"
@@ -7025,27 +5310,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 1,
-        "lineCounts": [8]
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 1, "lineCounts": [8] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9423",
     "key": "122216"
@@ -7088,27 +5358,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 1,
-        "lineCounts": [8]
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 1, "lineCounts": [8] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9421",
     "key": "122214"
@@ -7148,27 +5403,12 @@
     ],
     "estimatedPinout": {
       "confidence": 97,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 1,
-        "lineCounts": [6]
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 1, "lineCounts": [6] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9411",
     "key": "122213"
@@ -7196,27 +5436,12 @@
     ],
     "estimatedPinout": {
       "confidence": 99,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "NI-9403",
     "key": "122212"
@@ -7246,27 +5471,12 @@
     ],
     "estimatedPinout": {
       "confidence": 98,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [4]
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [4] }
     },
     "model": "NI-9402",
     "key": "122211"
@@ -7302,27 +5512,12 @@
     ],
     "estimatedPinout": {
       "confidence": 99,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [8]
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [8] }
     },
     "model": "NI-9401",
     "key": "122210"
@@ -7366,27 +5561,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9375",
     "key": "122208"
@@ -7419,27 +5599,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PCIe-7820",
     "key": "215621"
@@ -7499,27 +5664,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 8,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 8, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9485",
     "key": "122231"
@@ -7678,23 +5828,11 @@
     ],
     "estimatedPinout": {
       "confidence": 89,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
       "digitalInputOutput": {
         "portCount": 12,
         "lineCounts": [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
@@ -7891,27 +6029,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7822",
     "key": "123745"
@@ -7932,27 +6055,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 1,
-        "lineCounts": [32]
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 1, "lineCounts": [32] }
     },
     "model": "PXIe-7821",
     "key": "123744"
@@ -7998,27 +6106,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 4
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 4
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 4 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 4 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9210",
     "key": "148563"
@@ -8054,27 +6147,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 16
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 16 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9213",
     "key": "137669"
@@ -8131,27 +6209,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9226",
     "key": "122178"
@@ -8180,27 +6243,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9217",
     "key": "122169"
@@ -8239,27 +6287,12 @@
     ],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 0
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 0 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9216",
     "key": "122168"
@@ -8294,27 +6327,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 16
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 16
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 16 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 16 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9214",
     "key": "122166"
@@ -8389,36 +6407,19 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 8
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 8
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 8 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 8 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9212",
     "key": "122164"
   },
   "NI-9211": {
     "productSpecs": "https://www.ni.com/docs/en-US/bundle/ni-9211-specs/page/specs.html",
-    "productData": {
-      "ProductPlatform": "C Series"
-    },
+    "productData": { "ProductPlatform": "C Series" },
     "category": "temperature",
     "pinouts": [
       {
@@ -8430,27 +6431,12 @@
     ],
     "estimatedPinout": {
       "confidence": 100,
-      "analogInput": {
-        "portCount": 4
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 4
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 4 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 4 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     },
     "model": "NI-9211",
     "key": "122163"
@@ -8472,27 +6458,12 @@
     "pinouts": [],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 20
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 20 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     }
   },
   "PXIe-4353": {
@@ -8513,27 +6484,12 @@
     "pinouts": [],
     "estimatedPinout": {
       "confidence": 101,
-      "analogInput": {
-        "portCount": 32
-      },
-      "analogOutput": {
-        "portCount": 0
-      },
-      "thermocouple": {
-        "portCount": 0
-      },
-      "digitalInput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      },
-      "digitalInputOutput": {
-        "portCount": 0,
-        "lineCounts": []
-      }
+      "analogInput": { "portCount": 32 },
+      "analogOutput": { "portCount": 0 },
+      "thermocouple": { "portCount": 0 },
+      "digitalInput": { "portCount": 0, "lineCounts": [] },
+      "digitalOutput": { "portCount": 0, "lineCounts": [] },
+      "digitalInputOutput": { "portCount": 0, "lineCounts": [] }
     }
   }
 }
