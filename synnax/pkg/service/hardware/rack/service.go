@@ -85,7 +85,7 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	EmbeddedRackKey Key
+	EmbeddedRackkey Key
 	localKeyCounter *kv.AtomicInt64Counter
 	shutdownSignals io.Closer
 	group           group.Group
@@ -155,7 +155,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	embeddedRack.Name = fmt.Sprintf("Node %s Built-In Driver", s.HostProvider.HostKey())
 	embeddedRack.Embedded = true
 	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
-	s.EmbeddedRackKey = embeddedRack.Key
+	s.EmbeddedRackkey = embeddedRack.Key
 	return err
 }
 
