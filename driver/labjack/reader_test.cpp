@@ -187,7 +187,6 @@ TEST(read_tests, labjack_t4_ai_fio) {
     reader_task->exec(stop_cmd);
 }
 
-// TODO: tests there are no race conditions between reading a device and scanning for it
 TEST(read_tests, labjack_scan_and_read) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 

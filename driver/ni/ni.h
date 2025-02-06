@@ -31,9 +31,6 @@
 #include "driver/loop/loop.h"
 
 namespace ni {
-///////////////////////////////////////////////////////////////////////////////////
-//                                    Factory                                    //
-///////////////////////////////////////////////////////////////////////////////////
 class Factory final : public task::Factory {
 public:
     Factory(
@@ -45,6 +42,7 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     );
+
 
     static std::shared_ptr<ni::Factory> create();
 
