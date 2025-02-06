@@ -10,11 +10,7 @@
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 
 import data from "@/hardware/ni/device/enriched.json";
-import {
-  type Properties,
-  type PropertiesDigest,
-  ZERO_PROPERTIES,
-} from "@/hardware/ni/device/types";
+import { type Properties, ZERO_PROPERTIES } from "@/hardware/ni/device/types";
 
 interface PickedEnrichedProperties
   extends Pick<
@@ -26,14 +22,9 @@ interface PickedEnrichedProperties
     | "digitalOutput"
   > {}
 
-export const enrich = (model: string, info: PropertiesDigest): Properties => {
+export const enrich = (model: string, properties: Properties): Properties => {
   const enriched = (data as UnknownRecord)[model] as {
     estimatedPinout: PickedEnrichedProperties;
   };
-  return {
-    ...deep.copy(ZERO_PROPERTIES),
-    ...enriched?.estimatedPinout,
-    ...info,
-    enriched: true,
-  };
+  return { ...deep.copy(ZERO_PROPERTIES), ...enriched?.estimatedPinout, ...properties };
 };

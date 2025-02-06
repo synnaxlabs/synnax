@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { type Icon as PIcon } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type JSX } from "react";
 import { z } from "zod";
 
 import { LabJack } from "@/hardware/labjack";
@@ -21,7 +21,8 @@ import { type Ontology } from "@/ontology";
 export const makeZ = z.enum([NI.Device.MAKE, LabJack.Device.MAKE, OPC.Device.MAKE]);
 export type Make = z.infer<typeof makeZ>;
 
-export const getMake = (make: unknown) => makeZ.safeParse(make).data ?? null;
+export const getMake = (make: unknown): Make | null =>
+  makeZ.safeParse(make).data ?? null;
 
 const MAKE_ICONS: Record<Make, PIcon.Element> = {
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
@@ -40,7 +41,7 @@ export const CONFIGURE_LAYOUTS: Record<Make, Omit<Layout.BaseState, "key">> = {
 
 const CONTEXT_MENU_ITEMS: Record<
   Make,
-  (props: Ontology.TreeContextMenuProps) => ReactElement | null
+  (props: Ontology.TreeContextMenuProps) => JSX.Element | null
 > = {
   [LabJack.Device.MAKE]: LabJack.DeviceServices.ContextMenuItems,
   [NI.Device.MAKE]: NI.DeviceServices.ContextMenuItems,

@@ -10,7 +10,7 @@
 import { linePlot, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components/menu";
@@ -102,15 +102,26 @@ const handleRename: Ontology.HandleTreeRename = {
     store.dispatch(Layout.rename({ key: id.key, name: prevName })),
 };
 
-const handleSelect: Ontology.HandleSelect = async ({
+const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
   placeLayout,
-}): Promise<void> => {
-  const linePlot = await client.workspaces.linePlot.retrieve(selection[0].id.key);
-  placeLayout(
-    LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
-  );
+  handleException,
+}) => {
+  client.workspaces.linePlot
+    .retrieve(selection[0].id.key)
+    .then((linePlot) => {
+      placeLayout(
+        LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
+      );
+    })
+    .catch((e) => {
+      const names = strings.naturalLanguageJoin(
+        selection.map(({ name }) => name),
+        "line plot",
+      );
+      handleException(e, `Failed to select ${names}`);
+    });
 };
 
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({

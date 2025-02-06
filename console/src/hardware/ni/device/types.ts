@@ -14,10 +14,7 @@ import { type Common } from "@/hardware/common";
 export const MAKE = "NI";
 export type Make = typeof MAKE;
 
-export type PropertiesDigest = { enriched: boolean };
-
 export type Properties = {
-  enriched: boolean;
   identifier: Common.Device.Identifier;
   analogInput: {
     portCount: number;
@@ -45,7 +42,6 @@ export type Properties = {
 };
 
 export const ZERO_PROPERTIES: Properties = {
-  enriched: false,
   identifier: "",
   analogInput: { portCount: 0, index: 0, channels: {} },
   analogOutput: { portCount: 0, stateIndex: 0, channels: {} },

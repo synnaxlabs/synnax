@@ -37,16 +37,27 @@ import {
   viewDetailsMenuItem,
 } from "@/range/Toolbar";
 
-const handleSelect: Ontology.HandleSelect = async ({
+const handleSelect: Ontology.HandleSelect = ({
   selection,
   client,
   store,
   placeLayout,
-}): Promise<void> => {
-  const ranges = await client.ranges.retrieve(selection.map((s) => s.id.key));
-  store.dispatch(add({ ranges: fromClientRange(ranges) }));
-  const first = ranges[0];
-  placeLayout({ ...OVERVIEW_LAYOUT, name: first.name, key: first.key });
+  handleException,
+}) => {
+  client.ranges
+    .retrieve(selection.map((s) => s.id.key))
+    .then((ranges) => {
+      store.dispatch(add({ ranges: fromClientRange(ranges) }));
+      const first = ranges[0];
+      placeLayout({ ...OVERVIEW_LAYOUT, name: first.name, key: first.key });
+    })
+    .catch((e) => {
+      const names = strings.naturalLanguageJoin(
+        selection.map(({ name }) => name),
+        "range",
+      );
+      handleException(e, `Failed to select ${names}`);
+    });
 };
 
 const handleRename: Ontology.HandleTreeRename = {
