@@ -745,7 +745,7 @@ export const TextBoxForm = (): ReactElement => {
             {Text.SelectLevel}
           </Form.Field>
           <Form.Field<Align.Alignment>
-            path={"align"}
+            path="align"
             label="Alignment"
             padHelpText={false}
             hideIfNull

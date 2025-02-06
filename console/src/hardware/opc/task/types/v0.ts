@@ -114,7 +114,7 @@ export type ReadConfig = z.infer<typeof readConfigZ>;
 export type Read = task.Task<ReadConfig, ReadStateDetails, ReadType>;
 export type ReadPayload = task.Payload<ReadConfig, ReadStateDetails, ReadType>;
 export const ZERO_READ_PAYLOAD: ReadPayload = {
-  key: READ_TYPE,
+  key: "",
   type: READ_TYPE,
   name: "OPC UA Read Task",
   config: {
@@ -239,9 +239,7 @@ export const writeConfigZ = z
         code: z.ZodIssueCode.custom,
         path: ["channels", i, "nodeId"],
         message: "This node ID has already been used elsewhere in the configuration",
-        params: {
-          variant: "warning",
-        },
+        params: { variant: "warning" },
       });
     });
   });

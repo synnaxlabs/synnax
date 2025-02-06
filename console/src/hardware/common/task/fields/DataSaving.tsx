@@ -11,5 +11,5 @@ import { Form } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 export const DataSaving = (): ReactElement => (
-  <Form.SwitchField label={"Data Saving"} path="config.dataSaving" />
+  <Form.SwitchField label="Data Saving" path="config.dataSaving" />
 );

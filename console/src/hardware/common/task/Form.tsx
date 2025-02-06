@@ -62,7 +62,12 @@ export interface WrapFormOptions<
   configSchema: ConfigSchema<C>;
   type: T;
   zeroPayload: WrapOptions<C, D, T>["zeroPayload"];
-  onConfigure: (client: Synnax, config: C, taskKey: clientTask.Key) => Promise<C>;
+  onConfigure: (
+    client: Synnax,
+    config: C,
+    taskKey: clientTask.Key,
+    name: string,
+  ) => Promise<C>;
 }
 
 const nameZ = z.string().min(1, "Name is required");
@@ -82,7 +87,7 @@ export const wrapForm = <
     const schema = z.object({ name: nameZ, config: configSchema });
     const values = { name: task.name, config: task.config };
     const methods = PForm.use<Schema<C>>({ schema, values });
-    const createTask = useCreate<C, D, T>(layoutKey);
+    const create = useCreate<C, D, T>(layoutKey);
     const [state, setState] = useDesiredState(task?.key, task?.state ?? undefined);
     const configureMutation = useMutation({
       mutationFn: async () => {
@@ -90,14 +95,14 @@ export const wrapForm = <
         if (!(await methods.validateAsync())) return;
         const { config, name } = methods.value();
         if (config == null) throw new Error("Config is required");
-        const newConfig = await onConfigure(client, config, task.key);
+        const newConfig = await onConfigure(client, config, task.key, name);
         methods.set("config", newConfig);
         // current work around for Pluto form issues
         if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
-        await createTask({ key: task?.key, name, type, config: newConfig });
+        await create({ key: task?.key, name, type, config: newConfig });
         setState("paused");
       },
-      onError: (e) => handleException(e, "Failed to configure task"),
+      onError: (e) => handleException(e, `Failed to configure ${values.name}`),
     });
     const startOrStopMutation = useMutation({
       mutationFn: async () => {
@@ -129,10 +134,8 @@ export const wrapForm = <
               />
             </Align.Space>
             <ParentRangeButton key={task.key} />
-            <Align.Space direction="x" className={CSS.B("task-properties")}>
-              <Align.Space direction="x" grow>
-                {Properties}
-              </Align.Space>
+            <Align.Space className={CSS.B("task-properties")} direction="x">
+              {Properties}
             </Align.Space>
             <Align.Space
               direction="x"

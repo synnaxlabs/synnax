@@ -17,7 +17,7 @@ export interface ToolbarButtonProps
 
 export const ToolbarButton = ({ onExport, ...rest }: ToolbarButtonProps) => (
   <Button.Icon
-    tooltip={"Export"}
+    tooltip="Export"
     sharp
     size="medium"
     style={{ height: "100%" }}

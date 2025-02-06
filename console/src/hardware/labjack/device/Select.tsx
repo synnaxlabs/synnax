@@ -14,7 +14,7 @@ import { MAKE } from "@/hardware/labjack/device/types";
 export const Select = () => (
   <Common.Device.Select
     configureLayout={CONFIGURE_LAYOUT}
-    emptyContent={"No LabJack devices connected."}
+    emptyContent="No LabJack devices connected."
     make={MAKE}
   />
 );

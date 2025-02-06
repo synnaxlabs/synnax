@@ -594,7 +594,7 @@ export const SetpointPreview = ({
   <Primitives.Setpoint
     value={12}
     onChange={() => {}}
-    units={"mV"}
+    units="mV"
     style={{ width: 120, transform: "scale(0.95)" }}
     className={CSS(CSS.BM("setpoint", "preview"), className)}
     disabled
@@ -676,7 +676,7 @@ export const Value = ({
 };
 
 export const ValuePreview = ({ color }: ValueProps): ReactElement => (
-  <Primitives.Value color={color} dimensions={{ width: 60, height: 25 }} units={"psi"}>
+  <Primitives.Value color={color} dimensions={{ width: 60, height: 25 }} units="psi">
     <Text.Text level="p">50.00</Text.Text>
   </Primitives.Value>
 );

@@ -29,7 +29,7 @@ export const SELECTOR_TYPE = "visLayoutSelector";
 
 export const createSelector = (
   props: Omit<Partial<Layout.State>, "type">,
-): Omit<Layout.State, "windowKey"> => {
+): Layout.BaseState => {
   const { location = "mosaic", name = "New Layout", key = uuid(), window, tab } = props;
   return { type: SELECTOR_TYPE, location, name, key, window, tab };
 };

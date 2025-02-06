@@ -322,6 +322,7 @@ const onConfigure = async (
   client: Synnax,
   config: ReadConfig,
   taskKey: task.Key,
+  name: string,
 ): Promise<ReadConfig> => {
   // Retrieving the device and updating its properties if needed
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
@@ -421,7 +422,6 @@ const onConfigure = async (
           throw new Error(
             `Channel ${ch.name} already exists on an existing OPC UA read task with a different index channel`,
           );
-
         if (rCh.name !== ch.name) await client.channels.rename(Number(exKey), ch.name);
       } catch (e) {
         if (NotFoundError.matches(e)) toCreate.push(ch);

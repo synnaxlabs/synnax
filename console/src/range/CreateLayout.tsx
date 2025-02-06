@@ -195,8 +195,8 @@ const CreateLayoutForm = ({
                       {e.name}
                     </Text.WithIcon>
                   )}
-                  inputPlaceholder={"Search Ranges"}
-                  triggerTooltip={"Select Parent Range"}
+                  inputPlaceholder="Search Ranges"
+                  triggerTooltip="Select Parent Range"
                   placeholder={
                     <Text.WithIcon
                       level="p"
@@ -235,7 +235,7 @@ const CreateLayoutForm = ({
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            variant={"outlined"}
+            variant="outlined"
             onClick={() => mutate(false)}
             disabled={isPending}
           >

@@ -119,4 +119,4 @@ export const BASE_SERVICE: Omit<Service, "type"> = {
   allowRename: () => false,
 };
 
-export type Services = Record<ontology.ResourceType, Service>;
+export interface Services extends Record<ontology.ResourceType, Service> {}

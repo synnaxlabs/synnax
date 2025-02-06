@@ -76,7 +76,6 @@
 @container (max-width: 600px) {
     .console-task-properties {
         flex-direction: column !important;
-        gap: 0 !important;
     }
     .pluto-input input.pluto-text--h1 {
         font-size: var(--pluto-h2-size);

@@ -240,9 +240,9 @@ const ChannelList = ({ path, snapshot }: ChannelListProps): ReactElement => {
           setSelectedChannelIndex(index);
         }}
       >
-        {(props) => (
+        {(p) => (
           <ChannelListItem
-            {...props}
+            {...p}
             path={path}
             remove={() => {
               const indices = selectedChannels

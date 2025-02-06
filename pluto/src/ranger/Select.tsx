@@ -109,7 +109,7 @@ export const SelectMultiple = ({
       onChange={onChange}
       columns={rangeCols}
       emptyContent={emptyContent}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dropProps}
       {...props}
     />
@@ -191,7 +191,7 @@ export const SelectSingle = ({
       value={value}
       onChange={onChange}
       columns={rangeCols}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dragProps}
       {...props}
     />
@@ -211,7 +211,7 @@ export const SelectButton = ({
       value={value as string}
       onChange={onChange}
       columns={rangeCols}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...dragProps}
       {...props}
     />

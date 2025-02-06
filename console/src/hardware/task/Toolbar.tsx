@@ -335,20 +335,20 @@ const Content = (): ReactElement => {
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
             <List.Core<string, task.Task>>
-              {(props) => (
+              {(p) => (
                 <TaskListItem
-                  {...props}
-                  desiredState={desiredStates[props.entry.key]}
+                  {...p}
+                  desiredState={desiredStates[p.entry.key]}
                   onStopStart={(state) => {
                     if (state == null) return;
-                    if (desiredStates[props.entry.key] === state) return;
+                    if (desiredStates[p.entry.key] === state) return;
                     setDesiredStates((prev) => {
                       const next = { ...prev };
-                      next[props.entry.key] = state;
+                      next[p.entry.key] = state;
                       return next;
                     });
                   }}
-                  onRename={(name) => handleRename({ name, key: props.key })}
+                  onRename={(name) => handleRename({ name, key: p.key })}
                 />
               )}
             </List.Core>

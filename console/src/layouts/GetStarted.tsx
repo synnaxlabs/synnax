@@ -24,8 +24,7 @@ import { Workspace } from "@/workspace";
 
 export const GetStarted = (): ReactElement => {
   const client = Synnax.use();
-  if (client == null) return <NoCluster />;
-  return <Overview />;
+  return client == null ? <NoCluster /> : <Overview />;
 };
 
 const NoCluster = (): ReactElement => {

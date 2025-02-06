@@ -23,7 +23,7 @@ export const versionOutdatedAdapter: Notifications.Adapter = (status) => {
         key="update"
         variant="outlined"
         size="small"
-        href={"https://docs.synnaxlabs.com/reference/cluster/quick-start"}
+        href="https://docs.synnaxlabs.com/reference/cluster/quick-start"
         target="_blank"
       >
         Update Cluster

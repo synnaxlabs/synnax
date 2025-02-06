@@ -17,7 +17,7 @@ export interface TareButtonProps {
 
 export const TareButton = ({ onClick, disabled }: TareButtonProps) => (
   <Button.Icon
-    variant={"outlined"}
+    variant="outlined"
     disabled={disabled}
     stopPropagation
     onClick={onClick}

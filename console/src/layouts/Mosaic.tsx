@@ -322,7 +322,7 @@ export const NavTop = (): ReactElement | null => {
     <Nav.Bar
       className="console-main-nav-top"
       location="top"
-      size={"5rem"}
+      size="5rem"
       data-tauri-drag-region
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>

@@ -38,7 +38,7 @@ export const SelectSingle = ({
     <Select.Single<device.Key, device.Device>
       columns={deviceColumns}
       searcher={searcher}
-      entryRenderKey={"name"}
+      entryRenderKey="name"
       {...props}
     />
   );

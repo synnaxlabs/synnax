@@ -26,7 +26,7 @@ export const CopyToolbarButton = ({
   const handleClick = useCopyToClipboard();
   return (
     <Button.Icon
-      tooltip={"Copy link"}
+      tooltip="Copy link"
       sharp
       size="medium"
       style={{ height: "100%", width: "var(--pluto-height-medium)" }}
