@@ -39,7 +39,8 @@ export type Variant =
   | "preview"
   | "shadow";
 
-export interface ButtonExtensionProps {
+/** The base props accepted by all button types in this directory. */
+export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"> {
   variant?: Variant;
   size?: ComponentSize;
   sharp?: boolean;
@@ -47,12 +48,6 @@ export interface ButtonExtensionProps {
   triggers?: Triggers.Trigger[];
   status?: status.Variant;
   color?: Color.Crude;
-}
-
-/** The base props accepted by all button types in this directory. */
-export interface BaseProps
-  extends Omit<ComponentPropsWithRef<"button">, "color">,
-    ButtonExtensionProps {
   stopPropagation?: boolean;
 }
 
@@ -61,7 +56,6 @@ export type ButtonProps = Omit<
   Text.WithIconProps<"button">,
   "size" | "startIcon" | "endIcon" | "level"
 > &
-  ButtonExtensionProps &
   BaseProps & {
     level?: Text.Level;
     startIcon?: PIcon.Element | PIcon.Element[];

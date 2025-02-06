@@ -11,9 +11,9 @@ import { type channel } from "@synnaxlabs/client";
 import { Channel, Text } from "@synnaxlabs/pluto";
 
 export interface ChannelNameProps extends Omit<Text.TextProps, "level"> {
-  level?: Text.TextProps["level"];
   channel: channel.Key;
   defaultName?: string;
+  level?: Text.TextProps["level"];
 }
 
 export const ChannelName = ({
@@ -21,15 +21,15 @@ export const ChannelName = ({
   defaultName = "No Channel",
   ...rest
 }: ChannelNameProps) => {
-  const channelName = Channel.useName(channel, defaultName);
+  const name = Channel.useName(channel, defaultName);
   return (
     <Text.Text
+      color={channel === 0 ? "var(--pluto-warning-m1)" : undefined}
       level="p"
       shade={9}
-      color={channel === 0 ? "var(--pluto-warning-m1)" : undefined}
       {...rest}
     >
-      {channelName}
+      {name}
     </Text.Text>
   );
 };

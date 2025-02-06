@@ -7,13 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/pluto";
+import { Rate } from "@/hardware/common/task/fields/Rate";
 
-export const SampleRate = () => (
-  <Form.NumericField
-    grow
-    inputProps={{ endContent: "Hz" }}
-    label="Sample Rate"
-    path="config.sampleRate"
-  />
-);
+export const SampleRate = () => <Rate label="Sample Rate" path="config.sampleRate" />;
