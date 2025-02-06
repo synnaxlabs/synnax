@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,4 +28,4 @@ extern synnax::Synnax new_test_client();
 
 /// @brief creates a new random generator for a test suite, and
 /// outputs the seed to stdout for reproducibility.
-extern std::mt19937 random_generator(std::string suite_name);
+extern std::mt19937 random_generator(const std::string &suite_name);

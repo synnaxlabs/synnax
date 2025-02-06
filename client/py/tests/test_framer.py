@@ -1,4 +1,4 @@
-#  Copyright 2023 Synnax Labs, Inc.
+#  Copyright 2025 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -736,7 +736,7 @@ class TestCalculatedChannels:
         calc_channel = client.channels.create(
             name="test_calc",
             data_type=sy.DataType.FLOAT32,
-            expression="result=test_a + test_b",
+            expression="return test_a + test_b",
             requires=[src_channels[0].key, src_channels[1].key],
         )
 

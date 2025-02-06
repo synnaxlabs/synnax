@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,17 +12,16 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { range } from "@/vis/lineplot/range/aether";
 
-interface AnnotationProps extends z.input<typeof range.annotationStateZ> {}
+interface AnnotationProps
+  extends z.input<typeof range.annotationStateZ>,
+    Aether.CProps {}
 
-export const Annotation = Aether.wrap<AnnotationProps>(
-  "Tooltip",
-  ({ aetherKey, ...props }): null => {
-    Aether.use({
-      aetherKey,
-      type: range.Annotation.TYPE,
-      schema: range.annotationStateZ,
-      initialState: props,
-    });
-    return null;
-  },
-);
+export const Annotation = ({ aetherKey, ...props }: AnnotationProps): null => {
+  Aether.use({
+    aetherKey,
+    type: range.Annotation.TYPE,
+    schema: range.annotationStateZ,
+    initialState: props,
+  });
+  return null;
+};

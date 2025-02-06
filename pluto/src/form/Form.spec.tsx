@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,10 +20,7 @@ const basicFormSchema = z
   .object({
     name: z.string(),
     age: z.number().min(5, "You must be at least 5 years old."),
-    nested: z.object({
-      ssn: z.string(),
-      ein: z.string().optional(),
-    }),
+    nested: z.object({ ssn: z.string(), ein: z.string().optional() }),
     array: z.array(z.object({ name: z.string() })),
   })
   .superRefine((c, ctx) => {
@@ -32,9 +29,7 @@ const basicFormSchema = z
         code: z.ZodIssueCode.custom,
         message: "You cannot be named Billy Bob.",
         path: ["name"],
-        params: {
-          variant: "warning",
-        },
+        params: { variant: "warning" },
       });
   })
   .sourceType();
@@ -63,10 +58,7 @@ describe("Form", () => {
     describe("get", () => {
       it("should get a value from the form", () => {
         const { result } = renderHook(() =>
-          Form.use({
-            values: deep.copy(initialFormValues),
-            schema: basicFormSchema,
-          }),
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
         const field = result.current.get("name");
         expect(field.value).toBe("John Doe");
@@ -74,39 +66,27 @@ describe("Form", () => {
       });
       it("should return the correct nested values", () => {
         const { result } = renderHook(() =>
-          Form.use({
-            values: deep.copy(initialFormValues),
-            schema: basicFormSchema,
-          }),
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
         const field = result.current.get("nested.ssn");
         expect(field.value).toBe("123-45-6789");
       });
       it("should throw an error if optional is false and the field is null", () => {
         const { result } = renderHook(() =>
-          Form.use({
-            values: deep.copy(initialFormValues),
-            schema: basicFormSchema,
-          }),
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
         expect(() => result.current.get("ssn")).toThrow();
       });
       it("should return null if optional is true and the field is null", () => {
         const { result } = renderHook(() =>
-          Form.use({
-            values: deep.copy(initialFormValues),
-            schema: basicFormSchema,
-          }),
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
         const field = result.current.get("ssn", { optional: true });
         expect(field).toBeNull();
       });
       it("should return true if a field is required in the schema", () => {
         const { result } = renderHook(() =>
-          Form.use({
-            values: deep.copy(initialFormValues),
-            schema: basicFormSchema,
-          }),
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
         const field = result.current.get("age");
         expect(field.required).toBe(true);
@@ -115,10 +95,7 @@ describe("Form", () => {
     describe("set", () => {
       it("should set a value in the form", () => {
         const { result } = renderHook(() =>
-          Form.use({
-            values: deep.copy(initialFormValues),
-            schema: basicFormSchema,
-          }),
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
         result.current.set("name", "Jane Doe");
         const field = result.current.get("name");
@@ -126,10 +103,7 @@ describe("Form", () => {
       });
       it("should correctly set all values in the form at once", () => {
         const { result } = renderHook(() =>
-          Form.use({
-            values: deep.copy(initialFormValues),
-            schema: basicFormSchema,
-          }),
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
         result.current.set("", {
           name: "Jane Doe",
@@ -146,17 +120,10 @@ describe("Form", () => {
     describe("bind", () => {
       it("should bind a listener for form changes", () => {
         const { result } = renderHook(() =>
-          Form.use({
-            values: deep.copy(initialFormValues),
-            schema: basicFormSchema,
-          }),
+          Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
         const onChange = vi.fn();
-        result.current.bind({
-          path: "name",
-          listenToChildren: false,
-          onChange,
-        });
+        result.current.bind({ path: "name", listenToChildren: false, onChange });
         result.current.set("name", "Jane Doe");
         expect(onChange).toHaveBeenCalled();
       });
@@ -180,11 +147,7 @@ describe("Form", () => {
           }),
         );
         const onChange = vi.fn();
-        result.current.bind({
-          path: "age",
-          listenToChildren: false,
-          onChange,
-        });
+        result.current.bind({ path: "age", listenToChildren: false, onChange });
         result.current.validate();
         expect(onChange).toHaveBeenCalled();
       });
@@ -328,10 +291,7 @@ describe("Form", () => {
       const listener = vi.fn();
       const res = renderHook(
         () => {
-          Form.useFieldListener({
-            path: "name",
-            onChange: listener,
-          });
+          Form.useFieldListener({ path: "name", onChange: listener });
           return Form.useField<string>({ path: "name" });
         },
         { wrapper },

@@ -1,4 +1,4 @@
-#  Copyright 2023 Synnax Labs, Inc.
+#  Copyright 2025 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -18,7 +18,7 @@ import synnax as sy
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
-CHANNEL_COUNT = 1000
+CHANNEL_COUNT = 100
 
 # Create an index channel that will be used to store our timestamps.
 time_channel = client.channels.create(

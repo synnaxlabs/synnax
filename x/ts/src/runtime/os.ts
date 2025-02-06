@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,17 +9,17 @@
 
 import { z } from "zod";
 
-export const OPERATING_SYSTEMS = ["MacOS", "Windows", "Linux", "Docker"] as const;
-const LOWERCASE_OPERATING_SYSTEMS = ["macos", "windows", "linux", "docker"] as const;
+export const OPERATING_SYSTEMS = ["macOS", "Windows", "Linux"] as const;
+const LOWERCASE_OPERATING_SYSTEMS = ["macos", "windows", "linux"] as const;
 const LOWER_TO_UPPER_OPERATING_SYSTEMS: Record<
   (typeof LOWERCASE_OPERATING_SYSTEMS)[number],
   (typeof OPERATING_SYSTEMS)[number]
 > = {
-  macos: "MacOS",
+  macos: "macOS",
   windows: "Windows",
   linux: "Linux",
-  docker: "Docker",
 };
+
 export const osZ = z
   .enum(OPERATING_SYSTEMS)
   .or(
@@ -29,35 +29,35 @@ export const osZ = z
   );
 export type OS = (typeof OPERATING_SYSTEMS)[number];
 
-export type RequiredGetOSProps = {
-  force?: OS;
-  default?: OS;
-};
-
-export type OptionalGetOSProps = {
-  force?: OS | undefined;
-  default: OS;
-};
-
-export type GetOSProps = RequiredGetOSProps | OptionalGetOSProps;
-
-let os: OS | undefined;
-
 const evalOS = (): OS | undefined => {
   if (typeof window === "undefined") return undefined;
   const userAgent = window.navigator.userAgent.toLowerCase();
-  if (userAgent.includes("mac")) return "MacOS";
+  if (userAgent.includes("mac")) return "macOS";
   if (userAgent.includes("win")) return "Windows";
   if (userAgent.includes("linux")) return "Linux";
   return undefined;
 };
+
+export interface RequiredGetOSProps {
+  force?: OS;
+  default?: OS;
+}
+
+export interface OptionalGetOSProps {
+  force?: OS;
+  default: OS;
+}
+
+export type GetOSProps = RequiredGetOSProps | OptionalGetOSProps;
+
+let os: OS | undefined;
 
 export interface GetOS {
   (props?: RequiredGetOSProps): OS;
   (props?: OptionalGetOSProps): OS | undefined;
 }
 
-export const getOS = ((props: GetOSProps = {}): OS | undefined => {
+export const getOS: GetOS = ((props = {}) => {
   const { force, default: default_ } = props;
   if (force != null) return force;
   if (os != null) return os;

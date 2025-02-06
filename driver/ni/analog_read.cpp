@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <cassert>
 #include <chrono>
-#include <stdio.h>
+#include <cstdio>
 #include <utility>
 
 #include "client/cpp/telem/telem.h"
 #include "driver/ni/reader.h"
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
+
 
 using json = nlohmann::json;
 
@@ -34,7 +36,7 @@ void ni::AnalogReadSource::parse_channels(config::Parser &parser) {
                     } else {
                         auto device_key = channel_builder.required<std::string>(
                             "device");
-                        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+                        auto [dev, err] = this->ctx->client->hardware.retrieve_device(
                             device_key
                         );
                         if (err) {
@@ -75,7 +77,6 @@ std::shared_ptr<ni::Analog> ni::AnalogReadSource::parse_channel(
     auto channel = AnalogInputChannelFactory::create_channel(
         channel_type,
         parser,
-        this->task_handle,
         channel_name,
         this->port_to_channel
     );
@@ -179,55 +180,41 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(
                                   driver::CRITICAL_HARDWARE_ERROR,
                                   "Failed to read data from queue"));
 
-    // interpolate  timestamps between the initial and final timestamp to ensure
+    // Interpolate  timestamps between the initial and final timestamp to ensure
     // non-overlapping timestamps between batched reads
-    uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
-
-    size_t s = d.samples_read_per_channel; // TODO: Remove this why is this here
-    // Construct and populate synnax frame
+    const uint64_t incr = (d.tf - d.t0) / this->num_samples_per_channel;
+    const size_t count = d.samples_read_per_channel;
     size_t data_index = 0;
-    for (int ch = 0; ch < num_channels; ch++) {
-        if (this->reader_config.channels[ch].enabled == false) continue;
-        if (this->reader_config.channels[ch].channel_type == "index") {
-            auto t = synnax::Series(synnax::TIMESTAMP, d.samples_read_per_channel);
-            for (uint64_t i = 0; i < d.samples_read_per_channel; ++i)
-                t.write(d.t0 + i * incr);
-            f.add(this->reader_config.channels[ch].channel_key, std::move(t));
+    for (const auto &ch: this->reader_config.channels) {
+        if (!ch.enabled) continue;
+        if (ch.channel_type == "index") {
+            auto t = synnax::Series(synnax::TIMESTAMP, count);
+            for (uint64_t i = 0; i < count; ++i) t.write(d.t0 + i * incr);
+            f.emplace(ch.channel_key, std::move(t));
             continue;
         }
-        synnax::Series series = synnax::Series(synnax::FLOAT32, s);
-        // TODO: remove this and fix the build error that happens when you remov eit
-        if (this->reader_config.channels[ch].data_type == synnax::FLOAT32)
-            series = synnax::Series(synnax::FLOAT32, s);
-        else if (this->reader_config.channels[ch].data_type == synnax::FLOAT64)
-            series = synnax::Series(synnax::FLOAT64, s);
-        for (int i = 0; i < d.samples_read_per_channel; i++)
-            this->write_to_series(
-                series, d.analog_data[data_index * d.samples_read_per_channel + i],
-                this->reader_config.channels[ch].data_type);
-        f.add(this->reader_config.channels[ch].channel_key, std::move(series));
+        auto series = synnax::Series(ch.data_type, count);
+        const auto buf = d.analog_data.data();
+        const int start = data_index * count;
+        if (series.data_type == synnax::FLOAT64) series.write(buf + start, count);
+        else
+            for (int i = 0; i < count; ++i)
+                series.write(static_cast<float>(buf[start + i]));
+        f.emplace(ch.channel_key, std::move(series));
         data_index++;
     }
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
-void ni::AnalogReadSource::write_to_series(synnax::Series &series, double &data,
-                                           synnax::DataType data_type) {
-    if (data_type == synnax::FLOAT32) series.write(static_cast<float>(data));
-    else if (data_type == synnax::FLOAT64) series.write(static_cast<double>(data));
-}
-
-
 int ni::AnalogReadSource::create_channels() {
-    auto channels = this->reader_config.channels;
-    for (auto &channel: channels) {
+    for (auto &channel: this->reader_config.channels) {
         this->num_channels++;
         if (channel.channel_type == "index" || !channel.enabled ||
             !channel.ni_channel)
             continue;
         this->num_ai_channels++;
         this->check_ni_error(channel.ni_channel->create_ni_scale(this->dmx));
-        this->check_ni_error(channel.ni_channel->create_ni_channel(this->dmx));
+        this->check_ni_error(channel.ni_channel->bind(this->dmx, this->task_handle));
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);
             return -1;

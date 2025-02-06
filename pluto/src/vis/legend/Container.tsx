@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -68,7 +68,7 @@ const stickyToDecimalXY = (
 ): xy.XY => {
   const ret = { x: pos.x, y: pos.y };
   if (ref.current == null) return ret;
-  const b = box.construct(ref.current as HTMLDivElement);
+  const b = box.construct(ref.current);
   const parentBox = box.construct(ref.current.parentElement as HTMLDivElement);
   if (pos.units?.x === "decimal") {
     if (pos.root?.x === "right") ret.x = 1 - pos.x;

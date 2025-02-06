@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,13 +10,10 @@
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon } from "@synnaxlabs/pluto";
 
-import { createAnalogReadLayout } from "@/hardware/ni/task/AnalogRead";
-import { createDigitalReadLayout } from "@/hardware/ni/task/DigitalRead";
-import { createDigitalWriteLayout } from "@/hardware/ni/task/DigitalWrite";
-import { type ScanConfig } from "@/hardware/ni/task/types";
-import { type Command } from "@/palette/Palette";
+import { Task } from "@/hardware/ni/task";
+import { type Palette } from "@/palette";
 
-export const createAnalogReadTaskCommand: Command = {
+const CREATE_ANALOG_READ_TASK_COMMAND: Palette.Command = {
   key: "ni-create-analog-read-task",
   name: "Create an NI Analog Read Task",
   icon: (
@@ -25,10 +22,10 @@ export const createAnalogReadTaskCommand: Command = {
     </PIcon.Create>
   ),
   onSelect: ({ placeLayout }) =>
-    placeLayout(() => createAnalogReadLayout({ create: true })),
+    placeLayout(Task.createAnalogReadLayout({ create: true })),
 };
 
-export const createDigitalWriteTaskCommand: Command = {
+const CREATE_DIGITAL_WRITE_TASK_COMMAND: Palette.Command = {
   key: "ni-create-digital-write-task",
   name: "Create an NI Digital Write Task",
   icon: (
@@ -37,10 +34,10 @@ export const createDigitalWriteTaskCommand: Command = {
     </PIcon.Create>
   ),
   onSelect: ({ placeLayout }) =>
-    placeLayout(createDigitalWriteLayout({ create: true })),
+    placeLayout(Task.createDigitalWriteLayout({ create: true })),
 };
 
-export const createDigitalReadTaskCommand: Command = {
+const CREATE_DIGITAL_READ_TASK_COMMAND: Palette.Command = {
   key: "ni-create-digital-read-task",
   name: "Create an NI Digital Read Task",
   icon: (
@@ -48,10 +45,11 @@ export const createDigitalReadTaskCommand: Command = {
       <Icon.Logo.NI />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) => placeLayout(createDigitalReadLayout({ create: true })),
+  onSelect: ({ placeLayout }) =>
+    placeLayout(Task.createDigitalReadLayout({ create: true })),
 };
 
-export const toggleNIScanner: Command = {
+const TOGGLE_NI_SCAN_TASK_COMMAND: Palette.Command = {
   key: "toggle-ni-scan-task",
   name: "Toggle NI Device Scanner",
   icon: (
@@ -64,9 +62,9 @@ export const toggleNIScanner: Command = {
     void (async () => {
       try {
         const tsk =
-          await client.hardware.tasks.retrieveByName<ScanConfig>("ni scanner");
+          await client.hardware.tasks.retrieveByName<Task.ScanConfig>("ni scanner");
         const enabled = tsk.config.enabled ?? true;
-        client.hardware.tasks.create<ScanConfig>({
+        await client.hardware.tasks.create<Task.ScanConfig>({
           ...tsk.payload,
           config: { enabled: !enabled },
         });
@@ -82,8 +80,8 @@ export const toggleNIScanner: Command = {
 };
 
 export const COMMANDS = [
-  createAnalogReadTaskCommand,
-  createDigitalWriteTaskCommand,
-  createDigitalReadTaskCommand,
-  toggleNIScanner,
+  CREATE_ANALOG_READ_TASK_COMMAND,
+  CREATE_DIGITAL_WRITE_TASK_COMMAND,
+  CREATE_DIGITAL_READ_TASK_COMMAND,
+  TOGGLE_NI_SCAN_TASK_COMMAND,
 ];

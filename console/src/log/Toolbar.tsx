@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,7 +39,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Log />}>{name}</ToolbarTitle>
         <Align.Space direction="x" style={{ width: 66 }} empty>
-          <Export.ToolbarButton onExport={() => handleExport(state.key)} />
+          <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
           <Link.CopyToolbarButton name={name} ontologyID={log.ontologyID(state.key)} />
         </Align.Space>
       </ToolbarHeader>
@@ -48,6 +48,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Channel.SelectSingle
             value={state.channels[0]}
             onChange={handleChannelChange}
+            searchOptions={{ internal: isDev() ? undefined : false }}
           />
         </Input.Item>
       </Align.Space>

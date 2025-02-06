@@ -103,12 +103,12 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Build
+        run: pnpm build:x
+
       - name: Lint
         if: matrix.lint
         run: pnpm lint:x
-
-      - name: Build
-        run: pnpm build:x
 
       - name: Test
         run: pnpm test:x

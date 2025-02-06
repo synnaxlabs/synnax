@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,7 +25,6 @@ import { useDispatch } from "react-redux";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { Confirm } from "@/confirm";
 import { Docs } from "@/docs";
 import { ErrorOverlayWithoutStore, ErrorOverlayWithStore } from "@/error/Overlay";
 import { LabJack } from "@/hardware/labjack";
@@ -37,6 +36,7 @@ import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
+import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
@@ -64,7 +64,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...NI.LAYOUTS,
   ...Channel.LAYOUTS,
   ...Version.LAYOUTS,
-  ...Confirm.LAYOUTS,
+  ...Modals.LAYOUTS,
   ...Label.LAYOUTS,
   ...User.LAYOUTS,
   ...Permissions.LAYOUTS,
@@ -84,7 +84,6 @@ const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "Shift", "P"],
   ["Control", "MouseLeft"],
   ["Control", "W"],
-  ["Control", "A"],
 ];
 
 const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {

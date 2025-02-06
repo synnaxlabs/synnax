@@ -8,9 +8,11 @@ nextURL: "/reference/console/clusters"
 ---
 
 import { Align, Divider } from "@synnaxlabs/pluto";
-import { SynnaxConsoleDownloadButton } from "@/components/console/OSDownloadButton";
-import { Image } from "@/components/Media";
+
+import { Console } from "@/components/console";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Image } from "@/components/Media";
+
 export const components = mdxOverrides;
 
 The Synnax Console is a desktop application for visualizing data, controlling hardware,
@@ -26,7 +28,7 @@ Install the console by downloading the latest release for your operating system:
 <br />
 <br />
 <Align.Space direction="y" justify="center" align="center">
-  <SynnaxConsoleDownloadButton client:load />
+  <Console.DownloadButton client:load />
   <small>
     Releases for other operating systems and older versions can be found on the
     [releases page](https://github.com/synnaxlabs/synnax/releases).

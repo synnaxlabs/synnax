@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,18 +32,11 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
   stopListeningStatus?: () => void;
   stopListeningColor?: () => void;
 
-  async afterUpdate(): Promise<void> {
+  async afterUpdate(ctx: aether.Context): Promise<void> {
     const { internal: i } = this;
-    i.statusSource = await telem.useSource(
-      this.ctx,
-      this.state.statusSource,
-      i.statusSource,
-    );
-    i.colorSource = await telem.useSource(
-      this.ctx,
-      this.state.colorSource,
-      i.colorSource,
-    );
+    const { statusSource, colorSource } = this.state;
+    i.statusSource = await telem.useSource(ctx, statusSource, i.statusSource);
+    i.colorSource = await telem.useSource(ctx, colorSource, i.colorSource);
     await this.updateState();
     this.stopListeningStatus?.();
     this.stopListeningStatus = i.statusSource.onChange(() => {
@@ -56,10 +49,6 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
   }
 
   async afterDelete(): Promise<void> {
-    this.internalAfterDelete().catch(console.error);
-  }
-
-  private async internalAfterDelete(): Promise<void> {
     await this.internal.statusSource.cleanup?.();
     await this.internal.colorSource.cleanup?.();
   }

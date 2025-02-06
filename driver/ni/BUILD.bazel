@@ -48,7 +48,10 @@ cc_test(
     srcs = [
         "analog_read_test.cpp",
     ],
-    copts = ["/std:c++20"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     deps = [
         "ni",
         "//driver/testutil",
@@ -61,7 +64,10 @@ cc_test(
     srcs = [
         "digital_read_test.cpp",
     ],
-    copts = ["/std:c++20"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     deps = [
         "ni",
         "//driver/testutil",
@@ -74,7 +80,10 @@ cc_test(
     srcs = [
         "scanner_test.cpp",
     ],
-    copts = ["/std:c++20"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     deps = [
         "ni",
         "//driver/testutil",
@@ -87,7 +96,10 @@ cc_test(
     srcs = [
         "task_test.cpp",
     ],
-    copts = ["/std:c++20"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     deps = [
         "ni",
         "//driver/testutil",

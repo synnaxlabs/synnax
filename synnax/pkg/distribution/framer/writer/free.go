@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,7 @@ import (
 )
 
 func (s *Service) newFree(mode Mode) StreamWriter {
-	w := &freeWriter{freeWrites: s.FreeWrites}
+	w := &freeWriter{freeWrites: s.FreeWrites, mode: mode}
 	w.Transform = w.transform
 	return w
 }

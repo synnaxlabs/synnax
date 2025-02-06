@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,14 +16,8 @@ import { Select } from "@/select";
 import { Synnax } from "@/synnax";
 
 const deviceColumns: Array<List.ColumnSpec<device.DeviceKey, device.Device>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
-  {
-    key: "location",
-    name: "Location",
-  },
+  { key: "name", name: "Name" },
+  { key: "location", name: "Location" },
 ];
 
 export interface SelectSingleProps

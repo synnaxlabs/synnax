@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { z } from "zod";
 
 import { type Icon } from "@/icon";
@@ -23,7 +23,7 @@ export const specZ = z.object({
 });
 
 export interface Spec extends Omit<z.infer<typeof specZ>, "icon"> {
-  icon?: ReactElement<Icon.BaseProps> | string | unknown;
+  icon?: Icon.Element | string | unknown;
 }
 export const tabZ = specZ.extend({
   content: z.unknown().optional(),

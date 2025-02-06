@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,6 +31,7 @@ import {
 
 import { Align } from "@/align";
 import { Button } from "@/button";
+import { Caret } from "@/caret";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
@@ -199,6 +200,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       <InputWrapper<K, E> searcher={searcher}>
         {({ onChange, value: inputValue }) => (
           <MultipleInput<K, E>
+            dropdownVariant={dropdownVariant}
             value={inputValue}
             selectedKeys={value}
             className={className}
@@ -303,6 +305,7 @@ interface SelectMultipleInputProps<K extends Key, E extends Keyed<K>>
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onFocus?: () => void;
+  dropdownVariant: Dropdown.Variant;
 }
 
 const MultipleInput = <K extends Key, E extends Keyed<K>>({
@@ -320,6 +323,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
   value,
   className,
   children,
+  dropdownVariant,
   ...props
 }: SelectMultipleInputProps<K, E>): ReactElement => {
   const { onSelect, clear } = CoreList.useSelectionUtils();
@@ -344,6 +348,12 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
     onChange("");
   };
 
+  let endContent: ReactElement | undefined;
+  if (dropdownVariant !== "modal")
+    endContent = (
+      <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
+    );
+
   return (
     <Input.Text
       ref={ref}
@@ -361,6 +371,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
       autoCapitalize="off"
       autoCorrect="off"
       onClick={handleClick}
+      endContent={endContent}
       variant="button"
       {...props}
     >

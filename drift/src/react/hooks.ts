@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -64,6 +64,7 @@ export const useAsyncWindowLifecycle = (
           destructor.current = d ?? (async () => {});
           dispatch(registerProcess({ key: win.key }));
         })
+        .catch(console.error)
         .finally(() => {
           promiseOut.current = false;
         });
@@ -77,6 +78,7 @@ export const useAsyncWindowLifecycle = (
         .then(() => {
           destructor.current = null;
         })
+        .catch(console.error)
         .finally(() => {
           dispatch(completeProcess({ key: win.key }));
         });

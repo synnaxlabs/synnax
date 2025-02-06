@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -35,7 +35,7 @@ export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
       const [res, err] = await this.stream.receive();
       if (res != null)
         console.warn(
-          `${this.name} received unexpected response on closure. 
+          `${this.name} received unexpected response on closure.
         Please report this error to the Synnax team. ${JSON.stringify(res)}`,
         );
       if (err != null) {

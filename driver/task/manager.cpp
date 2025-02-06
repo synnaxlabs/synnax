@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -50,7 +50,7 @@ freighter::Error task::Manager::start() {
 
 freighter::Error task::Manager::startGuarded() {
     // Fetch info about the rack.
-    auto [rack, rack_err] = ctx->client->hardware.retrieveRack(rack_key);
+    auto [rack, rack_err] = ctx->client->hardware.retrieve_rack(rack_key);
     if (rack_err) return rack_err;
     internal = rack;
 
@@ -97,7 +97,7 @@ void task::Manager::run() {
 freighter::Error task::Manager::stop() {
     if (!breaker.running()) return freighter::NIL;
     if (!run_thread.joinable()) return freighter::NIL;
-    streamer->closeSend();
+    streamer->close_send();
     breaker.stop();
     run_thread.join();
     for (auto &[key, task]: tasks) {
@@ -112,7 +112,7 @@ freighter::Error task::Manager::runGuarded() {
     const std::vector stream_channels = {
         task_set_channel.key, task_delete_channel.key, task_cmd_channel.key
     };
-    auto [s, open_err] = ctx->client->telem.openStreamer(StreamerConfig{
+    auto [s, open_err] = ctx->client->telem.open_streamer(StreamerConfig{
         .channels = stream_channels
     });
     if (open_err) return open_err;

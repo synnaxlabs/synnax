@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -65,7 +65,7 @@ export const DIGITAL_WRITE_SELECTABLE: Layout.Selectable = {
   key: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createDigitalWriteLayout({ create: true }),
     key: layoutKey,
   }),
@@ -199,7 +199,10 @@ const Wrapped = ({
         return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
       });
       methods.set("config.channels", config.channels);
-      await createTask({ key: task?.key, name, type: DIGITAL_WRITE_TYPE, config });
+      await createTask(
+        { key: task?.key, name, type: DIGITAL_WRITE_TYPE, config },
+        dev.rack,
+      );
       setDesiredState("paused");
     },
   });
@@ -289,7 +292,6 @@ const MainContent = ({ snapshot }: MainContentProps): ReactElement => {
   const formCtx = Form.useContext();
   const device = useDevice(formCtx) as Device | undefined;
   const place = Layout.usePlacer();
-  console.log(device);
   if (device == null)
     return (
       <Align.Space grow empty align="center" justify="center">

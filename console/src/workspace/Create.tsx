@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Button, Form, Nav, Synnax, Text, Triggers } from "@synnaxlabs/pluto";
+import { Align, Button, Form, Nav, Synnax } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
@@ -16,6 +16,7 @@ import { z } from "zod";
 
 import { Layout } from "@/layout";
 import { type SliceState } from "@/layout/slice";
+import { Triggers } from "@/triggers";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { add } from "@/workspace/slice";
 
@@ -34,8 +35,6 @@ export const CREATE_WINDOW_LAYOUT: Layout.State = {
 const formSchema = z.object({
   name: z.string().min(1, { message: "Workspace must have a name" }),
 });
-
-const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   const methods = Form.use({ values: { name: "" }, schema: formSchema });
@@ -82,12 +81,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         </Form.Form>
       </Align.Space>
       <Layout.BottomNavBar>
-        <Nav.Bar.Start size="small">
-          <Triggers.Text shade={7} level="small" trigger={SAVE_TRIGGER} />
-          <Text.Text shade={7} level="small">
-            To Create
-          </Text.Text>
-        </Nav.Bar.Start>
+        <Triggers.SaveHelpText action="Create" />
         <Nav.Bar.End>
           <Button.Button
             type="submit"
@@ -96,7 +90,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             disabled={isPending || client == null}
             tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
             onClick={() => mutate()}
-            triggers={[SAVE_TRIGGER]}
+            triggers={Triggers.SAVE}
           >
             Create
           </Button.Button>

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,48 +7,62 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <stdio.h>
-
-#include "driver/testutil/testutil.h"
-#include "driver/ni/ni.h"
 #include "client/cpp/synnax.h"
+#include "driver/ni/ni.h"
+#include "driver/testutil/testutil.h"
 
+#include <gtest/gtest.h>
+#include "glog/logging.h"
+#include "nidaqmx/nidaqmx_prod.h"
+#include "nisyscfg/nisyscfg_prod.h"
 #include "nlohmann/json.hpp"
-#include <include/gtest/gtest.h>
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                          Functional Tests                                                    //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-TEST(NiScannerTests, test_valid_scan) {
+using json = nlohmann::json;
+
+/* 
+Devices Identifiers in NI MAX
+
+Dev1 : NI USB-6289 (simulated device)
+Dev2 : NI USB-9211A (simulated device)
+Dev3 : NI USB-9219 (simulated device)
+Dev4 : NI USB-6000 (physical device)
+Dev5 : NI USB-9234 (simulated device)
+
+PXI1Slot2 : NI PXIe-4302 (simulated device)
+PXI1Slot3 : NI PXIe-4357 (simulated device)
+*/
+
+TEST(scanner_tests, test_valid_scan) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto task = synnax::Task(
-        "my_task",
-        "niScanner",
-        ""
-    );
+    auto task = synnax::Task("scanner_task", "niScanner", "");
     auto mockCtx = std::make_shared<task::MockContext>(client);
 
-    //create a scanner
-    ni::Scanner scanner = ni::Scanner(mockCtx, task);
+    auto [sys_cfg, load_err] = SysCfgProd::load();
+    ASSERT_FALSE(load_err) << load_err.message();
+
+    ni::Scanner scanner(sys_cfg, mockCtx, task);
+    
+    // First scan
     scanner.scan();
+    ASSERT_TRUE(scanner.ok());
 
     if (scanner.ok()) {
-        nlohmann::json devices = scanner.get_devices();
-        // print size of devices
-        std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
-        std::cout << devices.dump(4) << std::endl;
+        json devices = scanner.get_devices();
+        VLOG(1) << "Number of devices: " << devices["devices"].size();
+        VLOG(1) << "Devices: " << devices.dump(4);
     } else {
-        std::cout << "Scanner failed to retreive devices" << std::endl;
+        FAIL() << "Scanner failed to retrieve devices";
     }
 
-    // scan a second time
+    // Second scan
     scanner.scan();
+    ASSERT_TRUE(scanner.ok());
+
     if (scanner.ok()) {
-        nlohmann::json devices = scanner.get_devices();
-        // print size of devices
-        std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
-        std::cout << devices.dump(4) << std::endl;
+        json devices = scanner.get_devices();
+        VLOG(1) << "Number of devices: " << devices["devices"].size();
+        VLOG(1) << "Devices: " << devices.dump(4);
     } else {
-        std::cout << "Scanner failed to retreive devices" << std::endl;
+        FAIL() << "Scanner failed to retrieve devices";
     }
 }

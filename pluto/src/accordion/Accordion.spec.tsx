@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,18 +14,8 @@ import { Accordion } from "@/accordion";
 
 describe("Accordion", () => {
   const data: Accordion.Entry[] = [
-    {
-      key: "1",
-      name: "Pane 1",
-      content: <div>Pane 1 Content</div>,
-      initialSize: 0.5,
-    },
-    {
-      key: "2",
-      name: "Pane 2",
-      content: <div>Pane 2 Content</div>,
-      initialSize: 0.5,
-    },
+    { key: "1", name: "Pane 1", content: <div>Pane 1 Content</div>, initialSize: 0.5 },
+    { key: "2", name: "Pane 2", content: <div>Pane 2 Content</div>, initialSize: 0.5 },
   ];
   it("should render two panes with the correct sizes", () => {
     const c = render(<Accordion.Accordion data={data} />);

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Update", Ordered, func() {
+var _ = Describe("update", Ordered, func() {
 	var (
 		db      *gorp.DB
 		kv      kvx.DB

@@ -1,4 +1,13 @@
-import React, { type FC } from "react";
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type FC } from "react";
 
 /**
  * A higher-order component that removes specified props from a wrapped component.
@@ -28,7 +37,7 @@ export const removeProps = <P extends object>(
   propsToRemove: string[],
 ): FC<P> => {
   const omitted: Record<string, never> = {};
-  propsToRemove.forEach((prop) => (omitted[prop as string] = undefined as never));
+  propsToRemove.forEach((prop) => (omitted[prop] = undefined as never));
   const C = (props: P) => {
     const { ...restProps } = { ...props, ...omitted };
     return <WrappedComponent {...(restProps as P)} />;

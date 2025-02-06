@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -43,8 +43,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   static readonly TYPE = "tooltip";
   schema = tooltipStateZ;
 
-  async afterUpdate(): Promise<void> {
-    const theme = theming.use(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    const theme = theming.use(ctx);
     if (this.state.textColor.isZero) this.state.textColor = theme.colors.text;
     if (this.state.backgroundColor.isZero)
       this.state.backgroundColor = theme.colors.gray.l1;
@@ -53,13 +53,13 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
 
-    this.internal.render = render.Context.use(this.ctx);
+    this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
-    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
+    render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
-  async afterDelete(): Promise<void> {
-    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
+  async afterDelete(ctx: aether.Context): Promise<void> {
+    render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
   async render(props: TooltipProps): Promise<void> {

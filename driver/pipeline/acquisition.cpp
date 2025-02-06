@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -51,7 +51,7 @@ public:
     std::pair<std::unique_ptr<pipeline::Writer>, freighter::Error> openWriter(
         const WriterConfig &config
     ) override {
-        auto [sw, err] = client->telem.openWriter(config);
+        auto [sw, err] = client->telem.open_writer(config);
         if (err) return {nullptr, err};
         return {
             std::make_unique<SynnaxWriter>(

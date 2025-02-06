@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,7 +28,7 @@ TEST(FramerTests, testStreamBasic) {
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = synnax::TimeStamp::now();
     std::vector<synnax::ChannelKey> channels = {data.key};
-    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
+    auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
         std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
@@ -36,7 +36,7 @@ TEST(FramerTests, testStreamBasic) {
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
-    auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
+    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
         channels,
     });
 
@@ -69,7 +69,7 @@ TEST(FramerTests, testStreamSetChannels) {
         1 * synnax::HZ);
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = synnax::TimeStamp::now();
-    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
+    auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         {data.key},
         now,
         std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
@@ -77,11 +77,11 @@ TEST(FramerTests, testStreamSetChannels) {
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
-    auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
+    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
         {},
     });
 
-    auto setErr = streamer.setChannels({data.key});
+    auto setErr = streamer.set_channels({data.key});
     // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_FALSE(setErr) << setErr.message();
@@ -154,7 +154,7 @@ void test_downsample(
     ASSERT_FALSE(cErr) << cErr.message();
     auto now = synnax::TimeStamp::now();
     std::vector<synnax::ChannelKey> channels = {data.key};
-    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
+    auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
         std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
@@ -162,7 +162,7 @@ void test_downsample(
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
-    auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
+    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
         channels,
         downsample_factor
     });
@@ -202,7 +202,7 @@ void test_downsample_string(
 
     auto now = synnax::TimeStamp::now();
     std::vector<synnax::ChannelKey> channels = {virtual_channel.key};
-    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
+    auto [writer, wErr] = client.telem.open_writer(synnax::WriterConfig{
         channels,
         now,
         std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
@@ -210,7 +210,7 @@ void test_downsample_string(
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
-    auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
+    auto [streamer, sErr] = client.telem.open_streamer(synnax::StreamerConfig{
         channels,
         downsample_factor
     });

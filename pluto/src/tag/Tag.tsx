@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,7 +22,7 @@ import { type ComponentSize } from "@/util/component";
 
 export interface TagProps
   extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
-  icon?: ReactElement<PIcon.BaseProps>;
+  icon?: PIcon.Element;
   onClose?: () => void;
   color?: Color.Crude;
   size?: ComponentSize;

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -109,7 +109,7 @@ export class Channel {
    */
   readonly virtual: boolean;
   /**
-   * Only used for calculated channels. Specifies the python expression to evaluate
+   * Only used for calculated channels. Specifies the Lua expression used to evaluate
    * the calculated value
    */
   readonly expression: string;
@@ -447,16 +447,18 @@ export const isCalculated = ({ virtual, expression }: Payload): boolean =>
   virtual && expression !== "";
 
 export const resolveCalculatedIndex = async (
-  retrieve: (key: Key) => Promise<Payload>,
+  retrieve: (key: Key) => Promise<Payload | null>,
   channel: Payload,
 ): Promise<Key | null> => {
   if (!isCalculated(channel)) return channel.index;
   for (const required of channel.requires) {
     const requiredChannel = await retrieve(required);
+    if (requiredChannel == null) return null;
     if (!requiredChannel.virtual) return requiredChannel.index;
   }
   for (const required of channel.requires) {
     const requiredChannel = await retrieve(required);
+    if (requiredChannel == null) return null;
     if (isCalculated(requiredChannel)) {
       const index = await resolveCalculatedIndex(retrieve, requiredChannel);
       if (index != null) return index;

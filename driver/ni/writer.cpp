@@ -283,7 +283,7 @@ freighter::Error ni::DigitalWriteSink::stop_ni() {
     return freighter::NIL;
 }
 
-freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame) {
+freighter::Error ni::DigitalWriteSink::write(synnax::Frame &frame) {
     int32 samplesWritten = 0;
     format_data(std::move(frame));
 
@@ -374,7 +374,7 @@ int ni::AnalogWriteSink::init() {
 
     for (auto &channel: channels) {
         this->check_err(channel.ni_channel->create_ni_scale(this->dmx), "init.create_ni_scale");
-        this->check_err(channel.ni_channel->create_ni_channel(this->dmx), "init.create_ni_channel");
+        this->check_err(channel.ni_channel->bind(this->dmx, this->task_handle), "init.bind");
         if (!this->ok()) {
             this->log_error("failed while creating channel " + channel.name);
             return -1;
@@ -406,7 +406,7 @@ freighter::Error ni::AnalogWriteSink::stop_ni() {
     return freighter::NIL;
 }
 
-freighter::Error ni::AnalogWriteSink::write(synnax::Frame frame) {
+freighter::Error ni::AnalogWriteSink::write(synnax::Frame &frame) {
     int32 samplesWritten = 0;
     format_data(std::move(frame));
 

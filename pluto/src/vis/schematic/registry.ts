@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -540,7 +540,7 @@ const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
     ...zeroLabel("Butterfly Valve (Manual)"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: ({ clickable, ...props }) => Primitives.ButterflyValveTwo(props),
+  Preview: removeProps(Primitives.ButterflyValveTwo, ["clickable"]),
   zIndex: Z_INDEX_UPPER,
 };
 
@@ -554,7 +554,7 @@ const breatherValve: Spec<BreatherValveProps> = {
     ...zeroLabel("Breather Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
-  Preview: Primitives.BreatherValve,
+  Preview: removeProps(Primitives.BreatherValve, ["clickable"]),
   zIndex: Z_INDEX_UPPER,
 };
 

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -80,7 +80,10 @@ export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({ ...configureReadLayout({ create: true }), key: layoutKey }),
+  create: async ({ layoutKey }) => ({
+    ...configureReadLayout({ create: true }),
+    key: layoutKey,
+  }),
 };
 
 const schema = z.object({ name: z.string(), config: readConfigZ });
@@ -255,7 +258,7 @@ const Wrapped = ({
           ...dev,
           properties: dev.properties,
         });
-      createTask({ key: task?.key, name, type: READ_TYPE, config });
+      await createTask({ key: task?.key, name, type: READ_TYPE, config });
       setDesiredState("paused");
     },
     onError: (e) => handleException(e, `Failed to configure task`),

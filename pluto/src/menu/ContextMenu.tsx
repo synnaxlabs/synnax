@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,9 +12,6 @@ import "@/menu/ContextMenu.css";
 import { box, position, unique, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
-  type FC,
-  type ForwardedRef,
-  forwardRef,
   type ReactElement,
   type RefCallback,
   useRef,
@@ -82,8 +79,8 @@ const findSelected = (target_: HTMLElement): HTMLElement[] => {
   if (target == null) return [];
   const selected = Array.from(
     target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ?? [],
-  ) as HTMLElement[];
-  if (selected.includes(target)) return selected;
+  );
+  if (selected.includes(target)) return selected as HTMLElement[];
   return [target];
 };
 
@@ -153,47 +150,6 @@ export interface ContextMenuProps
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
-const ContextMenuCore = (
-  {
-    children,
-    menu,
-    visible,
-    open,
-    close,
-    position: xy,
-    keys,
-    className,
-    cursor: _,
-    ...props
-  }: ContextMenuProps,
-  ref: ForwardedRef<HTMLDivElement>,
-): ReactElement => {
-  const menuC = visible ? menu?.({ keys }) : null;
-
-  return (
-    <div
-      className={CSS(CONTEXT_MENU_CONTAINER, className, CSS.inheritDims())}
-      onContextMenu={open}
-      {...props}
-    >
-      {children}
-      {menuC != null &&
-        createPortal(
-          <Align.Space
-            className={CSS(CSS.B("menu-context"), CSS.bordered())}
-            ref={ref}
-            style={{ left: xy.x, top: xy.y }}
-            onClick={close}
-            size={1 / 2}
-          >
-            {menuC}
-          </Align.Space>,
-          document.body,
-        )}
-    </div>
-  );
-};
-
 /**
  * Menu.ContextMenu wraps a set of children with a context menu. When the user
  * right clicks within wrapped area, the provided menu will be shown.
@@ -234,7 +190,40 @@ const ContextMenuCore = (
  * underlying div component acting as the root element.
  * @param props.menu - The menu to show when the user right clicks.
  */
-export const ContextMenu = forwardRef(
-  ContextMenuCore as React.ForwardRefRenderFunction<HTMLDivElement>,
-) as FC<ContextMenuProps>;
-ContextMenu.displayName = "ContextMenu";
+export const ContextMenu = ({
+  ref,
+  children,
+  menu,
+  visible,
+  open,
+  close,
+  position: xy,
+  keys,
+  className,
+  cursor: _,
+  ...props
+}: ContextMenuProps): ReactElement => {
+  const menuC = visible ? menu?.({ keys }) : null;
+  return (
+    <div
+      className={CSS(CONTEXT_MENU_CONTAINER, className, CSS.inheritDims())}
+      onContextMenu={open}
+      {...props}
+    >
+      {children}
+      {menuC != null &&
+        createPortal(
+          <Align.Space
+            className={CSS(CSS.B("menu-context"), CSS.bordered())}
+            ref={ref}
+            style={{ left: xy.x, top: xy.y }}
+            onClick={close}
+            size={1 / 2}
+          >
+            {menuC}
+          </Align.Space>,
+          document.body,
+        )}
+    </div>
+  );
+};

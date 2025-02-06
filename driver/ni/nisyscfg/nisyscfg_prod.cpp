@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <cstring>
+#include <cstdarg>
 
 /// internal.
 #include "driver/ni/nisyscfg/nisyscfg.h"
@@ -44,8 +45,8 @@ SysCfgProd::SysCfgProd(std::unique_ptr<libutil::SharedLib> &lib_) : lib(std::mov
     function_pointers_.CreateFilter = reinterpret_cast<CreateFilterPtr>(
         const_cast<void*>(this->lib->get_func_ptr("NISysCfgCreateFilter")));
 
-    function_pointers_.SetFilterProperty = reinterpret_cast<SetFilterPropertyPtr>(
-        const_cast<void*>(this->lib->get_func_ptr("NISysCfgSetFilterProperty")));
+    function_pointers_.SetFilterPropertyV = reinterpret_cast<SetFilterPropertyVPtr>(
+        const_cast<void*>(this->lib->get_func_ptr("NISysCfgSetFilterPropertyV")));
 
     function_pointers_.CloseHandle = reinterpret_cast<CloseHandlePtr>(
         const_cast<void*>(this->lib->get_func_ptr("NISysCfgCloseHandle")));
@@ -97,7 +98,11 @@ NISYSCFGCDECL SysCfgProd::SetFilterProperty(
     NISysCfgFilterProperty propertyID,
     ...
 ) {
-    return function_pointers_.SetFilterProperty(filterHandle, propertyID);
+  va_list args;
+  va_start(args, propertyID);
+  NISysCfgStatus status = function_pointers_.SetFilterPropertyV(filterHandle, propertyID, args);
+  va_end(args);
+  return status;
 }
 
 NISYSCFGCFUNC SysCfgProd::CloseHandle(

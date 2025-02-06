@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,6 +14,7 @@
 #include <utility>
 #include <cstdint>
 #include <map>
+#include <variant>
 
 #include "driver/ni/util.h"
 #include "nidaqmx/nidaqmx.h"
@@ -34,7 +35,7 @@ struct LinearScale {
 
     LinearScale() = default;
 
-    LinearScale(config::Parser &parser)
+    explicit LinearScale(config::Parser &parser)
         : slope(parser.required<double>("slope")),
           offset(parser.required<double>("y_intercept")) {
         if (!parser.ok())
@@ -54,7 +55,7 @@ struct MapScale {
 
     MapScale() = default;
 
-    MapScale(config::Parser &parser)
+    explicit MapScale(config::Parser &parser)
         : prescaled_min(parser.required<double>("pre_scaled_min")),
           prescaled_max(parser.required<double>("pre_scaled_max")),
           scaled_min(parser.required<double>("scaled_min")),
@@ -79,7 +80,7 @@ struct PolynomialScale {
 
     PolynomialScale() = default;
 
-    PolynomialScale(
+    explicit PolynomialScale(
         config::Parser &parser
     )
         : num_coeffs(parser.required<int>("num_coeffs")),
@@ -106,18 +107,19 @@ struct PolynomialScale {
         }
 
         for (int i = 0; i < num_coeffs; i++) forward_coeffs[i] = j["coeffs"][i];
+    }
 
-        // get reverse coeffs (scale -> prescale conversions)
+    void calculate_coeffs(const std::shared_ptr<DAQmx> &dmx) {
         // TODO: reverse coeffs might be smaller than forward_coeffs
-        // dmx->CalculateReversePolyCoeff(
-        //     forward_coeffs.data(),
-        //     num_coeffs,
-        //     min_x,
-        //     max_x,
-        //     num_coeffs,
-        //     -1,
-        //     reverse_coeffs.data()
-        // ); // FIXME: reversePoly order should be user inputted?
+        dmx->CalculateReversePolyCoeff(
+            this->forward_coeffs.data(),
+            this->num_coeffs,
+            this->min_x,
+            this->max_x,
+            this->num_coeffs,
+            -1,
+            this->reverse_coeffs.data()
+        );
     }
 };
 
@@ -131,7 +133,7 @@ struct TableScale {
 
     TableScale() = default;
 
-    TableScale(config::Parser &parser) {
+    explicit TableScale(config::Parser &parser) {
         if (!parser.ok()) {
             LOG(ERROR) << "[ni.analog] failed to parse custom table configuration";
             return;
@@ -158,115 +160,76 @@ struct ScaleConfig {
     std::string type;
     std::string prescaled_units;
     std::string scaled_units;
-    config::Parser parser;
-    LinearScale linear;
-    MapScale map;
-    PolynomialScale polynomial;
-    TableScale table;
+    std::variant<LinearScale, MapScale, PolynomialScale, TableScale> scale;
 
     ScaleConfig() = default;
 
-    ScaleConfig(config::Parser &parser, std::string &name)
+    ScaleConfig(config::Parser &parser, const std::string &name)
         : name(name),
           type(parser.required<std::string>("type")),
-          prescaled_units(
-              parser.optional<std::string>("pre_scaled_units", "Volts")),
-          scaled_units(parser.optional<std::string>("scaled_units", "Volts")),
-          parser(parser) {
+          prescaled_units(parser.optional<std::string>("pre_scaled_units", "Volts")),
+          scaled_units(parser.optional<std::string>("scaled_units", "Volts")) {
         if (!parser.ok()) {
-            LOG(ERROR)
-                    << "[ni.analog] failed to parse custom scale configuration for "
+            LOG(ERROR) << "[ni.analog] failed to parse custom scale configuration for "
                     << name;
             return;
         }
 
-        if (type == "linear") new(&linear) LinearScale(parser);
-        else if (type == "map") new(&map) MapScale(parser);
-        else if (type == "polynomial") new(&polynomial) PolynomialScale(parser);
-        else if (type == "table") new(&table) TableScale(parser);
+        if (type == "linear") scale.emplace<LinearScale>(parser);
+        else if (type == "map") scale.emplace<MapScale>(parser);
+        else if (type == "polynomial") scale.emplace<PolynomialScale>(parser);
+        else if (type == "table") scale.emplace<TableScale>(parser);
     }
 
-    ScaleConfig(const ScaleConfig &other)
-        : name(other.name),
-          type(other.type),
-          prescaled_units(other.prescaled_units),
-          scaled_units(other.scaled_units),
-          parser(other.parser) {
-        if (type == "linear") linear = LinearScale(parser);
-        else if (type == "map") map = MapScale(parser);
-        else if (type == "polynomial") polynomial = PolynomialScale(parser);
-        else if (type == "table") {
-            table = TableScale(parser);
-            table.prescaled = other.table.prescaled;
-            table.scaled = other.table.scaled;
-            table.num_points = other.table.num_points;
-        }
-    }
+    // Copy constructor can use default
+    ScaleConfig(const ScaleConfig &) = default;
 
-    ~ScaleConfig() {
-        if (type == "linear") linear.~LinearScale();
-        else if (type == "map") map.~MapScale();
-        else if (type == "polynomial") polynomial.~PolynomialScale();
-        else if (type == "table") table.~TableScale();
-    }
+    // Move constructor no longer needs to be deleted
+    ScaleConfig(ScaleConfig &&) = default;
 
-    ScaleConfig &operator=(const ScaleConfig &other) {
-        if (this == &other) return *this;
-
-        name = other.name;
-        type = other.type;
-        prescaled_units = other.prescaled_units;
-        scaled_units = other.scaled_units;
-        parser = other.parser;
-
-        if (type == "linear") linear = LinearScale(parser);
-        else if (type == "map") map = MapScale(parser);
-        else if (type == "polynomial") polynomial = PolynomialScale(parser);
-        else if (type == "table") table = TableScale(parser);
-
-        return *this;
-    }
-
-    ScaleConfig(ScaleConfig &&other) = delete;
+    // Assignment operator can use default
+    ScaleConfig &operator=(const ScaleConfig &) = default;
 
     int32 create_ni_scale(const std::shared_ptr<DAQmx> &dmx) {
-        if (type == "linear")
+        if (const auto linear = std::get_if<LinearScale>(&scale))
             return dmx->CreateLinScale(
-                name.c_str(),
-                linear.slope,
-                linear.offset,
+                this->name.c_str(),
+                linear->slope,
+                linear->offset,
                 ni::UNITS_MAP.at(prescaled_units),
-                scaled_units.c_str()
+                this->scaled_units.c_str()
             );
-        else if (type == "map")
+        if (const auto map = std::get_if<MapScale>(&scale))
             return dmx->CreateMapScale(
-                name.c_str(),
-                map.prescaled_min,
-                map.prescaled_max,
-                map.scaled_min,
-                map.scaled_max,
-                ni::UNITS_MAP.at(prescaled_units),
-                scaled_units.c_str()
+                this->name.c_str(),
+                map->prescaled_min,
+                map->prescaled_max,
+                map->scaled_min,
+                map->scaled_max,
+                ni::UNITS_MAP.at(this->prescaled_units),
+                this->scaled_units.c_str()
             );
-        else if (type == "polynomial")
+        if (auto poly = std::get_if<PolynomialScale>(&scale)) {
+            poly->calculate_coeffs(dmx);
             return dmx->CreatePolynomialScale(
                 name.c_str(),
-                polynomial.forward_coeffs.data(),
-                polynomial.num_coeffs,
-                polynomial.reverse_coeffs.data(),
-                polynomial.num_coeffs,
-                ni::UNITS_MAP.at(prescaled_units),
-                scaled_units.c_str()
+                poly->forward_coeffs.data(),
+                poly->num_coeffs,
+                poly->reverse_coeffs.data(),
+                poly->num_coeffs,
+                ni::UNITS_MAP.at(this->prescaled_units),
+                this->scaled_units.c_str()
             );
-        else if (type == "table")
+        }
+        if (const auto table = std::get_if<TableScale>(&scale))
             return dmx->CreateTableScale(
-                name.c_str(),
-                table.prescaled.data(),
-                table.num_points,
-                table.scaled.data(),
-                table.num_points,
-                ni::UNITS_MAP.at(prescaled_units),
-                scaled_units.c_str()
+                this->name.c_str(),
+                table->prescaled.data(),
+                table->num_points,
+                table->scaled.data(),
+                table->num_points,
+                ni::UNITS_MAP.at(this->prescaled_units),
+                this->scaled_units.c_str()
             );
         return 0;
     }

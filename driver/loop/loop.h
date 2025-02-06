@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -100,7 +100,7 @@ public:
         if (this->highRate()) preciseSleep(remaining);
         else if (this->mediumRate())
             std::this_thread::sleep_for(remaining.chrono());
-        else breaker.waitFor(remaining);
+        else breaker.wait_for(remaining);
         last = hs_clock::now();
         return {synnax::TimeSpan(elapsed), true};
     }

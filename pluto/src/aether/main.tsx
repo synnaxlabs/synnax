@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type SenderHandler } from "@synnaxlabs/x";
+import { deep, type SenderHandler } from "@synnaxlabs/x";
 import { compare } from "@synnaxlabs/x/compare";
 import {
-  type ComponentType,
   createContext,
-  type FC,
   memo,
   type PropsWithChildren,
   type ReactElement,
@@ -78,9 +76,7 @@ export const Provider = ({
         );
       if (type.length === 0)
         console.warn(
-          `[Aether.Provider] - received zero length type when registering component at ${path.join(
-            ".",
-          )} This is probably a bad idea.`,
+          `[Aether.Provider] - received zero length type when registering component at ${path.join(".")} This is probably a bad idea.`,
         );
       registry.current.set(key, { path, handler });
       return {
@@ -129,7 +125,7 @@ export interface UseLifecycleReturn<S extends z.ZodTypeAny> {
 export interface UseLifecycleProps<S extends z.ZodTypeAny> {
   type: string;
   schema: S;
-  aetherKey: string;
+  aetherKey?: string;
   initialState: z.input<S>;
   initialTransfer?: Transferable[];
   onReceive?: StateHandler;
@@ -137,12 +133,13 @@ export interface UseLifecycleProps<S extends z.ZodTypeAny> {
 
 const useLifecycle = <S extends z.ZodTypeAny>({
   type,
-  aetherKey: key,
+  aetherKey,
   initialState,
   schema,
   initialTransfer = [],
   onReceive,
 }: UseLifecycleProps<S>): UseLifecycleReturn<S> => {
+  const key = useUniqueKey(aetherKey);
   const comms = useRef<CreateReturn | null>(null);
   const ctx = useAetherContext();
   const path = useMemoCompare(
@@ -197,18 +194,47 @@ const useLifecycle = <S extends z.ZodTypeAny>({
   return useMemo(() => ({ setState, path }), [setState, key, path]);
 };
 
+export interface CProps {
+  aetherKey?: string;
+}
+
 export interface UseProps<S extends z.ZodTypeAny>
   extends Omit<UseLifecycleProps<S>, "onReceive"> {
   onAetherChange?: (state: z.output<S>) => void;
 }
 
+interface ComponentContext {
+  path: string[];
+}
+
 export type UseReturn<S extends z.ZodTypeAny> = [
-  {
-    path: string[];
-  },
+  ComponentContext,
   z.output<S>,
   (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void,
 ];
+
+export interface UsePropsProps<S extends z.ZodTypeAny>
+  extends Pick<UseLifecycleProps<S>, "schema" | "aetherKey"> {
+  type: string;
+  state: z.input<S>;
+}
+
+/***
+ * A simpler version of {@link use} that assumes the caller only wants to propagate
+ * state to the aether component, and not receive state from the aether component.
+ */
+export const useUnidirectional = <S extends z.ZodTypeAny>({
+  state,
+  ...props
+}: UsePropsProps<S>): ComponentContext => {
+  const { path, setState } = useLifecycle({ ...props, initialState: state });
+  const ref = useRef(null);
+  if (!deep.equal(ref.current, state)) {
+    ref.current = state;
+    setState(state);
+  }
+  return { path };
+};
 
 /**
  * Use creates a new aether component with a unique key and type.
@@ -307,27 +333,3 @@ export const Composite = memo(({ children, path }: CompositeProps): ReactElement
   return <Context.Provider value={value}>{children}</Context.Provider>;
 });
 Composite.displayName = "AetherComposite";
-
-/**
- * Wrap wraps a component to generate a unique key that persists across re-renders. This
- * hook is necessary to create an aether enhanced component when using React.StrictMode.
- *
- * @param displayName - The display name of the component. Used or react devtools.
- * @param Component - The component to wrap. This component receives an additional
- * aetherKey prop along with its normal props.
- * @returns A wrapped component that is behaviorally identical to the original component.
- */
-export const wrap = <P extends {}>(
-  displayName: string,
-  Component: ComponentType<P & { aetherKey: string }>,
-): FC<P & { aetherKey?: string }> => {
-  Component.displayName = `Aether.wrap(${displayName})`;
-  const Wrapped = memo<P & { aetherKey?: string }>(
-    ({ aetherKey, ...props }: P & { aetherKey?: string }): ReactElement => {
-      const key = useUniqueKey(aetherKey);
-      return <Component {...(props as P)} aetherKey={key} />;
-    },
-  );
-  Wrapped.displayName = displayName;
-  return Wrapped;
-};

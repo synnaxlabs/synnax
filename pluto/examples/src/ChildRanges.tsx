@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -28,10 +37,7 @@ const ListItem = ({ name, timeRange }: ListItemProps) => (
 const start = TimeStamp.now();
 
 const TIME_RANGES = [
-  {
-    name: "Setup",
-    timeRange: start.spanRange(TimeSpan.hours(1)),
-  },
+  { name: "Setup", timeRange: start.spanRange(TimeSpan.hours(1)) },
   {
     name: "Test Run",
     timeRange: start.add(TimeSpan.hours(1)).spanRange(TimeSpan.minutes(5)),

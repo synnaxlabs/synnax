@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -58,7 +58,6 @@ export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement =>
     [data],
   );
   return (
-    /// @ts-expect-error - data transformation errors
     <Select.Single<string, NodeEntry>
       {...props}
       columns={SELECT_NODE_COLUMNS}

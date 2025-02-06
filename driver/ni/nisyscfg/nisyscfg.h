@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -856,7 +856,7 @@ NISYSCFGCFUNC NISysCfgSetFilterPropertyWithTypeV(
 );
 
 ////////////////////////////////////////////////////////////////////////////////
-// System Configuration firmware modification functions
+// System Configuration firmware modifit cation functions
 ////////////////////////////////////////////////////////////////////////////////
 
 // Caller should free detailedResult using NISysCfgFreeDetailedString.

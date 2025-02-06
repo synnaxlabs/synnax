@@ -67,7 +67,7 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
+    if: (github.event_name == 'push' && needs.setup.outputs.changed == 'true') || github.event_name == 'workflow_dispatch'
     needs: setup
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
@@ -106,14 +106,12 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     needs: setup
-    if: needs.setup.outputs.changed == 'true'
+    if: needs.setup.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-      APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     strategy:
       fail-fast: false
       matrix:
@@ -121,9 +119,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Import Apple Developer Certificate
-        # Only notarize on MacOS and on push events, not on PRs. This prevents excessive
+        # Only notarize on macOS and on push events, not on PRs. This prevents excessive
         # notarization requests and long CI times on PRs.
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        if: matrix.os == 'macos-latest' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -133,16 +131,17 @@ jobs:
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          # Prevent the keychain from getting locked during the build process
+          security set-keychain-settings -t 3600 -u build.keychain
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
 
       - name: Verify Apple Developer Certificate
-        # Same as above - only notarize on MacOS and on push events, not on PRs
-        if: matrix.os == 'macos-latest' && github.event_name == 'push'
+        # Same as above - only notarize on macOS and on push events, not on PRs
+        if: matrix.os == 'macos-latest' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
-          echo "Cert info"
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported."
@@ -160,7 +159,7 @@ jobs:
           cache: pnpm
 
       - name: Adjust Auto Updater URL for Release Candidate
-        if: github.event_name == 'push' && github.ref == 'refs/heads/rc'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/rc'
         working-directory: console/src-tauri
         run: |
           jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
@@ -190,32 +189,32 @@ jobs:
         run: pnpm install
 
       - name: Build (TypeScript)
-        if: needs.setup.outputs.changed == 'true'
         run: pnpm build:console-vite
 
       # We need to build the console separately WITHOUT turbo repo because of strange
       # incompatibility issues with rust builds.
 
       - name: Build
-        if: needs.setup.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         working-directory: console
         run: pnpm build
 
-      - name: Upload MacOS Release Asset
-        if: github.event_name == 'push' &&  matrix.os == 'macos-latest'
+      - name: Upload macOS Release Asset
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.os == 'macos-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
 
       - name: Upload Windows Release Asset
-        if: github.event_name == 'push' && matrix.os == 'windows-latest'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.os == 'windows-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.sig
@@ -225,7 +224,7 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id != ''
+    if: (needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id != '') || github.event_name == 'workflow_dispatch'
     needs: [setup, create-release, build]
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}

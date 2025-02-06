@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,15 +45,15 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
   schema = ruleStateZ;
   lastUpdateRef: number | null = null;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.renderCtx = render.Context.use(this.ctx);
-    const theme = theming.use(this.ctx);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.renderCtx = render.Context.use(ctx);
+    const theme = theming.use(ctx);
     this.internal.draw = new Draw2D(this.internal.renderCtx.upper2d, theme);
-    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
+    render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
-  async afterDelete(): Promise<void> {
-    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
+  async afterDelete(ctx: aether.Context): Promise<void> {
+    render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
   updatePositions({ decimalToDataScale: scale, plot }: RuleProps): number {

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -41,7 +41,7 @@ public:
     bool check_health(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
-    );
+    ) const;
 
 
     static std::shared_ptr<ni::Factory> create();

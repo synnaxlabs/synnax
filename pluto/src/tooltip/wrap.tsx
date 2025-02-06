@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC, forwardRef, type ReactElement } from "react";
+import { type FC, type ReactElement } from "react";
 
 import { Dialog, type DialogProps } from "@/tooltip/Dialog";
 
@@ -38,21 +38,22 @@ export interface WrapProps {
  * element it is attached to. If unspecified, the tooltip automatically chooses a
  * location based on the element's position on the screen.
  */
-export const wrap = <P extends {} = {}, E extends HTMLElement = HTMLElement>(
-  Component: FC<P>,
-): ReturnType<typeof forwardRef<E, P & WrapProps>> => {
-  const C = forwardRef<E, P & WrapProps>(
-    ({ tooltipDelay, tooltip, tooltipLocation, ...props }, ref): ReactElement => {
-      const c = <Component ref={ref} {...(props as unknown as P)} />;
-      if (tooltip == null) return c;
-      return (
-        <Dialog delay={tooltipDelay} location={tooltipLocation}>
-          {tooltip}
-          {c}
-        </Dialog>
-      );
-    },
-  );
+export const wrap = <P extends {} = {}>(Component: FC<P>): FC<P & WrapProps> => {
+  const C = ({
+    tooltipDelay,
+    tooltip,
+    tooltipLocation,
+    ...props
+  }: P & WrapProps): ReactElement => {
+    const c = <Component {...(props as unknown as P)} />;
+    if (tooltip == null) return c;
+    return (
+      <Dialog delay={tooltipDelay} location={tooltipLocation}>
+        {tooltip}
+        {c}
+      </Dialog>
+    );
+  };
   C.displayName = `Tooltip.Wrap(${Component.displayName ?? Component.name})`;
   return C;
 };

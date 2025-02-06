@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,6 +15,7 @@ import {
 import { type Layout } from "@/layout";
 
 export * from "@/channel/Create";
+export * from "@/channel/CreateCalculated";
 export * from "@/channel/services/ontology";
 export * from "@/channel/services/palette";
 

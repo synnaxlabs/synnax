@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,13 +25,13 @@ ni::Scanner::Scanner(
     NISysCfgStatus status = NISysCfg_OK;
     status = syscfg->InitializeSession(
         "localhost", // target (ip, mac or dns name)
-        NULL, // username (NULL for local system)
-        NULL, // password (NULL for local system)
+        nullptr, // username (NULL for local system)
+        nullptr, // password (NULL for local system)
         NISysCfgLocaleDefault, // language
         NISysCfgBoolTrue,
-        // force pproperties to be queried everytime rather than cached
+        // force properties to be queried everytime rather than cached
         10000, // timeout (ms)
-        NULL, // expert handle
+        nullptr, // expert handle
         &this->session // session handle
     );
 
@@ -41,34 +41,34 @@ ni::Scanner::Scanner(
     }
 
     // create a filter to only identify NI devices rather than chassis and devices which are connected (which includes simulated devices)
-    this->filter = NULL;
+    this->filter = nullptr;
     syscfg->CreateFilter(this->session, &this->filter);
     syscfg->SetFilterProperty(
         this->filter,
         NISysCfgFilterPropertyIsDevice,
         NISysCfgBoolTrue
     );
-    //    this->syscfg->SetFilterProperty(
-    //        this->filter,
-    //        NISysCfgFilterPropertyIsPresent,
-    //        NISysCfgIsPresentTypePresent
-    //    );
-    //    this->syscfg->SetFilterProperty(
-    //        this->filter,
-    //        NISysCfgFilterPropertyIsChassis,
-    //        NISysCfgBoolFalse
-    //    );
+    this->syscfg->SetFilterProperty(
+        this->filter,
+        NISysCfgFilterPropertyIsPresent,
+        NISysCfgIsPresentTypePresent
+    );
+    this->syscfg->SetFilterProperty(
+        this->filter,
+        NISysCfgFilterPropertyIsChassis,
+        NISysCfgBoolFalse
+    );
     VLOG(1) << "[ni.scanner] successfully configured scanner for task " << this->task.
             name;
 
     this->devices["devices"] = json::array();
 }
 
-void ni::Scanner::set_scan_thread(std::shared_ptr<std::thread> scan_thread) {
+void ni::Scanner::set_scan_thread(const std::shared_ptr<std::thread> &scan_thread) {
     this->scan_thread = scan_thread;
 }
 
-void ni::Scanner::join_scan_thread() {
+void ni::Scanner::join_scan_thread() const {
     if (this->scan_thread && this->scan_thread->joinable()) this->scan_thread->join();
 }
 
@@ -80,11 +80,11 @@ ni::Scanner::~Scanner() {
 
 void ni::Scanner::scan() {
     if (!this->ok_state) return;
-    NISysCfgResourceHandle resource = NULL;
+    NISysCfgResourceHandle resource = nullptr;
 
     auto err = this->syscfg->FindHardware(
         this->session, NISysCfgFilterModeAll,
-        this->filter, NULL,
+        this->filter, nullptr,
         &this->resources_handle
     );
     if (err != NISysCfg_OK) return log_err("failed to find hardware");
@@ -113,9 +113,8 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     json device;
 
     char propertyValue[1024] = "";
-    int status;
 
-    status = this->syscfg->GetResourceProperty(
+    int status = this->syscfg->GetResourceProperty(
         resource,
         NISysCfgResourcePropertySerialNumber,
         propertyValue
@@ -155,11 +154,12 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
     device["resource_name"] = rsrc_name;
 
     double temp = 0;
-    status = this->syscfg->GetResourceProperty(
-        resource,
-        NISysCfgResourcePropertyCurrentTemp,
-        &temp
-    );
+    // status = this->syscfg->GetResourceProperty(
+    //     resource,
+    //     NISysCfgResourcePropertyCurrentTemp,
+    //     &temp
+    // );
+    // if (status != NISysCfg_OK) log_err("failed to get currentTemp");
     device["temperature"] = temp;
 
     NISysCfgBool isSimulated;
@@ -178,10 +178,23 @@ json ni::Scanner::get_device_properties(NISysCfgResourceHandle resource) {
 void ni::Scanner::create_devices() {
     if (!this->ok_state) return;
     for (auto &device: devices["devices"]) {
-        // If model is not found or failed to create previously, skip
-        if (device["model"] == "" || device["failed_to_create"] == true) continue;
-        // first  try to rereive the device and if found, do not create a new device, simply continue
-        auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(
+        auto model = device["model"].get<std::string>();
+        
+        // Check if model is empty or matches any ignored prefix
+        bool should_ignore = model.empty() || device["failed_to_create"] == true;
+        if (!should_ignore) {
+            for (const auto& prefix : IGNORED_MODEL_PREFIXES) {
+                if (model.length() >= prefix.length() && model.substr(0, prefix.length()) == prefix) {
+                    should_ignore = true;
+                    break;
+                }
+            }
+        }
+        if (should_ignore) continue;
+
+        // first try to retrieve the device and if found, do not create a new device,
+        // simply continue
+        auto [retrieved_device, err] = this->ctx->client->hardware.retrieve_device(
             device["key"]);
         if (!err) {
             VLOG(1) << "[ni.scanner] device " << device["model"] << " and key " <<
@@ -199,7 +212,7 @@ void ni::Scanner::create_devices() {
             device["model"].get<std::string>(), // model
             device.dump() // device properties
         );
-        if (this->ctx->client->hardware.createDevice(new_device) != freighter::NIL) {
+        if (this->ctx->client->hardware.create_device(new_device) != freighter::NIL) {
             LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] <<
                     " with key " << device["key"] << " for task " << this->task.name;
             device["failed_to_create"] = true;
@@ -210,9 +223,7 @@ void ni::Scanner::create_devices() {
     }
 }
 
-bool ni::Scanner::ok() {
-    return this->ok_state;
-}
+bool ni::Scanner::ok() const { return this->ok_state; }
 
 json ni::Scanner::get_devices() {
     if (!this->ok_state) return json::array();

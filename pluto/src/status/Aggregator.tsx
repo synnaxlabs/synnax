@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,15 +23,12 @@ import { Aether } from "@/aether";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-export type AddStatusFn = (status: status.CrudeSpec) => void;
-
-export interface HandleExcFn {
-  (exc: unknown, message?: string): void;
-}
-
 interface ContextValue extends z.infer<typeof status.aggregatorStateZ> {
-  add: AddStatusFn;
+  add: status.AddStatusFn;
 }
+
+export type AddStatusFn = status.AddStatusFn;
+export type ExceptionHandler = status.ExceptionHandler;
 
 const ZERO_CONTEXT_VALUE: ContextValue = {
   statuses: [],
@@ -46,54 +43,56 @@ export interface AggregatorProps extends PropsWithChildren {
   maxHistory?: number;
 }
 
-export const Aggregator = Aether.wrap<AggregatorProps>(
-  status.Aggregator.TYPE,
-  ({ aetherKey, children, maxHistory = 500 }): ReactElement => {
-    const [{ path }, { statuses }, setState] = Aether.use({
-      aetherKey,
-      type: status.Aggregator.TYPE,
-      schema: status.aggregatorStateZ,
-      initialState: { statuses: [] },
-    });
+export const Aggregator = ({
+  children,
+  maxHistory = 500,
+}: AggregatorProps): ReactElement => {
+  const [{ path }, { statuses }, setState] = Aether.use({
+    type: status.Aggregator.TYPE,
+    schema: status.aggregatorStateZ,
+    initialState: { statuses: [] },
+  });
 
-    if (maxHistory != null && statuses.length > maxHistory) {
-      const slice = Math.floor(maxHistory * 0.9);
-      setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
-    }
+  if (maxHistory != null && statuses.length > maxHistory) {
+    const slice = Math.floor(maxHistory * 0.9);
+    setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
+  }
 
-    const handleAdd: ContextValue["add"] = useCallback(
-      (status) => {
-        const spec: status.Spec = { time: TimeStamp.now(), key: id.id(), ...status };
-        setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
-      },
-      [setState],
-    );
+  const handleAdd: AddStatusFn = useCallback(
+    (status) => {
+      const spec: status.Spec = { time: TimeStamp.now(), key: id.id(), ...status };
+      setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
+    },
+    [setState],
+  );
 
-    const value = useMemo<ContextValue>(
-      () => ({ statuses, add: handleAdd }),
-      [statuses, handleAdd],
-    );
+  const value = useMemo<ContextValue>(
+    () => ({ statuses, add: handleAdd }),
+    [statuses, handleAdd],
+  );
 
-    return (
-      <Context.Provider value={value}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>
-      </Context.Provider>
-    );
-  },
-);
+  return (
+    <Context.Provider value={value}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>
+    </Context.Provider>
+  );
+};
 
-export const useAggregator = (): AddStatusFn => useContext(Context).add;
+export const useAggregator = (): status.AddStatusFn => useContext(Context).add;
 
-export const useExceptionHandler = (): HandleExcFn => {
+export const useExceptionHandler = (): status.ExceptionHandler => {
   const addStatus = useAggregator();
-  return (exc: unknown, message?: string): void => {
-    if (!(exc instanceof Error)) throw exc;
-    addStatus({
-      variant: "error",
-      message: message ?? exc.message,
-      description: message != null ? exc.message : undefined,
-    });
-  };
+  return useCallback(
+    (exc: unknown, message?: string): void => {
+      if (!(exc instanceof Error)) throw exc;
+      addStatus({
+        variant: "error",
+        message: message ?? exc.message,
+        description: message != null ? exc.message : undefined,
+      });
+    },
+    [addStatus],
+  );
 };
 
 export interface UseNotificationsProps {

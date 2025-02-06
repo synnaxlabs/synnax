@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -181,6 +181,7 @@ export const Editable = <L extends text.Level = text.Level>({
   if (ref.current !== null && !editable) ref.current.innerHTML = value;
 
   useEffect(() => {
+    if (ref.current == null) return;
     const m = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.attributeName !== "contenteditable") return;
@@ -208,10 +209,6 @@ export const Editable = <L extends text.Level = text.Level>({
         handleUpdate(el);
       }}
       onKeyDown={handleKeyDown}
-      onKeyUp={(e: KeyboardEvent<HTMLParagraphElement>) => {
-        e.stopPropagation();
-        e.preventDefault();
-      }}
       onDoubleClick={handleDoubleClick}
       contentEditable={editable}
       suppressContentEditableWarning

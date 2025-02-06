@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,7 +33,7 @@ export const linePlotStateZ = z.object({
 
 interface InternalState {
   instrumentation: Instrumentation;
-  aggregate: status.Aggregate;
+  aggregate: status.AddStatusFn;
   renderCtx: render.Context;
 }
 
@@ -54,16 +54,16 @@ export class LinePlot extends aether.Composite<
 
   schema = linePlotStateZ;
 
-  async afterUpdate(): Promise<void> {
-    this.internal.instrumentation = alamos.useInstrumentation(this.ctx, "lineplot");
-    this.internal.aggregate = status.useAggregate(this.ctx);
-    this.internal.renderCtx = render.Context.use(this.ctx);
-    render.Controller.control(this.ctx, (r) => this.requestRender("low", r));
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
+    this.internal.aggregate = status.useAggregator(ctx);
+    this.internal.renderCtx = render.Context.use(ctx);
+    render.Controller.control(ctx, (r) => this.requestRender("low", r));
     this.requestRender("high", render.REASON_LAYOUT);
   }
 
-  async afterDelete(): Promise<void> {
-    this.internal.renderCtx = render.Context.use(this.ctx);
+  async afterDelete(ctx: aether.Context): Promise<void> {
+    this.internal.renderCtx = render.Context.use(ctx);
     this.requestRender("high", render.REASON_LAYOUT);
   }
 
@@ -107,12 +107,7 @@ export class LinePlot extends aether.Composite<
     plot: box.Box,
     canvases: render.CanvasVariant[],
   ): Promise<void> {
-    const p = {
-      ...this.state,
-      plot,
-      canvases,
-      exposure: this.exposure,
-    };
+    const p = { ...this.state, plot, canvases, exposure: this.exposure };
     await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
   }
 

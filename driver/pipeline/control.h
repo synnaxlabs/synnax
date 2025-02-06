@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,7 @@
 #include "driver/breaker/breaker.h"
 
 namespace pipeline {
-/// @brief an object that writes data to an acuqisition computer or other resource.
+/// @brief an object that writes data to an acquisition computer or other resource.
 class Sink {
 public:
     /// @brief writes the given frame to the sink, returning an error if one occurs.
@@ -24,12 +24,12 @@ public:
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then retry
     /// the read operation. Any other error type will be considered a permanent error and
     /// the pipeline will exit.
-    virtual freighter::Error write(synnax::Frame frame) = 0;
+    virtual freighter::Error write(const synnax::Frame &frame) = 0;
 
-    /// @brief communicates an error encoutered by the control pipeline that occurred
+    /// @brief communicates an error encountered by the control pipeline that occurred
     /// during shut down or occurred during a commanded shutdown.
     ///
-    /// After this method is called, the pipeline will NOT make nay furhter calls to
+    /// After this method is called, the pipeline will NOT make nay further calls to
     /// the source (read, stopped_with_err) until the pipeline is restarted.
     ///
     /// This method may be called even if stop() was called on the pipeline.

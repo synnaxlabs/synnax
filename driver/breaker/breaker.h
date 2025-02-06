@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -127,7 +127,7 @@ public:
                 "Error: " << message << "."; {
             std::unique_lock lock(shutdown_mutex);
             breaker_shutdown->wait_for(lock, interval.chrono());
-            if (!running()) {
+            if (!this->running()) {
                 LOG(INFO) << "[" << config.name << "] is shutting down. Exiting.";
                 reset();
                 return false;
@@ -141,12 +141,12 @@ public:
     /// @brief waits for the given time duration. If the breaker stopped before the specified time,
     /// the method will return immediately to ensure graceful exit of objects using the breaker.
     /// @param time the time to wait (supports multiple time units).
-    void waitFor(const TimeSpan &time) { this->waitFor(time.chrono()); }
+    void wait_for(const TimeSpan &time) { this->wait_for(time.chrono()); }
 
     /// @brief waits for the given time duration. If the breaker stopped before the specified time,
     /// the method will return immediately to ensure graceful exit of objects using the breaker.
     /// @param time the time to wait for in nanoseconds.
-    void waitFor(const std::chrono::nanoseconds &time) {
+    void wait_for(const std::chrono::nanoseconds &time) {
         if (!running()) return;
         std::unique_lock lock(shutdown_mutex);
         breaker_shutdown->wait_for(lock, time);

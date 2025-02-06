@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -35,7 +35,7 @@ public:
     }
 
     void closeSend() override {
-        this->internal->closeSend();
+        this->internal->close_send();
     }
 };
 
@@ -50,7 +50,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Streamer>, freighter::Error> openStreamer(
         synnax::StreamerConfig config) override {
-        auto [ss, err] = client->telem.openStreamer(config);
+        auto [ss, err] = client->telem.open_streamer(config);
         if (err) return {nullptr, err};
         return {
             std::make_unique<SynnaxStreamer>(

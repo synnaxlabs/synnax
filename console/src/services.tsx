@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,6 +14,7 @@ import { Node } from "@/cluster/node";
 import { ClusterServices } from "@/cluster/services";
 import { Group } from "@/group";
 import { DeviceServices } from "@/hardware/device/services";
+import { Rack } from "@/hardware/rack";
 import { Task } from "@/hardware/task";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
@@ -30,12 +31,8 @@ export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <></>,
   hasChildren: true,
   canDrop: () => false,
-  onMosaicDrop: () => {},
-  TreeContextMenu: () => <></>,
-  onSelect: () => {},
   haulItems: () => [],
   allowRename: () => false,
-  onRename: undefined,
 };
 
 export const SERVICES: Ontology.Services = {
@@ -50,7 +47,7 @@ export const SERVICES: Ontology.Services = {
   lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": EMPTY_ONTOLOGY_SERVICE,
   label: EMPTY_ONTOLOGY_SERVICE,
-  rack: EMPTY_ONTOLOGY_SERVICE,
+  rack: Rack.ONTOLOGY_SERVICE,
   task: Task.ONTOLOGY_SERVICE,
   device: DeviceServices.ONTOLOGY_SERVICE,
   channel: ChannelServices.ONTOLOGY_SERVICE,

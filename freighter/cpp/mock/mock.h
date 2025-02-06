@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,8 @@
 
 
 #pragma once
+
+#include <utility>
 
 #include "freighter/cpp/freighter.h"
 
@@ -24,12 +26,12 @@ public:
     MockUnaryClient(
         std::vector<RS> responses,
         std::vector<freighter::Error> response_errors
-    ) : responses(responses), response_errors(response_errors) {
+    ) : responses(responses), response_errors(std::move(response_errors)) {
     }
 
     MockUnaryClient(
         RS response,
-        freighter::Error response_error
+        const freighter::Error& response_error
     ) : responses({response}), response_errors({response_error}) {
     }
 

@@ -1,4 +1,4 @@
-#  Copyright 2024 Synnax Labs, Inc.
+#  Copyright 2025 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from common import DAQ_TIME, FUEL_PT_1
+from examples.control.tpc.common import DAQ_TIME, FUEL_PT_1
 
 client = sy.Synnax()
 

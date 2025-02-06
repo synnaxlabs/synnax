@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -77,7 +77,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createWriteLayout({ create: true }),
     key: layoutKey,
   }),
@@ -450,7 +450,7 @@ const ChannelListItem = ({
               model={device.model}
               channelType={entry.type}
               allowNone={false}
-              onClick={(e: MouseEvent) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
               style={{ width: 250 }}
               actions={[
                 <Form.Field<OutputChannelType>

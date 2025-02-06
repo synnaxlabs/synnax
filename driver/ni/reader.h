@@ -34,7 +34,7 @@ struct ReaderChannelConfig {
     uint32_t state_channel_key;
     std::string name;
     std::string channel_type;
-    std::shared_ptr<ni::Analog> ni_channel;
+    std::shared_ptr<ni::Analog> ni_channel; // TODO: change to AIChan
     bool enabled = true;
     synnax::DataType data_type;
 };

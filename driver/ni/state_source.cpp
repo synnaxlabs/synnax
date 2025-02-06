@@ -40,16 +40,19 @@ synnax::Frame StateSource<T>::get_state() {
     // frame size = # monitored states + 1 state index channel
     auto frame_size = this->state_map.size() + 1;
     auto state_frame = synnax::Frame(frame_size);
-    state_frame.add(
-        this->state_index_key,
-        synnax::Series(
-            synnax::TimeStamp::now().value,
-            synnax::TIMESTAMP
-        )
+    
+    // Create the timestamp series first and store it
+    auto timestamp_series = synnax::Series(
+        synnax::TimeStamp::now().value,
+        synnax::TIMESTAMP
     );
+    state_frame.add(this->state_index_key, timestamp_series);
 
-    for (auto &[key, value]: this->state_map)
-        state_frame.add(key, synnax::Series(value));
+    // Add each state value
+    for (auto &[key, value]: this->state_map) {
+        auto value_series = synnax::Series(value);
+        state_frame.add(key, value_series);
+    }
 
     return state_frame;
 }

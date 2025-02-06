@@ -2,7 +2,7 @@
 import Feedback from "@/components/feedback/Feedback.astro";
 import { OnThisPage as OTP } from "@/components/OnThisPage/OnThisPage";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Divider, Header, Text } from "@synnaxlabs/pluto";
+import { Align, Divider, Text } from "@synnaxlabs/pluto";
 const props = Astro.props;
 ---
 
@@ -12,7 +12,7 @@ const props = Astro.props;
             <Icon.Log slot="startIcon" style={{ transform: "scale(0.8)" }} />
             On this page
         </Text.WithIcon>
-        <OTP client:only="react" headings={props.headings} url={props.url} />
+        <OTP client:only="react"  headings={props.headings} url={props.url}  platforms={props.platforms}/>
     </Align.Space>
     <Align.Space direction="y" size={2}>
         <Divider.Divider direction="x" />

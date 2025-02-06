@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -260,12 +260,7 @@ export interface SelectPathTypeProps
 
 export const SelectPathType = (props: SelectPathTypeProps): ReactElement => (
   <Select.DropdownButton
-    columns={[
-      {
-        key: "name",
-        name: "Type",
-      },
-    ]}
+    columns={[{ key: "name", name: "Type" }]}
     data={PATH_TYPES}
     style={{ width: 200 }}
     entryRenderKey="name"

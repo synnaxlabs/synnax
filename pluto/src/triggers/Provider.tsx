@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -63,13 +63,25 @@ export interface ProviderProps extends PropsWithChildren {
   preventDefaultOptions?: MatchOptions;
 }
 
-const shouldNotTriggerOnKeyDown = (key: string, e: KeyboardEvent): boolean => {
-  if (EXCLUDE_TRIGGERS.includes(key)) return true;
-  if (e.target instanceof HTMLInputElement && ALPHANUMERIC_KEYS_SET.has(key))
-    return true;
-  if (e.target instanceof HTMLElement && e.target.matches("[contenteditable]"))
+const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
+  if (e.target instanceof HTMLInputElement) return true;
+  if (
+    e.target instanceof HTMLElement &&
+    e.target.getAttribute("contenteditable") === "true"
+  )
     return true;
   return false;
+};
+
+const shouldTriggerOnKeyDown = (key: string, e: KeyboardEvent): boolean => {
+  if (EXCLUDE_TRIGGERS.includes(key)) return false;
+  if (isInputOrContentEditable(e)) {
+    // If there is an alphanumeric key and the user is not holding down ctrl or meta,
+    // we don't want to trigger the key.
+    if (ALPHANUMERIC_KEYS_SET.has(key) && !e.ctrlKey && !e.metaKey) return false;
+    return true;
+  }
+  return true;
 };
 
 export const Provider = ({
@@ -77,7 +89,7 @@ export const Provider = ({
   preventDefaultOn,
   preventDefaultOptions,
 }: ProviderProps): ReactElement => {
-  // We track mouse movement to allow for cursor position on keybord events;
+  // We track mouse movement to allow for cursor position on keyboard events;
   const cursor = useRef<xy.XY>(xy.ZERO);
   const handleMouseMove = useCallback((e: MouseEvent): void => {
     cursor.current = xy.construct(e);
@@ -103,7 +115,7 @@ export const Provider = ({
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     // We don't want to trigger any events for excluded keys.
     // If our target element is an input, we don't want to trigger any events.
-    if (shouldNotTriggerOnKeyDown(key, e as KeyboardEvent)) return;
+    if (!shouldTriggerOnKeyDown(key, e as KeyboardEvent)) return;
     setCurr((prev) => {
       const next: Trigger = [...prev.next, key];
       if (prev.next.includes(key)) return prev;

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,19 +14,10 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
-export interface BetaTagProps {
-  feature?: string;
-  plural?: boolean;
-}
-
-export const BetaTag = ({
-  feature = "This feature",
-  plural = false,
-}: BetaTagProps): ReactElement => (
+export const BetaTag = (): ReactElement => (
   <Tooltip.Dialog>
     <Text.Text level="small" shade={8} style={{ width: 100, whiteSpace: "wrap" }}>
-      {feature} {plural ? "are" : "is"} still in development and may not always work as
-      expected.
+      This feature is still in development and may not always work as expected.
     </Text.Text>
     <Tag.Tag variant="filled" className={CSS.B("beta-tag")} icon={undefined}>
       Beta

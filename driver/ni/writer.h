@@ -88,7 +88,7 @@ struct WriterChannelConfig {
             port = "ao" + std::to_string(port_num);
             name = device_name + "/" + port;
 
-            ni_channel = AnalogOutputChannelFactory::create_channel(channel_type, parser, task_handle, name);
+            ni_channel = AnalogOutputChannelFactory::create_channel(channel_type, parser, name);
             if (ni_channel == nullptr) {
                 std::string msg = "Channel " + name + " has an unrecognized type: " + channel_type;
                 ctx->set_state({
@@ -149,7 +149,7 @@ struct WriterConfig {
         state_rate = parser.required<float>("state_rate");
         task_name = parser.optional<std::string>("task_name", "");
 
-        auto [dev, err] = ctx->client->hardware.retrieveDevice(device_key);
+        auto [dev, err] = ctx->client->hardware.retrieve_device(device_key);
         if (err != freighter::NIL) {
             LOG(ERROR) << "Failed to retrieve device with key " << device_key;
             return;
@@ -316,7 +316,7 @@ public:
 
     ~DigitalWriteSink();
 
-    freighter::Error write(synnax::Frame frame) override;
+    freighter::Error write(const synnax::Frame &frame) override;
 
     std::shared_ptr<ni::DigitalStateSource> writer_state_source;
 
@@ -346,7 +346,7 @@ public:
 
     ~AnalogWriteSink();
 
-    freighter::Error write(synnax::Frame frame) override;
+    freighter::Error write(const synnax::Frame &frame) override;
 
     std::shared_ptr<ni::AnalogStateSource> writer_state_source;
 

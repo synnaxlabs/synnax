@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,7 +34,6 @@ import { useDispatch, useStore } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
-import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import {
@@ -43,6 +42,7 @@ import {
 } from "@/lineplot/LinePlot";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
+import { Modals } from "@/modals";
 import { createLayout } from "@/range/CreateLayout";
 import { overviewLayout } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
@@ -242,7 +242,7 @@ const List = (): ReactElement => {
 
   const handleException = Status.useExceptionHandler();
 
-  const confirm = Confirm.useModal();
+  const confirm = Modals.useConfirm();
   const del = useMutation<void, Error, string, Range | undefined>({
     onMutate: async (key: string) => {
       const rng = ranges.find((r) => r.key === key);
@@ -457,12 +457,7 @@ const Content = (): ReactElement => {
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
         <Header.Actions>
-          {[
-            {
-              children: <Icon.Add />,
-              onClick: () => place(createLayout({})),
-            },
-          ]}
+          {[{ children: <Icon.Add />, onClick: () => place(createLayout({})) }]}
         </Header.Actions>
       </ToolbarHeader>
       <List />

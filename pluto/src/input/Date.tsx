@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,7 @@
 import "@/input/Date.css";
 
 import { TimeStamp, type xy } from "@synnaxlabs/x";
-import { forwardRef, useLayoutEffect } from "react";
+import { type ReactElement, useLayoutEffect } from "react";
 
 import { CSS } from "@/css";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
@@ -92,24 +92,29 @@ export const useDate = ({ value, onChange }: UseDateProps): UseDateReturn => {
  * @param props.dragDirection - The direction of the drag handle.
  * @default undefined
  */
-export const Date = forwardRef<HTMLInputElement, DateProps>(
-  ({ onChange, value, className, showDragHandle = true, children, ...props }, ref) => {
-    const { value: inputValue, onChange: handleChange } = useDate({ value, onChange });
-    return (
-      <Text
-        ref={ref}
-        value={inputValue}
-        className={CSS(CSS.B("input-date"), className)}
-        onChange={handleChange}
-        type="date"
-        {...props}
-      >
-        {showDragHandle && (
-          <DragButton value={value} onChange={handleChange} dragScale={DRAG_SCALE} />
-        )}
-        {children}
-      </Text>
-    );
-  },
-);
-Date.displayName = "InputDate";
+export const Date = ({
+  ref,
+  onChange,
+  value,
+  className,
+  showDragHandle = true,
+  children,
+  ...props
+}: DateProps): ReactElement => {
+  const { value: inputValue, onChange: handleChange } = useDate({ value, onChange });
+  return (
+    <Text
+      ref={ref}
+      value={inputValue}
+      className={CSS(CSS.B("input-date"), className)}
+      onChange={handleChange}
+      type="date"
+      {...props}
+    >
+      {showDragHandle && (
+        <DragButton value={value} onChange={handleChange} dragScale={DRAG_SCALE} />
+      )}
+      {children}
+    </Text>
+  );
+};

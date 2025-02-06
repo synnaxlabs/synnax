@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   type Haul,
-  Icon as PIcon,
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,
@@ -253,7 +252,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <PMenu.Divider />
           <PMenu.Item itemKey="openCalculated" startIcon={<Icon.Edit />}>
-            Edit Calcuation
+            Edit Calculation
           </PMenu.Item>
         </>
       )}
@@ -298,11 +297,7 @@ export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: channel.ONTOLOGY_TYPE,
-  icon: (p) => (
-    <PIcon.Icon topRight={Channel.resolveIcon(p.data as channel.Payload)}>
-      <Icon.Channel />
-    </PIcon.Icon>
-  ),
+  icon: <Icon.Channel />,
   hasChildren: false,
   allowRename,
   onRename: undefined,

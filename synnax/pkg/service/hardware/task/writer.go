@@ -1,13 +1,11 @@
-/*
- * Copyright 2024 Synnax Labs, Inc.
- *
- * Use of this software is governed by the Business Source License included in the file
- * licenses/BSL.txt.
- *
- * As of the Change Date specified in that file, in accordance with the Business Source
- * License, use of this software will be governed by the Apache License, Version 2.0,
- * included in the file licenses/APL.txt.
- */
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 package task
 
@@ -28,7 +26,7 @@ type Writer struct {
 
 func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 	if !t.Key.IsValid() {
-		localKey, err := w.rack.IncrementTaskCount(ctx, t.Rack(), 1)
+		localKey, err := w.rack.NextTaskKey(ctx, t.Rack(), 1)
 		if err != nil {
 			return err
 		}
@@ -73,7 +71,7 @@ func (w Writer) Copy(
 	name string,
 	snapshot bool,
 ) (Task, error) {
-	localKey, err := w.rack.IncrementTaskCount(ctx, key.Rack(), 1)
+	localKey, err := w.rack.NextTaskKey(ctx, key.Rack(), 1)
 	if err != nil {
 		return Task{}, err
 	}

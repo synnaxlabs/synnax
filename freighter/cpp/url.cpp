@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,6 +44,6 @@ URL URL::child(const std::string &child_path) const {
     return {ip, port, joinPaths(path, child_path)};
 }
 
-std::string URL::toString() const {
+std::string URL::to_string() const {
     return ip + ":" + std::to_string(port) + path;
 }

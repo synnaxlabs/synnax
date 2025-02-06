@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,7 +39,7 @@ void Range::to_proto(api::v1::Range *rng) const {
 const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 const std::string CREATE_ENDPOINT = "/range/create";
 
-std::pair<Range, freighter::Error> RangeClient::retrieveByKey(
+std::pair<Range, freighter::Error> RangeClient::retrieve_by_key(
     const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
@@ -55,7 +55,7 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByKey(
     return {rng, err};
 }
 
-std::pair<Range, freighter::Error> RangeClient::retrieveByName(
+std::pair<Range, freighter::Error> RangeClient::retrieve_by_name(
     const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
@@ -77,7 +77,7 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByName(
     return {rng, err};
 }
 
-std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveMany(
+std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieve_many(
     api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Range>(), err};
@@ -88,18 +88,18 @@ std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveMany(
     return {ranges, err};
 }
 
-std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveByName(
+std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieve_by_name(
     std::vector<std::string> names) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &name: names) req.add_names(name);
-    return retrieveMany(req);
+    return retrieve_many(req);
 }
 
-std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveByKey(
+std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieve_by_key(
     std::vector<std::string> keys) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &key: keys) req.add_keys(key);
-    return retrieveMany(req);
+    return retrieve_many(req);
 }
 
 freighter::Error RangeClient::create(std::vector<Range> &ranges) const {

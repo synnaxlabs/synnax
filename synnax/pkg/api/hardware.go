@@ -1,13 +1,11 @@
-/*
- * Copyright 2024 Synnax Labs, Inc.
- *
- * Use of this software is governed by the Business Source License included in the file
- * licenses/BSL.txt.
- *
- * As of the Change Date specified in that file, in accordance with the Business Source
- * License, use of this software will be governed by the Apache License, Version 2.0,
- * included in the file licenses/APL.txt.
- */
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 package api
 
@@ -226,7 +224,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
-	if req.Rack.IsValid() && len(req.Names) == 0 {
+	if !req.Rack.IsZero() && len(req.Names) == 0 {
 		q = q.WhereRack(req.Rack)
 	}
 	err := q.Entries(&res.Tasks).Exec(ctx, nil)

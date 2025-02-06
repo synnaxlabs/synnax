@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -59,9 +59,9 @@ const REGISTRY: aether.ComponentRegistry = {
   [ExampleComposite.TYPE]: ExampleComposite,
 };
 
-const newProvider = (): [FC<PropsWithChildren>, aether.Root] => {
+const newProvider = async (): Promise<[FC<PropsWithChildren>, aether.Root]> => {
   const [a, b] = createMockWorkers();
-  const root = aether.render({ worker: a.route("vis"), registry: REGISTRY });
+  const root = await aether.render({ comms: a.route("vis"), registry: REGISTRY });
   const worker = b.route<MainMessage, WorkerMessage>("vis");
   return [
     (props: PropsWithChildren) => (
@@ -74,16 +74,15 @@ const newProvider = (): [FC<PropsWithChildren>, aether.Root] => {
 describe("Aether Main", () => {
   describe("leaf", () => {
     it("should set the initial state correctly", async () => {
-      const [Provider, root] = newProvider();
-      const ExampleLeafC = Aether.wrap(ExampleLeaf.TYPE, ({ aetherKey }) => {
+      const [Provider, root] = await newProvider();
+      const ExampleLeafC = () => {
         Aether.use({
-          aetherKey,
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
         });
         return null;
-      });
+      };
       render(
         <Provider>
           <ExampleLeafC />
@@ -96,10 +95,9 @@ describe("Aether Main", () => {
       expect(first.state).toEqual({ x: 0 });
     });
     it("should update the state on a call to setState", async () => {
-      const [Provider, root] = newProvider();
-      const ExampleLeafC = Aether.wrap(ExampleLeaf.TYPE, ({ aetherKey }) => {
+      const [Provider, root] = await newProvider();
+      const ExampleLeafC = () => {
         const [, , setState] = Aether.use({
-          aetherKey,
           type: ExampleLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
@@ -110,7 +108,7 @@ describe("Aether Main", () => {
           set.current = true;
         }
         return null;
-      });
+      };
       render(
         <Provider>
           <ExampleLeafC />

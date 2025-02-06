@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -114,26 +114,14 @@ public:
         this->keep_alive_thread.join();
     }
 
-    freighter::Error write(synnax::Frame frame) override;
+    freighter::Error write(const synnax::Frame &frame) override;
 
     void maintain_connection();
 
 private:
-    void initialize_write_request(const synnax::Frame &frame);
-
-    void initialize_write_value(
-        const synnax::Frame &frame,
-        uint32_t &index,
-        WriterChannelConfig &ch,
-        UA_WriteValue *write_value
-    );
-
     void stopped_with_err(const freighter::Error &err) override;
 
-    [[nodiscard]] freighter::Error
-    communicate_response_error(const UA_StatusCode &status);
-
-    void set_variant(
+    static void set_variant(
         UA_Variant *val,
         const synnax::Frame &frame,
         const uint32_t &series_index,

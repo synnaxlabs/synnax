@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -59,7 +59,7 @@ interface ActionProps {
 const Action = ({ index, level, children, divided }: ActionProps): ReactElement => {
   let content: ReactElement = children as ReactElement;
   if (!isValidElement(children)) {
-    const { onClick, key, ...props } = children as Button.IconProps;
+    const { onClick, key, ...props } = children;
     content = (
       <Button.Icon
         key={key ?? index}

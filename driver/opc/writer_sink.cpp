@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -101,7 +101,7 @@ void opc::WriterSink::stopped_with_err(const freighter::Error &err) {
 
 
 /// @brief sends out write request to the OPC server.
-freighter::Error opc::WriterSink::write(synnax::Frame frame) {
+freighter::Error opc::WriterSink::write(const synnax::Frame &frame) {
     auto client = this->ua_client.get();
     auto frame_index = 0;
     for (const auto key: *(frame.channels)) {
@@ -136,7 +136,7 @@ freighter::Error opc::WriterSink::write(synnax::Frame frame) {
 
 void opc::WriterSink::maintain_connection() {
     while (this->breaker.running()) {
-        this->breaker.waitFor(this->ping_rate.period().chrono());
+        this->breaker.wait_for(this->ping_rate.period().chrono());
         UA_Variant value;
         UA_Variant_init(&value); {
             std::lock_guard<std::mutex> lock(this->client_mutex);

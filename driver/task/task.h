@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -154,7 +154,7 @@ public:
                 return;
             }
             chan = ch;
-            auto [su, su_err] = client->telem.openWriter(WriterConfig{
+            auto [su, su_err] = client->telem.open_writer(WriterConfig{
                 .channels = {ch.key}
             });
             if (err) {

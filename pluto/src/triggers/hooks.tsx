@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
-import {
-  type MutableRefObject,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { type RefObject, useCallback, useEffect, useState } from "react";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -36,7 +30,7 @@ export interface UseEvent {
 }
 
 export interface UseProps extends MatchOptions {
-  triggers?: Trigger[];
+  triggers?: Trigger | Trigger[];
   region?: RefObject<HTMLElement | null>;
   callback?: (e: UseEvent) => void;
   regionMustBeElement?: boolean;
@@ -51,14 +45,18 @@ export const use = ({
   regionMustBeElement,
 }: UseProps): void => {
   const { listen } = useContext();
-  const memoTriggers = useMemoCompare(
-    () => triggers,
+  let baseTriggers: Trigger[];
+  if (triggers != null && triggers?.length > 0 && typeof triggers[0] === "string")
+    baseTriggers = [triggers as Trigger];
+  else baseTriggers = triggers as Trigger[];
+  const memoTriggers = useMemoCompare<Trigger[] | undefined, [Trigger[] | undefined]>(
+    () => baseTriggers,
     ([a], [b]) => {
       if (a == null && b == null) return true;
       if (a == null || b == null) return false;
       return compare.primitiveArrays(a.flat(), b.flat()) === compare.EQUAL;
     },
-    [triggers],
+    [baseTriggers],
   );
 
   useEffect(() => {
@@ -108,7 +106,7 @@ export interface UseHeldProps {
 export const useHeldRef = ({
   triggers,
   loose,
-}: UseHeldProps): MutableRefObject<UseHeldReturn> => {
+}: UseHeldProps): RefObject<UseHeldReturn> => {
   const [ref, setRef] = useStateRef<UseHeldReturn>({
     triggers: [],
     held: false,

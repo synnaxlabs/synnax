@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -94,7 +94,7 @@ export const NavTop = (): ReactElement => {
       className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
-        <Controls className="console-controls--macos" visibleIfOS="MacOS" />
+        <Controls className="console-controls--macos" visibleIfOS="macOS" />
         {os === "Windows" && (
           <Logo className="console-main-nav-top__logo" variant="icon" />
         )}

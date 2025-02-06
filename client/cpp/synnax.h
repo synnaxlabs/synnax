@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,7 +27,7 @@ namespace priv {
 /// @brief Does a best effort check to ensure the machine is little endian, and warns the user if it is not.
 inline void check_little_endian() {
     int num = 1;
-    if (*(char *) &num == 1) return;
+    if (*reinterpret_cast<char *>(&num) == 1) return;
     std::cout
             << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
             << std::endl;
@@ -79,6 +79,7 @@ public:
         nullptr,
         nullptr
     );
+    std::shared_ptr<AuthMiddleware> auth = nullptr;
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
@@ -90,13 +91,13 @@ public:
             cfg.client_key_file
         );
         priv::check_little_endian();
-        const auto auth_mw = std::make_shared<AuthMiddleware>(
+        auth = std::make_shared<AuthMiddleware>(
             std::move(t.auth_login),
             cfg.username,
             cfg.password,
             5
         );
-        t.use(auth_mw);
+        t.use(auth);
         channels = ChannelClient(std::move(t.chan_retrieve),
                                  std::move(t.chan_create));
         ranges = RangeClient(

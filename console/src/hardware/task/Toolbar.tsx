@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,7 +31,6 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Menu } from "@/components/menu";
-import { Confirm } from "@/confirm";
 import { CSS } from "@/css";
 import { checkDesiredStateMatch } from "@/hardware/task/common/useDesiredState";
 import { createLayout } from "@/hardware/task/ontology";
@@ -39,6 +38,7 @@ import { createSelector } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
+import { Modals } from "@/modals";
 
 type DesiredTaskState = "running" | "paused" | null;
 
@@ -155,25 +155,28 @@ const Content = (): ReactElement => {
       const addedOrUpdated = update
         .filter((u) => u.variant === "set")
         .map((u) => u.key);
-      client.hardware.tasks.retrieve(addedOrUpdated).then((nextTasks) => {
-        setTasks((prev) => {
-          const next = prev
-            .filter((t) => !removed.includes(t.key))
-            .map((t) => {
-              const u = nextTasks.find((u) => u.key === t.key);
-              if (u == null) return t;
-              u.state = t.state;
-              return u;
-            });
-          const nextKeys = next.map((t) => t.key);
-          return [
-            ...next,
-            ...nextTasks.filter(
-              (u) => !u.internal && !u.snapshot && !nextKeys.includes(u.key),
-            ),
-          ];
-        });
-      });
+      client.hardware.tasks
+        .retrieve(addedOrUpdated)
+        .then((nextTasks) => {
+          setTasks((prev) => {
+            const next = prev
+              .filter((t) => !removed.includes(t.key))
+              .map((t) => {
+                const u = nextTasks.find((u) => u.key === t.key);
+                if (u == null) return t;
+                u.state = t.state;
+                return u;
+              });
+            const nextKeys = next.map((t) => t.key);
+            return [
+              ...next,
+              ...nextTasks.filter(
+                (u) => !u.internal && !u.snapshot && !nextKeys.includes(u.key),
+              ),
+            ];
+          });
+        })
+        .catch(handleException);
     },
   });
   Observe.useListener({
@@ -192,7 +195,7 @@ const Content = (): ReactElement => {
       });
     },
   });
-  const confirm = Confirm.useModal();
+  const confirm = Modals.useConfirm();
   const handleLink = Link.useCopyToClipboard();
   const handleDelete = useMutation<void, Error, string[], task.Task[]>({
     mutationFn: async (keys: string[]) => {
@@ -262,10 +265,10 @@ const Content = (): ReactElement => {
               start: () =>
                 selected.forEach((t) => {
                   if (t == null) return;
-                  t.executeCommand("start");
+                  void t.executeCommand("start");
                   if (desiredStates[t.key] === "running") return;
                   setDesiredStates((prev) => {
-                    t.executeCommand("start");
+                    void t.executeCommand("start");
                     const next = { ...prev };
                     next[t.key] = "running";
                     return next;
@@ -274,7 +277,7 @@ const Content = (): ReactElement => {
               stop: () =>
                 selected.forEach((t) => {
                   if (t == null) return;
-                  t.executeCommand("stop");
+                  void t.executeCommand("stop");
                   if (desiredStates[t.key] === "paused") return;
                   setDesiredStates((prev) => {
                     const next = { ...prev };
@@ -325,12 +328,7 @@ const Content = (): ReactElement => {
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
           <Header.Actions>
-            {[
-              {
-                children: <Icon.Add />,
-                onClick: () => place(createSelector({})),
-              },
-            ]}
+            {[{ children: <Icon.Add />, onClick: () => place(createSelector({})) }]}
           </Header.Actions>
         </ToolbarHeader>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
@@ -396,7 +394,7 @@ const TaskListItem = ({
   const loading = useDelayedState<boolean>(false, isLoading);
   const handleClick = () => {
     onStopStart(isRunning ? "paused" : "running");
-    entry.executeCommand(isRunning ? "stop" : "start");
+    void entry.executeCommand(isRunning ? "stop" : "start");
   };
   return (
     <List.ItemFrame {...props} justify="spaceBetween" align="center" rightAligned>
@@ -404,7 +402,7 @@ const TaskListItem = ({
         direction="y"
         size="small"
         grow
-        className={CSS.BE("task", "meta-data")}
+        className={CSS.BE("task", "metadata")}
       >
         <Align.Space direction="x" align="center" size="small">
           <Status.Circle

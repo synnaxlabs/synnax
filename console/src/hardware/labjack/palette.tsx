@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,11 +10,10 @@
 import { Icon } from "@synnaxlabs/media";
 import { Icon as PIcon } from "@synnaxlabs/pluto";
 
-import { createReadLayout } from "@/hardware/labjack/task/Read";
-import { createWriteLayout } from "@/hardware/labjack/task/Write";
-import { type Command } from "@/palette/Palette";
+import { Task } from "@/hardware/labjack/task";
+import { type Palette } from "@/palette";
 
-const createReadTaskCommand: Command = {
+const CREATE_READ_TASK_COMMAND: Palette.Command = {
   key: "labjack-create-read-task",
   name: "Create a LabJack Read Task",
   icon: (
@@ -22,10 +21,10 @@ const createReadTaskCommand: Command = {
       <Icon.Logo.LabJack />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) => placeLayout(() => createReadLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(Task.createReadLayout({ create: true })),
 };
 
-const createWriteTaskCommand: Command = {
+const CREATE_WRITE_TASK_COMMAND: Palette.Command = {
   key: "labjack-create-write-task",
   name: "Create a LabJack Write Task",
   icon: (
@@ -33,7 +32,7 @@ const createWriteTaskCommand: Command = {
       <Icon.Logo.LabJack />
     </PIcon.Create>
   ),
-  onSelect: ({ placeLayout }) => placeLayout(createWriteLayout({ create: true })),
+  onSelect: ({ placeLayout }) => placeLayout(Task.createWriteLayout({ create: true })),
 };
 
-export const COMMANDS = [createReadTaskCommand, createWriteTaskCommand];
+export const COMMANDS = [CREATE_READ_TASK_COMMAND, CREATE_WRITE_TASK_COMMAND];

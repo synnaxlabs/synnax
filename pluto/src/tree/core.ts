@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { compare, toArray, unique } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import { type Haul } from "@/haul";
 import { type Icon } from "@/icon";
@@ -18,7 +17,7 @@ export interface Node {
   name: string;
   renaming?: boolean;
   forcePosition?: number;
-  icon?: ReactElement<Icon.BaseProps>;
+  icon?: Icon.Element;
   allowRename?: boolean;
   hasChildren?: boolean;
   children?: Node[];

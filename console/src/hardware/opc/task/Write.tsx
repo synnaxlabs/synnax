@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -74,7 +74,7 @@ export const WRITE_SELECTABLE: Layout.Selectable = {
   key: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createWriteLayout({ create: true }),
     key: layoutKey,
   }),

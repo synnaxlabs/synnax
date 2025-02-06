@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,12 +9,18 @@
 
 #pragma once
 
+/// std
 #include <string>
 
+/// external
+#include "grpcpp/grpcpp.h"
+
+/// protos
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
+
+/// internal
 #include "client/cpp/telem/telem.h"
 #include "freighter/cpp/freighter.h"
-#include "grpcpp/grpcpp.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
 
 using namespace synnax;
 
@@ -80,7 +86,7 @@ public:
     /// @param is_index whether the channel is an index channel.
     Channel(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         ChannelKey index,
         bool is_index = false
     );
@@ -91,13 +97,13 @@ public:
     /// @param rate the rate of the channel.
     Channel(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         synnax::Rate rate
     );
 
     Channel(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         bool is_virtual = true
     );
 
@@ -146,7 +152,7 @@ public:
     /// to get the error type.
     [[nodiscard]] std::pair<Channel, freighter::Error> create(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         ChannelKey index,
         bool is_index = false
     ) const;
@@ -162,7 +168,7 @@ public:
     /// to get the error type.
     [[nodiscard]] std::pair<Channel, freighter::Error> create(
         const std::string &name,
-        synnax::DataType data_type,
+        const synnax::DataType &data_type,
         synnax::Rate rate
     ) const;
 

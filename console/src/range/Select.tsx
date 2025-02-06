@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,11 +34,7 @@ const dynamicIcon = (
 );
 
 const listColumns: Array<List.ColumnSpec<string, Range>> = [
-  {
-    key: "name",
-    name: "Name",
-    weight: 450,
-  },
+  { key: "name", name: "Name", weight: 450 },
   {
     key: "start",
     name: "Start",

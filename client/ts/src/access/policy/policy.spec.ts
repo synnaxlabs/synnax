@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -298,10 +298,7 @@ describe("privilege", async () => {
       password: "pwd1",
     });
     await expect(
-      client2.user.create({
-        username: id.id(),
-        password: id.id(),
-      }),
+      client2.user.create({ username: id.id(), password: id.id() }),
     ).rejects.toThrow(AuthError);
 
     const policy = await client.access.policy.create({

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -79,7 +79,6 @@ export const retrieveAndPlaceLayout = async (
 ) => {
   const t = await client.hardware.tasks.retrieve(key);
   const layout = createLayout(t);
-  console.log(layout);
   placeLayout(layout);
 };
 
@@ -220,16 +219,21 @@ const handleRename: Ontology.HandleTreeRename = {
   },
 };
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = async ({
+const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
   id,
   placeLayout,
   nodeKey,
   location,
+  handleException,
 }) => {
-  const task = await client.hardware.tasks.retrieve(id.key);
-  const layout = createLayout(task);
-  placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
+  client.hardware.tasks
+    .retrieve(id.key)
+    .then((task) => {
+      const layout = createLayout(task);
+      placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
+    })
+    .catch(handleException);
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

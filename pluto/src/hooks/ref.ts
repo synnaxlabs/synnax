@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,9 +9,9 @@
 
 import { type Primitive } from "@synnaxlabs/x";
 import {
-  type ForwardedRef,
-  type MutableRefObject,
+  type Ref,
   type RefCallback,
+  type RefObject,
   useCallback,
   useRef,
   useState as reactUseState,
@@ -29,7 +29,7 @@ import { state } from "@/state";
  */
 export const useStateRef = <T extends state.State>(
   initialValue: state.Initial<T>,
-): [MutableRefObject<T>, state.Set<T>] => {
+): [RefObject<T>, state.Set<T>] => {
   const ref = useRef<T>(state.executeInitialSetter(initialValue));
   const setValue: state.Set<T> = useCallback((setter) => {
     ref.current = state.executeSetter(setter, ref.current);
@@ -45,7 +45,7 @@ export const useStateRef = <T extends state.State>(
  * @param value - The value to keep in sync with the ref.
  * @returns a ref that is kept in sync with the provided value.
  */
-export const useSyncedRef = <T>(value: T): MutableRefObject<T> => {
+export const useSyncedRef = <T>(value: T): RefObject<T> => {
   const ref = useRef<T>(value);
   ref.current = value;
   return ref;
@@ -59,7 +59,9 @@ export const useSyncedRef = <T>(value: T): MutableRefObject<T> => {
  * @param refs - The refs to combine.
  * @returns - A callback ref that will set all of the provided refs.
  */
-export const useCombinedRefs = <T>(...refs: Array<ForwardedRef<T>>): RefCallback<T> =>
+export const useCombinedRefs = <T>(
+  ...refs: Array<Ref<T> | null | undefined>
+): RefCallback<T> =>
   useCallback(
     (el) =>
       refs.forEach((r) => {
@@ -72,7 +74,7 @@ export const useCombinedRefs = <T>(...refs: Array<ForwardedRef<T>>): RefCallback
 
 export const useCombinedStateAndRef = <T extends Primitive | object>(
   initialState: state.Initial<T>,
-): [T, state.Set<T>, React.MutableRefObject<T>] => {
+): [T, state.Set<T>, React.RefObject<T>] => {
   const ref = useRef<T | null>(null);
   const [s, setS] = reactUseState<T>(() => {
     const s = state.executeInitialSetter<T>(initialState);
@@ -90,7 +92,7 @@ export const useCombinedStateAndRef = <T extends Primitive | object>(
     [setS],
   );
 
-  return [s, setStateAndRef, ref as React.MutableRefObject<T>];
+  return [s, setStateAndRef, ref as React.RefObject<T>];
 };
 
 export const usePrevious = <T>(value: T): T | undefined => {

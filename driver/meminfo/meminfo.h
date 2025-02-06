@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -58,7 +58,7 @@ public:
         const synnax::Task &task
     ) {
         auto ch_name =
-                "sy_rack" + std::to_string(rackKeyNode(taskKeyRack(task.key))) +
+                "sy_rack" + std::to_string(rack_key_node(taskKeyRack(task.key))) +
                 "_meminfo";
         auto [ch, err] = ctx->client->channels.retrieve(ch_name);
         if (err.matches(synnax::NOT_FOUND)) {

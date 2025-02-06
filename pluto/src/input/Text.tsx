@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import "@/input/Input.css";
 
-import { forwardRef, useRef, useState } from "react";
+import { type ReactElement, useRef, useState } from "react";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
@@ -45,159 +45,153 @@ export interface TextProps extends Omit<BaseProps<string>, "color">, TextExtraPr
  * @param props.onlyChangeOnBlur - If true, the input will only call `onChange` when the
  * user blurs the input or the user presses 'Enter'.
  */
-export const Text = forwardRef<HTMLInputElement, TextProps>(
-  (
-    {
-      size = "medium",
-      value,
-      onChange,
-      className,
-      onFocus,
-      selectOnFocus = false,
-      centerPlaceholder = false,
-      placeholder,
-      variant = "outlined",
-      sharp = false,
-      children,
-      level,
-      onBlur,
-      disabled,
-      resetOnBlurIfEmpty = false,
-      status,
-      shade,
-      weight,
-      style,
-      outlineColor,
-      color,
-      onlyChangeOnBlur = false,
-      endContent,
-      borderWidth,
-      borderShade = 4,
-      disabledOverlay,
-      ...props
-    },
-    ref,
-  ) => {
-    const cachedFocusRef = useRef("");
-    const [tempValue, setTempValue] = useState<string | null>(null);
-    const internalRef = useRef<HTMLInputElement>(null);
-    const focusedRef = useRef(false);
+export const Text = ({
+  size = "medium",
+  ref,
+  value,
+  onChange,
+  className,
+  onFocus,
+  selectOnFocus = false,
+  centerPlaceholder = false,
+  placeholder,
+  variant = "outlined",
+  sharp = false,
+  children,
+  level,
+  onBlur,
+  disabled,
+  resetOnBlurIfEmpty = false,
+  status,
+  shade,
+  weight,
+  style,
+  outlineColor,
+  color,
+  onlyChangeOnBlur = false,
+  endContent,
+  borderWidth,
+  borderShade = 4,
+  disabledOverlay,
+  ...props
+}: TextProps): ReactElement => {
+  const cachedFocusRef = useRef("");
+  const [tempValue, setTempValue] = useState<string | null>(null);
+  const internalRef = useRef<HTMLInputElement>(null);
+  const focusedRef = useRef(false);
 
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
-      focusedRef.current = false;
-      if (resetOnBlurIfEmpty && e.target.value === "")
-        onChange?.(cachedFocusRef.current);
-      else if (onlyChangeOnBlur) if (tempValue != null) onChange?.(tempValue);
-      setTempValue(null);
-      onBlur?.(e);
-    };
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
+    focusedRef.current = false;
+    if (resetOnBlurIfEmpty && e.target.value === "") onChange?.(cachedFocusRef.current);
+    else if (onlyChangeOnBlur) if (tempValue != null) onChange?.(tempValue);
+    setTempValue(null);
+    onBlur?.(e);
+  };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-      if (!onlyChangeOnBlur) onChange?.(e.target.value);
-      else setTempValue(e.target.value);
-    };
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    if (!onlyChangeOnBlur) onChange?.(e.target.value);
+    else setTempValue(e.target.value);
+  };
 
-    const handleFocus = (e: React.FocusEvent<HTMLInputElement>): void => {
-      if (onlyChangeOnBlur) setTempValue(value);
-      onFocus?.(e);
-      cachedFocusRef.current = e.target.value;
-    };
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>): void => {
+    if (onlyChangeOnBlur) setTempValue(value);
+    onFocus?.(e);
+    cachedFocusRef.current = e.target.value;
+  };
 
-    const handleMouseUp = (): void => {
-      // This looks hacky, but it's the only way to consistently select the text
-      // after the focus event.
-      if (!selectOnFocus || focusedRef.current) return;
-      focusedRef.current = true;
-      internalRef.current?.select();
-    };
+  const handleMouseUp = (): void => {
+    // This looks hacky, but it's the only way to consistently select the text
+    // after the focus event.
+    if (!selectOnFocus || focusedRef.current) return;
+    focusedRef.current = true;
+    internalRef.current?.select();
+  };
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-      if (onlyChangeOnBlur && e.key === "Enter") e.currentTarget.blur();
-      else if (e.key === "Escape") {
-        e.currentTarget.blur();
-        e.stopPropagation();
-      }
-    };
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (onlyChangeOnBlur && e.key === "Enter") e.currentTarget.blur();
+    else if (e.key === "Escape") {
+      e.currentTarget.blur();
+      e.stopPropagation();
+    }
+  };
 
-    const combinedRef = useCombinedRefs(ref, internalRef);
+  const combinedRef = useCombinedRefs(ref, internalRef);
 
-    const parsedOutlineColor = Color.Color.z.safeParse(outlineColor);
-    const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
+  const parsedOutlineColor = Color.Color.z.safeParse(outlineColor);
+  const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
 
-    if (variant === "preview") disabled = true;
-    if (hasCustomColor)
-      style = { ...style, [CSS.var("input-color")]: parsedOutlineColor.data.rgbString };
+  if (variant === "preview") disabled = true;
+  if (hasCustomColor)
+    style = { ...style, [CSS.var("input-color")]: parsedOutlineColor.data.rgbString };
 
-    const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
+  const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
-    const C = variant === "natural" ? Align.Space : Align.Pack;
+  const C = variant === "natural" ? Align.Space : Align.Pack;
 
-    return (
-      <C
-        direction="x"
-        empty
-        style={style}
-        className={CSS(
-          CSS.B("input"),
-          CSS.disabled(disabled),
-          level == null && CSS.size(size),
-          shade != null && CSS.shade(shade),
-          CSS.BM("input", variant),
-          CSS.sharp(sharp),
-          hasCustomColor && CSS.BM("input", "custom-color"),
-          status != null && CSS.M(status),
-          className,
+  return (
+    <C
+      direction="x"
+      empty
+      style={style}
+      className={CSS(
+        CSS.B("input"),
+        CSS.disabled(disabled),
+        level == null && CSS.size(size),
+        shade != null && CSS.shade(shade),
+        CSS.BM("input", variant),
+        CSS.sharp(sharp),
+        hasCustomColor && CSS.BM("input", "custom-color"),
+        status != null && CSS.M(status),
+        className,
+      )}
+      borderShade={borderShade}
+      borderWidth={borderWidth}
+      align="center"
+      size={size}
+    >
+      <div className={CSS.BE("input", "internal")}>
+        {showPlaceholder && (
+          <div
+            className={CSS(
+              CSS.BE("input", "placeholder"),
+              centerPlaceholder && CSS.M("centered"),
+            )}
+          >
+            {CoreText.formatChildren(
+              level ?? CoreText.ComponentSizeLevels[size],
+              placeholder,
+            )}
+          </div>
         )}
-        borderShade={borderShade}
-        borderWidth={borderWidth}
-        align="center"
-        size={size}
-      >
-        <div className={CSS.BE("input", "internal")}>
-          {showPlaceholder && (
-            <div
-              className={CSS(
-                CSS.BE("input", "placeholder"),
-                centerPlaceholder && CSS.M("centered"),
-              )}
-            >
-              {CoreText.formatChildren(
-                level ?? CoreText.ComponentSizeLevels[size],
-                placeholder,
-              )}
-            </div>
-          )}
 
-          <input
-            ref={combinedRef}
-            value={tempValue ?? value}
-            role="textbox"
-            onChange={handleChange}
-            autoCapitalize="off"
-            autoComplete="off"
-            autoCorrect="off"
-            onFocus={handleFocus}
-            onKeyDown={handleKeyDown}
-            onMouseUp={handleMouseUp}
-            onBlur={handleBlur}
-            className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
-            disabled={disabled}
-            placeholder={typeof placeholder === "string" ? placeholder : undefined}
-            style={{ fontWeight: weight, color: Color.cssString(color) }}
-            {...props}
-          />
-          {endContent != null && (
-            <div className={CSS.BE("input", "end-content")}>
-              {CoreText.formatChildren(
-                level ?? CoreText.ComponentSizeLevels[size],
-                endContent,
-              )}
-            </div>
-          )}
-        </div>
-        {children}
-      </C>
-    );
-  },
-);
-Text.displayName = "Input";
+        <input
+          ref={combinedRef}
+          value={tempValue ?? value}
+          role="textbox"
+          onChange={handleChange}
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
+          onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
+          onMouseUp={handleMouseUp}
+          onBlur={handleBlur}
+          className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
+          disabled={disabled}
+          placeholder={typeof placeholder === "string" ? placeholder : undefined}
+          style={{ fontWeight: weight, color: Color.cssString(color) }}
+          {...props}
+        />
+        {endContent != null && (
+          <div className={CSS.BE("input", "end-content")}>
+            {CoreText.formatChildren(
+              level ?? CoreText.ComponentSizeLevels[size],
+              endContent,
+            )}
+          </div>
+        )}
+      </div>
+      {children}
+    </C>
+  );
+};

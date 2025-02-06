@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,19 +34,23 @@ void ni::Source::get_index_keys() {
             return this->log_error(
                 "failed to retrieve channel " + std::to_string(index_key));
         ni::ReaderChannelConfig index_channel;
-        index_channel.channel_key = channel_info.key;
-        index_channel.channel_type = "index";
-        index_channel.name = channel_info.name;
-        this->reader_config.channels.push_back(index_channel);
+        this->reader_config.channels.emplace_back(ni::ChannelConfig{
+            .channel_key = channel_info.key,
+            .name = channel_info.name,
+            .channel_type = "index"
+        });
     }
+}
+
+std::pair<synnax::Frame, freighter::Error> ni::Source::read(breaker::Breaker &breaker) {
 }
 
 
 ni::Source::Source(
     const std::shared_ptr<DAQmx> &dmx,
-    TaskHandle task_handle,
+    const TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task
+    const synnax::Task &task
 ) : dmx(dmx),
     task_handle(task_handle),
     ctx(ctx),
@@ -64,7 +68,7 @@ void ni::Source::parse_config(config::Parser &parser) {
     this->reader_config.timing_source = "none";
     // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
     if (this->reader_config.device_key != "cross-device") {
-        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(
+        auto [dev, err] = this->ctx->client->hardware.retrieve_device(
             this->reader_config.device_key);
         if (err)
             return this->log_error(
@@ -228,14 +232,14 @@ bool ni::Source::ok() {
     return this->ok_state;
 }
 
-std::vector<synnax::ChannelKey> ni::Source::get_channel_keys() {
+std::vector<synnax::ChannelKey> ni::Source::get_channel_keys() const {
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel: this->reader_config.channels)
         if (channel.enabled) keys.push_back(channel.channel_key);
     return keys;
 }
 
-void ni::Source::log_error(std::string err_msg) {
+void ni::Source::log_error(const std::string &err_msg) {
     LOG(ERROR) << "[ni.reader] " << err_msg;
     this->ok_state = false;
     return;

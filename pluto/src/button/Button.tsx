@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import {
-  type ComponentPropsWithoutRef,
+  type ComponentPropsWithRef,
   type ReactElement,
   type ReactNode,
   useCallback,
@@ -44,14 +44,14 @@ export interface ButtonExtensionProps {
   size?: ComponentSize;
   sharp?: boolean;
   loading?: boolean;
-  triggers?: Triggers.Trigger[];
+  triggers?: Triggers.Trigger | Triggers.Trigger[];
   status?: status.Variant;
   color?: Color.Crude;
 }
 
 /** The base props accepted by all button types in this directory. */
 export interface BaseProps
-  extends Omit<ComponentPropsWithoutRef<"button">, "color">,
+  extends Omit<ComponentPropsWithRef<"button">, "color">,
     ButtonExtensionProps {}
 
 /** The props for the {@link Button} component. */
@@ -62,8 +62,8 @@ export type ButtonProps = Omit<
   ButtonExtensionProps &
   BaseProps & {
     level?: Text.Level;
-    startIcon?: ReactElement<PIcon.BaseProps> | ReactElement<PIcon.BaseProps>[];
-    endIcon?: ReactElement<PIcon.BaseProps> | ReactElement<PIcon.BaseProps>[];
+    startIcon?: PIcon.Element | PIcon.Element[];
+    endIcon?: PIcon.Element | PIcon.Element[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;
@@ -105,7 +105,7 @@ export const Button = Tooltip.wrap(
     loading = false,
     level,
     triggers,
-    startIcon = [] as ReactElement<PIcon.BaseProps>[],
+    startIcon = [] as PIcon.Element[],
     onClickDelay = 0,
     onClick,
     color,

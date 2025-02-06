@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 #include <utility>
 #include <chrono>
-#include <stdio.h>
+#include <cstdio>
 #include <cassert>
 
 #include "client/cpp/telem/telem.h"
@@ -20,26 +20,27 @@
 
 using json = nlohmann::json;
 
+static std::string parse_digital_loc(config::Parser &p, const std::string &dev) {
+    const auto port = std::to_string(p.required<std::uint64_t>("port"));
+    const auto line = std::to_string(p.required<std::uint64_t>("line"));
+    return dev + "/port" + port + "/line" + line;
+}
+
 void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
+    const auto dev_name = this->reader_config.device_name;
     VLOG(1) << "[ni.reader] Parsing Channels for task " << this->reader_config.
             task_name;
-    parser.iter("channels",
-                [&](config::Parser &channel_builder) {
-                    ni::ReaderChannelConfig config;
-                    // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    std::string port = "port" + std::to_string(
-                                           channel_builder.required<std::uint64_t>(
-                                               "port"));
-                    std::string line = "line" + std::to_string(
-                                           channel_builder.required<std::uint64_t>(
-                                               "line"));
-
-                    config.channel_key = channel_builder.required<uint32_t>("channel");
-                    config.name = (this->reader_config.device_name + "/" + port + "/" +
-                                   line);
-                    config.enabled = channel_builder.optional<bool>("enabled", true);
-                    this->reader_config.channels.push_back(config);
-                });
+    parser.iter(
+        "channels",
+        [&](config::Parser &channel_builder) {
+            const auto channel_key = channel_builder.required<uint32_t>("channel");
+            const auto enabled = channel_builder.optional<bool>("enabled", true);
+            this->reader_config.channels.emplace_back(ni::ReaderChannelConfig{
+                .channel_key = channel_key,
+                .name = parse_digital_loc(channel_builder, dev_name),
+                .enabled = enabled
+            });
+        });
     if (!parser.ok())
         LOG(ERROR) << "Failed to parse channels for task " << this->
                 reader_config.task_name;
@@ -47,8 +48,7 @@ void ni::DigitalReadSource::parse_channels(config::Parser &parser) {
 
 int ni::DigitalReadSource::create_channels() {
     int err = 0;
-    auto channels = this->reader_config.channels;
-    for (auto &channel: channels) {
+    for (auto &channel: this->reader_config.channels) {
         if (channel.channel_type != "index" && channel.enabled) {
             err = this->check_ni_error(
                 this->dmx->CreateDIChan(task_handle,
@@ -145,7 +145,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
                                   "Failed to read data from queue"));
     // interpolate  timestamps between the initial and final timestamp to ensure
     // non-overlapping timestamps between batched reads
-    uint64_t incr = ((d.tf - d.t0) / this->num_samples_per_channel);
+    const uint64_t incr = (d.tf - d.t0) / this->num_samples_per_channel;
 
     uint64_t data_index = 0;
 
@@ -155,16 +155,15 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(
             auto t = synnax::Series(synnax::TIMESTAMP, this->num_samples_per_channel);
             for (uint64_t j = 0; j < d.samples_read_per_channel; ++j)
                 t.write(d.t0 + j * incr);
-
-            f.add(this->reader_config.channels[i].channel_key, std::move(t));
+            f.emplace(this->reader_config.channels[i].channel_key, std::move(t));
             continue;
         }
         auto series = synnax::Series(synnax::SY_UINT8, d.samples_read_per_channel);
 
         for (int j = 0; j < d.samples_read_per_channel; j++)
-            series.write((uint8_t) d.digital_data[data_index + j]);
+            series.write(d.digital_data[data_index + j]);
 
-        f.add(this->reader_config.channels[i].channel_key, std::move(series));
+        f.emplace(this->reader_config.channels[i].channel_key, std::move(series));
         data_index++;
     }
     return std::make_pair(std::move(f), freighter::NIL);

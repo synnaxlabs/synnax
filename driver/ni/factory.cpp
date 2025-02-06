@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,7 +31,7 @@ ni::Factory::Factory(
 bool ni::Factory::check_health(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
-) {
+) const {
     if (this->dmx != nullptr && this->syscfg != nullptr) return true;
     ctx->set_state({
         .task = task.key,
@@ -82,11 +82,11 @@ ni::Factory::configure_initial_tasks(
         return tasks;
     }
 
-    bool hasScanner = false;
+    bool has_scanner = false;
     for (const auto &t: existing)
-        if (t.type == "ni_scanner") hasScanner = true;
+        if (t.type == "ni_scanner") has_scanner = true;
 
-    if (!hasScanner) {
+    if (!has_scanner) {
         auto sy_task = synnax::Task(
             rack.key,
             "ni scanner",
@@ -94,15 +94,15 @@ ni::Factory::configure_initial_tasks(
             "",
             true
         );
-        auto err = rack.tasks.create(sy_task);
+        const auto c_err = rack.tasks.create(sy_task);
         LOG(INFO) << "[ni] created scanner task with key: " << sy_task.key;
-        if (err) {
-            LOG(ERROR) << "[ni] Failed to create scanner task: " << err;
+        if (c_err) {
+            LOG(ERROR) << "[ni] Failed to create scanner task: " << c_err;
             return tasks;
         }
         auto [task, ok] = configure_task(ctx, sy_task);
         if (!ok) {
-            LOG(ERROR) << "[ni] Failed to configure scanner task: " << err;
+            LOG(ERROR) << "[ni] Failed to configure scanner task: " << c_err;
             return tasks;
         }
         tasks.emplace_back(

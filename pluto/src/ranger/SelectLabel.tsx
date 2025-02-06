@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,10 +28,7 @@ const labelColumns: Array<List.ColumnSpec<label.Key, label.Label>> = [
       />
     ),
   },
-  {
-    key: "name",
-    name: "Name",
-  },
+  { key: "name", name: "Name" },
 ];
 
 export interface SelectLabelsProps

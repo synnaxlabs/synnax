@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -101,158 +101,153 @@ export interface LinePlotProps
         "clearOverScan" | "hold" | "visible"
       >
     >,
-    HTMLDivProps {
+    HTMLDivProps,
+    Aether.CProps {
   resizeDebounce?: number;
   onHold?: (hold: boolean) => void;
 }
 
-export const LinePlot = Aether.wrap<LinePlotProps>(
-  "LinePlot",
-  ({
+export const LinePlot = ({
+  aetherKey,
+  style,
+  resizeDebounce: debounce = 0,
+  clearOverScan = xy.ZERO,
+  children,
+  hold = false,
+  onHold,
+  visible,
+  ...props
+}: LinePlotProps): ReactElement => {
+  const [lines, setLines] = useState<LineState>([]);
+
+  const memoProps = useMemoDeepEqualProps({ clearOverScan, hold, visible });
+
+  const [{ path }, { grid }, setState] = Aether.use({
     aetherKey,
-    style,
-    resizeDebounce: debounce = 0,
-    clearOverScan = xy.ZERO,
-    children,
-    hold = false,
-    onHold,
-    visible,
-    ...props
-  }): ReactElement => {
-    const [lines, setLines] = useState<LineState>([]);
+    type: lineplot.LinePlot.TYPE,
+    schema: lineplot.linePlotStateZ,
+    initialState: {
+      container: box.ZERO,
+      viewport: box.DECIMAL,
+      grid: {},
+      ...memoProps,
+    },
+  });
 
-    const memoProps = useMemoDeepEqualProps({ clearOverScan, hold, visible });
+  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
-    const [{ path }, { grid }, setState] = Aether.use({
-      aetherKey,
-      type: lineplot.LinePlot.TYPE,
-      schema: lineplot.linePlotStateZ,
-      initialState: {
-        container: box.ZERO,
-        viewport: box.DECIMAL,
-        grid: {},
-        ...memoProps,
-      },
-    });
+  const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 
-    useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
+  const addViewportHandler = useCallback(
+    (handler: Viewport.UseHandler) => {
+      viewportHandlers.current.set(handler, null);
+      return () => viewportHandlers.current.delete(handler);
+    },
+    [viewportHandlers],
+  );
 
-    const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
+  const setViewport: Viewport.UseHandler = useCallback(
+    (args) => {
+      const { mode, box, stage } = args;
+      if (
+        (mode === "pan" && stage !== "start") ||
+        mode === "zoom" ||
+        (mode === "zoomReset" && stage === "start")
+      )
+        setState((prev) => ({ ...prev, viewport: box }));
+      viewportHandlers.current.forEach((_, handler) => handler(args));
+    },
+    [setState],
+  );
 
-    const addViewportHandler = useCallback(
-      (handler: Viewport.UseHandler) => {
-        viewportHandlers.current.set(handler, null);
-        return () => viewportHandlers.current.delete(handler);
-      },
-      [viewportHandlers],
-    );
+  // We use a single resize handler for both the container and plotting region because
+  // the container is guaranteed to only resize if the plotting region does. This allows
+  // us to save a window observer.
+  const handleResize = useCallback(
+    (container: box.Box) => setState((prev) => ({ ...prev, container })),
+    [setState],
+  );
 
-    const setViewport: Viewport.UseHandler = useCallback(
-      (args) => {
-        const { mode, box, stage } = args;
-        if (
-          (mode === "pan" && stage !== "start") ||
-          mode === "zoom" ||
-          (mode === "zoomReset" && stage === "start")
-        )
-          setState((prev) => ({ ...prev, viewport: box }));
-        viewportHandlers.current.forEach((_, handler) => handler(args));
-      },
-      [setState],
-    );
+  const ref = Canvas.useRegion(handleResize, { debounce });
 
-    // We use a single resize handler for both the container and plotting region because
-    // the container is guaranteed to only resize if the plotting region does. This allows
-    // us to save a window observer.
-    const handleResize = useCallback(
-      (container: box.Box) => setState((prev) => ({ ...prev, container })),
-      [setState],
-    );
+  const setGridEntry: LinePlotContextValue["setGridEntry"] = useCallback(
+    (meta: grid.Region) =>
+      setState((prev) => ({ ...prev, grid: { ...prev.grid, [meta.key]: meta } })),
+    [setState],
+  );
 
-    const ref = Canvas.useRegion(handleResize, { debounce });
-
-    const setGridEntry: LinePlotContextValue["setGridEntry"] = useCallback(
-      (meta: grid.Region) =>
-        setState((prev) => ({
-          ...prev,
-          grid: { ...prev.grid, [meta.key]: meta },
-        })),
-      [setState],
-    );
-
-    const removeGridEntry = useCallback(
-      (key: string) =>
-        setState((prev) => {
-          const { [key]: _, ...grid } = prev.grid;
-          return { ...prev, grid };
-        }),
-      [setState],
-    );
-
-    const setLine = useCallback(
-      (meta: LineSpec) => {
-        setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]);
-      },
-      [setLines, setViewport],
-    );
-
-    const removeLine = useCallback(
-      (key: string) => setLines((prev) => prev.filter(({ key: k }) => k !== key)),
-      [setLine],
-    );
-
-    const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
-
-    const setHold = useCallback(
-      (hold: boolean) => {
-        setState((prev) => ({ ...prev, hold }));
-        onHold?.(hold);
-      },
-      [setState, onHold],
-    );
-
-    const id = `line-plot-${aetherKey}`;
-
-    const contextValue = useMemo<LinePlotContextValue>(
-      () => ({
-        lines,
-        setGridEntry,
-        removeGridEntry,
-        setLine,
-        removeLine,
-        setViewport,
-        addViewportHandler,
-        setHold,
-        id,
+  const removeGridEntry = useCallback(
+    (key: string) =>
+      setState((prev) => {
+        const { [key]: _, ...grid } = prev.grid;
+        return { ...prev, grid };
       }),
-      [
-        id,
-        lines,
-        setGridEntry,
-        removeGridEntry,
-        setLine,
-        removeLine,
-        setViewport,
-        addViewportHandler,
-        setHold,
-      ],
-    );
+    [setState],
+  );
 
-    return (
-      <div
-        id={id}
-        className={CSS.B("line-plot")}
-        style={{ ...style, ...cssGrid }}
-        ref={ref}
-        {...props}
-      >
-        <Context.Provider value={contextValue}>
-          <Aether.Composite path={path}>{children}</Aether.Composite>
-        </Context.Provider>
-      </div>
-    );
-  },
-);
+  const setLine = useCallback(
+    (meta: LineSpec) => {
+      setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]);
+    },
+    [setLines, setViewport],
+  );
+
+  const removeLine = useCallback(
+    (key: string) => setLines((prev) => prev.filter(({ key: k }) => k !== key)),
+    [setLine],
+  );
+
+  const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
+
+  const setHold = useCallback(
+    (hold: boolean) => {
+      setState((prev) => ({ ...prev, hold }));
+      onHold?.(hold);
+    },
+    [setState, onHold],
+  );
+
+  const id = `line-plot-${aetherKey}`;
+
+  const contextValue = useMemo<LinePlotContextValue>(
+    () => ({
+      lines,
+      setGridEntry,
+      removeGridEntry,
+      setLine,
+      removeLine,
+      setViewport,
+      addViewportHandler,
+      setHold,
+      id,
+    }),
+    [
+      id,
+      lines,
+      setGridEntry,
+      removeGridEntry,
+      setLine,
+      removeLine,
+      setViewport,
+      addViewportHandler,
+      setHold,
+    ],
+  );
+
+  return (
+    <div
+      id={id}
+      className={CSS.B("line-plot")}
+      style={{ ...style, ...cssGrid }}
+      ref={ref}
+      {...props}
+    >
+      <Context.Provider value={contextValue}>
+        <Aether.Composite path={path}>{children}</Aether.Composite>
+      </Context.Provider>
+    </div>
+  );
+};
 
 const buildPlotGrid = (g: grid.Grid): CSSProperties => {
   const b = CSS.newGridBuilder();

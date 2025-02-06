@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cassert>
+#include <utility>
 #include <stdio.h>
 
 #include "driver/ni/ni.h"
@@ -70,7 +71,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
 void ni::ScannerTask::run() {
     auto scan_cmd = task::Command{task.key, "scan", {}};
     while (this->breaker.running()) {
-        this->breaker.waitFor(this->scan_rate.period().chrono());
+        this->breaker.wait_for(this->scan_rate.period().chrono());
         this->exec(scan_cmd);
     }
     LOG(INFO) << "[ni.scanner] stopped scanning " << this->task.name;
@@ -91,12 +92,17 @@ ni::ReaderTask::ReaderTask(
     std::shared_ptr<pipeline::Source> source,
     std::shared_ptr<ni::Source> ni_source,
     synnax::WriterConfig writer_config,
-    const breaker::Config breaker_config
+    const breaker::Config &breaker_config
 ) : dmx(dmx),
     ctx(ctx),
-    task(task),
+    task(std::move(task)),
     daq_read_pipe(
-        pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
+        pipeline::Acquisition(
+            ctx->client,
+            std::move(writer_config),
+            std::move(source),
+            breaker_config
+        )),
     source(ni_source) {
     this->ok_state = ni_source->ok();
 
@@ -124,7 +130,8 @@ std::unique_ptr<task::Task> ni::ReaderTask::configure(
     std::shared_ptr<ni::Source> ni_source;
 
     if (task.type != "ni_analog_read") {
-        ni_source = std::make_shared<ni::DigitalReadSource>(dmx, task_handle, ctx, task);
+        ni_source = std::make_shared<
+            ni::DigitalReadSource>(dmx, task_handle, ctx, task);
     } else {
         ni_source = std::make_shared<ni::AnalogReadSource>(dmx, task_handle, ctx, task);
     }
@@ -213,29 +220,26 @@ void ni::ReaderTask::start(const std::string &cmd_key) {
     LOG(INFO) << "[ni.task] successfully started task " << this->task.name;
 }
 
-bool ni::ReaderTask::ok() {
-    return this->ok_state;
-}
+bool ni::ReaderTask::ok() const { return this->ok_state; }
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriterTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
-
 ni::WriterTask::WriterTask(
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task,
     std::shared_ptr<pipeline::Sink> sink,
-    std::shared_ptr<WriteSink> ni_sink,
-    std::shared_ptr<pipeline::Source> state_source,
-    synnax::WriterConfig state_writer_config,
-    synnax::StreamerConfig cmd_streamer_config,
-    const breaker::Config breaker_config
+    std::shared_ptr<ni::DigitalWriteSink> ni_sink,
+    std::shared_ptr<pipeline::Source> writer_state_source,
+    synnax::WriterConfig writer_config,
+    synnax::StreamerConfig streamer_config,
+    const breaker::Config &breaker_config
 ) : ctx(ctx),
     task(task),
     cmd_write_pipe(
         pipeline::Control(
             ctx->client,
-            cmd_streamer_config,
+            streamer_config,
             std::move(sink),
             breaker_config
         )
@@ -243,43 +247,12 @@ ni::WriterTask::WriterTask(
     state_write_pipe(
         pipeline::Acquisition(
             ctx->client,
-            state_writer_config,
-            state_source,
+            writer_config,
+            writer_state_source,
             breaker_config
         )
     ),
     sink(ni_sink) {
-}
-
-void ni::WriterTask::exec(task::Command &cmd) {
-    if (cmd.type == "start") this->start(cmd.key);
-    else if (cmd.type == "stop") this->stop(cmd.key);
-}
-
-void ni::WriterTask::start(const std::string &key) {
-    if (this->running.exchange(true) || !this->ok() || !this->sink->ok()) return;
-    sink->start(key);
-    this->cmd_write_pipe.start();
-    this->state_write_pipe.start();
-}
-
-void ni::WriterTask::stop() {
-    this->stop("");
-}
-
-void ni::WriterTask::stop(const std::string &cmd_key) {
-    if (!this->running.exchange(false)) {
-        LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
-                this->running << " ok: " << this->ok();
-        return;
-    }
-    this->state_write_pipe.stop();
-    this->cmd_write_pipe.stop();
-    sink->stop(cmd_key);
-}
-
-bool ni::WriterTask::ok() {
-    return this->ok_state;
 }
 
 std::unique_ptr<task::Task> ni::WriterTask::configure(
@@ -358,4 +331,35 @@ std::unique_ptr<task::Task> ni::WriterTask::configure(
         cmd_streamer_config,
         breaker::default_config(task.name)
     );
+}
+
+void ni::WriterTask::exec(task::Command &cmd) {
+    if (cmd.type == "start") this->start(cmd.key);
+    else if (cmd.type == "stop") this->stop(cmd.key);
+}
+
+void ni::WriterTask::start(const std::string &key) {
+    if (this->running.exchange(true) || !this->ok() || !this->sink->ok()) return;
+    sink->start(key);
+    this->cmd_write_pipe.start();
+    this->state_write_pipe.start();
+}
+
+void ni::WriterTask::stop() {
+    this->stop("");
+}
+
+void ni::WriterTask::stop(const std::string &cmd_key) {
+    if (!this->running.exchange(false)) {
+        LOG(INFO) << "[ni.task] did not stop " << this->task.name << " running: " <<
+                this->running << " ok: " << this->ok();
+        return;
+    }
+    this->state_write_pipe.stop();
+    this->cmd_write_pipe.stop();
+    sink->stop(cmd_key);
+}
+
+bool ni::WriterTask::ok() {
+    return this->ok_state;
 }

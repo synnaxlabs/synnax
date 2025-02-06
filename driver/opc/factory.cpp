@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,7 +37,11 @@ opc::Factory::configure_initial_tasks(
     auto [old_scanner, err2] = rack.tasks.retrieveByType("opcScanner");
     if(err2 == freighter::NIL) {
         LOG(INFO) << "[opc] Removing old scanner task";
-       rack.tasks.del(old_scanner.key);
+        auto del_err = rack.tasks.del(old_scanner.key);
+        if (del_err) {
+            LOG(ERROR) << "[opc] Failed to delete old scanner task: " << del_err;
+            return tasks;
+        }
     }
 
     auto [existing, err] = rack.tasks.retrieveByType("opc_scan");

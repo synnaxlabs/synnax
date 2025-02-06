@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Synnax Labs, Inc.
+ * Copyright 2025 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -9,8 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-
- .pluto-line-plot__viewport {
+.pluto-line-plot__viewport {
     position: relative;
     overflow: hidden;
- }
+}

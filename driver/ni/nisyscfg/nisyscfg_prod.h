@@ -67,7 +67,7 @@ private:
     // Function pointer typedefs
     using InitializeSessionPtr = decltype(&NISysCfgInitializeSession);
     using CreateFilterPtr = decltype(&NISysCfgCreateFilter);
-    using SetFilterPropertyPtr = decltype(&NISysCfgSetFilterProperty);
+    using SetFilterPropertyVPtr = decltype(&NISysCfgSetFilterPropertyV);
     using CloseHandlePtr = decltype(&NISysCfgCloseHandle);
     using FindHardwarePtr = decltype(&NISysCfgFindHardware);
     using NextResourcePtr = decltype(&NISysCfgNextResource);
@@ -78,7 +78,7 @@ private:
     typedef struct FunctionPointers {
         InitializeSessionPtr InitializeSession;
         CreateFilterPtr CreateFilter;
-        SetFilterPropertyPtr SetFilterProperty;
+        SetFilterPropertyVPtr SetFilterPropertyV;
         CloseHandlePtr CloseHandle;
         FindHardwarePtr FindHardware;
         NextResourcePtr NextResource;

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,11 +12,11 @@ import { type DependencyList, type EffectCallback, useEffect } from "react";
 import { useMemoCompare } from "@/memo";
 
 /* An async version of React.Destructor */
- 
-export type AsyncDestructor = Promise<(() => void) | void>;
+
+export type AsyncDestructor = (() => Promise<void>) | (() => void) | void;
 
 /** An async version of React.EffectCallback */
-export type AsyncEffectCallback = () => AsyncDestructor;
+export type AsyncEffectCallback = () => Promise<AsyncDestructor>;
 
 /**
  * A version of useEffect that supports async functions and destructors. NOTE: The behavior

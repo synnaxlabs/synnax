@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,6 +22,7 @@ export { Dropdown } from "@/dropdown";
 export { Form } from "@/form";
 export { Generic } from "@/generic";
 export { Device } from "@/hardware/device";
+export { Rack } from "@/hardware/rack";
 export { Haul } from "@/haul";
 export { Header } from "@/header";
 export * from "@/hooks";
@@ -79,25 +80,23 @@ export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
-export type {
-  CrudeDataType,
-  CrudeDensity,
-  CrudeRate,
-  CrudeSize,
-  CrudeTimeSpan,
-  CrudeTimeStamp,
-  TelemValue,
-  TimeStampStringFormat,
-  TypedArray,
-  TZInfo,
-} from "@synnaxlabs/x";
 export {
+  type CrudeDataType,
+  type CrudeDensity,
+  type CrudeRate,
+  type CrudeSize,
+  type CrudeTimeSpan,
+  type CrudeTimeStamp,
   DataType,
   Density,
   MultiSeries,
   Rate,
   Series,
+  type TelemValue,
   TimeRange,
   TimeSpan,
   TimeStamp,
+  type TimeStampStringFormat,
+  type TypedArray,
+  type TZInfo,
 } from "@synnaxlabs/x";

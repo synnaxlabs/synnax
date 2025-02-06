@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,7 +32,7 @@ export const useRangeSnapshot = () => {
         toArray(schematics).map((s) => s.name),
         "schematic",
       )} to ${rng?.name ?? "active range"}`,
-    onError: (err, context) => handleException(err, `Failed to snapshot ${context}`),
+    onError: (err, _, context) => handleException(err, `Failed to snapshot ${context}`),
     onSuccess: (_, __, context) =>
       addStatus({
         variant: "success",

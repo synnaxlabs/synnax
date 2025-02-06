@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -110,10 +110,5 @@ interface ActionProps {
   action: ReactElement | Button.ButtonProps;
 }
 
-const Action = ({ action }: ActionProps): ReactElement => {
-  if (!isValidElement(action)) {
-    const props = action as Button.ButtonProps;
-    return <Button.Button {...props} />;
-  }
-  return action;
-};
+const Action = ({ action }: ActionProps): ReactElement =>
+  isValidElement(action) ? action : <Button.Button {...action} />;

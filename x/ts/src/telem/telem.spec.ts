@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -565,7 +565,7 @@ describe("DataType", () => {
       [DataType.INT32, "int64", false],
     ];
     TESTS.forEach(([dt, other, expected]) =>
-      it(`should return ${expected} when comparing ${dt.toString()} to ${other}`, () => {
+      it(`should return ${expected} when comparing ${dt.toString()} to ${JSON.stringify(other)}`, () => {
         expect(dt.equals(other)).toBe(expected);
       }),
     );

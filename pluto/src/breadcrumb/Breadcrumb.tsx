@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,7 @@ import { Text } from "@/text";
 export interface Segment {
   label: string;
   shade?: Text.Shade;
-  icon?: string | ReactElement<PIcon.BaseProps>;
+  icon?: string | PIcon.Element;
   weight?: Text.Weight;
   level?: Text.Level;
   href?: string;
@@ -40,7 +40,7 @@ export type BreadcrumbProps<
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
   /** Icon to display in the breadcrumb. */
-  icon?: string | ReactElement<PIcon.BaseProps>;
+  icon?: string | PIcon.Element;
   /** The breadcrumb items, either a single string or an array of strings. */
   children: Segments;
   url?: string | string[];

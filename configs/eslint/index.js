@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,7 +24,7 @@ export default [
   includeIgnoreFile(gitignorePath),
   { languageOptions: { globals: globals.browser } },
   pluginJs.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   ...fixupConfigRules(pluginReact),
   {
     languageOptions: {
@@ -35,6 +35,8 @@ export default [
         ecmaFeatures: { jsx: true },
         ecmaVersion: "latest",
         sourceType: "module",
+        projectService: true,
+        tsconfigRootDir: path.dirname(filename),
       },
     },
     plugins: { "simple-import-sort": simpleImportSort },
@@ -89,6 +91,17 @@ export default [
       "@typescript-eslint/no-wrapper-object-types": "off",
       "react/no-unescaped-entities": "off",
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/require-await": "off",
+      "@typescript-eslint/no-duplicate-type-constituents": "off",
+      "@typescript-eslint/no-unsafe-unary-minus": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-redundant-type-constituents": "off",
+      "@typescript-eslint/restrict-plus-operands": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
@@ -110,5 +123,21 @@ export default [
       react: { version: "^18.0.0" },
     },
   },
-  { ignores: ["node_modules", "build", "dist", "release", "**/*.d.ts"] },
+  {
+    ignores: [
+      "node_modules",
+      "build",
+      "dist",
+      "release",
+      "**/*.d.ts",
+      "examples",
+      "vite.config.ts",
+      "stylelint.config.js",
+      "eslint.config.js",
+      "bazel-bin",
+      "bazel-out",
+      "bazel-testlogs",
+      "bazel-*",
+    ],
+  },
 ];

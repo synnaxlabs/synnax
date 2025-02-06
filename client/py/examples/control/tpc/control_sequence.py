@@ -1,4 +1,4 @@
-#  Copyright 2024 Synnax Labs, Inc.
+#  Copyright 2025 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -16,7 +16,7 @@ from scipy.signal import find_peaks
 
 client = sy.Synnax()
 
-from common import (
+from examples.control.tpc.common import (
     OX_MPV_CMD,
     OX_PRESS_CMD,
     GAS_BOOSTER_ISO_CMD,

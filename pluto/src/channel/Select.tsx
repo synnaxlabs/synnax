@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,34 +25,13 @@ import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
-  {
-    key: "name",
-    name: "Name",
-  },
-  {
-    key: "alias",
-    name: "Alias",
-  },
-  {
-    key: "rate",
-    name: "Rate",
-  },
-  {
-    key: "dataType",
-    name: "Data Type",
-  },
-  {
-    key: "index",
-    name: "Index",
-  },
-  {
-    key: "key",
-    name: "Key",
-  },
-  {
-    key: "isIndex",
-    name: "Is Index",
-  },
+  { key: "name", name: "Name" },
+  { key: "alias", name: "Alias" },
+  { key: "rate", name: "Rate" },
+  { key: "dataType", name: "Data Type" },
+  { key: "index", name: "Index" },
+  { key: "key", name: "Key" },
+  { key: "isIndex", name: "Is Index" },
 ];
 
 const canDrop = (
@@ -84,7 +63,7 @@ const useColumns = (
   }, [filter, aliases]);
 };
 
-export const resolveIcon = (ch?: channel.Payload): ReactElement<PIcon.BaseProps> => {
+export const resolveIcon = (ch?: channel.Payload): PIcon.Element => {
   if (ch == null) return <Icon.Channel />;
   if (channel.isCalculated(ch)) return <Icon.Calculation />;
   if (ch.isIndex) return <Icon.Index />;
@@ -96,9 +75,12 @@ export const resolveIcon = (ch?: channel.Payload): ReactElement<PIcon.BaseProps>
   return <Icon.Channel />;
 };
 
-const renderTag = (
-  p: Select.MultipleTagProps<channel.Key, channel.Payload>,
-): ReactElement => <Select.MultipleTag icon={resolveIcon(p.entry)} {...p} />;
+const renderTag = ({
+  key,
+  ...props
+}: Select.MultipleTagProps<channel.Key, channel.Payload>): ReactElement => (
+  <Select.MultipleTag key={key} icon={resolveIcon(props.entry)} {...props} />
+);
 
 export const SelectMultiple = ({
   columns: filter = DEFAULT_FILTER,

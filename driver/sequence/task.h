@@ -48,30 +48,34 @@ struct TaskConfig {
 };
 
 
+/// @brief an implementation of a driver task used for configuring and running
+/// automated sequences.
 class Task final : public task::Task {
     /// @brief cfg is the configuration for the task.
-    TaskConfig cfg;
-    /// @brief ctx is the task execution context for communicating with the Synnax cluster
-    /// and updating the task state.
-    std::shared_ptr<task::Context> ctx;
+    const TaskConfig cfg;
+    /// @brief task is the task configuration.
     const synnax::Task task;
+    /// @brief the list of channels that the task will write to.
+    const std::vector<synnax::Channel> write_channels;
+    /// @brief the list of channels that the task will read from.
+    const std::vector<synnax::Channel> read_channels;
     /// @brief breaker is used to manage the lifecycle of the sequence.
     breaker::Breaker breaker;
     /// @brief thread is the thread that will execute the sequence.
     std::thread thread;
-    std::vector<synnax::Channel> write_channels;
-    std::vector<synnax::Channel> read_channels;
-
+    /// @brief ctx is the task execution context for communicating with the Synnax cluster
+    /// and updating the task state.
+    std::shared_ptr<task::Context> ctx;
 public:
     Task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task,
+        synnax::Task task,
         TaskConfig cfg,
         const std::vector<synnax::Channel> &read_channels,
         const std::vector<synnax::Channel> &write_channels
     ): cfg(std::move(cfg)),
        ctx(ctx),
-       task(task),
+       task(std::move(task)),
        read_channels(read_channels),
        write_channels(write_channels),
        breaker(breaker::default_config(task.name)) {
@@ -79,17 +83,11 @@ public:
 
 
     void run() {
-        std::unordered_map<synnax::ChannelKey, synnax::Channel> read_channel_map;
-        for (const auto &ch: read_channels) read_channel_map[ch.key] = ch;
-
-        std::unordered_map<std::string, synnax::Channel> write_channel_map;
-        for (const auto &ch: write_channels) write_channel_map[ch.name] = ch;
-
         // Step 1 - instantiate the JSON source
         auto json_source = std::make_shared<JSONSource>(cfg.globals);
 
         // Step 2 - instantiate the channel source and streamer config.
-        auto ch_source = std::make_shared<ChannelSource>(read_channel_map);
+        auto ch_source = std::make_shared<ChannelSource>(read_channels);
         synnax::StreamerConfig streamer_cfg{.channels = cfg.read,};
 
         /// Step 3 - open the control pipeline;
@@ -113,17 +111,8 @@ public:
             .subject = subject,
         };
 
-        auto [writer, err] = ctx->client->telem.openWriter(writer_cfg);
-        if (err) {
-            LOG(ERROR) << "[sequence] failed to open writer: " << err;
-            return;
-        }
-
-        auto writer_ptr = std::make_unique<synnax::Writer>(std::move(writer));
-        auto sink = std::make_shared<SynnaxSink>(std::move(writer_ptr));
-
-        auto ops = std::make_shared<ChannelSetOperator>(sink, write_channel_map);
-
+        auto sink = std::make_shared<SynnaxSink>(this->ctx->client, writer_cfg);
+        auto ops = std::make_shared<ChannelSetOperator>(sink, write_channels);
 
         auto [seq , seq_err] = sequence::Sequence::create(
             ops,
@@ -152,13 +141,13 @@ public:
             timer.wait(breaker);
         }
         pipe.stop();
-        if (auto next_err =  sink->close(); next_err) {
+        if (auto sink_close_err =  sink->close(); sink_close_err) {
             ctx->set_state({
                 .task = task.key,
                 .variant = "error",
                 .details = {
                     {"running", false},
-                    {"message", next_err.message()}
+                    {"message", sink_close_err.message()}
                 }
             });
         }

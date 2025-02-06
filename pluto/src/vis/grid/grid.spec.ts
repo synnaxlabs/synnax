@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,14 +27,7 @@ describe("grid", () => {
         name: "Single X-Axis",
         container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
         key: "x-axis",
-        grid: {
-          "x-axis": {
-            key: "x-axis",
-            loc: "bottom",
-            order: 0,
-            size: 50,
-          },
-        },
+        grid: { "x-axis": { key: "x-axis", loc: "bottom", order: 0, size: 50 } },
         expected: { x: 0, y: 50 },
       },
       {
@@ -42,18 +35,8 @@ describe("grid", () => {
         container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
         key: "x-axis",
         grid: {
-          "x-axis": {
-            key: "x-axis",
-            loc: "bottom",
-            order: 0,
-            size: 50,
-          },
-          "y-axis": {
-            key: "y-axis",
-            loc: "left",
-            order: 0,
-            size: 50,
-          },
+          "x-axis": { key: "x-axis", loc: "bottom", order: 0, size: 50 },
+          "y-axis": { key: "y-axis", loc: "left", order: 0, size: 50 },
         },
         expected: { x: 50, y: 50 },
       },
@@ -62,18 +45,8 @@ describe("grid", () => {
         container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
         key: "y-axis",
         grid: {
-          "x-axis": {
-            key: "x-axis",
-            loc: "bottom",
-            order: 0,
-            size: 50,
-          },
-          "y-axis": {
-            key: "y-axis",
-            loc: "left",
-            order: 0,
-            size: 50,
-          },
+          "x-axis": { key: "x-axis", loc: "bottom", order: 0, size: 50 },
+          "y-axis": { key: "y-axis", loc: "left", order: 0, size: 50 },
         },
         expected: { x: 0, y: 0 },
       },
@@ -82,18 +55,8 @@ describe("grid", () => {
         container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
         key: "y-axis",
         grid: {
-          "x-axis": {
-            key: "x-axis",
-            loc: "top",
-            order: 0,
-            size: 50,
-          },
-          "y-axis": {
-            key: "y-axis",
-            loc: "left",
-            order: 0,
-            size: 50,
-          },
+          "x-axis": { key: "x-axis", loc: "top", order: 0, size: 50 },
+          "y-axis": { key: "y-axis", loc: "left", order: 0, size: 50 },
         },
         expected: { x: 0, y: 50 },
       },
@@ -102,18 +65,8 @@ describe("grid", () => {
         container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
         key: "x-axis",
         grid: {
-          "x-axis": {
-            key: "x-axis",
-            loc: "bottom",
-            order: 0,
-            size: 10,
-          },
-          "x-axis-2": {
-            key: "x-axis-2",
-            loc: "bottom",
-            order: 1,
-            size: 10,
-          },
+          "x-axis": { key: "x-axis", loc: "bottom", order: 0, size: 10 },
+          "x-axis-2": { key: "x-axis-2", loc: "bottom", order: 1, size: 10 },
         },
         expected: { x: 0, y: 80 },
       },
@@ -122,18 +75,8 @@ describe("grid", () => {
         container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
         key: "x-axis",
         grid: {
-          "x-axis": {
-            key: "x-axis",
-            loc: "bottom",
-            order: 1,
-            size: 10,
-          },
-          "x-axis-2": {
-            key: "x-axis-2",
-            loc: "bottom",
-            order: 0,
-            size: 10,
-          },
+          "x-axis": { key: "x-axis", loc: "bottom", order: 1, size: 10 },
+          "x-axis-2": { key: "x-axis-2", loc: "bottom", order: 0, size: 10 },
         },
         expected: { x: 0, y: 90 },
       },
@@ -142,18 +85,8 @@ describe("grid", () => {
         container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
         key: "x-axis",
         grid: {
-          "x-axis": {
-            key: "x-axis",
-            loc: "top",
-            order: 0,
-            size: 10,
-          },
-          "x-axis-2": {
-            key: "x-axis-2",
-            loc: "top",
-            order: 1,
-            size: 10,
-          },
+          "x-axis": { key: "x-axis", loc: "top", order: 0, size: 10 },
+          "x-axis-2": { key: "x-axis-2", loc: "top", order: 1, size: 10 },
         },
         expected: { x: 0, y: 10 },
       },
@@ -162,30 +95,10 @@ describe("grid", () => {
         container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
         key: "x-axis",
         grid: {
-          "x-axis": {
-            key: "x-axis",
-            loc: "bottom",
-            order: 0,
-            size: 10,
-          },
-          "x-axis-2": {
-            key: "x-axis-2",
-            loc: "bottom",
-            order: 1,
-            size: 10,
-          },
-          "y-axis": {
-            key: "y-axis",
-            loc: "left",
-            order: 0,
-            size: 10,
-          },
-          "y-axis-2": {
-            key: "y-axis-2",
-            loc: "right",
-            order: 0,
-            size: 10,
-          },
+          "x-axis": { key: "x-axis", loc: "bottom", order: 0, size: 10 },
+          "x-axis-2": { key: "x-axis-2", loc: "bottom", order: 1, size: 10 },
+          "y-axis": { key: "y-axis", loc: "left", order: 0, size: 10 },
+          "y-axis-2": { key: "y-axis-2", loc: "right", order: 0, size: 10 },
         },
         expected: { x: 10, y: 80 },
       },

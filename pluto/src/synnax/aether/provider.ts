@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,19 +29,19 @@ export const ZERO_CONTEXT_VALUE: ContextValue = {
 };
 
 export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
-  static readonly TYPE = "SynnaxProvider";
+  static readonly TYPE = "synnax.Provider";
   static readonly stateZ = stateZ;
   schema = Provider.stateZ;
 
-  async afterUpdate(): Promise<void> {
-    if (!this.ctx.has(CONTEXT_KEY)) set(this.ctx, ZERO_CONTEXT_VALUE);
+  async afterUpdate(ctx: aether.Context): Promise<void> {
+    if (!ctx.setPreviously(CONTEXT_KEY)) set(ctx, ZERO_CONTEXT_VALUE);
     if (this.state.props == null) {
       if (this.internal.synnax != null) {
         this.setState((p) => ({ ...p, state: Synnax.connectivity.DEFAULT }));
         this.internal.synnax?.close();
         this.internal.synnax = null;
       }
-      set(this.ctx, this.internal);
+      set(ctx, this.internal);
       return;
     }
 
@@ -56,7 +56,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
     this.internal.synnax.connectivity.onChange((state) =>
       this.setState((p) => ({ ...p, state })),
     );
-    set(this.ctx, this.internal);
+    set(ctx, this.internal);
   }
 }
 

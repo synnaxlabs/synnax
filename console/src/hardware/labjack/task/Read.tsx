@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -91,7 +91,7 @@ export const READ_SELECTABLE: Layout.Selectable = {
   key: READ_TYPE,
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  create: (layoutKey) => ({
+  create: async ({ layoutKey }) => ({
     ...createReadLayout({ create: true }),
     key: layoutKey,
   }),
@@ -482,7 +482,7 @@ const ChannelListItem = ({
         {showTareButton && (
           <TareButton
             disabled={tareIsDisabled}
-            onClick={() => onTare(childValues.channel as number)}
+            onClick={() => onTare(childValues.channel)}
           />
         )}
         <EnableDisableButton

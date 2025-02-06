@@ -1,13 +1,6 @@
+import { type channel, rack, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Button,
-  Channel,
-  Form,
-  Synnax,
-  Text,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Channel, Form, Rack, Synnax, Text } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 
@@ -39,21 +32,36 @@ export const SEQUENCE_SELECTABLE: Layout.Selectable = {
   key: SEQUENCE_TYPE,
   title: "Control Sequence",
   icon: <Icon.Control />,
-  create: (layoutKey) => ({
-    ...createSequenceLayout({ create: true }),
-    key: layoutKey,
-  }),
+  create: async ({ layoutKey, rename }) => {
+    const result = await rename(
+      {},
+      { icon: "Control", name: "Control.Sequence.Create" },
+    );
+    if (result == null) return null;
+    return {
+      ...createSequenceLayout({ create: true, initialValues: { name: result } }),
+      name: result,
+      key: layoutKey,
+    };
+  },
 };
 
 export const Wrapped = ({
-  task,
+  task: base,
   initialValues,
   layoutKey,
 }: WrappedTaskLayoutProps<Task, Payload>) => {
   const client = Synnax.use();
   const methods = Form.use({
-    values: initialValues,
-    schema: z.object({ name: z.string(), config: configZ }),
+    values: {
+      ...initialValues,
+      rack: task.rackKey(base?.key ?? "0"),
+    },
+    schema: z.object({
+      name: z.string(),
+      rack: rack.rackKeyZ,
+      config: configZ,
+    }),
   });
 
   const create = useCreate(layoutKey);
@@ -61,21 +69,25 @@ export const Wrapped = ({
   const configure = useMutation({
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
-      const { name, config } = methods.value();
-      await create({
-        key: task?.key,
-        name,
-        type: "sequence",
-        config,
-      });
+      const { name, config, rack } = methods.value();
+      console.log(rack);
+      await create(
+        {
+          key: base?.key,
+          name,
+          type: "sequence",
+          config,
+        },
+        rack,
+      );
     },
   });
 
   const taskState = useObserveState<StateDetails>(
     methods.setStatus,
     methods.clearStatuses,
-    task?.key,
-    task?.state,
+    base?.key,
+    base?.state,
   );
 
   const running = taskState?.details?.running;
@@ -84,7 +96,7 @@ export const Wrapped = ({
     mutationFn: async () => {
       if (client == null) return;
       const isRunning = running === true;
-      await task?.executeCommand(isRunning ? "stop" : "start");
+      await base?.executeCommand(isRunning ? "stop" : "start");
     },
   });
 
@@ -93,11 +105,9 @@ export const Wrapped = ({
   const onStartStop = start.mutate;
   const onConfigure = configure.mutate;
 
-  console.log(taskState);
-
   return (
     <Align.Space style={{ padding: 0, height: "100%" }} direction="y" grow empty>
-      <Form.Form {...methods} mode={task?.snapshot ? "preview" : "normal"}>
+      <Form.Form {...methods} mode={base?.snapshot ? "preview" : "normal"}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}
@@ -120,25 +130,43 @@ export const Wrapped = ({
           }}
         >
           <Align.Space direction="y" style={{ padding: "2rem" }}>
-            <Form.NumericField
-              label="Loop Rate"
-              path="config.rate"
-              padHelpText={false}
-              inputProps={{ endContent: "Hz" }}
-            />
-            <Form.Field<string>
+            <Align.Space direction="x">
+              <Form.Field<rack.RackKey>
+                path="rack"
+                label="Location"
+                padHelpText={false}
+                grow
+              >
+                {(p) => <Rack.SelectSingle allowNone={false} {...p} />}
+              </Form.Field>
+              <Form.NumericField
+                label="Loop Rate"
+                path="config.rate"
+                padHelpText={false}
+                inputProps={{
+                  endContent: "Hz",
+                  bounds: { lower: 1, upper: 1001 },
+                  dragScale: { x: 1, y: 1 },
+                }}
+              />
+            </Align.Space>
+            <Form.Field<channel.Key[]>
               path="config.read"
               label="Read From"
               padHelpText={false}
             >
-              {(p) => <Channel.SelectMultiple {...p} />}
+              {({ value, onChange }) => (
+                <Channel.SelectMultiple value={value} onChange={onChange} />
+              )}
             </Form.Field>
-            <Form.Field<string>
+            <Form.Field<channel.Key[]>
               path="config.write"
               label="Write To"
               padHelpText={false}
             >
-              {(p) => <Channel.SelectMultiple {...p} />}
+              {({ value, onChange }) => (
+                <Channel.SelectMultiple value={value} onChange={onChange} />
+              )}
             </Form.Field>
           </Align.Space>
 
@@ -153,7 +181,7 @@ export const Wrapped = ({
           >
             <Button.Icon
               loading={startingOrStopping}
-              disabled={startingOrStopping || taskState == null || task?.snapshot}
+              disabled={startingOrStopping || taskState == null || base?.snapshot}
               onClick={onStartStop}
               variant="outlined"
             >
@@ -161,11 +189,11 @@ export const Wrapped = ({
             </Button.Icon>
             <Button.Button
               loading={configuring}
-              disabled={configuring || task?.snapshot}
+              disabled={configuring || base?.snapshot}
               onClick={onConfigure}
               tooltip={
                 <Align.Space direction="x" align="center" size="small">
-                  <Triggers.Text shade={7} level="small" />
+                  {/* <Triggers.Text shade={7} level="small" /> */}
                   <Text.Text shade={7} level="small">
                     To Configure
                   </Text.Text>
