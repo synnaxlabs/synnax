@@ -79,11 +79,6 @@ public:
     ): cfg(std::move(cfg)),
        ctx(ctx),
        task(std::move(task)),
-<<<<<<< HEAD
-       read_channels(read_channels),
-       write_channels(write_channels),
-       breaker(breaker::default_config(task.name)) {
-=======
        pipe(
            ctx->client,
            streamer_config,
@@ -98,58 +93,11 @@ public:
        }),
        seq(std::move(seq)),
        sink(sink) {
->>>>>>> 1e5c605218c575e47b36c2f26d0ff047f466e4bf
     }
 
 
     void run() {
-<<<<<<< HEAD
-        // Step 1 - instantiate the JSON source
-        auto json_source = std::make_shared<JSONSource>(cfg.globals);
-
-        // Step 2 - instantiate the channel source and streamer config.
-        auto ch_source = std::make_shared<ChannelSource>(read_channels);
-        synnax::StreamerConfig streamer_cfg{.channels = cfg.read,};
-
-        /// Step 3 - open the control pipeline;
-        auto pipe = pipeline::Control(
-            this->ctx->client,
-            streamer_cfg,
-            ch_source,
-            breaker::default_config(task.name)
-        );
-
-        /// Step 4 - open a synnax writer
-        synnax::ControlSubject subject {
-            .name = task.name,
-            .key = std::to_string(task.key)
-        };
-
-        synnax::WriterConfig writer_cfg{
-            .channels = cfg.write,
-            .start = synnax::TimeStamp::now(),
-            .authorities = {200},
-            .subject = subject,
-        };
-
-        auto sink = std::make_shared<SynnaxSink>(this->ctx->client, writer_cfg);
-        auto ops = std::make_shared<ChannelSetOperator>(sink, write_channels);
-
-        auto [seq , seq_err] = sequence::Sequence::create(
-            ops,
-            ch_source,
-            cfg.script
-        );
-        if (seq_err) {
-            LOG(ERROR) << "[sequence] failed to create sequence: " << seq_err;
-            return;
-        }
-
-        pipe.start();
-
-=======
         this->pipe.start();
->>>>>>> 1e5c605218c575e47b36c2f26d0ff047f466e4bf
         loop::Timer timer(this->cfg.rate);
         while (this->breaker.running()) {
             if (const auto next_err = this->seq->next()) {
